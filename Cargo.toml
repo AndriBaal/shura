@@ -9,16 +9,9 @@ license = "Apache-2.0"
 description = "A fast cross-plattform 2D component-based game framework"
 keywords = ["graphics", "physics", "game", "android", "wasm"]
 categories = [
-    "Rendering",
     "WebAssembly",
     "Rendering::Rendering engine",
-    "Multimedia",
-    "Multimedia",
-    "Multimedia::Audio",
-    "Multimedia::Images",
-    "GUI",
     "Graphics",
-    "Games",
     "Game engines",
     "Game development"
 ]
