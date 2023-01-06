@@ -1,0 +1,35 @@
+[package]
+name = "gui"
+version = "0.1.0"
+edition = "2021"
+
+# Only for android!!!
+# [lib]
+# crate-type = ["cdylib"]
+# path = "src/main.rs"
+
+[dependencies]
+shura = { path = "./../..", default-features = false, features = ["gui"]}
+egui_demo_lib = "0.19"
+
+[workspace]
+members = ["run-wasm"]
+
+[target.'cfg(target_os = "android")'.dependencies]
+ndk-glue = "0.7.0"
+
+[package.metadata.android]
+package = "com.shura.gui"
+apk_name = "Shura GUI"
+
+[package.metadata.android.application]
+label = "Shura Egui"
+theme = "@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen"
+
+[package.metadata.android.application.activity]
+orientation = "portrait"
+resizeable_activity = true
+
+[package.metadata.android.signing.release]
+path = "./android_key.keystore"
+keystore_password = "android"

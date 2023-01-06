@@ -1,0 +1,34 @@
+[package]
+name = "template"
+version = "0.1.0"
+edition = "2021"
+
+# Only for android!!!
+# [lib]
+# crate-type = ["cdylib"]
+# path = "src/main.rs"
+
+[dependencies]
+shura = { path = "./../..", default-features = false, features = []}
+
+[workspace]
+members = ["run-wasm"]
+
+[target.'cfg(target_os = "android")'.dependencies]
+ndk-glue = "0.7.0"
+
+[package.metadata.android]
+package = "com.template"
+apk_name = "template"
+
+[package.metadata.android.application]
+label = "template"
+theme = "@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen"
+
+[package.metadata.android.application.activity]
+orientation = "landscape"
+resizeable_activity = true
+
+[package.metadata.android.signing.release]
+path = "./android_key.keystore"
+keystore_password = "android"
