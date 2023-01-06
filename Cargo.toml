@@ -7,14 +7,21 @@ documentation = "https://docs.rs/shura"
 readme = "README.md"
 license = "Apache-2.0"
 description = "A fast cross-plattform 2D component-based game framework"
-keywords = [
-    "graphics",
-    "physics",
-    "game",
-    "android",
-    "wasm",
+keywords = ["graphics", "physics", "game", "android", "wasm"]
+categories = [
+    "Rendering",
+    "WebAssembly",
+    "Rendering::Rendering engine",
+    "Multimedia",
+    "Multimedia",
+    "Multimedia::Audio",
+    "Multimedia::Images",
+    "GUI",
+    "Graphics",
+    "Games",
+    "Game engines",
+    "Game development"
 ]
-categories = ["game-engine", "wasm", "game", "2d graphics", "gamedev"]
 exclude = ["arch_android_setup.sh"]
 
 [features]
