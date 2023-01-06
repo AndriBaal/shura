@@ -8,14 +8,11 @@ readme = "README.md"
 license = "Apache-2.0"
 description = "A fast cross-plattform 2D component-based game framework"
 keywords = [
-    "gamedev",
     "graphics",
     "physics",
-    "wgpu",
     "game",
     "android",
     "wasm",
-    "audio",
 ]
 categories = ["game-engine", "wasm", "game", "2d graphics", "gamedev"]
 exclude = ["arch_android_setup.sh"]
