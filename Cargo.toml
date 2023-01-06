@@ -1,6 +1,6 @@
 [package]
 name = "shura"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 repository = "https://github.com/AndriBaal/shura"
 documentation = "https://docs.rs/shura"
@@ -9,11 +9,11 @@ license = "Apache-2.0"
 description = "A fast cross-plattform 2D component-based game framework"
 keywords = ["graphics", "physics", "game", "android", "wasm"]
 categories = [
-    "WebAssembly",
-    "Rendering::Rendering engine",
-    "Graphics",
-    "Game engines",
-    "Game development"
+    "wasm",
+    "rendering::engine",
+    "graphics",
+    "game-engines",
+    "game-development"
 ]
 exclude = ["arch_android_setup.sh"]
 
