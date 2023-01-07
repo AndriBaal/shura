@@ -32,7 +32,7 @@ impl Sprite {
         Self::from_image(gpu, img)
     }
 
-    /// Compute a
+    /// Procedural rendered Sprite
     pub fn computed<'caller, F>(
         gpu: &Gpu,
         instances: &InstanceBuffer,
@@ -59,6 +59,7 @@ impl Sprite {
     }
 
     pub fn empty(gpu: &Gpu, size: Dimension<u32>) -> Self {
+        assert!(size.width != 0 && size.height != 0);
         let (format, texture) = Self::create_texture(gpu, size);
         let bind_group = Self::create_group(gpu, &texture);
         Self {

@@ -51,11 +51,10 @@ pub fn init<S: SceneController, F: 'static + FnMut(&mut Context) -> S>(
         let browser_window = web_sys::window().unwrap();
         let width: u32 = browser_window.inner_width().unwrap().as_f64().unwrap() as u32;
         let height: u32 = browser_window.inner_height().unwrap().as_f64().unwrap() as u32;
-        browser_window
-            .document()
-            .and_then(|doc| doc.body())
-            .and_then(|body| body.append_child(canvas).ok())
-            .expect("Couldn't append canvas to document body!");
+
+        let document = browser_window.document().unwrap();
+        let body = document.body().unwrap();
+        body.append_child(canvas).ok();
 
         shura.window.set_inner_size(Dimension::new(width, height));
     }
@@ -526,7 +525,6 @@ impl<S: SceneController, F: 'static + FnMut(&mut Context) -> S> ShuraCore<S, F> 
 
                                 let set = ComponentSet::new(vec![component_type], len);
                                 grouped_render(scene_controller, &mut renderer, set, instances);
-                                break;
                             }
                         }
                         save_sprite = renderer.save_sprite.take();

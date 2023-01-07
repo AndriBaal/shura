@@ -57,9 +57,9 @@ impl ComponentGroup {
         cam_top_right: Vector<f32>,
     ) -> bool {
         let pos = self.position;
-        let size = self.size;
-        let self_bl = Vector::new(pos.x - size.width, pos.y - size.height);
-        let self_tr = Vector::new(pos.x + size.width, pos.y + size.height);
+        let half_size = self.size / 2.0;
+        let self_bl = Vector::new(pos.x - half_size.width, pos.y - half_size.height);
+        let self_tr = Vector::new(pos.x + half_size.width, pos.y + half_size.height);
         return (cam_bottom_left.x < self_tr.x)
             && (self_bl.x < cam_top_right.x)
             && (cam_bottom_left.y < self_tr.y)

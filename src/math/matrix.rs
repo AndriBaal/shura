@@ -56,10 +56,11 @@ impl Matrix {
 
     /// Frustum
     pub fn projection(
-        fov: Dimension<f32>
+        mut fov: Dimension<f32>
     ) -> Matrix {
         const NEAR: f32 = 3.0;
         const FAR: f32 = 7.0;
+        fov /= 2.0;
         let left = -fov.width;
         let right = fov.width;
         let bottom = -fov.height;

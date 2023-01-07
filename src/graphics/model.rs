@@ -8,7 +8,7 @@ use wgpu::util::DeviceExt;
 /// Shape of a [Model].
 pub enum ModelShape {
     Ball { radius: f32 },
-    Cuboid { dim: Dimension<f32> },
+    Cuboid { hdim: Dimension<f32> },
     Custom,
 }
 
@@ -22,18 +22,19 @@ pub struct ModelBuilder {
 }
 
 impl ModelBuilder {
-    pub fn cuboid(dim: Dimension<f32>) -> Self {
+    /// Cretae a by its half-extents [Dimension]
+    pub fn cuboid(hdim: Dimension<f32>) -> Self {
         Self {
             position: Isometry::default(),
             scale: Vector::new(1.0, 1.0),
             vertices: vec![
-                Vertex::new(Vector::new(-dim.width, dim.height), Vector::new(0.0, 0.0)),
-                Vertex::new(Vector::new(-dim.width, -dim.height), Vector::new(0.0, 1.0)),
-                Vertex::new(Vector::new(dim.width, -dim.height), Vector::new(1.0, 1.0)),
-                Vertex::new(Vector::new(dim.width, dim.height), Vector::new(1.0, 0.0)),
+                Vertex::new(Vector::new(-hdim.width, hdim.height), Vector::new(0.0, 0.0)),
+                Vertex::new(Vector::new(-hdim.width, -hdim.height), Vector::new(0.0, 1.0)),
+                Vertex::new(Vector::new(hdim.width, -hdim.height), Vector::new(1.0, 1.0)),
+                Vertex::new(Vector::new(hdim.width, hdim.height), Vector::new(1.0, 0.0)),
             ],
             indices: vec![Index::new(0, 1, 2), Index::new(2, 3, 0)],
-            shape: ModelShape::Cuboid { dim: dim * 2.0 },
+            shape: ModelShape::Cuboid { hdim },
         }
     }
 

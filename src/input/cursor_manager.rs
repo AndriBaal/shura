@@ -49,31 +49,29 @@ impl CursorManager {
         let raw_cursor = input.cursor_raw();
         self.cursor_world = apply_camera(
             Vector::new(
-                raw_cursor.x / window_size.width * fov.width * 2.0 - fov.width,
-                raw_cursor.y / window_size.height * -fov.height * 2.0 + fov.height,
+                raw_cursor.x / window_size.width * fov.width - fov.width / 2.0,
+                raw_cursor.y / window_size.height * -fov.height + fov.height / 2.0,
             ),
             camera_pos,
         );
 
-        let ratio = window_size.width / window_size.height;
         self.cursor_relative = Vector::new(
             raw_cursor.x / window_size.width * RELATIVE_CAMERA_SIZE - RELATIVE_CAMERA_SIZE / 2.0,
-            -(raw_cursor.y / window_size.height * RELATIVE_CAMERA_SIZE
-                - RELATIVE_CAMERA_SIZE / 2.0),
+            raw_cursor.y / window_size.height * -RELATIVE_CAMERA_SIZE + RELATIVE_CAMERA_SIZE / 2.0,
         );
 
         self.touches.clear();
         for (id, raw_touch) in input.touches() {
             let world = apply_camera(
                 Vector::new(
-                    raw_touch.x / window_size.width * fov.width * 2.0 - fov.width,
-                    raw_touch.y / window_size.height * -fov.height * 2.0 + fov.height,
+                    raw_touch.x / window_size.width * fov.width - fov.width / 2.0,
+                    raw_touch.y / window_size.height * -fov.height + fov.height / 2.0,
                 ),
                 camera_pos,
             );
             let relative_touch_pos = Vector::new(
-                raw_touch.x / window_size.width * (ratio * 2.0) - 1.0,
-                -(raw_touch.y / window_size.height * 2.0 - 1.0),
+                raw_touch.x / window_size.width * RELATIVE_CAMERA_SIZE - RELATIVE_CAMERA_SIZE / 2.0,
+                raw_touch.y / window_size.height * -RELATIVE_CAMERA_SIZE + RELATIVE_CAMERA_SIZE / 2.0,
             );
             self.touches.push(Touch {
                 id: *id,

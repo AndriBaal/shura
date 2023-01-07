@@ -52,7 +52,10 @@ impl StartButton {
 
 impl ComponentController for StartButton {
     fn update(&mut self, _scene: &mut DynamicScene, ctx: &mut Context) {
-        if ctx.is_pressed(Key::Space) || ctx.is_pressed(ScreenTouch) {
+        if ctx.is_pressed(Key::Space)
+            || ctx.is_pressed(ScreenTouch)
+            || ctx.is_pressed(MouseButton::Left)
+        {
             self.sink.append(self.start.decode());
             if !ctx.does_scene_exist("game") {
                 ctx.create_scene("game", GameScene::new);

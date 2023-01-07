@@ -8,7 +8,7 @@ fn main() {
     init("bunnymark", |ctx| {
         ctx.set_clear_color(Some(Color::new_rgba(220, 220, 220, 255)));
         ctx.set_window_size(Dimension::new(800, 600));
-        ctx.set_vertical_fov(3.0);
+        ctx.set_vertical_fov(6.0);
 
         let bunny_model = ctx.create_model(ModelBuilder::cuboid(Dimension::new(0.06, 0.09)));
         let bunny_sprite = ctx.create_sprite(include_bytes!("../img/wabbit.png"));
@@ -90,7 +90,7 @@ impl Bunny {
 impl ComponentController for Bunny {
     fn update(&mut self, _scene: &mut DynamicScene, ctx: &mut Context) {
         const GRAVITY: f32 = -2.5;
-        let fov = ctx.camera_fov();
+        let fov = ctx.camera_fov() / 2.0;
         let delta = ctx.delta_time();
         let mut linvel = self.linvel;
         let mut translation = *self.translation();

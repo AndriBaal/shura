@@ -1,4 +1,4 @@
-use shura::{physics::*, text::*, audio::*, *};
+use shura::{audio::*, physics::*, text::*, *};
 
 pub struct GameScene {
     target_model: Model,
@@ -25,7 +25,7 @@ impl GameScene {
         let ball = Ball::new(ctx);
         let ball = ctx.create_component(None, ball).1;
 
-        let target_model = ctx.create_model(ModelBuilder::cuboid(Target::TARGET_SIZE));
+        let target_model = ctx.create_model(ModelBuilder::cuboid(Target::HALF_TARGET_SIZE));
         let target_color = ctx.create_uniform(Color::new_rgba(0, 0, 255, 255));
 
         GameScene {
@@ -104,12 +104,13 @@ impl GameField {
     const RIGHT: u128 = 1;
     const TOP: u128 = 2;
     const BOTTOM: u128 = 3;
-    const FIELD_SIZE: Dimension<f32> = Dimension::new(2.5, 4.0);
+    const FIELD_SIZE: Dimension<f32> = Dimension::new(5.0, 8.0);
+    const HALF_FIELD_SIZE: Dimension<f32> = Dimension::new(2.5, 4.0);
     fn new(ctx: &mut Context) -> Self {
-        let top_right = Self::FIELD_SIZE.into();
-        let bottom_right = Point::new(Self::FIELD_SIZE.width, -Self::FIELD_SIZE.height);
-        let bottom_left = (-Self::FIELD_SIZE).into();
-        let top_left = Point::new(-Self::FIELD_SIZE.width, Self::FIELD_SIZE.height);
+        let top_right = Self::HALF_FIELD_SIZE.into();
+        let bottom_right = Point::new(Self::HALF_FIELD_SIZE.width, -Self::HALF_FIELD_SIZE.height);
+        let bottom_left = (-Self::HALF_FIELD_SIZE).into();
+        let top_left = Point::new(-Self::HALF_FIELD_SIZE.width, Self::HALF_FIELD_SIZE.height);
 
         return GameField {
             component: PhysicsComponent::new(
@@ -121,7 +122,7 @@ impl GameField {
                     ColliderBuilder::segment(bottom_left, top_left).user_data(Self::LEFT),
                 ],
             ),
-            model: ctx.create_model(ModelBuilder::cuboid(Self::FIELD_SIZE)),
+            model: ctx.create_model(ModelBuilder::cuboid(Self::HALF_FIELD_SIZE)),
             background: ctx.create_uniform(Color::new_rgba(02, 02, 02, 255)),
         };
     }
@@ -161,14 +162,14 @@ struct Statistics {
 impl Statistics {
     fn new(ctx: &Context) -> Self {
         let mut component = PositionComponent::new();
-        const MODEL_SIZE: Dimension<f32> = Dimension::new(0.26, 0.13);
-        component.set_translation(Vector::new(-1.0, 1.0));
+        const HALF_MODEL_SIZE: Dimension<f32> = Dimension::new(0.13, 0.065);
+        component.set_translation(Vector::new(-0.5, 0.5));
         Self {
             component,
-            model: ctx.create_model(
-                ModelBuilder::cuboid(MODEL_SIZE)
-                    .translation(Vector::new(MODEL_SIZE.width, -MODEL_SIZE.height)),
-            ),
+            model: ctx.create_model(ModelBuilder::cuboid(HALF_MODEL_SIZE).translation(Vector::new(
+                HALF_MODEL_SIZE.width,
+                -HALF_MODEL_SIZE.height,
+            ))),
             text: ctx.create_empty_sprite(Dimension::new(1, 1)),
             score: 0,
             highscore: 0,
@@ -257,17 +258,21 @@ struct Player {
     component: PhysicsComponent,
 }
 impl Player {
-    const SIZE: Dimension<f32> = Dimension::new(0.3, 0.04);
+    const HALF_SIZE: Dimension<f32> = Dimension::new(0.3, 0.04);
     const START_POS: Vector<f32> = Vector::new(0.0, -2.2);
     const LINVEL: f32 = 1.9;
     fn new(ctx: &Context) -> Self {
         Self {
-            model: ctx.create_model(ModelBuilder::cuboid(Self::SIZE)),
+            model: ctx.create_model(ModelBuilder::cuboid(Self::HALF_SIZE)),
             component: PhysicsComponent::new(
                 RigidBodyBuilder::dynamic()
                     .translation(Self::START_POS)
-                    .lock_rotations(),
-                vec![ColliderBuilder::cuboid(Self::SIZE.width, Self::SIZE.height)],
+                    .lock_rotations()
+                    .enabled_translations(true, false),
+                vec![ColliderBuilder::cuboid(
+                    Self::HALF_SIZE.width,
+                    Self::HALF_SIZE.height,
+                )],
             ),
         }
     }
@@ -315,14 +320,14 @@ struct Target {
 }
 
 impl Target {
-    const TARGET_SIZE: Dimension<f32> = Dimension::new(0.24, 0.08);
+    const HALF_TARGET_SIZE: Dimension<f32> = Dimension::new(0.24, 0.08);
     fn new(start_pos: Vector<f32>) -> Self {
         Target {
             component: PhysicsComponent::new(
                 RigidBodyBuilder::fixed().translation(start_pos),
                 vec![ColliderBuilder::cuboid(
-                    Self::TARGET_SIZE.width,
-                    Self::TARGET_SIZE.height,
+                    Self::HALF_TARGET_SIZE.width,
+                    Self::HALF_TARGET_SIZE.height,
                 )],
             ),
         }
@@ -359,7 +364,7 @@ struct Ball {
     component: PhysicsComponent,
     sink: Sink,
     bounce: Sound,
-    game_over: Sound
+    game_over: Sound,
 }
 impl Ball {
     const RADIUS: f32 = 0.1;
@@ -378,7 +383,7 @@ impl Ball {
                     .translation(Self::START_POS)
                     .linvel(Vector::new(Self::LINVEL, Self::LINVEL)),
                 vec![ColliderBuilder::ball(Self::RADIUS)
-                .restitution(5.0)
+                    .restitution(5.0)
                     .active_events(ActiveEvents::COLLISION_EVENTS)],
             ),
         }
@@ -417,15 +422,15 @@ impl ComponentController for Ball {
                 let target_body = target.component.body_mut(ctx.world);
                 let target_pos = target_body.translation();
 
-                if pos.y < target_pos.y - Target::TARGET_SIZE.height {
+                if pos.y < target_pos.y - Target::HALF_TARGET_SIZE.height {
                     linvel.y = -Ball::LINVEL;
-                } else if pos.y > target_pos.y + Target::TARGET_SIZE.height {
+                } else if pos.y > target_pos.y + Target::HALF_TARGET_SIZE.height {
                     linvel.y = Ball::LINVEL;
                 }
 
-                if pos.x < target_pos.x - Target::TARGET_SIZE.width {
+                if pos.x < target_pos.x - Target::HALF_TARGET_SIZE.width {
                     linvel.x = -Ball::LINVEL;
-                } else if pos.x > target_pos.x + Target::TARGET_SIZE.width {
+                } else if pos.x > target_pos.x + Target::HALF_TARGET_SIZE.width {
                     linvel.x = Ball::LINVEL;
                 }
 
@@ -456,15 +461,15 @@ impl ComponentController for Ball {
             } else if let Some(player) = other.downcast_mut::<Player>() {
                 let player_body = player.component.body_mut(ctx.world);
                 let player_pos = player_body.translation();
-                if pos.y < player_pos.y - Target::TARGET_SIZE.height {
+                if pos.y < player_pos.y - Target::HALF_TARGET_SIZE.height {
                     linvel.y = -Ball::LINVEL;
-                } else if pos.y > player_pos.y + Target::TARGET_SIZE.height {
+                } else if pos.y > player_pos.y + Target::HALF_TARGET_SIZE.height {
                     linvel.y = Ball::LINVEL;
                 }
 
-                if pos.x < player_pos.x - Target::TARGET_SIZE.width {
+                if pos.x < player_pos.x - Target::HALF_TARGET_SIZE.width {
                     linvel.x = -Ball::LINVEL;
-                } else if pos.x > player_pos.x + Target::TARGET_SIZE.width {
+                } else if pos.x > player_pos.x + Target::HALF_TARGET_SIZE.width {
                     linvel.x = Ball::LINVEL;
                 }
             }

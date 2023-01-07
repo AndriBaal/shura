@@ -109,7 +109,7 @@ impl<'a> Context<'a> {
             clear_color: &mut scene.clear_color,
             #[cfg(feature = "physics")]
             world: &mut scene.world,
-            saved_sprites: & mut scene.saved_sprites,
+            saved_sprites: &mut scene.saved_sprites,
 
             window,
             input,
@@ -148,7 +148,7 @@ impl<'a> Context<'a> {
             clear_color: &mut scene.clear_color,
             #[cfg(feature = "physics")]
             world: &mut scene.world,
-            saved_sprites: & mut scene.saved_sprites,
+            saved_sprites: &mut scene.saved_sprites,
 
             window,
             input,
@@ -220,17 +220,16 @@ impl<'a> Context<'a> {
     #[inline]
     pub(crate) fn update_sets(&mut self) {
         if let Some(target) = self.camera.target() {
-            let controller = self
-                .component_manager
-                .component_dynamic(&target)
-                .expect("Camera Target does not exist!");
-            // TODO: Maybe grant direct access to the position
-            let matrix = controller.inner().matrix(
-                #[cfg(feature = "physics")]
-                self.world,
-            );
-            self.camera
-                .set_translation(Vector::new(matrix[12], matrix[13]));
+            if let Some(component) = self.component_manager.component_dynamic(&target) {
+                let matrix = component.inner().matrix(
+                    #[cfg(feature = "physics")]
+                    self.world,
+                );
+                self.camera
+                    .set_translation(Vector::new(matrix[12], matrix[13]));
+            } else {
+                self.camera.set_target(None);
+            }
         }
 
         self.component_manager.update_sets(&self.camera);

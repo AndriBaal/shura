@@ -53,6 +53,14 @@ A good way to learn shura is through the provided examples or through reading th
 
 - Serialization
 
+- Examples:
+
+    - Computed Sprite
+
+    - Groups
+
+    - Postprocess (Improve)
+
 ## Safety:
 
 The entire engine including the component system is completely without any unsafeties except some data conversion mandatory to pass data to the GPU.

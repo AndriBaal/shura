@@ -268,22 +268,23 @@ impl ComponentManager {
     }
 
     pub fn remove_group(&mut self, group_id: u32, #[cfg(feature = "physics")] world: &mut World) {
-        #[cfg(feature = "physics")] // TODO: Find a way to fix iterating over all components
-        for (_, group) in &mut self.groups {
-            for (_, component_type) in group.types() {
-                for (_, c) in component_type.iter_mut() {
-                    if let Some(p) = c.inner_mut().downcast_mut::<PhysicsComponent>() {
-                        p.remove_from_world(world);
-                    }
-                }
-            }
-        }
-
         if group_id == DEFAULT_GROUP_ID {
             panic!("Cannot the default group with ID {DEFAULT_GROUP_ID}!");
         }
 
         if let Some(index) = self.group_map.remove(&group_id) {
+            #[cfg(feature = "physics")] // TODO: Find a way to fix iterating over all components
+            if let Some(mut group) = self.groups.remove(index) {
+                for (_, component_type) in group.types() {
+                    for (_, c) in component_type.iter_mut() {
+                        if let Some(p) = c.inner_mut().downcast_mut::<PhysicsComponent>() {
+                            p.remove_from_world(world);
+                        }
+                    }
+                }
+            }
+
+            #[cfg(not(feature = "physics"))]
             self.groups.remove(index);
         }
     }

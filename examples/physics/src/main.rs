@@ -16,8 +16,8 @@ fn main() {
                 ctx.create_component(
                     None,
                     PhysicsBox::new(Vector::new(
-                        x as f32 * (BOX_SIZE*2.0 + MINIMAL_SPACING),
-                        y as f32 * (BOX_SIZE*2.0 + MINIMAL_SPACING*2.0),
+                        x as f32 * (HALF_BOX_SIZE*2.0 + MINIMAL_SPACING),
+                        y as f32 * (HALF_BOX_SIZE*2.0 + MINIMAL_SPACING*2.0),
                     )),
                 );
             }
@@ -31,12 +31,12 @@ fn main() {
             default_color: ctx.create_uniform(Color::new_rgba(0, 255, 0, 255)),
             collision_color: ctx.create_uniform(Color::new_rgba(255, 0, 0, 255)),
             hover_color: ctx.create_uniform(Color::new_rgba(0, 0, 255, 255)),
-            box_model: ctx.create_model(ModelBuilder::cuboid(Dimension::new(BOX_SIZE, BOX_SIZE))),
+            box_model: ctx.create_model(ModelBuilder::cuboid(Dimension::new(HALF_BOX_SIZE, HALF_BOX_SIZE))),
         }
     });
 }
 
-const BOX_SIZE: f32 = 0.3;
+const HALF_BOX_SIZE: f32 = 0.3;
 
 struct GameScene {
     default_color: Uniform<Color>,
@@ -180,7 +180,7 @@ impl PhysicsBox {
             hovered: false,
             component: PhysicsComponent::new(
                 RigidBodyBuilder::dynamic().translation(position),
-                vec![ColliderBuilder::cuboid(BOX_SIZE, BOX_SIZE)],
+                vec![ColliderBuilder::cuboid(HALF_BOX_SIZE, HALF_BOX_SIZE)],
             ),
         }
     }

@@ -49,13 +49,13 @@ impl Camera {
             vertical_fov: vertical_fov,
             proj,
 
-            model: Model::new_wgpu(device, ModelBuilder::cuboid(fov)),
+            model: Model::new_wgpu(device, ModelBuilder::cuboid(fov / 2.0)),
             uniform: Uniform::new_wgpu(device, queue, layout, view * proj),
         }
     }
 
     pub(crate) fn buffer(&mut self, gpu: &Gpu) {
-        let fov = self.fov();
+        let fov = self.fov() / 2.0;
         let vertices = [
             Vertex::new(Vector::new(-fov.width, fov.height), Vector::new(0.0, 0.0)),
             Vertex::new(Vector::new(-fov.width, -fov.height), Vector::new(0.0, 1.0)),
@@ -99,7 +99,7 @@ impl Camera {
 
         let translation = *self.translation();
         let rotation = *self.rotation();
-        let fov: Vector<f32> = self.fov().into();
+        let fov: Vector<f32> = (self.fov() / 2.0).into();
 
         let top_right = rotate_point_around_origin(translation, translation + fov, rotation);
         let bottom_left = rotate_point_around_origin(translation, translation - fov, rotation);
