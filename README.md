@@ -8,7 +8,7 @@ shura is currently in an early beta version and many features most likely have s
 
 Get started by copying the [template](https://github.com/AndriBaal/shura/tree/main/examples/template). The template includes the library and has some additional config to make sure your game runs on all [supported platforms](#Cross-platform).
 
-If you don't care for other platforms than PC you can just add the following to your `Cargo.toml`:
+If you don't care for other platforms than PC, you can just add the following to your `Cargo.toml`:
 
 ```
 [dependencies]
@@ -41,9 +41,9 @@ A good way to learn shura is through the provided examples or through reading th
 
 - Easily create GUI's with [egui](https://github.com/emilk/egui) (feature flag 'gui')
 
-## Future features:
+## Future features (TODO):
 
-- Tutorials and indepth documentation
+- Tutorials and in depth documentation
 
 - Lighting (with rapier2d)
 
@@ -53,6 +53,8 @@ A good way to learn shura is through the provided examples or through reading th
 
 - Serialization
 
+- ComponentGroup always active (before you would just add a huge dimension to it) 
+
 - Examples:
 
     - Computed Sprite
@@ -60,6 +62,8 @@ A good way to learn shura is through the provided examples or through reading th
     - Groups
 
     - Postprocess (Improve)
+
+    - Screenshots and videos
 
 ## Safety:
 

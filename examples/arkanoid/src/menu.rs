@@ -41,7 +41,7 @@ impl StartButton {
         let sink = ctx.create_sink();
         let start = ctx.create_sound(include_bytes!("../res/start.wav"));
         Self {
-            model: ctx.create_model(ModelBuilder::cuboid(Dimension::new(1.5, 0.5))),
+            model: ctx.create_model(ModelBuilder::cuboid(Dimension::new(0.5, 0.167))),
             text,
             sink,
             start,

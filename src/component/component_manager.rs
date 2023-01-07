@@ -298,16 +298,19 @@ impl ComponentManager {
 
         let mut types = vec![];
         let mut len = 0;
-        for group_id in group_ids {
-            if let Some(group_index) = self.group_index(group_id) {
-                let group = self.group(*group_index).unwrap();
-                if let Some(type_index) = group.type_index(&type_id) {
-                    let component_type = group.type_ref(*type_index).unwrap();
-                    let type_len = component_type.len();
-                    if type_len > 0 {
-                        len += type_len;
-                        types.push(component_type);
-                    }
+        let mut group_handles: Vec<ArenaIndex> = group_ids
+            .iter()
+            .filter_map(|group_id| self.group_index(group_id).copied())
+            .collect();
+        group_handles.sort_by(|a, b| a.index().cmp(&b.index()));
+        for handle in group_handles {
+            let group = self.group(handle).unwrap();
+            if let Some(type_index) = group.type_index(&type_id) {
+                let component_type = group.type_ref(*type_index).unwrap();
+                let type_len = component_type.len();
+                if type_len > 0 {
+                    len += type_len;
+                    types.push(component_type);
                 }
             }
         }
