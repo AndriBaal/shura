@@ -133,7 +133,7 @@ impl<'a> Renderer<'a> {
 
     pub fn use_model(&mut self, model: &'a Model) {
         self.render_pass
-            .set_index_buffer(model.index_buffer().slice(..), wgpu::IndexFormat::Uint16);
+            .set_index_buffer(model.index_buffer().slice(..), wgpu::IndexFormat::Uint32);
         self.render_pass
             .set_vertex_buffer(0, model.vertex_buffer().slice(..));
         self.indices = model.amount_of_indices();

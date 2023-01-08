@@ -6,7 +6,7 @@ use winit::dpi::{PhysicalSize, Size};
 #[repr(C)]
 #[derive(PartialEq, Default, Eq, Copy, Clone, Debug, Hash)]
 /// 2D Dimension that hold its width and height
-pub struct Dimension<T: Scalar> {
+pub struct Dimension<T> {
     pub width: T,
     pub height: T,
 }
@@ -97,8 +97,7 @@ impl Into<Dimension<u32>> for Dimension<f32> {
 macro_rules! impl_dimension {
     ($DimN:ident { $($field:ident),+ }, $n:expr) => {
 
-        impl <T>$DimN<T>
-        where T: Scalar {
+        impl <T>$DimN<T> {
             #[inline]
             pub const fn new($($field: T),+) -> $DimN<T> {
                 $DimN { $($field: $field),+ }

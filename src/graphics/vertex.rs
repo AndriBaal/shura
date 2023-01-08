@@ -67,13 +67,13 @@ impl Vertex {
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 /// Represents the order in which (Vertices)[Vertex] are draw in a triangle.
 pub struct Index {
-    pub a: u16,
-    pub b: u16,
-    pub c: u16,
+    pub a: u32,
+    pub b: u32,
+    pub c: u32,
 }
 
 impl Index {
-    pub fn new(a: u16, b: u16, c: u16) -> Self {
+    pub fn new(a: u32, b: u32, c: u32) -> Self {
         Self { a, b, c }
     }
 }

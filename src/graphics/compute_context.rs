@@ -14,7 +14,7 @@ impl<'a> ComputeContext<'a> {
         render_pass.set_vertex_buffer(0, assets.compute_model.vertex_buffer().slice(..));
         render_pass.set_index_buffer(
             gpu.base.model_index_buffer.slice(..),
-            wgpu::IndexFormat::Uint16,
+            wgpu::IndexFormat::Uint32,
         );
 
         Self {

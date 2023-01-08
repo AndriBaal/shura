@@ -120,7 +120,7 @@ impl<S: SceneController, F: 'static + FnMut(&mut Context) -> S> ShuraCore<S, F> 
                     if window_id == self.window.id() && self.gpu.is_some() {
                         let scene = active_scene.as_mut().unwrap();
                         match event {
-                            WindowEvent::CloseRequested => {
+                            WindowEvent::CloseRequested | WindowEvent::Destroyed => {
                                 self.end(scene, control_flow);
                             }
                             WindowEvent::Resized(physical_size) => {

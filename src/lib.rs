@@ -1,35 +1,34 @@
 //! shura - A safe 2D game engine to easily create manageable games
-//! 
-//! shura is a safe, fast and cross-platform 2D component-based game framework written in rust. shura helps you to manage big games with a component system, scene managing and its group system. 
+//!
+//! shura is a safe, fast and cross-platform 2D component-based game framework written in rust. shura helps you to manage big games with a component system, scene managing and its group system.
 //! The main goal of shura is, that your games logic can be separated into different components, groups and scenes where the logic is easily manageable and safe to control.
-//! 
+//!
 //! Here are some main features of the engine:
-//! 
+//!
 //! - Managing multiple independent scenes.
-//! 
+//!
 //! - Easy to use component system with a group system to ensure fast manageable 2D games in massive levels
-//! 
+//!
 //! - Group system that acts like a chunk system to organize components and manage big worlds
-//! 
+//!
 //! - Built in support for postprocessing of your renders
-//! 
+//!
 //! - Physics simulations directly implemented into the component system through rapier (feature flag 'physics')
-//! 
+//!
 //! - Window Management with winit
-//! 
+//!
 //! - Cross-platform extendable rendering with wgpu
-//! 
+//!
 //! - Input handling for touch, mouse and keyboard and controller with gilrs (feature flag 'gamepad')
-//! 
+//!
 //! - Text rendering with wgpu_glyph (feature flag 'text')
-//! 
+//!
 //! - Audio playback with rodio (feature flag 'audio')
-//! 
+//!
 //! - Easily create GUI's with egui(feature flag 'gui')
-//! 
+//!
 //! Feedback is very welcome since shura is still in its beta phase.
-//! 
-
+//!
 
 #![crate_type = "lib"]
 #![crate_name = "shura"]
@@ -102,7 +101,7 @@ pub mod physics {
         ImpulseJointHandle, InteractionGroups, LockedAxes, MassProperties, MotorModel,
         PrismaticJoint, QueryFilter, QueryFilterFlags, Ray, RayIntersection, RevoluteJoint,
         RevoluteJointBuilder, RigidBody, RigidBodyActivation, RigidBodyBuilder, RigidBodyHandle,
-        RigidBodyType, Shape, SharedShape, SpacialVector, TOI,
+        RigidBodyType, Shape, ShapeType, SharedShape, SpacialVector, TypedShape, TOI,
     };
 }
 

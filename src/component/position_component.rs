@@ -114,13 +114,13 @@ impl PositionComponent {
     ) -> bool {
         let translation = self.translation();
         let scale = *self.scale();
-        let half_dim: Vector<f32> = offset
+        let half_extents: Vector<f32> = offset
             + Vector::new(
                 dimension.width / 2.0 * scale.x,
                 dimension.height / 2.0 * scale.y,
             );
-        let bl = translation - half_dim;
-        let tr = translation + half_dim;
+        let bl = translation - half_extents;
+        let tr = translation + half_extents;
         return pos.x > bl.x && pos.x < tr.x && pos.y > bl.y && pos.y < tr.y;
     }
 
