@@ -329,8 +329,6 @@ impl<S: SceneController, F: 'static + FnMut(&mut Context) -> S> ShuraCore<S, F> 
 
     fn update(&mut self, scene: &mut BoxedScene) -> Result<(), wgpu::SurfaceError> {
         let (scene_controller, scene) = (&mut scene.0, &mut scene.1);
-        self.frame_manager.update();
-
         #[cfg(target_arch = "wasm32")]
         {
             let browser_window = web_sys::window().unwrap();
@@ -614,7 +612,8 @@ impl<S: SceneController, F: 'static + FnMut(&mut Context) -> S> ShuraCore<S, F> 
         }
         res.gpu.finish_enocder(encoder);
         output.present();
-
+        
+        self.frame_manager.update();
         Ok(())
     }
 }

@@ -2,6 +2,7 @@
 use crate::physics::{ColliderBuilder, TypedShape};
 use crate::{Dimension, Gpu, Index, Isometry, Rotation, Vector, Vertex};
 use std::f32::consts::PI;
+use rapier2d::parry::shape::Segment;
 use wgpu::util::DeviceExt;
 
 // #[cfg(feature = "physics")]
@@ -154,12 +155,28 @@ impl ModelShape {
     }
 }
 
+fn rotate_point_around_origin(
+    origin: Vector<f32>,
+    point: Vector<f32>,
+    rot: Rotation<f32>,
+) -> Vector<f32> {
+    let sin = rot.sin_angle();
+    let cos = rot.cos_angle();
+    return Vector::new(
+        origin.x + (point.x - origin.x) * cos - (point.y - origin.y) * sin,
+        origin.y + (point.x - origin.x) * sin + (point.y - origin.y) * cos,
+    );
+}
+
 /// Builder to easily create a [Model].
+#[derive(Clone)]
 pub struct ModelBuilder {
     pub vertices: Vec<Vertex>,
     pub indices: Vec<Index>,
-    pub position: Isometry<f32>,
-    pub scale: Vector<f32>,
+    pub vertex_offset: Isometry<f32>,
+    pub tex_coord_offset: Isometry<f32>,
+    pub vertex_scale: Vector<f32>,
+    pub tex_coord_scale: Vector<f32>,
     pub shape: ModelShape,
 }
 
@@ -187,6 +204,8 @@ impl <'a>Iterator for WrapIter<'a> {
 }
 
 impl ModelBuilder {
+    const DEFAULT_OFFSET: Isometry<f32> = Isometry::new(Vector::new(0.0, 0.0), 0.0);
+    const DEFAULT_SCALE: Vector<f32> = Vector::new(0.0, 0.0);
     fn round_vertices(vertices: Vec<Vertex>, border_radius: f32, resolution: u32) -> Vec<Vertex> {
         let pi_cos = PI.cos();
         let pi_sin = PI.sin();
@@ -286,11 +305,30 @@ impl ModelBuilder {
     // pub fn into_collider(&self, shape: TypedShape, resolution: u32) -> Option<ColliderBuilder> {}
 
     pub fn segment(a: Vector<f32>, b: Vector<f32>, half_thickness: f32) -> Self {
-        // let mut vertices = vec![];
-        // let mut indices = vec![];
+        let rot = a.angle(&b);
+        let angles = Vector::new(rot.cos(), rot.sin());
+        let test = Segment::aabb(&self, pos)
+
+        let mut min = Vector::new(0.0, 0.0);
+        let mut max = Vector::new(0.0, 0.0);
+        let mut basis = Vector::new(0.0, 0.0);
+    
+        for d in 0..2 {
+            basis[d] = 1.0;
+            max[d] = i.local_support_point(&basis)[d];
+    
+            basis[d] = -1.0;
+            min[d] = i.local_support_point(&basis)[d];
+    
+            basis[d] = 0.0;
+        }
+
+        let mut indices = vec![Index::new(0, 1, 2), Index::new(2, 3, 0)];
         Self {
-            position: Isometry::default(),
-            scale: Vector::new(1.0, 1.0),
+            vertex_offset: Self::DEFAULT_OFFSET,
+            vertex_scale: Self::DEFAULT_SCALE,
+            tex_coord_offset: Self::DEFAULT_OFFSET,
+            tex_coord_scale: Self::DEFAULT_SCALE,
             vertices,
             indices,
             shape: ModelShape::Segment {
@@ -305,8 +343,10 @@ impl ModelBuilder {
         // let mut vertices = vec![];
         // let mut indices = vec![];
         Self {
-            position: Isometry::default(),
-            scale: Vector::new(1.0, 1.0),Index
+    vertex_offset: Self::DEFAULT_OFFSET,
+    vertex_scale: Self::DEFAULT_SCALE,
+    tex_coord_offset: Self::DEFAULT_OFFSET,
+    tex_coord_scale: Self::DEFAULT_SCALE,Index
             vertices,
             indices,
             shape: ModelShape::RoundCuboid {
@@ -325,8 +365,10 @@ impl ModelBuilder {
         // let mut vertices = vec![];
         // let mut indices = vec![];
         Self {
-            position: Isometry::default(),
-            scale: Vector::new(1.0, 1.0),
+            vertex_offset: Self::DEFAULT_OFFSET,
+            vertex_scale: Self::DEFAULT_SCALE,
+            tex_coord_offset: Self::DEFAULT_OFFSET,
+            tex_coord_scale: Self::DEFAULT_SCALE,
             vertices,
             indices,
             shape: ModelShape::RoundTriangle {
@@ -342,8 +384,10 @@ impl ModelBuilder {
         // let mut vertices = vec![];
         // let mut indices = vec![];
         Self {
-            position: Isometry::default(),
-            scale: Vector::new(1.0, 1.0),
+            vertex_offset: Self::DEFAULT_OFFSET,
+            vertex_scale: Self::DEFAULT_SCALE,
+            tex_coord_offset: Self::DEFAULT_OFFSET,
+            tex_coord_scale: Self::DEFAULT_SCALE,
             vertices,
             indices,
             shape: ModelShape::RoundConvexPolygon {
@@ -357,8 +401,10 @@ impl ModelBuilder {
         // let mut vertices = vec![];
         // let mut indices = vec![];
         Self {
-            position: Isometry::default(),
-            scale: Vector::new(1.0, 1.0),
+            vertex_offset: Self::DEFAULT_OFFSET,
+            vertex_scale: Self::DEFAULT_SCALE,
+            tex_coord_offset: Self::DEFAULT_OFFSET,
+            tex_coord_scale: Self::DEFAULT_SCALE,
             vertices,
             indices,
             shape: ModelShape::ConvexPolygon { vertices },
@@ -369,8 +415,10 @@ impl ModelBuilder {
         // let mut vertices = vec![];
         // let mut indices = vec![];
         Self {
-            position: Isometry::default(),
-            scale: Vector::new(1.0, 1.0),
+            vertex_offset: Self::DEFAULT_OFFSET,
+            vertex_scale: Self::DEFAULT_SCALE,
+            tex_coord_offset: Self::DEFAULT_OFFSET,
+            tex_coord_scale: Self::DEFAULT_SCALE,
             vertices,
             indices,
             shape: ModelShape::PolyLine { lines },
@@ -381,8 +429,10 @@ impl ModelBuilder {
         // let mut vertices = vec![];
         // let mut indices = vec![];
         Self {
-            position: Isometry::default(),
-            scale: Vector::new(1.0, 1.0),
+            vertex_offset: Self::DEFAULT_OFFSET,
+            vertex_scale: Self::DEFAULT_SCALE,
+            tex_coord_offset: Self::DEFAULT_OFFSET,
+            tex_coord_scale: Self::DEFAULT_SCALE,
             vertices,
             indices,
             shape: ModelShape::Compound { shapes },
@@ -393,8 +443,10 @@ impl ModelBuilder {
         // let mut vertices = vec![];
         // let mut indices = vec![];
         Self {
-            position: Isometry::default(),
-            scale: Vector::new(1.0, 1.0),
+            vertex_offset: Self::DEFAULT_OFFSET,
+            vertex_scale: Self::DEFAULT_SCALE,
+            tex_coord_offset: Self::DEFAULT_OFFSET,
+            tex_coord_scale: Self::DEFAULT_SCALE,
             vertices,
             indices,
             shape: ModelShape::Capsule {
@@ -413,8 +465,10 @@ impl ModelBuilder {
         ];
         let mut indices = vec![Index::new(0, 1, 2)];
         Self {
-            position: Isometry::default(),
-            scale: Vector::new(1.0, 1.0),
+            vertex_offset: Self::DEFAULT_OFFSET,
+            vertex_scale: Self::DEFAULT_SCALE,
+            tex_coord_offset: Self::DEFAULT_OFFSET,
+            tex_coord_scale: Self::DEFAULT_SCALE,
             vertices,
             indices,
             shape: ModelShape::Triangle { a, b, c },
@@ -433,8 +487,10 @@ impl ModelBuilder {
         //     indices.push(Index::new(index, index + 1, index + 2));
         // }
         Self {
-            position: Isometry::default(),
-            scale: Vector::new(1.0, 1.0),
+            vertex_offset: Self::DEFAULT_OFFSET,
+            vertex_scale: Self::DEFAULT_SCALE,
+            tex_coord_offset: Self::DEFAULT_OFFSET,
+            tex_coord_scale: Self::DEFAULT_SCALE,
             vertices,
             indices,
             shape: ModelShape::TriMesh { vertices, indices },
@@ -444,8 +500,10 @@ impl ModelBuilder {
     /// Cretae a by its half-extents [Dimension].
     pub fn cuboid(half_extents: Dimension<f32>) -> Self {
         Self {
-            position: Isometry::default(),
-            scale: Vector::new(1.0, 1.0),
+            vertex_offset: Self::DEFAULT_OFFSET,
+            vertex_scale: Self::DEFAULT_SCALE,
+            tex_coord_offset: Self::DEFAULT_OFFSET,
+            tex_coord_scale: Self::DEFAULT_SCALE,
             vertices: vec![
                 Vertex::new(
                     Vector::new(-half_extents.width, half_extents.height),
@@ -500,8 +558,10 @@ impl ModelBuilder {
         indices.push(Index::new(0, resolution, 1));
 
         Self {
-            position: Isometry::default(),
-            scale: Vector::new(1.0, 1.0),
+            vertex_offset: Self::DEFAULT_OFFSET,
+            vertex_scale: Self::DEFAULT_SCALE,
+            tex_coord_offset: Self::DEFAULT_OFFSET,
+            tex_coord_scale: Self::DEFAULT_SCALE,
             vertices,
             indices,
             shape: ModelShape::Ball { radius, resolution },
@@ -510,8 +570,10 @@ impl ModelBuilder {
 
     pub fn custom(vertices: Vec<Vertex>, indices: Vec<Index>) -> Self {
         Self {
-            position: Isometry::default(),
-            scale: Vector::new(1.0, 1.0),
+            vertex_offset: Self::DEFAULT_OFFSET,
+            vertex_scale: Self::DEFAULT_SCALE,
+            tex_coord_offset: Self::DEFAULT_OFFSET,
+            tex_coord_scale: Self::DEFAULT_SCALE,
             vertices,
             indices,
             shape: ModelShape::Custom { vertices, indices },
@@ -538,43 +600,60 @@ impl ModelBuilder {
         self
     }
 
-    pub fn build(self, gpu: &Gpu) -> Model {
-        self.build_wgpu(&gpu.device)
-    }
-
-    pub(crate) fn build_wgpu(mut self, device: &wgpu::Device) -> Model {
-        fn rotate_point_around_origin(
-            origin: Vector<f32>,
-            point: Vector<f32>,
-            rot: Rotation<f32>,
-        ) -> Vector<f32> {
-            let sin = rot.sin_angle();
-            let cos = rot.cos_angle();
-            return Vector::new(
-                origin.x + (point.x - origin.x) * cos - (point.y - origin.y) * sin,
-                origin.y + (point.x - origin.x) * sin + (point.y - origin.y) * cos,
-            );
+    pub fn apply_modifiers(&mut self) {
+        if self.vertex_scale != Self::DEFAULT_SCALE {
+            for v in &mut self.vertices {
+                v.pos.x *= self.vertex_scale.x;
+                v.pos.y *= self.vertex_scale.y;
+            }
         }
 
-        for v in &mut self.vertices {
-            v.pos.x *= self.scale.x;
-            v.pos.y *= self.scale.y;
-        }
-
-        let angle = self.position.rotation.angle();
-        if angle != 0.0 {
+        if self.vertex_offset.rotation == Self::DEFAULT_OFFSET.rotation {
             for v in &mut self.vertices {
                 v.pos = rotate_point_around_origin(
                     Vector::new(0.0, 0.0),
                     v.pos,
-                    self.position.rotation,
+                    self.vertex_offset.rotation,
                 );
             }
         }
 
-        for v in &mut self.vertices {
-            v.pos += self.position.translation.vector;
+        if self.vertex_offset.translation.vector == Self::DEFAULT_OFFSET.translation.vector {
+            for v in &mut self.vertices {
+                v.pos += self.vertex_offset.translation.vector;
+            }
         }
+
+        if self.tex_coord_scale != Self::DEFAULT_SCALE {
+            for v in &mut self.vertices {
+                v.tex_coords.x *= self.tex_coord_scale.x;
+                v.tex_coords.y *= self.tex_coord_scale.y;
+            }
+        }
+
+        if self.tex_coord_offset.rotation == Self::DEFAULT_OFFSET.rotation {
+            for v in &mut self.vertices {
+                v.tex_coords = rotate_point_around_origin(
+                    Vector::new(0.0, 0.0),
+                    v.tex_coords,
+                    self.tex_coord_offset.rotation,
+                );
+            }
+        }
+
+        if self.tex_coord_offset.translation.vector == Self::DEFAULT_OFFSET.translation.vector {
+            for v in &mut self.vertices {
+                v.tex_coords += self.tex_coord_offset.translation.vector;
+            }
+        }
+    }
+
+    pub fn build(self, gpu: &Gpu) -> Model {
+        self.build_wgpu(&gpu.device)
+    }
+
+    pub(crate) fn build_wgpu(&self, device: &wgpu::Device) -> Model {
+        let vertices = self.vertices.clone();
 
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("vertex_buffer"),
