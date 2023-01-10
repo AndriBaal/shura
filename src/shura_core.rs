@@ -15,13 +15,17 @@ use winit::event_loop::EventLoop;
 const INITIAL_WIDTH: u32 = 800;
 const INITIAL_HEIGHT: u32 = 600;
 
+struct ShuraBuilder<S: SceneController, F: 'static + FnMut(&mut Context) -> S> {
+    pub init: Option<F>,
+}
+
 /// Start a new game with the given callback to initialize the first [SceneController].
 pub fn init<S: SceneController, F: 'static + FnMut(&mut Context) -> S>(
     scene_name: &'static str,
     init: F,
 ) {
     let events = winit::event_loop::EventLoop::new();
-    let shura = ShuraCore::new(&events, init, scene_name);
+    let shura = Shura::new(&events, init, scene_name);
     #[cfg(target_arch = "wasm32")]
     {
         use console_error_panic_hook::hook;
@@ -70,108 +74,103 @@ pub fn init<S: SceneController, F: 'static + FnMut(&mut Context) -> S>(
             .filter_module("symphonia_core", LevelFilter::Warn)
             .init();
     }
-    shura.run(events);
+
+    info!("Using shura version: {}", env!("CARGO_PKG_VERSION"));
+
+    let mut active_scene: Option<BoxedScene> = if cfg!(target_os = "android") {
+        None
+    } else {
+        Some(self.init())
+    };
+
+    events.run(move |event, _, control_flow| {
+        use winit::event::{Event, WindowEvent};
+        #[cfg(feature = "gui")]
+        if let Some(gui) = self.gui.as_mut() {
+            gui.handle_event(&event)
+        }
+        match event {
+            #[cfg(target_os = "android")]
+            Event::Resumed => {
+                if let Some(gpu) = self.gpu.as_mut() {
+                    gpu.resume(&self.window);
+                } else {
+                    active_scene = Some(self.init());
+                }
+            }
+            Event::WindowEvent {
+                ref event,
+                window_id,
+            } => {
+                if window_id == self.window.id() && self.gpu.is_some() {
+                    let scene = active_scene.as_mut().unwrap();
+                    match event {
+                        WindowEvent::CloseRequested | WindowEvent::Destroyed => {
+                            self.end(scene, control_flow);
+                        }
+                        WindowEvent::Resized(physical_size) => {
+                            self.resize(
+                                scene,
+                                (*physical_size as winit::dpi::PhysicalSize<u32>).into(),
+                            );
+                        }
+                        WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                            self.resize(
+                                scene,
+                                (**new_inner_size as winit::dpi::PhysicalSize<u32>).into(),
+                            );
+                        }
+                        _ => self.input.event(event),
+                    }
+                }
+            }
+            Event::RedrawRequested(window_id)
+                if window_id == self.window.id() && self.gpu.is_some() =>
+            {
+                if let Some(new_name) = self.scene_manager.new_active_scene() {
+                    active_scene = Some(
+                        self.scene_manager
+                            .swap_active_scene(active_scene.take().unwrap(), new_name),
+                    )
+                }
+                let scene = active_scene.as_mut().unwrap();
+                match self.update(scene) {
+                    Ok(_) => {}
+                    Err(wgpu::SurfaceError::Lost) => {
+                        self.resize(scene, self.window.inner_size().into())
+                    }
+                    Err(wgpu::SurfaceError::OutOfMemory) => {
+                        *control_flow = winit::event_loop::ControlFlow::Exit
+                    }
+                    Err(e) => error!("{:?}", e),
+                }
+                if self.end {
+                    self.end(scene, control_flow);
+                }
+            }
+            Event::MainEventsCleared => {
+                self.window.request_redraw();
+            }
+            _ => {}
+        }
+    });
 }
 
-pub(crate) struct ShuraCore<S: SceneController, F: FnMut(&mut Context) -> S> {
-    pub init: Option<F>,
+pub(crate) struct Shura {
     pub frame_manager: FrameManager,
     pub scene_manager: SceneManager,
     pub window: winit::window::Window,
     pub input: Input,
+    pub end: bool,
+    pub gpu: Gpu,
+    #[cfg(feature = "gui")]
+    pub gui: Gui,
     #[cfg(feature = "audio")]
     pub audio: (rodio::OutputStream, rodio::OutputStreamHandle),
-    pub end: bool,
-
-    pub gpu: Option<Gpu>,
-    #[cfg(feature = "gui")]
-    pub gui: Option<Gui>,
 }
 
-impl<S: SceneController, F: 'static + FnMut(&mut Context) -> S> ShuraCore<S, F> {
-    pub fn run(mut self, events: winit::event_loop::EventLoop<()>) {
-        info!("Using shura version: {}", env!("CARGO_PKG_VERSION"));
-
-        let mut active_scene: Option<BoxedScene> = if cfg!(target_os = "android") {
-            None
-        } else {
-            Some(self.init())
-        };
-
-        events.run(move |event, _, control_flow| {
-            use winit::event::{Event, WindowEvent};
-            #[cfg(feature = "gui")]
-            if let Some(gui) = self.gui.as_mut() {
-                gui.handle_event(&event)
-            }
-            match event {
-                #[cfg(target_os = "android")]
-                Event::Resumed => {
-                    if let Some(gpu) = self.gpu.as_mut() {
-                        gpu.resume(&self.window);
-                    } else {
-                        active_scene = Some(self.init());
-                    }
-                }
-                Event::WindowEvent {
-                    ref event,
-                    window_id,
-                } => {
-                    if window_id == self.window.id() && self.gpu.is_some() {
-                        let scene = active_scene.as_mut().unwrap();
-                        match event {
-                            WindowEvent::CloseRequested | WindowEvent::Destroyed => {
-                                self.end(scene, control_flow);
-                            }
-                            WindowEvent::Resized(physical_size) => {
-                                self.resize(
-                                    scene,
-                                    (*physical_size as winit::dpi::PhysicalSize<u32>).into(),
-                                );
-                            }
-                            WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                                self.resize(
-                                    scene,
-                                    (**new_inner_size as winit::dpi::PhysicalSize<u32>).into(),
-                                );
-                            }
-                            _ => self.input.event(event),
-                        }
-                    }
-                }
-                Event::RedrawRequested(window_id)
-                    if window_id == self.window.id() && self.gpu.is_some() =>
-                {
-                    if let Some(new_name) = self.scene_manager.new_active_scene() {
-                        active_scene = Some(
-                            self.scene_manager
-                                .swap_active_scene(active_scene.take().unwrap(), new_name),
-                        )
-                    }
-                    let scene = active_scene.as_mut().unwrap();
-                    match self.update(scene) {
-                        Ok(_) => {}
-                        Err(wgpu::SurfaceError::Lost) => {
-                            self.resize(scene, self.window.inner_size().into())
-                        }
-                        Err(wgpu::SurfaceError::OutOfMemory) => {
-                            *control_flow = winit::event_loop::ControlFlow::Exit
-                        }
-                        Err(e) => error!("{:?}", e),
-                    }
-                    if self.end {
-                        self.end(scene, control_flow);
-                    }
-                }
-                Event::MainEventsCleared => {
-                    self.window.request_redraw();
-                }
-                _ => {}
-            }
-        });
-    }
-
-    fn new(events: &EventLoop<()>, init: F, scene_name: &'static str) -> ShuraCore<S, F> {
+impl Shura {
+    fn new(events: &EventLoop<()>, init: F, scene_name: &'static str) {
         let window = winit::window::WindowBuilder::new()
             .with_inner_size(winit::dpi::PhysicalSize::new(INITIAL_WIDTH, INITIAL_HEIGHT))
             .with_title(scene_name)
@@ -193,7 +192,7 @@ impl<S: SceneController, F: 'static + FnMut(&mut Context) -> S> ShuraCore<S, F> 
         }
     }
 
-    fn init(&mut self) -> BoxedScene {
+    fn gpu(&mut self) -> BoxedScene {
         let gpu = pollster::block_on(Gpu::new(&self.window));
         let mut init = self.init.take().unwrap();
         #[cfg(feature = "gui")]
@@ -612,7 +611,7 @@ impl<S: SceneController, F: 'static + FnMut(&mut Context) -> S> ShuraCore<S, F> 
         }
         res.gpu.finish_enocder(encoder);
         output.present();
-        
+
         self.frame_manager.update();
         Ok(())
     }

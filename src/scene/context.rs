@@ -4,7 +4,7 @@ use crate::{
     ComponentSetMut, CursorManager, Dimension, DynamicComponent, DynamicScene, FrameManager, Gpu,
     Input, InputEvent, InputTrigger, InstanceBuffer, Instances, Isometry, Key, Matrix, Model,
     ModelBuilder, Modifier, Renderer, Rotation, Scene, SceneController, SceneManager, Shader,
-    ShaderField, ShaderLang, ShuraCore, Sprite, SpriteSheet, Touch, Uniform, Vector,
+    ShaderField, ShaderLang, Shura, Sprite, SpriteSheet, Touch, Uniform, Vector,
 };
 use winit::window::Window;
 
@@ -80,7 +80,7 @@ pub struct Context<'a> {
 impl<'a> Context<'a> {
     pub(crate) fn new<S: SceneController, F: FnMut(&mut Context) -> S>(
         scene: &'a mut Scene,
-        shura: &'a mut ShuraCore<S, F>,
+        shura: &'a mut Shura<S, F>,
     ) -> Context<'a> {
         let window = &mut shura.window;
         let input = &mut shura.input;
