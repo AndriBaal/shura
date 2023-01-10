@@ -424,7 +424,6 @@ impl Shura {
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
         let mut encoder = self.gpu.encoder();
-        let relative_camera = &self.defaults.relative_camera;
 
         // Clear the texture
         if let Some(clear_color) = &scene.clear_color {
@@ -461,8 +460,8 @@ impl Shura {
                         &self.gpu,
                         &self.defaults,
                         &mut encoder,
-                        &self.defaults.layer_view,
-                        &self.defaults.layer_msaa,
+                        &self.defaults.target_view,
+                        &self.defaults.target_msaa,
                     )
                 };
                 match &config.camera {
@@ -543,7 +542,7 @@ impl Shura {
                                 postproccess(
                                     &mut renderer,
                                     instances,
-                                    relative_camera.model(),
+                                    self.defaults.relative_camera.model(),
                                     &copy,
                                 );
                             }
@@ -561,7 +560,7 @@ impl Shura {
                                 postproccess(
                                     &mut renderer,
                                     instances,
-                                    relative_camera.model(),
+                                    self.defaults.relative_camera.model(),
                                     &self.defaults.layer,
                                 );
                             }
@@ -589,7 +588,7 @@ impl Shura {
             );
             renderer.use_uniform(self.defaults.relative_camera.uniform(), 0);
             renderer.set_instance_buffer(&self.defaults.single_centered_instance);
-            renderer.render_sprite(relative_camera.model(), &self.defaults.target);
+            renderer.render_sprite(self.defaults.relative_camera.model(), &self.defaults.target);
             renderer.commit(&(0..1));
         }
         #[cfg(feature = "gui")]

@@ -640,7 +640,7 @@ impl ModelBuilder {
             }
         }
 
-        if vertex_offset.translation.vector == Self::DEFAULT_OFFSET {
+        if vertex_offset.translation.vector != Self::DEFAULT_OFFSET {
             for v in vertices.iter_mut() {
                 v.pos += vertex_offset.translation.vector;
             }
@@ -664,7 +664,7 @@ impl ModelBuilder {
             }
         }
 
-        if tex_coord_offset.translation.vector == Self::DEFAULT_OFFSET {
+        if tex_coord_offset.translation.vector != Self::DEFAULT_OFFSET {
             for v in vertices.iter_mut() {
                 v.tex_coords += tex_coord_offset.translation.vector;
             }
@@ -683,7 +683,7 @@ impl ModelBuilder {
 
         let vertex_buffer = gpu.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("vertex_buffer"),
-            contents: bytemuck::cast_slice(&self.vertices[..]),
+            contents: bytemuck::cast_slice(&vertices[..]),
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         });
 

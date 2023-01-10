@@ -128,8 +128,10 @@ impl Gpu {
 
     /// Render size wiht applioed render_scale
     pub fn render_size(&self) -> Dimension<u32> {
-        (Dimension::new(self.config.width as f32, self.config.height as f32) * self.render_scale)
-            .into()
+        Dimension::new(
+            (self.config.width as f32 * self.render_scale) as u32,
+            (self.config.height as f32 * self.render_scale) as u32,
+        )
     }
 
     /// Render size wiht applioed render_scale  
