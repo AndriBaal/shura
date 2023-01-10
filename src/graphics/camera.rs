@@ -21,24 +21,7 @@ pub struct Camera {
 
 impl Camera {
     pub(crate) fn new(gpu: &Gpu, position: Isometry<f32>, ratio: f32, vertical_fov: f32) -> Self {
-        Self::new_wgpu(
-            &gpu.device,
-            &gpu.queue,
-            &gpu.defaults.vertex_uniform,
-            position,
-            ratio,
-            vertical_fov,
-        )
-    }
 
-    pub(crate) fn new_wgpu(
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        layout: &wgpu::BindGroupLayout,
-        position: Isometry<f32>,
-        ratio: f32,
-        vertical_fov: f32,
-    ) -> Self {
         let fov = Dimension::new(vertical_fov * ratio, vertical_fov);
         let proj = Matrix::projection(fov);
         let view = Matrix::view(position);
@@ -49,8 +32,8 @@ impl Camera {
             vertical_fov: vertical_fov,
             proj,
 
-            model: Model::new_wgpu(device, ModelBuilder::cuboid(fov / 2.0)),
-            uniform: Uniform::new_wgpu(device, queue, layout, view * proj),
+            model: Model::new(gpu, ModelBuilder::cuboid(fov / 2.0)),
+            uniform: Uniform::new_vertex(gpu, view * proj),
         }
     }
 

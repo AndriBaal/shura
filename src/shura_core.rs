@@ -6,26 +6,28 @@ use crate::{
     ArenaPath, ComponentHandle, DynamicScene,
 };
 use crate::{
-    BoxedScene, Color, ComponentSet, Context, Dimension, FrameManager, Gpu, Input,
+    BoxedScene, Color, ComponentSet, Context, Defaults, Dimension, FrameManager, Gpu, Input,
     PostproccessOperation, RenderOperation, Renderer, Scene, SceneController, SceneManager, Sprite,
 };
 use log::{error, info};
-use winit::event_loop::EventLoop;
 
 const INITIAL_WIDTH: u32 = 800;
 const INITIAL_HEIGHT: u32 = 600;
-
-struct ShuraBuilder<S: SceneController, F: 'static + FnMut(&mut Context) -> S> {
-    pub init: Option<F>,
-}
 
 /// Start a new game with the given callback to initialize the first [SceneController].
 pub fn init<S: SceneController, F: 'static + FnMut(&mut Context) -> S>(
     scene_name: &'static str,
     init: F,
 ) {
+    info!("Using shura version: {}", env!("CARGO_PKG_VERSION"));
     let events = winit::event_loop::EventLoop::new();
-    let shura = Shura::new(&events, init, scene_name);
+    let window = winit::window::WindowBuilder::new()
+        .with_inner_size(winit::dpi::PhysicalSize::new(INITIAL_WIDTH, INITIAL_HEIGHT))
+        .with_title(scene_name)
+        .build(&events)
+        .unwrap();
+    let shura_window_id = window.id();
+
     #[cfg(target_arch = "wasm32")]
     {
         use console_error_panic_hook::hook;
@@ -75,83 +77,81 @@ pub fn init<S: SceneController, F: 'static + FnMut(&mut Context) -> S>(
             .init();
     }
 
-    info!("Using shura version: {}", env!("CARGO_PKG_VERSION"));
-
-    let mut active_scene: Option<BoxedScene> = if cfg!(target_os = "android") {
+    let mut active: Option<(Shura, BoxedScene)> = if cfg!(target_os = "android") {
         None
     } else {
-        Some(self.init())
+        Some(Shura::new(window, scene_name, init))
     };
 
     events.run(move |event, _, control_flow| {
         use winit::event::{Event, WindowEvent};
-        #[cfg(feature = "gui")]
-        if let Some(gui) = self.gui.as_mut() {
-            gui.handle_event(&event)
-        }
-        match event {
+        if let Some((shura, scene)) = &mut active {
+            #[cfg(feature = "gui")]
+            shura.gui.handle_event(&event);
+            match event {
+                Event::WindowEvent {
+                    ref event,
+                    window_id,
+                } => {
+                    if window_id == shura_window_id {
+                        match event {
+                            WindowEvent::CloseRequested | WindowEvent::Destroyed => {
+                                shura.end(scene, control_flow);
+                            }
+                            WindowEvent::Resized(physical_size) => {
+                                shura.resize(
+                                    scene,
+                                    (*physical_size as winit::dpi::PhysicalSize<u32>).into(),
+                                );
+                            }
+                            WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                                shura.resize(
+                                    scene,
+                                    (**new_inner_size as winit::dpi::PhysicalSize<u32>).into(),
+                                );
+                            }
+                            _ => shura.input.event(event),
+                        }
+                    }
+                }
+                Event::RedrawRequested(window_id) if window_id == shura_window_id => {
+                    if let Some(new_active) = shura.scene_manager.apply_active_scene() {
+                        let old_active = std::mem::replace(scene, new_active);
+                        shura.scene_manager.add(old_active);
+                    }
+
+                    match shura.update(scene) {
+                        Ok(_) => {}
+                        Err(wgpu::SurfaceError::Lost) => {
+                            shura.resize(scene, shura.window.inner_size().into())
+                        }
+                        Err(wgpu::SurfaceError::OutOfMemory) => {
+                            *control_flow = winit::event_loop::ControlFlow::Exit
+                        }
+                        Err(e) => error!("{:?}", e),
+                    }
+                    if shura.end {
+                        shura.end(scene, control_flow);
+                    }
+                }
+                Event::MainEventsCleared => {
+                    shura.window.request_redraw();
+                }
+                _ => {}
+            }
+        } else {
             #[cfg(target_os = "android")]
-            Event::Resumed => {
-                if let Some(gpu) = self.gpu.as_mut() {
-                    gpu.resume(&self.window);
-                } else {
-                    active_scene = Some(self.init());
-                }
-            }
-            Event::WindowEvent {
-                ref event,
-                window_id,
-            } => {
-                if window_id == self.window.id() && self.gpu.is_some() {
-                    let scene = active_scene.as_mut().unwrap();
-                    match event {
-                        WindowEvent::CloseRequested | WindowEvent::Destroyed => {
-                            self.end(scene, control_flow);
-                        }
-                        WindowEvent::Resized(physical_size) => {
-                            self.resize(
-                                scene,
-                                (*physical_size as winit::dpi::PhysicalSize<u32>).into(),
-                            );
-                        }
-                        WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                            self.resize(
-                                scene,
-                                (**new_inner_size as winit::dpi::PhysicalSize<u32>).into(),
-                            );
-                        }
-                        _ => self.input.event(event),
+            match event {
+                #[cfg(target_os = "android")]
+                Event::Resumed => {
+                    if let Some(gpu) = self.gpu.as_mut() {
+                        gpu.resume(&self.window);
+                    } else {
+                        active_scene = Some(self.init());
                     }
                 }
+                _ => {}
             }
-            Event::RedrawRequested(window_id)
-                if window_id == self.window.id() && self.gpu.is_some() =>
-            {
-                if let Some(new_name) = self.scene_manager.new_active_scene() {
-                    active_scene = Some(
-                        self.scene_manager
-                            .swap_active_scene(active_scene.take().unwrap(), new_name),
-                    )
-                }
-                let scene = active_scene.as_mut().unwrap();
-                match self.update(scene) {
-                    Ok(_) => {}
-                    Err(wgpu::SurfaceError::Lost) => {
-                        self.resize(scene, self.window.inner_size().into())
-                    }
-                    Err(wgpu::SurfaceError::OutOfMemory) => {
-                        *control_flow = winit::event_loop::ControlFlow::Exit
-                    }
-                    Err(e) => error!("{:?}", e),
-                }
-                if self.end {
-                    self.end(scene, control_flow);
-                }
-            }
-            Event::MainEventsCleared => {
-                self.window.request_redraw();
-            }
-            _ => {}
         }
     });
 }
@@ -163,6 +163,7 @@ pub(crate) struct Shura {
     pub input: Input,
     pub end: bool,
     pub gpu: Gpu,
+    pub defaults: Defaults,
     #[cfg(feature = "gui")]
     pub gui: Gui,
     #[cfg(feature = "audio")]
@@ -170,57 +171,41 @@ pub(crate) struct Shura {
 }
 
 impl Shura {
-    fn new(events: &EventLoop<()>, init: F, scene_name: &'static str) {
-        let window = winit::window::WindowBuilder::new()
-            .with_inner_size(winit::dpi::PhysicalSize::new(INITIAL_WIDTH, INITIAL_HEIGHT))
-            .with_title(scene_name)
-            .build(events)
-            .unwrap();
-
-        Self {
-            window,
-            init: Some(init),
+    fn new<S: SceneController, F: 'static + FnMut(&mut Context) -> S>(
+        window: winit::window::Window,
+        scene_name: &'static str,
+        mut init: F,
+    ) -> (Self, BoxedScene) {
+        let gpu = pollster::block_on(Gpu::new(&window));
+        let defaults = Defaults::new(&gpu);
+        let window_size: Dimension<u32> = window.inner_size().into();
+        let window_ratio = window_size.width as f32 / window_size.height as f32;
+        let mut shura = Self {
             scene_manager: SceneManager::new(scene_name),
             frame_manager: FrameManager::new(),
             input: Input::new(),
             #[cfg(feature = "audio")]
             audio: rodio::OutputStream::try_default().unwrap(),
             end: false,
-            gpu: None,
             #[cfg(feature = "gui")]
-            gui: None,
-        }
-    }
+            gui: Gui::new(&window, &gpu),
+            window,
+            gpu: gpu,
+            defaults,
+        };
 
-    fn gpu(&mut self) -> BoxedScene {
-        let gpu = pollster::block_on(Gpu::new(&self.window));
-        let mut init = self.init.take().unwrap();
-        #[cfg(feature = "gui")]
-        {
-            self.gui = Some(Gui::new(&self.window, &gpu));
-        }
-        let window_size: Dimension<u32> = self.window.inner_size().into();
-        let window_ratio = window_size.width as f32 / window_size.height as f32;
-        let mut scene = Scene::new(&gpu, window_ratio, self.scene_manager.active_scene());
-        self.gpu = Some(gpu);
+        let mut scene = Scene::new(&shura.gpu, window_ratio, scene_name);
         let controller = {
-            let mut ctx = Context::new(&mut scene, self);
+            let mut ctx = Context::new(&mut scene, &mut shura);
             Box::new((init)(&mut ctx))
         };
-        return (controller, scene);
+
+        return (shura, (controller, scene));
     }
 
     fn end(&mut self, main_scene: &mut BoxedScene, cf: &mut winit::event_loop::ControlFlow) {
-        #[cfg(feature = "gui")]
-        {
-            let gui = self.gui.as_mut().unwrap();
-            gui.begin(self.frame_manager.total_time_duration());
-        }
-
-        {
-            let mut ctx = Context::new(&mut main_scene.1, self);
-            main_scene.0.end(&mut ctx);
-        }
+        let mut ctx = Context::new(&mut main_scene.1, self);
+        main_scene.0.end(&mut ctx);
         for (_, mut scene) in self.scene_manager.end_scenes() {
             let mut ctx = Context::new(&mut scene.1, self);
             scene.0.end(&mut ctx);
@@ -229,16 +214,13 @@ impl Shura {
     }
 
     fn resize(&mut self, main_scene: &mut BoxedScene, new_size: Dimension<u32>) {
-        let gpu = self.gpu.as_mut().unwrap();
-        let config_size = gpu.render_size_no_scale();
+        let config_size = self.gpu.render_size_no_scale();
         if new_size.width > 0 && new_size.height > 0 && new_size != config_size {
             self.scene_manager.resize(main_scene);
-            gpu.resize(new_size);
+            self.gpu.resize(new_size);
+            self.defaults.resize(&self.gpu);
             #[cfg(feature = "gui")]
-            {
-                let gui = self.gui.as_mut().unwrap();
-                gui.resize(&self.window, &new_size);
-            }
+            self.gui.resize(&self.window, &new_size);
         }
     }
 
@@ -327,6 +309,7 @@ impl Shura {
     }
 
     fn update(&mut self, scene: &mut BoxedScene) -> Result<(), wgpu::SurfaceError> {
+        self.frame_manager.update();
         let (scene_controller, scene) = (&mut scene.0, &mut scene.1);
         #[cfg(target_arch = "wasm32")]
         {
@@ -340,12 +323,9 @@ impl Shura {
         }
 
         #[cfg(feature = "gui")]
-        self.gui
-            .as_mut()
-            .unwrap()
-            .begin(self.frame_manager.total_time_duration());
+        self.gui.begin(self.frame_manager.total_time_duration());
 
-        let res = {
+        {
             let mut ctx = Context::new(scene, self);
 
             scene_controller.update(&mut ctx);
@@ -435,27 +415,27 @@ impl Shura {
             }
 
             ctx.buffer();
-            ctx.finish()
         };
 
-        let output = res.gpu.surface.get_current_texture()?;
+        scene.resized = false;
+        scene.switched = false;
+        let output = self.gpu.surface.get_current_texture()?;
         let output_view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
-        let mut encoder = res.gpu.encoder();
-        let defaults = &res.gpu.defaults;
-        let relative_cmaera = &defaults.relative_camera;
+        let mut encoder = self.gpu.encoder();
+        let relative_camera = &self.defaults.relative_camera;
 
         // Clear the texture
-        if let Some(clear_color) = res.clear_color {
+        if let Some(clear_color) = &scene.clear_color {
             Renderer::clear(
                 &mut encoder,
-                &defaults.target_view,
-                &defaults.target_msaa,
+                &self.defaults.target_view,
+                &self.defaults.target_msaa,
                 *clear_color,
             );
         }
-        for (_, set) in res.manager.active_components() {
+        for (_, set) in scene.component_manager.active_components() {
             if set.is_empty() {
                 continue;
             }
@@ -465,36 +445,38 @@ impl Shura {
                 let mut renderer = if config.postproccess == PostproccessOperation::SeperateLayer {
                     Renderer::clear(
                         &mut encoder,
-                        &defaults.layer_view,
-                        &defaults.layer_msaa,
+                        &self.defaults.layer_view,
+                        &self.defaults.layer_msaa,
                         Color::TRANSPARENT,
                     );
                     Renderer::new(
+                        &self.gpu,
+                        &self.defaults,
                         &mut encoder,
-                        &defaults.layer_view,
-                        &defaults.layer_msaa,
-                        res.gpu,
+                        &self.defaults.layer_view,
+                        &self.defaults.layer_msaa,
                     )
                 } else {
                     Renderer::new(
+                        &self.gpu,
+                        &self.defaults,
                         &mut encoder,
-                        &defaults.target_view,
-                        &defaults.target_msaa,
-                        res.gpu,
+                        &self.defaults.layer_view,
+                        &self.defaults.layer_msaa,
                     )
                 };
                 match &config.camera {
                     crate::CameraUse::World => {
-                        renderer.enable_camera(&res.camera);
+                        renderer.enable_camera(&scene.camera);
                     }
                     crate::CameraUse::Relative => {
-                        renderer.enable_camera(&res.gpu.defaults.relative_camera);
+                        renderer.enable_camera(&self.defaults.relative_camera);
                     }
                 }
                 match config.render {
                     RenderOperation::Solo => {
                         for path in set.paths() {
-                            let group = res.manager.group(path.group_index).unwrap();
+                            let group = scene.component_manager.group(path.group_index).unwrap();
                             let component_type = group.type_ref(path.type_index).unwrap();
                             let buffer = component_type.buffer();
                             renderer.set_instance_buffer(buffer);
@@ -511,7 +493,7 @@ impl Shura {
                     }
                     RenderOperation::Grouped => {
                         for path in set.paths() {
-                            let group = res.manager.group(path.group_index).unwrap();
+                            let group = scene.component_manager.group(path.group_index).unwrap();
                             let component_type = group.type_ref(path.type_index).unwrap();
                             let len = component_type.len();
                             let buffer = component_type.buffer();
@@ -531,51 +513,56 @@ impl Shura {
             }
 
             if let Some(sprite_name) = save_sprite.take() {
-                let mut sprite = Sprite::empty(&res.gpu, res.gpu.render_size());
-                sprite.write_current_render(&mut encoder, res.gpu);
-                res.saved_sprites.push((sprite_name, sprite));
+                let mut sprite = Sprite::empty(&self.gpu, self.gpu.render_size());
+                sprite.write_current_render(&self.gpu, &self.defaults, &mut encoder);
+                scene.saved_sprites.push((sprite_name, sprite));
             }
 
             if config.postproccess != PostproccessOperation::None {
                 'outer: for path in set.paths() {
-                    let group = res.manager.group(path.group_index).unwrap();
+                    let group = scene.component_manager.group(path.group_index).unwrap();
                     let component_type = group.type_ref(path.type_index).unwrap();
                     for (_, component) in component_type.iter() {
                         let postproccess = component.get_postproccess();
                         let instances = 0..1;
                         match config.postproccess {
                             PostproccessOperation::SameLayer => {
-                                let mut copy = Sprite::empty(res.gpu, *defaults.target.size());
-                                copy.write_current_render(&mut encoder, res.gpu);
-                                let mut renderer = Renderer::new_compute(
+                                let mut copy =
+                                    Sprite::empty(&self.gpu, *self.defaults.target.size());
+                                copy.write_current_render(&self.gpu, &self.defaults, &mut encoder);
+                                let mut renderer = Renderer::new(
+                                    &self.gpu,
+                                    &self.defaults,
                                     &mut encoder,
-                                    res.gpu,
-                                    &defaults.target_view,
-                                    &defaults.target_msaa,
-                                    &defaults.single_centered_instance,
-                                    relative_cmaera.uniform(),
+                                    &self.defaults.target_view,
+                                    &self.defaults.target_msaa,
                                 );
+                                renderer.use_uniform(self.defaults.relative_camera.uniform(), 0);
+                                renderer
+                                    .set_instance_buffer(&self.defaults.single_centered_instance);
                                 postproccess(
                                     &mut renderer,
                                     instances,
-                                    relative_cmaera.model(),
+                                    relative_camera.model(),
                                     &copy,
                                 );
                             }
                             PostproccessOperation::SeperateLayer => {
-                                let mut renderer = Renderer::new_compute(
+                                let mut renderer = Renderer::new(
+                                    &self.gpu,
+                                    &self.defaults,
                                     &mut encoder,
-                                    res.gpu,
-                                    &defaults.target_view,
-                                    &defaults.target_msaa,
-                                    &defaults.single_centered_instance,
-                                    relative_cmaera.uniform(),
+                                    &self.defaults.target_view,
+                                    &self.defaults.target_msaa,
                                 );
+                                renderer.use_uniform(self.defaults.relative_camera.uniform(), 0);
+                                renderer
+                                    .set_instance_buffer(&self.defaults.single_centered_instance);
                                 postproccess(
                                     &mut renderer,
                                     instances,
-                                    relative_cmaera.model(),
-                                    &defaults.layer,
+                                    relative_camera.model(),
+                                    &self.defaults.layer,
                                 );
                             }
                             PostproccessOperation::None => {}
@@ -585,34 +572,34 @@ impl Shura {
                 }
 
                 if let Some(sprite_name) = save_sprite.take() {
-                    let mut sprite = Sprite::empty(&res.gpu, res.gpu.render_size());
-                    sprite.write_current_render(&mut encoder, res.gpu);
-                    res.saved_sprites.push((sprite_name, sprite));
+                    let mut sprite = Sprite::empty(&self.gpu, self.gpu.render_size());
+                    sprite.write_current_render(&self.gpu, &self.defaults, &mut encoder);
+                    scene.saved_sprites.push((sprite_name, sprite));
                 }
             }
         }
 
         {
-            let mut renderer = Renderer::new_compute(
+            let mut renderer = Renderer::new(
+                &self.gpu,
+                &self.defaults,
                 &mut encoder,
-                res.gpu,
                 &output_view,
-                &defaults.present_msaa,
-                &defaults.single_centered_instance,
-                relative_cmaera.uniform(),
+                &self.defaults.present_msaa,
             );
-            renderer.render_sprite(relative_cmaera.model(), &defaults.target);
+            renderer.use_uniform(self.defaults.relative_camera.uniform(), 0);
+            renderer.set_instance_buffer(&self.defaults.single_centered_instance);
+            renderer.render_sprite(relative_camera.model(), &self.defaults.target);
             renderer.commit(&(0..1));
         }
         #[cfg(feature = "gui")]
         {
-            res.gui
-                .render(res.gpu, &mut encoder, &output_view, &res.window);
+            self.gui
+                .render(&self.gpu, &mut encoder, &output_view, &self.window);
         }
-        res.gpu.finish_enocder(encoder);
+        self.gpu.finish_enocder(encoder);
         output.present();
 
-        self.frame_manager.update();
         Ok(())
     }
 }

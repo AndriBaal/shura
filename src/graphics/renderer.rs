@@ -1,4 +1,4 @@
-use crate::{Camera, Color, Gpu, InstanceBuffer, Matrix, Model, Shader, Sprite, Uniform};
+use crate::{Camera, Color, Gpu, InstanceBuffer, Model, Shader, Sprite, Uniform, Defaults};
 
 /// Single index of an instance inside a [InstanceBuffer](crate::InstanceBuffer).
 pub type Instance = u32;
@@ -23,16 +23,18 @@ impl CopyInstance for Instances {
 pub struct Renderer<'a> {
     pub render_pass: wgpu::RenderPass<'a>,
     pub gpu: &'a Gpu,
-    indices: u32,
+    pub defaults: &'a Defaults,
     pub save_sprite: Option<String>,
+    indices: u32,
 }
 
 impl<'a> Renderer<'a> {
     pub(crate) fn new(
+        gpu: &'a Gpu,
+        defaults: &'a Defaults,
         encoder: &'a mut wgpu::CommandEncoder,
         target: &'a wgpu::TextureView,
         msaa: &'a wgpu::TextureView,
-        gpu: &'a Gpu,
     ) -> Renderer<'a> {
         let render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("render_pass"),
@@ -51,6 +53,7 @@ impl<'a> Renderer<'a> {
         Self {
             render_pass,
             gpu,
+            defaults,
             indices: 0,
             save_sprite: None,
         }
@@ -75,40 +78,6 @@ impl<'a> Renderer<'a> {
 
             depth_stencil_attachment: None,
         });
-    }
-
-    pub(crate) fn new_compute(
-        encoder: &'a mut wgpu::CommandEncoder,
-        gpu: &'a Gpu,
-        target: &'a wgpu::TextureView,
-        msaa: &'a wgpu::TextureView,
-        instances: &'a InstanceBuffer,
-        camera: &'a Uniform<Matrix>,
-    ) -> Renderer<'a> {
-        let render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("compute_pass"),
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: msaa,
-                resolve_target: Some(target),
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Load,
-                    store: true,
-                },
-            })],
-
-            depth_stencil_attachment: None,
-        });
-
-        let mut ctx = Self {
-            render_pass,
-            gpu,
-            indices: 0,
-            save_sprite: None,
-        };
-
-        ctx.use_uniform(camera, 0);
-        ctx.set_instance_buffer(instances);
-        return ctx;
     }
 
     /// Sets the instance buffer at the position 1
@@ -166,23 +135,23 @@ impl<'a> Renderer<'a> {
     /// ```
     pub fn use_time_uniform(&mut self, slot: u32) {
         self.render_pass
-            .set_bind_group(slot, self.gpu.defaults.times.bind_group(), &[]);
+            .set_bind_group(slot, self.defaults.times.bind_group(), &[]);
     }
 
     pub fn render_sprite(&mut self, model: &'a Model, sprite: &'a Sprite) {
-        self.use_shader(&self.gpu.defaults.sprite);
+        self.use_shader(&self.defaults.sprite);
         self.use_model(model);
         self.use_sprite(sprite, 1);
     }
 
     pub fn render_grey(&mut self, model: &'a Model, sprite: &'a Sprite) {
-        self.use_shader(&self.gpu.defaults.grey);
+        self.use_shader(&self.defaults.grey);
         self.use_model(model);
         self.use_sprite(sprite, 1);
     }
 
     pub fn render_blurred(&mut self, model: &'a Model, sprite: &'a Sprite) {
-        self.use_shader(&self.gpu.defaults.blurr);
+        self.use_shader(&self.defaults.blurr);
         self.use_model(model);
         self.use_sprite(sprite, 1);
     }
@@ -193,7 +162,7 @@ impl<'a> Renderer<'a> {
         sprite: &'a Sprite,
         color: &'a Uniform<Color>,
     ) {
-        self.use_shader(&self.gpu.defaults.colored_sprite);
+        self.use_shader(&self.defaults.colored_sprite);
         self.use_model(model);
         self.use_sprite(sprite, 1);
         self.use_color(color, 2);
@@ -205,22 +174,22 @@ impl<'a> Renderer<'a> {
         sprite: &'a Sprite,
         transparency: &'a Uniform<f32>,
     ) {
-        self.use_shader(&self.gpu.defaults.transparent);
+        self.use_shader(&self.defaults.transparent);
         self.use_model(model);
         self.use_sprite(sprite, 1);
         self.use_uniform(transparency, 2)
     }
 
     pub fn render_color(&mut self, model: &'a Model, color: &'a Uniform<Color>) {
-        self.use_shader(&self.gpu.defaults.color);
+        self.use_shader(&self.defaults.color);
         self.use_model(model);
         self.use_color(color, 1);
     }
 
     pub fn render_rainbow(&mut self, model: &'a Model) {
-        self.use_shader(&self.gpu.defaults.rainbow);
+        self.use_shader(&self.defaults.rainbow);
         self.use_model(model);
-        self.use_uniform(&self.gpu.defaults.times, 1);
+        self.use_uniform(&self.defaults.times, 1);
     }
 
     // pub fn render_cropped(&mut self, model: &'a Model) {

@@ -20,21 +20,6 @@ impl SceneManager {
         }
     }
 
-    pub(crate) fn new_active_scene(&mut self) -> Option<&'static str> {
-        return self.future_active_scene;
-    }
-
-    pub(crate) fn swap_active_scene(&mut self, old: BoxedScene, new: &'static str) -> BoxedScene {
-        self.future_active_scene = None;
-        let mut new_active = self
-            .scenes
-            .remove(new)
-            .expect(format!("The main scene {} doesn't exist", new).as_str());
-        new_active.1.switched = true;
-        self.scenes.insert(old.1.name, old);
-        return new_active;
-    }
-
     pub fn does_scene_exist(&self, name: &'static str) -> bool {
         self.curr_active_scene == name || self.scenes.contains_key(&name)
     }
@@ -86,10 +71,21 @@ impl SceneManager {
 
     #[inline]
     pub fn set_active_scene(&mut self, active_scene: &'static str) {
-        if self.scenes.contains_key(active_scene) {
+        if self.curr_active_scene == active_scene || self.scenes.contains_key(active_scene) {
             self.future_active_scene = Some(active_scene);
         } else {
             panic!("Cannot find the new active scene {}!", active_scene);
         }
+    }
+
+    pub(crate) fn apply_active_scene(&mut self) -> Option<BoxedScene> {
+        let new_active = self.future_active_scene.take()?;
+        let mut active = self
+            .scenes
+            .remove(new_active)
+            .expect(format!("The main scene {} doesn't exist", new_active).as_str());
+        self.curr_active_scene = new_active;
+        active.1.switched = true;
+        return Some(active);
     }
 }

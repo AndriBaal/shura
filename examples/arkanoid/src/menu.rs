@@ -7,7 +7,6 @@ impl SceneController for MenuScene {}
 impl MenuScene {
     pub fn new(ctx: &mut Context) -> Self {
         let button = StartButton::new(ctx);
-        ctx.set_vsync(true);
         ctx.create_component(None, button);
         return Self {};
     }

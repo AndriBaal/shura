@@ -166,7 +166,7 @@ impl Statistics {
         component.set_translation(Vector::new(-0.5, 0.5));
         Self {
             component,
-            model: ctx.create_model(ModelBuilder::cuboid(HALF_MODEL_SIZE).translation(Vector::new(
+            model: ctx.create_model(ModelBuilder::cuboid(HALF_MODEL_SIZE).vertex_translation(Vector::new(
                 HALF_MODEL_SIZE.width,
                 -HALF_MODEL_SIZE.height,
             ))),
@@ -198,7 +198,8 @@ impl ComponentController for Statistics {
         const SCALE: f32 = 70.0;
         const TEXT_COLOR: Color = Color::new(1.0, 1.0, 1.0, 1.0);
         self.text.write_text(
-            ctx,
+            ctx.gpu,
+            ctx.defaults,
             TextDescriptor {
                 font: None,
                 size: Dimension::new(500, 250),

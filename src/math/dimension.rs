@@ -204,46 +204,40 @@ macro_rules! impl_dimension {
         unsafe impl<T> bytemuck::Zeroable for $DimN<T> where T: Scalar{}
 
 
-        impl <T: Copy + Clone + Div<Output = T>>Div<T> for $DimN<T>
-        where T: Scalar {
+        impl <T: Copy + Clone + Div<Output = T>>Div<T> for $DimN<T> {
             type Output = $DimN<T>;
             fn div(self, v: T) -> $DimN<T> {
                 $DimN::new($(self.$field / v),+)
             }
         }
 
-        impl <T: Copy + Clone + Mul<Output = T>>Mul<T> for $DimN<T>
-        where T: Scalar {
+        impl <T: Copy + Clone + Mul<Output = T>>Mul<T> for $DimN<T> {
             type Output = $DimN<T>;
             fn mul(self, v: T) -> $DimN<T> {
                 $DimN::new($(self.$field * v),+)
             }
         }
 
-        impl <T: Copy + Clone + Rem<Output = T>> Rem<T> for $DimN<T>
-        where T: Scalar {
+        impl <T: Copy + Clone + Rem<Output = T>> Rem<T> for $DimN<T> {
             type Output = $DimN<T>;
             fn rem(self, v: T) -> $DimN<T> {
                 $DimN::new($(self.$field % v),+)
             }
         }
 
-        impl <T: Copy + Clone + MulAssign<T>> MulAssign<T> for $DimN<T>
-        where T: Scalar {
+        impl <T: Copy + Clone + MulAssign<T>> MulAssign<T> for $DimN<T> {
             fn mul_assign(&mut self, v: T) {
                 ($(self.$field *= v),+);
             }
         }
 
-        impl <T: Copy + Clone + DivAssign<T>> DivAssign<T> for $DimN<T>
-        where T: Scalar {
+        impl <T: Copy + Clone + DivAssign<T>> DivAssign<T> for $DimN<T> {
             fn div_assign(&mut self, v: T) {
                 ($(self.$field /= v),+);
             }
         }
 
-        impl <T: Copy + Clone + RemAssign<T>> RemAssign<T> for $DimN<T>
-        where T: Scalar {
+        impl <T: Copy + Clone + RemAssign<T>> RemAssign<T> for $DimN<T> {
             fn rem_assign(&mut self, v: T) {
                 ($(self.$field %= v),+);
             }

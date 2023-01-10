@@ -1,12 +1,11 @@
 #[cfg(feature = "text")]
-use crate::text::{CreateFontWgpu, Font};
+use crate::text::{CreateFont, Font};
 use crate::{
     Camera, Dimension, InstanceBuffer, Matrix, Shader, ShaderField, ShaderLang, Sprite, Uniform,
 };
 use log::info;
 use std::borrow::Cow;
 
-const SAMPLE_COUNT: u32 = 4;
 pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 1.0;
 
 /// Holds the connection to the GPU using wgpu. Also has some default buffers, layouts etc.
@@ -17,7 +16,8 @@ pub struct Gpu {
     pub surface: wgpu::Surface,
     pub config: wgpu::SurfaceConfiguration,
     pub adapter: wgpu::Adapter,
-    pub(crate) defaults: GpuDefaults,
+    render_scale: f32,
+    pub(crate) base: WgpuBase,
 }
 
 impl Gpu {
@@ -75,7 +75,7 @@ impl Gpu {
             present_mode: wgpu::PresentMode::AutoNoVsync,
             alpha_mode: wgpu::CompositeAlphaMode::Auto,
         };
-        let defaults = GpuDefaults::new(&device, &queue, &config);
+        let base = WgpuBase::new(&device);
 
         surface.configure(&device, &config);
         let adapter_info = adapter.get_info();
@@ -91,54 +91,17 @@ impl Gpu {
             config,
             device,
             adapter,
-            defaults
+            base,
+            render_scale: 1.0,
         };
 
         return gpu;
-    }
-
-    pub(crate) fn update_defaults(&mut self, total_time: f32, delta_time: f32) {
-        self.defaults.times.write_wgpu(&self.queue, [total_time, delta_time]);
     }
 
     pub(crate) fn resize(&mut self, size: Dimension<u32>) {
         self.config.width = size.width;
         self.config.height = size.height;
         self.surface.configure(&self.device, &self.config);
-        let render_size = self.render_size();
-        let defaults = &mut self.defaults;
-        defaults.present_msaa = Gpu::create_msaa(
-            size,
-            self.config.format,
-            &self.device,
-            defaults.sample_count,
-        );
-        defaults.target_msaa = Gpu::create_msaa(
-            render_size,
-            self.config.format,
-            &self.device,
-            defaults.sample_count,
-        );
-        defaults.layer_msaa = Gpu::create_msaa(
-            render_size,
-            self.config.format,
-            &self.device,
-            defaults.sample_count,
-        );
-        (defaults.target, defaults.target_view) = Gpu::create_target(
-            render_size,
-            self.config.format,
-            &self.device,
-            &defaults.texture_sampler,
-            &defaults.sprite_uniform,
-        );
-        (defaults.layer, defaults.layer_view) = Gpu::create_target(
-            render_size,
-            self.config.format,
-            &self.device,
-            &defaults.texture_sampler,
-            &defaults.sprite_uniform,
-        );
     }
 
     pub(crate) fn encoder(&self) -> wgpu::CommandEncoder {
@@ -163,56 +126,30 @@ impl Gpu {
         self.config.present_mode == wgpu::PresentMode::AutoVsync
     }
 
-    #[inline]
-    pub fn defaults(&self) -> &GpuDefaults {
-        &self.defaults
-    }
-
-    // Rendersize with applied render scale
+    /// Render size wiht applioed render_scale
     pub fn render_size(&self) -> Dimension<u32> {
-        Dimension::new(
-            (self.config.width as f32 * self.defaults.render_scale) as u32,
-            (self.config.height as f32 * self.defaults.render_scale) as u32,
-        )
+        (Dimension::new(self.config.width as f32, self.config.height as f32) * self.render_scale)
+            .into()
     }
 
-    // Rendersize without applied render scale
+    /// Render size wiht applioed render_scale  
     pub fn render_size_no_scale(&self) -> Dimension<u32> {
         Dimension::new(self.config.width, self.config.height)
     }
 
     pub fn render_scale(&self) -> f32 {
-        self.defaults.render_scale
-    }
-
-    #[inline]
-    pub fn set_render_scale(&mut self, scale: f32) {
-        self.defaults.render_scale = scale;
-        let frame_size = self.render_size();
-        let defaults = &mut self.defaults;
-        defaults.target_msaa = Gpu::create_msaa(
-            frame_size,
-            self.config.format,
-            &self.device,
-            defaults.sample_count,
-        );
-        (defaults.target, defaults.target_view) = Gpu::create_target(
-            frame_size,
-            self.config.format,
-            &self.device,
-            &defaults.texture_sampler,
-            &defaults.sprite_uniform,
-        );
-        (defaults.layer, defaults.layer_view) = Gpu::create_target(
-            frame_size,
-            self.config.format,
-            &self.device,
-            &defaults.texture_sampler,
-            &defaults.sprite_uniform,
-        );
+        self.render_scale
     }
 
     // Setters
+
+    #[inline]
+    pub fn set_render_scale(&mut self, defaults: &mut Defaults, scale: f32) {
+        self.render_scale = scale;
+        defaults.target_msaa = self.create_msaa();
+        (defaults.target, defaults.target_view) = self.create_target();
+        (defaults.layer, defaults.layer_view) = self.create_target();
+    }
 
     /// Tries to enable or disable vSync. The default is always vSync to be on.
     /// So every device supports vSync but not every device supports no vSync.
@@ -225,35 +162,28 @@ impl Gpu {
         self.surface.configure(&self.device, &self.config);
     }
 
-    fn create_msaa(
-        size: Dimension<u32>,
-        format: wgpu::TextureFormat,
-        device: &wgpu::Device,
-        sample_count: u32,
-    ) -> wgpu::TextureView {
+    fn create_msaa(&self) -> wgpu::TextureView {
+        let size = self.render_size();
+        let sample_count = self.base.sample_count;
         let multisampled_frame_descriptor = &wgpu::TextureDescriptor {
             size: size.into(),
             mip_level_count: 1,
             sample_count,
             dimension: wgpu::TextureDimension::D2,
-            format,
+            format: self.config.format,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             label: None,
         };
 
-        device
+        self.device
             .create_texture(multisampled_frame_descriptor)
             .create_view(&wgpu::TextureViewDescriptor::default())
     }
 
-    fn create_target(
-        size: Dimension<u32>,
-        format: wgpu::TextureFormat,
-        device: &wgpu::Device,
-        sampler: &wgpu::Sampler,
-        sprite_uniform: &wgpu::BindGroupLayout,
-    ) -> (Sprite, wgpu::TextureView) {
-        let target_texture = device.create_texture(&wgpu::TextureDescriptor {
+    fn create_target(&self) -> (Sprite, wgpu::TextureView) {
+        let format = self.config.format;
+        let size = self.render_size();
+        let target_texture = self.device.create_texture(&wgpu::TextureDescriptor {
             label: Some("Render Target"),
             size: size.into(),
             mip_level_count: 1,
@@ -268,8 +198,8 @@ impl Gpu {
 
         let target_view = target_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-        let target_bindgroup = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: sprite_uniform,
+        let target_bindgroup = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &self.base.sprite_uniform,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
@@ -277,7 +207,7 @@ impl Gpu {
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&sampler),
+                    resource: wgpu::BindingResource::Sampler(&self.base.texture_sampler),
                 },
             ],
             label: Some("texture_bind_group"),
@@ -288,54 +218,20 @@ impl Gpu {
     }
 }
 
-/// Holds default buffers, shaders, sprites and layouts needed by shura.
-pub struct GpuDefaults {
+/// Base Wgpu objects needed to create any further graphics object.
+pub struct WgpuBase {
+    pub sample_count: u32,
     pub sprite_uniform: wgpu::BindGroupLayout,
     pub vertex_uniform: wgpu::BindGroupLayout,
     pub fragment_uniform: wgpu::BindGroupLayout,
     pub vertex_wgsl: wgpu::ShaderModule,
     pub vertex_glsl: wgpu::ShaderModule,
     pub texture_sampler: wgpu::Sampler,
-
-    pub sprite: Shader,
-    pub rainbow: Shader,
-    pub color: Shader,
-    pub colored_sprite: Shader,
-    pub transparent: Shader,
-    pub grey: Shader,
-    pub blurr: Shader,
-
-    /// This field holds both total time and the frame time. Both are stored as f32 in the buffer.
-    /// The first f32 is the `total_time` and the second f32 is the `delta_time`. In the shader
-    /// the struct also needs 2 additional floats which are empty to match the 16 byte alignment
-    /// some devices need.
-    pub times: Uniform<[f32; 2]>,
-    pub single_centered_instance: InstanceBuffer,
-    #[cfg(feature = "text")]
-    pub default_font: Font,
-
-    pub sample_count: u32,
-    pub render_scale: f32,
-    pub present_msaa: wgpu::TextureView,
-    pub target_msaa: wgpu::TextureView,
-    pub target: Sprite,
-    pub target_view: wgpu::TextureView,
-    pub layer_msaa: wgpu::TextureView,
-
-    /// Additional layer for postproccessing
-    pub layer: Sprite,
-    pub layer_view: wgpu::TextureView,
-
-    /// Relative Camera
-    pub(crate) relative_camera: Camera,
 }
 
-impl GpuDefaults {
-    pub fn new(
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        config: &wgpu::SurfaceConfiguration,
-    ) -> Self {
+impl WgpuBase {
+    const SAMPLE_COUNT: u32 = 4;
+    pub fn new(device: &wgpu::Device) -> Self {
         let sprite_uniform = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[
                 wgpu::BindGroupLayoutEntry {
@@ -407,132 +303,116 @@ impl GpuDefaults {
             ..Default::default()
         });
 
-        let vertex_shaders = (&vertex_glsl, &vertex_wgsl);
-        let layouts = (&vertex_uniform, &fragment_uniform, &sprite_uniform);
-        let format = config.format;
-
-        let sprite = Shader::new_wgpu(
-            device,
-            format,
-            SAMPLE_COUNT,
-            vertex_shaders,
-            layouts,
-            include_str!("../../res/shader/sprite.wgsl"),
-            ShaderLang::WGSL,
-            &[ShaderField::Sprite],
-        );
-
-        let rainbow = Shader::new_wgpu(
-            device,
-            format,
-            SAMPLE_COUNT,
-            vertex_shaders,
-            layouts,
-            include_str!("../../res/shader/rainbow.wgsl"),
-            ShaderLang::WGSL,
-            &[ShaderField::Uniform],
-        );
-
-        let color = Shader::new_wgpu(
-            device,
-            format,
-            SAMPLE_COUNT,
-            vertex_shaders,
-            layouts,
-            include_str!("../../res/shader/color.wgsl"),
-            ShaderLang::WGSL,
-            &[ShaderField::Uniform],
-        );
-
-        let colored_sprite = Shader::new_wgpu(
-            device,
-            format,
-            SAMPLE_COUNT,
-            vertex_shaders,
-            layouts,
-            include_str!("../../res/shader/colored_sprite.glsl"),
-            ShaderLang::GLSL,
-            &[ShaderField::Sprite, ShaderField::Uniform],
-        );
-
-        let grey = Shader::new_wgpu(
-            device,
-            format,
-            SAMPLE_COUNT,
-            vertex_shaders,
-            layouts,
-            include_str!("../../res/shader/grey.wgsl"),
-            ShaderLang::WGSL,
-            &[ShaderField::Sprite],
-        );
-
-        let blurr = Shader::new_wgpu(
-            device,
-            format,
-            SAMPLE_COUNT,
-            vertex_shaders,
-            layouts,
-            include_str!("../../res/shader/blurr.wgsl"),
-            ShaderLang::WGSL,
-            &[ShaderField::Sprite],
-        );
-
-        let transparent = Shader::new_wgpu(
-            device,
-            format,
-            SAMPLE_COUNT,
-            vertex_shaders,
-            layouts,
-            include_str!("../../res/shader/transparent_sprite.wgsl"),
-            ShaderLang::WGSL,
-            &[ShaderField::Sprite, ShaderField::Uniform],
-        );
-
-        let frame_size = Dimension::new(config.width, config.height);
-        let target_msaa = Gpu::create_msaa(frame_size, config.format, &device, SAMPLE_COUNT);
-        let present_msaa = Gpu::create_msaa(frame_size, config.format, &device, SAMPLE_COUNT);
-        let layer_msaa = Gpu::create_msaa(frame_size, config.format, &device, SAMPLE_COUNT);
-        let (target, target_view) = Gpu::create_target(
-            frame_size,
-            config.format,
-            &device,
-            &texture_sampler,
-            &sprite_uniform,
-        );
-        let (layer, layer_view) = Gpu::create_target(
-            frame_size,
-            config.format,
-            &device,
-            &texture_sampler,
-            &sprite_uniform,
-        );
-        let relative_camera = Camera::new_wgpu(
-            device,
-            queue,
-            &vertex_uniform,
-            Default::default(),
-            1.0,
-            RELATIVE_CAMERA_SIZE,
-        );
-        let times = Uniform::new_wgpu(device, queue, &fragment_uniform, [0.0, 0.0]);
-        let single_centered_instance =
-            InstanceBuffer::new_wgpu(device, &[Matrix::new(Default::default())]);
-
-        #[cfg(feature = "text")]
-        let default_font = Font::new_font_wgpu(
-            device,
-            config.format,
-            include_bytes!("../../res/font/open_sans_bold.ttf"),
-        );
-
         Self {
+            sample_count: Self::SAMPLE_COUNT,
             sprite_uniform,
             vertex_uniform,
             fragment_uniform,
             vertex_wgsl,
             vertex_glsl,
             texture_sampler,
+        }
+    }
+}
 
+/// Holds default buffers, shaders, sprites and layouts needed by shura.
+pub struct Defaults {
+    pub sprite: Shader,
+    pub rainbow: Shader,
+    pub color: Shader,
+    pub colored_sprite: Shader,
+    pub transparent: Shader,
+    pub grey: Shader,
+    pub blurr: Shader,
+
+    /// This field holds both total time and the frame time. Both are stored as f32 in the buffer.
+    /// The first f32 is the `total_time` and the second f32 is the `delta_time`. In the shader
+    /// the struct also needs 2 additional floats which are empty to match the 16 byte alignment
+    /// some devices need.
+    pub times: Uniform<[f32; 2]>,
+    pub single_centered_instance: InstanceBuffer,
+    #[cfg(feature = "text")]
+    pub default_font: Font,
+
+    pub present_msaa: wgpu::TextureView,
+    pub target_msaa: wgpu::TextureView,
+    pub target: Sprite,
+    pub target_view: wgpu::TextureView,
+    pub layer_msaa: wgpu::TextureView,
+
+    /// Additional layer for postproccessing
+    pub layer: Sprite,
+    pub layer_view: wgpu::TextureView,
+
+    /// Relative Camera
+    pub(crate) relative_camera: Camera,
+}
+
+impl Defaults {
+    pub(crate) fn new(gpu: &Gpu) -> Self {
+        let sprite = Shader::new(
+            gpu,
+            include_str!("../../res/shader/sprite.wgsl"),
+            ShaderLang::WGSL,
+            &[ShaderField::Sprite],
+        );
+
+        let rainbow = Shader::new(
+            gpu,
+            include_str!("../../res/shader/rainbow.wgsl"),
+            ShaderLang::WGSL,
+            &[ShaderField::Uniform],
+        );
+
+        let color = Shader::new(
+            gpu,
+            include_str!("../../res/shader/color.wgsl"),
+            ShaderLang::WGSL,
+            &[ShaderField::Uniform],
+        );
+
+        let colored_sprite = Shader::new(
+            gpu,
+            include_str!("../../res/shader/colored_sprite.glsl"),
+            ShaderLang::GLSL,
+            &[ShaderField::Sprite, ShaderField::Uniform],
+        );
+
+        let grey = Shader::new(
+            gpu,
+            include_str!("../../res/shader/grey.wgsl"),
+            ShaderLang::WGSL,
+            &[ShaderField::Sprite],
+        );
+
+        let blurr = Shader::new(
+            gpu,
+            include_str!("../../res/shader/blurr.wgsl"),
+            ShaderLang::WGSL,
+            &[ShaderField::Sprite],
+        );
+
+        let transparent = Shader::new(
+            gpu,
+            include_str!("../../res/shader/transparent_sprite.wgsl"),
+            ShaderLang::WGSL,
+            &[ShaderField::Sprite, ShaderField::Uniform],
+        );
+
+        let target_msaa = gpu.create_msaa();
+        let present_msaa = gpu.create_msaa();
+        let layer_msaa = gpu.create_msaa();
+        let (target, target_view) = gpu.create_target();
+        let (layer, layer_view) = gpu.create_target();
+        let relative_camera = Camera::new(gpu, Default::default(), 1.0, RELATIVE_CAMERA_SIZE);
+        let times = Uniform::new(gpu, [0.0, 0.0]);
+        let single_centered_instance = InstanceBuffer::new(gpu, &[Matrix::new(Default::default())]);
+
+        #[cfg(feature = "text")]
+        let default_font =
+            Font::new_simple(gpu, include_bytes!("../../res/font/open_sans_bold.ttf"));
+
+        Self {
             sprite,
             rainbow,
             color,
@@ -545,8 +425,6 @@ impl GpuDefaults {
             #[cfg(feature = "text")]
             default_font,
 
-            sample_count: SAMPLE_COUNT,
-            render_scale: 1.0,
             target_msaa,
             present_msaa,
             layer_msaa,
@@ -557,5 +435,17 @@ impl GpuDefaults {
 
             relative_camera,
         }
+    }
+
+    pub(crate) fn buffer(&mut self, gpu: &Gpu, total_time: f32, delta_time: f32) {
+        self.times.write(&gpu, [total_time, delta_time]);
+    }
+
+    pub(crate) fn resize(&mut self, gpu: &Gpu) {
+        self.present_msaa = gpu.create_msaa();
+        self.target_msaa = gpu.create_msaa();
+        self.layer_msaa = gpu.create_msaa();
+        (self.target, self.target_view) = gpu.create_target();
+        (self.layer, self.layer_view) = gpu.create_target();
     }
 }

@@ -8,11 +8,7 @@ pub struct InstanceBuffer {
 
 impl InstanceBuffer {
     pub fn new(gpu: &Gpu, data: &[Matrix]) -> Self {
-        Self::new_wgpu(&gpu.device, data)
-    }
-
-    pub(crate) fn new_wgpu(device: &wgpu::Device, data: &[Matrix]) -> Self {
-        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let buffer = gpu.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("instance_buffer"),
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             contents: bytemuck::cast_slice(data),

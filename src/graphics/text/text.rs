@@ -1,6 +1,6 @@
 use crate::{
     text::{DefaultLineBreaker, Font, LineBreaker, Text},
-    Color, Context, Dimension, Sprite, Vector,
+    Color, Defaults, Dimension, Gpu, Sprite, Vector,
 };
 
 pub struct TextSection<'a> {
@@ -40,26 +40,25 @@ impl<'a> Default for TextSection<'a> {
 }
 
 pub trait CreateText {
-    fn new_text(ctx: &mut Context, descriptor: TextDescriptor) -> Sprite;
-    fn write_text(&mut self, ctx: &mut Context, descriptor: TextDescriptor);
+    fn new_text(gpu: &Gpu, defaults: &mut Defaults, descriptor: TextDescriptor) -> Sprite;
+    fn write_text(&mut self, gpu: &Gpu, defaults: &mut Defaults, descriptor: TextDescriptor);
 }
 
 impl CreateText for Sprite {
-    fn new_text(ctx: &mut Context, descriptor: TextDescriptor) -> Sprite {
-        let mut sprite = Sprite::empty(ctx.gpu, descriptor.size);
-        sprite.write_text(ctx, descriptor);
+    fn new_text(gpu: &Gpu, defaults: &mut Defaults, descriptor: TextDescriptor) -> Sprite {
+        let mut sprite = Sprite::empty(gpu, descriptor.size);
+        sprite.write_text(gpu, defaults, descriptor);
         return sprite;
     }
 
     /// The text is written on the current sprite.
-    fn write_text(&mut self, ctx: &mut Context, descriptor: TextDescriptor) {
+    fn write_text(&mut self, gpu: &Gpu, defaults: &mut Defaults, descriptor: TextDescriptor) {
         if descriptor.size != *self.size() {
-            *self = Sprite::empty(ctx.gpu, descriptor.size);
+            *self = Sprite::empty(gpu, descriptor.size);
         }
 
-        let gpu = &mut ctx.gpu;
         let mut staging_belt = wgpu::util::StagingBelt::new(1024);
-        let font = descriptor.font.unwrap_or(&mut gpu.defaults.default_font);
+        let font = descriptor.font.unwrap_or(&mut defaults.default_font);
         let mut encoder = gpu
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {

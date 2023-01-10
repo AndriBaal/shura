@@ -1,7 +1,7 @@
-use image::GenericImageView;
 use crate::{
-    Color, Dimension, Gpu, InstanceBuffer, Instances, Isometry, Matrix, Renderer, Uniform,
+    Color, Defaults, Dimension, Gpu, InstanceBuffer, Instances, Isometry, Matrix, Renderer, Uniform,
 };
+use image::GenericImageView;
 use std::num::NonZeroU32;
 
 macro_rules! Where {
@@ -35,6 +35,7 @@ impl Sprite {
     /// Procedural rendered Sprite
     pub fn computed<'caller, F>(
         gpu: &Gpu,
+        defaults: &Defaults,
         instances: &InstanceBuffer,
         fov: Dimension<f32>,
         camera: Isometry<f32>,
@@ -48,6 +49,7 @@ impl Sprite {
         let target = Sprite::empty(gpu, texture_size);
         target.draw(
             gpu,
+            defaults,
             instances,
             fov,
             camera,
@@ -61,7 +63,7 @@ impl Sprite {
     pub fn empty(gpu: &Gpu, size: Dimension<u32>) -> Self {
         assert!(size.width != 0 && size.height != 0);
         let (format, texture) = Self::create_texture(gpu, size);
-        let bind_group = Self::create_group(gpu, &texture);
+        let bind_group = Self::create_bind_group(gpu, &texture);
         Self {
             size,
             format,
@@ -103,7 +105,7 @@ impl Sprite {
             }
         };
 
-        let bind_group = Self::create_group(gpu, &texture);
+        let bind_group = Self::create_bind_group(gpu, &texture);
         Self {
             bind_group,
             format,
@@ -115,6 +117,7 @@ impl Sprite {
     pub fn draw<'caller, F>(
         &self,
         gpu: &Gpu,
+        defaults: &Defaults,
         instances: &InstanceBuffer,
         fov: Dimension<f32>,
         camera: Isometry<f32>,
@@ -127,18 +130,13 @@ impl Sprite {
         let mut encoder = gpu.encoder();
         let proj = Matrix::projection(fov);
         let view = Matrix::view(camera);
-        let camera = Uniform::new_wgpu(
-            &gpu.device,
-            &gpu.queue,
-            &gpu.defaults.vertex_uniform,
-            view * proj,
-        );
+        let camera = Uniform::new_vertex(&gpu, view * proj);
         let target_view = self.texture.create_view(&Default::default());
 
         let multisampled_frame_descriptor = &wgpu::TextureDescriptor {
             size: texture_size.into(),
             mip_level_count: 1,
-            sample_count: gpu.defaults.sample_count,
+            sample_count: gpu.base.sample_count,
             dimension: wgpu::TextureDimension::D2,
             format: gpu.config.format,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
@@ -153,25 +151,31 @@ impl Sprite {
             Renderer::clear(&mut encoder, &target_view, &msaa, color);
         }
         {
-            let mut renderer =
-                Renderer::new_compute(&mut encoder, gpu, &target_view, &msaa, instances, &camera);
+            let mut renderer = Renderer::new(gpu, defaults, &mut encoder, &target_view, &msaa);
+            renderer.use_uniform(&camera, 0);
+            renderer.set_instance_buffer(&defaults.single_centered_instance);
             compute(&mut renderer, 0..instances.instances(), []);
         }
         gpu.finish_enocder(encoder);
     }
 
-    pub(crate) fn write_current_render(&mut self, encoder: &mut wgpu::CommandEncoder, gpu: &Gpu) {
-        let defaults = &gpu.defaults;
+    pub(crate) fn write_current_render(
+        &mut self,
+        gpu: &Gpu,
+        defaults: &Defaults,
+        encoder: &mut wgpu::CommandEncoder,
+    ) {
         let target_view = self.texture.create_view(&Default::default());
-        let relative_camera = &gpu.defaults.relative_camera;
-        let mut renderer = Renderer::new_compute(
-            encoder,
+        let relative_camera = &defaults.relative_camera;
+        let mut renderer = Renderer::new(
             gpu,
+            defaults,
+            encoder,
             &target_view,
-            &gpu.defaults.target_msaa,
-            &defaults.single_centered_instance,
-            relative_camera.uniform(),
+            &defaults.target_msaa,
         );
+        renderer.use_uniform(defaults.relative_camera.uniform(), 0);
+        renderer.set_instance_buffer(&defaults.single_centered_instance);
         renderer.render_sprite(relative_camera.model(), &defaults.target);
         renderer.commit(&(0..1));
     }
@@ -210,10 +214,10 @@ impl Sprite {
         return (gpu.config.format, texture);
     }
 
-    pub(crate) fn create_group(gpu: &Gpu, texture: &wgpu::Texture) -> wgpu::BindGroup {
+    pub(crate) fn create_bind_group(gpu: &Gpu, texture: &wgpu::Texture) -> wgpu::BindGroup {
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
         let bind_group = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &gpu.defaults.sprite_uniform,
+            layout: &gpu.base.sprite_uniform,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
@@ -221,7 +225,7 @@ impl Sprite {
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&gpu.defaults.texture_sampler),
+                    resource: wgpu::BindingResource::Sampler(&gpu.base.texture_sampler),
                 },
             ],
             label: Some("texture_bind_group"),

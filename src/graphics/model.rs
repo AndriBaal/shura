@@ -206,7 +206,7 @@ impl<'a> Iterator for WrapIter<'a> {
 impl ModelBuilder {
     const DEFAULT_OFFSET: Vector<f32> = Vector::new(0.0, 0.0);
     const DEFAULT_ROTATION: f32 = 0.0;
-    const DEFAULT_SCALE: Vector<f32> = Vector::new(0.0, 0.0);
+    const DEFAULT_SCALE: Vector<f32> = Vector::new(1.0, 1.0);
     fn round_vertices(vertices: Vec<Vertex>, border_radius: f32, resolution: u32) -> Vec<Vertex> {
         let pi_cos = PI.cos();
         let pi_sin = PI.sin();
@@ -630,7 +630,7 @@ impl ModelBuilder {
         }
 
         let angle = vertex_offset.rotation.angle();
-        if angle == Self::DEFAULT_ROTATION {
+        if angle != Self::DEFAULT_ROTATION {
             for v in vertices.iter_mut() {
                 v.pos = rotate_point_around_origin(
                     Vector::new(0.0, 0.0),
@@ -654,7 +654,7 @@ impl ModelBuilder {
         }
 
         let angle = tex_coord_offset.rotation.angle();
-        if angle == Self::DEFAULT_ROTATION {
+        if angle != Self::DEFAULT_ROTATION {
             for v in vertices.iter_mut() {
                 v.tex_coords = rotate_point_around_origin(
                     Vector::new(0.0, 0.0),
@@ -672,10 +672,6 @@ impl ModelBuilder {
     }
 
     pub fn build(self, gpu: &Gpu) -> Model {
-        self.build_wgpu(&gpu.device)
-    }
-
-    pub(crate) fn build_wgpu(&self, device: &wgpu::Device) -> Model {
         let mut vertices = self.vertices.clone();
         Self::compute_modifed_vertices(
             &mut vertices,
@@ -685,13 +681,13 @@ impl ModelBuilder {
             self.tex_coord_scale,
         );
 
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let vertex_buffer = gpu.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("vertex_buffer"),
             contents: bytemuck::cast_slice(&self.vertices[..]),
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         });
 
-        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let index_buffer = gpu.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("index_buffer"),
             contents: bytemuck::cast_slice(&self.indices[..]),
             usage: wgpu::BufferUsages::INDEX,
@@ -719,10 +715,6 @@ pub struct Model {
 impl Model {
     pub fn new(gpu: &Gpu, builder: ModelBuilder) -> Self {
         builder.build(gpu)
-    }
-
-    pub(crate) fn new_wgpu(device: &wgpu::Device, builder: ModelBuilder) -> Self {
-        builder.build_wgpu(device)
     }
 
     pub fn write(&mut self, gpu: &Gpu, vertices: &[Vertex], indices: &[Index]) {

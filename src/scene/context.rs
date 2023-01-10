@@ -4,7 +4,7 @@ use crate::{
     ComponentSetMut, CursorManager, Dimension, DynamicComponent, DynamicScene, FrameManager, Gpu,
     Input, InputEvent, InputTrigger, InstanceBuffer, Instances, Isometry, Key, Matrix, Model,
     ModelBuilder, Modifier, Renderer, Rotation, Scene, SceneController, SceneManager, Shader,
-    ShaderField, ShaderLang, Shura, Sprite, SpriteSheet, Touch, Uniform, Vector,
+    ShaderField, ShaderLang, Shura, Sprite, SpriteSheet, Touch, Uniform, Vector, Defaults,
 };
 use winit::window::Window;
 
@@ -36,18 +36,6 @@ macro_rules! Where {
     };
 }
 
-pub(crate) struct RenderResources<'a> {
-    #[cfg(feature = "gui")]
-    pub gui: &'a mut Gui,
-    #[cfg(feature = "gui")]
-    pub window: &'a Window,
-    pub clear_color: &'a Option<Color>,
-    pub gpu: &'a Gpu,
-    pub manager: &'a ComponentManager,
-    pub camera: &'a Camera,
-    pub saved_sprites: &'a mut Vec<(String, Sprite)>,
-}
-
 /// Context to communicate with the game engine to access components, scenes, camera, physics and many more.
 pub struct Context<'a> {
     // Scene
@@ -69,6 +57,7 @@ pub struct Context<'a> {
     pub window: &'a mut Window,
     pub input: &'a mut Input,
     pub gpu: &'a mut Gpu,
+    pub defaults: &'a mut Defaults,
     #[cfg(feature = "gui")]
     pub gui: &'a mut Gui,
     #[cfg(feature = "audio")]
@@ -78,9 +67,9 @@ pub struct Context<'a> {
 }
 
 impl<'a> Context<'a> {
-    pub(crate) fn new<S: SceneController, F: FnMut(&mut Context) -> S>(
+    pub(crate) fn new(
         scene: &'a mut Scene,
-        shura: &'a mut Shura<S, F>,
+        shura: &'a mut Shura,
     ) -> Context<'a> {
         let window = &mut shura.window;
         let input = &mut shura.input;
@@ -116,13 +105,14 @@ impl<'a> Context<'a> {
             frame_manager: &mut shura.frame_manager,
             scene_manager: &mut shura.scene_manager,
             end: &mut shura.end,
-            gpu: shura.gpu.as_mut().unwrap(),
+            gpu: &mut shura.gpu,
+            defaults: &mut shura.defaults,
             #[cfg(feature = "audio")]
             audio: &mut shura.audio.0,
             #[cfg(feature = "audio")]
             audio_handle: &mut shura.audio.1,
             #[cfg(feature = "gui")]
-            gui: shura.gui.as_mut().unwrap(),
+            gui: &mut shura.gui,
         }
     }
 
@@ -134,6 +124,7 @@ impl<'a> Context<'a> {
         window: &'a mut Window,
         input: &'a mut Input,
         gpu: &'a mut Gpu,
+        defaults: &'a mut Defaults,
         #[cfg(feature = "gui")] gui: &'a mut Gui,
         #[cfg(feature = "audio")] audio: &'a mut OutputStream,
         #[cfg(feature = "audio")] audio_handle: &'a mut OutputStreamHandle,
@@ -156,6 +147,7 @@ impl<'a> Context<'a> {
             scene_manager,
             end,
             gpu,
+            defaults,
             #[cfg(feature = "audio")]
             audio,
             #[cfg(feature = "audio")]
@@ -168,23 +160,6 @@ impl<'a> Context<'a> {
     #[inline]
     pub(crate) fn copy_active_components(&self) -> Vec<ComponentCluster> {
         self.component_manager.copy_active_components()
-    }
-
-    #[inline]
-    pub(crate) fn finish(self) -> RenderResources<'a> {
-        *self.resized = false;
-        *self.switched = false;
-        return RenderResources {
-            clear_color: self.clear_color,
-            gpu: self.gpu,
-            manager: self.component_manager,
-            #[cfg(feature = "gui")]
-            window: self.window,
-            #[cfg(feature = "gui")]
-            gui: self.gui,
-            camera: self.camera,
-            saved_sprites: self.saved_sprites,
-        };
     }
 
     #[inline]
@@ -232,7 +207,7 @@ impl<'a> Context<'a> {
             }
         }
 
-        self.component_manager.update_sets(&self.camera);
+        self.component_manager.update_sets(self.camera);
     }
 
     #[inline]
@@ -243,7 +218,8 @@ impl<'a> Context<'a> {
             #[cfg(feature = "physics")]
             self.world,
         );
-        self.gpu.update_defaults(
+        self.defaults.buffer(
+            self.gpu,
             self.frame_manager.total_time(),
             self.frame_manager.delta_time(),
         );
@@ -278,7 +254,7 @@ impl<'a> Context<'a> {
     #[inline]
     #[cfg(feature = "audio")]
     pub fn create_sink(&self) -> Sink {
-        Sink::try_new(&self.audio_handle).unwrap()
+        Sink::try_new(self.audio_handle).unwrap()
     }
 
     #[inline]
@@ -319,13 +295,13 @@ impl<'a> Context<'a> {
     #[inline]
     #[cfg(feature = "text")]
     pub fn create_font(&self, bytes: &'static [u8]) -> Font {
-        Font::new_font(self.gpu, bytes)
+        Font::new_simple(self.gpu, bytes)
     }
 
     #[inline]
     #[cfg(feature = "text")]
     pub fn create_text(&mut self, descriptor: TextDescriptor) -> Sprite {
-        Sprite::new_text(self, descriptor)
+        Sprite::new_text(self.gpu, self.defaults, descriptor)
     }
 
     #[inline]
@@ -344,8 +320,8 @@ impl<'a> Context<'a> {
     }
 
     #[inline]
-    pub fn create_custom_shader(&self, descriptor: &wgpu::RenderPipelineDescriptor) -> Shader {
-        Shader::new_custom(self.gpu, descriptor)
+    pub fn create_custom_shader(&self, shader_lang: ShaderLang, descriptor: &wgpu::RenderPipelineDescriptor) -> Shader {
+        Shader::new_custom(self.gpu, shader_lang, descriptor)
     }
 
     #[inline]
@@ -369,6 +345,7 @@ impl<'a> Context<'a> {
     {
         return Sprite::computed(
             self.gpu,
+            &self.defaults,
             instances,
             fov,
             camera,
@@ -425,6 +402,7 @@ impl<'a> Context<'a> {
             self.window,
             self.input,
             self.gpu,
+            self.defaults,
             #[cfg(feature = "gui")]
             self.gui,
             #[cfg(feature = "audio")]
@@ -448,6 +426,7 @@ impl<'a> Context<'a> {
                 self.window,
                 self.input,
                 self.gpu,
+                self.defaults,
                 #[cfg(feature = "gui")]
                 self.gui,
                 #[cfg(feature = "audio")]
@@ -1002,7 +981,7 @@ impl<'a> Context<'a> {
 
     #[inline]
     pub fn set_render_scale(&mut self, scale: f32) {
-        self.gpu.set_render_scale(scale)
+        self.gpu.set_render_scale(self.defaults, scale)
     }
 
     #[inline]
