@@ -1,10 +1,13 @@
+use std::{any::TypeId, collections::BTreeMap};
+
 use crate::{
     data::arena::ArenaEntry, ArenaPath, Camera, Color, ComponentCluster, ComponentController,
     ComponentGroup, ComponentGroupDescriptor, ComponentHandle, ComponentManager, ComponentSet,
-    ComponentSetMut, CursorManager, Dimension, DynamicComponent, DynamicScene, FrameManager, Gpu,
-    Input, InputEvent, InputTrigger, InstanceBuffer, Instances, Isometry, Key, Matrix, Model,
-    ModelBuilder, Modifier, Renderer, Rotation, Scene, SceneController, SceneManager, Shader,
-    ShaderField, ShaderLang, Shura, Sprite, SpriteSheet, Touch, Uniform, Vector, Defaults,
+    ComponentSetMut, CursorManager, Defaults, Dimension, DynamicComponent, DynamicScene,
+    FrameManager, Gpu, Input, InputEvent, InputTrigger, InstanceBuffer, Instances, Isometry, Key,
+    Matrix, Model, ModelBuilder, Modifier, Renderer, Rotation, Scene, SceneController,
+    SceneManager, Shader, ShaderField, ShaderLang, Shura, Sprite, SpriteSheet, Touch, Uniform,
+    Vector,
 };
 use winit::window::Window;
 
@@ -25,7 +28,7 @@ use crate::text::{CreateFont, CreateText, Font, TextDescriptor};
 #[cfg(feature = "gamepad")]
 use crate::gamepad::*;
 
-use instant::Duration;
+use instant::{Duration, Instant};
 use rustc_hash::FxHashMap;
 
 macro_rules! Where {
@@ -67,10 +70,7 @@ pub struct Context<'a> {
 }
 
 impl<'a> Context<'a> {
-    pub(crate) fn new(
-        scene: &'a mut Scene,
-        shura: &'a mut Shura,
-    ) -> Context<'a> {
+    pub(crate) fn new(scene: &'a mut Scene, shura: &'a mut Shura) -> Context<'a> {
         let window = &mut shura.window;
         let input = &mut shura.input;
 
@@ -158,8 +158,22 @@ impl<'a> Context<'a> {
     }
 
     #[inline]
-    pub(crate) fn copy_active_components(&self) -> Vec<ComponentCluster> {
-        self.component_manager.copy_active_components()
+    pub(crate) fn borrow_active_components(&mut self) -> BTreeMap<(i16, TypeId), ComponentCluster> {
+        self.component_manager.borrow_active_components()
+    }
+
+    #[inline]
+    pub(crate) fn active_components(&mut self) -> &BTreeMap<(i16, TypeId), ComponentCluster> {
+        self.component_manager.active_components()
+    }
+
+    #[inline]
+    pub(crate) fn return_active_components(
+        &mut self,
+        active_components: BTreeMap<(i16, TypeId), ComponentCluster>,
+    ) {
+        self.component_manager
+            .return_active_components(active_components)
     }
 
     #[inline]
@@ -320,7 +334,11 @@ impl<'a> Context<'a> {
     }
 
     #[inline]
-    pub fn create_custom_shader(&self, shader_lang: ShaderLang, descriptor: &wgpu::RenderPipelineDescriptor) -> Shader {
+    pub fn create_custom_shader(
+        &self,
+        shader_lang: ShaderLang,
+        descriptor: &wgpu::RenderPipelineDescriptor,
+    ) -> Shader {
         Shader::new_custom(self.gpu, shader_lang, descriptor)
     }
 
@@ -586,6 +604,16 @@ impl<'a> Context<'a> {
     }
 
     #[inline]
+    pub const fn start_time(&self) -> Instant {
+        self.frame_manager.start_time()
+    }
+
+    #[inline]
+    pub const fn update_time(&self) -> Instant {
+        self.frame_manager.update_time()
+    }
+
+    #[inline]
     pub const fn render_components(&self) -> bool {
         self.component_manager.render_components()
     }
@@ -791,13 +819,13 @@ impl<'a> Context<'a> {
     }
 
     #[inline]
-    pub fn delta_time_duration(&self) -> Duration {
-        self.frame_manager.delta_time_duration()
+    pub fn total_time(&self) -> f32 {
+        self.frame_manager.total_time()
     }
 
     #[inline]
-    pub fn total_time(&self) -> f32 {
-        self.frame_manager.total_time()
+    pub fn delta_time_duration(&self) -> Duration {
+        self.frame_manager.delta_time_duration()
     }
 
     #[inline]

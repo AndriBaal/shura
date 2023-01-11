@@ -7,6 +7,7 @@ use crate::{
     Sprite,
 };
 use downcast_rs::*;
+use instant::Duration;
 
 /// Dynamic component, that can be downcasted to any [ComponentController](crate::ComponentController)
 /// using downcast_ref or downcast_mut.
@@ -276,7 +277,9 @@ pub enum UpdateOperation {
     None,
     EveryFrame,
     EveryNFrame(u64),
+    AfterDuration(Duration)
 }
+
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 /// Defines the postproccess operations

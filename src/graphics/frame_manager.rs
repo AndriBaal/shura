@@ -1,14 +1,14 @@
 use log::info;
-use instant::{Instant, Duration};
+pub use instant::{Instant, Duration};
 
 /// Acces to various frame informations.
 pub struct FrameManager {
     delta_time: Duration,
     total_time: Duration,
     last_time: Duration,
-    start_time: Instant,
-
     fps_time: Duration,
+    start_time: Instant,
+    update_time: Instant,
     total_frames: u64,
     fps_counter: u32,
     fps: u32,
@@ -23,7 +23,7 @@ impl FrameManager {
             last_time: elapsed,
             total_time: elapsed,
             start_time: now,
-
+            update_time: now,
             fps_time: elapsed,
             total_frames: 0,
             fps_counter: 0,
@@ -33,8 +33,8 @@ impl FrameManager {
 
     pub(crate) fn update(&mut self) {
         const MAX_DELTA_TIME: Duration = Duration::from_millis(100);
-
-        self.total_time = self.start_time.elapsed();
+        self.update_time = Instant::now();
+        self.total_time = self.update_time - self.start_time;
 
         self.fps_counter += 1;
         self.total_frames += 1;
@@ -58,6 +58,16 @@ impl FrameManager {
 
 
     // Getter
+    #[inline]
+    pub const fn start_time(&self) -> Instant {
+        self.start_time
+    }
+
+    #[inline]
+    pub const fn update_time(&self) -> Instant {
+        self.update_time
+    }
+
     #[inline]
     pub fn delta_time(&self) -> f32 {
         self.delta_time.as_secs_f32()

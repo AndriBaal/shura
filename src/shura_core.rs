@@ -333,10 +333,11 @@ impl Shura {
             #[cfg(feature = "physics")]
             let mut done_step = false;
             let total_frames = ctx.total_frames();
+            let now = ctx.update_time();
 
             if ctx.update_components() {
-                let sets = ctx.copy_active_components();
-                for set in sets {
+                let mut sets = ctx.borrow_active_components();
+                for set in sets.values_mut() {
                     let config = set.config();
 
                     #[cfg(feature = "physics")]
@@ -346,6 +347,7 @@ impl Shura {
                     }
 
                     match config.update {
+                        crate::UpdateOperation::EveryFrame => {}
                         crate::UpdateOperation::None => {
                             continue;
                         }
@@ -354,7 +356,14 @@ impl Shura {
                                 continue;
                             }
                         }
-                        _ => {}
+                        crate::UpdateOperation::AfterDuration(dur) => {
+                            if now > set.last_update().unwrap() + dur {
+                                set.set_last_update(now);
+                                // println!("{}", (now).elapsed().as_secs_f32());
+                            } else {
+                                continue;
+                            }
+                        }
                     }
 
                     'outer: for path in set.paths() {
@@ -396,6 +405,7 @@ impl Shura {
                         }
                     }
                 }
+                ctx.return_active_components(sets);
                 ctx.set_current_component(None);
             }
 
@@ -434,7 +444,7 @@ impl Shura {
                 *clear_color,
             );
         }
-        for (_, set) in scene.component_manager.active_components() {
+        for set in scene.component_manager.active_components().values() {
             if set.is_empty() {
                 continue;
             }

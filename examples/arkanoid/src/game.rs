@@ -190,6 +190,7 @@ impl Statistics {
 
 impl ComponentController for Statistics {
     fn update(&mut self, _scene: &mut DynamicScene, ctx: &mut Context) {
+        println!("{}", ctx.total_time());
         if ctx.resized() {
             ctx.force_buffer_active::<Self>();
             self.component.scale_relative_width(ctx.window_size());
@@ -246,6 +247,7 @@ impl ComponentController for Statistics {
             priority: 1000,
             does_move: false,
             camera: CameraUse::Relative,
+            update: UpdateOperation::AfterDuration(Duration::from_secs(1)),
             ..ComponentConfig::default()
         };
         return &CONFIG;

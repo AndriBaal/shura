@@ -23,12 +23,14 @@ text = ["dep:wgpu_glyph"]
 audio = ["dep:rodio"]
 physics = ["dep:rapier2d"]
 gui = ["dep:egui", "dep:egui_wgpu_backend", "dep:egui_winit_platform"]
-default = ["audio", "physics", "gui", "text", "gamepad"]
+serialize = ["dep:serde"]
+default = ["audio", "physics", "gui", "text", "gamepad", "serialize"]
 
 [lib]
 crate-type = ["lib", "cdylib"]
 
 [dependencies]
+serde = "1.0.152"
 nalgebra = { version = "0.31.4", features = ["convert-bytemuck"] }
 wgpu_glyph = { version = "0.18.0", optional = true }
 gilrs = { version = "0.10.1", optional = true }

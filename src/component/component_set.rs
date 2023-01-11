@@ -1,3 +1,5 @@
+use instant::Instant;
+
 use crate::{
     ArenaIndex, ArenaIter, ArenaIterMut, ComponentConfig, ComponentController, ComponentType,
     DynamicComponent,
@@ -14,6 +16,7 @@ pub(crate) struct ArenaPath {
 pub(crate) struct ComponentCluster {
     paths: Vec<ArenaPath>,
     config: &'static ComponentConfig,
+    last_update: Option<Instant>
 }
 
 impl ComponentCluster {
@@ -21,6 +24,10 @@ impl ComponentCluster {
         Self {
             paths: vec![path],
             config: config,
+            last_update: match config.update {
+                crate::UpdateOperation::AfterDuration(_) => Some(Instant::now()),
+                _ => None
+            }
         }
     }
 
@@ -33,6 +40,16 @@ impl ComponentCluster {
     }
 
     // Getters
+    #[inline]
+    pub fn last_update(&self) -> Option<Instant> {
+        self.last_update
+    }
+
+    #[inline]
+    pub fn set_last_update(&mut self, now: Instant) {
+        self.last_update = Some(now);
+    }
+
     #[inline]
     pub const fn config(&self) -> &'static ComponentConfig {
         self.config

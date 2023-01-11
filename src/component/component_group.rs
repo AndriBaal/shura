@@ -13,18 +13,20 @@ pub struct ComponentGroupDescriptor {
     pub size: Dimension<f32>,
     /// Describes if the group is enabled from the start
     pub enabled: bool,
+    /// Indicates if the group is always active
+    pub always_active: bool,
 }
 
 /// Id of the default [ComponentGroup](crate::ComponentGroup). Components within this group are
 /// always getting rendered and updated in every cycle.
 pub const DEFAULT_GROUP_ID: u32 = u32::MAX / 2;
 
-/// Every group has a name and a fixed position where it operates. When the camera intersects with 
-/// the position and size of the group the group is marked as `active`.It can be used like a chunk 
-/// system to make huge 2D worlds possible or to just order your components. The Engine has a 
+/// Every group has a name and a fixed position where it operates. When the camera intersects with
+/// the position and size of the group the group is marked as `active`.It can be used like a chunk
+/// system to make huge 2D worlds possible or to just order your components. The Engine has a
 /// default [ComponentGroup](crate::ComponentGroup) for components that are used all the
 /// time. After every update, before rendering, the set of active component groups gets
-/// computed. A group can be accessed with [group](crate::Context::group) or 
+/// computed. A group can be accessed with [group](crate::Context::group) or
 /// [group_mut](crate::Context::group_mut). The components of the group can be accessed with
 /// [components](crate::Context::components) or [components_mut](crate::Context::components_mut)
 /// from the [context](crate::Context).
@@ -36,6 +38,7 @@ pub struct ComponentGroup {
     size: Dimension<f32>,
     enabled: bool,
     active: bool,
+    always_active: bool,
 }
 
 impl ComponentGroup {
@@ -45,6 +48,7 @@ impl ComponentGroup {
             position: descriptor.position,
             size: descriptor.size,
             enabled: descriptor.enabled,
+            always_active: descriptor.always_active,
             type_map: Default::default(),
             types: Default::default(),
             active: false,
@@ -56,6 +60,10 @@ impl ComponentGroup {
         cam_bottom_left: Vector<f32>,
         cam_top_right: Vector<f32>,
     ) -> bool {
+        if self.always_active {
+            return true;
+        }
+
         let pos = self.position;
         let half_size = self.size / 2.0;
         let self_bl = Vector::new(pos.x - half_size.width, pos.y - half_size.height);
@@ -75,7 +83,7 @@ impl ComponentGroup {
 
     #[inline]
     /// Disable or enable a group
-    /// 
+    ///
     /// # Warning (TODO)
     /// Currently [PhysicsComponents](crate::physics::PhysicsComponent) collisions do not get disabled.
     pub fn set_enabled(&mut self, enabled: bool) {
@@ -92,6 +100,12 @@ impl ComponentGroup {
     /// Set the position of this group.
     pub fn set_position(&mut self, position: Vector<f32>) {
         self.position = position;
+    }
+
+    #[inline]
+    /// Set the position of this group.
+    pub fn set_always_active(&mut self, always_active: bool) {
+        self.always_active = always_active;
     }
 
     // Getters
@@ -164,6 +178,12 @@ impl ComponentGroup {
     pub const fn active(&self) -> bool {
         self.active
     }
+
+    #[inline]
+    /// See if this group is active in the current cycle.
+    pub const fn always_active(&self) -> bool {
+        self.always_active
+    }
 }
 
 impl Default for ComponentGroup {
@@ -171,11 +191,12 @@ impl Default for ComponentGroup {
         Self {
             id: DEFAULT_GROUP_ID,
             position: Vector::new(0.0, 0.0),
-            size: Dimension::new(f32::INFINITY, f32::INFINITY),
+            size: Dimension::new(0.0, 0.0),
             enabled: true,
             type_map: Default::default(),
             types: Default::default(),
             active: true,
+            always_active: true,
         }
     }
 }

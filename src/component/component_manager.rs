@@ -23,7 +23,7 @@ pub struct ComponentManager {
     remove_current_commponent: bool,
     force_update_sets: bool,
     current_component: Option<ComponentHandle>,
-    active_components: BTreeMap<(i16, TypeId), ComponentCluster>,
+    active_components: Option<BTreeMap<(i16, TypeId), ComponentCluster>>,
 }
 
 impl ComponentManager {
@@ -46,13 +46,14 @@ impl ComponentManager {
             remove_current_commponent: false,
             force_update_sets: false,
             current_component: Default::default(),
-            active_components: Default::default(),
+            active_components: Some(Default::default()),
         }
     }
 
     pub(crate) fn update_sets(&mut self, camera: &Camera) {
         let mut active_groups = vec![];
         let camera_rect = camera.rect();
+        let active_components = self.active_components.as_mut().unwrap();
         for (index, group) in &mut self.groups {
             if group.enabled() && group.intersects_camera(camera_rect.0, camera_rect.1) {
                 group.set_active(true);
@@ -69,7 +70,7 @@ impl ComponentManager {
 
         if self.force_update_sets || !difference.is_empty() {
             self.force_update_sets = false;
-            for set in self.active_components.values_mut() {
+            for set in active_components.values_mut() {
                 set.clear();
             }
             for (group_index, group) in &mut active_groups {
@@ -84,12 +85,11 @@ impl ComponentManager {
                         group_index: *group_index,
                         type_index,
                     };
-                    if let Some(active_component) = self.active_components.get_mut(&key) {
+                    if let Some(active_component) = active_components.get_mut(&key) {
                         active_component.add(path);
                     } else {
                         let config = component_type.config();
-                        self.active_components
-                            .insert(key, ComponentCluster::new(path, config));
+                        active_components.insert(key, ComponentCluster::new(path, config));
                     }
                 }
             }
@@ -479,13 +479,21 @@ impl ComponentManager {
     }
 
     #[inline]
-    pub(crate) fn copy_active_components(&self) -> Vec<ComponentCluster> {
-        return self.active_components.values().map(|c| c.clone()).collect();
+    pub(crate) fn active_components(&self) -> &BTreeMap<(i16, TypeId), ComponentCluster> {
+        return self.active_components.as_ref().unwrap()
     }
 
     #[inline]
-    pub(crate) fn active_components(&self) -> &BTreeMap<(i16, TypeId), ComponentCluster> {
-        return &self.active_components;
+    pub(crate) fn borrow_active_components(&mut self) -> BTreeMap<(i16, TypeId), ComponentCluster> {
+        return self.active_components.take().unwrap();
+    }
+
+    #[inline]
+    pub(crate) fn return_active_components(
+        &mut self,
+        active_components: BTreeMap<(i16, TypeId), ComponentCluster>,
+    ) {
+        return self.active_components = Some(active_components);
     }
 
     #[inline]
