@@ -167,7 +167,9 @@ pub(crate) struct Shura {
     #[cfg(feature = "gui")]
     pub gui: Gui,
     #[cfg(feature = "audio")]
-    pub audio: (rodio::OutputStream, rodio::OutputStreamHandle),
+    pub audio: rodio::OutputStream,
+    #[cfg(feature = "audio")]
+    pub audio_handle: rodio::OutputStreamHandle
 }
 
 impl Shura {
@@ -180,12 +182,16 @@ impl Shura {
         let defaults = Defaults::new(&gpu);
         let window_size: Dimension<u32> = window.inner_size().into();
         let window_ratio = window_size.width as f32 / window_size.height as f32;
+        #[cfg(feature = "audio")]
+        let (audio, audio_handle) = rodio::OutputStream::try_default().unwrap();
         let mut shura = Self {
             scene_manager: SceneManager::new(scene_name),
             frame_manager: FrameManager::new(),
             input: Input::new(),
             #[cfg(feature = "audio")]
-            audio: rodio::OutputStream::try_default().unwrap(),
+            audio,
+            #[cfg(feature = "audio")]
+            audio_handle,
             end: false,
             #[cfg(feature = "gui")]
             gui: Gui::new(&window, &gpu),

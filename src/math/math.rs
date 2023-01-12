@@ -18,3 +18,6 @@ pub const fn dim<T>(x: T, y: T) -> Dimension<T> {
     return Dimension::new(x, y);
 }
 
+pub mod na {
+    pub use nalgebra::*;
+}

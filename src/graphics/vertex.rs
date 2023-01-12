@@ -1,5 +1,8 @@
+use nalgebra::Vector4;
+
 use crate::Vector;
 use std::mem;
+use std::ops::*;
 
 /// Single vertex of a model. Which hold the coordniate of the vertex and the texture coordinates.
 #[repr(C)]
@@ -60,6 +63,94 @@ impl Vertex {
                 },
             ],
         }
+    }
+
+    pub fn normalize(&self) -> Vertex {
+        Vertex::new(self.pos.normalize(), self.tex_coords.normalize())
+    }
+}
+
+impl Add for Vertex {
+    type Output = Vertex;
+    fn add(self, v: Vertex) -> Vertex {
+        return Vertex {
+            pos: self.pos + v.pos,
+            tex_coords: self.tex_coords + v.tex_coords,
+        };
+    }
+}
+
+impl Sub for Vertex {
+    type Output = Vertex;
+    fn sub(self, v: Vertex) -> Vertex {
+        return Vertex {
+            pos: self.pos - v.pos,
+            tex_coords: self.tex_coords - v.tex_coords,
+        };
+    }
+}
+
+impl Div for Vertex {
+    type Output = Vertex;
+    fn div(self, v: Vertex) -> Vertex {
+        return Vertex {
+            pos: Vector::new(self.pos.x / v.pos.x, self.pos.y / v.pos.y),
+            tex_coords: Vector::new(
+                self.tex_coords.x / v.tex_coords.x,
+                self.tex_coords.y / v.tex_coords.y,
+            ),
+        };
+    }
+}
+
+impl Mul for Vertex {
+    type Output = Vertex;
+    fn mul(self, v: Vertex) -> Vertex {
+        return Vertex {
+            pos: Vector::new(self.pos.x * v.pos.x, self.pos.y * v.pos.y),
+            tex_coords: Vector::new(
+                self.tex_coords.x * v.tex_coords.x,
+                self.tex_coords.y * v.tex_coords.y,
+            ),
+        };
+    }
+}
+
+impl Rem for Vertex {
+    type Output = Vertex;
+    fn rem(self, v: Vertex) -> Vertex {
+        return Vertex {
+            pos: Vector::new(self.pos.x % v.pos.x, self.pos.y % v.pos.y),
+            tex_coords: Vector::new(
+                self.tex_coords.x % v.tex_coords.x,
+                self.tex_coords.y % v.tex_coords.y,
+            ),
+        };
+    }
+}
+
+impl Mul<f32> for Vertex {
+    type Output = Vertex;
+    fn mul(self, v: f32) -> Vertex {
+        return Vertex {
+            pos: self.pos * v,
+            tex_coords: self.tex_coords * v,
+        };
+    }
+}
+
+impl Mul<Vector4<f32>> for Vertex {
+    type Output = Vertex;
+    fn mul(self, v: Vector4<f32>) -> Vertex {
+        let pos = Vector::new(
+            self.pos[0] * v[0] + self.pos[1] * v[1],
+            self.pos[0] * v[2] + self.pos[1] * v[3],
+        );
+        let tex_coords = Vector::new(
+            self.tex_coords[0] * v[0] + self.tex_coords[1] * v[1],
+            self.tex_coords[0] * v[2] + self.tex_coords[1] * v[3],
+        );
+        Self {pos, tex_coords}
     }
 }
 

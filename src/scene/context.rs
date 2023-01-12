@@ -108,9 +108,9 @@ impl<'a> Context<'a> {
             gpu: &mut shura.gpu,
             defaults: &mut shura.defaults,
             #[cfg(feature = "audio")]
-            audio: &mut shura.audio.0,
+            audio: &mut shura.audio,
             #[cfg(feature = "audio")]
-            audio_handle: &mut shura.audio.1,
+            audio_handle: &mut shura.audio_handle,
             #[cfg(feature = "gui")]
             gui: &mut shura.gui,
         }
@@ -160,11 +160,6 @@ impl<'a> Context<'a> {
     #[inline]
     pub(crate) fn borrow_active_components(&mut self) -> BTreeMap<(i16, TypeId), ComponentCluster> {
         self.component_manager.borrow_active_components()
-    }
-
-    #[inline]
-    pub(crate) fn active_components(&mut self) -> &BTreeMap<(i16, TypeId), ComponentCluster> {
-        self.component_manager.active_components()
     }
 
     #[inline]
