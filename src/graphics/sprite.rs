@@ -1,6 +1,4 @@
-use crate::{
-    Color, Defaults, Dimension, Gpu, InstanceBuffer, Instances, Isometry, Matrix, Renderer, Uniform,
-};
+use crate::{Camera, Color, Defaults, Dimension, Gpu, InstanceBuffer, Instances, Renderer};
 use image::GenericImageView;
 use std::num::NonZeroU32;
 
@@ -37,8 +35,7 @@ impl Sprite {
         gpu: &Gpu,
         defaults: &Defaults,
         instances: &InstanceBuffer,
-        fov: Dimension<f32>,
-        camera: Isometry<f32>,
+        camera: &Camera,
         texture_size: Dimension<u32>,
         clear_color: Option<Color>,
         compute: F,
@@ -51,7 +48,6 @@ impl Sprite {
             gpu,
             defaults,
             instances,
-            fov,
             camera,
             texture_size,
             clear_color,
@@ -119,8 +115,7 @@ impl Sprite {
         gpu: &Gpu,
         defaults: &Defaults,
         instances: &InstanceBuffer,
-        fov: Dimension<f32>,
-        camera: Isometry<f32>,
+        camera: &Camera,
         texture_size: Dimension<u32>,
         clear_color: Option<Color>,
         compute: F,
@@ -128,9 +123,6 @@ impl Sprite {
         F: for<'any> Fn(&mut Renderer<'any>, Instances, [Where!('caller >= 'any); 0]),
     {
         let mut encoder = gpu.encoder();
-        let proj = Matrix::projection(fov);
-        let view = Matrix::view(camera);
-        let camera = Uniform::new_vertex(&gpu, view * proj);
         let target_view = self.texture.create_view(&Default::default());
 
         let multisampled_frame_descriptor = &wgpu::TextureDescriptor {
@@ -152,7 +144,7 @@ impl Sprite {
         }
         {
             let mut renderer = Renderer::new(gpu, defaults, &mut encoder, &target_view, &msaa);
-            renderer.use_uniform(&camera, 0);
+            renderer.use_uniform(&camera.uniform(), 0);
             renderer.set_instance_buffer(&defaults.single_centered_instance);
             compute(&mut renderer, 0..instances.instances(), []);
         }
@@ -164,17 +156,12 @@ impl Sprite {
         gpu: &Gpu,
         defaults: &Defaults,
         encoder: &mut wgpu::CommandEncoder,
+        relative_camera: &Camera,
     ) {
         let target_view = self.texture.create_view(&Default::default());
-        let relative_camera = &defaults.relative_camera;
-        let mut renderer = Renderer::new(
-            gpu,
-            defaults,
-            encoder,
-            &target_view,
-            &defaults.target_msaa,
-        );
-        renderer.use_uniform(defaults.relative_camera.uniform(), 0);
+        let mut renderer =
+            Renderer::new(gpu, defaults, encoder, &target_view, &defaults.target_msaa);
+        renderer.use_uniform(relative_camera.uniform(), 0);
         renderer.set_instance_buffer(&defaults.single_centered_instance);
         renderer.render_sprite(relative_camera.model(), &defaults.target);
         renderer.commit(&(0..1));

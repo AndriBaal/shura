@@ -2,9 +2,9 @@ use crate::Gpu;
 
 /// Font that can be rendered onto a [sprite](crate::Sprite).
 pub type Font = wgpu_glyph::GlyphBrush<()>;
-pub use wgpu_glyph::Layout as LineBreaker;
 pub use wgpu_glyph::BuiltInLineBreaker as DefaultLineBreaker;
-pub use wgpu_glyph::Text as Text;
+pub use wgpu_glyph::Layout as LineBreaker;
+pub use wgpu_glyph::Text;
 
 pub trait CreateFont {
     fn new_simple(gpu: &Gpu, bytes: &'static [u8]) -> Font {

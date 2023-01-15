@@ -45,7 +45,7 @@ impl Color {
         b: 1.0,
         a: 1.0,
     };
-    
+
     pub const fn new(r: f32, g: f32, b: f32, a: f32) -> Self {
         return Self { r, g, b, a };
     }

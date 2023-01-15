@@ -19,11 +19,7 @@ impl<T: bytemuck::Pod> Uniform<T> {
         Self::new_custom(&gpu, &gpu.base.vertex_uniform, data)
     }
 
-    pub(crate) fn new_custom(
-        gpu: &Gpu,
-        layout: &wgpu::BindGroupLayout,
-        data: T,
-    ) -> Uniform<T> {
+    pub(crate) fn new_custom(gpu: &Gpu, layout: &wgpu::BindGroupLayout, data: T) -> Uniform<T> {
         const BUFFER_ALIGNMENT: usize = 16;
         let data_size = std::mem::size_of_val(&data);
         let buffer_size =
@@ -35,7 +31,8 @@ impl<T: bytemuck::Pod> Uniform<T> {
             mapped_at_creation: false,
         });
 
-        gpu.queue.write_buffer(&buffer, 0, bytemuck::cast_slice(&[data]));
+        gpu.queue
+            .write_buffer(&buffer, 0, bytemuck::cast_slice(&[data]));
 
         let bind_group = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout,

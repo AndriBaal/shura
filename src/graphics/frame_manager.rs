@@ -1,5 +1,5 @@
+pub use instant::{Duration, Instant};
 use log::info;
-pub use instant::{Instant, Duration};
 
 /// Acces to various frame informations.
 pub struct FrameManager {
@@ -55,7 +55,6 @@ impl FrameManager {
 
         self.last_time = self.total_time;
     }
-
 
     // Getter
     #[inline]

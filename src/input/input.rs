@@ -86,8 +86,8 @@ impl InputEvent {
 
 /// Manage input from touch devices, keyboards, mice and gamepads.
 pub struct Input {
-    cursor_raw: Vector<f32>,
-    touches: FxHashMap<u64, Vector<f32>>,
+    cursor_raw: Vector<u32>,
+    touches: FxHashMap<u64, Vector<u32>>,
     triggers: FxHashMap<InputTrigger, InputEvent>,
     modifiers: Option<Modifier>,
     wheel_delta: f32,
@@ -99,7 +99,7 @@ pub struct Input {
 impl Input {
     pub(crate) fn new() -> Self {
         Self {
-            cursor_raw: Vector::new(0.0, 0.0),
+            cursor_raw: Vector::new(0, 0),
             touches: Default::default(),
             triggers: Default::default(),
             modifiers: None,
@@ -113,10 +113,10 @@ impl Input {
     pub(crate) fn event(&mut self, event: &WindowEvent) {
         match event {
             WindowEvent::CursorMoved { position, .. } => {
-                self.cursor_raw = Vector::new(position.x as f32, position.y as f32);
+                self.cursor_raw = Vector::new(position.x as u32, position.y as u32);
             }
             WindowEvent::Touch(touch) => {
-                let pos = Vector::new(touch.location.x as f32, touch.location.y as f32);
+                let pos = Vector::new(touch.location.x as u32, touch.location.y as u32);
                 self.cursor_raw = pos;
                 match touch.phase {
                     TouchPhase::Started => {
@@ -245,7 +245,7 @@ impl Input {
     }
 
     #[inline]
-    pub const fn touches(&self) -> &FxHashMap<u64, Vector<f32>> {
+    pub const fn touches(&self) -> &FxHashMap<u64, Vector<u32>> {
         &self.touches
     }
 
@@ -270,7 +270,7 @@ impl Input {
     }
 
     #[inline]
-    pub const fn cursor_raw(&self) -> &Vector<f32> {
+    pub const fn cursor_raw(&self) -> &Vector<u32> {
         &self.cursor_raw
     }
 

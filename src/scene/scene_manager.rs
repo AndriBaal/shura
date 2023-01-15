@@ -1,9 +1,9 @@
-use crate::{Scene, DynamicScene};
+use crate::{DynamicScene, Scene};
 use rustc_hash::FxHashMap;
 
 pub(crate) type BoxedScene = (DynamicScene, Scene);
 
-/// Access to the scenes. (Removing)[crate::Context::remove_scene] and (creating)[crate::Context::create_scene] 
+/// Access to the scenes. (Removing)[crate::Context::remove_scene] and (creating)[crate::Context::create_scene]
 /// scenes must be done from the (Context)[crate::Context].
 pub struct SceneManager {
     scenes: FxHashMap<&'static str, BoxedScene>,
@@ -16,7 +16,7 @@ impl SceneManager {
         Self {
             scenes: FxHashMap::default(),
             future_active_scene: None,
-            curr_active_scene: active_scene
+            curr_active_scene: active_scene,
         }
     }
 
@@ -36,7 +36,7 @@ impl SceneManager {
     ///
     /// # Panics
     /// Panics if the current scene is equal to the removed scene
-    pub(crate) fn remove(&mut self, scene_name: &'static str) -> Option <BoxedScene> {
+    pub(crate) fn remove(&mut self, scene_name: &'static str) -> Option<BoxedScene> {
         if self.curr_active_scene == scene_name {
             panic!("Cannot remove the current active scene {}!", scene_name);
         }

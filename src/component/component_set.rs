@@ -16,7 +16,7 @@ pub(crate) struct ArenaPath {
 pub(crate) struct ComponentCluster {
     paths: Vec<ArenaPath>,
     config: &'static ComponentConfig,
-    last_update: Option<Instant>
+    last_update: Option<Instant>,
 }
 
 impl ComponentCluster {
@@ -26,8 +26,8 @@ impl ComponentCluster {
             config: config,
             last_update: match config.update {
                 crate::UpdateOperation::AfterDuration(_) => Some(Instant::now()),
-                _ => None
-            }
+                _ => None,
+            },
         }
     }
 

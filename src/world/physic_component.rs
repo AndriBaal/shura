@@ -69,7 +69,7 @@ impl PhysicsComponent {
             }
             BodyStatus::RigidBody { handle } => {
                 world.remove_body(handle);
-            },
+            }
         };
     }
 

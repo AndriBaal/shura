@@ -6,8 +6,6 @@ use crate::{
 use log::info;
 use std::borrow::Cow;
 
-pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 1.0;
-
 /// Holds the connection to the GPU using wgpu. Also has some default buffers, layouts etc.
 pub struct Gpu {
     pub instance: wgpu::Instance,
@@ -345,9 +343,6 @@ pub struct Defaults {
     /// Additional layer for postproccessing
     pub layer: Sprite,
     pub layer_view: wgpu::TextureView,
-
-    /// Relative Camera
-    pub(crate) relative_camera: Camera,
 }
 
 impl Defaults {
@@ -406,7 +401,6 @@ impl Defaults {
         let layer_msaa = gpu.create_msaa();
         let (target, target_view) = gpu.create_target();
         let (layer, layer_view) = gpu.create_target();
-        let relative_camera = Camera::new(gpu, Default::default(), 1.0, RELATIVE_CAMERA_SIZE);
         let times = Uniform::new(gpu, [0.0, 0.0]);
         let single_centered_instance = InstanceBuffer::new(gpu, &[Matrix::new(Default::default())]);
 
@@ -434,8 +428,6 @@ impl Defaults {
             target_view,
             layer,
             layer_view,
-
-            relative_camera,
         }
     }
 

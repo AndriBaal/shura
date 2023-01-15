@@ -150,7 +150,7 @@ impl Mul<Vector4<f32>> for Vertex {
             self.tex_coords[0] * v[0] + self.tex_coords[1] * v[1],
             self.tex_coords[0] * v[2] + self.tex_coords[1] * v[3],
         );
-        Self {pos, tex_coords}
+        Self { pos, tex_coords }
     }
 }
 

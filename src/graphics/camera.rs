@@ -1,6 +1,8 @@
+#[cfg(feature = "physics")]
+use crate::physics::World;
 use crate::{
-    ComponentHandle, Dimension, Gpu, Isometry, Matrix, Model, ModelBuilder, Rotation, Uniform,
-    Vector, Vertex,
+    ComponentHandle, ComponentManager, CursorManager, Dimension, Gpu, Input, Isometry, Matrix,
+    Model, ModelBuilder, Rotation, Uniform, Vector, Vertex,
 };
 
 const MINIMAL_FOV: f32 = 0.0000001;
@@ -20,8 +22,7 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub(crate) fn new(gpu: &Gpu, position: Isometry<f32>, ratio: f32, vertical_fov: f32) -> Self {
-
+    pub fn new(gpu: &Gpu, position: Isometry<f32>, ratio: f32, vertical_fov: f32) -> Self {
         let fov = Dimension::new(vertical_fov * ratio, vertical_fov);
         let proj = Matrix::projection(fov);
         let view = Matrix::view(position);
@@ -37,7 +38,25 @@ impl Camera {
         }
     }
 
-    pub(crate) fn buffer(&mut self, gpu: &Gpu) {
+    pub fn apply_target(
+        &mut self,
+        man: &ComponentManager,
+        #[cfg(feature = "physics")] world: &World,
+    ) {
+        if let Some(target) = self.target() {
+            if let Some(component) = man.component_dynamic(&target) {
+                let matrix = component.inner().matrix(
+                    #[cfg(feature = "physics")]
+                    &world,
+                );
+                self.set_translation(Vector::new(matrix[12], matrix[13]));
+            } else {
+                self.set_target(None);
+            }
+        }
+    }
+
+    pub fn buffer(&mut self, gpu: &Gpu) {
         let fov = self.fov() / 2.0;
         let vertices = [
             Vertex::new(Vector::new(-fov.width, fov.height), Vector::new(0.0, 0.0)),
@@ -57,7 +76,7 @@ impl Camera {
         self.reset_camera_projection();
     }
 
-    fn reset_camera_projection(&mut self) {
+    pub(crate) fn reset_camera_projection(&mut self) {
         self.proj = Matrix::projection(self.fov());
     }
 
@@ -163,20 +182,34 @@ impl Camera {
     }
 
     #[inline]
-    pub fn set_vertical_fov(&mut self, mut new_fov: f32) {
+    pub fn set_vertical_fov(
+        &mut self,
+        cursors: &mut CursorManager,
+        input: &Input,
+        window_size: Dimension<u32>,
+        mut new_fov: f32,
+    ) {
         if new_fov < MINIMAL_FOV {
             new_fov = MINIMAL_FOV;
         }
         self.vertical_fov = new_fov;
         self.reset_camera_projection();
+        cursors.compute(&self.fov(), &window_size, input)
     }
 
     #[inline]
-    pub fn set_horizontal_fov(&mut self, mut new_fov: f32) {
+    pub fn set_horizontal_fov(
+        &mut self,
+        cursors: &mut CursorManager,
+        input: &Input,
+        window_size: Dimension<u32>,
+        mut new_fov: f32,
+    ) {
         if new_fov < MINIMAL_FOV {
             new_fov = MINIMAL_FOV;
         }
         self.vertical_fov = new_fov / self.ratio;
         self.reset_camera_projection();
+        cursors.compute(&self.fov(), &window_size, input)
     }
 }

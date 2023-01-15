@@ -3,8 +3,7 @@ use core::hash::Hash;
 #[cfg(feature = "physics")]
 use crate::physics::{CollideType, ColliderHandle, World};
 use crate::{
-    ArenaIndex, ComponentSet, Context, DynamicScene, Instances, Matrix, Model, Renderer,
-    Sprite,
+    ArenaIndex, ComponentSet, Context, DynamicScene, Instances, Matrix, Model, Renderer, Sprite,
 };
 use downcast_rs::*;
 use instant::Duration;
@@ -59,8 +58,8 @@ pub trait ComponentController: Downcast + _StaticAccess + ComponentDerive {
     /// Grouped render of multiple components. This method gets called once for every group inwhich
     /// components of this type exist. This has massive performance advantes since many components
     /// can be rendered with the same operation, therefore it is mainly used for rendering
-    /// components that have the exact same [model](crate::Model), [uniforms](crate::Uniform) or [sprites](crate::Sprite). 
-    /// For this method to work the render operation of this component must be set to 
+    /// components that have the exact same [model](crate::Model), [uniforms](crate::Uniform) or [sprites](crate::Sprite).
+    /// For this method to work the render operation of this component must be set to
     /// [RenderOperation::Grouped](crate::RenderOperation::Grouped) in the [ComponentConfig](crate::ComponentConfig).
     fn render_grouped<'a>(
         scene: &'a DynamicScene,
@@ -130,15 +129,8 @@ pub trait _StaticAccess {
     fn get_config(&self) -> &'static ComponentConfig;
     fn get_grouped_render(
         &self,
-    ) -> for<'a> fn(
-        &'a DynamicScene,
-        &mut Renderer<'a>,
-        ComponentSet<DynamicComponent>,
-        Instances,
-    );
-    fn get_postproccess(
-        &self,
-    ) -> for<'a> fn(&mut Renderer<'a>, Instances, &'a Model, &'a Sprite);
+    ) -> for<'a> fn(&'a DynamicScene, &mut Renderer<'a>, ComponentSet<DynamicComponent>, Instances);
+    fn get_postproccess(&self) -> for<'a> fn(&mut Renderer<'a>, Instances, &'a Model, &'a Sprite);
 }
 
 impl<T: ComponentController> _StaticAccess for T {
@@ -148,17 +140,11 @@ impl<T: ComponentController> _StaticAccess for T {
 
     fn get_grouped_render(
         &self,
-    ) -> for<'a> fn(
-        &'a DynamicScene,
-        &mut Renderer<'a>,
-        ComponentSet<DynamicComponent>,
-        Instances,
-    ) {
+    ) -> for<'a> fn(&'a DynamicScene, &mut Renderer<'a>, ComponentSet<DynamicComponent>, Instances)
+    {
         T::render_grouped
     }
-    fn get_postproccess(
-        &self,
-    ) -> for<'a> fn(&mut Renderer<'a>, Instances, &'a Model, &'a Sprite) {
+    fn get_postproccess(&self) -> for<'a> fn(&mut Renderer<'a>, Instances, &'a Model, &'a Sprite) {
         T::postproccess
     }
 }
@@ -277,9 +263,8 @@ pub enum UpdateOperation {
     None,
     EveryFrame,
     EveryNFrame(u64),
-    AfterDuration(Duration)
+    AfterDuration(Duration),
 }
-
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 /// Defines the postproccess operations

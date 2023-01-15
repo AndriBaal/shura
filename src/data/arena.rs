@@ -75,7 +75,7 @@ impl<T> Arena<T> {
                 self.free_list_head = Some(index as u32);
                 self.len -= 1;
             }
-            _ => {},
+            _ => {}
         }
     }
 
@@ -121,7 +121,7 @@ impl<T> Arena<T> {
                         index: i,
                         generation: self.generation,
                     })
-                },
+                }
                 _ => panic!("corrupt free list"),
             },
         }
@@ -187,14 +187,18 @@ impl<T> Arena<T> {
 
     pub fn get(&self, i: ArenaIndex) -> Option<&T> {
         match self.items.get(i.index as usize) {
-            Some(ArenaEntry::Occupied { generation, data }) if *generation == i.generation => Some(data),
+            Some(ArenaEntry::Occupied { generation, data }) if *generation == i.generation => {
+                Some(data)
+            }
             _ => None,
         }
     }
 
     pub fn get_mut(&mut self, i: ArenaIndex) -> Option<&mut T> {
         match self.items.get_mut(i.index as usize) {
-            Some(ArenaEntry::Occupied { generation, data }) if *generation == i.generation => Some(data),
+            Some(ArenaEntry::Occupied { generation, data }) if *generation == i.generation => {
+                Some(data)
+            }
             _ => None,
         }
     }
@@ -277,7 +281,7 @@ impl<'a, T> Iterator for ArenaIter<'a, T> {
                         generation,
                     };
                     return Some((idx, data));
-                },
+                }
                 Some((_, _)) => continue,
                 None => {
                     debug_assert_eq!(self.len, 0);
@@ -309,7 +313,7 @@ impl<'a, T> DoubleEndedIterator for ArenaIter<'a, T> {
                         generation,
                     };
                     return Some((idx, data));
-                },
+                }
                 Some((_, _)) => continue,
                 None => {
                     debug_assert_eq!(self.len, 0);
@@ -360,7 +364,7 @@ impl<'a, T> Iterator for ArenaIterMut<'a, T> {
                         generation,
                     };
                     return Some((idx, data));
-                },
+                }
                 Some((_, _)) => continue,
                 None => {
                     debug_assert_eq!(self.len, 0);
@@ -392,7 +396,7 @@ impl<'a, T> DoubleEndedIterator for ArenaIterMut<'a, T> {
                         generation,
                     };
                     return Some((idx, data));
-                },
+                }
                 Some((_, _)) => continue,
                 None => {
                     debug_assert_eq!(self.len, 0);

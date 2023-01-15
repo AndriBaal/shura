@@ -1,16 +1,16 @@
 use crate::{Dimension, Gpu};
-use std::mem;
 use egui::{Context, FontDefinitions, TexturesDelta};
 use egui_wgpu_backend::{RenderPass, ScreenDescriptor};
 use egui_winit_platform::{Platform, PlatformDescriptor};
 use instant::Duration;
+use std::mem;
 use winit::window::Window;
 
 pub struct Gui {
     pub platform: Platform,
     renderer: RenderPass,
     screen_descriptor: ScreenDescriptor,
-    tdelta: TexturesDelta
+    tdelta: TexturesDelta,
 }
 
 impl Gui {
@@ -34,7 +34,7 @@ impl Gui {
             renderer,
             platform,
             screen_descriptor,
-            tdelta: Default::default()
+            tdelta: Default::default(),
         }
     }
 

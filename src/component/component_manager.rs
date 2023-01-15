@@ -480,7 +480,7 @@ impl ComponentManager {
 
     #[inline]
     pub(crate) fn active_components(&self) -> &BTreeMap<(i16, TypeId), ComponentCluster> {
-        return self.active_components.as_ref().unwrap()
+        return self.active_components.as_ref().unwrap();
     }
 
     #[inline]

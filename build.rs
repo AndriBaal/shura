@@ -7,7 +7,7 @@ fn main() {
         Ok("android") => {
             println!("cargo:rustc-link-lib=dylib=stdc++");
             println!("cargo:rustc-link-lib=c++_shared");
-        },
+        }
         _ => {}
     }
 }

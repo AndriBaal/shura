@@ -1,4 +1,4 @@
-use crate::{Vector, Point};
+use crate::{Point, Vector};
 use nalgebra::Scalar;
 use std::ops::*;
 use winit::dpi::{PhysicalSize, Size};
@@ -83,14 +83,19 @@ impl Into<wgpu::Extent3d> for Dimension<u32> {
 
 impl Into<Dimension<f32>> for Dimension<u32> {
     fn into(self) -> Dimension<f32> {
-        Dimension { width: self.width as f32, height: self.height as f32 }
+        Dimension {
+            width: self.width as f32,
+            height: self.height as f32,
+        }
     }
 }
 
-
 impl Into<Dimension<u32>> for Dimension<f32> {
     fn into(self) -> Dimension<u32> {
-        Dimension { width: self.width as u32, height: self.height as u32 }
+        Dimension {
+            width: self.width as u32,
+            height: self.height as u32,
+        }
     }
 }
 

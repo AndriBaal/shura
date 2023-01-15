@@ -2,10 +2,10 @@
 use crate::physics::World;
 use crate::{Camera, Color, ComponentManager, CursorManager, Gpu, Isometry, Sprite};
 
-pub(crate) struct Scene {
-    pub resized: bool,
-    pub switched: bool,
-    pub name: &'static str,
+pub struct Scene {
+    pub(crate) resized: bool,
+    pub(crate) switched: bool,
+    pub(crate) name: &'static str,
     pub saved_sprites: Vec<(String, Sprite)>,
     pub camera: Camera,
     pub cursor: CursorManager,
@@ -33,7 +33,7 @@ impl Scene {
             clear_color: Some(Color::new(0.0, 0.0, 0.0, 1.0)),
             #[cfg(feature = "physics")]
             world: World::new(),
-            saved_sprites: vec![]
+            saved_sprites: vec![],
         }
     }
 }

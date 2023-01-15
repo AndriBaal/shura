@@ -1,4 +1,4 @@
-use crate::{Camera, Color, Gpu, InstanceBuffer, Model, Shader, Sprite, Uniform, Defaults};
+use crate::{Camera, Color, Defaults, Gpu, InstanceBuffer, Model, Shader, Sprite, Uniform};
 
 /// Single index of an instance inside a [InstanceBuffer](crate::InstanceBuffer).
 pub type Instance = u32;
@@ -18,7 +18,7 @@ impl CopyInstance for Instances {
     }
 }
 
-/// Render grpahics to the screen or a sprite. The renderer can be extended with custom graphcis throught 
+/// Render grpahics to the screen or a sprite. The renderer can be extended with custom graphcis throught
 /// the [RenderPass](wgpu::RenderPass) or the provided methods for shura's shader system.
 pub struct Renderer<'a> {
     pub render_pass: wgpu::RenderPass<'a>,

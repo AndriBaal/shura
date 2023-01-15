@@ -2,17 +2,15 @@ use std::{any::TypeId, collections::BTreeMap};
 
 use crate::{
     data::arena::ArenaEntry, ArenaPath, Camera, Color, ComponentCluster, ComponentController,
-    ComponentGroup, ComponentGroupDescriptor, ComponentHandle, ComponentManager, ComponentSet,
-    ComponentSetMut, CursorManager, Defaults, Dimension, DynamicComponent, DynamicScene,
-    FrameManager, Gpu, Input, InputEvent, InputTrigger, InstanceBuffer, Instances, Isometry, Key,
-    Matrix, Model, ModelBuilder, Modifier, Renderer, Rotation, Scene, SceneController,
-    SceneManager, Shader, ShaderField, ShaderLang, Shura, Sprite, SpriteSheet, Touch, Uniform,
+    ComponentGroup, ComponentGroupDescriptor, ComponentHandle, ComponentSet, ComponentSetMut,
+    Dimension, DynamicComponent, DynamicScene, InputEvent, InputTrigger, InstanceBuffer, Instances,
+    Isometry, Key, Matrix, Model, ModelBuilder, Modifier, Renderer, Rotation, Scene,
+    SceneController, Shader, ShaderField, ShaderLang, Shura, Sprite, SpriteSheet, Touch, Uniform,
     Vector,
 };
-use winit::window::Window;
 
 #[cfg(feature = "audio")]
-use crate::audio::{OutputStream, OutputStreamHandle, Sink, Sound};
+use crate::audio::{Sink, Sound};
 
 #[cfg(feature = "physics")]
 use crate::{physics::*, Point};
@@ -20,7 +18,7 @@ use crate::{physics::*, Point};
 use rapier2d::prelude::CollisionEvent;
 
 #[cfg(feature = "gui")]
-use crate::gui::{Gui, GuiContext};
+use crate::gui::GuiContext;
 
 #[cfg(feature = "text")]
 use crate::text::{CreateFont, CreateText, Font, TextDescriptor};
@@ -39,34 +37,16 @@ macro_rules! Where {
     };
 }
 
+impl<'a> Drop for Context<'a> {
+    fn drop(&mut self) {}
+}
+
 /// Context to communicate with the game engine to access components, scenes, camera, physics and many more.
 pub struct Context<'a> {
     // Scene
-    name: &'static str,
-    pub camera: &'a mut Camera,
-    pub component_manager: &'a mut ComponentManager,
-    pub cursor: &'a mut CursorManager,
-    #[cfg(feature = "physics")]
-    pub world: &'a mut World,
-    resized: &'a mut bool,
-    switched: &'a mut bool,
-    pub clear_color: &'a mut Option<Color>,
-    pub saved_sprites: &'a mut Vec<(String, Sprite)>,
-
+    pub scene: &'a mut Scene,
     // Core
-    end: &'a mut bool,
-    pub scene_manager: &'a mut SceneManager,
-    pub frame_manager: &'a FrameManager,
-    pub window: &'a mut Window,
-    pub input: &'a mut Input,
-    pub gpu: &'a mut Gpu,
-    pub defaults: &'a mut Defaults,
-    #[cfg(feature = "gui")]
-    pub gui: &'a mut Gui,
-    #[cfg(feature = "audio")]
-    pub audio: &'a mut OutputStream,
-    #[cfg(feature = "audio")]
-    pub audio_handle: &'a mut OutputStreamHandle,
+    pub shura: &'a mut Shura,
 }
 
 impl<'a> Context<'a> {
@@ -81,85 +61,16 @@ impl<'a> Context<'a> {
                 .resize(new_size.width as f32 / new_size.height as f32);
         }
 
-        scene.cursor.compute(
-            &scene.camera.fov(),
-            &window.inner_size().into(),
-            scene.camera.position(),
-            input,
-        );
+        scene
+            .cursor
+            .compute(&scene.camera.fov(), &window.inner_size().into(), input);
 
-        Self {
-            name: scene.name,
-            camera: &mut scene.camera,
-            component_manager: &mut scene.component_manager,
-            cursor: &mut scene.cursor,
-            resized: &mut scene.resized,
-            switched: &mut scene.switched,
-            clear_color: &mut scene.clear_color,
-            #[cfg(feature = "physics")]
-            world: &mut scene.world,
-            saved_sprites: &mut scene.saved_sprites,
-
-            window,
-            input,
-            frame_manager: &mut shura.frame_manager,
-            scene_manager: &mut shura.scene_manager,
-            end: &mut shura.end,
-            gpu: &mut shura.gpu,
-            defaults: &mut shura.defaults,
-            #[cfg(feature = "audio")]
-            audio: &mut shura.audio,
-            #[cfg(feature = "audio")]
-            audio_handle: &mut shura.audio_handle,
-            #[cfg(feature = "gui")]
-            gui: &mut shura.gui,
-        }
-    }
-
-    pub(crate) fn new_manual(
-        scene: &'a mut Scene,
-        end: &'a mut bool,
-        scene_manager: &'a mut SceneManager,
-        frame_manager: &'a FrameManager,
-        window: &'a mut Window,
-        input: &'a mut Input,
-        gpu: &'a mut Gpu,
-        defaults: &'a mut Defaults,
-        #[cfg(feature = "gui")] gui: &'a mut Gui,
-        #[cfg(feature = "audio")] audio: &'a mut OutputStream,
-        #[cfg(feature = "audio")] audio_handle: &'a mut OutputStreamHandle,
-    ) -> Context<'a> {
-        Self {
-            name: scene.name,
-            camera: &mut scene.camera,
-            component_manager: &mut scene.component_manager,
-            cursor: &mut scene.cursor,
-            resized: &mut scene.resized,
-            switched: &mut scene.switched,
-            clear_color: &mut scene.clear_color,
-            #[cfg(feature = "physics")]
-            world: &mut scene.world,
-            saved_sprites: &mut scene.saved_sprites,
-
-            window,
-            input,
-            frame_manager,
-            scene_manager,
-            end,
-            gpu,
-            defaults,
-            #[cfg(feature = "audio")]
-            audio,
-            #[cfg(feature = "audio")]
-            audio_handle,
-            #[cfg(feature = "gui")]
-            gui,
-        }
+        Self { scene, shura }
     }
 
     #[inline]
     pub(crate) fn borrow_active_components(&mut self) -> BTreeMap<(i16, TypeId), ComponentCluster> {
-        self.component_manager.borrow_active_components()
+        self.scene.component_manager.borrow_active_components()
     }
 
     #[inline]
@@ -167,24 +78,26 @@ impl<'a> Context<'a> {
         &mut self,
         active_components: BTreeMap<(i16, TypeId), ComponentCluster>,
     ) {
-        self.component_manager
+        self.scene
+            .component_manager
             .return_active_components(active_components)
     }
 
     #[inline]
     #[cfg(feature = "physics")]
     pub(crate) fn step_world(&mut self) {
-        self.world.step(self.delta_time());
+        self.scene.world.step(self.delta_time());
     }
 
     #[inline]
     pub(crate) fn remove_current_commponent(&mut self) -> bool {
-        self.component_manager.remove_current_commponent()
+        self.scene.component_manager.remove_current_commponent()
     }
 
     #[inline]
     pub(crate) fn set_current_component(&mut self, current_component: Option<ComponentHandle>) {
-        self.component_manager
+        self.scene
+            .component_manager
             .set_current_component(current_component);
     }
 
@@ -193,56 +106,48 @@ impl<'a> Context<'a> {
     pub(crate) fn collision_event(
         &mut self,
     ) -> Result<CollisionEvent, crossbeam::channel::TryRecvError> {
-        self.world.event_receivers.0.try_recv()
+        self.scene.world.event_receivers.0.try_recv()
     }
 
     #[inline]
     pub(crate) fn normalize_input(&mut self) {
-        self.input.update();
+        self.shura.input.update();
     }
 
     #[inline]
     pub(crate) fn update_sets(&mut self) {
-        if let Some(target) = self.camera.target() {
-            if let Some(component) = self.component_manager.component_dynamic(&target) {
-                let matrix = component.inner().matrix(
-                    #[cfg(feature = "physics")]
-                    self.world,
-                );
-                self.camera
-                    .set_translation(Vector::new(matrix[12], matrix[13]));
-            } else {
-                self.camera.set_target(None);
-            }
-        }
-
-        self.component_manager.update_sets(self.camera);
+        self.scene.camera.apply_target(
+            &self.scene.component_manager,
+            #[cfg(feature = "physics")]
+            &self.scene.world,
+        );
+        self.scene.component_manager.update_sets(&self.scene.camera);
     }
 
     #[inline]
     pub(crate) fn buffer(&mut self) {
-        self.camera.buffer(self.gpu);
-        self.component_manager.buffer_sets(
-            self.gpu,
+        self.scene.camera.buffer(&self.shura.gpu);
+        self.scene.component_manager.buffer_sets(
+            &self.shura.gpu,
             #[cfg(feature = "physics")]
-            self.world,
+            &self.scene.world,
         );
-        self.defaults.buffer(
-            self.gpu,
-            self.frame_manager.total_time(),
-            self.frame_manager.delta_time(),
+        self.shura.defaults.buffer(
+            &self.shura.gpu,
+            self.shura.frame_manager.total_time(),
+            self.shura.frame_manager.delta_time(),
         );
     }
 
     #[inline]
     #[cfg(feature = "physics")]
     pub fn component_from_collider(&self, collider: &ColliderHandle) -> Option<ComponentHandle> {
-        self.world.component(collider)
+        self.scene.world.component(collider)
     }
 
     #[inline]
     pub fn does_group_exist(&self, group: u32) -> bool {
-        self.component_manager.does_group_exist(group)
+        self.scene.component_manager.does_group_exist(group)
     }
 
     //////////////////////////////////////////////////////////////////////////////////////////////
@@ -257,38 +162,40 @@ impl<'a> Context<'a> {
         rigid_body2: RigidBodyHandle,
         joint: impl Into<GenericJoint>,
     ) -> ImpulseJointHandle {
-        self.world.create_joint(rigid_body1, rigid_body2, joint)
+        self.scene
+            .world
+            .create_joint(rigid_body1, rigid_body2, joint)
     }
 
     #[inline]
     #[cfg(feature = "audio")]
     pub fn create_sink(&self) -> Sink {
-        Sink::try_new(self.audio_handle).unwrap()
+        Sink::try_new(&self.shura.audio_handle).unwrap()
     }
 
     #[inline]
     pub fn create_instance_buffer(&self, instances: &[Matrix]) -> InstanceBuffer {
-        InstanceBuffer::new(self.gpu, instances)
+        InstanceBuffer::new(&self.shura.gpu, instances)
     }
 
     #[inline]
     pub fn create_model(&self, builder: ModelBuilder) -> Model {
-        Model::new(self.gpu, builder)
+        Model::new(&self.shura.gpu, builder)
     }
 
     #[inline]
     pub fn create_sprite(&self, bytes: &[u8]) -> Sprite {
-        Sprite::new(self.gpu, bytes)
+        Sprite::new(&self.shura.gpu, bytes)
     }
 
     #[inline]
     pub fn create_sprite_from_image(&self, image: image::DynamicImage) -> Sprite {
-        Sprite::from_image(self.gpu, image)
+        Sprite::from_image(&self.shura.gpu, image)
     }
 
     #[inline]
     pub fn create_empty_sprite(&self, size: Dimension<u32>) -> Sprite {
-        Sprite::empty(self.gpu, size)
+        Sprite::empty(&self.shura.gpu, size)
     }
 
     #[inline]
@@ -298,24 +205,24 @@ impl<'a> Context<'a> {
         sprites: Dimension<u32>,
         sprite_size: Dimension<u32>,
     ) -> SpriteSheet {
-        SpriteSheet::new(self.gpu, bytes, sprites, sprite_size)
+        SpriteSheet::new(&self.shura.gpu, bytes, sprites, sprite_size)
     }
 
     #[inline]
     #[cfg(feature = "text")]
     pub fn create_font(&self, bytes: &'static [u8]) -> Font {
-        Font::new_simple(self.gpu, bytes)
+        Font::new_simple(&self.shura.gpu, bytes)
     }
 
     #[inline]
     #[cfg(feature = "text")]
     pub fn create_text(&mut self, descriptor: TextDescriptor) -> Sprite {
-        Sprite::new_text(self.gpu, self.defaults, descriptor)
+        Sprite::new_text(&self.shura.gpu, &mut self.shura.defaults, descriptor)
     }
 
     #[inline]
     pub fn create_uniform<T: bytemuck::Pod>(&self, data: T) -> Uniform<T> {
-        Uniform::new(self.gpu, data)
+        Uniform::new(&self.shura.gpu, data)
     }
 
     #[inline]
@@ -325,7 +232,7 @@ impl<'a> Context<'a> {
         shader_type: ShaderLang,
         shader_fields: &[ShaderField],
     ) -> Shader {
-        Shader::new(self.gpu, code, shader_type, shader_fields)
+        Shader::new(&self.shura.gpu, code, shader_type, shader_fields)
     }
 
     #[inline]
@@ -334,7 +241,7 @@ impl<'a> Context<'a> {
         shader_lang: ShaderLang,
         descriptor: &wgpu::RenderPipelineDescriptor,
     ) -> Shader {
-        Shader::new_custom(self.gpu, shader_lang, descriptor)
+        Shader::new_custom(&self.shura.gpu, shader_lang, descriptor)
     }
 
     #[inline]
@@ -347,8 +254,7 @@ impl<'a> Context<'a> {
     pub fn create_computed_sprite<'caller, F>(
         &self,
         instances: &InstanceBuffer,
-        fov: Dimension<f32>,
-        camera: Isometry<f32>,
+        camera: &Camera,
         texture_size: Dimension<u32>,
         clear_color: Option<Color>,
         compute: F,
@@ -357,10 +263,9 @@ impl<'a> Context<'a> {
         F: for<'any> Fn(&mut Renderer<'any>, Instances, [Where!('caller >= 'any); 0]),
     {
         return Sprite::computed(
-            self.gpu,
-            &self.defaults,
+            &self.shura.gpu,
+            &self.shura.defaults,
             instances,
-            fov,
             camera,
             texture_size,
             clear_color,
@@ -375,12 +280,12 @@ impl<'a> Context<'a> {
         component: &PhysicsComponent,
         collider: &ColliderBuilder,
     ) -> ColliderHandle {
-        self.world.create_collider(component, collider)
+        self.scene.world.create_collider(component, collider)
     }
 
     #[inline]
     pub fn create_group(&mut self, descriptor: &ComponentGroupDescriptor) {
-        self.component_manager.create_group(descriptor);
+        self.scene.component_manager.create_group(descriptor);
     }
 
     #[inline]
@@ -389,10 +294,10 @@ impl<'a> Context<'a> {
         group: Option<u32>,
         controller: T,
     ) -> (&mut T, ComponentHandle) {
-        self.component_manager.create_component(
+        self.scene.component_manager.create_component(
             #[cfg(feature = "physics")]
-            self.world,
-            self.frame_manager.total_frames(),
+            &mut self.scene.world,
+            self.shura.frame_manager.total_frames(),
             group,
             controller,
         )
@@ -406,300 +311,280 @@ impl<'a> Context<'a> {
     ) {
         let window_size: Dimension<f32> = self.window_size().into();
         let ratio = window_size.width / window_size.height;
-        let mut scene = Scene::new(self.gpu, ratio, name);
-        let mut ctx = Context::new_manual(
-            &mut scene,
-            self.end,
-            self.scene_manager,
-            self.frame_manager,
-            self.window,
-            self.input,
-            self.gpu,
-            self.defaults,
-            #[cfg(feature = "gui")]
-            self.gui,
-            #[cfg(feature = "audio")]
-            self.audio,
-            #[cfg(feature = "audio")]
-            self.audio_handle,
-        );
+        let mut scene = Scene::new(&self.shura.gpu, ratio, name);
+        let mut ctx = Context::new(&mut scene, self.shura);
         let controller: DynamicScene = Box::new(controller(&mut ctx));
-        self.scene_manager.add((controller, scene));
+        drop(ctx);
+        self.shura.scene_manager.add((controller, scene));
     }
 
     /// Remove a scene by its name
     #[inline]
-    pub fn remove_scene(&mut self, name: &'static str) {
-        if let Some((mut controller, mut scene)) = self.scene_manager.remove(name) {
-            let mut ctx = Context::new_manual(
-                &mut scene,
-                self.end,
-                self.scene_manager,
-                self.frame_manager,
-                self.window,
-                self.input,
-                self.gpu,
-                self.defaults,
-                #[cfg(feature = "gui")]
-                self.gui,
-                #[cfg(feature = "audio")]
-                self.audio,
-                #[cfg(feature = "audio")]
-                self.audio_handle,
-            );
+    pub fn remove_scene(&mut self, name: &'static str) -> Option<DynamicScene> {
+        if let Some((mut controller, mut scene)) = self.shura.scene_manager.remove(name) {
+            let mut ctx = Context::new(&mut scene, self.shura);
             controller.end(&mut ctx);
+            return Some(controller);
         }
+        return None;
     }
 
     #[inline]
     pub fn remove_component(&mut self, handle: &ComponentHandle) -> Option<DynamicComponent> {
-        return self.component_manager.remove_component(
+        return self.scene.component_manager.remove_component(
             handle,
             #[cfg(feature = "physics")]
-            self.world,
+            &mut self.scene.world,
         );
     }
 
     #[inline]
     pub fn remove_components<T: ComponentController>(&mut self, groups: Option<&[u32]>) {
-        self.component_manager.remove_components::<T>(
+        self.scene.component_manager.remove_components::<T>(
             groups,
             #[cfg(feature = "physics")]
-            self.world,
+            &mut self.scene.world,
         );
     }
 
     #[inline]
     pub fn remove_group(&mut self, group_id: u32) {
-        self.component_manager.remove_group(
+        self.scene.component_manager.remove_group(
             group_id,
             #[cfg(feature = "physics")]
-            self.world,
+            &mut self.scene.world,
         )
     }
 
     #[inline]
     #[cfg(feature = "physics")]
     pub fn remove_joint(&mut self, joint: ImpulseJointHandle) {
-        self.world.remove_joint(joint)
+        self.scene.world.remove_joint(joint)
     }
 
     #[inline]
     #[cfg(feature = "physics")]
     pub fn remove_collider(&mut self, collider_handle: ColliderHandle) {
-        self.world.remove_collider(collider_handle);
+        self.scene.world.remove_collider(collider_handle);
     }
 
     //////////////////////////////////////////////////////////////////////////////////////////////
     // Getter
     //////////////////////////////////////////////////////////////////////////////////////////////
     #[inline]
+    pub fn relative_camera(&self) -> &Camera {
+        &self.shura.relative_camera
+    }
+
+    #[inline]
     pub fn saved_sprites(&self) -> &Vec<(String, Sprite)> {
-        &self.saved_sprites
+        &self.scene.saved_sprites
     }
 
     #[inline]
     pub fn saved_sprites_mut(&mut self) -> &mut Vec<(String, Sprite)> {
-        &mut self.saved_sprites
+        &mut self.scene.saved_sprites
     }
 
     #[inline]
     pub fn clear_saved_sprites(&mut self) -> Vec<(String, Sprite)> {
-        return std::mem::replace(&mut self.saved_sprites, vec![]);
+        return std::mem::replace(&mut self.scene.saved_sprites, vec![]);
     }
 
     #[inline]
     pub fn render_scale(&self) -> f32 {
-        self.gpu.render_scale()
+        self.shura.gpu.render_scale()
     }
 
     #[inline]
     #[cfg(feature = "gui")]
     pub fn gui(&self) -> GuiContext {
-        self.gui.context()
+        self.shura.gui.context()
     }
 
     #[inline]
     #[cfg(feature = "physics")]
     pub fn joint(&self, joint: ImpulseJointHandle) -> Option<&ImpulseJoint> {
-        self.world.joint(joint)
+        self.scene.world.joint(joint)
     }
 
     #[inline]
     #[cfg(feature = "physics")]
     pub fn joint_mut(&mut self, joint: ImpulseJointHandle) -> Option<&mut ImpulseJoint> {
-        self.world.joint_mut(joint)
+        self.scene.world.joint_mut(joint)
     }
 
     #[inline]
     #[cfg(feature = "physics")]
     pub fn collider(&self, collider_handle: ColliderHandle) -> Option<&Collider> {
-        self.world.collider(collider_handle)
+        self.scene.world.collider(collider_handle)
     }
 
     #[inline]
     #[cfg(feature = "physics")]
     pub fn collider_mut(&mut self, collider_handle: ColliderHandle) -> Option<&mut Collider> {
-        self.world.collider_mut(collider_handle)
+        self.scene.world.collider_mut(collider_handle)
     }
 
     #[inline]
     pub fn is_pressed(&self, trigger: impl Into<InputTrigger>) -> bool {
-        self.input.is_pressed(trigger)
+        self.shura.input.is_pressed(trigger)
     }
 
     #[inline]
     pub fn is_held(&self, trigger: impl Into<InputTrigger>) -> bool {
-        self.input.is_held(trigger)
+        self.shura.input.is_held(trigger)
     }
 
     #[inline]
     pub fn wheel_delta(&self) -> f32 {
-        self.input.wheel_delta()
+        self.shura.input.wheel_delta()
     }
 
     #[inline]
     pub fn held_time(&self, trigger: impl Into<InputTrigger>) -> f32 {
-        self.input.held_time(trigger)
+        self.shura.input.held_time(trigger)
     }
 
     #[inline]
     pub fn held_time_duration(&self, trigger: impl Into<InputTrigger>) -> Option<Duration> {
-        self.input.held_time_duration(trigger)
+        self.shura.input.held_time_duration(trigger)
     }
 
     #[inline]
     pub fn triggers(&self) -> &FxHashMap<InputTrigger, InputEvent> {
-        self.input.triggers()
+        self.shura.input.triggers()
     }
 
     #[inline]
     pub fn staged_key(&self) -> Option<Key> {
-        self.input.staged_key()
+        self.shura.input.staged_key()
     }
 
     #[inline]
     pub const fn modifiers(&self) -> Option<Modifier> {
-        self.input.modifiers()
+        self.shura.input.modifiers()
     }
 
     #[inline]
     pub fn is_vsync(&self) -> bool {
-        self.gpu.is_vsync()
+        self.shura.gpu.is_vsync()
     }
 
     #[inline]
     pub fn render_size(&self) -> Dimension<u32> {
-        self.gpu.render_size()
+        self.shura.gpu.render_size()
     }
 
     #[inline]
     pub const fn total_frames(&self) -> u64 {
-        self.frame_manager.total_frames()
+        self.shura.frame_manager.total_frames()
     }
 
     #[inline]
     pub const fn start_time(&self) -> Instant {
-        self.frame_manager.start_time()
+        self.shura.frame_manager.start_time()
     }
 
     #[inline]
     pub const fn update_time(&self) -> Instant {
-        self.frame_manager.update_time()
+        self.shura.frame_manager.update_time()
     }
 
     #[inline]
     pub const fn render_components(&self) -> bool {
-        self.component_manager.render_components()
+        self.scene.component_manager.render_components()
     }
 
     #[inline]
     pub fn update_components(&self) -> bool {
-        self.component_manager.update_components()
+        self.scene.component_manager.update_components()
     }
 
     #[inline]
     /// Returns a dimension with the distance from the center of the camera to the right and from the
     /// center to the top.
     pub fn camera_fov(&self) -> Dimension<f32> {
-        self.camera.fov()
+        self.scene.camera.fov()
     }
 
     #[inline]
     pub fn camera_translation(&self) -> &Vector<f32> {
-        self.camera.translation()
+        self.scene.camera.translation()
     }
 
     #[inline]
     pub fn camera_rotation(&self) -> &Rotation<f32> {
-        self.camera.rotation()
+        self.scene.camera.rotation()
     }
 
     #[inline]
     pub fn camera_position(&self) -> &Isometry<f32> {
-        self.camera.position()
+        self.scene.camera.position()
     }
 
     #[inline]
     pub fn camera_target(&self) -> Option<ComponentHandle> {
-        self.camera.target()
+        self.scene.camera.target()
     }
 
     #[inline]
     pub fn clear_color(&self) -> Option<Color> {
-        *self.clear_color
+        self.scene.clear_color
     }
 
     #[inline]
     pub fn cursor_world(&self) -> &Vector<f32> {
-        self.cursor.cursor_world()
+        self.scene.cursor.cursor_world()
     }
 
     #[inline]
     pub fn relative_cursor_pos(&self) -> &Vector<f32> {
-        self.cursor.cursor_relative()
+        self.scene.cursor.cursor_relative()
     }
 
     #[inline]
-    pub fn cursor_raw(&self) -> &Vector<f32> {
-        self.input.cursor_raw()
+    pub fn cursor_raw(&self) -> &Vector<u32> {
+        self.scene.cursor.cursor_raw()
     }
 
     #[inline]
     pub fn touches(&self) -> &[Touch] {
-        self.cursor.touches()
+        self.scene.cursor.touches()
     }
 
     #[inline]
-    pub fn resized(&self) -> bool {
-        return *self.resized;
+    pub fn scene_resized(&self) -> bool {
+        return self.scene.resized;
     }
 
     #[inline]
     pub fn scene_switched(&self) -> bool {
-        return *self.switched;
+        return self.scene.switched;
     }
 
     #[inline]
     pub fn end(&mut self, end: bool) {
-        *self.end = end
+        self.shura.end = end
     }
 
     #[inline]
     pub fn window_size(&self) -> Dimension<u32> {
-        self.window.inner_size().into()
+        self.shura.window.inner_size().into()
     }
 
     #[inline]
     #[cfg(feature = "physics")]
     pub fn intersects_ray(&self, collider_handle: ColliderHandle, ray: Ray, max_toi: f32) -> bool {
-        self.world.intersects_ray(collider_handle, ray, max_toi)
+        self.scene
+            .world
+            .intersects_ray(collider_handle, ray, max_toi)
     }
 
     #[inline]
     #[cfg(feature = "physics")]
     pub fn intersects_point(&self, collider_handle: ColliderHandle, point: Vector<f32>) -> bool {
-        self.world.intersects_point(collider_handle, point)
+        self.scene.world.intersects_point(collider_handle, point)
     }
 
     #[inline]
@@ -710,7 +595,7 @@ impl<'a> Context<'a> {
         handle: ColliderHandle,
         collider: &Collider,
     ) -> bool {
-        self.world.test_filter(filter, handle, collider)
+        self.scene.world.test_filter(filter, handle, collider)
     }
 
     #[inline]
@@ -722,7 +607,7 @@ impl<'a> Context<'a> {
         solid: bool,
         filter: QueryFilter,
     ) -> Option<(ComponentHandle, ColliderHandle, f32)> {
-        self.world.cast_ray(ray, max_toi, solid, filter)
+        self.scene.world.cast_ray(ray, max_toi, solid, filter)
     }
 
     #[inline]
@@ -736,7 +621,7 @@ impl<'a> Context<'a> {
         stop_at_penetration: bool,
         filter: QueryFilter,
     ) -> Option<(ComponentHandle, ColliderHandle, TOI)> {
-        self.world.cast_shape(
+        self.scene.world.cast_shape(
             shape,
             position,
             velocity,
@@ -755,7 +640,8 @@ impl<'a> Context<'a> {
         solid: bool,
         filter: QueryFilter,
     ) -> Option<(ComponentHandle, ColliderHandle, RayIntersection)> {
-        self.world
+        self.scene
+            .world
             .cast_ray_and_get_normal(ray, max_toi, solid, filter)
     }
 
@@ -769,7 +655,8 @@ impl<'a> Context<'a> {
         filter: QueryFilter,
         callback: impl FnMut(ComponentHandle, ColliderHandle, RayIntersection) -> bool,
     ) {
-        self.world
+        self.scene
+            .world
             .intersections_with_ray(ray, max_toi, solid, filter, callback)
     }
 
@@ -782,7 +669,8 @@ impl<'a> Context<'a> {
         filter: QueryFilter,
         callback: impl FnMut(ComponentHandle, ColliderHandle) -> bool,
     ) {
-        self.world
+        self.scene
+            .world
             .intersections_with_shape(shape_pos, shape, filter, callback)
     }
 
@@ -794,7 +682,9 @@ impl<'a> Context<'a> {
         shape: &dyn Shape,
         filter: QueryFilter,
     ) -> Option<(ComponentHandle, ColliderHandle)> {
-        self.world.intersection_with_shape(shape_pos, shape, filter)
+        self.scene
+            .world
+            .intersection_with_shape(shape_pos, shape, filter)
     }
 
     #[inline]
@@ -805,100 +695,107 @@ impl<'a> Context<'a> {
         filter: QueryFilter,
         callback: impl FnMut(ComponentHandle, ColliderHandle) -> bool,
     ) {
-        self.world.intersections_with_point(point, filter, callback)
+        self.scene
+            .world
+            .intersections_with_point(point, filter, callback)
     }
 
     #[inline]
     pub fn total_time_duration(&self) -> Duration {
-        self.frame_manager.total_time_duration()
+        self.shura.frame_manager.total_time_duration()
     }
 
     #[inline]
     pub fn total_time(&self) -> f32 {
-        self.frame_manager.total_time()
+        self.shura.frame_manager.total_time()
     }
 
     #[inline]
     pub fn delta_time_duration(&self) -> Duration {
-        self.frame_manager.delta_time_duration()
+        self.shura.frame_manager.delta_time_duration()
     }
 
     #[inline]
     pub fn delta_time(&self) -> f32 {
-        self.frame_manager.delta_time()
+        self.shura.frame_manager.delta_time()
     }
 
     #[inline]
     pub fn fps(&self) -> u32 {
-        self.frame_manager.fps()
+        self.shura.frame_manager.fps()
+    }
+
+    #[inline]
+    pub fn window(&self) -> &winit::window::Window {
+        &self.shura.window
     }
 
     #[inline]
     pub fn window_mut(&mut self) -> &mut winit::window::Window {
-        &mut self.window
+        &mut self.shura.window
     }
 
     #[inline]
     pub fn group_mut(&mut self, id: u32) -> Option<&mut ComponentGroup> {
-        if let Some(group_index) = self.component_manager.group_index(&id) {
-            return self.component_manager.group_mut(*group_index);
+        if let Some(group_index) = self.scene.component_manager.group_index(&id) {
+            return self.scene.component_manager.group_mut(*group_index);
         }
         return None;
     }
 
     #[inline]
     pub fn group(&self, id: u32) -> Option<&ComponentGroup> {
-        if let Some(group_index) = self.component_manager.group_index(&id) {
-            return self.component_manager.group(*group_index);
+        if let Some(group_index) = self.scene.component_manager.group_index(&id) {
+            return self.scene.component_manager.group(*group_index);
         }
         return None;
     }
 
     #[inline]
     pub fn scene_name(&self) -> &str {
-        self.name
+        self.scene.name
     }
 
     #[inline]
     pub fn active_scene(&self) -> &'static str {
-        self.scene_manager.active_scene()
+        self.shura.scene_manager.active_scene()
     }
 
     #[inline]
     pub fn scenes(&self) -> Vec<&'static str> {
-        self.scene_manager.scenes()
+        self.shura.scene_manager.scenes()
     }
 
     #[inline]
     pub fn does_scene_exist(&self, name: &'static str) -> bool {
-        self.scene_manager.does_scene_exist(name)
+        self.shura.scene_manager.does_scene_exist(name)
     }
 
     #[inline]
     pub fn active_group_ids(&self) -> &[u32] {
-        self.component_manager.active_group_ids()
+        self.scene.component_manager.active_group_ids()
     }
 
     #[inline]
     pub fn group_ids(&self) -> Vec<u32> {
-        self.component_manager.group_ids()
+        self.scene.component_manager.group_ids()
     }
 
     #[inline]
     pub fn component_dynamic(&self, handle: &ComponentHandle) -> Option<&DynamicComponent> {
-        self.component_manager.component_dynamic(handle)
+        self.scene.component_manager.component_dynamic(handle)
     }
 
     pub fn component_dynamic_mut(
         &mut self,
         handle: &ComponentHandle,
     ) -> Option<&mut DynamicComponent> {
-        self.component_manager.component_dynamic_mut(handle)
+        self.scene.component_manager.component_dynamic_mut(handle)
     }
 
     #[inline]
     pub fn component<T: ComponentController>(&self, handle: &ComponentHandle) -> Option<&T> {
-        self.component_manager.component::<T>(handle)
+        self.scene.component_manager.component::<T>(handle)
     }
 
     #[inline]
@@ -906,7 +803,7 @@ impl<'a> Context<'a> {
         &mut self,
         handle: &ComponentHandle,
     ) -> Option<&mut T> {
-        self.component_manager.component_mut::<T>(handle)
+        self.scene.component_manager.component_mut::<T>(handle)
     }
 
     #[inline]
@@ -914,7 +811,7 @@ impl<'a> Context<'a> {
     /// (InstanceBuffer)[crate::InstanceBuffer]. This is used when the [crate::ComponentConfig::does_move]
     /// flag is set, but the position needs to be updated.
     pub fn force_buffer<T: ComponentController>(&mut self) {
-        self.component_manager.force_buffer::<T>()
+        self.scene.component_manager.force_buffer::<T>()
     }
 
     #[inline]
@@ -922,7 +819,9 @@ impl<'a> Context<'a> {
     /// (InstanceBuffer)[crate::InstanceBuffer]. This is used when the [crate::ComponentConfig::does_move]
     /// flag is set, but the position needs to be updated.
     pub fn force_buffer_groups<T: ComponentController>(&mut self, group_ids: &[u32]) {
-        self.component_manager.force_buffer_groups::<T>(group_ids)
+        self.scene
+            .component_manager
+            .force_buffer_groups::<T>(group_ids)
     }
 
     #[inline]
@@ -930,19 +829,19 @@ impl<'a> Context<'a> {
     /// (InstanceBuffer)[crate::InstanceBuffer]. This is used when the [crate::ComponentConfig::does_move]
     /// flag is set, but the position needs to be updated.
     pub fn force_buffer_active<T: ComponentController>(&mut self) {
-        self.component_manager.force_buffer_active::<T>()
+        self.scene.component_manager.force_buffer_active::<T>()
     }
 
     #[inline]
     #[cfg(feature = "physics")]
     pub fn gravity(&self) -> &Vector<f32> {
-        self.world.gravity()
+        self.scene.world.gravity()
     }
 
     #[inline]
     #[cfg(feature = "physics")]
     pub fn physics_priority(&self) -> i16 {
-        self.world.physics_priority()
+        self.scene.world.physics_priority()
     }
 
     #[inline]
@@ -950,7 +849,7 @@ impl<'a> Context<'a> {
         &mut self,
         groups: Option<&[u32]>,
     ) -> ComponentSetMut<T> {
-        self.component_manager.components_mut::<T>(groups)
+        self.scene.component_manager.components_mut::<T>(groups)
     }
 
     #[inline]
@@ -958,19 +857,19 @@ impl<'a> Context<'a> {
         &self,
         groups: Option<&[u32]>,
     ) -> ComponentSet<T> {
-        self.component_manager.components::<T>(groups)
+        self.scene.component_manager.components::<T>(groups)
     }
 
     #[inline]
     #[cfg(feature = "gamepad")]
     pub fn gamepads(&self) -> Option<ConnectedGamepadsIterator> {
-        self.input.gamepads()
+        self.shura.input.gamepads()
     }
 
     #[inline]
     #[cfg(feature = "gamepad")]
     pub fn gamepad(&self, gamepad_id: GamepadId) -> Option<Gamepad> {
-        self.input.gamepad(gamepad_id)
+        self.shura.input.gamepad(gamepad_id)
     }
 
     #[inline]
@@ -979,7 +878,7 @@ impl<'a> Context<'a> {
         path: ArenaPath,
         index: usize,
     ) -> Option<ArenaEntry<DynamicComponent>> {
-        self.component_manager.borrow_component(path, index)
+        self.scene.component_manager.borrow_component(path, index)
     }
 
     #[inline]
@@ -989,13 +888,16 @@ impl<'a> Context<'a> {
         index: usize,
         component: ArenaEntry<DynamicComponent>,
     ) {
-        self.component_manager
+        self.scene
+            .component_manager
             .return_component(path, index, component)
     }
 
     #[inline]
     pub(crate) fn not_return_component(&mut self, path: ArenaPath, index: usize) {
-        self.component_manager.not_return_component(path, index)
+        self.scene
+            .component_manager
+            .not_return_component(path, index)
     }
 
     //////////////////////////////////////////////////////////////////////////////////////////////
@@ -1004,110 +906,126 @@ impl<'a> Context<'a> {
 
     #[inline]
     pub fn set_render_scale(&mut self, scale: f32) {
-        self.gpu.set_render_scale(self.defaults, scale)
+        self.shura
+            .gpu
+            .set_render_scale(&mut self.shura.defaults, scale)
     }
 
     #[inline]
     pub fn set_active_scene(&mut self, active_scene: &'static str) {
-        self.scene_manager.set_active_scene(active_scene)
+        self.shura.scene_manager.set_active_scene(active_scene)
     }
 
     #[inline]
     pub fn set_update_components(&mut self, update_components: bool) {
-        self.component_manager
+        self.scene
+            .component_manager
             .set_update_components(update_components)
     }
 
     #[inline]
     pub fn set_render_components(&mut self, render_components: bool) {
-        self.component_manager
+        self.scene
+            .component_manager
             .set_render_components(render_components)
     }
 
     #[inline]
     pub fn set_camera_position(&mut self, pos: Isometry<f32>) {
-        self.camera.set_position(pos);
+        self.scene.camera.set_position(pos);
     }
 
     #[inline]
     pub fn set_camera_translation(&mut self, translation: Vector<f32>) {
-        self.camera.set_translation(translation);
+        self.scene.camera.set_translation(translation);
     }
 
     #[inline]
     pub fn set_camera_rotation(&mut self, rotation: Rotation<f32>) {
-        self.camera.set_rotation(rotation);
+        self.scene.camera.set_rotation(rotation);
     }
 
     pub fn set_camera_target(&mut self, target: Option<ComponentHandle>) {
-        self.camera.set_target(target);
+        self.scene.camera.set_target(target);
     }
 
     #[inline]
     /// Tries to enable or disable vSync. The default is always vSync to be on.
     /// So every device supports vSync but not every device supports no vSync.
     pub fn set_vsync(&mut self, vsync: bool) {
-        self.gpu.set_vsync(vsync);
+        &self.shura.gpu.set_vsync(vsync);
     }
 
     #[inline]
     pub fn set_cursor_hidden(&mut self, hidden: bool) {
-        self.window.set_cursor_visible(!hidden);
+        self.shura.window.set_cursor_visible(!hidden);
     }
 
     #[inline]
     /// Set the distance between the center of the camera to the top in world coordinates.
     pub fn set_vertical_fov(&mut self, fov: f32) {
-        self.camera.set_vertical_fov(fov);
+        let window_size = self.window_size();
+        self.scene.camera.set_vertical_fov(
+            &mut self.scene.cursor,
+            &self.shura.input,
+            window_size,
+            fov,
+        );
     }
 
     #[inline]
     /// Set the distance between the center of the camera to the right in world coordinates.
     pub fn set_horizontal_fov(&mut self, fov: f32) {
-        self.camera.set_horizontal_fov(fov);
+        let window_size = self.window_size();
+        self.scene.camera.set_horizontal_fov(
+            &mut self.scene.cursor,
+            &self.shura.input,
+            window_size,
+            fov,
+        );
     }
 
     #[inline]
     pub fn set_window_size(&mut self, size: Dimension<u32>) {
         let size: winit::dpi::PhysicalSize<u32> = size.into();
-        self.window.set_inner_size(size);
+        self.shura.window.set_inner_size(size);
     }
 
     #[inline]
     pub fn set_fullscreen(&mut self, fullscreen: bool) {
         if fullscreen {
             let f = winit::window::Fullscreen::Borderless(None);
-            self.window.set_fullscreen(Some(f));
+            self.shura.window.set_fullscreen(Some(f));
         } else {
-            self.window.set_fullscreen(None);
+            self.shura.window.set_fullscreen(None);
         }
     }
 
     #[inline]
     pub fn set_clear_color(&mut self, color: Option<Color>) {
-        *self.clear_color = color;
+        self.scene.clear_color = color;
     }
 
     #[inline]
     pub fn set_window_resizable(&mut self, resizable: bool) {
-        self.window.set_resizable(resizable);
+        self.shura.window.set_resizable(resizable);
     }
 
     #[inline]
     pub fn set_window_title(&mut self, title: &str) {
-        self.window.set_title(title);
+        self.shura.window.set_title(title);
     }
 
     #[inline]
     #[cfg(feature = "physics")]
     pub fn set_gravity(&mut self, gravity: Vector<f32>) {
-        self.world.set_gravity(gravity);
+        self.scene.world.set_gravity(gravity);
     }
 
     #[inline]
     #[cfg(feature = "physics")]
     pub fn set_physics_priority(&mut self, step: i16) {
-        self.world.set_physics_priority(step);
+        self.scene.world.set_physics_priority(step);
     }
 
     #[inline]
@@ -1118,7 +1036,7 @@ impl<'a> Context<'a> {
         mapping: &Mapping,
         name: Option<&str>,
     ) -> Result<String, MappingError> {
-        self.input.set_mapping(gamepad_id, mapping, name)
+        self.shura.input.set_mapping(gamepad_id, mapping, name)
     }
 
     #[inline]
@@ -1129,6 +1047,8 @@ impl<'a> Context<'a> {
         mapping: &Mapping,
         name: Option<&str>,
     ) -> Result<String, MappingError> {
-        self.input.set_mapping_strict(gamepad_id, mapping, name)
+        self.shura
+            .input
+            .set_mapping_strict(gamepad_id, mapping, name)
     }
 }

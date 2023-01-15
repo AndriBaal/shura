@@ -14,7 +14,6 @@ pub struct Matrix {
     pub w: Vector4<f32>,
 }
 
-
 impl Matrix {
     // Matrix::from_look(Vec3::new(0.0, 0.0,-3.0), Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 1.0, 0.0));
     pub(crate) const NULL_VIEW: Matrix = Matrix::raw(
@@ -24,12 +23,7 @@ impl Matrix {
         Vector4::new(0.0, 0.0, -3.0, 1.0),
     );
 
-    pub const fn raw(
-        x: Vector4<f32>,
-        y: Vector4<f32>,
-        z: Vector4<f32>,
-        w: Vector4<f32>,
-    ) -> Matrix {
+    pub const fn raw(x: Vector4<f32>, y: Vector4<f32>, z: Vector4<f32>, w: Vector4<f32>) -> Matrix {
         Self { x, y, z, w }
     }
 
@@ -55,9 +49,7 @@ impl Matrix {
     }
 
     /// Frustum
-    pub fn projection(
-        mut fov: Dimension<f32>
-    ) -> Matrix {
+    pub fn projection(mut fov: Dimension<f32>) -> Matrix {
         const NEAR: f32 = 3.0;
         const FAR: f32 = 7.0;
         fov /= 2.0;

@@ -1,6 +1,6 @@
 #[cfg(feature = "physics")]
 use crate::physics::{ColliderBuilder, TypedShape};
-use crate::{na::Vector4, Dimension, Gpu, Isometry, Rotation, Vector, Vertex, Index};
+use crate::{na::Vector4, Dimension, Gpu, Index, Isometry, Rotation, Vector, Vertex};
 use std::f32::consts::PI;
 use wgpu::util::DeviceExt;
 
@@ -263,8 +263,7 @@ impl ModelBuilder {
         let mut a = vec![];
         for (_, _, v0, v1) in WrapIter::new(&vertices) {
             let s = v1 - v0;
-            let t = (s * ccw_left).normalize()
-                * border_radius;
+            let t = (s * ccw_left).normalize() * border_radius;
             n.push(t);
             a.push(v0.pos.angle(&v1.pos));
         }
@@ -275,20 +274,17 @@ impl ModelBuilder {
             vertices_prime[j] = ((vertices[k] - vertices[j]).normalize() * h) + vertices[j] - n[j];
         }
 
-        let mut s = a
-            .iter()
-            .map(|_| resolution as f32)
-            .collect::<Vec<f32>>();
+        let mut s = a.iter().map(|_| resolution as f32).collect::<Vec<f32>>();
 
         for i in 0..a.len() {
             if s[i] > 0.0 {
                 a[i] /= s[i];
-                s[i] -= 1.0 ;
+                s[i] -= 1.0;
             }
         }
 
         let mut index = 0;
-        for (i,j,v0,v1) in WrapIter::new(&vertices) {
+        for (i, j, v0, v1) in WrapIter::new(&vertices) {
             result[index] = v0 + n[i];
             index += 1;
             result[index] = v1 + n[i];
