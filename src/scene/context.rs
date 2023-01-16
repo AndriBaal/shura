@@ -1,4 +1,4 @@
-use std::{any::TypeId, collections::BTreeMap};
+use std::{any::{TypeId, Any}, collections::BTreeMap};
 
 use crate::{
     data::arena::ArenaEntry, ArenaPath, Camera, Color, ComponentCluster, ComponentController,
@@ -29,6 +29,8 @@ use crate::gamepad::*;
 use instant::{Duration, Instant};
 use rustc_hash::FxHashMap;
 
+use super::scene::SceneDescriptor;
+
 macro_rules! Where {
     (
     $a:lifetime >= $b:lifetime $(,)?
@@ -37,9 +39,6 @@ macro_rules! Where {
     };
 }
 
-impl<'a> Drop for Context<'a> {
-    fn drop(&mut self) {}
-}
 
 /// Context to communicate with the game engine to access components, scenes, camera, physics and many more.
 pub struct Context<'a> {
@@ -306,12 +305,12 @@ impl<'a> Context<'a> {
     #[inline]
     pub fn create_scene<S: SceneController, F: 'static + FnMut(&mut Context) -> S>(
         &mut self,
-        name: &'static str,
+        mut scene: SceneDescriptor,
         mut controller: F,
     ) {
         let window_size: Dimension<f32> = self.window_size().into();
         let ratio = window_size.width / window_size.height;
-        let mut scene = Scene::new(&self.shura.gpu, ratio, name);
+        let scene = Scene::new(self.shura, scene);
         let mut ctx = Context::new(&mut scene, self.shura);
         let controller: DynamicScene = Box::new(controller(&mut ctx));
         drop(ctx);
@@ -320,11 +319,11 @@ impl<'a> Context<'a> {
 
     /// Remove a scene by its name
     #[inline]
-    pub fn remove_scene(&mut self, name: &'static str) -> Option<DynamicScene> {
+    pub fn remove_scene(&mut self, name: &'static str) -> Option<(Scene, DynamicScene)> {
         if let Some((mut controller, mut scene)) = self.shura.scene_manager.remove(name) {
             let mut ctx = Context::new(&mut scene, self.shura);
             controller.end(&mut ctx);
-            return Some(controller);
+            return Some((scene, controller));
         }
         return None;
     }
