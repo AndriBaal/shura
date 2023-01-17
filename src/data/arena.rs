@@ -18,6 +18,7 @@ pub(crate) enum ArenaEntry<T> {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct ArenaIndex {
     index: u32,
     generation: u32,

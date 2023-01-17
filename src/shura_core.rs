@@ -18,8 +18,8 @@ pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 1.0;
 
 /// Start a new game with the given callback to initialize the first [SceneController].
 pub fn init<S: SceneController, F: 'static + FnMut(&mut Context) -> S>(
-    scene: SceneDescriptor,
-    init: F,
+    mut scene: SceneDescriptor,
+    mut init: F,
 ) {
     info!("Using shura version: {}", env!("CARGO_PKG_VERSION"));
     let events = winit::event_loop::EventLoop::new();
@@ -29,6 +29,7 @@ pub fn init<S: SceneController, F: 'static + FnMut(&mut Context) -> S>(
         .build(&events)
         .unwrap();
     let shura_window_id = window.id();
+    let mut window = Some(window);
 
     #[cfg(target_arch = "wasm32")]
     {
@@ -82,7 +83,7 @@ pub fn init<S: SceneController, F: 'static + FnMut(&mut Context) -> S>(
     let mut active: Option<(Shura, BoxedScene)> = if cfg!(target_os = "android") {
         None
     } else {
-        Some(Shura::new(window, scene, init))
+        Some(Shura::new(window.take().unwrap(), &mut scene, &mut init))
     };
 
     events.run(move |event, _, control_flow| {
@@ -138,19 +139,18 @@ pub fn init<S: SceneController, F: 'static + FnMut(&mut Context) -> S>(
                 }
                 Event::MainEventsCleared => {
                     shura.window.request_redraw();
+                },
+                #[cfg(target_os = "android")]
+                Event::Resumed => {
+                    shura.gpu.resume(&shura.window);
                 }
                 _ => {}
             }
         } else {
             #[cfg(target_os = "android")]
             match event {
-                #[cfg(target_os = "android")]
                 Event::Resumed => {
-                    if let Some(gpu) = self.gpu.as_mut() {
-                        gpu.resume(&self.window);
-                    } else {
-                        active_scene = Some(self.init());
-                    }
+                    active = Some(Shura::new(window.take().unwrap(), &mut scene, &mut init));
                 }
                 _ => {}
             }
@@ -178,8 +178,8 @@ pub struct Shura {
 impl Shura {
     fn new<S: SceneController, F: 'static + FnMut(&mut Context) -> S>(
         window: winit::window::Window,
-        scene: Scene,
-        mut init: F,
+        scene: &mut SceneDescriptor,
+        init: &mut F,
     ) -> (Self, BoxedScene) {
         let gpu = pollster::block_on(Gpu::new(&window));
         let defaults = Defaults::new(&gpu);
@@ -204,6 +204,7 @@ impl Shura {
             relative_camera,
             defaults,
         };
+        let mut scene = Scene::new(&shura, scene);
         let controller = {
             let mut ctx = Context::new(&mut scene, &mut shura);
             Box::new((init)(&mut ctx))

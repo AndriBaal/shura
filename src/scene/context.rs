@@ -308,9 +308,7 @@ impl<'a> Context<'a> {
         mut scene: SceneDescriptor,
         mut controller: F,
     ) {
-        let window_size: Dimension<f32> = self.window_size().into();
-        let ratio = window_size.width / window_size.height;
-        let scene = Scene::new(self.shura, scene);
+        let mut scene = Scene::new(self.shura, &mut scene);
         let mut ctx = Context::new(&mut scene, self.shura);
         let controller: DynamicScene = Box::new(controller(&mut ctx));
         drop(ctx);

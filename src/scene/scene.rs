@@ -36,11 +36,11 @@ pub struct Scene {
 }
 
 impl Scene {
-    pub(crate) fn new(shura: &Shura, descriptor: SceneDescriptor) -> Self {
+    pub(crate) fn new(shura: &Shura, descriptor: &mut SceneDescriptor) -> Self {
         const DEFAULT_VERTICAL_CAMERA_FOV: f32 = 5.0;
         let window_size = shura.window.inner_size();
         let window_ratio = window_size.width as f32 / window_size.height as f32;
-        if let Some(existing) = descriptor.existing {
+        if let Some(mut existing) = descriptor.existing.take() {
             existing.name = descriptor.name;
             return existing;
         } else {

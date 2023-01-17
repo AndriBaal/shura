@@ -155,6 +155,7 @@ impl<T: ComponentController> _StaticAccess for T {
 /// [component_dynamic](crate::Context::component_dynamic) or
 /// [component_dynamic_mut](crate::Context::component_dynamic_mut) method from the [context](crate::Context)
 #[derive(Copy, Clone, Default, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct ComponentHandle {
     component_index: ArenaIndex,
     type_index: ArenaIndex,

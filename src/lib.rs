@@ -46,7 +46,7 @@ pub use instant::Duration;
 pub use log::{debug, error, info, trace, warn};
 pub use shura_proc::Component;
 
-pub(crate) use crate::{component::component_type::*, data::arena::*, scene::scene::*};
+pub(crate) use crate::{component::component_type::*, data::arena::*};
 
 pub use crate::{
     component::{
@@ -68,7 +68,7 @@ pub use crate::{
     },
     input::{cursor_manager::*, input::*},
     math::{dimension::*, math::*, matrix::*},
-    scene::{context::*, scene_controller::*, scene_manager::*},
+    scene::{context::*, scene::*, scene_controller::*, scene_manager::*},
     shura_core::*,
 };
 

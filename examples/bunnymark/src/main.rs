@@ -5,7 +5,7 @@ use shura::*;
 
 #[cfg_attr(target_os = "android", ndk_glue::main(backtrace = "on"))]
 fn main() {
-    init("bunnymark", |ctx| {
+    init(SceneDescriptor::new("bunnymark"), |ctx| {
         ctx.set_clear_color(Some(Color::new_rgba(220, 220, 220, 255)));
         ctx.set_window_size(Dimension::new(800, 600));
         ctx.set_vertical_fov(6.0);

@@ -3,27 +3,44 @@ use rapier2d::prelude::*;
 use rustc_hash::FxHashMap;
 
 type EventReceiver<T> = crossbeam::channel::Receiver<T>;
+
+
+#[cfg_attr(feature = "serialize", serde_with::serde_as)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct World {
-    physics_pipeline: PhysicsPipeline,
-    query_pipeline: QueryPipeline,
-    gravity: Vector<Real>,
-    integration_parameters: IntegrationParameters,
-    islands: IslandManager,
-    broad_phase: BroadPhase,
-    narrow_phase: NarrowPhase,
+    physics_priority: i16,
     bodies: RigidBodySet,
     colliders: ColliderSet,
+    #[serde_as(as = "Vec<(ColliderHandle, ComponentHandle)>")]
+    component_mapping: FxHashMap<ColliderHandle, ComponentHandle>,
+
+    #[serde(skip_serializing)]
+    physics_pipeline: PhysicsPipeline,
+    #[serde(skip_serializing)]
+    query_pipeline: QueryPipeline,
+    #[serde(skip_serializing)]
+    gravity: Vector<Real>,
+    #[serde(skip_serializing)]
+    integration_parameters: IntegrationParameters,
+    #[serde(skip_serializing)]
+    islands: IslandManager,
+    #[serde(skip_serializing)]
+    broad_phase: BroadPhase,
+    #[serde(skip_serializing)]
+    narrow_phase: NarrowPhase,
+    #[serde(skip_serializing)]
     impulse_joints: ImpulseJointSet,
+    #[serde(skip_serializing)]
     multibody_joints: MultibodyJointSet,
+    #[serde(skip_serializing)]
     ccd_solver: CCDSolver,
+    #[serde(skip_serializing)]
     event_collector: ChannelEventCollector,
-    physics_priority: i16,
+    #[serde(skip_serializing)]
     pub event_receivers: (
         EventReceiver<CollisionEvent>,
         EventReceiver<ContactForceEvent>,
-    ),
-
-    component_mapping: FxHashMap<ColliderHandle, ComponentHandle>,
+    )
 }
 
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
@@ -300,11 +317,10 @@ impl World {
             &mut self.impulse_joints,
             &mut self.multibody_joints,
             &mut self.ccd_solver,
+            Some(&mut self.query_pipeline),
             &(),
             &self.event_collector,
         );
-        self.query_pipeline
-            .update(&self.islands, &self.bodies, &self.colliders);
     }
 
     // Getters
