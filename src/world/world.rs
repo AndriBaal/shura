@@ -5,13 +5,11 @@ use rustc_hash::FxHashMap;
 type EventReceiver<T> = crossbeam::channel::Receiver<T>;
 
 
-#[cfg_attr(feature = "serialize", serde_with::serde_as)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct World {
     physics_priority: i16,
     bodies: RigidBodySet,
     colliders: ColliderSet,
-    #[serde_as(as = "Vec<(ColliderHandle, ComponentHandle)>")]
     component_mapping: FxHashMap<ColliderHandle, ComponentHandle>,
 
     #[serde(skip_serializing)]

@@ -5,10 +5,10 @@ use core::ops;
 use core::slice;
 
 pub(crate) struct Arena<T> {
-    items: Vec<ArenaEntry<T>>,
-    generation: u32,
-    free_list_head: Option<u32>,
-    len: usize,
+    pub(super) items: Vec<ArenaEntry<T>>,
+    pub(super) generation: u32,
+    pub(super) free_list_head: Option<u32>,
+    pub(super) len: usize,
 }
 
 pub(crate) enum ArenaEntry<T> {
@@ -18,10 +18,9 @@ pub(crate) enum ArenaEntry<T> {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct ArenaIndex {
-    index: u32,
-    generation: u32,
+    pub(super) index: u32,
+    pub(super) generation: u32,
 }
 
 impl ArenaIndex {
@@ -39,7 +38,7 @@ impl Default for ArenaIndex {
     }
 }
 
-const DEFAULT_CAPACITY: usize = 4;
+pub(super) const DEFAULT_CAPACITY: usize = 4;
 
 impl<T> Default for Arena<T> {
     fn default() -> Arena<T> {

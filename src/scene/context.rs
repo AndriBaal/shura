@@ -6,7 +6,7 @@ use crate::{
     Dimension, DynamicComponent, DynamicScene, InputEvent, InputTrigger, InstanceBuffer, Instances,
     Isometry, Key, Matrix, Model, ModelBuilder, Modifier, Renderer, Rotation, Scene,
     SceneController, Shader, ShaderField, ShaderLang, Shura, Sprite, SpriteSheet, Touch, Uniform,
-    Vector,
+    Vector, Configuration,
 };
 
 #[cfg(feature = "audio")]
@@ -288,7 +288,7 @@ impl<'a> Context<'a> {
     }
 
     #[inline]
-    pub fn create_component<T: 'static + ComponentController>(
+    pub fn create_component<T: 'static + ComponentController + Configuration>(
         &mut self,
         group: Option<u32>,
         controller: T,
@@ -950,7 +950,7 @@ impl<'a> Context<'a> {
     /// Tries to enable or disable vSync. The default is always vSync to be on.
     /// So every device supports vSync but not every device supports no vSync.
     pub fn set_vsync(&mut self, vsync: bool) {
-        &self.shura.gpu.set_vsync(vsync);
+        self.shura.gpu.set_vsync(vsync);
     }
 
     #[inline]

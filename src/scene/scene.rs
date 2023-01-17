@@ -1,6 +1,6 @@
 #[cfg(feature = "physics")]
 use crate::physics::World;
-use crate::{Camera, Color, ComponentManager, CursorManager, Isometry, Sprite, Shura};
+use crate::{Camera, Color, ComponentManager, CursorManager, Isometry, Sprite, Shura, Dimension};
 
 
 pub struct SceneDescriptor {
@@ -22,11 +22,16 @@ impl SceneDescriptor {
     }
 }
 
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct Scene {
+    #[serde(skip_serializing)]
     pub(crate) resized: bool,
+    #[serde(skip_serializing)]
     pub(crate) switched: bool,
-    pub(crate) name: &'static str,
+    #[serde(skip_serializing)]
     pub saved_sprites: Vec<(String, Sprite)>,
+
+    pub(crate) name: &'static str,
     pub camera: Camera,
     pub cursor: CursorManager,
     pub component_manager: ComponentManager,
@@ -38,10 +43,12 @@ pub struct Scene {
 impl Scene {
     pub(crate) fn new(shura: &Shura, descriptor: &mut SceneDescriptor) -> Self {
         const DEFAULT_VERTICAL_CAMERA_FOV: f32 = 5.0;
-        let window_size = shura.window.inner_size();
+        let window_size: Dimension<u32> = shura.window.inner_size().into();
         let window_ratio = window_size.width as f32 / window_size.height as f32;
         if let Some(mut existing) = descriptor.existing.take() {
             existing.name = descriptor.name;
+            existing.camera.resize(window_ratio);
+            existing.cursor.compute(&existing.camera.fov(), &window_size, &shura.input);
             return existing;
         } else {
             return Self {

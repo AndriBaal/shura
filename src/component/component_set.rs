@@ -15,19 +15,19 @@ pub(crate) struct ArenaPath {
 #[derive(Debug, Clone)]
 pub(crate) struct ComponentCluster {
     paths: Vec<ArenaPath>,
-    config: &'static ComponentConfig,
+    config: ComponentConfig,
     last_update: Option<Instant>,
 }
 
 impl ComponentCluster {
-    pub fn new(path: ArenaPath, config: &'static ComponentConfig) -> Self {
+    pub fn new(path: ArenaPath, config: ComponentConfig) -> Self {
         Self {
             paths: vec![path],
-            config: config,
-            last_update: match config.update {
+            last_update: match &config.update {
                 crate::UpdateOperation::AfterDuration(_) => Some(Instant::now()),
                 _ => None,
             },
+            config: config,
         }
     }
 
@@ -51,8 +51,8 @@ impl ComponentCluster {
     }
 
     #[inline]
-    pub const fn config(&self) -> &'static ComponentConfig {
-        self.config
+    pub const fn config(&self) -> &ComponentConfig {
+        &self.config
     }
 
     #[inline]
@@ -97,14 +97,6 @@ impl<'a, T: ComponentController> ComponentSet<'a, T> {
     /// Iterate over this set
     pub fn iter(&'a self) -> ComponentIter<'a, T> {
         return ComponentIter::new(self);
-    }
-
-    // Getters
-
-    /// Get the config from the type of the controller.
-    #[inline]
-    pub fn config(&self) -> &'static ComponentConfig {
-        T::config()
     }
 }
 
@@ -226,14 +218,6 @@ impl<'a, T: ComponentController> ComponentSetMut<'a, T> {
     /// Iterate over this set
     pub fn iter(&'a mut self) -> ComponentIterMut<'a, T> {
         return ComponentIterMut::new(self);
-    }
-
-    // Getters
-
-    /// Get the config from the type of the controller.
-    #[inline]
-    pub fn config(&self) -> &'static ComponentConfig {
-        T::config()
     }
 }
 

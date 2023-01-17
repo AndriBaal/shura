@@ -1,6 +1,7 @@
 use crate::{Dimension, Input, Vector, RELATIVE_CAMERA_SIZE};
 
 #[derive(Copy, Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 /// Cursor positions of a touch somewhere in the window.
 pub struct Touch {
     pub id: u64,
@@ -14,6 +15,7 @@ pub struct Touch {
 
 /// Managing of the mouse cursor or various touch events. Every scene has its own [CursorManager]
 /// because the world coordinates of the cursor depends on the camera.
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct CursorManager {
     // Raw Cursor in pixel coordinates
     cursor_raw: Vector<u32>,

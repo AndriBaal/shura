@@ -98,56 +98,8 @@ pub trait ComponentController: Downcast + _StaticAccess + ComponentDerive {
         Self: Sized,
     {
     }
-
-    /// Configuration of all components from this type. See [ComponentConfig](crate::ComponentConfig)
-    /// for more details.
-    ///
-    /// # Example
-    /// ```
-    /// fn config() -> &'static ComponentConfig {
-    ///     static CONFIG: ComponentConfig = ComponentConfig {
-    ///         priority: 1,
-    ///         render: RenderOperation::Grouped,
-    ///         ..ComponentConfig::default()
-    ///     };
-    ///     return &CONFIG;
-    /// }
-    /// ```
-    fn config() -> &'static ComponentConfig
-    where
-        Self: Sized,
-    {
-        static CONFIG: ComponentConfig = ComponentConfig::default();
-        &CONFIG
-    }
 }
 impl_downcast!(ComponentController);
-
-/// Grants access to the static members of the component type. This should never be overwritten,
-/// since it is automatically implemented with generics.
-pub trait _StaticAccess {
-    fn get_config(&self) -> &'static ComponentConfig;
-    fn get_grouped_render(
-        &self,
-    ) -> for<'a> fn(&'a DynamicScene, &mut Renderer<'a>, ComponentSet<DynamicComponent>, Instances);
-    fn get_postproccess(&self) -> for<'a> fn(&mut Renderer<'a>, Instances, &'a Model, &'a Sprite);
-}
-
-impl<T: ComponentController> _StaticAccess for T {
-    fn get_config(&self) -> &'static ComponentConfig {
-        T::config()
-    }
-
-    fn get_grouped_render(
-        &self,
-    ) -> for<'a> fn(&'a DynamicScene, &mut Renderer<'a>, ComponentSet<DynamicComponent>, Instances)
-    {
-        T::render_grouped
-    }
-    fn get_postproccess(&self) -> for<'a> fn(&mut Renderer<'a>, Instances, &'a Model, &'a Sprite) {
-        T::postproccess
-    }
-}
 
 /// Handle for a component. Through these handles components can be easily be fetches every frame
 /// with a specific type through the [component](crate::Context::component) or
@@ -237,6 +189,7 @@ impl_downcast!(BaseComponent);
 
 /// Desribes how  a component gets rendered
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub enum RenderOperation {
     /// Does not render at all and therefore does not create a Buffer on the GPU.
     None,
@@ -248,6 +201,7 @@ pub enum RenderOperation {
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 /// Defines which camera should be used for rendering
 pub enum CameraUse {
     /// Use the camera of the world
@@ -259,6 +213,7 @@ pub enum CameraUse {
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 /// Defines the update of a component
 pub enum UpdateOperation {
     None,
@@ -268,6 +223,7 @@ pub enum UpdateOperation {
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 /// Defines the postproccess operations
 pub enum PostproccessOperation {
     /// No postprocessing is applied
@@ -279,11 +235,12 @@ pub enum PostproccessOperation {
 }
 
 /// Default configuration for a component.
-pub static DEFAULT_CONFIG: ComponentConfig = ComponentConfig::default();
+pub const DEFAULT_CONFIG: ComponentConfig = ComponentConfig::default();
 
 /// The configuration of a component type. This configuration is used to statically define
 /// behaviour of a component type for perfomance and utility reason.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct ComponentConfig {
     /// Describes which camera should be used for rendering
     pub camera: CameraUse,
@@ -320,6 +277,12 @@ impl ComponentConfig {
         }
     }
 }
+
+pub trait Configuration {
+    const CONFIG: ComponentConfig = DEFAULT_CONFIG;
+}
+
+impl <T: ComponentController> Configuration for T {}
 
 impl<T: ComponentController + ?Sized> ComponentDerive for Box<T> {
     fn inner(&self) -> &dyn BaseComponent {
@@ -367,3 +330,26 @@ impl<T: ComponentController + ?Sized> ComponentController for Box<T> {
         )
     }
 }
+
+
+/// Grants access to the static members of the component type. This should never be overwritten,
+/// since it is automatically implemented with generics.
+pub trait _StaticAccess {
+    fn get_grouped_render(
+        &self,
+    ) -> for<'a> fn(&'a DynamicScene, &mut Renderer<'a>, ComponentSet<DynamicComponent>, Instances);
+    fn get_postproccess(&self) -> for<'a> fn(&mut Renderer<'a>, Instances, &'a Model, &'a Sprite);
+}
+
+impl<T: ComponentController> _StaticAccess for T {
+    fn get_grouped_render(
+        &self,
+    ) -> for<'a> fn(&'a DynamicScene, &mut Renderer<'a>, ComponentSet<DynamicComponent>, Instances)
+    {
+        T::render_grouped
+    }
+    fn get_postproccess(&self) -> for<'a> fn(&mut Renderer<'a>, Instances, &'a Model, &'a Sprite) {
+        T::postproccess
+    }
+}
+

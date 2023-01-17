@@ -139,7 +139,7 @@ impl ComponentGroup {
     pub(crate) fn add_component_type(
         &mut self,
         type_id: TypeId,
-        config: &'static ComponentConfig,
+        config: ComponentConfig,
         component: DynamicComponent,
     ) -> (ArenaIndex, ArenaIndex) {
         let type_index = self.types.insert(ComponentType::new(type_id, config));

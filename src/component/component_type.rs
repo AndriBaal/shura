@@ -13,19 +13,19 @@ pub(crate) struct ComponentType {
     last_len: usize,
     force_rewrite_buffer: bool,
 
-    config: &'static ComponentConfig,
+    config: ComponentConfig,
     type_id: TypeId,
 }
 
 impl ComponentType {
-    pub fn new(type_id: TypeId, config: &'static ComponentConfig) -> Self {
+    pub fn new(type_id: TypeId, config: ComponentConfig) -> Self {
         Self {
             components: Arena::new(),
             buffer: None,
             force_rewrite_buffer: true,
             last_len: usize::MAX, // Max value to force a rewrite on the first cycle when the buffer is uninitialized
-            config: config,
-            type_id: type_id,
+            config,
+            type_id,
         }
     }
 
@@ -92,10 +92,9 @@ impl ComponentType {
     }
 
     // Getters
-
     #[inline]
-    pub const fn config(&self) -> &'static ComponentConfig {
-        self.config
+    pub const fn config(&self) -> &ComponentConfig {
+        &self.config
     }
 
     #[inline]

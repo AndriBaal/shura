@@ -10,6 +10,8 @@ const MINIMAL_FOV: f32 = 0.0000001;
 /// Every scene has its own camera that can be adjusted. There is also the relative camera that can be
 /// selected in the [ComponentConfig](crate::ComponentConfig) with [CameraUse](crate::CameraUse). The
 /// relative camera has always the same fov and position where the bottom_left is (-1.0, -1.0) and the top right is (1.0, 1.0).
+
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct Camera {
     position: Isometry<f32>,
     target: Option<ComponentHandle>,
@@ -17,7 +19,9 @@ pub struct Camera {
     vertical_fov: f32,
     ratio: f32,
 
+    #[serde(skip_serializing)]
     model: Model,
+    #[serde(skip_serializing)]
     uniform: Uniform<Matrix>,
 }
 

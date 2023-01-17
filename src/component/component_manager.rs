@@ -3,15 +3,17 @@ use crate::physics::{PhysicsComponent, World};
 use crate::{
     Arena, ArenaEntry, ArenaIndex, ArenaPath, Camera, ComponentCluster, ComponentController,
     ComponentGroup, ComponentGroupDescriptor, ComponentHandle, ComponentSet, ComponentSetMut,
-    DynamicComponent, Gpu, DEFAULT_GROUP_ID,
+    DynamicComponent, Gpu, DEFAULT_GROUP_ID, Configuration,
 };
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::any::TypeId;
 use std::collections::BTreeMap;
 
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 /// Access to the component system.
 pub struct ComponentManager {
     group_map: FxHashMap<u32, ArenaIndex>,
+    #[serde(skip_serializing)]
     groups: Arena<ComponentGroup>,
     active_groups: FxHashSet<ArenaIndex>,
     active_group_ids: Vec<u32>,
@@ -23,6 +25,7 @@ pub struct ComponentManager {
     remove_current_commponent: bool,
     force_update_sets: bool,
     current_component: Option<ComponentHandle>,
+    #[serde(skip_serializing)]
     active_components: Option<BTreeMap<(i16, TypeId), ComponentCluster>>,
 }
 
@@ -89,7 +92,7 @@ impl ComponentManager {
                         active_component.add(path);
                     } else {
                         let config = component_type.config();
-                        active_components.insert(key, ComponentCluster::new(path, config));
+                        active_components.insert(key, ComponentCluster::new(path, config.clone()));
                     }
                 }
             }
@@ -150,7 +153,7 @@ impl ComponentManager {
         }
     }
 
-    pub fn create_component<T: 'static + ComponentController>(
+    pub fn create_component<T: 'static + ComponentController + Configuration>(
         &mut self,
         #[cfg(feature = "physics")] world: &mut World,
         total_frames: u64,
@@ -159,7 +162,7 @@ impl ComponentManager {
     ) -> (&mut T, ComponentHandle) {
         let group_id = group_id.unwrap_or(DEFAULT_GROUP_ID);
         let type_id = TypeId::of::<T>();
-        let config = T::config();
+        let config = T::CONFIG;
 
         let group_index = self
             .group_map

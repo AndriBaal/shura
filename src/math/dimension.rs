@@ -5,6 +5,7 @@ use winit::dpi::{PhysicalSize, Size};
 
 #[repr(C)]
 #[derive(PartialEq, Default, Eq, Copy, Clone, Debug, Hash)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 /// 2D Dimension that hold its width and height
 pub struct Dimension<T> {
     pub width: T,
