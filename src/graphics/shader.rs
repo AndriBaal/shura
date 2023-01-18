@@ -127,7 +127,7 @@ impl Shader {
 
         let buffers = vec![Vertex::desc(), Vertex::instance_desc()];
 
-        // Default Shader Configuration
+        // Default Shader CustomComponentConfig
         let pipeline = gpu
             .device
             .create_render_pipeline(&wgpu::RenderPipelineDescriptor {

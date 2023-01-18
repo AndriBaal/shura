@@ -33,7 +33,7 @@ pub trait ComponentDerive {
 /// that implements this trait must have a [Component](crate::BaseComponent) field. This is usually
 /// done with the [component derive macro](crate::Component)
 ///
-///
+///CustomComponentConfig
 /// A controller is used to add
 /// data to a Component and define the behaviour of the componencomponents.len() as u32§t it controlls. Every component belongs to
 /// one controller and every controller belongs to one component.
@@ -97,6 +97,10 @@ pub trait ComponentController: Downcast + _StaticAccess + ComponentDerive {
     ) where
         Self: Sized,
     {
+    }
+
+    fn config() -> ComponentConfig where Self: Sized {
+        return DEFAULT_CONFIG;
     }
 }
 impl_downcast!(ComponentController);
@@ -277,12 +281,6 @@ impl ComponentConfig {
         }
     }
 }
-
-pub trait Configuration {
-    const CONFIG: ComponentConfig = DEFAULT_CONFIG;
-}
-
-impl <T: ComponentController> Configuration for T {}
 
 impl<T: ComponentController + ?Sized> ComponentDerive for Box<T> {
     fn inner(&self) -> &dyn BaseComponent {

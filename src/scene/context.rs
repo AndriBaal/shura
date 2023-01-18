@@ -1,4 +1,4 @@
-use std::{any::{TypeId, Any}, collections::BTreeMap};
+use std::{any::TypeId, collections::BTreeMap};
 
 use crate::{
     data::arena::ArenaEntry, ArenaPath, Camera, Color, ComponentCluster, ComponentController,
@@ -6,7 +6,7 @@ use crate::{
     Dimension, DynamicComponent, DynamicScene, InputEvent, InputTrigger, InstanceBuffer, Instances,
     Isometry, Key, Matrix, Model, ModelBuilder, Modifier, Renderer, Rotation, Scene,
     SceneController, Shader, ShaderField, ShaderLang, Shura, Sprite, SpriteSheet, Touch, Uniform,
-    Vector, Configuration,
+    Vector,
 };
 
 #[cfg(feature = "audio")]
@@ -38,7 +38,6 @@ macro_rules! Where {
         &$b & $a()
     };
 }
-
 
 /// Context to communicate with the game engine to access components, scenes, camera, physics and many more.
 pub struct Context<'a> {
@@ -288,7 +287,7 @@ impl<'a> Context<'a> {
     }
 
     #[inline]
-    pub fn create_component<T: 'static + ComponentController + Configuration>(
+    pub fn create_component<T: 'static + ComponentController>(
         &mut self,
         group: Option<u32>,
         controller: T,

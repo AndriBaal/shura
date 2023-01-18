@@ -7,36 +7,31 @@ use crate::{
 };
 use std::any::TypeId;
 
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub(crate) struct ComponentType {
+    #[serde(skip_serializing)]
+    component_type_id: TypeId,
+    #[serde(skip_serializing)]
     components: Arena<DynamicComponent>,
+    #[serde(skip_serializing)]
     buffer: Option<InstanceBuffer>,
+
     last_len: usize,
     force_rewrite_buffer: bool,
-
     config: ComponentConfig,
-    type_id: TypeId,
 }
 
 impl ComponentType {
-    pub fn new(type_id: TypeId, config: ComponentConfig) -> Self {
+    pub fn new(component_type_id: TypeId, config: ComponentConfig) -> Self {
         Self {
             components: Arena::new(),
             buffer: None,
             force_rewrite_buffer: true,
             last_len: usize::MAX, // Max value to force a rewrite on the first cycle when the buffer is uninitialized
             config,
-            type_id,
+            component_type_id,
         }
     }
-
-    // #[inline(always)]
-    // pub fn scale(&mut self, window_size: Dimension<u32>) {
-    //     if self.config.does_move && self.config.relative_position != RelativeScale::None {
-    //         for (_, component) in &mut self.components {
-    //             component.scale_relative(self.config.relative_position, window_size);
-    //         }
-    //     }
-    // }
 
     #[inline(always)]
     pub fn buffer_data(&mut self, gpu: &Gpu, #[cfg(feature = "physics")] world: &World) {
@@ -98,8 +93,8 @@ impl ComponentType {
     }
 
     #[inline]
-    pub const fn type_id(&self) -> &TypeId {
-        &self.type_id
+    pub const fn component_type_id(&self) -> &TypeId {
+        &self.component_type_id
     }
 
     #[inline]

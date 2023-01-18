@@ -3,17 +3,16 @@ use crate::physics::{PhysicsComponent, World};
 use crate::{
     Arena, ArenaEntry, ArenaIndex, ArenaPath, Camera, ComponentCluster, ComponentController,
     ComponentGroup, ComponentGroupDescriptor, ComponentHandle, ComponentSet, ComponentSetMut,
-    DynamicComponent, Gpu, DEFAULT_GROUP_ID, Configuration,
+    DynamicComponent, Gpu, DEFAULT_GROUP_ID,
 };
 use rustc_hash::{FxHashMap, FxHashSet};
-use std::any::TypeId;
+use std::any::{TypeId};
 use std::collections::BTreeMap;
 
 #[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 /// Access to the component system.
 pub struct ComponentManager {
     group_map: FxHashMap<u32, ArenaIndex>,
-    #[serde(skip_serializing)]
     groups: Arena<ComponentGroup>,
     active_groups: FxHashSet<ArenaIndex>,
     active_group_ids: Vec<u32>,
@@ -81,7 +80,7 @@ impl ComponentManager {
                     if component_type.is_empty() {
                         continue;
                     }
-                    let type_id = *component_type.type_id();
+                    let type_id = *component_type.component_type_id();
                     let priority = component_type.config().priority;
                     let key = (priority, type_id);
                     let path = ArenaPath {
@@ -153,7 +152,7 @@ impl ComponentManager {
         }
     }
 
-    pub fn create_component<T: 'static + ComponentController + Configuration>(
+    pub fn create_component<T: 'static + ComponentController>(
         &mut self,
         #[cfg(feature = "physics")] world: &mut World,
         total_frames: u64,
@@ -162,7 +161,7 @@ impl ComponentManager {
     ) -> (&mut T, ComponentHandle) {
         let group_id = group_id.unwrap_or(DEFAULT_GROUP_ID);
         let type_id = TypeId::of::<T>();
-        let config = T::CONFIG;
+        let config = T::config();
 
         let group_index = self
             .group_map
@@ -262,6 +261,8 @@ impl ComponentManager {
                     for (_, c) in component_type.iter_mut() {
                         if let Some(p) = c.inner_mut().downcast_mut::<PhysicsComponent>() {
                             p.remove_from_world(world);
+                        } else {
+                            break;
                         }
                     }
                     component_type.clear();
@@ -278,10 +279,12 @@ impl ComponentManager {
         if let Some(index) = self.group_map.remove(&group_id) {
             #[cfg(feature = "physics")] // TODO: Find a way to fix iterating over all components
             if let Some(mut group) = self.groups.remove(index) {
-                for (_, component_type) in group.types() {
+                'outer: for (_, component_type) in group.types() {
                     for (_, c) in component_type.iter_mut() {
                         if let Some(p) = c.inner_mut().downcast_mut::<PhysicsComponent>() {
                             p.remove_from_world(world);
+                        } else {
+                            break 'outer;
                         }
                     }
                 }

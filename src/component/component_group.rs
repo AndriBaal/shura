@@ -3,6 +3,7 @@ use crate::{ComponentConfig, ComponentType, Dimension, DynamicComponent, Vector}
 use rustc_hash::FxHashMap;
 use std::any::TypeId;
 
+
 /// Helper to create a [ComponentGroup](crate::ComponentGroup).
 pub struct ComponentGroupDescriptor {
     /// Id of the grou
@@ -30,7 +31,9 @@ pub const DEFAULT_GROUP_ID: u32 = u32::MAX / 2;
 /// [group_mut](crate::Context::group_mut). The components of the group can be accessed with
 /// [components](crate::Context::components) or [components_mut](crate::Context::components_mut)
 /// from the [context](crate::Context).
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct ComponentGroup {
+    #[serde(skip_serializing)]
     type_map: FxHashMap<TypeId, ArenaIndex>,
     types: Arena<ComponentType>,
     id: u32,

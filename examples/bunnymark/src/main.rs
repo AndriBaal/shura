@@ -126,12 +126,12 @@ impl ComponentController for Bunny {
         renderer.render_sprite(&scene.bunny_model, &scene.bunny_sprite);
         renderer.commit(&instances);
     }
-}
 
-impl Configuration for Bunny {
-    const CONFIG: ComponentConfig = ComponentConfig {
-        priority: 1,
-        render: RenderOperation::Grouped,
-        ..ComponentConfig::default()
-    };
+    fn config() -> ComponentConfig {
+        ComponentConfig {
+            priority: 1,
+            render: RenderOperation::Grouped,
+            ..ComponentConfig::default()
+        }
+    }
 }

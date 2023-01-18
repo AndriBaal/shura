@@ -330,6 +330,17 @@ impl ModelBuilder {
         //     return v_new
     }
 
+    fn convex_indices(vertices: &mut Vec<Vertex>) -> Vec<Index> {
+        let mut result = vec![];
+        // vertices.sort_by(|a, b| a.pos.x.total_cmp(&b.pos.x));
+
+        // for i in 0..vertices.len() {
+
+        // }
+
+        return result;
+    }
+
     pub fn new(shape: ModelShape) -> Self {
         return match shape {
             ModelShape::Ball { radius, resolution } => Self::ball(radius, resolution),
