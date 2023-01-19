@@ -7,15 +7,19 @@ use crate::{
 use std::marker::PhantomData;
 
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct ArenaPath {
     pub group_index: ArenaIndex,
     pub type_index: ArenaIndex,
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct ComponentCluster {
     paths: Vec<ArenaPath>,
     config: ComponentConfig,
+    #[serde(default)]
+    #[serde(skip)]
     last_update: Option<Instant>,
 }
 

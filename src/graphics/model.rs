@@ -8,6 +8,7 @@ use wgpu::util::DeviceExt;
 // use rapier2d::prelude::ColliderBuilder;
 
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 /// Shape of a [Model].
 pub enum ModelShape {
     Ball {
@@ -164,8 +165,9 @@ fn rotate_point_around_origin(
     );
 }
 
-/// Builder to easily create a [Model].
 #[derive(Clone)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+/// Builder to easily create a [Model].
 pub struct ModelBuilder {
     pub vertices: Vec<Vertex>,
     pub indices: Vec<Index>,
@@ -791,8 +793,7 @@ impl ModelBuilder {
             amount_of_vertices: self.vertices.len() as u32,
             amount_of_indices: self.indices.len() as u32,
             vertex_buffer,
-            index_buffer,
-            shape: self.shape.clone(),
+            index_buffer
         }
     }
 }
@@ -802,8 +803,7 @@ pub struct Model {
     amount_of_vertices: u32,
     amount_of_indices: u32,
     vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer,
-    shape: ModelShape,
+    index_buffer: wgpu::Buffer
 }
 
 impl Model {
@@ -842,9 +842,5 @@ impl Model {
 
     pub fn amount_of_vertices(&self) -> u32 {
         self.amount_of_vertices
-    }
-
-    pub fn shape(&self) -> &ModelShape {
-        &self.shape
     }
 }

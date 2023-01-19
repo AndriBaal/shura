@@ -24,11 +24,14 @@ impl SceneDescriptor {
 
 #[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct Scene {
-    #[serde(skip_serializing)]
+    #[serde(skip)]
+    #[serde(default="True")]
     pub(crate) resized: bool,
-    #[serde(skip_serializing)]
+    #[serde(skip)]
+    #[serde(default)]
     pub(crate) switched: bool,
-    #[serde(skip_serializing)]
+    #[serde(skip)]
+    #[serde(default)]
     pub saved_sprites: Vec<(String, Sprite)>,
 
     pub(crate) name: &'static str,

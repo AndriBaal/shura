@@ -102,6 +102,10 @@ pub trait ComponentController: Downcast + _StaticAccess + ComponentDerive {
     fn config() -> ComponentConfig where Self: Sized {
         return DEFAULT_CONFIG;
     }
+
+    fn name() -> &'static str where Self: Sized {
+        std::any::type_name::<Self>()
+    }
 }
 impl_downcast!(ComponentController);
 

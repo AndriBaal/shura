@@ -1,4 +1,4 @@
-use std::{any::TypeId, collections::BTreeMap};
+use std::collections::BTreeMap;
 
 use crate::{
     data::arena::ArenaEntry, ArenaPath, Camera, Color, ComponentCluster, ComponentController,
@@ -39,6 +39,20 @@ macro_rules! Where {
     };
 }
 
+impl <'a>Drop for Context<'a> {
+    fn drop(&mut self) {
+        self.shura.input.update();
+        self.scene.camera.apply_target(
+            &self.scene.component_manager,
+            #[cfg(feature = "physics")]
+            &self.scene.world,
+        );
+        self.scene.component_manager.update_sets(&self.scene.camera);
+        self.scene.resized = false;
+        self.scene.switched = false;
+    }
+}
+
 /// Context to communicate with the game engine to access components, scenes, camera, physics and many more.
 pub struct Context<'a> {
     // Scene
@@ -67,14 +81,16 @@ impl<'a> Context<'a> {
     }
 
     #[inline]
-    pub(crate) fn borrow_active_components(&mut self) -> BTreeMap<(i16, TypeId), ComponentCluster> {
+    pub(crate) fn borrow_active_components(
+        &mut self,
+    ) -> BTreeMap<(i16, &'static str), ComponentCluster> {
         self.scene.component_manager.borrow_active_components()
     }
 
     #[inline]
     pub(crate) fn return_active_components(
         &mut self,
-        active_components: BTreeMap<(i16, TypeId), ComponentCluster>,
+        active_components: BTreeMap<(i16, &'static str), ComponentCluster>,
     ) {
         self.scene
             .component_manager
@@ -104,37 +120,7 @@ impl<'a> Context<'a> {
     pub(crate) fn collision_event(
         &mut self,
     ) -> Result<CollisionEvent, crossbeam::channel::TryRecvError> {
-        self.scene.world.event_receivers.0.try_recv()
-    }
-
-    #[inline]
-    pub(crate) fn normalize_input(&mut self) {
-        self.shura.input.update();
-    }
-
-    #[inline]
-    pub(crate) fn update_sets(&mut self) {
-        self.scene.camera.apply_target(
-            &self.scene.component_manager,
-            #[cfg(feature = "physics")]
-            &self.scene.world,
-        );
-        self.scene.component_manager.update_sets(&self.scene.camera);
-    }
-
-    #[inline]
-    pub(crate) fn buffer(&mut self) {
-        self.scene.camera.buffer(&self.shura.gpu);
-        self.scene.component_manager.buffer_sets(
-            &self.shura.gpu,
-            #[cfg(feature = "physics")]
-            &self.scene.world,
-        );
-        self.shura.defaults.buffer(
-            &self.shura.gpu,
-            self.shura.frame_manager.total_time(),
-            self.shura.frame_manager.delta_time(),
-        );
+        self.scene.world.collision_event()
     }
 
     #[inline]

@@ -4,41 +4,54 @@ use rustc_hash::FxHashMap;
 
 type EventReceiver<T> = crossbeam::channel::Receiver<T>;
 
+struct WorldEvents {
+    collision: EventReceiver<CollisionEvent>,
+    _contact_force: EventReceiver<ContactForceEvent>,
+    event_collector: ChannelEventCollector,
+}
 
-#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
+impl Default for WorldEvents {
+    fn default() -> Self {
+        let (collision_send, collision) = crossbeam::channel::unbounded();
+        let (contact_force_send, _contact_force) = crossbeam::channel::unbounded();
+        let event_collector = ChannelEventCollector::new(collision_send, contact_force_send);
+        Self { collision, _contact_force, event_collector }
+    }
+}
+
+impl WorldEvents {
+    fn collector(&self) -> &ChannelEventCollector {
+        &self.event_collector
+    }
+
+    fn collision_event(&self) -> Result<CollisionEvent, crossbeam::channel::TryRecvError> {
+        self.collision.try_recv()
+    }
+}
+
+
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct World {
     physics_priority: i16,
     bodies: RigidBodySet,
     colliders: ColliderSet,
     component_mapping: FxHashMap<ColliderHandle, ComponentHandle>,
 
-    #[serde(skip_serializing)]
-    physics_pipeline: PhysicsPipeline,
-    #[serde(skip_serializing)]
     query_pipeline: QueryPipeline,
-    #[serde(skip_serializing)]
-    gravity: Vector<Real>,
-    #[serde(skip_serializing)]
+    gravity: Vector<f32>,
     integration_parameters: IntegrationParameters,
-    #[serde(skip_serializing)]
     islands: IslandManager,
-    #[serde(skip_serializing)]
     broad_phase: BroadPhase,
-    #[serde(skip_serializing)]
     narrow_phase: NarrowPhase,
-    #[serde(skip_serializing)]
     impulse_joints: ImpulseJointSet,
-    #[serde(skip_serializing)]
     multibody_joints: MultibodyJointSet,
-    #[serde(skip_serializing)]
     ccd_solver: CCDSolver,
-    #[serde(skip_serializing)]
-    event_collector: ChannelEventCollector,
-    #[serde(skip_serializing)]
-    pub event_receivers: (
-        EventReceiver<CollisionEvent>,
-        EventReceiver<ContactForceEvent>,
-    )
+    #[serde(skip)]
+    #[serde(default)]
+    physics_pipeline: PhysicsPipeline,
+    #[serde(skip)]
+    #[serde(default)]
+    events: WorldEvents
 }
 
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
@@ -49,9 +62,6 @@ pub enum CollideType {
 
 impl World {
     pub(crate) fn new() -> Self {
-        let (collision_send, collision_recv) = crossbeam::channel::unbounded();
-        let (contact_force_send, contact_force_recv) = crossbeam::channel::unbounded();
-        let event_collector = ChannelEventCollector::new(collision_send, contact_force_send);
         Self {
             physics_pipeline: PhysicsPipeline::new(),
             query_pipeline: QueryPipeline::new(),
@@ -65,9 +75,8 @@ impl World {
             ccd_solver: CCDSolver::new(),
             colliders: ColliderSet::new(),
             bodies: RigidBodySet::new(),
-            event_collector,
             physics_priority: 1000,
-            event_receivers: (collision_recv, contact_force_recv),
+            events: Default::default(),
             component_mapping: Default::default(),
         }
     }
@@ -317,7 +326,7 @@ impl World {
             &mut self.ccd_solver,
             Some(&mut self.query_pipeline),
             &(),
-            &self.event_collector,
+            self.events.collector(),
         );
     }
 
@@ -347,6 +356,14 @@ impl World {
     ) -> Option<&'a mut RigidBody> {
         self.bodies.get_mut(rigid_body_handle)
     }
+
+    #[inline]
+    pub(crate) fn collision_event(
+        &mut self,
+    ) -> Result<CollisionEvent, crossbeam::channel::TryRecvError> {
+        self.events.collision_event()
+    }
+
 
     #[inline]
     pub fn joint(&self, joint: ImpulseJointHandle) -> Option<&ImpulseJoint> {

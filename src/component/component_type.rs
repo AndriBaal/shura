@@ -3,34 +3,34 @@ use crate::physics::World;
 use crate::{
     data::arena::{ArenaEntry, ArenaIter, ArenaIterMut},
     Arena, ArenaIndex, ComponentConfig, ComponentHandle, DynamicComponent, Gpu, InstanceBuffer,
-    Matrix, RenderOperation,
+    Matrix, RenderOperation, ComponentController,
 };
-use std::any::TypeId;
 
-#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct ComponentType {
-    #[serde(skip_serializing)]
-    component_type_id: TypeId,
-    #[serde(skip_serializing)]
+    #[serde(skip)]
     components: Arena<DynamicComponent>,
-    #[serde(skip_serializing)]
+    #[serde(skip)]
     buffer: Option<InstanceBuffer>,
 
+    name: &'static str,
     last_len: usize,
     force_rewrite_buffer: bool,
     config: ComponentConfig,
 }
 
 impl ComponentType {
-    pub fn new(component_type_id: TypeId, config: ComponentConfig) -> Self {
-        Self {
-            components: Arena::new(),
+    pub fn new<T: 'static + ComponentController>(component: T) -> (ArenaIndex, Self) {
+        let mut components: Arena<DynamicComponent> = Arena::new();
+        let component_index = components.insert(Box::new(component));
+        (component_index, Self {
+            components,
             buffer: None,
-            force_rewrite_buffer: true,
-            last_len: usize::MAX, // Max value to force a rewrite on the first cycle when the buffer is uninitialized
-            config,
-            component_type_id,
-        }
+            force_rewrite_buffer: false,
+            last_len: 0,
+            config: T::config(),
+            name: T::name(),
+        })
     }
 
     #[inline(always)]
@@ -73,8 +73,8 @@ impl ComponentType {
     }
 
     #[inline(always)]
-    pub fn add(&mut self, component: DynamicComponent) -> ArenaIndex {
-        return self.components.insert(component);
+    pub fn add<T: 'static + ComponentController>(&mut self, component: T) -> ArenaIndex {
+        return self.components.insert(Box::new(component));
     }
 
     #[inline(always)]
@@ -93,8 +93,8 @@ impl ComponentType {
     }
 
     #[inline]
-    pub const fn component_type_id(&self) -> &TypeId {
-        &self.component_type_id
+    pub const fn name(&self) -> &'static str {
+        self.name
     }
 
     #[inline]

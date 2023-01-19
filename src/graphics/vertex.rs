@@ -7,6 +7,7 @@ use std::ops::*;
 /// Single vertex of a model. Which hold the coordniate of the vertex and the texture coordinates.
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Vertex {
     pub pos: Vector<f32>,
     pub tex_coords: Vector<f32>,
@@ -156,6 +157,7 @@ impl Mul<Vector4<f32>> for Vertex {
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 /// Represents the order in which (Vertices)[Vertex] are draw in a triangle.
 pub struct Index {
     pub a: u32,

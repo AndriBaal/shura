@@ -23,13 +23,14 @@ text = ["dep:wgpu_glyph"]
 audio = ["dep:rodio"]
 physics = ["dep:rapier2d"]
 gui = ["dep:egui", "dep:egui_wgpu_backend", "dep:egui_winit_platform"]
-serialize = ["dep:serde", "nalgebra/serde-serialize", "rapier2d?/serde-serialize"]
+serialize = ["dep:serde", "dep:erased-serde", "wgpu/trace", "wgpu/replay", "nalgebra/serde-serialize", "rapier2d?/serde-serialize"]
 default = ["audio", "physics", "gui", "text", "gamepad", "serialize"]
 
 [lib]
 crate-type = ["lib", "cdylib"]
 
 [dependencies]
+erased-serde = { version = "0.3", optional = true}
 serde = { version = "1.0.152", features = ["derive"], optional = true}
 nalgebra = { version = "0.32.1", features = ["convert-bytemuck"] }
 wgpu_glyph = { version = "0.18.0", optional = true }

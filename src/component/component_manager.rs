@@ -6,10 +6,9 @@ use crate::{
     DynamicComponent, Gpu, DEFAULT_GROUP_ID,
 };
 use rustc_hash::{FxHashMap, FxHashSet};
-use std::any::{TypeId};
 use std::collections::BTreeMap;
 
-#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 /// Access to the component system.
 pub struct ComponentManager {
     group_map: FxHashMap<u32, ArenaIndex>,
@@ -24,9 +23,10 @@ pub struct ComponentManager {
     remove_current_commponent: bool,
     force_update_sets: bool,
     current_component: Option<ComponentHandle>,
-    #[serde(skip_serializing)]
-    active_components: Option<BTreeMap<(i16, TypeId), ComponentCluster>>,
+    active_components: Option<BTreeMap<(i16, &'static str), ComponentCluster>>,
 }
+
+
 
 impl ComponentManager {
     pub(crate) fn new() -> Self {
@@ -80,9 +80,9 @@ impl ComponentManager {
                     if component_type.is_empty() {
                         continue;
                     }
-                    let type_id = *component_type.component_type_id();
+                    let name = component_type.name();
                     let priority = component_type.config().priority;
-                    let key = (priority, type_id);
+                    let key = (priority, name);
                     let path = ArenaPath {
                         group_index: *group_index,
                         type_index,
@@ -119,9 +119,9 @@ impl ComponentManager {
     }
 
     pub fn force_buffer<T: ComponentController>(&mut self) {
-        let type_id = TypeId::of::<T>();
+        let name = T::name();
         for group in &mut self.groups {
-            if let Some(index) = group.1.type_index(&type_id) {
+            if let Some(index) = group.1.type_index(name) {
                 let component_type = group.1.type_mut(*index).unwrap();
                 component_type.set_force_rewrite_buffer(true);
             }
@@ -129,11 +129,11 @@ impl ComponentManager {
     }
 
     pub fn force_buffer_groups<T: ComponentController>(&mut self, groups: &[u32]) {
-        let type_id = TypeId::of::<T>();
+        let name = T::name();
         for group_id in groups {
             if let Some(group_index) = self.group_map.get(group_id) {
                 let group = &mut self.groups[*group_index];
-                if let Some(index) = group.type_index(&type_id) {
+                if let Some(index) = group.type_index(name) {
                     let component_type = group.type_mut(*index).unwrap();
                     component_type.set_force_rewrite_buffer(true);
                 }
@@ -142,10 +142,10 @@ impl ComponentManager {
     }
 
     pub fn force_buffer_active<T: ComponentController>(&mut self) {
-        let type_id = TypeId::of::<T>();
+        let name = T::name();
         for group in self.active_groups.iter() {
             let group = &mut self.groups[*group];
-            if let Some(index) = group.type_index(&type_id) {
+            if let Some(index) = group.type_index(name) {
                 let component_type = group.type_mut(*index).unwrap();
                 component_type.set_force_rewrite_buffer(true);
             }
@@ -160,18 +160,15 @@ impl ComponentManager {
         component: T,
     ) -> (&mut T, ComponentHandle) {
         let group_id = group_id.unwrap_or(DEFAULT_GROUP_ID);
-        let type_id = TypeId::of::<T>();
-        let config = T::config();
-
+        let name = T::name();
         let group_index = self
             .group_map
             .get(&group_id)
             .expect(format!("Group {} does not exist!", group_id).as_str());
         let group = &mut self.groups[*group_index];
-        let component = Box::new(component);
         let handle;
 
-        if let Some(type_index) = group.type_index(&type_id).copied() {
+        if let Some(type_index) = group.type_index(name).copied() {
             self.id_counter += 1;
             let component_type = group.type_mut(type_index).unwrap();
             let index = component_type.add(component);
@@ -186,7 +183,7 @@ impl ComponentManager {
             // Create a new ComponentType
             self.id_counter += 1;
             self.force_update_sets = true;
-            let (type_index, index) = group.add_component_type(type_id, config, component);
+            let (type_index, index) = group.add_component_type(component);
             handle = ComponentHandle::new(
                 index,
                 type_index,
@@ -243,12 +240,12 @@ impl ComponentManager {
         group_ids: Option<&[u32]>,
         #[cfg(feature = "physics")] world: &mut World,
     ) {
-        let type_id = TypeId::of::<T>();
+        let name = T::name();
         let group_ids = group_ids.unwrap_or(&self.active_group_ids);
         for group_id in group_ids {
             if let Some(group_index) = self.group_map.get(&group_id) {
                 let group = self.groups.get_mut(*group_index).unwrap();
-                if let Some(type_index) = group.type_index(&type_id) {
+                if let Some(type_index) = group.type_index(name) {
                     if let Some(current_handle) = &self.current_component {
                         if *group_index == current_handle.group_index()
                             && *type_index == current_handle.type_index()
@@ -299,7 +296,7 @@ impl ComponentManager {
         &self,
         group_ids: Option<&[u32]>,
     ) -> ComponentSet<T> {
-        let type_id = TypeId::of::<T>();
+        let name = T::name();
         let group_ids: &[u32] = group_ids.unwrap_or(&self.active_group_ids);
 
         let mut types = vec![];
@@ -311,7 +308,7 @@ impl ComponentManager {
         group_handles.sort_by(|a, b| a.index().cmp(&b.index()));
         for handle in group_handles {
             let group = self.group(handle).unwrap();
-            if let Some(type_index) = group.type_index(&type_id) {
+            if let Some(type_index) = group.type_index(name) {
                 let component_type = group.type_ref(*type_index).unwrap();
                 let type_len = component_type.len();
                 if type_len > 0 {
@@ -327,7 +324,7 @@ impl ComponentManager {
         &mut self,
         group_ids: Option<&[u32]>,
     ) -> ComponentSetMut<T> {
-        let type_id = TypeId::of::<T>();
+        let name = T::name();
         let group_ids: &[u32] = group_ids.unwrap_or(&self.active_group_ids);
         let mut group_handles: Vec<ArenaIndex> = group_ids
             .iter()
@@ -345,7 +342,7 @@ impl ComponentManager {
             offset += split.0.len();
             match split.0.last_mut().unwrap() {
                 ArenaEntry::Occupied { data, .. } => {
-                    if let Some(type_index) = data.type_index(&type_id) {
+                    if let Some(type_index) = data.type_index(name) {
                         let component_type = data.type_mut(*type_index).unwrap();
                         let type_len = component_type.len();
                         if type_len > 0 {
@@ -485,19 +482,19 @@ impl ComponentManager {
     }
 
     #[inline]
-    pub(crate) fn active_components(&self) -> &BTreeMap<(i16, TypeId), ComponentCluster> {
+    pub(crate) fn active_components(&self) -> &BTreeMap<(i16, &'static str), ComponentCluster> {
         return self.active_components.as_ref().unwrap();
     }
 
     #[inline]
-    pub(crate) fn borrow_active_components(&mut self) -> BTreeMap<(i16, TypeId), ComponentCluster> {
+    pub(crate) fn borrow_active_components(&mut self) -> BTreeMap<(i16, &'static str), ComponentCluster> {
         return self.active_components.take().unwrap();
     }
 
     #[inline]
     pub(crate) fn return_active_components(
         &mut self,
-        active_components: BTreeMap<(i16, TypeId), ComponentCluster>,
+        active_components: BTreeMap<(i16, &'static str), ComponentCluster>,
     ) {
         return self.active_components = Some(active_components);
     }

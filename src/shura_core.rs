@@ -338,7 +338,6 @@ impl Shura {
 
         {
             let mut ctx = Context::new(scene, self);
-
             scene_controller.update(&mut ctx);
 
             #[cfg(feature = "physics")]
@@ -370,7 +369,6 @@ impl Shura {
                         crate::UpdateOperation::AfterDuration(dur) => {
                             if now > set.last_update().unwrap() + dur {
                                 set.set_last_update(now);
-                                // println!("{}", (now).elapsed().as_secs_f32());
                             } else {
                                 continue;
                             }
@@ -427,19 +425,25 @@ impl Shura {
             }
 
             scene_controller.after_update(&mut ctx);
-
-            ctx.normalize_input();
-            ctx.update_sets();
-
-            if !ctx.render_components() {
-                return Ok(());
-            }
-
-            ctx.buffer();
         };
 
-        scene.resized = false;
-        scene.switched = false;
+
+        if !scene.component_manager.render_components() {
+            return Ok(());
+        }
+
+        scene.camera.buffer(&self.gpu);
+        scene.component_manager.buffer_sets(
+            &self.gpu,
+            #[cfg(feature = "physics")]
+            &scene.world,
+        );
+        self.defaults.buffer(
+            &self.gpu,
+            self.frame_manager.total_time(),
+            self.frame_manager.delta_time(),
+        );
+        
         let output = self.gpu.surface.get_current_texture()?;
         let output_view = output
             .texture

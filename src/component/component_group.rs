@@ -1,7 +1,6 @@
 use crate::data::arena::{Arena, ArenaIndex, ArenaIterMut};
-use crate::{ComponentConfig, ComponentType, Dimension, DynamicComponent, Vector};
+use crate::{ComponentType, Dimension, Vector, ComponentController};
 use rustc_hash::FxHashMap;
-use std::any::TypeId;
 
 
 /// Helper to create a [ComponentGroup](crate::ComponentGroup).
@@ -31,10 +30,9 @@ pub const DEFAULT_GROUP_ID: u32 = u32::MAX / 2;
 /// [group_mut](crate::Context::group_mut). The components of the group can be accessed with
 /// [components](crate::Context::components) or [components_mut](crate::Context::components_mut)
 /// from the [context](crate::Context).
-#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct ComponentGroup {
-    #[serde(skip_serializing)]
-    type_map: FxHashMap<TypeId, ArenaIndex>,
+    type_map: FxHashMap<&'static str, ArenaIndex>,
     types: Arena<ComponentType>,
     id: u32,
     position: Vector<f32>,
@@ -114,8 +112,8 @@ impl ComponentGroup {
     // Getters
 
     #[inline]
-    pub(crate) fn type_index(&self, type_id: &TypeId) -> Option<&ArenaIndex> {
-        self.type_map.get(type_id)
+    pub(crate) fn type_index(&self, name: &'static str) -> Option<&ArenaIndex> {
+        self.type_map.get(name)
     }
 
     #[inline]
@@ -139,16 +137,13 @@ impl ComponentGroup {
     }
 
     #[inline]
-    pub(crate) fn add_component_type(
+    pub(crate) fn add_component_type<T: 'static + ComponentController>(
         &mut self,
-        type_id: TypeId,
-        config: ComponentConfig,
-        component: DynamicComponent,
+        component: T
     ) -> (ArenaIndex, ArenaIndex) {
-        let type_index = self.types.insert(ComponentType::new(type_id, config));
-        let component_type = self.types.get_mut(type_index).unwrap();
-        self.type_map.insert(type_id, type_index);
-        let component_index = component_type.add(component);
+        let (component_index, component_type) = ComponentType::new(component);
+        let type_index = self.types.insert(component_type);
+        self.type_map.insert(T::name(), type_index);
         return (type_index, component_index);
     }
 
