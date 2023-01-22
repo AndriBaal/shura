@@ -1,6 +1,6 @@
 #[cfg(feature = "physics")]
 use crate::physics::World;
-use crate::{Camera, Color, ComponentManager, CursorManager, Isometry, Sprite, Shura, Dimension};
+use crate::{Camera, Color, ComponentManager, CursorManager, Isometry, Sprite, Shura, Dimension, ComponentController};
 
 
 pub struct SceneDescriptor {
@@ -84,5 +84,25 @@ impl Scene {
 
     pub fn name(&self) -> &'static str {
         self.name
+    }
+}
+
+
+pub struct SceneSerializer<'a> {
+    scene: &'a Scene,
+    scene: String,
+    components: Vec<String>,
+    groups: &'a [u32]
+}
+
+impl <'a>SceneSerializer<'a> {
+    pub fn new(&self, scene: &Scene, groups: &[u32]) {
+        if scene.current_component().is_some() {
+            panic!("Cannot serialize during component update!")
+        }
+    }
+
+    pub fn serialize_components<T: ComponentController + serde::Serialize>() {
+        
     }
 }

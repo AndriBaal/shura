@@ -32,7 +32,11 @@ pub const DEFAULT_GROUP_ID: u32 = u32::MAX / 2;
 /// from the [context](crate::Context).
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct ComponentGroup {
+    #[serde(skip)]
+    #[serde(default)]
     type_map: FxHashMap<&'static str, ArenaIndex>,
+    #[serde(skip)]
+    #[serde(default)]
     types: Arena<ComponentType>,
     id: u32,
     position: Vector<f32>,

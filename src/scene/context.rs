@@ -306,6 +306,7 @@ impl<'a> Context<'a> {
         if let Some((mut controller, mut scene)) = self.shura.scene_manager.remove(name) {
             let mut ctx = Context::new(&mut scene, self.shura);
             controller.end(&mut ctx);
+            drop(ctx);
             return Some((scene, controller));
         }
         return None;
@@ -353,6 +354,11 @@ impl<'a> Context<'a> {
     //////////////////////////////////////////////////////////////////////////////////////////////
     // Getter
     //////////////////////////////////////////////////////////////////////////////////////////////
+    #[inline]
+    pub fn current_component(&self) -> Option<ComponentHandle> {
+        self.scene.component_manager.current_component()
+    }
+
     #[inline]
     pub fn relative_camera(&self) -> &Camera {
         &self.shura.relative_camera
@@ -1012,18 +1018,18 @@ impl<'a> Context<'a> {
 
     #[inline]
     #[cfg(feature = "gamepad")]
-    pub fn set_mapping(
+    pub fn set_gamepad_mapping(
         &mut self,
         gamepad_id: GamepadId,
         mapping: &Mapping,
         name: Option<&str>,
     ) -> Result<String, MappingError> {
-        self.shura.input.set_mapping(gamepad_id, mapping, name)
+        self.shura.input.set_gamepad_mapping(gamepad_id, mapping, name)
     }
 
     #[inline]
     #[cfg(feature = "gamepad")]
-    pub fn set_mapping_strict(
+    pub fn set_gamepad_mapping_strict(
         &mut self,
         gamepad_id: GamepadId,
         mapping: &Mapping,
@@ -1031,6 +1037,7 @@ impl<'a> Context<'a> {
     ) -> Result<String, MappingError> {
         self.shura
             .input
-            .set_mapping_strict(gamepad_id, mapping, name)
+            .set_gamepad_mapping_strict(gamepad_id, mapping, name)
     }
+
 }

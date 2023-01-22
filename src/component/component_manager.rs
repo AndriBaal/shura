@@ -8,7 +8,7 @@ use crate::{
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::collections::BTreeMap;
 
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serialize", derive(serde::Deserialize))]
 /// Access to the component system.
 pub struct ComponentManager {
     group_map: FxHashMap<u32, ArenaIndex>,
@@ -23,9 +23,10 @@ pub struct ComponentManager {
     remove_current_commponent: bool,
     force_update_sets: bool,
     current_component: Option<ComponentHandle>,
+    #[serde(skip)]
+    #[serde(default)]
     active_components: Option<BTreeMap<(i16, &'static str), ComponentCluster>>,
 }
-
 
 
 impl ComponentManager {
@@ -504,6 +505,11 @@ impl ComponentManager {
         let result = self.remove_current_commponent;
         self.remove_current_commponent = false;
         return result;
+    }
+
+    #[inline]
+    pub(crate) fn current_component(&self) -> Option<ComponentHandle> {
+        self.current_component.clone()
     }
 
     // Setters

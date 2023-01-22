@@ -18,8 +18,8 @@ pub(crate) struct ArenaPath {
 pub(crate) struct ComponentCluster {
     paths: Vec<ArenaPath>,
     config: ComponentConfig,
-    #[serde(default)]
     #[serde(skip)]
+    #[serde(default)]
     last_update: Option<Instant>,
 }
 

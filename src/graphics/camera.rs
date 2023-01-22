@@ -19,9 +19,9 @@ pub struct Camera {
     vertical_fov: f32,
     ratio: f32,
 
-    #[serde(skip_serializing)]
+    #[serde(skip)]
     model: Model,
-    #[serde(skip_serializing)]
+    #[serde(skip)]
     uniform: Uniform<Matrix>,
 }
 

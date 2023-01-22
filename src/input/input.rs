@@ -278,7 +278,7 @@ impl Input {
 
     #[inline]
     #[cfg(feature = "gamepad")]
-    pub fn set_mapping(
+    pub fn set_gamepad_mapping(
         &mut self,
         gamepad_id: GamepadId,
         mapping: &Mapping,
@@ -292,7 +292,7 @@ impl Input {
 
     #[inline]
     #[cfg(feature = "gamepad")]
-    pub fn set_mapping_strict(
+    pub fn set_gamepad_mapping_strict(
         &mut self,
         gamepad_id: GamepadId,
         mapping: &Mapping,

@@ -6,11 +6,8 @@ use crate::{
     Matrix, RenderOperation, ComponentController,
 };
 
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct ComponentType {
-    #[serde(skip)]
     components: Arena<DynamicComponent>,
-    #[serde(skip)]
     buffer: Option<InstanceBuffer>,
 
     name: &'static str,
