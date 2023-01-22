@@ -6,8 +6,13 @@ use crate::{
     Matrix, RenderOperation, ComponentController,
 };
 
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct ComponentType {
+    #[serde(skip)]
+    #[serde(default)]
     components: Arena<DynamicComponent>,
+    #[serde(skip)]
+    #[serde(default)]
     buffer: Option<InstanceBuffer>,
 
     name: &'static str,
@@ -17,7 +22,7 @@ pub(crate) struct ComponentType {
 }
 
 impl ComponentType {
-    pub fn new<T: 'static + ComponentController>(component: T) -> (ArenaIndex, Self) {
+    pub fn new<C: ComponentController>(component: C) -> (ArenaIndex, Self) {
         let mut components: Arena<DynamicComponent> = Arena::new();
         let component_index = components.insert(Box::new(component));
         (component_index, Self {
@@ -25,16 +30,15 @@ impl ComponentType {
             buffer: None,
             force_rewrite_buffer: false,
             last_len: 0,
-            config: T::config(),
-            name: T::name(),
+            config: C::config(),
+            name: C::name(),
         })
     }
 
     #[inline(always)]
     pub fn buffer_data(&mut self, gpu: &Gpu, #[cfg(feature = "physics")] world: &World) {
-        match self.config.render {
-            RenderOperation::None => return,
-            _ => {}
+        if self.config.render == RenderOperation::None {
+            return;
         }
 
         let new_len = self.components.len();
@@ -70,7 +74,7 @@ impl ComponentType {
     }
 
     #[inline(always)]
-    pub fn add<T: 'static + ComponentController>(&mut self, component: T) -> ArenaIndex {
+    pub fn add<C: ComponentController>(&mut self, component: C) -> ArenaIndex {
         return self.components.insert(Box::new(component));
     }
 

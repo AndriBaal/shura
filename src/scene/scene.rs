@@ -1,23 +1,31 @@
 #[cfg(feature = "physics")]
 use crate::physics::World;
-use crate::{Camera, Color, ComponentManager, CursorManager, Isometry, Sprite, Shura, Dimension, ComponentController};
+use crate::{
+    Camera, Color, ComponentController, ComponentManager, CursorManager, Dimension, Isometry,
+    Shura, Sprite,
+};
 
-
-pub struct SceneDescriptor {
-    pub(crate) name: &'static str,
-    pub(crate) existing: Option<Scene>,
-    // serialized: Option<u8>
+pub enum SceneSource {
+    New {
+        name: &'static str,
+    },
+    Existing {
+        name: &'static str,
+        existing: Scene,
+    },
+    #[cfg(feature = "serialize")]
+    Serialized {
+        name: &'static str,
+        serialized: SerializedScene,
+    },
 }
 
-impl SceneDescriptor {
-    pub fn new(name: &'static str) -> Self {
-        Self { name, existing: None }
-    }
-
-    pub fn existing(name: &'static str, scene: Scene) -> Self {
-        Self {
-            name,
-            existing: Some(scene)
+impl SceneSource {
+    pub fn name(&self) -> &'static str {
+        return match &self {
+            SceneSource::New { name } => name,
+            SceneSource::Existing { name, existing } => name,
+            SceneSource::Serialized { name, serialized } => name,
         }
     }
 }
@@ -25,7 +33,7 @@ impl SceneDescriptor {
 #[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct Scene {
     #[serde(skip)]
-    #[serde(default="True")]
+    #[serde(default = "True")]
     pub(crate) resized: bool,
     #[serde(skip)]
     #[serde(default)]
@@ -40,22 +48,18 @@ pub struct Scene {
     pub component_manager: ComponentManager,
     pub clear_color: Option<Color>,
     #[cfg(feature = "physics")]
-    pub world: World
+    pub world: World,
 }
 
 impl Scene {
-    pub(crate) fn new(shura: &Shura, descriptor: &mut SceneDescriptor) -> Self {
+    pub(crate) fn new(shura: &Shura, source: SceneSource) -> Self {
         const DEFAULT_VERTICAL_CAMERA_FOV: f32 = 5.0;
         let window_size: Dimension<u32> = shura.window.inner_size().into();
         let window_ratio = window_size.width as f32 / window_size.height as f32;
-        if let Some(mut existing) = descriptor.existing.take() {
-            existing.name = descriptor.name;
-            existing.camera.resize(window_ratio);
-            existing.cursor.compute(&existing.camera.fov(), &window_size, &shura.input);
-            return existing;
-        } else {
-            return Self {
-                name: descriptor.name,
+
+        return match source {
+            SceneSource::New { name } => Self {
+                name,
                 switched: false,
                 resized: true,
                 camera: Camera::new(
@@ -70,8 +74,18 @@ impl Scene {
                 #[cfg(feature = "physics")]
                 world: World::new(),
                 saved_sprites: vec![],
-            };
-        }
+            },
+            SceneSource::Existing { name, mut existing } => {
+                existing.name = name;
+                existing.camera.resize(window_ratio);
+                existing
+                    .cursor
+                    .compute(&existing.camera.fov(), &window_size, &shura.input);
+                existing
+            }
+            #[cfg(feature = "serialize")]
+            SceneSource::Serialized { name, serialized } => { todo!() }
+        };
     }
 
     pub fn resized(&self) -> bool {
@@ -87,22 +101,49 @@ impl Scene {
     }
 }
 
-
-pub struct SceneSerializer<'a> {
+#[cfg(feature = "serialize")]
+pub struct SceneSerializer<'a, T: serde::Serializer> {
     scene: &'a Scene,
-    scene: String,
-    components: Vec<String>,
-    groups: &'a [u32]
+    ser_scene: String,
+    ser_components: Vec<String>,
+    serializer: T,
 }
 
-impl <'a>SceneSerializer<'a> {
-    pub fn new(&self, scene: &Scene, groups: &[u32]) {
-        if scene.current_component().is_some() {
+#[cfg(feature = "serialize")]
+impl<'a, T: serde::Serializer> SceneSerializer<'a, T> {
+    pub fn new(&self, scene: &'a Scene, serializer: T) -> Self {
+        if scene.component_manager.current_component().is_some() {
             panic!("Cannot serialize during component update!")
+        }
+
+        let ser_scene = serde_json::to_string(scene).unwrap();
+
+        Self {
+            scene,
+            ser_scene,
+            ser_components: vec![],
+            serializer,
         }
     }
 
-    pub fn serialize_components<T: ComponentController + serde::Serialize>() {
-        
+    pub fn serialize_components<'de, C: ComponentController + serde::Serialize + serde::Deserialize<'de>>(&mut self, groups: &[u32]) {
+        let name = C::name();
+        for group_id in groups {
+            if let Some(group_index) = self.scene.component_manager.group_index(group_id) {
+                let group = self.scene.component_manager.group(*group_index).unwrap();
+                if let Some(type_index) = group.type_index(name) {
+                    let type_ref = group.type_ref(*type_index).unwrap();
+                    for component in type_ref.iter() {
+
+                    }
+                }
+            }
+        }
     }
+}
+
+#[cfg(feature = "serialize")]
+pub struct SerializedScene {
+    scene: String,
+    components: Vec<String>,
 }

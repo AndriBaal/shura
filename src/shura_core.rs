@@ -8,7 +8,7 @@ use crate::{
 use crate::{
     BoxedScene, Camera, Color, ComponentSet, Context, Defaults, Dimension, FrameManager, Gpu,
     Input, PostproccessOperation, RenderOperation, Renderer, Scene, SceneController, SceneManager,
-    Sprite, scene::scene::SceneDescriptor,
+    Sprite, SceneSource
 };
 use log::{error, info};
 
@@ -18,17 +18,18 @@ pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 1.0;
 
 /// Start a new game with the given callback to initialize the first [SceneController].
 pub fn init<S: SceneController, F: 'static + FnMut(&mut Context) -> S>(
-    mut scene: SceneDescriptor,
+    mut scene: SceneSource,
     mut init: F,
 ) {
     info!("Using shura version: {}", env!("CARGO_PKG_VERSION"));
     let events = winit::event_loop::EventLoop::new();
     let window = winit::window::WindowBuilder::new()
         .with_inner_size(winit::dpi::PhysicalSize::new(INITIAL_WIDTH, INITIAL_HEIGHT))
-        .with_title(scene.name)
+        .with_title(scene.name())
         .build(&events)
         .unwrap();
     let shura_window_id = window.id();
+    let mut scene = Some(scene);
     let mut window = Some(window);
 
     #[cfg(target_arch = "wasm32")]
@@ -83,7 +84,7 @@ pub fn init<S: SceneController, F: 'static + FnMut(&mut Context) -> S>(
     let mut active: Option<(Shura, BoxedScene)> = if cfg!(target_os = "android") {
         None
     } else {
-        Some(Shura::new(window.take().unwrap(), &mut scene, &mut init))
+        Some(Shura::new(window.take().unwrap(), scene.take().unwrap(), &mut init))
     };
 
     events.run(move |event, _, control_flow| {
@@ -178,18 +179,17 @@ pub struct Shura {
 impl Shura {
     fn new<S: SceneController, F: 'static + FnMut(&mut Context) -> S>(
         window: winit::window::Window,
-        scene: &mut SceneDescriptor,
+        scene: SceneSource,
         init: &mut F,
     ) -> (Self, BoxedScene) {
         let gpu = pollster::block_on(Gpu::new(&window));
         let defaults = Defaults::new(&gpu);
         let window_size: Dimension<u32> = window.inner_size().into();
-        let window_ratio = window_size.width as f32 / window_size.height as f32;
         #[cfg(feature = "audio")]
         let (audio, audio_handle) = rodio::OutputStream::try_default().unwrap();
         let relative_camera = Camera::new(&gpu, Default::default(), 1.0, RELATIVE_CAMERA_SIZE);
         let mut shura = Self {
-            scene_manager: SceneManager::new(scene.name),
+            scene_manager: SceneManager::new(scene.name()),
             frame_manager: FrameManager::new(),
             input: Input::new(),
             #[cfg(feature = "audio")]

@@ -99,12 +99,12 @@ pub trait ComponentController: Downcast + _StaticAccess + ComponentDerive {
     {
     }
 
-    fn config() -> ComponentConfig where Self: Sized {
-        return DEFAULT_CONFIG;
+    fn name() -> &'static str where Self: Sized {
+        return std::any::type_name::<Self>()
     }
 
-    fn name() -> &'static str where Self: Sized {
-        std::any::type_name::<Self>()
+    fn config() -> ComponentConfig where Self: Sized {
+        return DEFAULT_CONFIG;
     }
 }
 impl_downcast!(ComponentController);
@@ -286,7 +286,7 @@ impl ComponentConfig {
     }
 }
 
-impl<T: ComponentController + ?Sized> ComponentDerive for Box<T> {
+impl<C: ComponentController + ?Sized> ComponentDerive for Box<C> {
     fn inner(&self) -> &dyn BaseComponent {
         (**self).inner()
     }
@@ -296,7 +296,7 @@ impl<T: ComponentController + ?Sized> ComponentDerive for Box<T> {
     }
 }
 
-impl<T: ComponentController + ?Sized> ComponentController for Box<T> {
+impl<C: ComponentController + ?Sized> ComponentController for Box<C> {
     fn update(&mut self, scene: &mut DynamicScene, ctx: &mut Context) {
         (**self).update(scene, ctx)
     }
@@ -343,15 +343,15 @@ pub trait _StaticAccess {
     fn get_postproccess(&self) -> for<'a> fn(&mut Renderer<'a>, Instances, &'a Model, &'a Sprite);
 }
 
-impl<T: ComponentController> _StaticAccess for T {
+impl<C: ComponentController> _StaticAccess for C {
     fn get_grouped_render(
         &self,
     ) -> for<'a> fn(&'a DynamicScene, &mut Renderer<'a>, ComponentSet<DynamicComponent>, Instances)
     {
-        T::render_grouped
+        C::render_grouped
     }
     fn get_postproccess(&self) -> for<'a> fn(&mut Renderer<'a>, Instances, &'a Model, &'a Sprite) {
-        T::postproccess
+        C::postproccess
     }
 }
 

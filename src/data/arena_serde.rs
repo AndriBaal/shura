@@ -1,3 +1,5 @@
+use crate::ComponentController;
+
 use super::arena::{Arena, ArenaEntry, ArenaIndex, DEFAULT_CAPACITY};
 use core::cmp;
 use core::fmt;

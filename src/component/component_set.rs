@@ -73,18 +73,18 @@ impl ComponentCluster {
 /// [ComponentGroups](crate::ComponentGroup).
 /// A [ComponentSet] can be retrieved from the [Context](crate::Context) with
 /// [components](crate::Context::components) or [components_mut](crate::Context::components_mut).
-pub struct ComponentSet<'a, T: ComponentController> {
+pub struct ComponentSet<'a, C: ComponentController> {
     pub(crate) types: Vec<&'a ComponentType>,
     pub(crate) len: usize,
-    _type: PhantomData<T>,
+    _type: PhantomData<C>,
 }
 
-impl<'a, T: ComponentController> ComponentSet<'a, T> {
+impl<'a, C: ComponentController> ComponentSet<'a, C> {
     pub(crate) fn new(types: Vec<&'a ComponentType>, len: usize) -> Self {
         Self {
             types,
             len,
-            _type: PhantomData::<T>,
+            _type: PhantomData::<C>,
         }
     }
 
@@ -99,17 +99,17 @@ impl<'a, T: ComponentController> ComponentSet<'a, T> {
     }
 
     /// Iterate over this set
-    pub fn iter(&'a self) -> ComponentIter<'a, T> {
+    pub fn iter(&'a self) -> ComponentIter<'a, C> {
         return ComponentIter::new(self);
     }
 }
 
-impl<'a, T> IntoIterator for &'a ComponentSet<'a, T>
+impl<'a, C> IntoIterator for &'a ComponentSet<'a, C>
 where
-    T: ComponentController,
+    C: ComponentController,
 {
-    type Item = &'a T;
-    type IntoIter = ComponentIter<'a, T>;
+    type Item = &'a C;
+    type IntoIter = ComponentIter<'a, C>;
 
     fn into_iter(self) -> Self::IntoIter {
         return self.iter();
@@ -117,21 +117,21 @@ where
 }
 
 /// Iterator over a [ComponentSet], which holds components from multiple [ComponentGroups](crate::ComponentGroup).
-pub struct ComponentIter<'a, T>
+pub struct ComponentIter<'a, C>
 where
-    T: ComponentController,
+    C: ComponentController,
 {
     iters: Vec<ArenaIter<'a, DynamicComponent>>,
     iter_index: usize,
     len: usize,
-    _type: PhantomData<T>,
+    _type: PhantomData<C>,
 }
 
-impl<'a, T> ComponentIter<'a, T>
+impl<'a, C> ComponentIter<'a, C>
 where
-    T: ComponentController,
+    C: ComponentController,
 {
-    pub(crate) fn new(set: &'a ComponentSet<T>) -> ComponentIter<'a, T> {
+    pub(crate) fn new(set: &'a ComponentSet<C>) -> ComponentIter<'a, C> {
         let mut iters = Vec::with_capacity(set.types.len());
         for t in &set.types {
             iters.push(t.iter());
@@ -140,29 +140,29 @@ where
             iters,
             iter_index: 0,
             len: set.len(),
-            _type: PhantomData::<T>,
+            _type: PhantomData::<C>,
         }
     }
 }
 
-impl<'a, T> ExactSizeIterator for ComponentIter<'a, T>
+impl<'a, C> ExactSizeIterator for ComponentIter<'a, C>
 where
-    T: ComponentController,
+    C: ComponentController,
 {
     fn len(&self) -> usize {
         self.len
     }
 }
 
-impl<'a, T> Iterator for ComponentIter<'a, T>
+impl<'a, C> Iterator for ComponentIter<'a, C>
 where
-    T: ComponentController,
+    C: ComponentController,
 {
-    type Item = &'a T;
+    type Item = &'a C;
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(iter) = self.iters.get_mut(self.iter_index) {
             if let Some((_, c)) = iter.next() {
-                return c.as_ref().downcast_ref::<T>();
+                return c.as_ref().downcast_ref::<C>();
             } else {
                 self.iter_index += 1;
                 return self.next();
@@ -172,15 +172,15 @@ where
     }
 }
 
-impl<'a, T> DoubleEndedIterator for ComponentIter<'a, T>
+impl<'a, C> DoubleEndedIterator for ComponentIter<'a, C>
 where
-    T: ComponentController,
+    C: ComponentController,
 {
-    fn next_back(&mut self) -> Option<&'a T> {
+    fn next_back(&mut self) -> Option<&'a C> {
         let len = self.iters.len();
         if let Some(iter) = self.iters.get_mut(len - 1 - self.iter_index) {
             if let Some((_, c)) = iter.next_back() {
-                return c.as_ref().downcast_ref::<T>();
+                return c.as_ref().downcast_ref::<C>();
             } else {
                 self.iter_index += 1;
                 return self.next_back();
@@ -194,18 +194,18 @@ where
 /// [ComponentGroups](crate::ComponentGroup).
 /// A [ComponentSet] can be retrieved from the [Context](crate::Context) with
 /// [components](crate::Context::components) or [components_mut](crate::Context::components_mut).
-pub struct ComponentSetMut<'a, T: ComponentController> {
+pub struct ComponentSetMut<'a, C: ComponentController> {
     pub(crate) types: Vec<&'a mut ComponentType>,
     pub(crate) len: usize,
-    _type: PhantomData<T>,
+    _type: PhantomData<C>,
 }
 
-impl<'a, T: ComponentController> ComponentSetMut<'a, T> {
+impl<'a, C: ComponentController> ComponentSetMut<'a, C> {
     pub(crate) fn new(types: Vec<&'a mut ComponentType>, len: usize) -> Self {
         Self {
             types,
             len,
-            _type: PhantomData::<T>,
+            _type: PhantomData::<C>,
         }
     }
 
@@ -220,17 +220,17 @@ impl<'a, T: ComponentController> ComponentSetMut<'a, T> {
     }
 
     /// Iterate over this set
-    pub fn iter(&'a mut self) -> ComponentIterMut<'a, T> {
+    pub fn iter(&'a mut self) -> ComponentIterMut<'a, C> {
         return ComponentIterMut::new(self);
     }
 }
 
-impl<'a, T> IntoIterator for &'a mut ComponentSetMut<'a, T>
+impl<'a, C> IntoIterator for &'a mut ComponentSetMut<'a, C>
 where
-    T: ComponentController,
+    C: ComponentController,
 {
-    type Item = &'a mut T;
-    type IntoIter = ComponentIterMut<'a, T>;
+    type Item = &'a mut C;
+    type IntoIter = ComponentIterMut<'a, C>;
 
     fn into_iter(self) -> Self::IntoIter {
         return self.iter();
@@ -238,21 +238,21 @@ where
 }
 
 /// Iterator over a [ComponentSetMut], which holds components from multiple [ComponentGroups](crate::ComponentGroup).
-pub struct ComponentIterMut<'a, T>
+pub struct ComponentIterMut<'a, C>
 where
-    T: ComponentController,
+    C: ComponentController,
 {
     iters: Vec<ArenaIterMut<'a, DynamicComponent>>,
     iter_index: usize,
     len: usize,
-    _type: PhantomData<T>,
+    _type: PhantomData<C>,
 }
 
-impl<'a, T> ComponentIterMut<'a, T>
+impl<'a, C> ComponentIterMut<'a, C>
 where
-    T: ComponentController,
+    C: ComponentController,
 {
-    pub(crate) fn new(set: &'a mut ComponentSetMut<T>) -> ComponentIterMut<'a, T> {
+    pub(crate) fn new(set: &'a mut ComponentSetMut<C>) -> ComponentIterMut<'a, C> {
         let mut iters = Vec::with_capacity(set.types.len());
         let len = set.len();
         for t in &mut set.types {
@@ -262,29 +262,29 @@ where
             iters,
             iter_index: 0,
             len,
-            _type: PhantomData::<T>,
+            _type: PhantomData::<C>,
         }
     }
 }
 
-impl<'a, T> ExactSizeIterator for ComponentIterMut<'a, T>
+impl<'a, C> ExactSizeIterator for ComponentIterMut<'a, C>
 where
-    T: ComponentController,
+    C: ComponentController,
 {
     fn len(&self) -> usize {
         self.len
     }
 }
 
-impl<'a, T> Iterator for ComponentIterMut<'a, T>
+impl<'a, C> Iterator for ComponentIterMut<'a, C>
 where
-    T: ComponentController,
+    C: ComponentController,
 {
-    type Item = &'a mut T;
+    type Item = &'a mut C;
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(iter) = self.iters.get_mut(self.iter_index) {
             if let Some((_, c)) = iter.next() {
-                return c.as_mut().downcast_mut::<T>();
+                return c.as_mut().downcast_mut::<C>();
             } else {
                 self.iter_index += 1;
                 return self.next();
@@ -294,15 +294,15 @@ where
     }
 }
 
-impl<'a, T> DoubleEndedIterator for ComponentIterMut<'a, T>
+impl<'a, C> DoubleEndedIterator for ComponentIterMut<'a, C>
 where
-    T: ComponentController,
+    C: ComponentController,
 {
-    fn next_back(&mut self) -> Option<&'a mut T> {
+    fn next_back(&mut self) -> Option<&'a mut C> {
         let len = self.iters.len();
         if let Some(iter) = self.iters.get_mut(len - 1 - self.iter_index) {
             if let Some((_, c)) = iter.next_back() {
-                return c.as_mut().downcast_mut::<T>();
+                return c.as_mut().downcast_mut::<C>();
             } else {
                 self.iter_index += 1;
                 return self.next_back();

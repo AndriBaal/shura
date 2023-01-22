@@ -1,8 +1,6 @@
 #[cfg(feature = "text")]
 use crate::text::{CreateFont, Font};
-use crate::{
-    Camera, Dimension, InstanceBuffer, Matrix, Shader, ShaderField, ShaderLang, Sprite, Uniform,
-};
+use crate::{Dimension, InstanceBuffer, Matrix, Shader, ShaderField, ShaderLang, Sprite, Uniform};
 use log::info;
 use std::borrow::Cow;
 

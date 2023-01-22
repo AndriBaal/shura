@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap};
 
 use crate::{
     data::arena::ArenaEntry, ArenaPath, Camera, Color, ComponentCluster, ComponentController,
@@ -6,7 +6,7 @@ use crate::{
     Dimension, DynamicComponent, DynamicScene, InputEvent, InputTrigger, InstanceBuffer, Instances,
     Isometry, Key, Matrix, Model, ModelBuilder, Modifier, Renderer, Rotation, Scene,
     SceneController, Shader, ShaderField, ShaderLang, Shura, Sprite, SpriteSheet, Touch, Uniform,
-    Vector,
+    Vector, SceneSource
 };
 
 #[cfg(feature = "audio")]
@@ -29,7 +29,6 @@ use crate::gamepad::*;
 use instant::{Duration, Instant};
 use rustc_hash::FxHashMap;
 
-use super::scene::SceneDescriptor;
 
 macro_rules! Where {
     (
@@ -273,11 +272,11 @@ impl<'a> Context<'a> {
     }
 
     #[inline]
-    pub fn create_component<T: 'static + ComponentController>(
+    pub fn create_component<C: ComponentController>(
         &mut self,
         group: Option<u32>,
-        controller: T,
-    ) -> (&mut T, ComponentHandle) {
+        controller: C,
+    ) -> (&mut C, ComponentHandle) {
         self.scene.component_manager.create_component(
             #[cfg(feature = "physics")]
             &mut self.scene.world,
@@ -290,10 +289,10 @@ impl<'a> Context<'a> {
     #[inline]
     pub fn create_scene<S: SceneController, F: 'static + FnMut(&mut Context) -> S>(
         &mut self,
-        mut scene: SceneDescriptor,
+        scene: SceneSource,
         mut controller: F,
     ) {
-        let mut scene = Scene::new(self.shura, &mut scene);
+        let mut scene = Scene::new(self.shura, scene);
         let mut ctx = Context::new(&mut scene, self.shura);
         let controller: DynamicScene = Box::new(controller(&mut ctx));
         drop(ctx);
@@ -322,8 +321,8 @@ impl<'a> Context<'a> {
     }
 
     #[inline]
-    pub fn remove_components<T: ComponentController>(&mut self, groups: Option<&[u32]>) {
-        self.scene.component_manager.remove_components::<T>(
+    pub fn remove_components<C: ComponentController>(&mut self, groups: Option<&[u32]>) {
+        self.scene.component_manager.remove_components::<C>(
             groups,
             #[cfg(feature = "physics")]
             &mut self.scene.world,
@@ -782,42 +781,42 @@ impl<'a> Context<'a> {
     }
 
     #[inline]
-    pub fn component<T: ComponentController>(&self, handle: &ComponentHandle) -> Option<&T> {
-        self.scene.component_manager.component::<T>(handle)
+    pub fn component<C: ComponentController>(&self, handle: &ComponentHandle) -> Option<&C> {
+        self.scene.component_manager.component::<C>(handle)
     }
 
     #[inline]
-    pub fn component_mut<T: ComponentController>(
+    pub fn component_mut<C: ComponentController>(
         &mut self,
         handle: &ComponentHandle,
-    ) -> Option<&mut T> {
-        self.scene.component_manager.component_mut::<T>(handle)
+    ) -> Option<&mut C> {
+        self.scene.component_manager.component_mut::<C>(handle)
     }
 
     #[inline]
     /// Force the position of the all component from the given generic to be updated inside the
     /// (InstanceBuffer)[crate::InstanceBuffer]. This is used when the [crate::ComponentConfig::does_move]
     /// flag is set, but the position needs to be updated.
-    pub fn force_buffer<T: ComponentController>(&mut self) {
-        self.scene.component_manager.force_buffer::<T>()
+    pub fn force_buffer<C: ComponentController>(&mut self) {
+        self.scene.component_manager.force_buffer::<C>()
     }
 
     #[inline]
     /// Force the position of the components from the given groups from the given generic to be updated inside the
     /// (InstanceBuffer)[crate::InstanceBuffer]. This is used when the [crate::ComponentConfig::does_move]
     /// flag is set, but the position needs to be updated.
-    pub fn force_buffer_groups<T: ComponentController>(&mut self, group_ids: &[u32]) {
+    pub fn force_buffer_groups<C: ComponentController>(&mut self, group_ids: &[u32]) {
         self.scene
             .component_manager
-            .force_buffer_groups::<T>(group_ids)
+            .force_buffer_groups::<C>(group_ids)
     }
 
     #[inline]
     /// Force the position of the active components from the given generic to be updated inside the
     /// (InstanceBuffer)[crate::InstanceBuffer]. This is used when the [crate::ComponentConfig::does_move]
     /// flag is set, but the position needs to be updated.
-    pub fn force_buffer_active<T: ComponentController>(&mut self) {
-        self.scene.component_manager.force_buffer_active::<T>()
+    pub fn force_buffer_active<C: ComponentController>(&mut self) {
+        self.scene.component_manager.force_buffer_active::<C>()
     }
 
     #[inline]
@@ -833,19 +832,19 @@ impl<'a> Context<'a> {
     }
 
     #[inline]
-    pub fn components_mut<T: 'static + ComponentController>(
+    pub fn components_mut<C: ComponentController>(
         &mut self,
         groups: Option<&[u32]>,
-    ) -> ComponentSetMut<T> {
-        self.scene.component_manager.components_mut::<T>(groups)
+    ) -> ComponentSetMut<C> {
+        self.scene.component_manager.components_mut::<C>(groups)
     }
 
     #[inline]
-    pub fn components<T: 'static + ComponentController>(
+    pub fn components<C: ComponentController>(
         &self,
         groups: Option<&[u32]>,
-    ) -> ComponentSet<T> {
-        self.scene.component_manager.components::<T>(groups)
+    ) -> ComponentSet<C> {
+        self.scene.component_manager.components::<C>(groups)
     }
 
     #[inline]

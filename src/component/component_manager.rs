@@ -8,14 +8,10 @@ use crate::{
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::collections::BTreeMap;
 
-#[cfg_attr(feature = "serialize", derive(serde::Deserialize))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+// #[cfg_attr(feature = "serialize", serde(bound(deserialize = "'de: 'static")))]
 /// Access to the component system.
 pub struct ComponentManager {
-    group_map: FxHashMap<u32, ArenaIndex>,
-    groups: Arena<ComponentGroup>,
-    active_groups: FxHashSet<ArenaIndex>,
-    active_group_ids: Vec<u32>,
-
     update_components: bool,
     render_components: bool,
 
@@ -23,11 +19,22 @@ pub struct ComponentManager {
     remove_current_commponent: bool,
     force_update_sets: bool,
     current_component: Option<ComponentHandle>,
+    group_map: FxHashMap<u32, ArenaIndex>,
+    #[serde(bound(deserialize = "ComponentGroup: serde::Deserialize<'de>"))]
+    groups: Arena<ComponentGroup>,
+
+    #[serde(skip)]
+    #[serde(default)]
+    active_groups: FxHashSet<ArenaIndex>,
+
+    #[serde(skip)]
+    #[serde(default)]
+    active_group_ids: Vec<u32>,
+
     #[serde(skip)]
     #[serde(default)]
     active_components: Option<BTreeMap<(i16, &'static str), ComponentCluster>>,
 }
-
 
 impl ComponentManager {
     pub(crate) fn new() -> Self {
@@ -119,8 +126,8 @@ impl ComponentManager {
         }
     }
 
-    pub fn force_buffer<T: ComponentController>(&mut self) {
-        let name = T::name();
+    pub fn force_buffer<C: ComponentController>(&mut self) {
+        let name = C::name();
         for group in &mut self.groups {
             if let Some(index) = group.1.type_index(name) {
                 let component_type = group.1.type_mut(*index).unwrap();
@@ -129,8 +136,8 @@ impl ComponentManager {
         }
     }
 
-    pub fn force_buffer_groups<T: ComponentController>(&mut self, groups: &[u32]) {
-        let name = T::name();
+    pub fn force_buffer_groups<C: ComponentController>(&mut self, groups: &[u32]) {
+        let name = C::name();
         for group_id in groups {
             if let Some(group_index) = self.group_map.get(group_id) {
                 let group = &mut self.groups[*group_index];
@@ -142,8 +149,8 @@ impl ComponentManager {
         }
     }
 
-    pub fn force_buffer_active<T: ComponentController>(&mut self) {
-        let name = T::name();
+    pub fn force_buffer_active<C: ComponentController>(&mut self) {
+        let name = C::name();
         for group in self.active_groups.iter() {
             let group = &mut self.groups[*group];
             if let Some(index) = group.type_index(name) {
@@ -153,15 +160,15 @@ impl ComponentManager {
         }
     }
 
-    pub fn create_component<T: 'static + ComponentController>(
+    pub fn create_component<C: ComponentController>(
         &mut self,
         #[cfg(feature = "physics")] world: &mut World,
         total_frames: u64,
         group_id: Option<u32>,
-        component: T,
-    ) -> (&mut T, ComponentHandle) {
+        component: C,
+    ) -> (&mut C, ComponentHandle) {
         let group_id = group_id.unwrap_or(DEFAULT_GROUP_ID);
-        let name = T::name();
+        let name = C::name();
         let group_index = self
             .group_map
             .get(&group_id)
@@ -236,12 +243,12 @@ impl ComponentManager {
         return None;
     }
 
-    pub fn remove_components<T: ComponentController>(
+    pub fn remove_components<C: ComponentController>(
         &mut self,
         group_ids: Option<&[u32]>,
         #[cfg(feature = "physics")] world: &mut World,
     ) {
-        let name = T::name();
+        let name = C::name();
         let group_ids = group_ids.unwrap_or(&self.active_group_ids);
         for group_id in group_ids {
             if let Some(group_index) = self.group_map.get(&group_id) {
@@ -293,11 +300,8 @@ impl ComponentManager {
         }
     }
 
-    pub fn components<T: 'static + ComponentController>(
-        &self,
-        group_ids: Option<&[u32]>,
-    ) -> ComponentSet<T> {
-        let name = T::name();
+    pub fn components<C: ComponentController>(&self, group_ids: Option<&[u32]>) -> ComponentSet<C> {
+        let name = C::name();
         let group_ids: &[u32] = group_ids.unwrap_or(&self.active_group_ids);
 
         let mut types = vec![];
@@ -321,11 +325,11 @@ impl ComponentManager {
         return ComponentSet::new(types, len);
     }
 
-    pub fn components_mut<T: 'static + ComponentController>(
+    pub fn components_mut<C: ComponentController>(
         &mut self,
         group_ids: Option<&[u32]>,
-    ) -> ComponentSetMut<T> {
-        let name = T::name();
+    ) -> ComponentSetMut<C> {
+        let name = C::name();
         let group_ids: &[u32] = group_ids.unwrap_or(&self.active_group_ids);
         let mut group_handles: Vec<ArenaIndex> = group_ids
             .iter()
@@ -380,7 +384,7 @@ impl ComponentManager {
         return None;
     }
 
-    pub fn component<T: ComponentController>(&self, handle: &ComponentHandle) -> Option<&T> {
+    pub fn component<C: ComponentController>(&self, handle: &ComponentHandle) -> Option<&C> {
         if let Some(group) = self.groups.get(handle.group_index()) {
             if let Some(component_type) = group.type_ref(handle.type_index()) {
                 if let Some(component) = component_type.component(handle.component_index()) {
@@ -391,10 +395,10 @@ impl ComponentManager {
         return None;
     }
 
-    pub fn component_mut<T: ComponentController>(
+    pub fn component_mut<C: ComponentController>(
         &mut self,
         handle: &ComponentHandle,
-    ) -> Option<&mut T> {
+    ) -> Option<&mut C> {
         if let Some(group) = self.groups.get_mut(handle.group_index()) {
             if let Some(component_type) = group.type_mut(handle.type_index()) {
                 if let Some(component) = component_type.component_mut(handle.component_index()) {
@@ -488,7 +492,9 @@ impl ComponentManager {
     }
 
     #[inline]
-    pub(crate) fn borrow_active_components(&mut self) -> BTreeMap<(i16, &'static str), ComponentCluster> {
+    pub(crate) fn borrow_active_components(
+        &mut self,
+    ) -> BTreeMap<(i16, &'static str), ComponentCluster> {
         return self.active_components.take().unwrap();
     }
 
