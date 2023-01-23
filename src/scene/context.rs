@@ -321,7 +321,7 @@ impl<'a> Context<'a> {
     }
 
     #[inline]
-    pub fn remove_components<C: ComponentController>(&mut self, filter: &GroupFilter) {
+    pub fn remove_components<C: ComponentController>(&mut self, filter: GroupFilter) {
         self.scene.component_manager.remove_components::<C>(
             filter,
             #[cfg(feature = "physics")]
@@ -834,7 +834,7 @@ impl<'a> Context<'a> {
     #[inline]
     pub fn components_mut<C: ComponentController>(
         &mut self,
-        filter: &GroupFilter,
+        filter: GroupFilter,
     ) -> ComponentSetMut<C> {
         self.scene.component_manager.components_mut::<C>(filter)
     }
@@ -842,7 +842,7 @@ impl<'a> Context<'a> {
     #[inline]
     pub fn components<C: ComponentController>(
         &self,
-        filter: &GroupFilter,
+        filter: GroupFilter,
     ) -> ComponentSet<C> {
         self.scene.component_manager.components::<C>(filter)
     }

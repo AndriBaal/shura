@@ -1,8 +1,8 @@
 #[cfg(feature = "physics")]
 use crate::physics::World;
 use crate::{
-    ComponentHandle, ComponentManager, CursorManager, Dimension, Gpu, Input, Isometry, Matrix,
-    Model, ModelBuilder, Rotation, Uniform, Vector, Vertex,
+    ComponentHandle, ComponentManager, Context, CursorManager, Dimension, Gpu, Input, Isometry,
+    Matrix, Model, ModelBuilder, Rotation, Scene, Shura, Uniform, Vector, Vertex,
 };
 
 const MINIMAL_FOV: f32 = 0.0000001;
@@ -15,10 +15,11 @@ const MINIMAL_FOV: f32 = 0.0000001;
 pub struct Camera {
     position: Isometry<f32>,
     target: Option<ComponentHandle>,
-    proj: Matrix,
     vertical_fov: f32,
     ratio: f32,
 
+    #[serde(skip)]
+    proj: Matrix,
     #[serde(skip)]
     model: Model,
     #[serde(skip)]
@@ -215,5 +216,52 @@ impl Camera {
         self.vertical_fov = new_fov / self.ratio;
         self.reset_camera_projection();
         cursors.compute(&self.fov(), &window_size, input)
+    }
+}
+
+impl<'de> serde::de::DeserializeSeed<'de> for Shura {
+    type Value = Camera;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        impl<'de> serde::de::Visitor<'de> for Shura {
+            type Value = Camera;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("Test AB")
+            }
+
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: serde::de::MapAccess<'de>,
+            {
+                let mut position = None;
+                let mut target = None;
+                let mut vertical_fov = None;
+                let mut ratio = None;
+
+                while let Some(key) = map.next_key::<&str>()? {
+                    match key {
+                        "position" => position = Some(map.next_value()?),
+                        "target" => target = Some(map.next_value()?),
+                        "vertical_fov" => vertical_fov = Some(map.next_value()?),
+                        "ratio" => ratio = Some(map.next_value()?),
+                        _ => {}
+                    }
+                }
+
+                let cam = Camera::new(
+                    &self.gpu,
+                    position.unwrap(),
+                    ratio.unwrap(),
+                    vertical_fov.unwrap(),
+                );
+                cam.target = target;
+                return Ok(cam);
+            }
+        }
+        return deserializer.deserialize_struct("", &[], self);
     }
 }

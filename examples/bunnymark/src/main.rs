@@ -5,7 +5,7 @@ use shura::*;
 
 #[cfg_attr(target_os = "android", ndk_glue::main(backtrace = "on"))]
 fn main() {
-    init(SceneDescriptor::new("bunnymark"), |ctx| {
+    init(SceneSource::new("bunnymark"), |ctx| {
         ctx.set_clear_color(Some(Color::new_rgba(220, 220, 220, 255)));
         ctx.set_window_size(Dimension::new(800, 600));
         ctx.set_vertical_fov(6.0);
@@ -39,9 +39,9 @@ impl SceneController for GameScene {
             .collapsible(false)
             .show(&ctx.gui(), |ui| {
                 ui.label(&format!("FPS: {}", ctx.fps()));
-                ui.label(format!("Bunnies: {}", ctx.components::<Bunny>(None).len()));
+                ui.label(format!("Bunnies: {}", ctx.components::<Bunny>(GroupFilter::All).len()));
                 if ui.button("Clear Bunnies").clicked() {
-                    ctx.remove_components::<Bunny>(None);
+                    ctx.remove_components::<Bunny>(Default::default());
                 }
             });
 
@@ -52,7 +52,7 @@ impl SceneController for GameScene {
         }
         if ctx.is_held(MouseButton::Right) {
             let mut dead: Vec<ComponentHandle> = vec![];
-            let bunnies = ctx.components::<Bunny>(None);
+            let bunnies = ctx.components::<Bunny>(Default::default());
             if bunnies.len() == 1 {
                 return;
             }

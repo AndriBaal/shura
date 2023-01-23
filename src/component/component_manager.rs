@@ -261,7 +261,7 @@ impl ComponentManager {
     #[inline]
     pub fn remove_components<C: ComponentController>(
         &mut self,
-        group_filter: &GroupFilter,
+        group_filter: GroupFilter,
         #[cfg(feature = "physics")] world: &mut World,
     ) {
         #[inline]
@@ -325,7 +325,7 @@ impl ComponentManager {
                 }
             }
             GroupFilter::Specific(group_ids) => {
-                for group_id in *group_ids {
+                for group_id in group_ids {
                     if let Some(index) = self.group_map.get(&group_id) {
                         let group = self.groups.get_mut(*index).unwrap();
                         remove(
@@ -369,7 +369,7 @@ impl ComponentManager {
 
     pub fn components<C: ComponentController>(
         &self,
-        group_filter: &GroupFilter,
+        group_filter: GroupFilter,
     ) -> ComponentSet<C> {
         let name = C::name();
         let mut types = vec![];
@@ -403,7 +403,7 @@ impl ComponentManager {
                 }
             }
             GroupFilter::Specific(group_ids) => {
-                for group_id in *group_ids {
+                for group_id in group_ids {
                     if let Some(index) = self.group_map.get(&group_id) {
                         let group = self.groups.get(*index).unwrap();
 
@@ -425,7 +425,7 @@ impl ComponentManager {
 
     pub fn components_mut<C: ComponentController>(
         &mut self,
-        group_filter: &GroupFilter,
+        group_filter: GroupFilter,
     ) -> ComponentSetMut<C> {
         let name = C::name();
         let mut types = vec![];
