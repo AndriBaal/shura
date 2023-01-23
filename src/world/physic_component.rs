@@ -57,6 +57,11 @@ impl PhysicsComponent {
         };
     }
 
+    pub fn off_screen(&self) -> bool {
+        // TODO
+        todo!();
+    }
+
     pub(crate) fn remove_from_world(&mut self, world: &mut World) {
         match std::mem::replace(
             &mut self.body,

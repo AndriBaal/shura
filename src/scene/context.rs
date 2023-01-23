@@ -6,7 +6,7 @@ use crate::{
     Dimension, DynamicComponent, DynamicScene, InputEvent, InputTrigger, InstanceBuffer, Instances,
     Isometry, Key, Matrix, Model, ModelBuilder, Modifier, Renderer, Rotation, Scene,
     SceneController, Shader, ShaderField, ShaderLang, Shura, Sprite, SpriteSheet, Touch, Uniform,
-    Vector, SceneSource
+    Vector, SceneSource, GroupFilter
 };
 
 #[cfg(feature = "audio")]
@@ -321,9 +321,9 @@ impl<'a> Context<'a> {
     }
 
     #[inline]
-    pub fn remove_components<C: ComponentController>(&mut self, groups: Option<&[u32]>) {
+    pub fn remove_components<C: ComponentController>(&mut self, filter: &GroupFilter) {
         self.scene.component_manager.remove_components::<C>(
-            groups,
+            filter,
             #[cfg(feature = "physics")]
             &mut self.scene.world,
         );
@@ -834,17 +834,17 @@ impl<'a> Context<'a> {
     #[inline]
     pub fn components_mut<C: ComponentController>(
         &mut self,
-        groups: Option<&[u32]>,
+        filter: &GroupFilter,
     ) -> ComponentSetMut<C> {
-        self.scene.component_manager.components_mut::<C>(groups)
+        self.scene.component_manager.components_mut::<C>(filter)
     }
 
     #[inline]
     pub fn components<C: ComponentController>(
         &self,
-        groups: Option<&[u32]>,
+        filter: &GroupFilter,
     ) -> ComponentSet<C> {
-        self.scene.component_manager.components::<C>(groups)
+        self.scene.component_manager.components::<C>(filter)
     }
 
     #[inline]
