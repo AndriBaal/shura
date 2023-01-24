@@ -1,3 +1,5 @@
+use serde::de::DeserializeSeed;
+
 #[cfg(feature = "physics")]
 use crate::physics::World;
 use crate::{
@@ -185,23 +187,25 @@ impl SerializedScene {
 
 #[cfg(feature = "serialize")]
 pub struct SceneDeserializer<'a> {
-    shura: &'a Shura,
+    shura: &'a mut Shura,
     scene: Scene,
     components: Vec<String>,
 }
 
 impl<'a> SceneDeserializer<'a> {
-    // pub fn new(shura: &'a Shura, serialized: SerializedScene) -> Self {
-    //     let de = serde_json::Deserializer::from_str(&serialized.scene);
-    //     let scene = shura
-    //         .deserialize(&mut de)
-    //         .unwrap();
-    //     Self {
-    //         shura,
-    //         scene,
-    //         components: serialized.components
-    //     }
-    // }
+    pub(crate) fn new(shura: &'a mut Shura, serialized: SerializedScene) -> Self {
+        let de = serde_json::Deserializer::from_str(&serialized.scene);
+        let scene = shura
+            .deserialize(&mut de)
+            .unwrap();
+        let components = serialized.components;
+        components.reverse();
+        Self {
+            shura,
+            scene,
+            components
+        }
+    }
 
     pub fn deserialize_components<T: ComponentController + for<'de> serde::Deserialize<'de>>(
         &mut self,
@@ -211,37 +215,20 @@ impl<'a> SceneDeserializer<'a> {
     pub fn deserialize_components_with_ctx<
         'de,
         T: ComponentController,
-        A: serde::de::MapAccess<'de>,
+        D: From<(String, &'de Context<'de>)> + DeserializeSeed<'de, Value = T>
     >(
         &mut self,
-        deserialize: impl FnMut(A, &mut Context) -> DynamicComponent,
+        deserializer: D
     ) {
-        impl<'de, 'a> serde::de::DeserializeSeed<'de> for Context<'a> {
-            type Value = DynamicComponent;
+        let ctx = Context::new(&mut self.scene, self.shura);
+        let deserialized_components = self.components.pop().unwrap();
+        let deserializer = D::from((deserialized_components, &ctx));
 
-            fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
-            where
-                D: serde::Deserializer<'de>,
-            {
-                impl<'de, 'a> serde::de::Visitor<'de> for Context<'a> {
-                    type Value = DynamicComponent;
-
-                    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                        formatter.write_str("Test AB")
-                    }
-
-                    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
-                    where
-                        A: serde::de::MapAccess<'de>,
-                    {
-                        return Ok(deserialize(map, self));
-                    }
-                }
-                return deserializer.deserialize_struct("", &[], self);
-            }
-        }
+        
+        
     }
 }
+
 
 // impl<'de> serde::de::DeserializeSeed<'de> for Shura {
 //     type Value = Scene;
