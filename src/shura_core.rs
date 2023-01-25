@@ -7,8 +7,8 @@ use crate::{
 };
 use crate::{
     BoxedScene, Camera, Color, ComponentSet, Context, Defaults, Dimension, FrameManager, Gpu,
-    Input, PostproccessOperation, RenderOperation, Renderer, Scene, SceneController, SceneManager,
-    Sprite, SceneSource
+    Input, PostproccessOperation, RenderOperation, Renderer, Scene, SceneController, SceneCreator,
+    SceneManager, Sprite,
 };
 use log::{error, info};
 
@@ -17,19 +17,16 @@ const INITIAL_HEIGHT: u32 = 600;
 pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 1.0;
 
 /// Start a new game with the given callback to initialize the first [SceneController].
-pub fn init<S: SceneController, F: 'static + FnMut(&mut Context) -> S>(
-    mut scene: SceneSource,
-    mut init: F,
-) {
+pub fn init(mut creator: impl SceneCreator) {
     info!("Using shura version: {}", env!("CARGO_PKG_VERSION"));
     let events = winit::event_loop::EventLoop::new();
     let window = winit::window::WindowBuilder::new()
         .with_inner_size(winit::dpi::PhysicalSize::new(INITIAL_WIDTH, INITIAL_HEIGHT))
-        .with_title(scene.name())
+        .with_title(creator.name())
         .build(&events)
         .unwrap();
     let shura_window_id = window.id();
-    let mut scene = Some(scene);
+    let mut creator = Some(creator);
     let mut window = Some(window);
 
     #[cfg(target_arch = "wasm32")]
@@ -84,7 +81,10 @@ pub fn init<S: SceneController, F: 'static + FnMut(&mut Context) -> S>(
     let mut active: Option<(Shura, BoxedScene)> = if cfg!(target_os = "android") {
         None
     } else {
-        Some(Shura::new(window.take().unwrap(), scene.take().unwrap(), &mut init))
+        Some(Shura::new(
+            window.take().unwrap(),
+            creator.take().unwrap()
+        ))
     };
 
     events.run(move |event, _, control_flow| {
@@ -140,7 +140,7 @@ pub fn init<S: SceneController, F: 'static + FnMut(&mut Context) -> S>(
                 }
                 Event::MainEventsCleared => {
                     shura.window.request_redraw();
-                },
+                }
                 #[cfg(target_os = "android")]
                 Event::Resumed => {
                     shura.gpu.resume(&shura.window);
@@ -173,14 +173,13 @@ pub struct Shura {
     #[cfg(feature = "audio")]
     pub audio: rodio::OutputStream,
     #[cfg(feature = "audio")]
-    pub audio_handle: rodio::OutputStreamHandle
+    pub audio_handle: rodio::OutputStreamHandle,
 }
 
 impl Shura {
-    fn new<S: SceneController, F: 'static + FnMut(&mut Context) -> S>(
+    fn new(
         window: winit::window::Window,
-        scene: SceneSource,
-        init: &mut F,
+        creator: impl SceneCreator
     ) -> (Self, BoxedScene) {
         let gpu = pollster::block_on(Gpu::new(&window));
         let defaults = Defaults::new(&gpu);
@@ -189,7 +188,7 @@ impl Shura {
         let (audio, audio_handle) = rodio::OutputStream::try_default().unwrap();
         let relative_camera = Camera::new(&gpu, Default::default(), 1.0, RELATIVE_CAMERA_SIZE);
         let mut shura = Self {
-            scene_manager: SceneManager::new(scene.name()),
+            scene_manager: SceneManager::new(creator.name()),
             frame_manager: FrameManager::new(),
             input: Input::new(),
             #[cfg(feature = "audio")]
@@ -204,13 +203,8 @@ impl Shura {
             relative_camera,
             defaults,
         };
-        let mut scene = Scene::new(&shura, scene);
-        let controller = {
-            let mut ctx = Context::new(&mut scene, &mut shura);
-            Box::new((init)(&mut ctx))
-        };
-
-        return (shura, (controller, scene));
+        let mut scene = Scene::new(&mut shura, creator);
+        return (shura, scene);
     }
 
     fn end(&mut self, main_scene: &mut BoxedScene, cf: &mut winit::event_loop::ControlFlow) {
@@ -427,7 +421,6 @@ impl Shura {
             scene_controller.after_update(&mut ctx);
         };
 
-
         if !scene.component_manager.render_components() {
             return Ok(());
         }
@@ -443,7 +436,7 @@ impl Shura {
             self.frame_manager.total_time(),
             self.frame_manager.delta_time(),
         );
-        
+
         let output = self.gpu.surface.get_current_texture()?;
         let output_view = output
             .texture

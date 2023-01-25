@@ -252,7 +252,7 @@ impl<'de> serde::de::DeserializeSeed<'de> for Shura {
                     }
                 }
 
-                let cam = Camera::new(
+                let mut cam = Camera::new(
                     &self.gpu,
                     position.unwrap(),
                     ratio.unwrap(),

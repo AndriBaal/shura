@@ -6,7 +6,7 @@ use crate::{
     Dimension, DynamicComponent, DynamicScene, InputEvent, InputTrigger, InstanceBuffer, Instances,
     Isometry, Key, Matrix, Model, ModelBuilder, Modifier, Renderer, Rotation, Scene,
     SceneController, Shader, ShaderField, ShaderLang, Shura, Sprite, SpriteSheet, Touch, Uniform,
-    Vector, SceneSource, GroupFilter
+    Vector, SceneCreator, GroupFilter
 };
 
 #[cfg(feature = "audio")]
@@ -287,16 +287,12 @@ impl<'a> Context<'a> {
     }
 
     #[inline]
-    pub fn create_scene<S: SceneController, F: 'static + FnMut(&mut Context) -> S>(
+    pub fn create_scene(
         &mut self,
-        scene: SceneSource,
-        mut controller: F,
+        creator: impl SceneCreator
     ) {
-        let mut scene = Scene::new(self.shura, scene);
-        let mut ctx = Context::new(&mut scene, self.shura);
-        let controller: DynamicScene = Box::new(controller(&mut ctx));
-        drop(ctx);
-        self.shura.scene_manager.add((controller, scene));
+        let new = Scene::new(self.shura, creator);
+        self.shura.scene_manager.add(new);
     }
 
     /// Remove a scene by its name
