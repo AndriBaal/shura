@@ -96,14 +96,11 @@ impl<S: SceneController, D: 'static + FnMut(&mut Context, ComponentDeserializer)
     }
 }
 
-fn default_true() -> bool {
-    return true;
-}
 
 #[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct Scene {
     #[serde(skip)]
-    #[serde(default = "default_true")]
+    #[serde(default = "bool_true")]
     pub(crate) resized: bool,
     #[serde(skip)]
     #[serde(default)]
@@ -175,8 +172,8 @@ impl Scene {
 #[derive(serde::Serialize)]
 pub struct SceneSerializer {
     scene: Scene,
-    components: Vec<String>,
-    controller: Option<String,>
+    components: Vec<Arena<Box<dyn erased_serde::Serialize>>>,
+    controller: Option<Box<dyn erased_serde::Serialize>>
 }
 
 #[cfg(feature = "serialize")]

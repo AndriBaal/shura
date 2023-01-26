@@ -9,7 +9,7 @@ edition = "2021"
 # path = "src/main.rs"
 
 [dependencies]
-shura = { path = "./../..", default-features = false, features = ["gui", "serialize", "physics"]}
+shura = { path = "./../..", default-features = false, features = ["gui", "physics"]}
 rand = "0.8.5"
 getrandom = { version = "0.2", features = ["js"] }
 
