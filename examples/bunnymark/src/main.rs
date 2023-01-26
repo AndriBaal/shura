@@ -5,22 +5,25 @@ use shura::*;
 
 #[cfg_attr(target_os = "android", ndk_glue::main(backtrace = "on"))]
 fn main() {
-    init(SceneSource::new("bunnymark"), |ctx| {
-        ctx.set_clear_color(Some(Color::new_rgba(220, 220, 220, 255)));
-        ctx.set_window_size(Dimension::new(800, 600));
-        ctx.set_vertical_fov(6.0);
-
-        let bunny_model = ctx.create_model(ModelBuilder::cuboid(Dimension::new(0.06, 0.09)));
-        let bunny_sprite = ctx.create_sprite(include_bytes!("../img/wabbit.png"));
-
-        ctx.create_component(None, Bunny::new(ctx));
-
-        #[cfg(target_os = "android")]
-        ctx.set_render_scale(0.66);
-
-        GameScene {
-            bunny_model,
-            bunny_sprite,
+    Shura::init(NewScene {
+        name: "bunnymark",
+        init: |ctx| {
+            ctx.set_clear_color(Some(Color::new_rgba(220, 220, 220, 255)));
+            ctx.set_window_size(Dimension::new(800, 600));
+            ctx.set_vertical_fov(6.0);
+    
+            let bunny_model = ctx.create_model(ModelBuilder::cuboid(Dimension::new(0.06, 0.09)));
+            let bunny_sprite = ctx.create_sprite(include_bytes!("../img/wabbit.png"));
+    
+            ctx.create_component(None, Bunny::new(ctx));
+    
+            #[cfg(target_os = "android")]
+            ctx.set_render_scale(0.66);
+    
+            GameScene {
+                bunny_model,
+                bunny_sprite,
+            }
         }
     });
 }
