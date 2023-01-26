@@ -22,7 +22,7 @@ gamepad = ["dep:gilrs"]
 text = ["dep:wgpu_glyph"]
 audio = ["dep:rodio"]
 physics = ["dep:rapier2d"]
-gui = ["dep:egui", "dep:egui_wgpu_backend", "dep:egui_winit_platform"]
+gui = ["dep:egui", "dep:egui-wgpu", "dep:egui-winit"]
 serialize = ["dep:serde", "dep:erased-serde", "wgpu/trace", "wgpu/replay", "nalgebra/serde-serialize", "rapier2d?/serde-serialize"]
 default = ["audio", "physics", "gui", "text", "gamepad", "serialize"]
 
@@ -36,8 +36,9 @@ nalgebra = { version = "0.32.1", features = ["convert-bytemuck"] }
 wgpu_glyph = { version = "0.18.0", optional = true }
 gilrs = { version = "0.10.1", optional = true }
 naga = "0.10.0"
-egui_winit_platform = { version = "0.16", optional = true }
-egui = { version = "0.19.0", default-features = false, optional = true, features = [
+egui-winit = {version = "0.20.1", optional = true}
+egui-wgpu = {version = "0.20.0", optional = true}
+egui = { version = "0.20.1", default-features = false, optional = true, features = [
     "bytemuck",
     "tracing",
 ] }
@@ -59,7 +60,6 @@ image = { version = "0.23.14", default-features = false, features = [
 
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-egui_wgpu_backend = { version = "0.20.0", optional = true }
 env_logger = "0.10.0"
 wgpu = { version = "0.14.0", features = ["glsl"] }
 rodio = { version = "0.16.0", default-features = false, optional = true, features = [
@@ -67,7 +67,6 @@ rodio = { version = "0.16.0", default-features = false, optional = true, feature
 ] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-egui_wgpu_backend = { version = "0.20.0", optional = true, features = ["web"] }
 getrandom = { version = "0.2", features = ["js"] }
 rodio = { version = "0.16.0", features = [
     "wasm-bindgen",

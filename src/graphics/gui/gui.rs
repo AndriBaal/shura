@@ -1,38 +1,35 @@
 use crate::{Dimension, Gpu};
-use egui::{Context, FontDefinitions, TexturesDelta};
-use egui_wgpu_backend::{RenderPass, ScreenDescriptor};
-use egui_winit_platform::{Platform, PlatformDescriptor};
-use instant::Duration;
-use std::mem;
+use egui::{Context, TextureId, TexturesDelta};
+use egui_wgpu::renderer::{Renderer, ScreenDescriptor};
+use egui_winit::State;
 use winit::window::Window;
 
 pub struct Gui {
-    pub platform: Platform,
-    renderer: RenderPass,
+    pub state: State,
+    gui_context: Context,
+    renderer: Renderer,
     screen_descriptor: ScreenDescriptor,
-    tdelta: TexturesDelta,
 }
 
 impl Gui {
-    pub(crate) fn new(window: &Window, gpu: &Gpu) -> Self {
+    pub(crate) fn new(
+        window: &Window,
+        event_loop: &winit::event_loop::EventLoop<()>,
+        gpu: &Gpu,
+    ) -> Self {
         let config = &gpu.config;
         let device = &gpu.device;
-        let renderer = RenderPass::new(device, config.format, 1);
-        let platform = Platform::new(PlatformDescriptor {
-            physical_width: config.width as u32,
-            physical_height: config.height as u32,
-            scale_factor: window.scale_factor(),
-            font_definitions: FontDefinitions::default(),
-            style: Default::default(),
-        });
+        let renderer = Renderer::new(device, config.format, None, 1);
+        let state = State::new(event_loop);
+        let gui_context = Default::default();
         let screen_descriptor = ScreenDescriptor {
-            physical_width: config.width,
-            physical_height: config.height,
-            scale_factor: window.scale_factor() as f32,
+            size_in_pixels: [config.width, config.height],
+            pixels_per_point: window.scale_factor() as f32,
         };
-        Gui {
+        Self {
             renderer,
-            platform,
+            state,
+            gui_context,
             screen_descriptor,
             tdelta: Default::default(),
         }
@@ -40,26 +37,21 @@ impl Gui {
 
     pub(crate) fn resize(&mut self, window: &Window, size: &Dimension<u32>) {
         self.screen_descriptor = ScreenDescriptor {
-            physical_width: size.width,
-            physical_height: size.height,
-            scale_factor: window.scale_factor() as f32,
+            size_in_pixels: [size.width, size.height],
+            pixels_per_point: window.scale_factor() as f32,
         };
     }
 
-    pub(crate) fn handle_event<T>(&mut self, event: &winit::event::Event<T>) {
-        self.platform.handle_event(event);
+    pub(crate) fn handle_event<T>(&mut self, event: &winit::event::WindowEvent) {
+        self.state.on_event(&self.gui_context, event);
     }
 
-    pub(crate) fn begin(&mut self, total_time: Duration) {
-        self.renderer
-            .remove_textures(mem::take(&mut self.tdelta))
-            .expect("remove texture ok");
-        self.platform.update_time(total_time.as_secs_f64());
-        self.platform.begin_frame();
+    pub(crate) fn begin(&mut self, window: &Window) {
+        self.gui_context.begin_frame(self.state.take_egui_input(window));
     }
 
     pub fn context(&self) -> Context {
-        self.platform.context()
+        self.gui_context.clone()
     }
 
     pub(crate) fn render(
@@ -69,22 +61,37 @@ impl Gui {
         view: &wgpu::TextureView,
         window: &Window,
     ) {
-        let output = self.platform.end_frame(Some(window));
-        let paint_jobs = self.platform.context().tessellate(output.shapes);
-        self.tdelta = output.textures_delta;
+        let test = TextureId::User(25);
+        let output = self.gui_context.end_frame();
+        let paint_jobs = self.gui_context.tessellate(output.shapes);
+        output.shapes[0].1.texture_id();
+        let id = TextureId::User(0);
         self.renderer
-            .add_textures(&gpu.device, &gpu.queue, &self.tdelta)
-            .expect("add texture ok");
+            .update_texture(&gpu.device, &gpu.queue, test, &output.textures_delta);
         self.renderer.update_buffers(
             &gpu.device,
             &gpu.queue,
+            encoder,
             &paint_jobs,
             &self.screen_descriptor,
         );
 
         // Record all render passes.
-        self.renderer
-            .execute(encoder, view, &paint_jobs, &self.screen_descriptor, None)
-            .unwrap();
+
+        let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: view,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Load,
+                    store: true,
+                },
+            })],
+            depth_stencil_attachment: None,
+            label: Some("egui main render pass"),
+        });
+
+        self.renderer.render(&mut rpass, &paint_jobs, &self.screen_descriptor);
+        self.renderer.free_texture(output.textures_delta);
     }
 }
