@@ -18,11 +18,11 @@ pub struct Camera {
     vertical_fov: f32,
     ratio: f32,
 
-    #[serde(skip)]
+    #[cfg_attr(feature = "serialize", serde(skip))]
     proj: Matrix,
-    #[serde(skip)]
+    #[cfg_attr(feature = "serialize", serde(skip))]
     model: Model,
-    #[serde(skip)]
+    #[cfg_attr(feature = "serialize", serde(skip))]
     uniform: Uniform<Matrix>,
 }
 
@@ -219,6 +219,8 @@ impl Camera {
     }
 }
 
+
+#[cfg(feature = "serialize")]
 impl<'de> serde::de::DeserializeSeed<'de> for Shura {
     type Value = Camera;
 

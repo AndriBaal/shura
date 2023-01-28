@@ -23,7 +23,6 @@ impl<'a> Default for GroupFilter<'a> {
 }
 
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-// #[cfg_attr(feature = "serialize", serde(bound(deserialize = "'de: 'static")))]
 /// Access to the component system.
 pub struct ComponentManager {
     update_components: bool,
@@ -34,19 +33,20 @@ pub struct ComponentManager {
     force_update_sets: bool,
     current_component: Option<ComponentHandle>,
     group_map: FxHashMap<u32, ArenaIndex>,
-    #[serde(bound(deserialize = "ComponentGroup: serde::Deserialize<'de>"))]
+    #[cfg_attr(feature = "serialize", serde(bound(deserialize = "ComponentGroup: serde::Deserialize<'de>")))]
+
     groups: Arena<ComponentGroup>,
 
-    #[serde(skip)]
-    #[serde(default)]
+    #[cfg_attr(feature = "serialize", serde(skip))]
+    #[cfg_attr(feature = "serialize", serde(default))]
     active_groups: FxHashSet<ArenaIndex>,
 
-    #[serde(skip)]
-    #[serde(default)]
+    #[cfg_attr(feature = "serialize", serde(skip))]
+    #[cfg_attr(feature = "serialize", serde(default))]
     active_group_ids: Vec<u32>,
 
-    #[serde(skip)]
-    #[serde(default)]
+    #[cfg_attr(feature = "serialize", serde(skip))]
+    #[cfg_attr(feature = "serialize", serde(default))]
     active_components: Option<BTreeMap<(i16, &'static str), ComponentCluster>>,
 }
 

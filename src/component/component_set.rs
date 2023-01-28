@@ -18,8 +18,8 @@ pub(crate) struct ArenaPath {
 pub(crate) struct ComponentCluster {
     paths: Vec<ArenaPath>,
     config: ComponentConfig,
-    #[serde(skip)]
-    #[serde(default)]
+    #[cfg_attr(feature = "serialize", serde(skip))]
+    #[cfg_attr(feature = "serialize", serde(default))]
     last_update: Option<Instant>,
 }
 

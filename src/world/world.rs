@@ -46,11 +46,11 @@ pub struct World {
     impulse_joints: ImpulseJointSet,
     multibody_joints: MultibodyJointSet,
     ccd_solver: CCDSolver,
-    #[serde(skip)]
-    #[serde(default)]
+    #[cfg_attr(feature = "serialize", serde(skip))]
+    #[cfg_attr(feature = "serialize", serde(default))]
     physics_pipeline: PhysicsPipeline,
-    #[serde(skip)]
-    #[serde(default)]
+    #[cfg_attr(feature = "serialize", serde(skip))]
+    #[cfg_attr(feature = "serialize", serde(default))]
     events: WorldEvents
 }
 

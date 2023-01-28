@@ -16,149 +16,6 @@ const INITIAL_WIDTH: u32 = 800;
 const INITIAL_HEIGHT: u32 = 600;
 pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 1.0;
 
-/// Start a new game with the given callback to initialize the first [SceneController].
-pub fn init(mut creator: impl SceneCreator) {
-    info!("Using shura version: {}", env!("CARGO_PKG_VERSION"));
-    let events = winit::event_loop::EventLoop::new();
-    let window = winit::window::WindowBuilder::new()
-        .with_inner_size(winit::dpi::PhysicalSize::new(INITIAL_WIDTH, INITIAL_HEIGHT))
-        .with_title(creator.name())
-        .build(&events)
-        .unwrap();
-    let shura_window_id = window.id();
-    let mut creator = Some(creator);
-    let mut window = Some(window);
-
-    #[cfg(target_arch = "wasm32")]
-    {
-        use console_error_panic_hook::hook;
-        use winit::platform::web::WindowExtWebSys;
-
-        std::panic::set_hook(Box::new(hook));
-        wasm_logger::init(wasm_logger::Config::default().module_prefix("shura"));
-
-        let canvas = &web_sys::Element::from(shura.window.canvas());
-        canvas.set_attribute("tabindex", "0").unwrap();
-        canvas
-            .set_attribute("oncontextmenu", "return false;")
-            .unwrap();
-        canvas
-            .set_attribute(
-                "style",
-                "
-                margin: auto;
-                position: absolute;
-                top: 0;
-                bottom: 0;
-                left: 0;
-                right: 0;",
-            )
-            .unwrap();
-
-        let browser_window = web_sys::window().unwrap();
-        let width: u32 = browser_window.inner_width().unwrap().as_f64().unwrap() as u32;
-        let height: u32 = browser_window.inner_height().unwrap().as_f64().unwrap() as u32;
-
-        let document = browser_window.document().unwrap();
-        let body = document.body().unwrap();
-        body.append_child(canvas).ok();
-
-        shura.window.set_inner_size(Dimension::new(width, height));
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        use env_logger::Builder;
-        use log::LevelFilter;
-        Builder::new()
-            .filter_level(LevelFilter::Info)
-            .filter_module("wgpu", LevelFilter::Error)
-            .filter_module("winit", LevelFilter::Warn)
-            .filter_module("symphonia_core", LevelFilter::Warn)
-            .init();
-    }
-
-    let mut active: Option<(Shura, BoxedScene)> = if cfg!(target_os = "android") {
-        None
-    } else {
-        Some(Shura::new(
-            window.take().unwrap(),
-            creator.take().unwrap()
-        ))
-    };
-
-    events.run(move |event, _, control_flow| {
-        use winit::event::{Event, WindowEvent};
-        if let Some((shura, scene)) = &mut active {
-            #[cfg(feature = "gui")]
-            shura.gui.handle_event(&event);
-            match event {
-                Event::WindowEvent {
-                    ref event,
-                    window_id,
-                } => {
-                    if window_id == shura_window_id {
-                        match event {
-                            WindowEvent::CloseRequested | WindowEvent::Destroyed => {
-                                shura.end(scene, control_flow);
-                            }
-                            WindowEvent::Resized(physical_size) => {
-                                shura.resize(
-                                    scene,
-                                    (*physical_size as winit::dpi::PhysicalSize<u32>).into(),
-                                );
-                            }
-                            WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                                shura.resize(
-                                    scene,
-                                    (**new_inner_size as winit::dpi::PhysicalSize<u32>).into(),
-                                );
-                            }
-                            _ => shura.input.event(event),
-                        }
-                    }
-                }
-                Event::RedrawRequested(window_id) if window_id == shura_window_id => {
-                    if let Some(new_active) = shura.scene_manager.apply_active_scene() {
-                        let old_active = std::mem::replace(scene, new_active);
-                        shura.scene_manager.add(old_active);
-                    }
-
-                    match shura.update(scene) {
-                        Ok(_) => {}
-                        Err(wgpu::SurfaceError::Lost) => {
-                            shura.resize(scene, shura.window.inner_size().into())
-                        }
-                        Err(wgpu::SurfaceError::OutOfMemory) => {
-                            *control_flow = winit::event_loop::ControlFlow::Exit
-                        }
-                        Err(e) => error!("{:?}", e),
-                    }
-                    if shura.end {
-                        shura.end(scene, control_flow);
-                    }
-                }
-                Event::MainEventsCleared => {
-                    shura.window.request_redraw();
-                }
-                #[cfg(target_os = "android")]
-                Event::Resumed => {
-                    shura.gpu.resume(&shura.window);
-                }
-                _ => {}
-            }
-        } else {
-            #[cfg(target_os = "android")]
-            match event {
-                Event::Resumed => {
-                    active = Some(Shura::new(window.take().unwrap(), &mut scene, &mut init));
-                }
-                _ => {}
-            }
-        }
-    });
-}
-
 pub struct Shura {
     pub(crate) relative_camera: Camera,
     pub(crate) end: bool,
@@ -177,13 +34,161 @@ pub struct Shura {
 }
 
 impl Shura {
+    /// Start a new game with the given callback to initialize the first [SceneController].
+    pub fn init(creator: impl SceneCreator + 'static) {
+        info!("Using shura version: {}", env!("CARGO_PKG_VERSION"));
+        let events = winit::event_loop::EventLoop::new();
+        let window = winit::window::WindowBuilder::new()
+            .with_inner_size(winit::dpi::PhysicalSize::new(INITIAL_WIDTH, INITIAL_HEIGHT))
+            .with_title(creator.name())
+            .build(&events)
+            .unwrap();
+        let shura_window_id = window.id();
+        let mut creator = Some(creator);
+        let mut window = Some(window);
+
+        #[cfg(target_arch = "wasm32")]
+        {
+            use console_error_panic_hook::hook;
+            use winit::platform::web::WindowExtWebSys;
+
+            std::panic::set_hook(Box::new(hook));
+            wasm_logger::init(wasm_logger::Config::default().module_prefix("shura"));
+
+            let canvas = &web_sys::Element::from(shura.window.canvas());
+            canvas.set_attribute("tabindex", "0").unwrap();
+            canvas
+                .set_attribute("oncontextmenu", "return false;")
+                .unwrap();
+            canvas
+                .set_attribute(
+                    "style",
+                    "
+                    margin: auto;
+                    position: absolute;
+                    top: 0;
+                    bottom: 0;
+                    left: 0;
+                    right: 0;",
+                )
+                .unwrap();
+
+            let browser_window = web_sys::window().unwrap();
+            let width: u32 = browser_window.inner_width().unwrap().as_f64().unwrap() as u32;
+            let height: u32 = browser_window.inner_height().unwrap().as_f64().unwrap() as u32;
+
+            let document = browser_window.document().unwrap();
+            let body = document.body().unwrap();
+            body.append_child(canvas).ok();
+
+            shura.window.set_inner_size(Dimension::new(width, height));
+        }
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            use env_logger::Builder;
+            use log::LevelFilter;
+            Builder::new()
+                .filter_level(LevelFilter::Info)
+                .filter_module("wgpu", LevelFilter::Error)
+                .filter_module("winit", LevelFilter::Warn)
+                .filter_module("symphonia_core", LevelFilter::Warn)
+                .init();
+        }
+
+        let mut active: Option<(Shura, BoxedScene)> = if cfg!(target_os = "android") {
+            None
+        } else {
+            Some(Shura::new(
+                window.take().unwrap(),
+                &events,
+                creator.take().unwrap(),
+            ))
+        };
+
+        events.run(move |event, target, control_flow| {
+            use winit::event::{Event, WindowEvent};
+            if let Some((shura, scene)) = &mut active {
+                match event {
+                    Event::WindowEvent {
+                        ref event,
+                        window_id,
+                    } => {
+                        #[cfg(feature = "gui")]
+                        shura.gui.handle_event(&event);
+                        if window_id == shura_window_id {
+                            match event {
+                                WindowEvent::CloseRequested | WindowEvent::Destroyed => {
+                                    shura.end(scene, control_flow);
+                                }
+                                WindowEvent::Resized(physical_size) => {
+                                    shura.resize(
+                                        scene,
+                                        (*physical_size as winit::dpi::PhysicalSize<u32>).into(),
+                                    );
+                                }
+                                WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                                    shura.resize(
+                                        scene,
+                                        (**new_inner_size as winit::dpi::PhysicalSize<u32>).into(),
+                                    );
+                                }
+                                _ => shura.input.event(event),
+                            }
+                        }
+                    }
+                    Event::RedrawRequested(window_id) if window_id == shura_window_id => {
+                        if let Some(new_active) = shura.scene_manager.apply_active_scene() {
+                            let old_active = std::mem::replace(scene, new_active);
+                            shura.scene_manager.add(old_active);
+                        }
+
+                        match shura.update(scene) {
+                            Ok(_) => {}
+                            Err(wgpu::SurfaceError::Lost) => {
+                                shura.resize(scene, shura.window.inner_size().into())
+                            }
+                            Err(wgpu::SurfaceError::OutOfMemory) => {
+                                *control_flow = winit::event_loop::ControlFlow::Exit
+                            }
+                            Err(e) => error!("{:?}", e),
+                        }
+                        if shura.end {
+                            shura.end(scene, control_flow);
+                        }
+                    }
+                    Event::MainEventsCleared => {
+                        shura.window.request_redraw();
+                    }
+                    #[cfg(target_os = "android")]
+                    Event::Resumed => {
+                        shura.gpu.resume(&shura.window);
+                    }
+                    _ => {}
+                }
+            } else {
+                #[cfg(target_os = "android")]
+                match event {
+                    Event::Resumed => {
+                        active = Some(Shura::new(
+                            window.take().unwrap(),
+                            &target,
+                            creator.take().unwrap(),
+                        ))
+                    }
+                    _ => {}
+                }
+            }
+        });
+    }
+
     fn new(
         window: winit::window::Window,
-        creator: impl SceneCreator
+        event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
+        creator: impl SceneCreator,
     ) -> (Self, BoxedScene) {
         let gpu = pollster::block_on(Gpu::new(&window));
         let defaults = Defaults::new(&gpu);
-        let window_size: Dimension<u32> = window.inner_size().into();
         #[cfg(feature = "audio")]
         let (audio, audio_handle) = rodio::OutputStream::try_default().unwrap();
         let relative_camera = Camera::new(&gpu, Default::default(), 1.0, RELATIVE_CAMERA_SIZE);
@@ -197,13 +202,13 @@ impl Shura {
             audio_handle,
             end: false,
             #[cfg(feature = "gui")]
-            gui: Gui::new(&window, &gpu),
+            gui: Gui::new(&window, event_loop, &gpu),
             window,
             gpu: gpu,
             relative_camera,
             defaults,
         };
-        let mut scene = Scene::new(&mut shura, creator);
+        let scene = Scene::new(&mut shura, creator);
         return (shura, scene);
     }
 
@@ -328,7 +333,8 @@ impl Shura {
         }
 
         #[cfg(feature = "gui")]
-        self.gui.begin(self.frame_manager.total_time_duration());
+        self.gui
+            .begin(&self.frame_manager.total_time_duration(), &self.window);
 
         {
             let mut ctx = Context::new(scene, self);
@@ -626,8 +632,7 @@ impl Shura {
         }
         #[cfg(feature = "gui")]
         {
-            self.gui
-                .render(&self.gpu, &mut encoder, &output_view, &self.window);
+            self.gui.render(&self.gpu, &mut encoder, &output_view);
         }
         self.gpu.finish_enocder(encoder);
         output.present();

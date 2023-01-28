@@ -1,5 +1,3 @@
-use serde::de::DeserializeSeed;
-
 #[cfg(feature = "physics")]
 use crate::physics::World;
 use crate::{
@@ -13,8 +11,8 @@ pub trait SceneCreator {
 }
 
 pub struct NewScene<S: SceneController, N: 'static + FnMut(&mut Context) -> S> {
-    name: &'static str,
-    init: N,
+    pub name: &'static str,
+    pub init: N,
 }
 
 impl<S: SceneController, N: 'static + FnMut(&mut Context) -> S> SceneCreator for NewScene<S, N> {
@@ -52,8 +50,8 @@ impl<S: SceneController, N: 'static + FnMut(&mut Context) -> S> SceneCreator for
 }
 
 pub struct ExistingScene {
-    name: &'static str,
-    existing: (DynamicScene, Scene),
+    pub name: &'static str,
+    pub existing: (DynamicScene, Scene),
 }
 
 impl SceneCreator for ExistingScene {
@@ -79,11 +77,12 @@ pub struct SerializedScene<
     S: SceneController,
     D: 'static + FnMut(&mut Context, ComponentDeserializer) -> S,
 > {
-    name: &'static str,
-    serializer: SceneSerializer,
-    deserialize: D,
+    pub name: &'static str,
+    pub serializer: SceneSerializer,
+    pub deserialize: D,
 }
 
+#[cfg(feature = "serialize")]
 impl<S: SceneController, D: 'static + FnMut(&mut Context, ComponentDeserializer) -> S> SceneCreator
     for SerializedScene<S, D>
 {
@@ -99,14 +98,14 @@ impl<S: SceneController, D: 'static + FnMut(&mut Context, ComponentDeserializer)
 
 #[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct Scene {
-    #[serde(skip)]
-    #[serde(default = "bool_true")]
+    #[cfg_attr(feature = "serialize", serde(skip))]
+    #[cfg_attr(feature = "serialize", serde(default = "bool_true"))]
     pub(crate) resized: bool,
-    #[serde(skip)]
-    #[serde(default)]
+    #[cfg_attr(feature = "serialize", serde(skip))]
+    #[cfg_attr(feature = "serialize", serde(default))]
     pub(crate) switched: bool,
-    #[serde(skip)]
-    #[serde(default)]
+    #[cfg_attr(feature = "serialize", serde(skip))]
+    #[cfg_attr(feature = "serialize", serde(default))]
     pub saved_sprites: Vec<(String, Sprite)>,
 
     pub(crate) name: &'static str,
@@ -222,6 +221,7 @@ pub struct ComponentDeserializer {
     controller: Option<String>,
 }
 
+#[cfg(feature = "serialize")]
 impl ComponentDeserializer {
     pub fn deserialize_components<T: ComponentController + for<'de> serde::Deserialize<'de>>(
         &mut self,
@@ -232,7 +232,7 @@ impl ComponentDeserializer {
         'a,
         'de,
         T: ComponentController,
-        D: From<(String, &'a Context<'a>)> + DeserializeSeed<'de, Value = T>,
+        D: From<(String, &'a Context<'a>)> + serde::de::DeserializeSeed<'de, Value = T>,
     >(
         &mut self,
         deserializer: D,

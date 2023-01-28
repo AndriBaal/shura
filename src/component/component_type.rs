@@ -8,11 +8,11 @@ use crate::{
 
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct ComponentType {
-    #[serde(skip)]
-    #[serde(default)]
+    #[cfg_attr(feature = "serialize", serde(skip))]
+    #[cfg_attr(feature = "serialize", serde(default))]
     components: Arena<DynamicComponent>,
-    #[serde(skip)]
-    #[serde(default)]
+    #[cfg_attr(feature = "serialize", serde(skip))]
+    #[cfg_attr(feature = "serialize", serde(default))]
     buffer: Option<InstanceBuffer>,
 
     name: &'static str,
