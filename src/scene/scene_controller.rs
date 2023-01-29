@@ -1,4 +1,4 @@
-use crate::Context;
+use crate::{Context, BaseScene};
 use downcast_rs::*;
 
 /// Heap allocated scene that can be of any type. Can be downcasted with
@@ -7,7 +7,7 @@ pub type DynamicScene = Box<dyn SceneController>;
 
 #[allow(unused_variables)]
 /// Control the behaviour of a scene.
-pub trait SceneController: Downcast {
+pub trait SceneController: Downcast + SceneDerive {
     /// Update that gets called before updating the components.
     fn update(&mut self, ctx: &mut Context) {}
     /// Updates the scene after all components and after the physics step.
@@ -26,5 +26,20 @@ impl<T: SceneController + ?Sized> SceneController for Box<T> {
     }
     fn update(&mut self, ctx: &mut Context) {
         (**self).update(ctx)
+    }
+}
+
+pub trait SceneDerive {
+    fn inner(&self) -> &BaseScene;
+    fn inner_mut(&mut self) -> &mut BaseScene;
+}
+
+impl<C: SceneController + ?Sized> SceneDerive for Box<C> {
+    fn inner(&self) -> &BaseScene {
+        (**self).inner()
+    }
+
+    fn inner_mut(&mut self) -> &mut BaseScene {
+        (**self).inner_mut()
     }
 }

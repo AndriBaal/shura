@@ -7,7 +7,7 @@ use crate::{
 };
 use crate::{
     BoxedScene, Camera, Color, ComponentSet, Context, Defaults, Dimension, FrameManager, Gpu,
-    Input, PostproccessOperation, RenderOperation, Renderer, Scene, SceneController, SceneCreator,
+    Input, PostproccessOperation, RenderOperation, Renderer, BaseScene, SceneController, SceneCreator,
     SceneManager, Sprite,
 };
 use log::{error, info};
@@ -182,6 +182,10 @@ impl Shura {
         });
     }
 
+    pub fn context<'a>(&'a mut self, scene: &'a mut DynamicScene) -> Context<'a> {
+        return Context { scene, shura: self };
+    }
+
     fn new(
         window: winit::window::Window,
         event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
@@ -208,7 +212,7 @@ impl Shura {
             relative_camera,
             defaults,
         };
-        let scene = Scene::new(&mut shura, creator);
+        let scene = BaseScene::new(&mut shura, creator);
         return (shura, scene);
     }
 
@@ -319,8 +323,11 @@ impl Shura {
     }
 
     fn update(&mut self, scene: &mut BoxedScene) -> Result<(), wgpu::SurfaceError> {
-        self.frame_manager.update();
         let (scene_controller, scene) = (&mut scene.0, &mut scene.1);
+        let mut ctx = Context::new(scene, self);
+
+        self.frame_manager.update();
+
         #[cfg(target_arch = "wasm32")]
         {
             let browser_window = web_sys::window().unwrap();
@@ -336,96 +343,93 @@ impl Shura {
         self.gui
             .begin(&self.frame_manager.total_time_duration(), &self.window);
 
-        {
-            let mut ctx = Context::new(scene, self);
-            scene_controller.update(&mut ctx);
+        scene_controller.update(&mut ctx);
 
-            #[cfg(feature = "physics")]
-            let mut done_step = false;
-            let total_frames = ctx.total_frames();
-            let now = ctx.update_time();
+        #[cfg(feature = "physics")]
+        let mut done_step = false;
+        let total_frames = ctx.total_frames();
+        let now = ctx.update_time();
 
-            if ctx.update_components() {
-                let mut sets = ctx.borrow_active_components();
-                for set in sets.values_mut() {
-                    let config = set.config();
+        if ctx.update_components() {
+            let mut sets = ctx.borrow_active_components();
+            for set in sets.values_mut() {
+                let config = set.config();
 
-                    #[cfg(feature = "physics")]
-                    if !done_step && config.priority > ctx.physics_priority() {
-                        done_step = true;
-                        Self::step(scene_controller, &mut ctx);
+                #[cfg(feature = "physics")]
+                if !done_step && config.priority > ctx.physics_priority() {
+                    done_step = true;
+                    Self::step(scene_controller, &mut ctx);
+                }
+
+                match config.update {
+                    crate::UpdateOperation::EveryFrame => {}
+                    crate::UpdateOperation::None => {
+                        continue;
                     }
-
-                    match config.update {
-                        crate::UpdateOperation::EveryFrame => {}
-                        crate::UpdateOperation::None => {
+                    crate::UpdateOperation::EveryNFrame(frames) => {
+                        if ctx.total_frames() % frames != 0 {
                             continue;
                         }
-                        crate::UpdateOperation::EveryNFrame(frames) => {
-                            if ctx.total_frames() % frames != 0 {
-                                continue;
-                            }
-                        }
-                        crate::UpdateOperation::AfterDuration(dur) => {
-                            if now > set.last_update().unwrap() + dur {
-                                set.set_last_update(now);
-                            } else {
-                                continue;
-                            }
+                    }
+                    crate::UpdateOperation::AfterDuration(dur) => {
+                        if now > set.last_update().unwrap() + dur {
+                            set.set_last_update(now);
+                        } else {
+                            continue;
                         }
                     }
+                }
 
-                    'outer: for path in set.paths() {
-                        let mut i = 0;
-                        loop {
-                            if let Some(mut entry) = ctx.borrow_component(*path, i) {
+                'outer: for path in set.paths() {
+                    let mut i = 0;
+                    loop {
+                        if let Some(mut entry) = ctx.borrow_component(*path, i) {
+                            match &mut entry {
+                                crate::data::arena::ArenaEntry::Occupied { data, .. } => {
+                                    if data.inner().handle().start() != total_frames {
+                                        ctx.set_current_component(Some(*data.inner().handle()));
+                                        data.update(scene_controller, &mut ctx);
+                                    }
+                                }
+                                _ => (),
+                            };
+
+                            if ctx.remove_current_commponent() {
+                                #[cfg(feature = "physics")]
                                 match &mut entry {
-                                    crate::data::arena::ArenaEntry::Occupied { data, .. } => {
-                                        if data.inner().handle().start() != total_frames {
-                                            ctx.set_current_component(Some(*data.inner().handle()));
-                                            data.update(scene_controller, &mut ctx);
+                                    crate::data::arena::ArenaEntry::Occupied {
+                                        data, ..
+                                    } => {
+                                        if let Some(p) =
+                                            data.inner_mut().downcast_mut::<PhysicsComponent>()
+                                        {
+                                            p.remove_from_world(&mut ctx.scene.world);
                                         }
                                     }
                                     _ => (),
                                 };
-
-                                if ctx.remove_current_commponent() {
-                                    #[cfg(feature = "physics")]
-                                    match &mut entry {
-                                        crate::data::arena::ArenaEntry::Occupied {
-                                            data, ..
-                                        } => {
-                                            if let Some(p) =
-                                                data.inner_mut().downcast_mut::<PhysicsComponent>()
-                                            {
-                                                p.remove_from_world(&mut ctx.scene.world);
-                                            }
-                                        }
-                                        _ => (),
-                                    };
-                                    ctx.not_return_component(*path, i);
-                                } else {
-                                    ctx.return_component(*path, i, entry);
-                                }
-                                i += 1;
+                                ctx.not_return_component(*path, i);
                             } else {
-                                continue 'outer;
+                                ctx.return_component(*path, i, entry);
                             }
+                            i += 1;
+                        } else {
+                            continue 'outer;
                         }
                     }
                 }
-                ctx.return_active_components(sets);
-                ctx.set_current_component(None);
             }
+            ctx.return_active_components(sets);
+            ctx.set_current_component(None);
+        }
 
-            #[cfg(feature = "physics")]
-            if !done_step {
-                Self::step(scene_controller, &mut ctx);
-                ctx.set_current_component(None);
-            }
+        #[cfg(feature = "physics")]
+        if !done_step {
+            Self::step(scene_controller, &mut ctx);
+            ctx.set_current_component(None);
+        }
 
-            scene_controller.after_update(&mut ctx);
-        };
+        scene_controller.after_update(&mut ctx);
 
         if !scene.component_manager.render_components() {
             return Ok(());

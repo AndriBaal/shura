@@ -7,7 +7,7 @@ use crate::{
 
 pub trait SceneCreator {
     fn name(&self) -> &'static str;
-    fn into_scene(self, shura: &mut Shura) -> (DynamicScene, Scene);
+    fn into_scene(self, shura: &mut Shura) -> DynamicScene;
 }
 
 pub struct NewScene<S: SceneController, N: 'static + FnMut(&mut Context) -> S> {
@@ -20,11 +20,11 @@ impl<S: SceneController, N: 'static + FnMut(&mut Context) -> S> SceneCreator for
         self.name
     }
 
-    fn into_scene(mut self, shura: &mut Shura) -> (DynamicScene, Scene) {
+    fn into_scene(mut self, shura: &mut Shura) -> DynamicScene {
         const DEFAULT_VERTICAL_CAMERA_FOV: f32 = 5.0;
         let window_size: Dimension<u32> = shura.window.inner_size().into();
         let window_ratio = window_size.width as f32 / window_size.height as f32;
-        let mut scene = Scene {
+        let mut scene = BaseScene {
             name: self.name,
             switched: false,
             resized: true,
@@ -51,7 +51,7 @@ impl<S: SceneController, N: 'static + FnMut(&mut Context) -> S> SceneCreator for
 
 pub struct ExistingScene {
     pub name: &'static str,
-    pub existing: (DynamicScene, Scene),
+    pub existing: DynamicScene,
 }
 
 impl SceneCreator for ExistingScene {
@@ -59,7 +59,7 @@ impl SceneCreator for ExistingScene {
         self.name
     }
 
-    fn into_scene(mut self, shura: &mut Shura) -> (DynamicScene, Scene) {
+    fn into_scene(mut self, shura: &mut Shura) -> DynamicScene {
         let window_size: Dimension<u32> = shura.window.inner_size().into();
         let window_ratio = window_size.width as f32 / window_size.height as f32;
         self.existing.1.name = self.name;
@@ -90,14 +90,14 @@ impl<S: SceneController, D: 'static + FnMut(&mut Context, ComponentDeserializer)
         self.name
     }
 
-    fn into_scene(self, shura: &mut Shura) -> (DynamicScene, Scene) {
+    fn into_scene(self, shura: &mut Shura) -> DynamicScene {
         todo!()
     }
 }
 
 
 #[cfg_attr(feature = "serialize", derive(serde::Serialize))]
-pub struct Scene {
+pub struct BaseScene {
     #[cfg_attr(feature = "serialize", serde(skip))]
     #[cfg_attr(feature = "serialize", serde(default = "bool_true"))]
     pub(crate) resized: bool,
@@ -117,7 +117,7 @@ pub struct Scene {
     pub world: World,
 }
 
-impl Scene {
+impl BaseScene {
     pub(crate) fn new(shura: &mut Shura, source: impl SceneCreator) -> (DynamicScene, Self) {
         return source.into_scene(shura);
 
@@ -170,14 +170,14 @@ impl Scene {
 #[cfg(feature = "serialize")]
 #[derive(serde::Serialize)]
 pub struct SceneSerializer {
-    scene: Scene,
+    scene: BaseScene,
     components: Vec<Arena<Box<dyn erased_serde::Serialize>>>,
     controller: Option<Box<dyn erased_serde::Serialize>>
 }
 
 #[cfg(feature = "serialize")]
 impl SceneSerializer {
-    pub fn new(&self, scene: Scene) -> Self {
+    pub fn new(&self, scene: BaseScene) -> Self {
         if scene.component_manager.current_component().is_some() {
             panic!("Cannot serialize during component update!")
         }

@@ -1,12 +1,11 @@
-use crate::{DynamicScene, Scene};
+use crate::{DynamicScene, BaseScene};
 use rustc_hash::FxHashMap;
 
-pub(crate) type BoxedScene = (DynamicScene, Scene);
 
 /// Access to the scenes. (Removing)[crate::Context::remove_scene] and (creating)[crate::Context::create_scene]
 /// scenes must be done from the (Context)[crate::Context].
 pub struct SceneManager {
-    scenes: FxHashMap<&'static str, BoxedScene>,
+    scenes: FxHashMap<&'static str, DynamicScene>,
     future_active_scene: Option<&'static str>,
     curr_active_scene: &'static str,
 }
@@ -24,8 +23,8 @@ impl SceneManager {
         self.curr_active_scene == name || self.scenes.contains_key(&name)
     }
 
-    pub(crate) fn add(&mut self, scene: BoxedScene) {
-        let scene_name = scene.1.name;
+    pub(crate) fn add(&mut self, scene: DynamicScene) {
+        let scene_name = scene.inner().name;
         if self.curr_active_scene == scene_name || self.scenes.contains_key(scene_name) {
             panic!("Scene {} does already exist!", scene_name);
         }
@@ -36,7 +35,7 @@ impl SceneManager {
     ///
     /// # Panics
     /// Panics if the current scene is equal to the removed scene
-    pub(crate) fn remove(&mut self, scene_name: &'static str) -> Option<BoxedScene> {
+    pub(crate) fn remove(&mut self, scene_name: &'static str) -> Option<DynamicScene> {
         if self.curr_active_scene == scene_name {
             panic!("Cannot remove the current active scene {}!", scene_name);
         }
@@ -55,15 +54,15 @@ impl SceneManager {
     }
 
     #[inline]
-    pub(crate) fn end_scenes(&mut self) -> FxHashMap<&'static str, BoxedScene> {
+    pub(crate) fn end_scenes(&mut self) -> FxHashMap<&'static str, DynamicScene> {
         std::mem::take(&mut self.scenes)
     }
 
     #[inline]
-    pub(crate) fn resize(&mut self, main_scene: &mut BoxedScene) {
-        main_scene.1.resized = true;
+    pub(crate) fn resize(&mut self, main_scene: &mut DynamicScene) {
+        main_scene.inner_mut().resized = true;
         for scene in self.scenes.values_mut() {
-            scene.1.resized = true;
+            scene.inner_mut().resized = true;
         }
     }
 
@@ -78,14 +77,14 @@ impl SceneManager {
         }
     }
 
-    pub(crate) fn apply_active_scene(&mut self) -> Option<BoxedScene> {
+    pub(crate) fn apply_active_scene(&mut self) -> Option<DynamicScene> {
         let new_active = self.future_active_scene.take()?;
         let mut active = self
             .scenes
             .remove(new_active)
             .expect(format!("The main scene {} doesn't exist", new_active).as_str());
         self.curr_active_scene = new_active;
-        active.1.switched = true;
+        active.inner_mut().switched = true;
         return Some(active);
     }
 }

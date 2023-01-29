@@ -1,12 +1,12 @@
-use std::{collections::BTreeMap};
+use std::collections::BTreeMap;
 
 use crate::{
     data::arena::ArenaEntry, ArenaPath, Camera, Color, ComponentCluster, ComponentController,
     ComponentGroup, ComponentGroupDescriptor, ComponentHandle, ComponentSet, ComponentSetMut,
-    Dimension, DynamicComponent, DynamicScene, InputEvent, InputTrigger, InstanceBuffer, Instances,
-    Isometry, Key, Matrix, Model, ModelBuilder, Modifier, Renderer, Rotation, Scene,
-    SceneController, Shader, ShaderField, ShaderLang, Shura, Sprite, SpriteSheet, Touch, Uniform,
-    Vector, SceneCreator, GroupFilter
+    Dimension, DynamicComponent, DynamicScene, GroupFilter, InputEvent, InputTrigger,
+    InstanceBuffer, Instances, Isometry, Key, Matrix, Model, ModelBuilder, Modifier, Renderer,
+    Rotation, BaseScene, SceneController, SceneCreator, Shader, ShaderField, ShaderLang, Shura, Sprite,
+    SpriteSheet, Touch, Uniform, Vector,
 };
 
 #[cfg(feature = "audio")]
@@ -29,7 +29,6 @@ use crate::gamepad::*;
 use instant::{Duration, Instant};
 use rustc_hash::FxHashMap;
 
-
 macro_rules! Where {
     (
     $a:lifetime >= $b:lifetime $(,)?
@@ -38,8 +37,38 @@ macro_rules! Where {
     };
 }
 
-impl <'a>Drop for Context<'a> {
-    fn drop(&mut self) {
+/// Context to communicate with the game engine to access components, scenes, camera, physics and many more.
+pub struct Context<'a> {
+    // Scene
+    pub scene: &'a mut DynamicScene,
+    // Core
+    pub shura: &'a mut Shura,
+}
+
+impl<'a> Context<'a> {
+    pub(crate) fn new(scene: &'a mut DynamicScene, shura: &'a mut Shura) -> Context<'a> {
+        Self { scene, shura }
+    }
+
+    #[inline]
+    pub(crate) fn start_update(&mut self) {
+        let window = &mut self.shura.window;
+        let input = &mut self.shura.input;
+
+        if self.scene.resized {
+            let new_size: Dimension<u32> = window.inner_size().into();
+            self.scene
+                .camera
+                .resize(new_size.width as f32 / new_size.height as f32);
+        }
+
+        self.scene
+            .cursor
+            .compute(&self.scene.camera.fov(), &window.inner_size().into(), input);
+    }
+
+    #[inline]
+    pub(crate) fn end_update(&mut self) {
         self.shura.input.update();
         self.scene.camera.apply_target(
             &self.scene.component_manager,
@@ -49,34 +78,6 @@ impl <'a>Drop for Context<'a> {
         self.scene.component_manager.update_sets(&self.scene.camera);
         self.scene.resized = false;
         self.scene.switched = false;
-    }
-}
-
-/// Context to communicate with the game engine to access components, scenes, camera, physics and many more.
-pub struct Context<'a> {
-    // Scene
-    pub scene: &'a mut Scene,
-    // Core
-    pub shura: &'a mut Shura,
-}
-
-impl<'a> Context<'a> {
-    pub(crate) fn new(scene: &'a mut Scene, shura: &'a mut Shura) -> Context<'a> {
-        let window = &mut shura.window;
-        let input = &mut shura.input;
-
-        if scene.resized {
-            let new_size: Dimension<u32> = window.inner_size().into();
-            scene
-                .camera
-                .resize(new_size.width as f32 / new_size.height as f32);
-        }
-
-        scene
-            .cursor
-            .compute(&scene.camera.fov(), &window.inner_size().into(), input);
-
-        Self { scene, shura }
     }
 
     #[inline]
@@ -287,17 +288,14 @@ impl<'a> Context<'a> {
     }
 
     #[inline]
-    pub fn create_scene(
-        &mut self,
-        creator: impl SceneCreator
-    ) {
-        let new = Scene::new(self.shura, creator);
+    pub fn create_scene(&mut self, creator: impl SceneCreator) {
+        let new = BaseScene::new(self.shura, creator);
         self.shura.scene_manager.add(new);
     }
 
     /// Remove a scene by its name
     #[inline]
-    pub fn remove_scene(&mut self, name: &'static str) -> Option<(Scene, DynamicScene)> {
+    pub fn remove_scene(&mut self, name: &'static str) -> Option<(BaseScene, DynamicScene)> {
         if let Some((mut controller, mut scene)) = self.shura.scene_manager.remove(name) {
             let mut ctx = Context::new(&mut scene, self.shura);
             controller.end(&mut ctx);
@@ -836,10 +834,7 @@ impl<'a> Context<'a> {
     }
 
     #[inline]
-    pub fn components<C: ComponentController>(
-        &self,
-        filter: GroupFilter,
-    ) -> ComponentSet<C> {
+    pub fn components<C: ComponentController>(&self, filter: GroupFilter) -> ComponentSet<C> {
         self.scene.component_manager.components::<C>(filter)
     }
 
@@ -1019,7 +1014,9 @@ impl<'a> Context<'a> {
         mapping: &Mapping,
         name: Option<&str>,
     ) -> Result<String, MappingError> {
-        self.shura.input.set_gamepad_mapping(gamepad_id, mapping, name)
+        self.shura
+            .input
+            .set_gamepad_mapping(gamepad_id, mapping, name)
     }
 
     #[inline]
@@ -1034,5 +1031,4 @@ impl<'a> Context<'a> {
             .input
             .set_gamepad_mapping_strict(gamepad_id, mapping, name)
     }
-
 }

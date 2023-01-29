@@ -2,7 +2,7 @@
 use crate::physics::World;
 use crate::{
     ComponentHandle, ComponentManager, Context, CursorManager, Dimension, Gpu, Input, Isometry,
-    Matrix, Model, ModelBuilder, Rotation, Scene, Shura, Uniform, Vector, Vertex,
+    Matrix, Model, ModelBuilder, Rotation, BaseScene, Shura, Uniform, Vector, Vertex,
 };
 
 const MINIMAL_FOV: f32 = 0.0000001;
