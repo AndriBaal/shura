@@ -46,7 +46,7 @@ pub struct Context<'a> {
 }
 
 impl<'a> Context<'a> {
-    pub(crate) fn new(scene: &'a mut DynamicScene, shura: &'a mut Shura) -> Context<'a> {
+    pub(crate) fn new(scene: &'a mut DynamicScene, shura: &'a mut Shura<G>) -> Context<'a, G> {
         Self { scene, shura }
     }
 
@@ -288,14 +288,14 @@ impl<'a> Context<'a> {
     }
 
     #[inline]
-    pub fn create_scene(&mut self, creator: impl SceneCreator) {
+    pub fn create_scene(&mut self, creator: impl SceneCreator<G>) {
         let new = BaseScene::new(self.shura, creator);
         self.shura.scene_manager.add(new);
     }
 
     /// Remove a scene by its name
     #[inline]
-    pub fn remove_scene(&mut self, name: &'static str) -> Option<(BaseScene, DynamicScene)> {
+    pub fn remove_scene(&mut self, name: &'static str) -> Option<(BaseScene<G>, DynamicScene)> {
         if let Some((mut controller, mut scene)) = self.shura.scene_manager.remove(name) {
             let mut ctx = Context::new(&mut scene, self.shura);
             controller.end(&mut ctx);
