@@ -7,67 +7,56 @@ use crate::{
     DynamicComponent, DynamicScene, Isometry, SceneController, Shura, Sprite,
 };
 
-pub trait SceneCreator {
-    fn into_scene(self, shura: &mut Shura) -> DynamicScene;
-}
+// pub trait SceneCreator {
+//     fn into_scene(self, shura: &mut Shura) -> DynamicScene;
+// }
 
-pub struct NewScene<S: SceneController, N: 'static + FnMut(&mut Context) -> S> {
-    pub init: N
-}
+// pub struct NewScene<S: SceneController, N: 'static + FnMut(&mut Shura) -> S> {
+//     pub init: N
+// }
 
-impl<S: SceneController> SceneCreator for NewScene<S> {
-    fn into_scene(mut self, shura: &mut Shura) -> DynamicScene {
-        let scene = Box::new((self.init)(&mut ctx));
-        drop(ctx);
-        return (controller, scene);
-    }
-}
+// impl <S: SceneController, N: 'static + FnMut(&mut Shura) -> S>SceneCreator for NewScene<S, N> {
+//     fn into_scene(mut self, shura: &mut Shura) -> DynamicScene {
+//         return Box::new((self.init)(shura));
+//     }
+// }
 
-pub struct ExistingScene {
-    pub name: &'static str,
-    pub existing: DynamicScene,
-}
+// pub struct ExistingScene {
+//     pub existing: DynamicScene,
+// }
 
-impl SceneCreator for ExistingScene {
-    fn name(&self) -> &'static str {
-        self.name
-    }
+// impl SceneCreator for ExistingScene {
+//     fn into_scene(mut self, shura: &mut Shura) -> DynamicScene {
+//         let window_size: Dimension<u32> = shura.window.inner_size().into();
+//         let window_ratio = window_size.width as f32 / window_size.height as f32;
+//         let inner = self.existing.inner_mut();
+//         inner.name = self.name;
+//         inner.camera.resize(window_ratio);
+//         inner
+//             .cursor
+//             .compute(&inner.camera.fov(), &window_size, &shura.input);
+//         return self.existing;
+//     }
+// }
 
-    fn into_scene(mut self, shura: &mut Shura) -> DynamicScene {
-        let window_size: Dimension<u32> = shura.window.inner_size().into();
-        let window_ratio = window_size.width as f32 / window_size.height as f32;
-        let inner = self.existing.inner_mut();
-        inner.name = self.name;
-        inner.camera.resize(window_ratio);
-        inner
-            .cursor
-            .compute(&inner.camera.fov(), &window_size, &shura.input);
-        return self.existing;
-    }
-}
+// #[cfg(feature = "serialize")]
+// pub struct SerializedScene<
+//     S: SceneController,
+//     D: 'static + FnMut(&mut Context, ComponentDeserializer) -> S,
+// > {
+//     pub name: &'static str,
+//     pub serializer: SceneSerializer,
+//     pub deserialize: D,
+// }
 
-#[cfg(feature = "serialize")]
-pub struct SerializedScene<
-    S: SceneController,
-    D: 'static + FnMut(&mut Context, ComponentDeserializer) -> S,
-> {
-    pub name: &'static str,
-    pub serializer: SceneSerializer,
-    pub deserialize: D,
-}
-
-#[cfg(feature = "serialize")]
-impl<S: SceneController, D: 'static + FnMut(&mut Context, ComponentDeserializer) -> S> SceneCreator
-    for SerializedScene<S, D>
-{
-    fn name(&self) -> &'static str {
-        self.name
-    }
-
-    fn into_scene(self, shura: &mut Shura) -> DynamicScene {
-        todo!()
-    }
-}
+// #[cfg(feature = "serialize")]
+// impl<S: SceneController, D: 'static + FnMut(&mut Context, ComponentDeserializer) -> S> SceneCreator
+//     for SerializedScene<S, D>
+// {
+//     fn into_scene(self, shura: &mut Shura) -> DynamicScene {
+//         todo!()
+//     }
+// }
 
 #[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct BaseScene {
@@ -91,11 +80,11 @@ pub struct BaseScene {
 }
 
 impl BaseScene {
-    pub(crate) fn new(shura: &mut Shura, name: &'static str) -> DynamicScene {
+    pub(crate) fn new(shura: &Shura, name: &'static str) -> Self {
         const DEFAULT_VERTICAL_CAMERA_FOV: f32 = 5.0;
         let window_size: Dimension<u32> = shura.window.inner_size().into();
         let window_ratio = window_size.width as f32 / window_size.height as f32;
-        let mut scene = BaseScene {
+        Self {
             name,
             switched: true,
             resized: true,
@@ -111,7 +100,7 @@ impl BaseScene {
             #[cfg(feature = "physics")]
             world: World::new(),
             saved_sprites: vec![],
-        };
+        }
     }
 
     pub fn resized(&self) -> bool {
@@ -144,7 +133,7 @@ impl SceneSerializer {
 
         Self {
             scene,
-            components: vec![],
+            components: Default::default(),
             controller: None,
         }
     }

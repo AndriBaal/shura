@@ -41,19 +41,13 @@ pub trait ComponentController: Downcast + _StaticAccess + ComponentDerive {
     /// This component gets updated if the component's [group](crate::ComponentGroup) is active and enabled.
     /// Through the [context](crate::Context) you have access to all other scenes, groups,
     /// components with the matching controller and all data from the engine.
-    fn update(&mut self, scene: &mut DynamicScene, ctx: &mut Context) {}
+    fn update(&mut self, ctx: &mut Context) {}
     /// This method gets called when this component gets destroyed.
-    fn end(&mut self, scene: &mut DynamicScene, ctx: &mut Context) {}
+    fn end(&mut self, ctx: &mut Context) {}
     /// This component gets rendered if the component's [group](crate::ComponentGroup) is active.
     /// The render operation can be chosen through the [renderer](crate::Renderer) and the drawing
     /// can be completed with [renderer.commit()](crate::Renderer::commit())
-    fn render<'a>(
-        &'a self,
-        scene: &'a DynamicScene,
-        renderer: &mut Renderer<'a>,
-        instance: Instances,
-    ) {
-    }
+    fn render<'a>(&'a self, ctx: &'a Context, renderer: &mut Renderer<'a>, instance: Instances) {}
 
     /// Grouped render of multiple components. This method gets called once for every group inwhich
     /// components of this type exist. This has massive performance advantes since many components
@@ -62,7 +56,7 @@ pub trait ComponentController: Downcast + _StaticAccess + ComponentDerive {
     /// For this method to work the render operation of this component must be set to
     /// [RenderOperation::Grouped](crate::RenderOperation::Grouped) in the [ComponentConfig](crate::ComponentConfig).
     fn render_grouped<'a>(
-        scene: &'a DynamicScene,
+        ctx: &'a Context,
         renderer: &mut Renderer<'a>,
         components: ComponentSet<DynamicComponent>,
         instances: Instances,
@@ -78,7 +72,7 @@ pub trait ComponentController: Downcast + _StaticAccess + ComponentDerive {
     /// the [ComponentGroup](crate::ComponentGroup) is inactive or disabled.
     fn collision(
         &mut self,
-        scene: &mut DynamicScene,
+
         ctx: &mut Context,
         other: ComponentHandle,
         self_collider: ColliderHandle,
@@ -99,11 +93,17 @@ pub trait ComponentController: Downcast + _StaticAccess + ComponentDerive {
     {
     }
 
-    fn name() -> &'static str where Self: Sized {
-        return std::any::type_name::<Self>()
+    fn name() -> &'static str
+    where
+        Self: Sized,
+    {
+        return std::any::type_name::<Self>();
     }
 
-    fn config() -> ComponentConfig where Self: Sized {
+    fn config() -> ComponentConfig
+    where
+        Self: Sized,
+    {
         return DEFAULT_CONFIG;
     }
 }
@@ -297,25 +297,19 @@ impl<C: ComponentController + ?Sized> ComponentDerive for Box<C> {
 }
 
 impl<C: ComponentController + ?Sized> ComponentController for Box<C> {
-    fn update(&mut self, scene: &mut DynamicScene, ctx: &mut Context) {
-        (**self).update(scene, ctx)
+    fn update(&mut self, ctx: &mut Context) {
+        (**self).update(ctx)
     }
-    fn end(&mut self, scene: &mut DynamicScene, ctx: &mut Context) {
-        (**self).end(scene, ctx)
+    fn end(&mut self, ctx: &mut Context) {
+        (**self).end(ctx)
     }
-    fn render<'a>(
-        &'a self,
-        scene: &'a DynamicScene,
-        renderer: &mut Renderer<'a>,
-        instance: Instances,
-    ) {
-        (**self).render(scene, renderer, instance)
+    fn render<'a>(&'a self, ctx: &'a Context, renderer: &mut Renderer<'a>, instance: Instances) {
+        (**self).render(ctx, renderer, instance)
     }
 
     #[cfg(feature = "physics")]
     fn collision(
         &mut self,
-        scene: &mut DynamicScene,
         ctx: &mut Context,
         other: ComponentHandle,
         self_collider: ColliderHandle,
@@ -323,7 +317,6 @@ impl<C: ComponentController + ?Sized> ComponentController for Box<C> {
         collide_type: CollideType,
     ) {
         (**self).collision(
-            scene,
             ctx,
             other,
             self_collider,
@@ -333,20 +326,19 @@ impl<C: ComponentController + ?Sized> ComponentController for Box<C> {
     }
 }
 
-
 /// Grants access to the static members of the component type. This should never be overwritten,
 /// since it is automatically implemented with generics.
 pub trait _StaticAccess {
     fn get_grouped_render(
         &self,
-    ) -> for<'a> fn(&'a DynamicScene, &mut Renderer<'a>, ComponentSet<DynamicComponent>, Instances);
+    ) -> for<'a> fn(&'a Context, &mut Renderer<'a>, ComponentSet<DynamicComponent>, Instances);
     fn get_postproccess(&self) -> for<'a> fn(&mut Renderer<'a>, Instances, &'a Model, &'a Sprite);
 }
 
 impl<C: ComponentController> _StaticAccess for C {
     fn get_grouped_render(
         &self,
-    ) -> for<'a> fn(&'a DynamicScene, &mut Renderer<'a>, ComponentSet<DynamicComponent>, Instances)
+    ) -> for<'a> fn(&'a Context, &mut Renderer<'a>, ComponentSet<DynamicComponent>, Instances)
     {
         C::render_grouped
     }
@@ -354,4 +346,3 @@ impl<C: ComponentController> _StaticAccess for C {
         C::postproccess
     }
 }
-

@@ -64,8 +64,8 @@ impl ComponentType {
     fn data(&mut self, #[cfg(feature = "physics")] world: &World) -> Vec<Matrix> {
         self.components
             .iter_mut()
-            .map(|(_, controller)| {
-                controller.inner().matrix(
+            .map(|(_, component)| {
+                component.inner().matrix(
                     #[cfg(feature = "physics")]
                     world,
                 )

@@ -1,6 +1,5 @@
-use crate::{DynamicScene, BaseScene};
+use crate::{DynamicScene, SceneController};
 use rustc_hash::FxHashMap;
-
 
 /// Access to the scenes. (Removing)[crate::Context::remove_scene] and (creating)[crate::Context::create_scene]
 /// scenes must be done from the (Context)[crate::Context].
@@ -23,12 +22,12 @@ impl SceneManager {
         self.curr_active_scene == name || self.scenes.contains_key(&name)
     }
 
-    pub(crate) fn add(&mut self, scene: DynamicScene) {
+    pub(crate) fn add<S: SceneController>(&mut self, scene: S) {
         let scene_name = scene.inner().name;
         if self.curr_active_scene == scene_name || self.scenes.contains_key(scene_name) {
             panic!("Scene {} does already exist!", scene_name);
         }
-        self.scenes.insert(scene_name, scene);
+        self.scenes.insert(scene_name, Box::new(scene));
     }
 
     /// Remove a scene by its name.

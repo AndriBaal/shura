@@ -6,8 +6,8 @@ use crate::{
     ArenaPath, ComponentHandle, DynamicScene,
 };
 use crate::{
-    BoxedScene, Camera, Color, ComponentSet, Context, Defaults, Dimension, FrameManager, Gpu,
-    Input, PostproccessOperation, RenderOperation, Renderer, BaseScene, SceneController, SceneCreator,
+    Camera, Color, ComponentSet, Context, Defaults, Dimension, FrameManager, Gpu,
+    Input, PostproccessOperation, RenderOperation, Renderer, BaseScene, SceneController,
     SceneManager, Sprite,
 };
 use log::{error, info};
@@ -35,16 +35,16 @@ pub struct Shura {
 
 impl Shura {
     /// Start a new game with the given callback to initialize the first [SceneController].
-    pub fn init(creator: impl SceneCreator + 'static) {
+    pub fn init<S: SceneController, N: 'static + FnMut(&mut Shura) -> S>(init: N) {
         info!("Using shura version: {}", env!("CARGO_PKG_VERSION"));
         let events = winit::event_loop::EventLoop::new();
         let window = winit::window::WindowBuilder::new()
             .with_inner_size(winit::dpi::PhysicalSize::new(INITIAL_WIDTH, INITIAL_HEIGHT))
-            .with_title(creator.name())
+            .with_title("Shura")
             .build(&events)
             .unwrap();
         let shura_window_id = window.id();
-        let mut creator = Some(creator);
+        let mut init = Some(init);
         let mut window = Some(window);
 
         #[cfg(target_arch = "wasm32")]
@@ -96,13 +96,13 @@ impl Shura {
                 .init();
         }
 
-        let mut active: Option<(Shura, BoxedScene)> = if cfg!(target_os = "android") {
+        let mut active: Option<(Shura, DynamicScene)> = if cfg!(target_os = "android") {
             None
         } else {
             Some(Shura::new(
                 window.take().unwrap(),
                 &events,
-                creator.take().unwrap(),
+                init.take().unwrap(),
             ))
         };
 
@@ -173,7 +173,7 @@ impl Shura {
                         active = Some(Shura::new(
                             window.take().unwrap(),
                             &target,
-                            creator.take().unwrap(),
+                            init.take().unwrap(),
                         ))
                     }
                     _ => {}
@@ -186,11 +186,11 @@ impl Shura {
         return Context { scene, shura: self };
     }
 
-    fn new(
+    fn new<S: SceneController, N: 'static + FnMut(&mut Shura) -> S>(
         window: winit::window::Window,
         event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
-        creator: impl SceneCreator,
-    ) -> (Self, BoxedScene) {
+        init: N
+    ) -> (Self, DynamicScene) {
         let gpu = pollster::block_on(Gpu::new(&window));
         let defaults = Defaults::new(&gpu);
         #[cfg(feature = "audio")]
@@ -216,18 +216,15 @@ impl Shura {
         return (shura, scene);
     }
 
-    fn end(&mut self, main_scene: &mut BoxedScene, cf: &mut winit::event_loop::ControlFlow) {
-        let mut ctx = Context::new(&mut main_scene.1, self);
-        main_scene.0.end(&mut ctx);
-        drop(ctx);
-        for (_, mut scene) in self.scene_manager.end_scenes() {
-            let mut ctx = Context::new(&mut scene.1, self);
-            scene.0.end(&mut ctx);
+    fn end(&mut self, main_scene: &mut DynamicScene, cf: &mut winit::event_loop::ControlFlow) {
+        main_scene.end(self);
+        for mut scene in self.scene_manager.end_scenes() {
+            scene.1.end(self);
         }
         *cf = winit::event_loop::ControlFlow::Exit
     }
 
-    fn resize(&mut self, main_scene: &mut BoxedScene, new_size: Dimension<u32>) {
+    fn resize(&mut self, main_scene: &mut DynamicScene, new_size: Dimension<u32>) {
         let config_size = self.gpu.render_size_no_scale();
         if new_size.width > 0 && new_size.height > 0 && new_size != config_size {
             self.scene_manager.resize(main_scene);
@@ -239,7 +236,7 @@ impl Shura {
     }
 
     #[cfg(feature = "physics")]
-    fn step(controller: &mut DynamicScene, ctx: &mut Context) {
+    fn step(ctx: &mut Context) {
         ctx.step_world();
         // while let Ok(contact_force_event) = ctx.scene.world.event_receivers.1.try_recv() {
         // }
@@ -255,7 +252,6 @@ impl Shura {
             if let Some(collider1) = ctx.collider(collider_handle1) {
                 if let Some(collider2) = ctx.collider(collider_handle2) {
                     fn call_collide(
-                        scene: &mut DynamicScene,
                         ctx: &mut Context,
                         self_handle: ComponentHandle,
                         other_handle: ComponentHandle,
@@ -273,7 +269,6 @@ impl Shura {
                                 crate::data::arena::ArenaEntry::Occupied { data, .. } => {
                                     ctx.set_current_component(Some(self_handle));
                                     data.collision(
-                                        scene,
                                         ctx,
                                         other_handle,
                                         self_collider,
@@ -297,7 +292,6 @@ impl Shura {
                     let collider2_events = collider2.active_events();
                     if collider1_events == ActiveEvents::COLLISION_EVENTS {
                         call_collide(
-                            controller,
                             ctx,
                             component1,
                             component2,
@@ -308,7 +302,6 @@ impl Shura {
                     }
                     if collider2_events == ActiveEvents::COLLISION_EVENTS {
                         call_collide(
-                            controller,
                             ctx,
                             component2,
                             component1,
@@ -322,28 +315,11 @@ impl Shura {
         }
     }
 
-    fn update(&mut self, scene: &mut BoxedScene) -> Result<(), wgpu::SurfaceError> {
-        let (scene_controller, scene) = (&mut scene.0, &mut scene.1);
+    fn update(&mut self, scene: &mut DynamicScene) -> Result<(), wgpu::SurfaceError> {
         let mut ctx = Context::new(scene, self);
 
-        self.frame_manager.update();
-
-        #[cfg(target_arch = "wasm32")]
-        {
-            let browser_window = web_sys::window().unwrap();
-            let width: u32 = browser_window.inner_width().unwrap().as_f64().unwrap() as u32;
-            let height: u32 = browser_window.inner_height().unwrap().as_f64().unwrap() as u32;
-            let size = Dimension::new(width, height);
-            if size != self.window.inner_size().into() {
-                self.window.set_inner_size(size);
-            }
-        }
-
-        #[cfg(feature = "gui")]
-        self.gui
-            .begin(&self.frame_manager.total_time_duration(), &self.window);
-
-        scene_controller.update(&mut ctx);
+        ctx.start_update();
+        ctx.scene.update(ctx.shura);
 
         #[cfg(feature = "physics")]
         let mut done_step = false;
@@ -358,7 +334,7 @@ impl Shura {
                 #[cfg(feature = "physics")]
                 if !done_step && config.priority > ctx.physics_priority() {
                     done_step = true;
-                    Self::step(scene_controller, &mut ctx);
+                    Self::step(&mut ctx);
                 }
 
                 match config.update {
@@ -388,7 +364,7 @@ impl Shura {
                                 crate::data::arena::ArenaEntry::Occupied { data, .. } => {
                                     if data.inner().handle().start() != total_frames {
                                         ctx.set_current_component(Some(*data.inner().handle()));
-                                        data.update(scene_controller, &mut ctx);
+                                        data.update(&mut ctx);
                                     }
                                 }
                                 _ => (),
@@ -403,7 +379,7 @@ impl Shura {
                                         if let Some(p) =
                                             data.inner_mut().downcast_mut::<PhysicsComponent>()
                                         {
-                                            p.remove_from_world(&mut ctx.scene.world);
+                                            p.remove_from_world(&mut ctx.scene.inner_mut().world);
                                         }
                                     }
                                     _ => (),
@@ -425,28 +401,17 @@ impl Shura {
 
         #[cfg(feature = "physics")]
         if !done_step {
-            Self::step(scene_controller, &mut ctx);
+            Self::step(&mut ctx);
             ctx.set_current_component(None);
         }
 
-        scene_controller.after_update(&mut ctx);
+        ctx.scene.after_update(ctx.shura);
 
-        if !scene.component_manager.render_components() {
+        if !scene.inner().component_manager.render_components() {
             return Ok(());
         }
 
-        scene.camera.buffer(&self.gpu);
-        scene.component_manager.buffer_sets(
-            &self.gpu,
-            #[cfg(feature = "physics")]
-            &scene.world,
-        );
-        self.defaults.buffer(
-            &self.gpu,
-            self.frame_manager.total_time(),
-            self.frame_manager.delta_time(),
-        );
-
+        ctx.buffer();
         let output = self.gpu.surface.get_current_texture()?;
         let output_view = output
             .texture
@@ -462,7 +427,7 @@ impl Shura {
                 *clear_color,
             );
         }
-        for set in scene.component_manager.active_components().values() {
+        for set in scene.inner().component_manager.active_components().values() {
             if set.is_empty() {
                 continue;
             }
@@ -510,7 +475,7 @@ impl Shura {
                             for (instance, (_, component)) in component_type.iter().enumerate() {
                                 let instance = instance as u32;
                                 component.render(
-                                    scene_controller,
+                                    ctx,
                                     &mut renderer,
                                     instance..instance + 1,
                                 );
@@ -530,7 +495,7 @@ impl Shura {
                                 let instances = 0..len as u32;
 
                                 let set = ComponentSet::new(vec![component_type], len);
-                                grouped_render(scene_controller, &mut renderer, set, instances);
+                                grouped_render(ctx, &mut renderer, set, instances);
                             }
                         }
                         save_sprite = renderer.save_sprite.take();
