@@ -5,9 +5,10 @@ use shura::*;
 
 #[cfg_attr(target_os = "android", ndk_glue::main(backtrace = "on"))]
 fn main() {
-    Shura::init(NewScene {
-        name: "bunnymark",
-        init: |ctx| {
+    Shura::init(|shura| {
+            let mut scene = BaseScene::new(shura, "Bunnymark");
+            let mut ctx = Context::new(shura, &mut scene);
+
             ctx.set_clear_color(Some(Color::new_rgba(220, 220, 220, 255)));
             ctx.set_window_size(Dimension::new(800, 600));
             ctx.set_vertical_fov(6.0);
@@ -15,7 +16,7 @@ fn main() {
             let bunny_model = ctx.create_model(ModelBuilder::cuboid(Dimension::new(0.06, 0.09)));
             let bunny_sprite = ctx.create_sprite(include_bytes!("../img/wabbit.png"));
     
-            ctx.create_component(None, Bunny::new(ctx));
+            ctx.create_component(None, Bunny::new(&ctx));
     
             #[cfg(target_os = "android")]
             ctx.set_render_scale(0.66);
@@ -23,19 +24,22 @@ fn main() {
             GameScene {
                 bunny_model,
                 bunny_sprite,
+                scene
             }
-        }
-    });
+        });
 }
 
+#[derive(Scene)]
 struct GameScene {
     bunny_model: Model,
     bunny_sprite: Sprite,
+    #[scene] scene: BaseScene
 }
 
 impl SceneController for GameScene {
-    fn update(&mut self, ctx: &mut Context) {
+    fn update(&mut self, shura: &mut Shura) {
         const MODIFY_STEP: usize = 1500;
+        let mut ctx = Context::new(shura, self);
         gui::Window::new("bunnymark")
             .anchor(gui::Align2::LEFT_TOP, gui::Vec2::default())
             .resizable(false)
@@ -50,7 +54,7 @@ impl SceneController for GameScene {
 
         if ctx.is_held(MouseButton::Left) || ctx.is_held(ScreenTouch) {
             for _ in 0..MODIFY_STEP {
-                ctx.create_component(None, Bunny::new(ctx));
+                ctx.create_component(None, Bunny::new(&ctx));
             }
         }
         if ctx.is_held(MouseButton::Right) {
@@ -91,15 +95,15 @@ impl Bunny {
 }
 
 impl ComponentController for Bunny {
-    fn update(&mut self, _scene: &mut DynamicScene, ctx: &mut Context) {
+    fn update(&mut self, ctx: &mut Context) {
         const GRAVITY: f32 = -2.5;
         let fov = ctx.camera_fov() / 2.0;
-        let delta = ctx.delta_time();
+        let frame = ctx.frame_time();
         let mut linvel = self.linvel;
         let mut translation = *self.translation();
 
-        linvel.y += GRAVITY * delta;
-        translation += linvel * delta;
+        linvel.y += GRAVITY * frame;
+        translation += linvel * frame;
         if translation.x >= fov.width {
             linvel.x = -linvel.x;
             translation.x = fov.width;
@@ -120,12 +124,12 @@ impl ComponentController for Bunny {
     }
 
     fn render_grouped<'a>(
-        scene: &'a DynamicScene,
+        ctx: &'a Context<'a>,
         renderer: &mut Renderer<'a>,
         _: ComponentSet<DynamicComponent>,
         instances: Instances,
     ) {
-        let scene = scene.downcast_ref::<GameScene>().unwrap();
+        let scene = ctx.scene.downcast_ref::<GameScene>().unwrap();
         renderer.render_sprite(&scene.bunny_model, &scene.bunny_sprite);
         renderer.commit(&instances);
     }

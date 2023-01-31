@@ -1,33 +1,40 @@
+use core::panic;
+
 use crate::{DynamicScene, SceneController};
 use rustc_hash::FxHashMap;
 
 /// Access to the scenes. (Removing)[crate::Context::remove_scene] and (creating)[crate::Context::create_scene]
 /// scenes must be done from the (Context)[crate::Context].
 pub struct SceneManager {
-    scenes: FxHashMap<&'static str, DynamicScene>,
-    future_active_scene: Option<&'static str>,
-    curr_active_scene: &'static str,
+    scenes: FxHashMap<&'static str, Option<DynamicScene>>,
+    active_scene: Option<&'static str>
 }
 
 impl SceneManager {
-    pub(crate) fn new(active_scene: &'static str) -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             scenes: FxHashMap::default(),
-            future_active_scene: None,
-            curr_active_scene: active_scene,
+            active_scene: None,
         }
     }
 
+    #[inline]
+    pub(crate) fn init<S: SceneController>(&mut self, scene: S) {
+        let scene_name = scene.base().name;
+        self.active_scene = Some(scene_name);
+        self.scenes.insert(scene_name, Some(Box::new(scene)));
+    }
+
     pub fn does_scene_exist(&self, name: &'static str) -> bool {
-        self.curr_active_scene == name || self.scenes.contains_key(&name)
+        self.scenes.contains_key(&name)
     }
 
     pub(crate) fn add<S: SceneController>(&mut self, scene: S) {
         let scene_name = scene.base().name;
-        if self.curr_active_scene == scene_name || self.scenes.contains_key(scene_name) {
+        if self.scenes.contains_key(scene_name) {
             panic!("Scene {} does already exist!", scene_name);
         }
-        self.scenes.insert(scene_name, Box::new(scene));
+        self.scenes.insert(scene_name, Some(Box::new(scene)));
     }
 
     /// Remove a scene by its name.
@@ -35,10 +42,13 @@ impl SceneManager {
     /// # Panics
     /// Panics if the current scene is equal to the removed scene
     pub(crate) fn remove(&mut self, scene_name: &'static str) -> Option<DynamicScene> {
-        if self.curr_active_scene == scene_name {
-            panic!("Cannot remove the current active scene {}!", scene_name);
+        if let Some(scene) = self.scenes.remove(scene_name) {
+            if scene.is_none() {
+                panic!("Cannot remove the currently active scene {}!", scene_name);
+            }
+            return scene;
         }
-        self.scenes.remove(scene_name)
+        return None;
     }
 
     // Getters
@@ -48,20 +58,19 @@ impl SceneManager {
     }
 
     #[inline]
-    pub const fn active_scene(&self) -> &'static str {
-        self.curr_active_scene
+    pub const fn active_scene(&self) -> Option<&'static str> {
+        self.active_scene
     }
 
     #[inline]
-    pub(crate) fn end_scenes(&mut self) -> FxHashMap<&'static str, DynamicScene> {
+    pub(crate) fn end_scenes(&mut self) -> FxHashMap<&'static str, Option<DynamicScene>> {
         std::mem::take(&mut self.scenes)
     }
 
     #[inline]
-    pub(crate) fn resize(&mut self, main_scene: &mut DynamicScene) {
-        main_scene.base_mut().resized = true;
+    pub(crate) fn resize(&mut self) {
         for scene in self.scenes.values_mut() {
-            scene.base_mut().resized = true;
+            scene.as_mut().unwrap().base_mut().resized = true;
         }
     }
 
@@ -69,21 +78,22 @@ impl SceneManager {
 
     #[inline]
     pub fn set_active_scene(&mut self, active_scene: &'static str) {
-        if self.curr_active_scene == active_scene || self.scenes.contains_key(active_scene) {
-            self.future_active_scene = Some(active_scene);
+        self.active_scene = Some(active_scene);
+    }
+
+    #[inline]
+    pub(crate) fn borrow_active_scene(&mut self) -> DynamicScene {
+        let active_scene =  self.active_scene.unwrap();
+        if let Some(scene) = self.scenes.get_mut(active_scene) {
+            return std::mem::replace(scene, None).unwrap();
         } else {
             panic!("Cannot find the new active scene {}!", active_scene);
         }
     }
 
-    pub(crate) fn apply_active_scene(&mut self) -> Option<DynamicScene> {
-        let new_active = self.future_active_scene.take()?;
-        let mut active = self
-            .scenes
-            .remove(new_active)
-            .expect(format!("The main scene {} doesn't exist", new_active).as_str());
-        self.curr_active_scene = new_active;
-        active.base_mut().switched = true;
-        return Some(active);
+    #[inline]
+    pub(crate) fn return_active_scene(&mut self, scene: DynamicScene) {
+        let scene_name =  scene.base().name();
+        let _ = std::mem::replace(self.scenes.get_mut(scene_name).unwrap(), Some(scene));
     }
 }

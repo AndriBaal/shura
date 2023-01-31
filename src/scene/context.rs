@@ -46,7 +46,7 @@ pub struct Context<'a> {
 }
 
 impl<'a> Context<'a> {
-    pub(crate) fn new(scene: &'a mut DynamicScene, shura: &'a mut Shura) -> Context<'a> {
+    pub fn new<S: SceneController>(shura: &'a mut Shura, scene: &'a mut DynamicScene) -> Context<'a> {
         Self { scene, shura }
     }
 
@@ -848,7 +848,7 @@ impl<'a> Context<'a> {
     }
 
     #[inline]
-    pub fn active_scene(&self) -> &'static str {
+    pub fn active_scene(&self) -> Option<&'static str> {
         self.shura.scene_manager.active_scene()
     }
 

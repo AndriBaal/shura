@@ -3,12 +3,12 @@ use crate::gui::Gui;
 #[cfg(feature = "physics")]
 use crate::{
     physics::{ActiveEvents, CollideType, ColliderHandle, PhysicsComponent},
-    ArenaPath, ComponentHandle, DynamicScene,
+    ArenaPath, ComponentHandle
 };
 use crate::{
     Camera, Color, ComponentSet, Context, Defaults, Dimension, FrameManager, Gpu,
     Input, PostproccessOperation, RenderOperation, Renderer, BaseScene, SceneController,
-    SceneManager, Sprite,
+    SceneManager, Sprite, DynamicScene
 };
 use log::{error, info};
 
@@ -96,7 +96,7 @@ impl Shura {
                 .init();
         }
 
-        let mut active: Option<(Shura, DynamicScene)> = if cfg!(target_os = "android") {
+        let mut shura: Option<Shura> = if cfg!(target_os = "android") {
             None
         } else {
             Some(Shura::new(
@@ -108,7 +108,7 @@ impl Shura {
 
         events.run(move |event, target, control_flow| {
             use winit::event::{Event, WindowEvent};
-            if let Some((shura, scene)) = &mut active {
+            if let Some(shura,) = &mut shura {
                 match event {
                     Event::WindowEvent {
                         ref event,
@@ -119,17 +119,16 @@ impl Shura {
                         if window_id == shura_window_id {
                             match event {
                                 WindowEvent::CloseRequested | WindowEvent::Destroyed => {
-                                    shura.end(scene, control_flow);
+                                    shura.end(control_flow);
                                 }
                                 WindowEvent::Resized(physical_size) => {
                                     shura.resize(
-                                        scene,
+                                        
                                         (*physical_size as winit::dpi::PhysicalSize<u32>).into(),
                                     );
                                 }
                                 WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
                                     shura.resize(
-                                        scene,
                                         (**new_inner_size as winit::dpi::PhysicalSize<u32>).into(),
                                     );
                                 }
@@ -138,15 +137,13 @@ impl Shura {
                         }
                     }
                     Event::RedrawRequested(window_id) if window_id == shura_window_id => {
-                        if let Some(new_active) = shura.scene_manager.apply_active_scene() {
-                            let old_active = std::mem::replace(scene, new_active);
-                            shura.scene_manager.add(old_active);
-                        }
-
-                        match shura.update(scene) {
+                        let mut scene = shura.scene_manager.borrow_active_scene();
+                        let update_status = shura.update(&mut scene);
+                        shura.scene_manager.return_active_scene(scene);
+                        match update_status {
                             Ok(_) => {}
                             Err(wgpu::SurfaceError::Lost) => {
-                                shura.resize(scene, shura.window.inner_size().into())
+                                shura.resize(shura.window.inner_size().into())
                             }
                             Err(wgpu::SurfaceError::OutOfMemory) => {
                                 *control_flow = winit::event_loop::ControlFlow::Exit
@@ -154,7 +151,7 @@ impl Shura {
                             Err(e) => error!("{:?}", e),
                         }
                         if shura.end {
-                            shura.end(scene, control_flow);
+                            shura.end(control_flow);
                         }
                     }
                     Event::MainEventsCleared => {
@@ -189,46 +186,46 @@ impl Shura {
     fn new<S: SceneController, N: 'static + FnMut(&mut Shura) -> S>(
         window: winit::window::Window,
         event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
-        init: N
-    ) -> (Self, DynamicScene) {
+        mut init: N
+    ) -> Self {
         let gpu = pollster::block_on(Gpu::new(&window));
         let defaults = Defaults::new(&gpu);
         #[cfg(feature = "audio")]
         let (audio, audio_handle) = rodio::OutputStream::try_default().unwrap();
         let relative_camera = Camera::new(&gpu, Default::default(), 1.0, RELATIVE_CAMERA_SIZE);
-        // let mut shura = Self {
-        //     scene_manager: SceneManager::new(creator.name()),
-        //     frame_manager: FrameManager::new(),
-        //     input: Input::new(),
-        //     #[cfg(feature = "audio")]
-        //     audio,
-        //     #[cfg(feature = "audio")]
-        //     audio_handle,
-        //     end: false,
-        //     #[cfg(feature = "gui")]
-        //     gui: Gui::new(&window, event_loop, &gpu),
-        //     window,
-        //     gpu: gpu,
-        //     relative_camera,
-        //     defaults,
-        // };
-        // let scene = BaseScene::new(&mut shura, creator);
-        // return (shura, scene);
-        todo!()
+        let mut shura = Self {
+            scene_manager: SceneManager::new(),
+            frame_manager: FrameManager::new(),
+            input: Input::new(),
+            #[cfg(feature = "audio")]
+            audio,
+            #[cfg(feature = "audio")]
+            audio_handle,
+            end: false,
+            #[cfg(feature = "gui")]
+            gui: Gui::new(&window, event_loop, &gpu),
+            window,
+            gpu: gpu,
+            relative_camera,
+            defaults,
+        };
+        let scene = Box::new((init)(&mut shura));
+        shura.window.set_title(scene.base().name());
+        shura.scene_manager.init(scene);
+        return shura;
     }
 
-    fn end(&mut self, main_scene: &mut DynamicScene, cf: &mut winit::event_loop::ControlFlow) {
-        main_scene.end(self);
-        for mut scene in self.scene_manager.end_scenes() {
-            scene.1.end(self);
+    fn end(&mut self, cf: &mut winit::event_loop::ControlFlow) {
+        for scene in self.scene_manager.end_scenes() {
+            scene.1.unwrap().end(self);
         }
         *cf = winit::event_loop::ControlFlow::Exit
     }
 
-    fn resize(&mut self, main_scene: &mut DynamicScene, new_size: Dimension<u32>) {
+    fn resize(&mut self, new_size: Dimension<u32>) {
         let config_size = self.gpu.render_size_no_scale();
         if new_size.width > 0 && new_size.height > 0 && new_size != config_size {
-            self.scene_manager.resize(main_scene);
+            self.scene_manager.resize();
             self.gpu.resize(new_size);
             self.defaults.resize(&self.gpu);
             #[cfg(feature = "gui")]
@@ -317,7 +314,7 @@ impl Shura {
     }
 
     fn update(&mut self, scene: &mut DynamicScene) -> Result<(), wgpu::SurfaceError> {
-        let mut ctx = Context::new(scene, self);
+        let mut ctx = Context::new(self, scene);
 
         ctx.start_update();
         ctx.scene.update(ctx.shura);
@@ -412,6 +409,7 @@ impl Shura {
         }
 
         let (output, mut encoder) = ctx.buffer()?;
+        let mut saved_sprites = vec![];
         let output_view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
@@ -510,7 +508,7 @@ impl Shura {
                     &mut encoder,
                     &ctx.shura.relative_camera,
                 );
-                ctx.scene.base_mut().saved_sprites.push((sprite_name, sprite));
+                saved_sprites.push((sprite_name, sprite));
             }
 
             if config.postproccess != PostproccessOperation::None {
@@ -579,10 +577,12 @@ impl Shura {
                         &mut encoder,
                         &ctx.shura.relative_camera,
                     );
-                    ctx.scene.base_mut().saved_sprites.push((sprite_name, sprite));
+                    saved_sprites.push((sprite_name, sprite));
                 }
             }
         }
+
+        ctx.scene.base_mut().saved_sprites = saved_sprites;
 
         {
             let mut renderer = Renderer::new(

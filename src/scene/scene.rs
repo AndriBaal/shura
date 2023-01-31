@@ -80,7 +80,7 @@ pub struct BaseScene {
 }
 
 impl BaseScene {
-    pub(crate) fn new(shura: &Shura, name: &'static str) -> Self {
+    pub fn new(shura: &Shura, name: &'static str) -> Self {
         const DEFAULT_VERTICAL_CAMERA_FOV: f32 = 5.0;
         let window_size: Dimension<u32> = shura.window.inner_size().into();
         let window_ratio = window_size.width as f32 / window_size.height as f32;
