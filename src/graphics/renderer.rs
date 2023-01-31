@@ -127,7 +127,7 @@ impl<'a> Renderer<'a> {
     /// ```
     /// struct Times {
     ///     total_time: f32,
-    ///     delta_time: f32
+    ///     frame_time: f32
     /// }
     ///
     /// @group(1) @binding(0)

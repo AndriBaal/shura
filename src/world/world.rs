@@ -229,7 +229,7 @@ impl World {
 
     #[inline]
     pub fn test_filter(
-        &mut self,
+        &self,
         filter: QueryFilter,
         handle: ColliderHandle,
         collider: &Collider,

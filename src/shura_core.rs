@@ -407,7 +407,7 @@ impl Shura {
         ctx.end_update();
         ctx.scene.after_update(ctx.shura);
 
-        if !scene.base().component_manager.render_components() {
+        if !ctx.render_components() {
             return Ok(());
         }
 
@@ -415,18 +415,17 @@ impl Shura {
         let output_view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
-        let base = ctx.scene.base_mut();
 
         // Clear the texture
         if let Some(clear_color) = ctx.clear_color() {
             Renderer::clear(
                 &mut encoder,
-                &self.defaults.target_view,
-                &self.defaults.target_msaa,
+                &ctx.shura.defaults.target_view,
+                &ctx.shura.defaults.target_msaa,
                 clear_color,
             );
         }
-        for set in base.component_manager.active_components().values() {
+        for set in ctx.scene.base().component_manager.active_components().values() {
             if set.is_empty() {
                 continue;
             }
@@ -436,29 +435,29 @@ impl Shura {
                 let mut renderer = if config.postproccess == PostproccessOperation::SeperateLayer {
                     Renderer::clear(
                         &mut encoder,
-                        &self.defaults.layer_view,
-                        &self.defaults.layer_msaa,
+                        &ctx.shura.defaults.layer_view,
+                        &ctx.shura.defaults.layer_msaa,
                         Color::TRANSPARENT,
                     );
                     Renderer::new(
-                        &self.gpu,
-                        &self.defaults,
+                        &ctx.shura.gpu,
+                        &ctx.shura.defaults,
                         &mut encoder,
-                        &self.defaults.layer_view,
-                        &self.defaults.layer_msaa,
+                        &ctx.shura.defaults.layer_view,
+                        &ctx.shura.defaults.layer_msaa,
                     )
                 } else {
                     Renderer::new(
-                        &self.gpu,
-                        &self.defaults,
+                        &ctx.shura.gpu,
+                        &ctx.shura.defaults,
                         &mut encoder,
-                        &self.defaults.target_view,
-                        &self.defaults.target_msaa,
+                        &ctx.shura.defaults.target_view,
+                        &ctx.shura.defaults.target_msaa,
                     )
                 };
                 match &config.camera {
                     crate::CameraUse::World => {
-                        renderer.enable_camera(&base.camera);
+                        renderer.enable_camera(&ctx.scene.base().camera);
                     }
                     crate::CameraUse::Relative => {
                         renderer.enable_camera(&ctx.shura.relative_camera);
@@ -467,7 +466,7 @@ impl Shura {
                 match config.render {
                     RenderOperation::Solo => {
                         for path in set.paths() {
-                            let group = base.component_manager.group(path.group_index).unwrap();
+                            let group = ctx.scene.base().component_manager.group(path.group_index).unwrap();
                             let component_type = group.type_ref(path.type_index).unwrap();
                             let buffer = component_type.buffer();
                             renderer.set_instance_buffer(buffer);
@@ -484,7 +483,7 @@ impl Shura {
                     }
                     RenderOperation::Grouped => {
                         for path in set.paths() {
-                            let group = base.component_manager.group(path.group_index).unwrap();
+                            let group = ctx.scene.base().component_manager.group(path.group_index).unwrap();
                             let component_type = group.type_ref(path.type_index).unwrap();
                             let len = component_type.len();
                             let buffer = component_type.buffer();
@@ -504,19 +503,19 @@ impl Shura {
             }
 
             if let Some(sprite_name) = save_sprite.take() {
-                let mut sprite = Sprite::empty(&self.gpu, self.gpu.render_size());
+                let mut sprite = Sprite::empty(&ctx.shura.gpu, ctx.shura.gpu.render_size());
                 sprite.write_current_render(
-                    &self.gpu,
-                    &self.defaults,
+                    &ctx.shura.gpu,
+                    &ctx.shura.defaults,
                     &mut encoder,
-                    &self.relative_camera,
+                    &ctx.shura.relative_camera,
                 );
-                base.saved_sprites.push((sprite_name, sprite));
+                ctx.scene.base_mut().saved_sprites.push((sprite_name, sprite));
             }
 
             if config.postproccess != PostproccessOperation::None {
                 'outer: for path in set.paths() {
-                    let group = base.component_manager.group(path.group_index).unwrap();
+                    let group = ctx.scene.base().component_manager.group(path.group_index).unwrap();
                     let component_type = group.type_ref(path.type_index).unwrap();
                     for (_, component) in component_type.iter() {
                         let postproccess = component.get_postproccess();
@@ -524,46 +523,46 @@ impl Shura {
                         match config.postproccess {
                             PostproccessOperation::SameLayer => {
                                 let mut copy =
-                                    Sprite::empty(&self.gpu, *self.defaults.target.size());
+                                    Sprite::empty(&ctx.shura.gpu, *ctx.shura.defaults.target.size());
                                 copy.write_current_render(
-                                    &self.gpu,
-                                    &self.defaults,
+                                    &ctx.shura.gpu,
+                                    &ctx.shura.defaults,
                                     &mut encoder,
-                                    &self.relative_camera,
+                                    &ctx.shura.relative_camera,
                                 );
                                 let mut renderer = Renderer::new(
-                                    &self.gpu,
-                                    &self.defaults,
+                                    &ctx.shura.gpu,
+                                    &ctx.shura.defaults,
                                     &mut encoder,
-                                    &self.defaults.target_view,
-                                    &self.defaults.target_msaa,
+                                    &ctx.shura.defaults.target_view,
+                                    &ctx.shura.defaults.target_msaa,
                                 );
-                                renderer.use_uniform(self.relative_camera.uniform(), 0);
+                                renderer.use_uniform(ctx.shura.relative_camera.uniform(), 0);
                                 renderer
-                                    .set_instance_buffer(&self.defaults.single_centered_instance);
+                                    .set_instance_buffer(&ctx.shura.defaults.single_centered_instance);
                                 postproccess(
                                     &mut renderer,
                                     instances,
-                                    self.relative_camera.model(),
+                                    ctx.shura.relative_camera.model(),
                                     &copy,
                                 );
                             }
                             PostproccessOperation::SeperateLayer => {
                                 let mut renderer = Renderer::new(
-                                    &self.gpu,
-                                    &self.defaults,
+                                    &ctx.shura.gpu,
+                                    &ctx.shura.defaults,
                                     &mut encoder,
-                                    &self.defaults.target_view,
-                                    &self.defaults.target_msaa,
+                                    &ctx.shura.defaults.target_view,
+                                    &ctx.shura.defaults.target_msaa,
                                 );
-                                renderer.use_uniform(self.relative_camera.uniform(), 0);
+                                renderer.use_uniform(ctx.shura.relative_camera.uniform(), 0);
                                 renderer
-                                    .set_instance_buffer(&self.defaults.single_centered_instance);
+                                    .set_instance_buffer(&ctx.shura.defaults.single_centered_instance);
                                 postproccess(
                                     &mut renderer,
                                     instances,
-                                    self.relative_camera.model(),
-                                    &self.defaults.layer,
+                                    ctx.shura.relative_camera.model(),
+                                    &ctx.shura.defaults.layer,
                                 );
                             }
                             PostproccessOperation::None => {}
@@ -573,36 +572,36 @@ impl Shura {
                 }
 
                 if let Some(sprite_name) = save_sprite.take() {
-                    let mut sprite = Sprite::empty(&self.gpu, self.gpu.render_size());
+                    let mut sprite = Sprite::empty(&ctx.shura.gpu, ctx.shura.gpu.render_size());
                     sprite.write_current_render(
-                        &self.gpu,
-                        &self.defaults,
+                        &ctx.shura.gpu,
+                        &ctx.shura.defaults,
                         &mut encoder,
-                        &self.relative_camera,
+                        &ctx.shura.relative_camera,
                     );
-                    base.saved_sprites.push((sprite_name, sprite));
+                    ctx.scene.base_mut().saved_sprites.push((sprite_name, sprite));
                 }
             }
         }
 
         {
             let mut renderer = Renderer::new(
-                &self.gpu,
-                &self.defaults,
+                &ctx.shura.gpu,
+                &ctx.shura.defaults,
                 &mut encoder,
                 &output_view,
-                &self.defaults.present_msaa,
+                &ctx.shura.defaults.present_msaa,
             );
-            renderer.use_uniform(self.relative_camera.uniform(), 0);
-            renderer.set_instance_buffer(&self.defaults.single_centered_instance);
-            renderer.render_sprite(self.relative_camera.model(), &self.defaults.target);
+            renderer.use_uniform(ctx.shura.relative_camera.uniform(), 0);
+            renderer.set_instance_buffer(&ctx.shura.defaults.single_centered_instance);
+            renderer.render_sprite(ctx.shura.relative_camera.model(), &ctx.shura.defaults.target);
             renderer.commit(&(0..1));
         }
         #[cfg(feature = "gui")]
         {
-            self.gui.render(&self.gpu, &mut encoder, &output_view);
+            ctx.shura.gui.render(&ctx.shura.gpu, &mut encoder, &output_view);
         }
-        self.gpu.finish_enocder(encoder);
+        ctx.shura.gpu.finish_enocder(encoder);
         output.present();
 
         Ok(())

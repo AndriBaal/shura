@@ -3,7 +3,7 @@ use log::info;
 
 /// Acces to various frame informations.
 pub struct FrameManager {
-    delta_time: Duration,
+    frame_time: Duration,
     total_time: Duration,
     last_time: Duration,
     fps_time: Duration,
@@ -19,7 +19,7 @@ impl FrameManager {
         let now = Instant::now();
         let elapsed = now.elapsed();
         Self {
-            delta_time: elapsed,
+            frame_time: elapsed,
             last_time: elapsed,
             total_time: elapsed,
             start_time: now,
@@ -32,25 +32,25 @@ impl FrameManager {
     }
 
     pub(crate) fn update(&mut self) {
-        const MAX_DELTA_TIME: Duration = Duration::from_millis(100);
+        const MAX_FRAME_TIME: Duration = Duration::from_millis(100);
         self.update_time = Instant::now();
         self.total_time = self.update_time - self.start_time;
 
         self.fps_counter += 1;
         self.total_frames += 1;
-        let new_delta_time = self.total_time - self.last_time;
+        let new_frame_time = self.total_time - self.last_time;
 
-        if new_delta_time > MAX_DELTA_TIME {
-            self.delta_time = MAX_DELTA_TIME;
+        if new_frame_time > MAX_FRAME_TIME {
+            self.frame_time = MAX_FRAME_TIME;
         } else {
-            self.delta_time = new_delta_time;
+            self.frame_time = new_frame_time;
         }
 
         if self.total_time > self.fps_time + Duration::from_secs(1) {
             self.fps = self.fps_counter;
             self.fps_time = self.total_time;
             self.fps_counter = 0;
-            info!("fps: {}\tdelta: {}", self.fps, self.delta_time());
+            info!("fps: {}\tdelta: {}", self.fps, self.frame_time());
         }
 
         self.last_time = self.total_time;
@@ -68,8 +68,8 @@ impl FrameManager {
     }
 
     #[inline]
-    pub fn delta_time(&self) -> f32 {
-        self.delta_time.as_secs_f32()
+    pub fn frame_time(&self) -> f32 {
+        self.frame_time.as_secs_f32()
     }
 
     #[inline]
@@ -78,8 +78,8 @@ impl FrameManager {
     }
 
     #[inline]
-    pub const fn delta_time_duration(&self) -> Duration {
-        self.delta_time
+    pub const fn frame_time_duration(&self) -> Duration {
+        self.frame_time
     }
 
     #[inline]

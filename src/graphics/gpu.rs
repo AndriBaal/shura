@@ -324,7 +324,7 @@ pub struct Defaults {
     pub blurr: Shader,
 
     /// This field holds both total time and the frame time. Both are stored as f32 in the buffer.
-    /// The first f32 is the `total_time` and the second f32 is the `delta_time`. In the shader
+    /// The first f32 is the `total_time` and the second f32 is the `frame_time`. In the shader
     /// the struct also needs 2 additional floats which are empty to match the 16 byte alignment
     /// some devices need.
     pub times: Uniform<[f32; 2]>,
@@ -429,8 +429,8 @@ impl Defaults {
         }
     }
 
-    pub(crate) fn buffer(&mut self, gpu: &Gpu, total_time: f32, delta_time: f32) {
-        self.times.write(&gpu, [total_time, delta_time]);
+    pub(crate) fn buffer(&mut self, gpu: &Gpu, total_time: f32, frame_time: f32) {
+        self.times.write(&gpu, [total_time, frame_time]);
     }
 
     pub(crate) fn resize(&mut self, gpu: &Gpu) {
