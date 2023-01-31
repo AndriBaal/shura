@@ -50,7 +50,7 @@ impl Camera {
     ) {
         if let Some(target) = self.target() {
             if let Some(component) = man.component_dynamic(&target) {
-                let matrix = component.inner().matrix(
+                let matrix = component.base().matrix(
                     #[cfg(feature = "physics")]
                     &world,
                 );

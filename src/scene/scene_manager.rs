@@ -23,7 +23,7 @@ impl SceneManager {
     }
 
     pub(crate) fn add<S: SceneController>(&mut self, scene: S) {
-        let scene_name = scene.inner().name;
+        let scene_name = scene.base().name;
         if self.curr_active_scene == scene_name || self.scenes.contains_key(scene_name) {
             panic!("Scene {} does already exist!", scene_name);
         }
@@ -59,9 +59,9 @@ impl SceneManager {
 
     #[inline]
     pub(crate) fn resize(&mut self, main_scene: &mut DynamicScene) {
-        main_scene.inner_mut().resized = true;
+        main_scene.base_mut().resized = true;
         for scene in self.scenes.values_mut() {
-            scene.inner_mut().resized = true;
+            scene.base_mut().resized = true;
         }
     }
 
@@ -83,7 +83,7 @@ impl SceneManager {
             .remove(new_active)
             .expect(format!("The main scene {} doesn't exist", new_active).as_str());
         self.curr_active_scene = new_active;
-        active.inner_mut().switched = true;
+        active.base_mut().switched = true;
         return Some(active);
     }
 }

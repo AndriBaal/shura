@@ -24,8 +24,8 @@ pub type DynamicComponent = Box<dyn ComponentController>;
 /// }
 /// ```
 pub trait ComponentDerive {
-    fn inner(&self) -> &dyn BaseComponent;
-    fn inner_mut(&mut self) -> &mut dyn BaseComponent;
+    fn base(&self) -> &dyn BaseComponent;
+    fn base_mut(&mut self) -> &mut dyn BaseComponent;
 }
 
 #[allow(unused_variables)]
@@ -287,12 +287,12 @@ impl ComponentConfig {
 }
 
 impl<C: ComponentController + ?Sized> ComponentDerive for Box<C> {
-    fn inner(&self) -> &dyn BaseComponent {
-        (**self).inner()
+    fn base(&self) -> &dyn BaseComponent {
+        (**self).base()
     }
 
-    fn inner_mut(&mut self) -> &mut dyn BaseComponent {
-        (**self).inner_mut()
+    fn base_mut(&mut self) -> &mut dyn BaseComponent {
+        (**self).base_mut()
     }
 }
 

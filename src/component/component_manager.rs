@@ -217,7 +217,7 @@ impl ComponentManager {
         }
 
         let c = self.component_dynamic_mut(&handle).unwrap();
-        c.inner_mut().init(
+        c.base_mut().init(
             #[cfg(feature = "physics")]
             world,
             handle,
@@ -246,7 +246,7 @@ impl ComponentManager {
             if let Some(component_type) = group.type_mut(handle.type_index()) {
                 #[cfg(feature = "physics")]
                 if let Some(mut component) = component_type.remove(handle) {
-                    if let Some(p) = component.inner_mut().downcast_mut::<PhysicsComponent>() {
+                    if let Some(p) = component.base_mut().downcast_mut::<PhysicsComponent>() {
                         p.remove_from_world(world);
                     }
                     return Some(component);
@@ -284,7 +284,7 @@ impl ComponentManager {
                 let component_type = group.type_mut(*type_index).unwrap();
                 #[cfg(feature = "physics")]
                 for (_, c) in component_type.iter_mut() {
-                    if let Some(p) = c.inner_mut().downcast_mut::<PhysicsComponent>() {
+                    if let Some(p) = c.base_mut().downcast_mut::<PhysicsComponent>() {
                         p.remove_from_world(world);
                     } else {
                         break;
@@ -353,7 +353,7 @@ impl ComponentManager {
             if let Some(mut group) = self.groups.remove(index) {
                 'outer: for (_, component_type) in group.types() {
                     for (_, c) in component_type.iter_mut() {
-                        if let Some(p) = c.inner_mut().downcast_mut::<PhysicsComponent>() {
+                        if let Some(p) = c.base_mut().downcast_mut::<PhysicsComponent>() {
                             p.remove_from_world(world);
                         } else {
                             break 'outer;

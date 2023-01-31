@@ -30,25 +30,25 @@ impl<T: SceneController + ?Sized> SceneController for Box<T> {
 }
 
 pub trait SceneDerive {
-    fn inner(&self) -> &BaseScene;
-    fn inner_mut(&mut self) -> &mut BaseScene;
+    fn base(&self) -> &BaseScene;
+    fn base_mut(&mut self) -> &mut BaseScene;
 }
 
 impl<C: SceneController + ?Sized> SceneDerive for Box<C> {
-    fn inner(&self) -> &BaseScene {
-        (**self).inner()
+    fn base(&self) -> &BaseScene {
+        (**self).base()
     }
 
-    fn inner_mut(&mut self) -> &mut BaseScene {
-        (**self).inner_mut()
+    fn base_mut(&mut self) -> &mut BaseScene {
+        (**self).base_mut()
     }
 }
 
 impl SceneDerive for BaseScene {
-    fn inner(&self) -> &BaseScene {
+    fn base(&self) -> &BaseScene {
         self
     }
-    fn inner_mut(&mut self) -> &mut BaseScene {
+    fn base_mut(&mut self) -> &mut BaseScene {
         self
     }
 }

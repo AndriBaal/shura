@@ -49,7 +49,7 @@ impl SceneController for GameScene {
                 if dead.len() == MODIFY_STEP {
                     break;
                 }
-                dead.push(*bunny.inner().handle());
+                dead.push(*bunny.base().handle());
             }
             for handle in dead {
                 ctx.remove_component(&handle);

@@ -237,14 +237,14 @@ impl<T> Arena<T> {
     pub fn iter(&self) -> ArenaIter<T> {
         ArenaIter {
             len: self.len,
-            inner: self.items.iter().enumerate(),
+            base: self.items.iter().enumerate(),
         }
     }
 
     pub fn iter_mut(&mut self) -> ArenaIterMut<T> {
         ArenaIterMut {
             len: self.len,
-            inner: self.items.iter_mut().enumerate(),
+            base: self.items.iter_mut().enumerate(),
         }
     }
 }
@@ -259,7 +259,7 @@ impl<'a, T> IntoIterator for &'a Arena<T> {
 
 pub(crate) struct ArenaIter<'a, T> {
     len: usize,
-    inner: iter::Enumerate<slice::Iter<'a, ArenaEntry<T>>>,
+    base: iter::Enumerate<slice::Iter<'a, ArenaEntry<T>>>,
 }
 
 impl<'a, T> Iterator for ArenaIter<'a, T> {
@@ -267,7 +267,7 @@ impl<'a, T> Iterator for ArenaIter<'a, T> {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            match self.inner.next() {
+            match self.base.next() {
                 Some((
                     index,
                     &ArenaEntry::Occupied {
@@ -299,7 +299,7 @@ impl<'a, T> Iterator for ArenaIter<'a, T> {
 impl<'a, T> DoubleEndedIterator for ArenaIter<'a, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
         loop {
-            match self.inner.next_back() {
+            match self.base.next_back() {
                 Some((
                     index,
                     &ArenaEntry::Occupied {
@@ -342,7 +342,7 @@ impl<'a, T> IntoIterator for &'a mut Arena<T> {
 
 pub(crate) struct ArenaIterMut<'a, T> {
     len: usize,
-    inner: iter::Enumerate<slice::IterMut<'a, ArenaEntry<T>>>,
+    base: iter::Enumerate<slice::IterMut<'a, ArenaEntry<T>>>,
 }
 
 impl<'a, T> Iterator for ArenaIterMut<'a, T> {
@@ -350,7 +350,7 @@ impl<'a, T> Iterator for ArenaIterMut<'a, T> {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            match self.inner.next() {
+            match self.base.next() {
                 Some((
                     index,
                     &mut ArenaEntry::Occupied {
@@ -382,7 +382,7 @@ impl<'a, T> Iterator for ArenaIterMut<'a, T> {
 impl<'a, T> DoubleEndedIterator for ArenaIterMut<'a, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
         loop {
-            match self.inner.next_back() {
+            match self.base.next_back() {
                 Some((
                     index,
                     &mut ArenaEntry::Occupied {

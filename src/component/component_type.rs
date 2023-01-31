@@ -65,7 +65,7 @@ impl ComponentType {
         self.components
             .iter_mut()
             .map(|(_, component)| {
-                component.inner().matrix(
+                component.base().matrix(
                     #[cfg(feature = "physics")]
                     world,
                 )

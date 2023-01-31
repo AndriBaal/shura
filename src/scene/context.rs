@@ -51,25 +51,33 @@ impl<'a> Context<'a> {
     }
 
     #[inline]
-    pub(crate) fn buffer(&mut self) {
-        self.scene.inner().camera.buffer(&self.shura.gpu);
-        self.scene.inner().component_manager.buffer_sets(
+    pub(crate) fn buffer(
+        &mut self,
+    ) -> Result<(wgpu::SurfaceTexture, wgpu::CommandEncoder), wgpu::SurfaceError> {
+        let base = self.scene.base_mut();
+        base.camera.buffer(&self.shura.gpu);
+        base.component_manager.buffer_sets(
             &self.shura.gpu,
             #[cfg(feature = "physics")]
-            &self.scene.inner().world,
+            &base.world,
         );
         self.shura.defaults.buffer(
             &self.shura.gpu,
             self.shura.frame_manager.total_time(),
             self.shura.frame_manager.delta_time(),
         );
+
+        let output = self.shura.gpu.surface.get_current_texture()?;
+        let encoder = self.shura.gpu.encoder();
+
+        return Ok((output, encoder));
     }
 
     #[inline]
     pub(crate) fn start_update(&mut self) {
-        let window = &mut self.shura.window;
-        let input = &mut self.shura.input;
-        let base = self.scene.inner_mut();
+        let window = &self.shura.window;
+        let input = &self.shura.input;
+        let base = self.scene.base_mut();
 
         self.shura.frame_manager.update();
 
@@ -85,10 +93,9 @@ impl<'a> Context<'a> {
         }
 
         #[cfg(feature = "gui")]
-        self.shura.gui.begin(
-            &self.shura.frame_manager.total_time_duration(),
-            &self.shura.window,
-        );
+        self.shura
+            .gui
+            .begin(&self.shura.frame_manager.total_time_duration(), &window);
 
         if base.resized {
             let new_size: Dimension<u32> = window.inner_size().into();
@@ -102,18 +109,16 @@ impl<'a> Context<'a> {
 
     #[inline]
     pub(crate) fn end_update(&mut self) {
-        let base = self.scene.inner_mut();
+        let base = self.scene.base_mut();
 
+        base.component_manager.set_current_component(None);
         self.shura.input.update();
         base.camera.apply_target(
             &base.component_manager,
             #[cfg(feature = "physics")]
             &base.world,
         );
-        self.scene
-            .inner()
-            .component_manager
-            .update_sets(&base.camera);
+        base.component_manager.update_sets(&base.camera);
         base.resized = false;
         base.switched = false;
     }
@@ -123,7 +128,7 @@ impl<'a> Context<'a> {
         &mut self,
     ) -> BTreeMap<(i16, &'static str), ComponentCluster> {
         self.scene
-            .inner()
+            .base_mut()
             .component_manager
             .borrow_active_components()
     }
@@ -134,7 +139,7 @@ impl<'a> Context<'a> {
         active_components: BTreeMap<(i16, &'static str), ComponentCluster>,
     ) {
         self.scene
-            .inner_mut()
+            .base_mut()
             .component_manager
             .return_active_components(active_components)
     }
@@ -142,13 +147,13 @@ impl<'a> Context<'a> {
     #[inline]
     #[cfg(feature = "physics")]
     pub(crate) fn step_world(&mut self) {
-        self.scene.inner().world.step(self.delta_time());
+        self.scene.base().world.step(self.delta_time());
     }
 
     #[inline]
     pub(crate) fn remove_current_commponent(&mut self) -> bool {
         self.scene
-            .inner()
+            .base()
             .component_manager
             .remove_current_commponent()
     }
@@ -156,7 +161,7 @@ impl<'a> Context<'a> {
     #[inline]
     pub(crate) fn set_current_component(&mut self, current_component: Option<ComponentHandle>) {
         self.scene
-            .inner_mut()
+            .base_mut()
             .component_manager
             .set_current_component(current_component);
     }
@@ -166,18 +171,18 @@ impl<'a> Context<'a> {
     pub(crate) fn collision_event(
         &mut self,
     ) -> Result<CollisionEvent, crossbeam::channel::TryRecvError> {
-        self.scene.inner().world.collision_event()
+        self.scene.base().world.collision_event()
     }
 
     #[inline]
     #[cfg(feature = "physics")]
     pub fn component_from_collider(&self, collider: &ColliderHandle) -> Option<ComponentHandle> {
-        self.scene.inner().world.component(collider)
+        self.scene.base().world.component(collider)
     }
 
     #[inline]
     pub fn does_group_exist(&self, group: u32) -> bool {
-        self.scene.inner().component_manager.does_group_exist(group)
+        self.scene.base().component_manager.does_group_exist(group)
     }
 
     //////////////////////////////////////////////////////////////////////////////////////////////
@@ -193,7 +198,7 @@ impl<'a> Context<'a> {
         joint: impl Into<GenericJoint>,
     ) -> ImpulseJointHandle {
         self.scene
-            .inner_mut()
+            .base_mut()
             .world
             .create_joint(rigid_body1, rigid_body2, joint)
     }
@@ -311,18 +316,12 @@ impl<'a> Context<'a> {
         component: &PhysicsComponent,
         collider: &ColliderBuilder,
     ) -> ColliderHandle {
-        self.scene
-            .inner()
-            .world
-            .create_collider(component, collider)
+        self.scene.base().world.create_collider(component, collider)
     }
 
     #[inline]
     pub fn create_group(&mut self, descriptor: &ComponentGroupDescriptor) {
-        self.scene
-            .inner()
-            .component_manager
-            .create_group(descriptor);
+        self.scene.base().component_manager.create_group(descriptor);
     }
 
     #[inline]
@@ -331,9 +330,9 @@ impl<'a> Context<'a> {
         group: Option<u32>,
         component: C,
     ) -> (&mut C, ComponentHandle) {
-        self.scene.inner().component_manager.create_component(
+        self.scene.base().component_manager.create_component(
             #[cfg(feature = "physics")]
-            &mut self.scene.inner().world,
+            &mut self.scene.base().world,
             self.shura.frame_manager.total_frames(),
             group,
             component,
@@ -357,41 +356,41 @@ impl<'a> Context<'a> {
 
     #[inline]
     pub fn remove_component(&mut self, handle: &ComponentHandle) -> Option<DynamicComponent> {
-        return self.scene.inner().component_manager.remove_component(
+        return self.scene.base().component_manager.remove_component(
             handle,
             #[cfg(feature = "physics")]
-            &mut self.scene.inner().world,
+            &mut self.scene.base().world,
         );
     }
 
     #[inline]
     pub fn remove_components<C: ComponentController>(&mut self, filter: GroupFilter) {
-        self.scene.inner().component_manager.remove_components::<C>(
+        self.scene.base().component_manager.remove_components::<C>(
             filter,
             #[cfg(feature = "physics")]
-            &mut self.scene.inner().world,
+            &mut self.scene.base().world,
         );
     }
 
     #[inline]
     pub fn remove_group(&mut self, group_id: u32) {
-        self.scene.inner().component_manager.remove_group(
+        self.scene.base().component_manager.remove_group(
             group_id,
             #[cfg(feature = "physics")]
-            &mut self.scene.inner().world,
+            &mut self.scene.base().world,
         )
     }
 
     #[inline]
     #[cfg(feature = "physics")]
     pub fn remove_joint(&mut self, joint: ImpulseJointHandle) {
-        self.scene.inner().world.remove_joint(joint)
+        self.scene.base().world.remove_joint(joint)
     }
 
     #[inline]
     #[cfg(feature = "physics")]
     pub fn remove_collider(&mut self, collider_handle: ColliderHandle) {
-        self.scene.inner().world.remove_collider(collider_handle);
+        self.scene.base().world.remove_collider(collider_handle);
     }
 
     //////////////////////////////////////////////////////////////////////////////////////////////
@@ -399,7 +398,7 @@ impl<'a> Context<'a> {
     //////////////////////////////////////////////////////////////////////////////////////////////
     #[inline]
     pub fn current_component(&self) -> Option<ComponentHandle> {
-        self.scene.inner().component_manager.current_component()
+        self.scene.base().component_manager.current_component()
     }
 
     #[inline]
@@ -409,17 +408,17 @@ impl<'a> Context<'a> {
 
     #[inline]
     pub fn saved_sprites(&self) -> &Vec<(String, Sprite)> {
-        &self.scene.inner().saved_sprites
+        &self.scene.base().saved_sprites
     }
 
     #[inline]
     pub fn saved_sprites_mut(&mut self) -> &mut Vec<(String, Sprite)> {
-        &mut self.scene.inner().saved_sprites
+        &mut self.scene.base().saved_sprites
     }
 
     #[inline]
     pub fn clear_saved_sprites(&mut self) -> Vec<(String, Sprite)> {
-        return std::mem::replace(&mut self.scene.inner().saved_sprites, vec![]);
+        return std::mem::replace(&mut self.scene.base().saved_sprites, vec![]);
     }
 
     #[inline]
@@ -436,25 +435,25 @@ impl<'a> Context<'a> {
     #[inline]
     #[cfg(feature = "physics")]
     pub fn joint(&self, joint: ImpulseJointHandle) -> Option<&ImpulseJoint> {
-        self.scene.inner().world.joint(joint)
+        self.scene.base().world.joint(joint)
     }
 
     #[inline]
     #[cfg(feature = "physics")]
     pub fn joint_mut(&mut self, joint: ImpulseJointHandle) -> Option<&mut ImpulseJoint> {
-        self.scene.inner().world.joint_mut(joint)
+        self.scene.base().world.joint_mut(joint)
     }
 
     #[inline]
     #[cfg(feature = "physics")]
     pub fn collider(&self, collider_handle: ColliderHandle) -> Option<&Collider> {
-        self.scene.inner().world.collider(collider_handle)
+        self.scene.base().world.collider(collider_handle)
     }
 
     #[inline]
     #[cfg(feature = "physics")]
     pub fn collider_mut(&mut self, collider_handle: ColliderHandle) -> Option<&mut Collider> {
-        self.scene.inner().world.collider_mut(collider_handle)
+        self.scene.base().world.collider_mut(collider_handle)
     }
 
     #[inline]
@@ -524,74 +523,74 @@ impl<'a> Context<'a> {
 
     #[inline]
     pub const fn render_components(&self) -> bool {
-        self.scene.inner().component_manager.render_components()
+        self.scene.base().component_manager.render_components()
     }
 
     #[inline]
     pub fn update_components(&self) -> bool {
-        self.scene.inner().component_manager.update_components()
+        self.scene.base().component_manager.update_components()
     }
 
     #[inline]
     /// Returns a dimension with the distance from the center of the camera to the right and from the
     /// center to the top.
     pub fn camera_fov(&self) -> Dimension<f32> {
-        self.scene.inner().camera.fov()
+        self.scene.base().camera.fov()
     }
 
     #[inline]
     pub fn camera_translation(&self) -> &Vector<f32> {
-        self.scene.inner().camera.translation()
+        self.scene.base().camera.translation()
     }
 
     #[inline]
     pub fn camera_rotation(&self) -> &Rotation<f32> {
-        self.scene.inner().camera.rotation()
+        self.scene.base().camera.rotation()
     }
 
     #[inline]
     pub fn camera_position(&self) -> &Isometry<f32> {
-        self.scene.inner().camera.position()
+        self.scene.base().camera.position()
     }
 
     #[inline]
     pub fn camera_target(&self) -> Option<ComponentHandle> {
-        self.scene.inner().camera.target()
+        self.scene.base().camera.target()
     }
 
     #[inline]
     pub fn clear_color(&self) -> Option<Color> {
-        self.scene.inner().clear_color
+        self.scene.base().clear_color
     }
 
     #[inline]
     pub fn cursor_world(&self) -> &Vector<f32> {
-        self.scene.inner().cursor.cursor_world()
+        self.scene.base().cursor.cursor_world()
     }
 
     #[inline]
     pub fn relative_cursor_pos(&self) -> &Vector<f32> {
-        self.scene.inner().cursor.cursor_relative()
+        self.scene.base().cursor.cursor_relative()
     }
 
     #[inline]
     pub fn cursor_raw(&self) -> &Vector<u32> {
-        self.scene.inner().cursor.cursor_raw()
+        self.scene.base().cursor.cursor_raw()
     }
 
     #[inline]
     pub fn touches(&self) -> &[Touch] {
-        self.scene.inner().cursor.touches()
+        self.scene.base().cursor.touches()
     }
 
     #[inline]
     pub fn scene_resized(&self) -> bool {
-        return self.scene.inner().resized;
+        return self.scene.base().resized;
     }
 
     #[inline]
     pub fn scene_switched(&self) -> bool {
-        return self.scene.inner().switched;
+        return self.scene.base().switched;
     }
 
     #[inline]
@@ -608,7 +607,7 @@ impl<'a> Context<'a> {
     #[cfg(feature = "physics")]
     pub fn intersects_ray(&self, collider_handle: ColliderHandle, ray: Ray, max_toi: f32) -> bool {
         self.scene
-            .inner()
+            .base()
             .world
             .intersects_ray(collider_handle, ray, max_toi)
     }
@@ -617,7 +616,7 @@ impl<'a> Context<'a> {
     #[cfg(feature = "physics")]
     pub fn intersects_point(&self, collider_handle: ColliderHandle, point: Vector<f32>) -> bool {
         self.scene
-            .inner()
+            .base()
             .world
             .intersects_point(collider_handle, point)
     }
@@ -631,7 +630,7 @@ impl<'a> Context<'a> {
         collider: &Collider,
     ) -> bool {
         self.scene
-            .inner()
+            .base()
             .world
             .test_filter(filter, handle, collider)
     }
@@ -646,7 +645,7 @@ impl<'a> Context<'a> {
         filter: QueryFilter,
     ) -> Option<(ComponentHandle, ColliderHandle, f32)> {
         self.scene
-            .inner()
+            .base()
             .world
             .cast_ray(ray, max_toi, solid, filter)
     }
@@ -662,7 +661,7 @@ impl<'a> Context<'a> {
         stop_at_penetration: bool,
         filter: QueryFilter,
     ) -> Option<(ComponentHandle, ColliderHandle, TOI)> {
-        self.scene.inner().world.cast_shape(
+        self.scene.base().world.cast_shape(
             shape,
             position,
             velocity,
@@ -682,7 +681,7 @@ impl<'a> Context<'a> {
         filter: QueryFilter,
     ) -> Option<(ComponentHandle, ColliderHandle, RayIntersection)> {
         self.scene
-            .inner()
+            .base()
             .world
             .cast_ray_and_get_normal(ray, max_toi, solid, filter)
     }
@@ -698,7 +697,7 @@ impl<'a> Context<'a> {
         callback: impl FnMut(ComponentHandle, ColliderHandle, RayIntersection) -> bool,
     ) {
         self.scene
-            .inner()
+            .base()
             .world
             .intersections_with_ray(ray, max_toi, solid, filter, callback)
     }
@@ -713,7 +712,7 @@ impl<'a> Context<'a> {
         callback: impl FnMut(ComponentHandle, ColliderHandle) -> bool,
     ) {
         self.scene
-            .inner()
+            .base()
             .world
             .intersections_with_shape(shape_pos, shape, filter, callback)
     }
@@ -727,7 +726,7 @@ impl<'a> Context<'a> {
         filter: QueryFilter,
     ) -> Option<(ComponentHandle, ColliderHandle)> {
         self.scene
-            .inner()
+            .base()
             .world
             .intersection_with_shape(shape_pos, shape, filter)
     }
@@ -741,7 +740,7 @@ impl<'a> Context<'a> {
         callback: impl FnMut(ComponentHandle, ColliderHandle) -> bool,
     ) {
         self.scene
-            .inner()
+            .base()
             .world
             .intersections_with_point(point, filter, callback)
     }
@@ -783,23 +782,23 @@ impl<'a> Context<'a> {
 
     #[inline]
     pub fn group_mut(&mut self, id: u32) -> Option<&mut ComponentGroup> {
-        if let Some(group_index) = self.scene.inner().component_manager.group_index(&id) {
-            return self.scene.inner().component_manager.group_mut(*group_index);
+        if let Some(group_index) = self.scene.base().component_manager.group_index(&id) {
+            return self.scene.base().component_manager.group_mut(*group_index);
         }
         return None;
     }
 
     #[inline]
     pub fn group(&self, id: u32) -> Option<&ComponentGroup> {
-        if let Some(group_index) = self.scene.inner().component_manager.group_index(&id) {
-            return self.scene.inner().component_manager.group(*group_index);
+        if let Some(group_index) = self.scene.base().component_manager.group_index(&id) {
+            return self.scene.base().component_manager.group(*group_index);
         }
         return None;
     }
 
     #[inline]
     pub fn scene_name(&self) -> &str {
-        self.scene.inner().name
+        self.scene.base().name
     }
 
     #[inline]
@@ -819,18 +818,18 @@ impl<'a> Context<'a> {
 
     #[inline]
     pub fn active_group_ids(&self) -> &[u32] {
-        self.scene.inner().component_manager.active_group_ids()
+        self.scene.base().component_manager.active_group_ids()
     }
 
     #[inline]
     pub fn group_ids(&self) -> Vec<u32> {
-        self.scene.inner().component_manager.group_ids()
+        self.scene.base().component_manager.group_ids()
     }
 
     #[inline]
     pub fn component_dynamic(&self, handle: &ComponentHandle) -> Option<&DynamicComponent> {
         self.scene
-            .inner()
+            .base()
             .component_manager
             .component_dynamic(handle)
     }
@@ -840,14 +839,14 @@ impl<'a> Context<'a> {
         handle: &ComponentHandle,
     ) -> Option<&mut DynamicComponent> {
         self.scene
-            .inner()
+            .base()
             .component_manager
             .component_dynamic_mut(handle)
     }
 
     #[inline]
     pub fn component<C: ComponentController>(&self, handle: &ComponentHandle) -> Option<&C> {
-        self.scene.inner().component_manager.component::<C>(handle)
+        self.scene.base().component_manager.component::<C>(handle)
     }
 
     #[inline]
@@ -856,7 +855,7 @@ impl<'a> Context<'a> {
         handle: &ComponentHandle,
     ) -> Option<&mut C> {
         self.scene
-            .inner()
+            .base()
             .component_manager
             .component_mut::<C>(handle)
     }
@@ -866,7 +865,7 @@ impl<'a> Context<'a> {
     /// (InstanceBuffer)[crate::InstanceBuffer]. This is used when the [crate::ComponentConfig::does_move]
     /// flag is set, but the position needs to be updated.
     pub fn force_buffer<C: ComponentController>(&mut self) {
-        self.scene.inner().component_manager.force_buffer::<C>()
+        self.scene.base().component_manager.force_buffer::<C>()
     }
 
     #[inline]
@@ -875,7 +874,7 @@ impl<'a> Context<'a> {
     /// flag is set, but the position needs to be updated.
     pub fn force_buffer_groups<C: ComponentController>(&mut self, group_ids: &[u32]) {
         self.scene
-            .inner_mut()
+            .base_mut()
             .component_manager
             .force_buffer_groups::<C>(group_ids)
     }
@@ -886,7 +885,7 @@ impl<'a> Context<'a> {
     /// flag is set, but the position needs to be updated.
     pub fn force_buffer_active<C: ComponentController>(&mut self) {
         self.scene
-            .inner()
+            .base()
             .component_manager
             .force_buffer_active::<C>()
     }
@@ -894,13 +893,13 @@ impl<'a> Context<'a> {
     #[inline]
     #[cfg(feature = "physics")]
     pub fn gravity(&self) -> &Vector<f32> {
-        self.scene.inner().world.gravity()
+        self.scene.base().world.gravity()
     }
 
     #[inline]
     #[cfg(feature = "physics")]
     pub fn physics_priority(&self) -> i16 {
-        self.scene.inner().world.physics_priority()
+        self.scene.base().world.physics_priority()
     }
 
     #[inline]
@@ -909,14 +908,14 @@ impl<'a> Context<'a> {
         filter: GroupFilter,
     ) -> ComponentSetMut<C> {
         self.scene
-            .inner()
+            .base()
             .component_manager
             .components_mut::<C>(filter)
     }
 
     #[inline]
     pub fn components<C: ComponentController>(&self, filter: GroupFilter) -> ComponentSet<C> {
-        self.scene.inner().component_manager.components::<C>(filter)
+        self.scene.base().component_manager.components::<C>(filter)
     }
 
     #[inline]
@@ -938,7 +937,7 @@ impl<'a> Context<'a> {
         index: usize,
     ) -> Option<ArenaEntry<DynamicComponent>> {
         self.scene
-            .inner()
+            .base()
             .component_manager
             .borrow_component(path, index)
     }
@@ -951,7 +950,7 @@ impl<'a> Context<'a> {
         component: ArenaEntry<DynamicComponent>,
     ) {
         self.scene
-            .inner_mut()
+            .base_mut()
             .component_manager
             .return_component(path, index, component)
     }
@@ -959,7 +958,7 @@ impl<'a> Context<'a> {
     #[inline]
     pub(crate) fn not_return_component(&mut self, path: ArenaPath, index: usize) {
         self.scene
-            .inner_mut()
+            .base_mut()
             .component_manager
             .not_return_component(path, index)
     }
@@ -983,7 +982,7 @@ impl<'a> Context<'a> {
     #[inline]
     pub fn set_update_components(&mut self, update_components: bool) {
         self.scene
-            .inner_mut()
+            .base_mut()
             .component_manager
             .set_update_components(update_components)
     }
@@ -991,28 +990,28 @@ impl<'a> Context<'a> {
     #[inline]
     pub fn set_render_components(&mut self, render_components: bool) {
         self.scene
-            .inner_mut()
+            .base_mut()
             .component_manager
             .set_render_components(render_components)
     }
 
     #[inline]
     pub fn set_camera_position(&mut self, pos: Isometry<f32>) {
-        self.scene.inner().camera.set_position(pos);
+        self.scene.base().camera.set_position(pos);
     }
 
     #[inline]
     pub fn set_camera_translation(&mut self, translation: Vector<f32>) {
-        self.scene.inner().camera.set_translation(translation);
+        self.scene.base().camera.set_translation(translation);
     }
 
     #[inline]
     pub fn set_camera_rotation(&mut self, rotation: Rotation<f32>) {
-        self.scene.inner().camera.set_rotation(rotation);
+        self.scene.base().camera.set_rotation(rotation);
     }
 
     pub fn set_camera_target(&mut self, target: Option<ComponentHandle>) {
-        self.scene.inner().camera.set_target(target);
+        self.scene.base().camera.set_target(target);
     }
 
     #[inline]
@@ -1031,8 +1030,8 @@ impl<'a> Context<'a> {
     /// Set the distance between the center of the camera to the top in world coordinates.
     pub fn set_vertical_fov(&mut self, fov: f32) {
         let window_size = self.window_size();
-        self.scene.inner().camera.set_vertical_fov(
-            &mut self.scene.inner().cursor,
+        self.scene.base().camera.set_vertical_fov(
+            &mut self.scene.base().cursor,
             &self.shura.input,
             window_size,
             fov,
@@ -1043,8 +1042,8 @@ impl<'a> Context<'a> {
     /// Set the distance between the center of the camera to the right in world coordinates.
     pub fn set_horizontal_fov(&mut self, fov: f32) {
         let window_size = self.window_size();
-        self.scene.inner().camera.set_horizontal_fov(
-            &mut self.scene.inner().cursor,
+        self.scene.base().camera.set_horizontal_fov(
+            &mut self.scene.base().cursor,
             &self.shura.input,
             window_size,
             fov,
@@ -1069,7 +1068,7 @@ impl<'a> Context<'a> {
 
     #[inline]
     pub fn set_clear_color(&mut self, color: Option<Color>) {
-        self.scene.inner().clear_color = color;
+        self.scene.base().clear_color = color;
     }
 
     #[inline]
@@ -1085,13 +1084,13 @@ impl<'a> Context<'a> {
     #[inline]
     #[cfg(feature = "physics")]
     pub fn set_gravity(&mut self, gravity: Vector<f32>) {
-        self.scene.inner().world.set_gravity(gravity);
+        self.scene.base().world.set_gravity(gravity);
     }
 
     #[inline]
     #[cfg(feature = "physics")]
     pub fn set_physics_priority(&mut self, step: i16) {
-        self.scene.inner().world.set_physics_priority(step);
+        self.scene.base().world.set_physics_priority(step);
     }
 
     #[inline]

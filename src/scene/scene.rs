@@ -29,12 +29,12 @@ use crate::{
 //     fn into_scene(mut self, shura: &mut Shura) -> DynamicScene {
 //         let window_size: Dimension<u32> = shura.window.inner_size().into();
 //         let window_ratio = window_size.width as f32 / window_size.height as f32;
-//         let inner = self.existing.inner_mut();
-//         inner.name = self.name;
-//         inner.camera.resize(window_ratio);
-//         inner
+//         let base = self.existing.base_mut();
+//         base.name = self.name;
+//         base.camera.resize(window_ratio);
+//         base
 //             .cursor
-//             .compute(&inner.camera.fov(), &window_size, &shura.input);
+//             .compute(&base.camera.fov(), &window_size, &shura.input);
 //         return self.existing;
 //     }
 // }
