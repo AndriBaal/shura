@@ -99,8 +99,18 @@ impl<'a, C: ComponentController> ComponentSet<'a, C> {
     }
 
     /// Iterate over this set
-    pub fn iter(&'a self) -> ComponentIter<'a, C> {
-        return ComponentIter::new(self);
+    pub fn iter(&self) -> ComponentIter<'a, C> {
+        return ComponentIter::<'a, C>::new(&self.types, self.len);
+    }
+
+    pub fn test(&self) -> &'a C {
+        self.types[0]
+            .iter()
+            .next()
+            .unwrap()
+            .1
+            .downcast_ref::<C>()
+            .unwrap()
     }
 }
 
@@ -131,15 +141,15 @@ impl<'a, C> ComponentIter<'a, C>
 where
     C: ComponentController,
 {
-    pub(crate) fn new(set: &'a ComponentSet<C>) -> ComponentIter<'a, C> {
-        let mut iters = Vec::with_capacity(set.types.len());
-        for t in &set.types {
+    pub(crate) fn new(types: &Vec<&'a ComponentType>, len: usize) -> ComponentIter<'a, C> {
+        let mut iters = Vec::with_capacity(types.len());
+        for t in types {
             iters.push(t.iter());
         }
         ComponentIter {
             iters,
             iter_index: 0,
-            len: set.len(),
+            len,
             _type: PhantomData::<C>,
         }
     }
@@ -221,7 +231,7 @@ impl<'a, C: ComponentController> ComponentSetMut<'a, C> {
 
     /// Iterate over this set
     pub fn iter(&'a mut self) -> ComponentIterMut<'a, C> {
-        return ComponentIterMut::new(self);
+        return ComponentIterMut::<'a, C>::new(&mut self.types, self.len);
     }
 }
 
@@ -252,10 +262,12 @@ impl<'a, C> ComponentIterMut<'a, C>
 where
     C: ComponentController,
 {
-    pub(crate) fn new(set: &'a mut ComponentSetMut<C>) -> ComponentIterMut<'a, C> {
-        let mut iters = Vec::with_capacity(set.types.len());
-        let len = set.len();
-        for t in &mut set.types {
+    pub(crate) fn new(
+        types: &'a mut Vec<&'a mut ComponentType>,
+        len: usize,
+    ) -> ComponentIterMut<'a, C> {
+        let mut iters = Vec::with_capacity(types.len());
+        for t in types {
             iters.push(t.iter_mut());
         }
         ComponentIterMut {

@@ -51,7 +51,7 @@ pub(crate) use crate::{component::component_type::*, data::arena::*};
 pub use crate::{
     component::{
         component::*, component_group::*, component_manager::*, component_set::*,
-        position_component::*,
+        empty_component::*, position_component::*,
     },
     graphics::{camera::*, frame_manager::*},
     graphics::{
@@ -68,7 +68,7 @@ pub use crate::{
     },
     input::{cursor_manager::*, input::*},
     math::{dimension::*, math::*, matrix::*},
-    scene::{context::*, scene::*, scene_controller::*, scene_manager::*},
+    scene::{context::*, scene::*, scene_manager::*},
     shura_core::*,
 };
 

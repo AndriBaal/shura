@@ -2,8 +2,8 @@
 use crate::physics::World;
 use crate::{
     data::arena::{ArenaEntry, ArenaIter, ArenaIterMut},
-    Arena, ArenaIndex, ComponentConfig, ComponentHandle, DynamicComponent, Gpu, InstanceBuffer,
-    Matrix, RenderOperation, ComponentController,
+    Arena, ArenaIndex, ComponentConfig, ComponentController, ComponentHandle, DynamicComponent,
+    Gpu, InstanceBuffer, Matrix, RenderOperation,
 };
 
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -25,14 +25,17 @@ impl ComponentType {
     pub fn new<C: ComponentController>(component: C) -> (ArenaIndex, Self) {
         let mut components: Arena<DynamicComponent> = Arena::new();
         let component_index = components.insert(Box::new(component));
-        (component_index, Self {
-            components,
-            buffer: None,
-            force_rewrite_buffer: false,
-            last_len: 0,
-            config: C::config(),
-            name: C::name(),
-        })
+        (
+            component_index,
+            Self {
+                components,
+                buffer: None,
+                force_rewrite_buffer: false,
+                last_len: 0,
+                config: C::config(),
+                name: C::name(),
+            },
+        )
     }
 
     #[inline(always)]

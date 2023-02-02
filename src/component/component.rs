@@ -2,9 +2,7 @@ use core::hash::Hash;
 
 #[cfg(feature = "physics")]
 use crate::physics::{CollideType, ColliderHandle, World};
-use crate::{
-    ArenaIndex, ComponentSet, Context, DynamicScene, Instances, Matrix, Model, Renderer, Sprite,
-};
+use crate::{ArenaIndex, ComponentSet, Context, Instances, Matrix, Model, Renderer, Sprite};
 use downcast_rs::*;
 use instant::Duration;
 
@@ -33,7 +31,6 @@ pub trait ComponentDerive {
 /// that implements this trait must have a [Component](crate::BaseComponent) field. This is usually
 /// done with the [component derive macro](crate::Component)
 ///
-///CustomComponentConfig
 /// A controller is used to add
 /// data to a Component and define the behaviour of the componencomponents.len() as u32§t it controlls. Every component belongs to
 /// one controller and every controller belongs to one component.
@@ -56,9 +53,9 @@ pub trait ComponentController: Downcast + _StaticAccess + ComponentDerive {
     /// For this method to work the render operation of this component must be set to
     /// [RenderOperation::Grouped](crate::RenderOperation::Grouped) in the [ComponentConfig](crate::ComponentConfig).
     fn render_grouped<'a>(
-        ctx: &'a Context,
+        ctx: &'a Context<'a>,
         renderer: &mut Renderer<'a>,
-        components: ComponentSet<DynamicComponent>,
+        components: ComponentSet<'a, DynamicComponent>,
         instances: Instances,
     ) where
         Self: Sized,
@@ -72,7 +69,6 @@ pub trait ComponentController: Downcast + _StaticAccess + ComponentDerive {
     /// the [ComponentGroup](crate::ComponentGroup) is inactive or disabled.
     fn collision(
         &mut self,
-
         ctx: &mut Context,
         other: ComponentHandle,
         self_collider: ColliderHandle,
@@ -126,6 +122,7 @@ pub struct ComponentHandle {
 
 impl Hash for ComponentHandle {
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        // The id is unique per ComponentHandle, so hashing only the id is faster
         self.id.hash(state)
     }
 }
@@ -274,15 +271,17 @@ impl Default for ComponentConfig {
 }
 
 impl ComponentConfig {
+    pub const DEFAULT: Self = Self {
+        does_move: true,
+        update: UpdateOperation::EveryFrame,
+        postproccess: PostproccessOperation::None,
+        render: RenderOperation::Solo,
+        camera: CameraUse::World,
+        priority: 16,
+    };
+
     pub const fn default() -> ComponentConfig {
-        Self {
-            does_move: true,
-            update: UpdateOperation::EveryFrame,
-            postproccess: PostproccessOperation::None,
-            render: RenderOperation::Solo,
-            camera: CameraUse::World,
-            priority: 10,
-        }
+        Self::DEFAULT
     }
 }
 
@@ -316,13 +315,7 @@ impl<C: ComponentController + ?Sized> ComponentController for Box<C> {
         other_collider: ColliderHandle,
         collide_type: CollideType,
     ) {
-        (**self).collision(
-            ctx,
-            other,
-            self_collider,
-            other_collider,
-            collide_type,
-        )
+        (**self).collision(ctx, other, self_collider, other_collider, collide_type)
     }
 }
 
@@ -331,14 +324,14 @@ impl<C: ComponentController + ?Sized> ComponentController for Box<C> {
 pub trait _StaticAccess {
     fn get_grouped_render(
         &self,
-    ) -> for<'a> fn(&'a Context, &mut Renderer<'a>, ComponentSet<DynamicComponent>, Instances);
+    ) -> for<'a> fn(&'a Context<'a>, &mut Renderer<'a>, ComponentSet<'a, DynamicComponent>, Instances);
     fn get_postproccess(&self) -> for<'a> fn(&mut Renderer<'a>, Instances, &'a Model, &'a Sprite);
 }
 
 impl<C: ComponentController> _StaticAccess for C {
     fn get_grouped_render(
         &self,
-    ) -> for<'a> fn(&'a Context, &mut Renderer<'a>, ComponentSet<DynamicComponent>, Instances)
+    ) -> for<'a> fn(&'a Context<'a>, &mut Renderer<'a>, ComponentSet<'a, DynamicComponent>, Instances)
     {
         C::render_grouped
     }

@@ -33,8 +33,10 @@ pub struct ComponentManager {
     force_update_sets: bool,
     current_component: Option<ComponentHandle>,
     group_map: FxHashMap<u32, ArenaIndex>,
-    #[cfg_attr(feature = "serialize", serde(bound(deserialize = "ComponentGroup: serde::Deserialize<'de>")))]
-
+    #[cfg_attr(
+        feature = "serialize",
+        serde(bound(deserialize = "ComponentGroup: serde::Deserialize<'de>"))
+    )]
     groups: Arena<ComponentGroup>,
 
     #[cfg_attr(feature = "serialize", serde(skip))]
@@ -367,10 +369,10 @@ impl ComponentManager {
         }
     }
 
-    pub fn components<C: ComponentController>(
-        &self,
+    pub fn components<'a, C: ComponentController>(
+        &'a self,
         group_filter: GroupFilter,
-    ) -> ComponentSet<C> {
+    ) -> ComponentSet<'a, C> {
         let name = C::name();
         let mut types = vec![];
         let mut len = 0;

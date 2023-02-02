@@ -5,48 +5,57 @@ use shura::*;
 
 #[cfg_attr(target_os = "android", ndk_glue::main(backtrace = "on"))]
 fn main() {
-    Shura::init(|shura| {
-            let mut scene = BaseScene::new(shura, "Bunnymark");
-            let mut ctx = Context::new(shura, &mut scene);
-
-            ctx.set_clear_color(Some(Color::new_rgba(220, 220, 220, 255)));
-            ctx.set_window_size(Dimension::new(800, 600));
-            ctx.set_vertical_fov(6.0);
-    
-            let bunny_model = ctx.create_model(ModelBuilder::cuboid(Dimension::new(0.06, 0.09)));
-            let bunny_sprite = ctx.create_sprite(include_bytes!("../img/wabbit.png"));
-    
-            ctx.create_component(None, Bunny::new(&ctx));
-    
-            #[cfg(target_os = "android")]
-            ctx.set_render_scale(0.66);
-    
-            GameScene {
-                bunny_model,
-                bunny_sprite,
-                scene
-            }
-        });
+    Shura::init(NewScene {
+        name: "Bunnymark",
+        init: |ctx| {
+            let manager = BunnyManager::new(ctx);
+            ctx.create_component(None, manager);
+        },
+    });
 }
 
-#[derive(Scene)]
-struct GameScene {
+#[derive(Component)]
+struct BunnyManager {
+    #[component]
+    component: EmptyComponent,
     bunny_model: Model,
     bunny_sprite: Sprite,
-    #[scene] scene: BaseScene
 }
 
-impl SceneController for GameScene {
-    fn update(&mut self, shura: &mut Shura) {
+impl BunnyManager {
+    pub fn new(ctx: &mut Context) -> BunnyManager {
+        ctx.set_clear_color(Some(Color::new_rgba(220, 220, 220, 255)));
+        ctx.set_window_size(Dimension::new(800, 600));
+        ctx.set_vertical_fov(6.0);
+
+        let bunny_model = ctx.create_model(ModelBuilder::cuboid(Dimension::new(0.06, 0.09)));
+        let bunny_sprite = ctx.create_sprite(include_bytes!("../img/wabbit.png"));
+
+        ctx.create_component(None, Bunny::new(&ctx));
+
+        #[cfg(target_os = "android")]
+        ctx.set_render_scale(0.66);
+        BunnyManager {
+            component: Default::default(),
+            bunny_model,
+            bunny_sprite,
+        }
+    }
+}
+
+impl ComponentController for BunnyManager {
+    fn update(&mut self, ctx: &mut Context) {
         const MODIFY_STEP: usize = 1500;
-        let mut ctx = Context::new(shura, self);
         gui::Window::new("bunnymark")
             .anchor(gui::Align2::LEFT_TOP, gui::Vec2::default())
             .resizable(false)
             .collapsible(false)
             .show(&ctx.gui(), |ui| {
                 ui.label(&format!("FPS: {}", ctx.fps()));
-                ui.label(format!("Bunnies: {}", ctx.components::<Bunny>(GroupFilter::All).len()));
+                ui.label(format!(
+                    "Bunnies: {}",
+                    ctx.components::<Bunny>(GroupFilter::All).len()
+                ));
                 if ui.button("Clear Bunnies").clicked() {
                     ctx.remove_components::<Bunny>(Default::default());
                 }
@@ -72,6 +81,14 @@ impl SceneController for GameScene {
             for handle in dead {
                 ctx.remove_component(&handle);
             }
+        }
+    }
+
+    fn config() -> ComponentConfig {
+        ComponentConfig {
+            priority: 1,
+            render: RenderOperation::None,
+            ..ComponentConfig::default()
         }
     }
 }
@@ -129,14 +146,18 @@ impl ComponentController for Bunny {
         _: ComponentSet<DynamicComponent>,
         instances: Instances,
     ) {
-        let scene = ctx.scene.downcast_ref::<GameScene>().unwrap();
-        renderer.render_sprite(&scene.bunny_model, &scene.bunny_sprite);
+        let manager = ctx
+            .components::<BunnyManager>(GroupFilter::All)
+            .iter()
+            .next()
+            .unwrap();
+        renderer.render_sprite(&manager.bunny_model, &manager.bunny_sprite);
         renderer.commit(&instances);
     }
 
     fn config() -> ComponentConfig {
         ComponentConfig {
-            priority: 1,
+            priority: 2,
             render: RenderOperation::Grouped,
             ..ComponentConfig::default()
         }

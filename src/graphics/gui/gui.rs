@@ -14,7 +14,6 @@ pub struct Gui {
 
 impl Gui {
     pub(crate) fn new(
-        window: &Window,
         event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
         gpu: &Gpu,
     ) -> Self {
@@ -25,7 +24,7 @@ impl Gui {
         let context = Context::default();
         let screen_descriptor = ScreenDescriptor {
             size_in_pixels: [config.width, config.height],
-            pixels_per_point: window.scale_factor() as f32,
+            pixels_per_point: 1.0,
         };
         Self {
             renderer,
@@ -35,17 +34,16 @@ impl Gui {
         }
     }
 
-    pub(crate) fn resize(&mut self, window: &Window, size: &Dimension<u32>) {
+    pub(crate) fn resize(&mut self, size: &Dimension<u32>) {
         self.screen_descriptor = ScreenDescriptor {
             size_in_pixels: [size.width, size.height],
-            pixels_per_point: window.scale_factor() as f32,
+            pixels_per_point: 1.0,
         };
     }
 
     pub(crate) fn handle_event(&mut self, event: &winit::event::WindowEvent) {
         self.state.on_event(&self.context, event).consumed;
     }
-
 
     pub(crate) fn begin(&mut self, total_time: &Duration, window: &Window) {
         let mut egui_input = self.state.take_egui_input(window);

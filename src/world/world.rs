@@ -15,7 +15,11 @@ impl Default for WorldEvents {
         let (collision_send, collision) = crossbeam::channel::unbounded();
         let (contact_force_send, _contact_force) = crossbeam::channel::unbounded();
         let event_collector = ChannelEventCollector::new(collision_send, contact_force_send);
-        Self { collision, _contact_force, event_collector }
+        Self {
+            collision,
+            _contact_force,
+            event_collector,
+        }
     }
 }
 
@@ -28,7 +32,6 @@ impl WorldEvents {
         self.collision.try_recv()
     }
 }
-
 
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct World {
@@ -51,7 +54,7 @@ pub struct World {
     physics_pipeline: PhysicsPipeline,
     #[cfg_attr(feature = "serialize", serde(skip))]
     #[cfg_attr(feature = "serialize", serde(default))]
-    events: WorldEvents
+    events: WorldEvents,
 }
 
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
@@ -363,7 +366,6 @@ impl World {
     ) -> Result<CollisionEvent, crossbeam::channel::TryRecvError> {
         self.events.collision_event()
     }
-
 
     #[inline]
     pub fn joint(&self, joint: ImpulseJointHandle) -> Option<&ImpulseJoint> {

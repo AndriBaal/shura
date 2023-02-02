@@ -1,27 +1,39 @@
+use std::any::Any;
+
 use rustc_hash::FxHashMap;
 
 #[cfg(feature = "physics")]
 use crate::physics::World;
 use crate::{
     Arena, Camera, Color, ComponentController, ComponentManager, Context, CursorManager, Dimension,
-    DynamicComponent, DynamicScene, Isometry, SceneController, Shura, Sprite,
+    Isometry, Shura, Sprite,
 };
 
-// pub trait SceneCreator {
-//     fn into_scene(self, shura: &mut Shura) -> DynamicScene;
-// }
+pub trait SceneCreator {
+    fn name(&self) -> &'static str;
+    fn create(&mut self, shura: &mut Shura) -> Scene;
+}
 
-// pub struct NewScene<S: SceneController, N: 'static + FnMut(&mut Shura) -> S> {
-//     pub init: N
-// }
+pub struct NewScene<N: 'static + FnMut(&mut Context)> {
+    pub name: &'static str,
+    pub init: N,
+}
 
-// impl <S: SceneController, N: 'static + FnMut(&mut Shura) -> S>SceneCreator for NewScene<S, N> {
-//     fn into_scene(mut self, shura: &mut Shura) -> DynamicScene {
-//         return Box::new((self.init)(shura));
-//     }
-// }
+impl<N: 'static + FnMut(&mut Context)> SceneCreator for NewScene<N> {
+    fn name(&self) -> &'static str {
+        self.name
+    }
+
+    fn create(&mut self, shura: &mut Shura) -> Scene {
+        let mut scene = Scene::new(shura, self.name);
+        let mut ctx = Context::new(shura, &mut scene);
+        (self.init)(&mut ctx);
+        return scene;
+    }
+}
 
 // pub struct ExistingScene {
+//     pub new_name: &'static str,
 //     pub existing: DynamicScene,
 // }
 
@@ -59,7 +71,7 @@ use crate::{
 // }
 
 #[cfg_attr(feature = "serialize", derive(serde::Serialize))]
-pub struct BaseScene {
+pub struct Scene {
     #[cfg_attr(feature = "serialize", serde(skip))]
     #[cfg_attr(feature = "serialize", serde(default = "bool_true"))]
     pub(crate) resized: bool,
@@ -77,10 +89,13 @@ pub struct BaseScene {
     pub clear_color: Option<Color>,
     #[cfg(feature = "physics")]
     pub world: World,
+    // #[cfg_attr(feature = "serialize", serde(skip))]
+    // #[cfg_attr(feature = "serialize", serde(default = "default_user_data"))]
+    // pub scene_data: Box<dyn Any>
 }
 
-impl BaseScene {
-    pub fn new(shura: &Shura, name: &'static str) -> Self {
+impl Scene {
+    pub(crate) fn new(shura: &Shura, name: &'static str) -> Self {
         const DEFAULT_VERTICAL_CAMERA_FOV: f32 = 5.0;
         let window_size: Dimension<u32> = shura.window.inner_size().into();
         let window_ratio = window_size.width as f32 / window_size.height as f32;
@@ -100,6 +115,7 @@ impl BaseScene {
             #[cfg(feature = "physics")]
             world: World::new(),
             saved_sprites: vec![],
+            // scene_data: default_user_data()
         }
     }
 
@@ -116,17 +132,20 @@ impl BaseScene {
     }
 }
 
+// pub(crate) fn default_user_data() -> Box<dyn Any> {
+//     return Box::new(());
+// }
+
 #[cfg(feature = "serialize")]
 #[derive(serde::Serialize)]
 pub struct SceneSerializer {
-    scene: BaseScene,
+    scene: Scene,
     components: FxHashMap<&'static str, Arena<Box<dyn erased_serde::Serialize>>>,
-    controller: Option<Box<dyn erased_serde::Serialize>>,
 }
 
 #[cfg(feature = "serialize")]
 impl SceneSerializer {
-    pub fn new(&self, scene: BaseScene) -> Self {
+    pub fn new(&self, scene: Scene) -> Self {
         if scene.component_manager.current_component().is_some() {
             panic!("Cannot serialize during component update!")
         }
@@ -134,12 +153,7 @@ impl SceneSerializer {
         Self {
             scene,
             components: Default::default(),
-            controller: None,
         }
-    }
-
-    pub fn with_scene_controller<S: SceneController + serde::Serialize>(&mut self) {
-        todo!();
     }
 
     pub fn serialize_components<

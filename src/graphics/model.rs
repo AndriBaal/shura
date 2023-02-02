@@ -793,7 +793,7 @@ impl ModelBuilder {
             amount_of_vertices: self.vertices.len() as u32,
             amount_of_indices: self.indices.len() as u32,
             vertex_buffer,
-            index_buffer
+            index_buffer,
         }
     }
 }
@@ -803,7 +803,7 @@ pub struct Model {
     amount_of_vertices: u32,
     amount_of_indices: u32,
     vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer
+    index_buffer: wgpu::Buffer,
 }
 
 impl Model {
