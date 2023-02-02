@@ -1,0 +1,22 @@
+{
+  "name": "shura",
+  "version": "0.0.1",
+  "description": "Documentation for shura",
+  "main": "index.js",
+  "authors": {
+    "name": "Andri",
+    "email": "andri.baal@bluewin.ch"
+  },
+  "repository": "https://github.com/AndriBaal/shura/shura",
+  "scripts": {
+    "dev": "vuepress dev src",
+    "build": "vuepress build src"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "vuepress": "^1.5.3"
+  },
+  "dependencies": {
+    "vuepress-theme-thindark": "^1.0.1"
+  }
+}

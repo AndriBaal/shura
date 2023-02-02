@@ -1,8 +1,13 @@
 #[cfg(feature = "text")]
 use crate::text::{CreateFont, Font};
-use crate::{Dimension, InstanceBuffer, Matrix, Shader, ShaderField, ShaderLang, Sprite, Uniform};
+use crate::{
+    Camera, CameraBuffers, Dimension, InstanceBuffer, Matrix, Shader, ShaderField, ShaderLang,
+    Sprite, Uniform,
+};
 use log::info;
 use std::borrow::Cow;
+
+pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 1.0;
 
 /// Holds the connection to the GPU using wgpu. Also has some default buffers, layouts etc.
 pub struct Gpu {
@@ -328,6 +333,8 @@ pub struct Defaults {
     /// the struct also needs 2 additional floats which are empty to match the 16 byte alignment
     /// some devices need.
     pub times: Uniform<[f32; 2]>,
+    pub relative_camera: CameraBuffers,
+    pub world_camera: CameraBuffers,
     pub single_centered_instance: InstanceBuffer,
     #[cfg(feature = "text")]
     pub default_font: Font,
@@ -406,6 +413,11 @@ impl Defaults {
         let default_font =
             Font::new_simple(gpu, include_bytes!("../../res/font/open_sans_bold.ttf"));
 
+        let relative_and_default_camera =
+            &Camera::new(Default::default(), 1.0, RELATIVE_CAMERA_SIZE);
+        let relative_camera = CameraBuffers::new(gpu, &relative_and_default_camera);
+        let world_camera = CameraBuffers::new(gpu, &relative_and_default_camera);
+
         Self {
             sprite,
             rainbow,
@@ -418,6 +430,8 @@ impl Defaults {
             single_centered_instance,
             #[cfg(feature = "text")]
             default_font,
+            relative_camera,
+            world_camera,
 
             target_msaa,
             present_msaa,
@@ -429,7 +443,14 @@ impl Defaults {
         }
     }
 
-    pub(crate) fn buffer(&mut self, gpu: &Gpu, total_time: f32, frame_time: f32) {
+    pub(crate) fn buffer(
+        &mut self,
+        active_scene_camera: &Camera,
+        gpu: &Gpu,
+        total_time: f32,
+        frame_time: f32,
+    ) {
+        self.world_camera.write(&gpu, active_scene_camera);
         self.times.write(&gpu, [total_time, frame_time]);
     }
 

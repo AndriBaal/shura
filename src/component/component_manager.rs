@@ -33,10 +33,6 @@ pub struct ComponentManager {
     force_update_sets: bool,
     current_component: Option<ComponentHandle>,
     group_map: FxHashMap<u32, ArenaIndex>,
-    #[cfg_attr(
-        feature = "serialize",
-        serde(bound(deserialize = "ComponentGroup: serde::Deserialize<'de>"))
-    )]
     groups: Arena<ComponentGroup>,
 
     #[cfg_attr(feature = "serialize", serde(skip))]

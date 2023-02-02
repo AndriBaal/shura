@@ -25,7 +25,9 @@ impl<N: 'static + FnMut(&mut Context)> SceneCreator for NewScene<N> {
     }
 
     fn create(&mut self, shura: &mut Shura) -> Scene {
-        let mut scene = Scene::new(shura, self.name);
+        let window_size: Dimension<u32> = shura.window.inner_size().into();
+        let window_ratio = window_size.width as f32 / window_size.height as f32;
+        let mut scene = Scene::new(window_ratio, self.name);
         let mut ctx = Context::new(shura, &mut scene);
         (self.init)(&mut ctx);
         return scene;
@@ -70,7 +72,11 @@ impl<N: 'static + FnMut(&mut Context)> SceneCreator for NewScene<N> {
 //     }
 // }
 
-#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
+fn bool_true() -> bool {
+    return true;
+}
+
+#[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 pub struct Scene {
     #[cfg_attr(feature = "serialize", serde(skip))]
     #[cfg_attr(feature = "serialize", serde(default = "bool_true"))]
@@ -88,25 +94,19 @@ pub struct Scene {
     pub component_manager: ComponentManager,
     pub clear_color: Option<Color>,
     #[cfg(feature = "physics")]
-    pub world: World,
-    // #[cfg_attr(feature = "serialize", serde(skip))]
-    // #[cfg_attr(feature = "serialize", serde(default = "default_user_data"))]
-    // pub scene_data: Box<dyn Any>
+    pub world: World
 }
 
 impl Scene {
-    pub(crate) fn new(shura: &Shura, name: &'static str) -> Self {
+    pub(crate) fn new(ratio: f32, name: &'static str) -> Self {
         const DEFAULT_VERTICAL_CAMERA_FOV: f32 = 5.0;
-        let window_size: Dimension<u32> = shura.window.inner_size().into();
-        let window_ratio = window_size.width as f32 / window_size.height as f32;
         Self {
             name,
             switched: true,
             resized: true,
             camera: Camera::new(
-                &shura.gpu,
                 Isometry::default(),
-                window_ratio,
+                ratio,
                 DEFAULT_VERTICAL_CAMERA_FOV,
             ),
             cursor: CursorManager::new(),
@@ -114,8 +114,7 @@ impl Scene {
             clear_color: Some(Color::new(0.0, 0.0, 0.0, 1.0)),
             #[cfg(feature = "physics")]
             world: World::new(),
-            saved_sprites: vec![],
-            // scene_data: default_user_data()
+            saved_sprites: vec![]
         }
     }
 
@@ -131,10 +130,6 @@ impl Scene {
         self.name
     }
 }
-
-// pub(crate) fn default_user_data() -> Box<dyn Any> {
-//     return Box::new(());
-// }
 
 #[cfg(feature = "serialize")]
 #[derive(serde::Serialize)]

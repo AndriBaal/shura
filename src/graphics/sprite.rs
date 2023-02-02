@@ -1,4 +1,4 @@
-use crate::{Camera, Color, Defaults, Dimension, Gpu, InstanceBuffer, Instances, Renderer};
+use crate::{Color, Defaults, Dimension, Gpu, InstanceBuffer, Instances, Renderer, CameraBuffers};
 use image::GenericImageView;
 use std::num::NonZeroU32;
 
@@ -35,7 +35,7 @@ impl Sprite {
         gpu: &Gpu,
         defaults: &Defaults,
         instances: &InstanceBuffer,
-        camera: &Camera,
+        camera: &CameraBuffers,
         texture_size: Dimension<u32>,
         clear_color: Option<Color>,
         compute: F,
@@ -115,7 +115,7 @@ impl Sprite {
         gpu: &Gpu,
         defaults: &Defaults,
         instances: &InstanceBuffer,
-        camera: &Camera,
+        camera: &CameraBuffers,
         texture_size: Dimension<u32>,
         clear_color: Option<Color>,
         compute: F,
@@ -156,7 +156,7 @@ impl Sprite {
         gpu: &Gpu,
         defaults: &Defaults,
         encoder: &mut wgpu::CommandEncoder,
-        relative_camera: &Camera,
+        relative_camera: &CameraBuffers,
     ) {
         let target_view = self.texture.create_view(&Default::default());
         let mut renderer =

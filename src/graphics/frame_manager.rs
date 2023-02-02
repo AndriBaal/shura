@@ -10,6 +10,7 @@ pub struct FrameManager {
     start_time: Instant,
     update_time: Instant,
     total_frames: u64,
+    max_fps: Option<u32>,
     fps_counter: u32,
     fps: u32,
 }
@@ -25,6 +26,7 @@ impl FrameManager {
             start_time: now,
             update_time: now,
             fps_time: elapsed,
+            max_fps: None,
             total_frames: 0,
             fps_counter: 0,
             fps: 0,
@@ -56,6 +58,11 @@ impl FrameManager {
         self.last_time = self.total_time;
     }
 
+    #[inline]
+    pub fn set_max_fps(&mut self, max_fps: Option<u32>) {
+        self.max_fps = max_fps;
+    }
+
     // Getter
     #[inline]
     pub const fn start_time(&self) -> Instant {
@@ -65,6 +72,11 @@ impl FrameManager {
     #[inline]
     pub const fn update_time(&self) -> Instant {
         self.update_time
+    }
+
+    #[inline]
+    pub fn now(&self) -> Instant {
+        Instant::now()
     }
 
     #[inline]
@@ -95,5 +107,18 @@ impl FrameManager {
     #[inline]
     pub const fn fps(&self) -> u32 {
         self.fps
+    }
+
+    #[inline]
+    pub const fn max_fps(&self) -> Option<u32> {
+        self.max_fps
+    }
+
+    #[inline]
+    pub fn max_frame_time(&self) -> Option<Duration> {
+        if let Some(max_fps) = self.max_fps {
+            return Some(Duration::from_secs_f32(1.0 / max_fps as f32));
+        }
+        return None;
     }
 }

@@ -1,11 +1,12 @@
 use std::collections::BTreeMap;
 
 use crate::{
-    data::arena::ArenaEntry, ArenaPath, Camera, Color, ComponentCluster, ComponentController,
-    ComponentGroup, ComponentGroupDescriptor, ComponentHandle, ComponentSet, ComponentSetMut,
-    Dimension, DynamicComponent, GroupFilter, InputEvent, InputTrigger, InstanceBuffer, Instances,
-    Isometry, Key, Matrix, Model, ModelBuilder, Modifier, Renderer, Rotation, Scene, Shader,
-    ShaderField, ShaderLang, Shura, Sprite, SpriteSheet, Touch, Uniform, Vector,
+    data::arena::ArenaEntry, ArenaPath, CameraBuffers, Color, ComponentCluster,
+    ComponentController, ComponentGroup, ComponentGroupDescriptor, ComponentHandle, ComponentSet,
+    ComponentSetMut, Dimension, DynamicComponent, GroupFilter, InputEvent, InputTrigger,
+    InstanceBuffer, Instances, Isometry, Key, Matrix, Model, ModelBuilder, Modifier, Renderer,
+    Rotation, Scene, Shader, ShaderField, ShaderLang, Shura, Sprite, SpriteSheet, Touch, Uniform,
+    Vector,
 };
 
 #[cfg(feature = "audio")]
@@ -53,13 +54,13 @@ impl<'a> Context<'a> {
     pub(crate) fn buffer(
         &mut self,
     ) -> Result<(wgpu::SurfaceTexture, wgpu::CommandEncoder), wgpu::SurfaceError> {
-        self.scene.camera.buffer(&self.shura.gpu);
         self.scene.component_manager.buffer_sets(
             &self.shura.gpu,
             #[cfg(feature = "physics")]
             &self.scene.world,
         );
         self.shura.defaults.buffer(
+            &self.scene.camera,
             &self.shura.gpu,
             self.shura.frame_manager.total_time(),
             self.shura.frame_manager.frame_time(),
@@ -307,7 +308,7 @@ impl<'a> Context<'a> {
     pub fn create_computed_sprite<'caller, F>(
         &self,
         instances: &InstanceBuffer,
-        camera: &Camera,
+        camera: &CameraBuffers,
         texture_size: Dimension<u32>,
         clear_color: Option<Color>,
         compute: F,
@@ -418,8 +419,8 @@ impl<'a> Context<'a> {
     }
 
     #[inline]
-    pub fn relative_camera(&self) -> &Camera {
-        &self.shura.relative_camera
+    pub fn relative_camera(&self) -> &CameraBuffers {
+        &self.shura.defaults.relative_camera
     }
 
     #[inline]
@@ -535,6 +536,11 @@ impl<'a> Context<'a> {
     #[inline]
     pub const fn update_time(&self) -> Instant {
         self.shura.frame_manager.update_time()
+    }
+
+    #[inline]
+    pub fn now(&self) -> Instant {
+        self.shura.frame_manager.now()
     }
 
     #[inline]
@@ -747,7 +753,7 @@ impl<'a> Context<'a> {
     }
 
     #[inline]
-    pub fn total_time_duration(&self) -> Duration {
+    pub const fn total_time_duration(&self) -> Duration {
         self.shura.frame_manager.total_time_duration()
     }
 
@@ -757,7 +763,7 @@ impl<'a> Context<'a> {
     }
 
     #[inline]
-    pub fn frame_time_duration(&self) -> Duration {
+    pub const fn frame_time_duration(&self) -> Duration {
         self.shura.frame_manager.frame_time_duration()
     }
 
@@ -767,8 +773,18 @@ impl<'a> Context<'a> {
     }
 
     #[inline]
-    pub fn fps(&self) -> u32 {
+    pub const fn fps(&self) -> u32 {
         self.shura.frame_manager.fps()
+    }
+
+    #[inline]
+    pub const fn max_fps(&self) -> Option<u32> {
+        self.shura.frame_manager.max_fps()
+    }
+
+    #[inline]
+    pub fn max_frame_time(&self) -> Option<Duration> {
+        self.shura.frame_manager.max_frame_time()
     }
 
     #[inline]
@@ -1075,5 +1091,10 @@ impl<'a> Context<'a> {
         self.shura
             .input
             .set_gamepad_mapping_strict(gamepad_id, mapping, name)
+    }
+
+    #[inline]
+    pub fn set_max_fps(&mut self, max_fps: Option<u32>) {
+        self.shura.frame_manager.set_max_fps(max_fps);
     }
 }

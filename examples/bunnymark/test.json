@@ -1,0 +1,162 @@
+{
+  "name": "Bunnymark",
+  "camera": {
+    "position": {
+      "rotation": [
+        1.0,
+        0.0
+      ],
+      "translation": [
+        0.0,
+        0.0
+      ]
+    },
+    "target": null,
+    "vertical_fov": 6.0,
+    "ratio": 1.3333334,
+    "proj": {
+      "x": [
+        -0.75,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "y": [
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ],
+      "z": [
+        -0.0,
+        0.0,
+        -2.5,
+        -1.0
+      ],
+      "w": [
+        0.0,
+        0.0,
+        -5.25,
+        0.0
+      ]
+    }
+  },
+  "cursor": {
+    "cursor_raw": [
+      413,
+      228
+    ],
+    "cursor_world": [
+      0.13000011,
+      0.72
+    ],
+    "cursor_relative": [
+      0.016250014,
+      0.120000005
+    ],
+    "touches": []
+  },
+  "component_manager": {
+    "update_components": true,
+    "render_components": true,
+    "id_counter": 6001,
+    "remove_current_commponent": false,
+    "force_update_sets": false,
+    "current_component": {
+      "component_index": [
+        0,
+        0
+      ],
+      "type_index": [
+        1,
+        0
+      ],
+      "group_index": [
+        0,
+        0
+      ],
+      "start": 0,
+      "id": 2
+    },
+    "group_map": {
+      "2147483647": [
+        0,
+        0
+      ]
+    },
+    "groups": [
+      [
+        0,
+        {
+          "type_map": {
+            "bunnymark::BunnyManager": [
+              1,
+              0
+            ],
+            "bunnymark::Bunny": [
+              0,
+              0
+            ]
+          },
+          "types": [
+            [
+              0,
+              {
+                "name": "bunnymark::Bunny",
+                "last_len": 4501,
+                "force_rewrite_buffer": false,
+                "config": {
+                  "camera": "World",
+                  "priority": 2,
+                  "update": "EveryFrame",
+                  "postproccess": "None",
+                  "render": "Grouped",
+                  "does_move": true
+                }
+              }
+            ],
+            [
+              0,
+              {
+                "name": "bunnymark::BunnyManager",
+                "last_len": 0,
+                "force_rewrite_buffer": false,
+                "config": {
+                  "camera": "World",
+                  "priority": 1,
+                  "update": "EveryFrame",
+                  "postproccess": "None",
+                  "render": "None",
+                  "does_move": true
+                }
+              }
+            ],
+            null,
+            null
+          ],
+          "id": 2147483647,
+          "position": [
+            0.0,
+            0.0
+          ],
+          "size": {
+            "width": 0.0,
+            "height": 0.0
+          },
+          "enabled": true,
+          "active": true,
+          "always_active": true
+        }
+      ],
+      null,
+      null,
+      null
+    ]
+  },
+  "clear_color": {
+    "r": 0.8627451,
+    "g": 0.8627451,
+    "b": 0.8627451,
+    "a": 1.0
+  }
+}

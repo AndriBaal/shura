@@ -1,4 +1,4 @@
-use crate::{Camera, Color, Defaults, Gpu, InstanceBuffer, Model, Shader, Sprite, Uniform};
+use crate::{Color, Defaults, Gpu, InstanceBuffer, Model, Shader, Sprite, Uniform, CameraBuffers};
 
 /// Single index of an instance inside a [InstanceBuffer](crate::InstanceBuffer).
 pub type Instance = u32;
@@ -85,7 +85,7 @@ impl<'a> Renderer<'a> {
         self.render_pass.set_vertex_buffer(1, buffer.slice());
     }
 
-    pub(crate) fn enable_camera(&mut self, camera: &'a Camera) {
+    pub(crate) fn enable_camera(&mut self, camera: &'a CameraBuffers) {
         self.render_pass
             .set_bind_group(0, camera.uniform().bind_group(), &[]);
     }
