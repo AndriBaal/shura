@@ -6,8 +6,8 @@ use crate::{
     ArenaPath, ComponentHandle,
 };
 use crate::{
-    Color, ComponentSet, Context, Defaults, Dimension, FrameManager, Gpu, Input,
-    PostproccessOperation, RenderOperation, Renderer, Scene, SceneCreator, SceneManager, Sprite,
+    Color, Context, Defaults, Dimension, FrameManager, Gpu, Input, PostproccessOperation,
+    RenderOperation, Renderer, Scene, SceneCreator, SceneManager, Sprite,
 };
 use log::{error, info};
 
@@ -21,7 +21,7 @@ pub struct Shura {
     pub window: winit::window::Window,
     pub input: Input,
     pub gpu: Gpu,
-    pub defaults: Defaults,
+    pub(crate) defaults: Defaults,
     #[cfg(feature = "gui")]
     pub gui: Gui,
     #[cfg(feature = "audio")]
@@ -37,7 +37,7 @@ impl Shura {
         let events = winit::event_loop::EventLoop::new();
         let window = winit::window::WindowBuilder::new()
             .with_inner_size(winit::dpi::PhysicalSize::new(INITIAL_WIDTH, INITIAL_HEIGHT))
-            .with_title(creator.name())
+            .with_title("Shura Game")
             .build(&events)
             .unwrap();
         let shura_window_id = window.id();
@@ -133,15 +133,16 @@ impl Shura {
                         }
                     }
                     Event::RedrawRequested(window_id) if window_id == shura_window_id => {
-                        if let Some(max_frame_time) = shura.frame_manager.max_frame_time() {
+                        let mut scene = shura.scene_manager.borrow_active_scene();
+                        if let Some(max_frame_time) = scene.render_config.max_frame_time() {
                             let now = shura.frame_manager.now();
                             let update_time = shura.frame_manager.update_time();
                             if now < update_time + max_frame_time {
+                                shura.scene_manager.return_active_scene(scene);
                                 return;
                             }
                         }
 
-                        let mut scene = shura.scene_manager.borrow_active_scene();
                         let update_status = shura.update(&mut scene);
                         shura.scene_manager.return_active_scene(scene);
                         match update_status {
@@ -194,7 +195,7 @@ impl Shura {
         #[cfg(feature = "audio")]
         let (audio, audio_handle) = rodio::OutputStream::try_default().unwrap();
         let mut shura = Self {
-            scene_manager: SceneManager::new(creator.name()),
+            scene_manager: SceneManager::new(creator.id()),
             frame_manager: FrameManager::new(),
             input: Input::new(),
             #[cfg(feature = "audio")]
@@ -223,9 +224,10 @@ impl Shura {
     fn resize(&mut self, new_size: Dimension<u32>) {
         let config_size = self.gpu.render_size_no_scale();
         if new_size.width > 0 && new_size.height > 0 && new_size != config_size {
-            self.scene_manager.resize();
+            let active = self.scene_manager.resize();
             self.gpu.resize(new_size);
-            self.defaults.resize(&self.gpu);
+            self.defaults
+                .resize(&self.gpu, active.render_config.render_scale());
             #[cfg(feature = "gui")]
             self.gui.resize(&new_size);
         }
@@ -403,6 +405,7 @@ impl Shura {
 
         let (output, mut encoder) = ctx.buffer()?;
         let mut saved_sprites = vec![];
+        let render_size = ctx.render_size();
         let output_view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
@@ -455,20 +458,6 @@ impl Shura {
                     }
                 }
                 match config.render {
-                    RenderOperation::Solo => {
-                        for path in set.paths() {
-                            let group =
-                                ctx.scene.component_manager.group(path.group_index).unwrap();
-                            let component_type = group.type_ref(path.type_index).unwrap();
-                            let buffer = component_type.buffer();
-                            renderer.set_instance_buffer(buffer);
-                            for (instance, (_, component)) in component_type.iter().enumerate() {
-                                let instance = instance as u32;
-                                component.render(&ctx, &mut renderer, instance..instance + 1);
-                            }
-                        }
-                        save_sprite = renderer.save_sprite.take();
-                    }
                     RenderOperation::Grouped => {
                         for path in set.paths() {
                             let group =
@@ -478,11 +467,13 @@ impl Shura {
                             let buffer = component_type.buffer();
                             renderer.set_instance_buffer(buffer);
                             if let Some((_, first_component)) = component_type.iter().next() {
-                                let grouped_render = first_component.get_grouped_render();
                                 let instances = 0..len as u32;
-
-                                let set = ComponentSet::new(vec![component_type], len);
-                                grouped_render(&ctx, &mut renderer, set, instances);
+                                first_component.call_grouped_render(
+                                    &ctx,
+                                    &mut renderer,
+                                    component_type.iter(),
+                                    instances,
+                                );
                             }
                         }
                         save_sprite = renderer.save_sprite.take();
@@ -492,7 +483,7 @@ impl Shura {
             }
 
             if let Some(sprite_name) = save_sprite.take() {
-                let mut sprite = Sprite::empty(&ctx.shura.gpu, ctx.shura.gpu.render_size());
+                let mut sprite = Sprite::empty(&ctx.shura.gpu, render_size);
                 sprite.write_current_render(
                     &ctx.shura.gpu,
                     &ctx.shura.defaults,
@@ -507,7 +498,6 @@ impl Shura {
                     let group = ctx.scene.component_manager.group(path.group_index).unwrap();
                     let component_type = group.type_ref(path.type_index).unwrap();
                     for (_, component) in component_type.iter() {
-                        let postproccess = component.get_postproccess();
                         let instances = 0..1;
                         match config.postproccess {
                             PostproccessOperation::SameLayer => {
@@ -528,11 +518,13 @@ impl Shura {
                                     &ctx.shura.defaults.target_view,
                                     &ctx.shura.defaults.target_msaa,
                                 );
-                                renderer.use_uniform(ctx.shura.defaults.relative_camera.uniform(), 0);
+                                renderer
+                                    .use_uniform(ctx.shura.defaults.relative_camera.uniform(), 0);
                                 renderer.set_instance_buffer(
                                     &ctx.shura.defaults.single_centered_instance,
                                 );
-                                postproccess(
+                                component.call_postproccess(
+                                    &ctx,
                                     &mut renderer,
                                     instances,
                                     ctx.shura.defaults.relative_camera.model(),
@@ -547,11 +539,13 @@ impl Shura {
                                     &ctx.shura.defaults.target_view,
                                     &ctx.shura.defaults.target_msaa,
                                 );
-                                renderer.use_uniform(ctx.shura.defaults.relative_camera.uniform(), 0);
+                                renderer
+                                    .use_uniform(ctx.shura.defaults.relative_camera.uniform(), 0);
                                 renderer.set_instance_buffer(
                                     &ctx.shura.defaults.single_centered_instance,
                                 );
-                                postproccess(
+                                component.call_postproccess(
+                                    &ctx,
                                     &mut renderer,
                                     instances,
                                     ctx.shura.defaults.relative_camera.model(),
@@ -565,7 +559,7 @@ impl Shura {
                 }
 
                 if let Some(sprite_name) = save_sprite.take() {
-                    let mut sprite = Sprite::empty(&ctx.shura.gpu, ctx.shura.gpu.render_size());
+                    let mut sprite = Sprite::empty(&ctx.shura.gpu, render_size);
                     sprite.write_current_render(
                         &ctx.shura.gpu,
                         &ctx.shura.defaults,
@@ -593,7 +587,7 @@ impl Shura {
                 ctx.shura.defaults.relative_camera.model(),
                 &ctx.shura.defaults.target,
             );
-            renderer.commit(&(0..1));
+            renderer.commit(0..1);
         }
         #[cfg(feature = "gui")]
         {

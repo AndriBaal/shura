@@ -44,7 +44,8 @@ mod shura_core;
 
 pub use instant::Duration;
 pub use log::{debug, error, info, trace, warn};
-pub use shura_proc::Component;
+pub use shura_proc::*;
+
 
 pub(crate) use crate::{component::component_type::*, data::arena::*};
 

@@ -1,5 +1,5 @@
 use crate::{Dimension, Gpu};
-use egui::{Context, TextureId, TexturesDelta};
+use egui::{Context};
 use egui_wgpu::renderer::{Renderer, ScreenDescriptor};
 use egui_winit::State;
 use instant::Duration;
@@ -7,6 +7,7 @@ use winit::window::Window;
 
 pub struct Gui {
     pub state: State,
+    // TODO: Maybe move to scene
     context: Context,
     renderer: Renderer,
     screen_descriptor: ScreenDescriptor,

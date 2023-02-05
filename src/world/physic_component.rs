@@ -4,6 +4,7 @@ use crate::{
 };
 use rapier2d::prelude::{ColliderBuilder, RigidBody, RigidBodyHandle};
 
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 enum BodyStatus {
     RigidBody {
         handle: RigidBodyHandle,
@@ -14,6 +15,7 @@ enum BodyStatus {
     },
 }
 
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct PhysicsComponent {
     handle: ComponentHandle,
     body: BodyStatus,

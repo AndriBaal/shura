@@ -2,8 +2,8 @@
 use crate::physics::World;
 use crate::{
     data::arena::{ArenaEntry, ArenaIter, ArenaIterMut},
-    Arena, ArenaIndex, ComponentConfig, ComponentController, ComponentHandle, DynamicComponent,
-    Gpu, InstanceBuffer, Matrix, RenderOperation,
+    Arena, ArenaIndex, ComponentConfig, ComponentController, ComponentHandle, ComponentIdentifier,
+    DynamicComponent, Gpu, InstanceBuffer, Matrix, RenderOperation,
 };
 
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -15,14 +15,14 @@ pub(crate) struct ComponentType {
     #[cfg_attr(feature = "serialize", serde(default))]
     buffer: Option<InstanceBuffer>,
 
-    name: &'static str,
+    type_id: u32,
     last_len: usize,
     force_rewrite_buffer: bool,
     config: ComponentConfig,
 }
 
 impl ComponentType {
-    pub fn new<C: ComponentController>(component: C) -> (ArenaIndex, Self) {
+    pub fn new<C: ComponentController + ComponentIdentifier>(component: C) -> (ArenaIndex, Self) {
         let mut components: Arena<DynamicComponent> = Arena::new();
         let component_index = components.insert(Box::new(component));
         (
@@ -33,7 +33,7 @@ impl ComponentType {
                 force_rewrite_buffer: false,
                 last_len: 0,
                 config: C::config(),
-                name: C::name(),
+                type_id: C::IDENTIFIER,
             },
         )
     }
@@ -81,6 +81,13 @@ impl ComponentType {
         return self.components.insert(Box::new(component));
     }
 
+    #[cfg(feature = "serialize")]
+    pub fn serialize_components<C: ComponentController + erased_serde::Serialize>(
+        &self,
+    ) -> Vec<Option<(&u32, &dyn erased_serde::Serialize)>> {
+        return self.components.serialize_components::<C>();
+    }
+
     #[inline(always)]
     pub fn remove(&mut self, handle: &ComponentHandle) -> Option<DynamicComponent> {
         self.components.remove(handle.component_index())
@@ -97,8 +104,8 @@ impl ComponentType {
     }
 
     #[inline]
-    pub const fn name(&self) -> &'static str {
-        self.name
+    pub const fn type_id(&self) -> u32 {
+        self.type_id
     }
 
     #[inline]

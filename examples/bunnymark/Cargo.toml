@@ -4,9 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 # Only for android!!!
-[lib]
-crate-type = ["cdylib"]
-path = "src/main.rs"
+# [lib]
+# crate-type = ["cdylib"]
+# path = "src/main.rs"
 
 [dependencies]
 shura = { path = "./../..", default-features = false, features = ["gui"]}

@@ -1,5 +1,5 @@
 use crate::data::arena::{Arena, ArenaIndex, ArenaIterMut};
-use crate::{ComponentController, ComponentType, Dimension, Vector};
+use crate::{ComponentController, ComponentType, Dimension, Vector, ComponentIdentifier};
 use rustc_hash::FxHashMap;
 
 /// Helper to create a [ComponentGroup](crate::ComponentGroup).
@@ -31,7 +31,7 @@ pub const DEFAULT_GROUP_ID: u32 = u32::MAX / 2;
 /// from the [context](crate::Context).
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct ComponentGroup {
-    type_map: FxHashMap<&'static str, ArenaIndex>,
+    type_map: FxHashMap<u32, ArenaIndex>,
     types: Arena<ComponentType>,
     id: u32,
     position: Vector<f32>,
@@ -111,8 +111,8 @@ impl ComponentGroup {
     // Getters
 
     #[inline]
-    pub(crate) fn type_index(&self, name: &'static str) -> Option<&ArenaIndex> {
-        self.type_map.get(name)
+    pub(crate) fn type_index(&self, type_id: u32) -> Option<&ArenaIndex> {
+        self.type_map.get(&type_id)
     }
 
     #[inline]
@@ -136,13 +136,13 @@ impl ComponentGroup {
     }
 
     #[inline]
-    pub(crate) fn add_component_type<C: ComponentController>(
+    pub(crate) fn add_component_type<C: ComponentController + ComponentIdentifier>(
         &mut self,
         component: C,
     ) -> (ArenaIndex, ArenaIndex) {
         let (component_index, component_type) = ComponentType::new(component);
         let type_index = self.types.insert(component_type);
-        self.type_map.insert(C::name(), type_index);
+        self.type_map.insert(C::IDENTIFIER, type_index);
         return (type_index, component_index);
     }
 

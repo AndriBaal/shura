@@ -5,18 +5,6 @@ pub type Instance = u32;
 /// Range of [instances](crate::Instance).
 pub type Instances = std::ops::Range<Instance>;
 
-trait CopyInstance {
-    fn copy(&self) -> Self;
-}
-
-impl CopyInstance for Instances {
-    fn copy(&self) -> Self {
-        Self {
-            start: self.start,
-            end: self.end,
-        }
-    }
-}
 
 /// Render grpahics to the screen or a sprite. The renderer can be extended with custom graphcis throught
 /// the [RenderPass](wgpu::RenderPass) or the provided methods for shura's shader system.
@@ -197,15 +185,9 @@ impl<'a> Renderer<'a> {
     // }
 
     #[inline]
-    pub fn commit(&mut self, instances: &Instances) {
+    pub fn commit(&mut self, instances: Instances) {
         self.render_pass
-            .draw_indexed(0..self.indices, 0, instances.copy());
-    }
-
-    #[inline]
-    pub fn commit_one(&mut self, index: Instance) {
-        self.render_pass
-            .draw_indexed(0..self.indices, 0, index..index + 1);
+            .draw_indexed(0..self.indices, 0, instances);
     }
 
     // Getter

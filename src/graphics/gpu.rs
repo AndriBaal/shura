@@ -17,7 +17,6 @@ pub struct Gpu {
     pub surface: wgpu::Surface,
     pub config: wgpu::SurfaceConfiguration,
     pub adapter: wgpu::Adapter,
-    render_scale: f32,
     pub(crate) base: WgpuBase,
 }
 
@@ -93,7 +92,6 @@ impl Gpu {
             device,
             adapter,
             base,
-            render_scale: 1.0,
         };
 
         return gpu;
@@ -127,31 +125,15 @@ impl Gpu {
         self.config.present_mode == wgpu::PresentMode::AutoVsync
     }
 
-    /// Render size wiht applioed render_scale
-    pub fn render_size(&self) -> Dimension<u32> {
+    pub fn render_size(&self, scale: f32) -> Dimension<u32> {
         Dimension::new(
-            (self.config.width as f32 * self.render_scale) as u32,
-            (self.config.height as f32 * self.render_scale) as u32,
+            (self.config.width as f32 * scale) as u32,
+            (self.config.height as f32 * scale) as u32,
         )
     }
 
-    /// Render size wiht applioed render_scale  
     pub fn render_size_no_scale(&self) -> Dimension<u32> {
         Dimension::new(self.config.width, self.config.height)
-    }
-
-    pub fn render_scale(&self) -> f32 {
-        self.render_scale
-    }
-
-    // Setters
-
-    #[inline]
-    pub fn set_render_scale(&mut self, defaults: &mut Defaults, scale: f32) {
-        self.render_scale = scale;
-        defaults.target_msaa = self.create_msaa();
-        (defaults.target, defaults.target_view) = self.create_target();
-        (defaults.layer, defaults.layer_view) = self.create_target();
     }
 
     /// Tries to enable or disable vSync. The default is always vSync to be on.
@@ -165,8 +147,7 @@ impl Gpu {
         self.surface.configure(&self.device, &self.config);
     }
 
-    fn create_msaa(&self) -> wgpu::TextureView {
-        let size = self.render_size();
+    fn create_msaa(&self, size: Dimension<u32>) -> wgpu::TextureView {
         let sample_count = self.base.sample_count;
         let multisampled_frame_descriptor = &wgpu::TextureDescriptor {
             size: size.into(),
@@ -183,9 +164,8 @@ impl Gpu {
             .create_view(&wgpu::TextureViewDescriptor::default())
     }
 
-    fn create_target(&self) -> (Sprite, wgpu::TextureView) {
+    fn create_target(&self, size: Dimension<u32>) -> (Sprite, wgpu::TextureView) {
         let format = self.config.format;
-        let size = self.render_size();
         let target_texture = self.device.create_texture(&wgpu::TextureDescriptor {
             label: Some("Render Target"),
             size: size.into(),
@@ -401,11 +381,12 @@ impl Defaults {
             &[ShaderField::Sprite, ShaderField::Uniform],
         );
 
-        let target_msaa = gpu.create_msaa();
-        let present_msaa = gpu.create_msaa();
-        let layer_msaa = gpu.create_msaa();
-        let (target, target_view) = gpu.create_target();
-        let (layer, layer_view) = gpu.create_target();
+        let size = gpu.render_size(1.0);
+        let target_msaa = gpu.create_msaa(size);
+        let present_msaa = gpu.create_msaa(size);
+        let layer_msaa = gpu.create_msaa(size);
+        let (target, target_view) = gpu.create_target(size);
+        let (layer, layer_view) = gpu.create_target(size);
         let times = Uniform::new(gpu, [0.0, 0.0]);
         let single_centered_instance = InstanceBuffer::new(gpu, &[Matrix::new(Default::default())]);
 
@@ -454,11 +435,19 @@ impl Defaults {
         self.times.write(&gpu, [total_time, frame_time]);
     }
 
-    pub(crate) fn resize(&mut self, gpu: &Gpu) {
-        self.present_msaa = gpu.create_msaa();
-        self.target_msaa = gpu.create_msaa();
-        self.layer_msaa = gpu.create_msaa();
-        (self.target, self.target_view) = gpu.create_target();
-        (self.layer, self.layer_view) = gpu.create_target();
+    pub(crate) fn resize(&mut self, gpu: &Gpu, scale: f32) {
+        let size = gpu.render_size(scale);
+        self.present_msaa = gpu.create_msaa(size);
+        self.target_msaa = gpu.create_msaa(size);
+        self.layer_msaa = gpu.create_msaa(size);
+        (self.target, self.target_view) = gpu.create_target(size);
+        (self.layer, self.layer_view) = gpu.create_target(size);
+    }
+
+    pub(crate) fn apply_render_scale(&mut self, gpu: &Gpu, scale: f32) {
+        let size = gpu.render_size(scale);
+        self.target_msaa = gpu.create_msaa(size);
+        (self.target, self.target_view) = gpu.create_target(size);
+        (self.layer, self.layer_view) = gpu.create_target(size);
     }
 }

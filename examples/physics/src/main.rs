@@ -5,47 +5,62 @@ use shura::*;
 
 #[cfg_attr(target_os = "android", ndk_glue::main(backtrace = "on"))]
 fn main() {
-    shura::init("Physics", |ctx| {
-        const PYRAMID_ELEMENTS: i32 = 8;
-        const MINIMAL_SPACING: f32 = 0.1;
-        ctx.set_horizontal_fov(10.0);
-        ctx.set_gravity(Vector::new(0.00, -9.81));
+    Shura::init(NewScene {
+        id: 1,
+        init: |ctx| {
+            const PYRAMID_ELEMENTS: i32 = 8;
+            const MINIMAL_SPACING: f32 = 0.1;
+            ctx.set_horizontal_fov(10.0);
+            ctx.set_gravity(Vector::new(0.00, -9.81));
 
-        for x in -PYRAMID_ELEMENTS..PYRAMID_ELEMENTS {
-            for y in 0..(PYRAMID_ELEMENTS - x.abs()) {
-                ctx.create_component(
-                    None,
-                    PhysicsBox::new(Vector::new(
-                        x as f32 * (HALF_BOX_SIZE*2.0 + MINIMAL_SPACING),
-                        y as f32 * (HALF_BOX_SIZE*2.0 + MINIMAL_SPACING*2.0),
-                    )),
-                );
+            for x in -PYRAMID_ELEMENTS..PYRAMID_ELEMENTS {
+                for y in 0..(PYRAMID_ELEMENTS - x.abs()) {
+                    ctx.create_component(
+                        None,
+                        PhysicsBox::new(Vector::new(
+                            x as f32 * (HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING),
+                            y as f32 * (HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING * 2.0),
+                        )),
+                    );
+                }
             }
-        }
 
-        let (_, player_handle) = ctx.create_component(None, Player::new(ctx));
-        ctx.set_camera_target(Some(player_handle));
-        ctx.create_component(None, Floor::new(ctx));
-
-        GameScene {
-            default_color: ctx.create_uniform(Color::new_rgba(0, 255, 0, 255)),
-            collision_color: ctx.create_uniform(Color::new_rgba(255, 0, 0, 255)),
-            hover_color: ctx.create_uniform(Color::new_rgba(0, 0, 255, 255)),
-            box_model: ctx.create_model(ModelBuilder::cuboid(Dimension::new(HALF_BOX_SIZE, HALF_BOX_SIZE))),
-        }
+            let (_, player_handle) = ctx.create_component(None, Player::new(ctx));
+            ctx.set_camera_target(Some(player_handle));
+            ctx.create_component(None, Floor::new(ctx));
+            ctx.create_component(None, BoxManager::new(ctx));
+        },
     });
 }
 
 const HALF_BOX_SIZE: f32 = 0.3;
 
-struct GameScene {
+#[derive(Component)]
+struct BoxManager {
     default_color: Uniform<Color>,
     collision_color: Uniform<Color>,
     hover_color: Uniform<Color>,
     box_model: Model,
+    #[component]
+    component: EmptyComponent,
 }
 
-impl SceneController for GameScene {
+impl BoxManager {
+    pub fn new(ctx: &Context) -> Self {
+        Self {
+            default_color: ctx.create_uniform(Color::new_rgba(0, 255, 0, 255)),
+            collision_color: ctx.create_uniform(Color::new_rgba(255, 0, 0, 255)),
+            hover_color: ctx.create_uniform(Color::new_rgba(0, 0, 255, 255)),
+            box_model: ctx.create_model(ModelBuilder::cuboid(Dimension::new(
+                HALF_BOX_SIZE,
+                HALF_BOX_SIZE,
+            ))),
+            component: Default::default(),
+        }
+    }
+}
+
+impl ComponentController for BoxManager {
     fn update(&mut self, ctx: &mut Context) {
         let scroll = ctx.wheel_delta();
         let fov = ctx.camera_fov();
@@ -55,6 +70,21 @@ impl SceneController for GameScene {
 
         if ctx.is_pressed(MouseButton::Right) {
             ctx.create_component(None, PhysicsBox::new(*ctx.cursor_world()));
+        }
+
+        if ctx.is_pressed(Key::Z) {
+            let ser = ctx.serialize(|s| s.serialize_components::<PhysicsBox>(&[DEFAULT_GROUP_ID]));
+            // let mut f = std::fs::File::create("test.bar").unwrap();
+            // bincode::serialize_into(&mut f, &test).unwrap();
+            std::fs::write("test.json", ser).expect("Unable to write file");
+        }
+    }
+
+    fn config() -> ComponentConfig {
+        ComponentConfig {
+            priority: 1,
+            render: RenderOperation::None,
+            ..ComponentConfig::default()
         }
     }
 }
@@ -82,24 +112,26 @@ impl Player {
 }
 
 impl ComponentController for Player {
-    fn update(&mut self, _scene: &mut DynamicScene, ctx: &mut Context) {
-        let delta = ctx.delta_time();
-        let body = self.component.body_mut(ctx.world);
+    fn update(&mut self, ctx: &mut Context) {
+        let delta = ctx.frame_time();
+        let world = &mut ctx.scene.world;
+        let input = &mut ctx.shura.input;
+        let body = self.component.body_mut(world);
         let mut linvel = *body.linvel();
 
-        if ctx.input.is_held(Key::D) {
+        if input.is_held(Key::D) {
             linvel.x += 15.0 * delta;
         }
 
-        if ctx.input.is_held(Key::A) {
+        if input.is_held(Key::A) {
             linvel.x += -15.0 * delta;
         }
 
-        if ctx.input.is_pressed(Key::W) {
+        if input.is_pressed(Key::W) {
             linvel.y = 7.0;
         }
 
-        if ctx.input.is_pressed(Key::S) {
+        if input.is_pressed(Key::S) {
             linvel.y = -17.0;
         }
 
@@ -107,18 +139,20 @@ impl ComponentController for Player {
     }
 
     fn render<'a>(
-        &'a self,
-        _scene: &'a DynamicScene,
+        ctx: &'a Context<'a>,
         renderer: &mut Renderer<'a>,
-        instance: Instances,
+        components: RenderIter<'a, Self>,
+        instances: Instances,
     ) {
-        renderer.render_sprite(&self.model, &self.sprite);
-        renderer.commit(&instance);
+        for (instances, player) in components {
+            renderer.render_sprite(&player.model, &player.sprite);
+            renderer.commit(instances);
+        }
     }
 
     fn collision(
         &mut self,
-        _scene: &mut DynamicScene,
+
         ctx: &mut Context,
         other: ComponentHandle,
         _self_collider: ColliderHandle,
@@ -155,17 +189,19 @@ impl Floor {
 
 impl ComponentController for Floor {
     fn render<'a>(
-        &'a self,
-        _scene: &'a DynamicScene,
+        ctx: &'a Context<'a>,
         renderer: &mut Renderer<'a>,
-        instance: Instances,
+        components: RenderIter<'a, Self>,
+        instances: Instances,
     ) {
-        renderer.render_color(&self.model, &self.color);
-        renderer.commit(&instance);
+        for (instance, floor) in components {
+            renderer.render_color(&floor.model, &floor.color);
+            renderer.commit(instance);
+        }
     }
 }
 
-#[derive(Component)]
+#[derive(Component, serde::Serialize)]
 struct PhysicsBox {
     collided: bool,
     hovered: bool,
@@ -188,26 +224,36 @@ impl PhysicsBox {
 
 impl ComponentController for PhysicsBox {
     fn render<'a>(
-        &'a self,
-        scene: &'a DynamicScene,
+        ctx: &'a Context<'a>,
         renderer: &mut Renderer<'a>,
-        instance: Instances,
+        components: RenderIter<'a, PhysicsBox>,
+        instances: Instances,
     ) {
-        let scene = scene.downcast_ref::<GameScene>().unwrap();
-        let color: &Uniform<Color>;
-        if self.collided {
-            color = &scene.collision_color;
-        } else if self.hovered {
-            color = &scene.hover_color;
-        } else {
-            color = &scene.default_color;
+        let manager = ctx
+            .components::<BoxManager>(GroupFilter::All)
+            .iter()
+            .next()
+            .unwrap();
+
+        for (instance, physics_box) in components {
+            let color: &Uniform<Color>;
+            if physics_box.collided {
+                color = &manager.collision_color;
+            } else if physics_box.hovered {
+                color = &manager.hover_color;
+            } else {
+                color = &manager.default_color;
+            }
+            renderer.render_color(&manager.box_model, color);
+            renderer.commit(instance);
         }
-        renderer.render_color(&scene.box_model, color);
-        renderer.commit(&instance);
     }
 
-    fn update(&mut self, _scene: &mut DynamicScene, ctx: &mut Context) {
-        if ctx.intersects_point(self.component.collider_handles(ctx.world)[0], *ctx.cursor_world()) {
+    fn update(&mut self, ctx: &mut Context) {
+        if ctx.intersects_point(
+            self.component.collider_handles(&ctx.scene.world)[0],
+            *ctx.cursor_world(),
+        ) {
             self.hovered = true;
             if ctx.is_pressed(MouseButton::Left) || ctx.is_pressed(ScreenTouch) {
                 ctx.remove_component(self.component.handle());

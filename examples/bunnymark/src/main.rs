@@ -6,7 +6,7 @@ use shura::*;
 #[cfg_attr(target_os = "android", ndk_glue::main(backtrace = "on"))]
 fn main() {
     Shura::init(NewScene {
-        name: "Bunnymark",
+        id: 1,
         init: |ctx| {
             let manager = BunnyManager::new(ctx);
             ctx.create_component(None, manager);
@@ -34,7 +34,7 @@ impl BunnyManager {
         ctx.create_component(None, Bunny::new(&ctx));
 
         #[cfg(target_os = "android")]
-        ctx.set_render_scale(0.66);
+        ctx.set_render_scale(0.667);
         BunnyManager {
             component: Default::default(),
             bunny_model,
@@ -42,6 +42,7 @@ impl BunnyManager {
         }
     }
 }
+
 
 impl ComponentController for BunnyManager {
     fn update(&mut self, ctx: &mut Context) {
@@ -84,7 +85,10 @@ impl ComponentController for BunnyManager {
         }
     }
 
-    fn config() -> ComponentConfig {
+    fn config() -> ComponentConfig
+    where
+        Self: Sized,
+    {
         ComponentConfig {
             priority: 1,
             render: RenderOperation::None,
@@ -140,10 +144,10 @@ impl ComponentController for Bunny {
         self.component.set_translation(translation);
     }
 
-    fn render_grouped<'a>(
+    fn render<'a>(
         ctx: &'a Context<'a>,
         renderer: &mut Renderer<'a>,
-        _: ComponentSet<DynamicComponent>,
+        _components: RenderIter<'a, Bunny>,
         instances: Instances,
     ) {
         let manager = ctx
@@ -152,10 +156,13 @@ impl ComponentController for Bunny {
             .next()
             .unwrap();
         renderer.render_sprite(&manager.bunny_model, &manager.bunny_sprite);
-        renderer.commit(&instances);
+        renderer.commit(instances);
     }
 
-    fn config() -> ComponentConfig {
+    fn config() -> ComponentConfig
+    where
+        Self: Sized,
+    {
         ComponentConfig {
             priority: 2,
             render: RenderOperation::Grouped,

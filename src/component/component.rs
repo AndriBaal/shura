@@ -2,7 +2,10 @@ use core::hash::Hash;
 
 #[cfg(feature = "physics")]
 use crate::physics::{CollideType, ColliderHandle, World};
-use crate::{ArenaIndex, ComponentSet, Context, Instances, Matrix, Model, Renderer, Sprite};
+use crate::{
+    data::arena::ArenaIter, ArenaIndex, Context, Instances, Matrix, Model, RenderIter, Renderer,
+    Sprite,
+};
 use downcast_rs::*;
 use instant::Duration;
 
@@ -39,28 +42,6 @@ pub trait ComponentController: Downcast + _StaticAccess + ComponentDerive {
     /// Through the [context](crate::Context) you have access to all other scenes, groups,
     /// components with the matching controller and all data from the engine.
     fn update(&mut self, ctx: &mut Context) {}
-    /// This method gets called when this component gets destroyed.
-    fn end(&mut self, ctx: &mut Context) {}
-    /// This component gets rendered if the component's [group](crate::ComponentGroup) is active.
-    /// The render operation can be chosen through the [renderer](crate::Renderer) and the drawing
-    /// can be completed with [renderer.commit()](crate::Renderer::commit())
-    fn render<'a>(&'a self, ctx: &'a Context, renderer: &mut Renderer<'a>, instance: Instances) {}
-
-    /// Grouped render of multiple components. This method gets called once for every group inwhich
-    /// components of this type exist. This has massive performance advantes since many components
-    /// can be rendered with the same operation, therefore it is mainly used for rendering
-    /// components that have the exact same [model](crate::Model), [uniforms](crate::Uniform) or [sprites](crate::Sprite).
-    /// For this method to work the render operation of this component must be set to
-    /// [RenderOperation::Grouped](crate::RenderOperation::Grouped) in the [ComponentConfig](crate::ComponentConfig).
-    fn render_grouped<'a>(
-        ctx: &'a Context<'a>,
-        renderer: &mut Renderer<'a>,
-        components: ComponentSet<'a, DynamicComponent>,
-        instances: Instances,
-    ) where
-        Self: Sized,
-    {
-    }
 
     #[cfg(feature = "physics")]
     /// Collision Event between 2 [PhysicsComponents](crate::physics::PhysicsComponent). It requires that
@@ -77,9 +58,26 @@ pub trait ComponentController: Downcast + _StaticAccess + ComponentDerive {
     ) {
     }
 
+    /// Grouped render of multiple components. This method gets called once for every group inwhich
+    /// components of this type exist. This has massive performance advantes since many components
+    /// can be rendered with the same operation, therefore it is mainly used for rendering
+    /// components that have the exact same [model](crate::Model), [uniforms](crate::Uniform) or [sprites](crate::Sprite).
+    /// For this method to work the render operation of this component must be set to
+    /// [RenderOperation::Grouped](crate::RenderOperation::Grouped) in the [ComponentConfig](crate::ComponentConfig).
+    fn render<'a>(
+        ctx: &'a Context<'a>,
+        renderer: &mut Renderer<'a>,
+        components: RenderIter<'a, Self>,
+        instances: Instances,
+    ) where
+        Self: Sized,
+    {
+    }
+
     /// Apply postprocessing after rendering all components of this Component. During rendering
     /// the relative camera is bound.
     fn postproccess<'a>(
+        ctx: &Context,
         renderer: &mut Renderer<'a>,
         instance: Instances,
         screen_model: &'a Model,
@@ -87,13 +85,6 @@ pub trait ComponentController: Downcast + _StaticAccess + ComponentDerive {
     ) where
         Self: Sized,
     {
-    }
-
-    fn name() -> &'static str
-    where
-        Self: Sized,
-    {
-        return std::any::type_name::<Self>();
     }
 
     fn config() -> ComponentConfig
@@ -200,9 +191,7 @@ pub enum RenderOperation {
     None,
     /// Render all components in the same method by calling `grouped_render`. A Set of all components of
     /// a group get provided. Use this if your components all draw the same graphics on the same model.
-    Grouped,
-    /// Render all components individually by call `render` on each of them.
-    Solo,
+    Grouped
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -275,7 +264,7 @@ impl ComponentConfig {
         does_move: true,
         update: UpdateOperation::EveryFrame,
         postproccess: PostproccessOperation::None,
-        render: RenderOperation::Solo,
+        render: RenderOperation::Grouped,
         camera: CameraUse::World,
         priority: 16,
     };
@@ -299,13 +288,6 @@ impl<C: ComponentController + ?Sized> ComponentController for Box<C> {
     fn update(&mut self, ctx: &mut Context) {
         (**self).update(ctx)
     }
-    fn end(&mut self, ctx: &mut Context) {
-        (**self).end(ctx)
-    }
-    fn render<'a>(&'a self, ctx: &'a Context, renderer: &mut Renderer<'a>, instance: Instances) {
-        (**self).render(ctx, renderer, instance)
-    }
-
     #[cfg(feature = "physics")]
     fn collision(
         &mut self,
@@ -322,20 +304,46 @@ impl<C: ComponentController + ?Sized> ComponentController for Box<C> {
 /// Grants access to the static members of the component type. This should never be overwritten,
 /// since it is automatically implemented with generics.
 pub trait _StaticAccess {
-    fn get_grouped_render(
+    fn call_grouped_render<'a>(
         &self,
-    ) -> for<'a> fn(&'a Context<'a>, &mut Renderer<'a>, ComponentSet<'a, DynamicComponent>, Instances);
-    fn get_postproccess(&self) -> for<'a> fn(&mut Renderer<'a>, Instances, &'a Model, &'a Sprite);
+        ctx: &'a Context<'a>,
+        renderer: &mut Renderer<'a>,
+        iter: ArenaIter<'a, DynamicComponent>,
+        instances: Instances,
+    );
+    fn call_postproccess<'a>(
+        &self,
+        ctx: &'a Context<'a>,
+        renderer: &mut Renderer<'a>,
+        instances: Instances,
+        model: &'a Model,
+        sprite: &'a Sprite,
+    );
 }
 
 impl<C: ComponentController> _StaticAccess for C {
-    fn get_grouped_render(
+    fn call_grouped_render<'a>(
         &self,
-    ) -> for<'a> fn(&'a Context<'a>, &mut Renderer<'a>, ComponentSet<'a, DynamicComponent>, Instances)
-    {
-        C::render_grouped
+        ctx: &'a Context<'a>,
+        renderer: &mut Renderer<'a>,
+        iter: ArenaIter<'a, DynamicComponent>,
+        instances: Instances,
+    ) {
+        C::render(ctx, renderer, RenderIter::new(iter), instances);
     }
-    fn get_postproccess(&self) -> for<'a> fn(&mut Renderer<'a>, Instances, &'a Model, &'a Sprite) {
-        C::postproccess
+    fn call_postproccess<'a>(
+        &self,
+        ctx: &'a Context<'a>,
+        renderer: &mut Renderer<'a>,
+        instances: Instances,
+        model: &'a Model,
+        sprite: &'a Sprite,
+    ) {
+        C::postproccess(ctx, renderer, instances, model, sprite);
     }
+}
+
+pub trait ComponentIdentifier {
+    const TYPE_NAME: &'static str;
+    const IDENTIFIER: u32 = const_fnv1a_hash::fnv1a_hash_str_32(Self::TYPE_NAME);
 }

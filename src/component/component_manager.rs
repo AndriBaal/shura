@@ -3,7 +3,7 @@ use crate::physics::{PhysicsComponent, World};
 use crate::{
     Arena, ArenaEntry, ArenaIndex, ArenaPath, Camera, ComponentCluster, ComponentController,
     ComponentGroup, ComponentGroupDescriptor, ComponentHandle, ComponentSet, ComponentSetMut,
-    DynamicComponent, Gpu, DEFAULT_GROUP_ID,
+    DynamicComponent, Gpu, DEFAULT_GROUP_ID, ComponentIdentifier,
 };
 use log::info;
 use rustc_hash::{FxHashMap, FxHashSet};
@@ -45,7 +45,7 @@ pub struct ComponentManager {
 
     #[cfg_attr(feature = "serialize", serde(skip))]
     #[cfg_attr(feature = "serialize", serde(default))]
-    active_components: Option<BTreeMap<(i16, &'static str), ComponentCluster>>,
+    active_components: Option<BTreeMap<(i16, u32), ComponentCluster>>,
 }
 
 impl ComponentManager {
@@ -102,9 +102,9 @@ impl ComponentManager {
                     if component_type.is_empty() {
                         continue;
                     }
-                    let name = component_type.name();
+                    let type_id = component_type.type_id();
                     let priority = component_type.config().priority;
-                    let key = (priority, name);
+                    let key = (priority, type_id);
                     let path = ArenaPath {
                         group_index: *index,
                         type_index,
@@ -139,22 +139,22 @@ impl ComponentManager {
         }
     }
 
-    pub fn force_buffer<C: ComponentController>(&mut self) {
-        let name = C::name();
+    pub fn force_buffer<C: ComponentController + ComponentIdentifier>(&mut self) {
+        let type_id = C::IDENTIFIER;
         for group in &mut self.groups {
-            if let Some(index) = group.1.type_index(name) {
+            if let Some(index) = group.1.type_index(type_id) {
                 let component_type = group.1.type_mut(*index).unwrap();
                 component_type.set_force_rewrite_buffer(true);
             }
         }
     }
 
-    pub fn force_buffer_groups<C: ComponentController>(&mut self, groups: &[u32]) {
-        let name = C::name();
+    pub fn force_buffer_groups<C: ComponentController + ComponentIdentifier>(&mut self, groups: &[u32]) {
+        let type_id = C::IDENTIFIER;
         for group_id in groups {
             if let Some(group_index) = self.group_map.get(group_id) {
                 let group = &mut self.groups[*group_index];
-                if let Some(index) = group.type_index(name) {
+                if let Some(index) = group.type_index(type_id) {
                     let component_type = group.type_mut(*index).unwrap();
                     component_type.set_force_rewrite_buffer(true);
                 }
@@ -162,18 +162,18 @@ impl ComponentManager {
         }
     }
 
-    pub fn force_buffer_active<C: ComponentController>(&mut self) {
-        let name = C::name();
+    pub fn force_buffer_active<C: ComponentController + ComponentIdentifier>(&mut self) {
+        let type_id = C::IDENTIFIER;
         for group in self.active_groups.iter() {
             let group = &mut self.groups[*group];
-            if let Some(index) = group.type_index(name) {
+            if let Some(index) = group.type_index(type_id) {
                 let component_type = group.type_mut(*index).unwrap();
                 component_type.set_force_rewrite_buffer(true);
             }
         }
     }
 
-    pub fn create_component<C: ComponentController>(
+    pub fn create_component<C: ComponentController + ComponentIdentifier>(
         &mut self,
         #[cfg(feature = "physics")] world: &mut World,
         total_frames: u64,
@@ -181,7 +181,7 @@ impl ComponentManager {
         component: C,
     ) -> (&mut C, ComponentHandle) {
         let group_id = group_id.unwrap_or(DEFAULT_GROUP_ID);
-        let name = C::name();
+        let type_id = C::IDENTIFIER;
         let group_index = self
             .group_map
             .get(&group_id)
@@ -189,7 +189,7 @@ impl ComponentManager {
         let group = &mut self.groups[*group_index];
         let handle;
 
-        if let Some(type_index) = group.type_index(name).copied() {
+        if let Some(type_index) = group.type_index(type_id).copied() {
             self.id_counter += 1;
             let component_type = group.type_mut(type_index).unwrap();
             let index = component_type.add(component);
@@ -257,21 +257,22 @@ impl ComponentManager {
     }
 
     #[inline]
-    pub fn remove_components<C: ComponentController>(
+    pub fn remove_components<C: ComponentController + ComponentIdentifier>(
         &mut self,
         group_filter: GroupFilter,
         #[cfg(feature = "physics")] world: &mut World,
     ) {
+        let type_id = C::IDENTIFIER;
         #[inline]
         fn remove(
             current: &mut Option<ComponentHandle>,
             remove_current: &mut bool,
             group: &mut ComponentGroup,
             group_index: ArenaIndex,
-            name: &'static str,
+            type_id: u32,
             #[cfg(feature = "physics")] world: &mut World,
         ) {
-            if let Some(type_index) = group.type_index(name) {
+            if let Some(type_index) = group.type_index(type_id) {
                 if let Some(current_handle) = current {
                     if group_index == current_handle.group_index()
                         && *type_index == current_handle.type_index()
@@ -292,7 +293,6 @@ impl ComponentManager {
             }
         }
 
-        let name = C::name();
         match group_filter {
             GroupFilter::All => {
                 for (index, group) in &mut self.groups {
@@ -301,7 +301,7 @@ impl ComponentManager {
                         &mut self.remove_current_commponent,
                         group,
                         index,
-                        name,
+                        type_id,
                         #[cfg(feature = "physics")]
                         world,
                     );
@@ -315,7 +315,7 @@ impl ComponentManager {
                             &mut self.remove_current_commponent,
                             group,
                             *index,
-                            name,
+                            type_id,
                             #[cfg(feature = "physics")]
                             world,
                         )
@@ -331,7 +331,7 @@ impl ComponentManager {
                             &mut self.remove_current_commponent,
                             group,
                             *index,
-                            name,
+                            type_id,
                             #[cfg(feature = "physics")]
                             world,
                         )
@@ -365,18 +365,18 @@ impl ComponentManager {
         }
     }
 
-    pub fn components<'a, C: ComponentController>(
+    pub fn components<'a, C: ComponentController + ComponentIdentifier>(
         &'a self,
         group_filter: GroupFilter,
     ) -> ComponentSet<'a, C> {
-        let name = C::name();
+        let type_id = C::IDENTIFIER;
         let mut types = vec![];
         let mut len = 0;
 
         match group_filter {
             GroupFilter::All => {
                 for (_, group) in &self.groups {
-                    if let Some(type_index) = group.type_index(name) {
+                    if let Some(type_index) = group.type_index(type_id) {
                         let component_type = group.type_ref(*type_index).unwrap();
                         let type_len = component_type.len();
                         if type_len > 0 {
@@ -389,7 +389,7 @@ impl ComponentManager {
             GroupFilter::Active => {
                 for index in &self.active_groups {
                     if let Some(group) = self.groups.get(*index) {
-                        if let Some(type_index) = group.type_index(name) {
+                        if let Some(type_index) = group.type_index(type_id) {
                             let component_type = group.type_ref(*type_index).unwrap();
                             let type_len = component_type.len();
                             if type_len > 0 {
@@ -405,7 +405,7 @@ impl ComponentManager {
                     if let Some(index) = self.group_map.get(&group_id) {
                         let group = self.groups.get(*index).unwrap();
 
-                        if let Some(type_index) = group.type_index(name) {
+                        if let Some(type_index) = group.type_index(type_id) {
                             let component_type = group.type_ref(*type_index).unwrap();
                             let type_len = component_type.len();
                             if type_len > 0 {
@@ -421,18 +421,18 @@ impl ComponentManager {
         return ComponentSet::new(types, len);
     }
 
-    pub fn components_mut<C: ComponentController>(
+    pub fn components_mut<C: ComponentController + ComponentIdentifier>(
         &mut self,
         group_filter: GroupFilter,
     ) -> ComponentSetMut<C> {
-        let name = C::name();
+        let type_id = C::IDENTIFIER;
         let mut types = vec![];
         let mut len = 0;
 
         match group_filter {
             GroupFilter::All => {
                 for (_, group) in &mut self.groups {
-                    if let Some(type_index) = group.type_index(name) {
+                    if let Some(type_index) = group.type_index(type_id) {
                         let component_type = group.type_mut(*type_index).unwrap();
                         let type_len = component_type.len();
                         if type_len > 0 {
@@ -453,7 +453,7 @@ impl ComponentManager {
                     offset += split.0.len();
                     match split.0.last_mut().unwrap() {
                         ArenaEntry::Occupied { data, .. } => {
-                            if let Some(type_index) = data.type_index(name) {
+                            if let Some(type_index) = data.type_index(type_id) {
                                 let component_type = data.type_mut(*type_index).unwrap();
                                 let type_len = component_type.len();
                                 if type_len > 0 {
@@ -480,7 +480,7 @@ impl ComponentManager {
                     offset += split.0.len();
                     match split.0.last_mut().unwrap() {
                         ArenaEntry::Occupied { data, .. } => {
-                            if let Some(type_index) = data.type_index(name) {
+                            if let Some(type_index) = data.type_index(type_id) {
                                 let component_type = data.type_mut(*type_index).unwrap();
                                 let type_len = component_type.len();
                                 if type_len > 0 {
@@ -622,21 +622,21 @@ impl ComponentManager {
     }
 
     #[inline]
-    pub(crate) fn active_components(&self) -> &BTreeMap<(i16, &'static str), ComponentCluster> {
+    pub(crate) fn active_components(&self) -> &BTreeMap<(i16, u32), ComponentCluster> {
         return self.active_components.as_ref().unwrap();
     }
 
     #[inline]
     pub(crate) fn borrow_active_components(
         &mut self,
-    ) -> BTreeMap<(i16, &'static str), ComponentCluster> {
+    ) -> BTreeMap<(i16, u32), ComponentCluster> {
         return self.active_components.take().unwrap();
     }
 
     #[inline]
     pub(crate) fn return_active_components(
         &mut self,
-        active_components: BTreeMap<(i16, &'static str), ComponentCluster>,
+        active_components: BTreeMap<(i16, u32), ComponentCluster>,
     ) {
         return self.active_components = Some(active_components);
     }

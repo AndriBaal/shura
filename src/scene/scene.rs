@@ -1,33 +1,32 @@
-use std::any::Any;
-
-use rustc_hash::FxHashMap;
+use instant::Duration;
+use rustc_hash::{FxHashMap};
 
 #[cfg(feature = "physics")]
 use crate::physics::World;
 use crate::{
-    Arena, Camera, Color, ComponentController, ComponentManager, Context, CursorManager, Dimension,
-    Isometry, Shura, Sprite,
+     Camera, Color, ComponentController, ComponentManager, Context, CursorManager, Dimension,
+    Isometry, Shura, Sprite, ComponentIdentifier,
 };
 
 pub trait SceneCreator {
-    fn name(&self) -> &'static str;
+    fn id(&self) -> u32;
     fn create(&mut self, shura: &mut Shura) -> Scene;
 }
 
 pub struct NewScene<N: 'static + FnMut(&mut Context)> {
-    pub name: &'static str,
+    pub id: u32,
     pub init: N,
 }
 
 impl<N: 'static + FnMut(&mut Context)> SceneCreator for NewScene<N> {
-    fn name(&self) -> &'static str {
-        self.name
+    fn id(&self) -> u32 {
+        self.id
     }
 
     fn create(&mut self, shura: &mut Shura) -> Scene {
         let window_size: Dimension<u32> = shura.window.inner_size().into();
         let window_ratio = window_size.width as f32 / window_size.height as f32;
-        let mut scene = Scene::new(window_ratio, self.name);
+        let mut scene = Scene::new(window_ratio, self.id);
         let mut ctx = Context::new(shura, &mut scene);
         (self.init)(&mut ctx);
         return scene;
@@ -35,7 +34,7 @@ impl<N: 'static + FnMut(&mut Context)> SceneCreator for NewScene<N> {
 }
 
 // pub struct ExistingScene {
-//     pub new_name: &'static str,
+//     pub new_id: u32,
 //     pub existing: DynamicScene,
 // }
 
@@ -44,7 +43,7 @@ impl<N: 'static + FnMut(&mut Context)> SceneCreator for NewScene<N> {
 //         let window_size: Dimension<u32> = shura.window.inner_size().into();
 //         let window_ratio = window_size.width as f32 / window_size.height as f32;
 //         let base = self.existing.base_mut();
-//         base.name = self.name;
+//         base.id = self.id;
 //         base.camera.resize(window_ratio);
 //         base
 //             .cursor
@@ -58,7 +57,7 @@ impl<N: 'static + FnMut(&mut Context)> SceneCreator for NewScene<N> {
 //     S: SceneController,
 //     D: 'static + FnMut(&mut Context, ComponentDeserializer) -> S,
 // > {
-//     pub name: &'static str,
+//     pub id: u32,
 //     pub serializer: SceneSerializer,
 //     pub deserialize: D,
 // }
@@ -77,7 +76,67 @@ fn bool_true() -> bool {
 }
 
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
+pub struct SceneRenderConfig {
+    clear_color: Option<Color>,
+    render_scale: f32,
+    max_fps: Option<u32>,
+}
+
+impl Default for SceneRenderConfig {
+    fn default() -> Self {
+        Self {
+            clear_color: Some(Color::new(0.0, 0.0, 0.0, 1.0)),
+            render_scale: 1.0,
+            max_fps: None,
+        }
+    }
+}
+
+impl SceneRenderConfig  {
+    pub(crate) fn new() -> Self {
+        Default::default()
+    }
+
+    pub fn render_scale(&self) -> f32 {
+        self.render_scale
+    }
+
+    pub fn clear_color(&self) -> Option<Color> {
+        self.clear_color
+    }
+
+    pub fn max_fps(&self) -> Option<u32> {
+        self.max_fps
+    }
+
+    pub fn set_render_scale(&self, shura: &mut Shura, render_scale: f32) {
+        shura.defaults.apply_render_scale(&shura.gpu, render_scale);
+    }
+
+
+    pub fn set_clear_color(&mut self, clear_color: Option<Color>) {
+        self.clear_color = clear_color;
+    }
+
+
+    pub fn set_max_fps(&mut self, max_fps: Option<u32>) {
+        self.max_fps = max_fps;
+    }
+
+
+    pub fn max_frame_time(&self) -> Option<Duration> {
+        if let Some(max_fps) = self.max_fps {
+            return Some(Duration::from_secs_f32(1.0 / max_fps as f32));
+        }
+        return None;
+    }
+}
+
+
+#[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 pub struct Scene {
+    pub(crate) id: u32,
+
     #[cfg_attr(feature = "serialize", serde(skip))]
     #[cfg_attr(feature = "serialize", serde(default = "bool_true"))]
     pub(crate) resized: bool,
@@ -87,21 +146,22 @@ pub struct Scene {
     #[cfg_attr(feature = "serialize", serde(skip))]
     #[cfg_attr(feature = "serialize", serde(default))]
     pub saved_sprites: Vec<(String, Sprite)>,
-
-    pub(crate) name: &'static str,
-    pub camera: Camera,
+    #[cfg_attr(feature = "serialize", serde(skip))]
+    #[cfg_attr(feature = "serialize", serde(default))]
     pub cursor: CursorManager,
+    pub render_config: SceneRenderConfig,
+    pub camera: Camera,
     pub component_manager: ComponentManager,
-    pub clear_color: Option<Color>,
     #[cfg(feature = "physics")]
     pub world: World
 }
 
+
 impl Scene {
-    pub(crate) fn new(ratio: f32, name: &'static str) -> Self {
+    pub(crate) fn new(ratio: f32, id: u32) -> Self {
         const DEFAULT_VERTICAL_CAMERA_FOV: f32 = 5.0;
         Self {
-            name,
+            id: id,
             switched: true,
             resized: true,
             camera: Camera::new(
@@ -111,7 +171,7 @@ impl Scene {
             ),
             cursor: CursorManager::new(),
             component_manager: ComponentManager::new(),
-            clear_color: Some(Color::new(0.0, 0.0, 0.0, 1.0)),
+            render_config: SceneRenderConfig::new(),
             #[cfg(feature = "physics")]
             world: World::new(),
             saved_sprites: vec![]
@@ -126,25 +186,21 @@ impl Scene {
         self.switched
     }
 
-    pub fn name(&self) -> &'static str {
-        self.name
+    pub fn id(&self) -> u32 {
+        self.id
     }
 }
 
 #[cfg(feature = "serialize")]
 #[derive(serde::Serialize)]
-pub struct SceneSerializer {
-    scene: Scene,
-    components: FxHashMap<&'static str, Arena<Box<dyn erased_serde::Serialize>>>,
+pub struct SceneSerializer<'a> {
+    scene: &'a Scene,
+    components: FxHashMap<u32, Vec<(u32, Vec<Option<(&'a u32, &'a dyn erased_serde::Serialize)>>)>>,
 }
 
 #[cfg(feature = "serialize")]
-impl SceneSerializer {
-    pub fn new(&self, scene: Scene) -> Self {
-        if scene.component_manager.current_component().is_some() {
-            panic!("Cannot serialize during component update!")
-        }
-
+impl <'a>SceneSerializer<'a> {
+    pub(crate) fn new(scene: &'a Scene) -> Self {
         Self {
             scene,
             components: Default::default(),
@@ -153,57 +209,26 @@ impl SceneSerializer {
 
     pub fn serialize_components<
         'de,
-        C: ComponentController + serde::Serialize + serde::Deserialize<'de>,
-        T: serde::Serializer,
+        C: ComponentController + ComponentIdentifier + serde::Serialize,
     >(
         &mut self,
         groups: &[u32],
     ) {
-        todo!();
-        let name = C::name();
+        let type_id = C::IDENTIFIER;
+        let mut target = vec![];
         for group_id in groups {
             if let Some(group_index) = self.scene.component_manager.group_index(group_id) {
                 let group = self.scene.component_manager.group(*group_index).unwrap();
-                if let Some(type_index) = group.type_index(name) {
+                if let Some(type_index) = group.type_index(type_id) {
                     let type_ref = group.type_ref(*type_index).unwrap();
-                    for component in type_ref.iter() {}
+                    target.push((*group_id, type_ref.serialize_components::<C>()))
                 }
             }
         }
+        self.components.insert(type_id, target);
     }
 }
 
-#[cfg(feature = "serialize")]
-pub struct ComponentDeserializer {
-    components: Vec<String>,
-    controller: Option<String>,
-}
-
-#[cfg(feature = "serialize")]
-impl ComponentDeserializer {
-    pub fn deserialize_components<T: ComponentController + for<'de> serde::Deserialize<'de>>(
-        &mut self,
-    ) {
-    }
-
-    pub fn deserialize_components_with_ctx<
-        'a,
-        'de,
-        T: ComponentController,
-        D: From<(String, &'a Context<'a>)> + serde::de::DeserializeSeed<'de, Value = T>,
-    >(
-        &mut self,
-        deserializer: D,
-        ctx: &'a mut Context,
-    ) {
-        let deserialized_components = self.components.pop().unwrap();
-        // let deserializer = D::from((deserialized_components, &ctx));
-    }
-
-    pub fn deserialize_controller(&mut self) {
-        todo!();
-    }
-}
 
 // impl<'de> serde::de::DeserializeSeed<'de> for Shura {
 //     type Value = Scene;

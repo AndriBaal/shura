@@ -2,9 +2,9 @@ use instant::Instant;
 
 use crate::{
     ArenaIndex, ArenaIter, ArenaIterMut, ComponentConfig, ComponentController, ComponentType,
-    DynamicComponent,
+    DynamicComponent, Instances,
 };
-use std::marker::PhantomData;
+use std::{marker::PhantomData, iter::Enumerate};
 
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -76,7 +76,7 @@ impl ComponentCluster {
 pub struct ComponentSet<'a, C: ComponentController> {
     pub(crate) types: Vec<&'a ComponentType>,
     pub(crate) len: usize,
-    _type: PhantomData<C>,
+    marker: PhantomData<C>,
 }
 
 impl<'a, C: ComponentController> ComponentSet<'a, C> {
@@ -84,7 +84,7 @@ impl<'a, C: ComponentController> ComponentSet<'a, C> {
         Self {
             types,
             len,
-            _type: PhantomData::<C>,
+            marker: PhantomData::<C>,
         }
     }
 
@@ -134,7 +134,7 @@ where
     iters: Vec<ArenaIter<'a, DynamicComponent>>,
     iter_index: usize,
     len: usize,
-    _type: PhantomData<C>,
+    marker: PhantomData<C>,
 }
 
 impl<'a, C> ComponentIter<'a, C>
@@ -150,7 +150,7 @@ where
             iters,
             iter_index: 0,
             len,
-            _type: PhantomData::<C>,
+            marker: PhantomData::<C>,
         }
     }
 }
@@ -207,7 +207,7 @@ where
 pub struct ComponentSetMut<'a, C: ComponentController> {
     pub(crate) types: Vec<&'a mut ComponentType>,
     pub(crate) len: usize,
-    _type: PhantomData<C>,
+    marker: PhantomData<C>,
 }
 
 impl<'a, C: ComponentController> ComponentSetMut<'a, C> {
@@ -215,7 +215,7 @@ impl<'a, C: ComponentController> ComponentSetMut<'a, C> {
         Self {
             types,
             len,
-            _type: PhantomData::<C>,
+            marker: PhantomData::<C>,
         }
     }
 
@@ -255,7 +255,7 @@ where
     iters: Vec<ArenaIterMut<'a, DynamicComponent>>,
     iter_index: usize,
     len: usize,
-    _type: PhantomData<C>,
+    marker: PhantomData<C>,
 }
 
 impl<'a, C> ComponentIterMut<'a, C>
@@ -274,7 +274,7 @@ where
             iters,
             iter_index: 0,
             len,
-            _type: PhantomData::<C>,
+            marker: PhantomData::<C>,
         }
     }
 }
@@ -319,6 +319,65 @@ where
                 self.iter_index += 1;
                 return self.next_back();
             }
+        }
+        return None;
+    }
+}
+
+
+pub struct RenderIter<'a, C>
+where
+    C: ComponentController,
+{
+    iter: Enumerate<ArenaIter<'a, DynamicComponent>>,
+    marker: PhantomData<C>,
+}
+
+impl<'a, C> RenderIter<'a, C>
+where
+    C: ComponentController,
+{
+    pub(crate) fn new(
+        iter: ArenaIter<'a, DynamicComponent>
+    ) -> RenderIter<'a, C> {
+        RenderIter {
+            iter: iter.enumerate(),
+            marker: PhantomData::<C>,
+        }
+    }
+}
+
+impl<'a, C> ExactSizeIterator for RenderIter<'a, C>
+where
+    C: ComponentController,
+{
+    fn len(&self) -> usize {
+        self.iter.len()
+    }
+}
+
+impl<'a, C> Iterator for RenderIter<'a, C>
+where
+    C: ComponentController,
+{
+    type Item = (Instances, &'a C);
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some((i, entry)) = self.iter.next() {
+            let i = i as u32;
+            return Some((i..i+1, entry.1.downcast_ref::<C>().unwrap()));
+        }
+        return None;
+    }
+}
+
+impl<'a, C> DoubleEndedIterator for RenderIter<'a, C>
+where
+    C: ComponentController,
+{
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if let Some((i, entry)) = self.iter.next_back() {
+            let i = i as u32;
+            return Some((i-1..i, entry.1.downcast_ref::<C>().unwrap()));
         }
         return None;
     }

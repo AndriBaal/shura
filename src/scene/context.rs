@@ -2,11 +2,11 @@ use std::collections::BTreeMap;
 
 use crate::{
     data::arena::ArenaEntry, ArenaPath, CameraBuffers, Color, ComponentCluster,
-    ComponentController, ComponentGroup, ComponentGroupDescriptor, ComponentHandle, ComponentSet,
-    ComponentSetMut, Dimension, DynamicComponent, GroupFilter, InputEvent, InputTrigger,
-    InstanceBuffer, Instances, Isometry, Key, Matrix, Model, ModelBuilder, Modifier, Renderer,
-    Rotation, Scene, Shader, ShaderField, ShaderLang, Shura, Sprite, SpriteSheet, Touch, Uniform,
-    Vector,
+    ComponentController, ComponentGroup, ComponentGroupDescriptor, ComponentHandle,
+    ComponentIdentifier, ComponentSet, ComponentSetMut, Dimension, DynamicComponent, GroupFilter,
+    InputEvent, InputTrigger, InstanceBuffer, Instances, Isometry, Key, Matrix, Model,
+    ModelBuilder, Modifier, Renderer, Rotation, Scene, Shader, ShaderField, ShaderLang, Shura,
+    Sprite, SpriteSheet, Touch, Uniform, Vector, SceneSerializer,
 };
 
 #[cfg(feature = "audio")]
@@ -102,9 +102,15 @@ impl<'a> Context<'a> {
                 .resize(new_size.width as f32 / new_size.height as f32);
         }
 
+        if self.scene.switched {
+            self.shura
+                .defaults
+                .apply_render_scale(&self.shura.gpu, self.scene.render_config.render_scale());
+        }
+
         self.scene
             .cursor
-            .compute(&self.scene.camera.fov(), &window.inner_size().into(), input);
+            .compute(&self.scene.camera, &window.inner_size().into(), input);
     }
 
     #[inline]
@@ -122,16 +128,14 @@ impl<'a> Context<'a> {
     }
 
     #[inline]
-    pub(crate) fn borrow_active_components(
-        &mut self,
-    ) -> BTreeMap<(i16, &'static str), ComponentCluster> {
+    pub(crate) fn borrow_active_components(&mut self) -> BTreeMap<(i16, u32), ComponentCluster> {
         self.scene.component_manager.borrow_active_components()
     }
 
     #[inline]
     pub(crate) fn return_active_components(
         &mut self,
-        active_components: BTreeMap<(i16, &'static str), ComponentCluster>,
+        active_components: BTreeMap<(i16, u32), ComponentCluster>,
     ) {
         self.scene
             .component_manager
@@ -202,6 +206,12 @@ impl<'a> Context<'a> {
     #[inline]
     pub fn does_group_exist(&self, group: u32) -> bool {
         self.scene.component_manager.does_group_exist(group)
+    }
+
+    pub fn serialize(&'a self, mut serialize: impl FnMut(&mut SceneSerializer)) -> Vec<u8> {
+        let mut s = SceneSerializer::new(self.scene);
+        (serialize)(&mut s);
+        return bincode::serialize(&s).unwrap();
     }
 
     //////////////////////////////////////////////////////////////////////////////////////////////
@@ -343,7 +353,7 @@ impl<'a> Context<'a> {
     }
 
     #[inline]
-    pub fn create_component<C: ComponentController>(
+    pub fn create_component<C: ComponentController + ComponentIdentifier>(
         &mut self,
         group: Option<u32>,
         component: C,
@@ -364,8 +374,8 @@ impl<'a> Context<'a> {
 
     /// Remove a scene by its name
     #[inline]
-    pub fn remove_scene(&mut self, name: &'static str) -> Option<Scene> {
-        if let Some(mut scene) = self.shura.scene_manager.remove(name) {
+    pub fn remove_scene(&mut self, name: u32) -> Option<Scene> {
+        if let Some(scene) = self.shura.scene_manager.remove(name) {
             return Some(scene);
         }
         return None;
@@ -381,7 +391,10 @@ impl<'a> Context<'a> {
     }
 
     #[inline]
-    pub fn remove_components<C: ComponentController>(&mut self, filter: GroupFilter) {
+    pub fn remove_components<C: ComponentController + ComponentIdentifier>(
+        &mut self,
+        filter: GroupFilter,
+    ) {
         self.scene.component_manager.remove_components::<C>(
             filter,
             #[cfg(feature = "physics")]
@@ -440,7 +453,7 @@ impl<'a> Context<'a> {
 
     #[inline]
     pub fn render_scale(&self) -> f32 {
-        self.shura.gpu.render_scale()
+        self.scene.render_config.render_scale()
     }
 
     #[inline]
@@ -520,7 +533,7 @@ impl<'a> Context<'a> {
 
     #[inline]
     pub fn render_size(&self) -> Dimension<u32> {
-        self.shura.gpu.render_size()
+        self.shura.gpu.render_size(self.render_scale())
     }
 
     #[inline]
@@ -582,7 +595,7 @@ impl<'a> Context<'a> {
 
     #[inline]
     pub fn clear_color(&self) -> Option<Color> {
-        self.scene.clear_color
+        self.scene.render_config.clear_color()
     }
 
     #[inline]
@@ -778,13 +791,13 @@ impl<'a> Context<'a> {
     }
 
     #[inline]
-    pub const fn max_fps(&self) -> Option<u32> {
-        self.shura.frame_manager.max_fps()
+    pub fn max_fps(&self) -> Option<u32> {
+        self.scene.render_config.max_fps()
     }
 
     #[inline]
     pub fn max_frame_time(&self) -> Option<Duration> {
-        self.shura.frame_manager.max_frame_time()
+        self.scene.render_config.max_frame_time()
     }
 
     #[inline]
@@ -814,22 +827,22 @@ impl<'a> Context<'a> {
     }
 
     #[inline]
-    pub fn scene_name(&self) -> &str {
-        self.scene.name
+    pub fn scene_id(&self) -> u32 {
+        self.scene.id()
     }
 
     #[inline]
-    pub fn active_scene(&self) -> &'static str {
+    pub fn active_scene(&self) -> u32 {
         self.shura.scene_manager.active_scene()
     }
 
     #[inline]
-    pub fn scenes(&self) -> Vec<&'static str> {
-        self.shura.scene_manager.scenes()
+    pub fn scene_ids(&self) -> impl Iterator<Item = &u32> {
+        self.shura.scene_manager.scene_ids()
     }
 
     #[inline]
-    pub fn does_scene_exist(&self, name: &'static str) -> bool {
+    pub fn does_scene_exist(&self, name: u32) -> bool {
         self.shura.scene_manager.does_scene_exist(name)
     }
 
@@ -872,7 +885,7 @@ impl<'a> Context<'a> {
     /// Force the position of the all component from the given generic to be updated inside the
     /// (InstanceBuffer)[crate::InstanceBuffer]. This is used when the [crate::ComponentConfig::does_move]
     /// flag is set, but the position needs to be updated.
-    pub fn force_buffer<C: ComponentController>(&mut self) {
+    pub fn force_buffer<C: ComponentController + ComponentIdentifier>(&mut self) {
         self.scene.component_manager.force_buffer::<C>()
     }
 
@@ -880,7 +893,10 @@ impl<'a> Context<'a> {
     /// Force the position of the components from the given groups from the given generic to be updated inside the
     /// (InstanceBuffer)[crate::InstanceBuffer]. This is used when the [crate::ComponentConfig::does_move]
     /// flag is set, but the position needs to be updated.
-    pub fn force_buffer_groups<C: ComponentController>(&mut self, group_ids: &[u32]) {
+    pub fn force_buffer_groups<C: ComponentController + ComponentIdentifier>(
+        &mut self,
+        group_ids: &[u32],
+    ) {
         self.scene
             .component_manager
             .force_buffer_groups::<C>(group_ids)
@@ -890,7 +906,7 @@ impl<'a> Context<'a> {
     /// Force the position of the active components from the given generic to be updated inside the
     /// (InstanceBuffer)[crate::InstanceBuffer]. This is used when the [crate::ComponentConfig::does_move]
     /// flag is set, but the position needs to be updated.
-    pub fn force_buffer_active<C: ComponentController>(&mut self) {
+    pub fn force_buffer_active<C: ComponentController + ComponentIdentifier>(&mut self) {
         self.scene.component_manager.force_buffer_active::<C>()
     }
 
@@ -907,7 +923,7 @@ impl<'a> Context<'a> {
     }
 
     #[inline]
-    pub fn components_mut<C: ComponentController>(
+    pub fn components_mut<C: ComponentController + ComponentIdentifier>(
         &'a mut self,
         filter: GroupFilter,
     ) -> ComponentSetMut<'a, C> {
@@ -915,17 +931,12 @@ impl<'a> Context<'a> {
     }
 
     #[inline]
-    pub fn components<C: ComponentController>(
+    pub fn components<C: ComponentController + ComponentIdentifier>(
         &'a self,
         filter: GroupFilter,
     ) -> ComponentSet<'a, C> {
         self.scene.component_manager.components::<C>(filter)
     }
-
-    // #[inline]
-    // pub fn test<C: ComponentController>(&'a self, filter: GroupFilter) -> &'a C {
-    //     self.scene.component_manager.groups.iter().next().unwrap().1.types.iter().next().unwrap().1.iter().next().unwrap().1.downcast_ref::<C>().unwrap()
-    // }
 
     #[inline]
     #[cfg(feature = "gamepad")]
@@ -945,13 +956,11 @@ impl<'a> Context<'a> {
 
     #[inline]
     pub fn set_render_scale(&mut self, scale: f32) {
-        self.shura
-            .gpu
-            .set_render_scale(&mut self.shura.defaults, scale)
+        self.scene.render_config.set_render_scale(self.shura, scale);
     }
 
     #[inline]
-    pub fn set_active_scene(&mut self, active_scene: &'static str) {
+    pub fn set_active_scene(&mut self, active_scene: u32) {
         self.shura.scene_manager.set_active_scene(active_scene)
     }
 
@@ -1042,7 +1051,7 @@ impl<'a> Context<'a> {
 
     #[inline]
     pub fn set_clear_color(&mut self, color: Option<Color>) {
-        self.scene.clear_color = color;
+        self.scene.render_config.set_clear_color(color);
     }
 
     #[inline]
@@ -1095,6 +1104,6 @@ impl<'a> Context<'a> {
 
     #[inline]
     pub fn set_max_fps(&mut self, max_fps: Option<u32>) {
-        self.shura.frame_manager.set_max_fps(max_fps);
+        self.scene.render_config.set_max_fps(max_fps);
     }
 }

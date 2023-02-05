@@ -164,7 +164,7 @@ impl Sprite {
         renderer.use_uniform(relative_camera.uniform(), 0);
         renderer.set_instance_buffer(&defaults.single_centered_instance);
         renderer.render_sprite(relative_camera.model(), &defaults.target);
-        renderer.commit(&(0..1));
+        renderer.commit(0..1);
     }
 
     pub fn from_wgpu(

@@ -1,3 +1,5 @@
+use crate::ComponentController;
+
 use super::arena::{Arena, ArenaEntry, ArenaIndex, DEFAULT_CAPACITY};
 use core::cmp;
 use core::fmt;
@@ -41,6 +43,24 @@ where
             ArenaEntry::Occupied { generation, data } => Some((generation, data)),
             _ => None,
         }))
+    }
+}
+
+impl Arena<Box<dyn ComponentController>> {
+    pub fn serialize_components<C: ComponentController + erased_serde::Serialize>(
+        &self,
+    ) -> Vec<Option<(&u32, &dyn erased_serde::Serialize)>> {
+        let mut target = Vec::with_capacity(self.capacity());
+        for entry in self.items.iter() {
+            target.push(match entry {
+                ArenaEntry::Occupied { generation, data } => {
+                    let temp: &dyn erased_serde::Serialize = data.downcast_ref::<C>().unwrap();
+                    Some((generation, temp))
+                }
+                _ => None,
+            });
+        }
+        return target;
     }
 }
 

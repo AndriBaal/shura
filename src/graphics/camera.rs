@@ -24,7 +24,6 @@ impl Camera {
     pub fn new(position: Isometry<f32>, ratio: f32, vertical_fov: f32) -> Self {
         let fov = Dimension::new(vertical_fov * ratio, vertical_fov);
         let proj = Matrix::projection(fov);
-        let view = Matrix::view(position);
         Camera {
             ratio,
             target: None,
@@ -177,7 +176,7 @@ impl Camera {
         }
         self.vertical_fov = new_fov;
         self.reset_camera_projection();
-        cursors.compute(&self.fov(), &window_size, input)
+        cursors.compute(self, &window_size, input)
     }
 
     #[inline]
@@ -193,7 +192,7 @@ impl Camera {
         }
         self.vertical_fov = new_fov / self.ratio;
         self.reset_camera_projection();
-        cursors.compute(&self.fov(), &window_size, input)
+        cursors.compute(self, &window_size, input)
     }
 }
 

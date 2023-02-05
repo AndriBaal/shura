@@ -1,4 +1,4 @@
-use crate::{Dimension, Input, Vector, RELATIVE_CAMERA_SIZE};
+use crate::{Dimension, Input, Vector, RELATIVE_CAMERA_SIZE, Camera};
 
 #[derive(Copy, Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -16,6 +16,7 @@ pub struct Touch {
 /// Managing of the mouse cursor or various touch events. Every scene has its own [CursorManager]
 /// because the world coordinates of the cursor depends on the camera.
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Default)]
 pub struct CursorManager {
     // Raw Cursor in pixel coordinates
     cursor_raw: Vector<u32>,
@@ -38,16 +39,18 @@ impl CursorManager {
 
     pub(crate) fn compute(
         &mut self,
-        fov: &Dimension<f32>,
+        camera: &Camera,
         window_size: &Dimension<u32>,
         input: &Input,
     ) {
+        let fov = camera.fov();
+        let camera_translation = camera.translation();
         let window_size = Dimension::new(window_size.width as f32, window_size.height as f32);
         self.cursor_raw = *input.cursor_raw();
 
         let cursor_raw: Vector<f32> =
             Vector::new(self.cursor_raw.x as f32, self.cursor_raw.y as f32);
-        self.cursor_world = Vector::new(
+        self.cursor_world = camera_translation + Vector::new(
             cursor_raw.x / window_size.width * fov.width - fov.width / 2.0,
             cursor_raw.y / window_size.height * -fov.height + fov.height / 2.0,
         );
@@ -60,7 +63,7 @@ impl CursorManager {
         self.touches.clear();
         for (id, raw) in input.touches() {
             let raw_touch: Vector<f32> = Vector::new(raw.x as f32, raw.y as f32);
-            let world = Vector::new(
+            let world = camera_translation + Vector::new(
                 raw_touch.x / window_size.width * fov.width - fov.width / 2.0,
                 raw_touch.y / window_size.height * -fov.height + fov.height / 2.0,
             );

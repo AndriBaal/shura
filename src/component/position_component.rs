@@ -3,6 +3,7 @@ use crate::physics::World;
 use crate::{BaseComponent, ComponentHandle, Dimension, Isometry, Matrix, Rotation, Vector};
 
 /// Easily create a [PositionComponent].
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct PositionComponentBuilder {
     scale: Vector<f32>,
     position: Isometry<f32>,
@@ -83,6 +84,7 @@ impl Into<PositionComponent> for PositionComponentBuilder {
 
 /// [BaseComponent] that only holds a position and a scale. This is very optimized for components with a
 /// static position, since the matrix only updates when changing the component.
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct PositionComponent {
     handle: ComponentHandle,
     scale: Vector<f32>,

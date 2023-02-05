@@ -7,7 +7,7 @@ use std::marker::PhantomData;
 pub struct Uniform<T: bytemuck::Pod> {
     buffer: wgpu::Buffer,
     bind_group: wgpu::BindGroup,
-    _type: PhantomData<T>,
+    marker: PhantomData<T>,
 }
 
 impl<T: bytemuck::Pod> Uniform<T> {
@@ -46,7 +46,7 @@ impl<T: bytemuck::Pod> Uniform<T> {
         Uniform {
             buffer,
             bind_group,
-            _type: PhantomData::<T>,
+            marker: PhantomData::<T>,
         }
     }
 
