@@ -6,8 +6,11 @@ use crate::{
     ComponentIdentifier, ComponentSet, ComponentSetMut, Dimension, DynamicComponent, GroupFilter,
     InputEvent, InputTrigger, InstanceBuffer, Instances, Isometry, Key, Matrix, Model,
     ModelBuilder, Modifier, Renderer, Rotation, Scene, Shader, ShaderField, ShaderLang, Shura,
-    Sprite, SpriteSheet, Touch, Uniform, Vector, SceneSerializer,
+    Sprite, SpriteSheet, Touch, Uniform, Vector,
 };
+
+#[cfg(feature = "serialize")]
+use crate::SceneSerializer;
 
 #[cfg(feature = "audio")]
 use crate::audio::{Sink, Sound};
@@ -208,6 +211,7 @@ impl<'a> Context<'a> {
         self.scene.component_manager.does_group_exist(group)
     }
 
+    #[cfg(feature = "serialize")]
     pub fn serialize(&'a self, mut serialize: impl FnMut(&mut SceneSerializer)) -> Vec<u8> {
         let mut s = SceneSerializer::new(self.scene);
         (serialize)(&mut s);
