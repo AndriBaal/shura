@@ -11,6 +11,8 @@ use crate::{
 
 #[cfg(feature = "serialize")]
 use crate::SceneSerializer;
+#[cfg(feature = "serialize")]
+use ron::ser::PrettyConfig;
 
 #[cfg(feature = "audio")]
 use crate::audio::{Sink, Sound};
@@ -212,10 +214,20 @@ impl<'a> Context<'a> {
     }
 
     #[cfg(feature = "serialize")]
-    pub fn serialize(&'a self, mut serialize: impl FnMut(&mut SceneSerializer)) -> Vec<u8> {
+    pub fn serialize(
+        &'a self,
+        mut serialize: impl FnMut(&mut SceneSerializer),
+        pretty: bool,
+    ) -> Option<String> {
         let mut s = SceneSerializer::new(self.scene);
         (serialize)(&mut s);
-        return bincode::serialize(&s).unwrap();
+        let o = if pretty {
+            let pretty_config = PrettyConfig::new();
+            ron::ser::to_string_pretty(&s, pretty_config)
+        } else {
+            ron::ser::to_string(&s)
+        };
+        return o.ok();
     }
 
     //////////////////////////////////////////////////////////////////////////////////////////////
@@ -1080,31 +1092,31 @@ impl<'a> Context<'a> {
         self.scene.world.set_physics_priority(step);
     }
 
-    #[inline]
-    #[cfg(feature = "gamepad")]
-    pub fn set_gamepad_mapping(
-        &mut self,
-        gamepad_id: GamepadId,
-        mapping: &Mapping,
-        name: Option<&str>,
-    ) -> Result<String, MappingError> {
-        self.shura
-            .input
-            .set_gamepad_mapping(gamepad_id, mapping, name)
-    }
+    // #[inline]
+    // #[cfg(feature = "gamepad")]
+    // pub fn set_gamepad_mapping(
+    //     &mut self,
+    //     gamepad_id: GamepadId,
+    //     mapping: &Mapping,
+    //     name: Option<&str>,
+    // ) -> Result<String, MappingError> {
+    //     self.shura
+    //         .input
+    //         .set_gamepad_mapping(gamepad_id, mapping, name)
+    // }
 
-    #[inline]
-    #[cfg(feature = "gamepad")]
-    pub fn set_gamepad_mapping_strict(
-        &mut self,
-        gamepad_id: GamepadId,
-        mapping: &Mapping,
-        name: Option<&str>,
-    ) -> Result<String, MappingError> {
-        self.shura
-            .input
-            .set_gamepad_mapping_strict(gamepad_id, mapping, name)
-    }
+    // #[inline]
+    // #[cfg(feature = "gamepad")]
+    // pub fn set_gamepad_mapping_strict(
+    //     &mut self,
+    //     gamepad_id: GamepadId,
+    //     mapping: &Mapping,
+    //     name: Option<&str>,
+    // ) -> Result<String, MappingError> {
+    //     self.shura
+    //         .input
+    //         .set_gamepad_mapping_strict(gamepad_id, mapping, name)
+    // }
 
     #[inline]
     pub fn set_max_fps(&mut self, max_fps: Option<u32>) {

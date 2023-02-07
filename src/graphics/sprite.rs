@@ -308,6 +308,7 @@ impl Sprite {
         output_buffer.unmap();
         return image;
     }
+    
     // Getters
 
     #[inline]

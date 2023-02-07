@@ -276,31 +276,31 @@ impl Input {
 
     // Setters
 
-    #[inline]
-    #[cfg(feature = "gamepad")]
-    pub fn set_gamepad_mapping(
-        &mut self,
-        gamepad_id: GamepadId,
-        mapping: &Mapping,
-        name: Option<&str>,
-    ) -> Result<String, MappingError> {
-        if let Some(game_pad_manager) = &mut self.game_pad_manager {
-            return game_pad_manager.set_mapping(gamepad_id.into(), mapping, name);
-        }
-        return Err(MappingError::NotConnected);
-    }
+    // #[inline]
+    // #[cfg(feature = "gamepad")]
+    // pub fn set_gamepad_mapping(
+    //     &mut self,
+    //     gamepad_id: GamepadId,
+    //     mapping: &Mapping,
+    //     name: Option<&str>,
+    // ) -> Result<String, MappingError> {
+    //     if let Some(game_pad_manager) = &mut self.game_pad_manager {
+    //         return game_pad_manager.set_mapping(gamepad_id.into(), mapping, name);
+    //     }
+    //     return Err(MappingError::NotConnected);
+    // }
 
-    #[inline]
-    #[cfg(feature = "gamepad")]
-    pub fn set_gamepad_mapping_strict(
-        &mut self,
-        gamepad_id: GamepadId,
-        mapping: &Mapping,
-        name: Option<&str>,
-    ) -> Result<String, MappingError> {
-        if let Some(game_pad_manager) = &mut self.game_pad_manager {
-            return game_pad_manager.set_mapping_strict(gamepad_id.into(), mapping, name);
-        }
-        return Err(MappingError::NotConnected);
-    }
+    // #[inline]
+    // #[cfg(feature = "gamepad")]
+    // pub fn set_gamepad_mapping_strict(
+    //     &mut self,
+    //     gamepad_id: GamepadId,
+    //     mapping: &Mapping,
+    //     name: Option<&str>,
+    // ) -> Result<String, MappingError> {
+    //     if let Some(game_pad_manager) = &mut self.game_pad_manager {
+    //         return game_pad_manager.set_mapping_strict(gamepad_id.into(), mapping, name);
+    //     }
+    //     return Err(MappingError::NotConnected);
+    // }
 }

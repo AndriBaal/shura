@@ -73,10 +73,13 @@ impl ComponentController for BoxManager {
         }
 
         if ctx.is_pressed(Key::Z) {
-            let ser = ctx.serialize(|s| s.serialize_components::<PhysicsBox>(&[DEFAULT_GROUP_ID]));
-            // let mut f = std::fs::File::create("test.bar").unwrap();
-            // bincode::serialize_into(&mut f, &test).unwrap();
-            std::fs::write("test.json", ser).expect("Unable to write file");
+            let ser = ctx
+                .serialize(
+                    |s| s.serialize_components::<PhysicsBox>(&[DEFAULT_GROUP_ID]),
+                    false,
+                )
+                .unwrap();
+            std::fs::write("test.ron", ser).expect("Unable to write file");
         }
     }
 
