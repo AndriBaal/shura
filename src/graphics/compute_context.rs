@@ -130,7 +130,7 @@ impl<'a> ComputeContext<'a> {
         self.use_sprite(source);
     }
 
-    // Getters
+
     #[inline]
     pub const fn assets(&self) -> &'a Assets {
         &self.assets

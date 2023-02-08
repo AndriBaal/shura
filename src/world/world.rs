@@ -333,7 +333,7 @@ impl World {
         );
     }
 
-    // Getters
+
     #[inline]
     pub fn collider<'a>(&'a self, collider_handle: ColliderHandle) -> Option<&'a Collider> {
         self.colliders.get(collider_handle)

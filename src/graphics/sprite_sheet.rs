@@ -45,7 +45,7 @@ impl SpriteSheet {
         self.sprites
     }
 
-    // Getters
+
     pub fn sprite_size(&self) -> &Dimension<u32> {
         &self.sprite_size
     }

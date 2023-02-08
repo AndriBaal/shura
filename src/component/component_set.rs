@@ -43,7 +43,7 @@ impl ComponentCluster {
         self.paths.push(path);
     }
 
-    // Getters
+
     #[inline]
     pub fn last_update(&self) -> Option<Instant> {
         self.last_update

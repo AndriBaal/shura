@@ -224,7 +224,7 @@ impl Input {
         }
     }
 
-    // Getters
+
 
     #[inline]
     #[cfg(feature = "gamepad")]

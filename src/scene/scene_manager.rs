@@ -52,7 +52,7 @@ impl SceneManager {
         return None;
     }
 
-    // Getters
+
     #[inline]
     pub fn scene_ids(&self) -> impl Iterator<Item = &u32> {
         self.scenes.keys().into_iter()

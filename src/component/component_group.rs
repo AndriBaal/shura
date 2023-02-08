@@ -1,5 +1,5 @@
 use crate::data::arena::{Arena, ArenaIndex, ArenaIterMut};
-use crate::{ComponentController, ComponentType, Dimension, Vector, ComponentIdentifier};
+use crate::{ComponentController, ComponentIdentifier, ComponentType, Dimension, Vector};
 use rustc_hash::FxHashMap;
 
 /// Helper to create a [ComponentGroup](crate::ComponentGroup).
@@ -108,8 +108,6 @@ impl ComponentGroup {
         self.always_active = always_active;
     }
 
-    // Getters
-
     #[inline]
     pub(crate) fn type_index(&self, type_id: u32) -> Option<&ArenaIndex> {
         self.type_map.get(&type_id)
@@ -124,11 +122,6 @@ impl ComponentGroup {
     pub(crate) fn type_mut(&mut self, index: ArenaIndex) -> Option<&mut ComponentType> {
         self.types.get_mut(index)
     }
-
-    // #[inline]
-    // pub(crate) fn remove_type(&mut self, type_index: ArenaIndex) {
-    //     self.types.remove(type_index);
-    // }
 
     #[inline]
     pub(crate) fn types(&mut self) -> ArenaIterMut<ComponentType> {

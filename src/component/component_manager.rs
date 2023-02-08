@@ -548,7 +548,7 @@ impl ComponentManager {
         self.group_map.contains_key(&group)
     }
 
-    // Getters
+
     #[inline]
     pub(crate) fn group_mut(&mut self, index: ArenaIndex) -> Option<&mut ComponentGroup> {
         self.groups.get_mut(index)

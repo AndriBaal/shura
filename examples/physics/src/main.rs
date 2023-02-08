@@ -76,7 +76,7 @@ impl ComponentController for BoxManager {
             let ser = ctx
                 .serialize(
                     |s| s.serialize_components::<PhysicsBox>(&[DEFAULT_GROUP_ID]),
-                    false,
+                    true,
                 )
                 .unwrap();
             std::fs::write("test.ron", ser).expect("Unable to write file");

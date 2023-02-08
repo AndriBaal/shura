@@ -309,7 +309,7 @@ impl Sprite {
         return image;
     }
     
-    // Getters
+
 
     #[inline]
     pub const fn size(&self) -> &Dimension<u32> {

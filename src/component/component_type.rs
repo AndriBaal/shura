@@ -97,7 +97,11 @@ impl ComponentType {
         self.buffer.as_ref().unwrap()
     }
 
-    // Getters
+    #[inline]
+    pub fn deserialize_components(&mut self, components: Arena<Box<dyn ComponentController>>) {
+        self.components = components;
+    }
+
     #[inline]
     pub const fn config(&self) -> &ComponentConfig {
         &self.config

@@ -60,7 +60,7 @@ impl Camera {
         self.proj = Matrix::projection(self.fov());
     }
 
-    // Getters
+
 
     #[inline]
     /// Returns the bottom left and top right corner of the camera. Computes AABB when the camera
