@@ -176,8 +176,7 @@ impl World {
         body2: RigidBodyHandle,
         joint: impl Into<GenericJoint>,
     ) -> ImpulseJointHandle {
-        self.impulse_joints
-            .insert(body1, body2, joint, true)
+        self.impulse_joints.insert(body1, body2, joint, true)
     }
 
     #[inline]
@@ -431,7 +430,10 @@ impl World {
         self.impulse_joints.get_mut(joint)
     }
 
-    pub fn component(&self, collider_handle: &ColliderHandle) -> Option<(ComponentTypeId, ComponentHandle)> {
+    pub fn component(
+        &self,
+        collider_handle: &ColliderHandle,
+    ) -> Option<(ComponentTypeId, ComponentHandle)> {
         self.component_mapping.get(collider_handle).copied()
     }
 

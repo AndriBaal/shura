@@ -1,9 +1,10 @@
 #[cfg(feature = "physics")]
 use crate::physics::World;
+use crate::SerializeableComponent;
 use crate::{
     data::arena::{ArenaEntry, ArenaIter, ArenaIterMut},
     Arena, ArenaIndex, ComponentConfig, ComponentController, ComponentHandle, ComponentIdentifier,
-    DynamicComponent, Gpu, InstanceBuffer, Matrix, RenderOperation, ComponentTypeId,
+    ComponentTypeId, DynamicComponent, Gpu, InstanceBuffer, Matrix, RenderOperation,
 };
 
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -84,7 +85,7 @@ impl ComponentType {
     #[cfg(feature = "serialize")]
     pub fn serialize_components<C: ComponentController + erased_serde::Serialize>(
         &self,
-    ) -> Vec<Option<(&u32, &dyn erased_serde::Serialize)>> {
+    ) -> Vec<Option<(&u32, &dyn SerializeableComponent)>> {
         return self.components.serialize_components::<C>();
     }
 

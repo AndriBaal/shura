@@ -132,7 +132,6 @@ impl ComponentHandle {
         component_index: ArenaIndex,
         type_index: ArenaIndex,
         group_index: ArenaIndex,
-        start: u64,
         id: u32,
     ) -> Self {
         Self {

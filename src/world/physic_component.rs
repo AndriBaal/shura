@@ -1,6 +1,6 @@
 use crate::{
     physics::{ColliderHandle, World},
-    BaseComponent, ComponentHandle, Matrix, ComponentTypeId,
+    BaseComponent, ComponentHandle, ComponentTypeId, Matrix,
 };
 use rapier2d::prelude::{ColliderBuilder, RigidBody, RigidBodyHandle};
 

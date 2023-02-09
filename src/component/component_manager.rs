@@ -3,7 +3,7 @@ use crate::physics::{PhysicsComponent, World};
 use crate::{
     Arena, ArenaEntry, ArenaIndex, ArenaPath, Camera, ComponentCluster, ComponentController,
     ComponentGroup, ComponentGroupDescriptor, ComponentHandle, ComponentIdentifier, ComponentSet,
-    ComponentSetMut, DynamicComponent, Gpu, DEFAULT_GROUP_ID, ComponentTypeId,
+    ComponentSetMut, ComponentTypeId, DynamicComponent, Gpu, DEFAULT_GROUP_ID,
 };
 use log::info;
 use rustc_hash::{FxHashMap, FxHashSet};
@@ -181,7 +181,6 @@ impl ComponentManager {
     pub fn create_component<C: ComponentController + ComponentIdentifier>(
         &mut self,
         #[cfg(feature = "physics")] world: &mut World,
-        total_frames: u64,
         group_id: Option<u32>,
         component: C,
     ) -> (&mut C, ComponentHandle) {
@@ -202,7 +201,6 @@ impl ComponentManager {
                 index,
                 type_index,
                 *group_index,
-                total_frames,
                 self.id_counter,
             );
         } else {
@@ -214,7 +212,6 @@ impl ComponentManager {
                 index,
                 type_index,
                 *group_index,
-                total_frames,
                 self.id_counter,
             );
         }
@@ -606,8 +603,8 @@ impl ComponentManager {
     }
 
     #[inline]
-    pub fn group_ids(&self) -> Vec<u32> {
-        self.groups.iter().map(|(_, group)| group.id()).collect()
+    pub fn group_ids(&self) -> impl Iterator<Item = &u32> {
+        self.group_map.keys()
     }
 
     #[inline]
@@ -626,7 +623,9 @@ impl ComponentManager {
     }
 
     #[inline]
-    pub(crate) fn borrow_active_components(&mut self) -> BTreeMap<(i16, ComponentTypeId), ComponentCluster> {
+    pub(crate) fn borrow_active_components(
+        &mut self,
+    ) -> BTreeMap<(i16, ComponentTypeId), ComponentCluster> {
         return self.active_components.take().unwrap();
     }
 
@@ -657,13 +656,13 @@ impl ComponentManager {
 
     // Setters
     #[inline]
-    pub(crate) fn set_current_component(&mut self,  current_component: ComponentHandle) {
-        self.current_component =  current_component
+    pub(crate) fn set_current_component(&mut self, current_component: ComponentHandle) {
+        self.current_component = current_component
     }
 
     #[inline]
-    pub(crate) fn set_current_type(&mut self,  current_type: ComponentTypeId) {
-        self.current_type =  current_type
+    pub(crate) fn set_current_type(&mut self, current_type: ComponentTypeId) {
+        self.current_type = current_type
     }
 
     #[inline]

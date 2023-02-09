@@ -15,7 +15,6 @@ pub struct Touch {
 
 /// Managing of the mouse cursor or various touch events. Every scene has its own [CursorManager]
 /// because the world coordinates of the cursor depends on the camera.
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone, Debug, Default)]
 pub struct CursorManager {
     // Raw Cursor in pixel coordinates
@@ -24,8 +23,6 @@ pub struct CursorManager {
     cursor_world: Vector<f32>,
     // Relative position of the cursor to the screen
     cursor_relative: Vector<f32>,
-    #[cfg_attr(feature = "serialize", serde(skip))]
-    #[cfg_attr(feature = "serialize", serde(default))]
     touches: Vec<Touch>,
 }
 

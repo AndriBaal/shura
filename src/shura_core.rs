@@ -293,8 +293,10 @@ impl Shura {
                             }
                         }
                     }
-                    let (component_type1, component1) = ctx.component_from_collider(&collider_handle1).unwrap();
-                    let (component_type2, component2) = ctx.component_from_collider(&collider_handle2).unwrap();
+                    let (component_type1, component1) =
+                        ctx.component_from_collider(&collider_handle1).unwrap();
+                    let (component_type2, component2) =
+                        ctx.component_from_collider(&collider_handle2).unwrap();
                     let collider1_events = collider1.active_events();
                     let collider2_events = collider2.active_events();
                     if collider1_events == ActiveEvents::COLLISION_EVENTS {

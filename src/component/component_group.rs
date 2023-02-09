@@ -1,5 +1,7 @@
 use crate::data::arena::{Arena, ArenaIndex, ArenaIterMut};
-use crate::{ComponentController, ComponentIdentifier, ComponentType, Dimension, Vector, ComponentTypeId};
+use crate::{
+    ComponentController, ComponentIdentifier, ComponentType, ComponentTypeId, Dimension, Vector,
+};
 use rustc_hash::FxHashMap;
 
 /// Helper to create a [ComponentGroup](crate::ComponentGroup).

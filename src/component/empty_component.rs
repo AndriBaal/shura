@@ -11,7 +11,7 @@ impl BaseComponent for EmptyComponent {
     fn init(
         &mut self,
         #[cfg(feature = "physics")] _world: &mut World,
-        type_id: ComponentTypeId,
+        _type_id: ComponentTypeId,
         handle: ComponentHandle,
     ) {
         if self.handle.id() == 0 {

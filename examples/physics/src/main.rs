@@ -75,7 +75,9 @@ impl ComponentController for BoxManager {
         if ctx.is_pressed(Key::Z) {
             let ser = ctx
                 .serialize(
-                    |s| s.serialize_components::<PhysicsBox>(&[DEFAULT_GROUP_ID]),
+                    |s| {
+                        s.serialize_components::<PhysicsBox>(GroupFilter::All);
+                    },
                     true,
                 )
                 .unwrap();

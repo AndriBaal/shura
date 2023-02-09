@@ -1,14 +1,14 @@
 use crate::{
-    data::arena::ArenaEntry, ArenaPath, CameraBuffers, Color, ComponentCluster,
-    ComponentController, ComponentGroup, ComponentGroupDescriptor, ComponentHandle,
-    ComponentIdentifier, ComponentSet, ComponentSetMut, Dimension, DynamicComponent, GroupFilter,
-    InputEvent, InputTrigger, InstanceBuffer, Instances, Isometry, Key, Matrix, Model,
-    ModelBuilder, Modifier, Renderer, Rotation, Scene, Shader, ShaderField, ShaderLang, Shura,
-    Sprite, SpriteSheet, Touch, Uniform, Vector, ComponentTypeId
+    CameraBuffers, Color, ComponentController, ComponentGroup, ComponentGroupDescriptor,
+    ComponentHandle, ComponentIdentifier, ComponentSet, ComponentSetMut, ComponentTypeId,
+    Dimension, DynamicComponent, GroupFilter, InputEvent, InputTrigger, InstanceBuffer, Instances,
+    Isometry, Key, Matrix, Model, ModelBuilder, Modifier, Renderer, Rotation, Scene, Shader,
+    ShaderField, ShaderLang, Shura, Sprite, SpriteSheet, Touch, Uniform, Vector,
 };
+use rustc_hash::FxHashSet;
 
 #[cfg(feature = "serialize")]
-use crate::SceneSerializer;
+use crate::ComponentSerializer;
 
 #[cfg(feature = "audio")]
 use crate::audio::{Sink, Sound};
@@ -47,7 +47,10 @@ pub struct Context<'a> {
 impl<'a> Context<'a> {
     #[inline]
     #[cfg(feature = "physics")]
-    pub fn component_from_collider(&self, collider: &ColliderHandle) -> Option<(ComponentTypeId, ComponentHandle)> {
+    pub fn component_from_collider(
+        &self,
+        collider: &ColliderHandle,
+    ) -> Option<(ComponentTypeId, ComponentHandle)> {
         self.scene.world.component(collider)
     }
 
@@ -58,16 +61,60 @@ impl<'a> Context<'a> {
 
     #[cfg(feature = "serialize")]
     pub fn serialize(
-        &'a mut self,
-        mut serialize: impl FnMut(&mut SceneSerializer),
+        &mut self,
+        mut serialize: impl FnMut(&mut ComponentSerializer),
         pretty: bool,
     ) -> Option<String> {
-        let mut s = SceneSerializer::new(
-            self.scene,
-            self.scene.component_manager.current_type(),
-        );
-        (serialize)(&mut s);
-        return s.serialize(pretty);
+        use ron::ser::PrettyConfig;
+        use std::mem;
+
+        let component_manager = &self.scene.component_manager;
+        let world = &mut self.scene.world;
+        let mut serializer = ComponentSerializer::new(component_manager);
+        (serialize)(&mut serializer);
+
+        let mut world_cpy = world.clone();
+        let mut to_remove = vec![];
+        let mut serialized_body_handles = FxHashSet::default();
+        'outer: for (_type_id, groups) in &serializer.components {
+            for (_generation, components) in groups {
+                for option in components {
+                    if let Some(component) = option {
+                        if let Some(base) = component.1.base().downcast_ref::<PhysicsComponent>() {
+                            if let Some(body_handle) = base.body_handle() {
+                                serialized_body_handles.insert(body_handle);
+                            }
+                        } else {
+                            continue 'outer;
+                        }
+                    }
+                }
+            }
+        }
+        for (body_handle, _body) in world.bodies() {
+            if !serialized_body_handles.contains(&body_handle) {
+                to_remove.push(body_handle);
+            }
+        }
+
+        for to_remove in to_remove {
+            world_cpy.remove_body(to_remove);
+        }
+
+        world_cpy.step(0.0);
+        let old_world = mem::replace(world, world_cpy);
+        let components = serializer.finish();
+
+        let result = if pretty {
+            let pretty_config = PrettyConfig::new();
+            ron::ser::to_string_pretty(&(&*self.scene, components), pretty_config).ok()
+        } else {
+            ron::ser::to_string(&(&*self.scene, components)).ok()
+        };
+
+        self.scene.world = old_world;
+
+        return result;
     }
 
     //////////////////////////////////////////////////////////////////////////////////////////////
@@ -217,7 +264,6 @@ impl<'a> Context<'a> {
         self.scene.component_manager.create_component(
             #[cfg(feature = "physics")]
             &mut self.scene.world,
-            self.shura.frame_manager.total_frames(),
             group,
             component,
         )
@@ -708,7 +754,7 @@ impl<'a> Context<'a> {
     }
 
     #[inline]
-    pub fn group_ids(&self) -> Vec<u32> {
+    pub fn group_ids(&self) -> impl Iterator<Item = &u32> {
         self.scene.component_manager.group_ids()
     }
 

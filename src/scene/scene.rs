@@ -1,12 +1,11 @@
 use instant::Duration;
-use ron::ser::PrettyConfig;
 use rustc_hash::FxHashMap;
 
 #[cfg(feature = "physics")]
 use crate::physics::World;
 use crate::{
     data::arena::Arena, Camera, Color, ComponentController, ComponentIdentifier, ComponentManager,
-    ComponentTypeId, Context, CursorManager, Dimension, Isometry, Shura, Sprite,
+    ComponentTypeId, Context, CursorManager, Dimension, GroupFilter, Isometry, Shura, Sprite,
 };
 
 pub trait SceneCreator {
@@ -44,21 +43,23 @@ impl<N: 'static + FnMut(&mut Context)> SceneCreator for NewScene<N> {
 }
 
 #[cfg(feature = "serialize")]
-pub struct SerializedScene<N: 'static + FnMut(&mut Context, &mut SceneDeserializer)> {
+pub struct SerializedScene<N: 'static + FnMut(&mut Context, &mut ComponentDeserializer)> {
     pub id: u32,
     pub scene: String,
     pub init: N,
 }
 
 #[cfg(feature = "serialize")]
-impl<N: 'static + FnMut(&mut Context, &mut SceneDeserializer)> SerializedScene<N> {
+impl<N: 'static + FnMut(&mut Context, &mut ComponentDeserializer)> SerializedScene<N> {
     pub fn new(id: u32, scene: String, init: N) -> SerializedScene<N> {
         Self { id, scene, init }
     }
 }
 
 #[cfg(feature = "serialize")]
-impl<N: 'static + FnMut(&mut Context, &mut SceneDeserializer)> SceneCreator for SerializedScene<N> {
+impl<N: 'static + FnMut(&mut Context, &mut ComponentDeserializer)> SceneCreator
+    for SerializedScene<N>
+{
     fn id(&self) -> u32 {
         self.id
     }
@@ -159,6 +160,8 @@ pub struct Scene {
     #[cfg_attr(feature = "serialize", serde(skip))]
     #[cfg_attr(feature = "serialize", serde(default))]
     pub saved_sprites: Vec<(String, Sprite)>,
+    #[cfg_attr(feature = "serialize", serde(skip))]
+    #[cfg_attr(feature = "serialize", serde(default))]
     pub cursor: CursorManager,
     pub render_config: SceneRenderConfig,
     pub camera: Camera,
@@ -207,60 +210,78 @@ impl Scene {
     }
 }
 
+pub(crate) trait SerializeableComponent:
+    erased_serde::Serialize + ComponentController
+{
+}
+impl<T: erased_serde::Serialize + ComponentController> SerializeableComponent for T {}
+erased_serde::serialize_trait_object!(SerializeableComponent);
+
 #[cfg(feature = "serialize")]
-#[derive(serde::Serialize)]
-pub struct SceneSerializer<'a> {
-    scene: &'a mut Scene,
-    active_type: ComponentTypeId,
-    components: FxHashMap<
+pub struct ComponentSerializer<'a> {
+    component_manager: &'a ComponentManager,
+    pub(crate) components: FxHashMap<
         ComponentTypeId,
-        Vec<(u32, Vec<Option<(&'a u32, &'a dyn erased_serde::Serialize)>>)>,
+        Vec<(u32, Vec<Option<(&'a u32, &'a dyn SerializeableComponent)>>)>,
     >,
 }
 
 #[cfg(feature = "serialize")]
-impl<'a> SceneSerializer<'a> {
-    pub(crate) fn new(scene: &'a mut Scene, active_type: ComponentTypeId) -> Self {
+impl<'a> ComponentSerializer<'a> {
+    pub(crate) fn new(component_manager: &'a ComponentManager) -> Self {
         Self {
-            scene,
-            active_type,
+            component_manager,
             components: Default::default(),
         }
     }
 
-    pub fn serialize(&mut self, pretty: bool) -> Option<String> {
-        let world_cpy = self.scene.world.clone();
-        // let to_remove = vec![];
-        for (body_handle, _body) in self.scene.world.bodies() {
-            // for 
-        }
-        let result =  if pretty {
-            let pretty_config = PrettyConfig::new();
-            ron::ser::to_string_pretty(self, pretty_config).ok()
-        } else {
-            ron::ser::to_string(self).ok()
-        };
-
-        return result;
+    pub(crate) fn finish(
+        self,
+    ) -> FxHashMap<
+        ComponentTypeId,
+        Vec<(u32, Vec<Option<(&'a u32, &'a dyn SerializeableComponent)>>)>,
+    > {
+        self.components
     }
 
-    pub fn serialize_components<
-        C: ComponentController + ComponentIdentifier + serde::Serialize,
-    >(
-        &'a mut self,
-        groups: &[u32],
+    fn add_group<C: ComponentController + ComponentIdentifier + serde::Serialize>(
+        &self,
+        target: &mut Vec<(u32, Vec<Option<(&'a u32, &'a dyn SerializeableComponent)>>)>,
+        group_id: &u32,
+    ) {
+        let type_id = C::IDENTIFIER;
+        if let Some(group_index) = self.component_manager.group_index(group_id) {
+            let group = self.component_manager.group(*group_index).unwrap();
+            if let Some(type_index) = group.type_index(type_id) {
+                let type_ref = group.type_ref(*type_index).unwrap();
+                target.push((*group_id, type_ref.serialize_components::<C>()))
+            }
+        }
+    }
+
+    pub fn serialize_components<C: ComponentController + ComponentIdentifier + serde::Serialize>(
+        &mut self,
+        groups: GroupFilter,
     ) {
         let type_id = C::IDENTIFIER;
         let mut target = vec![];
-        if type_id == self.active_type {
+        if type_id == self.component_manager.current_type() {
             panic!("Cannot serialize currently used component!");
         }
-        for group_id in groups {
-            if let Some(group_index) = self.scene.component_manager.group_index(group_id) {
-                let group = self.scene.component_manager.group(*group_index).unwrap();
-                if let Some(type_index) = group.type_index(type_id) {
-                    let type_ref = group.type_ref(*type_index).unwrap();
-                    target.push((*group_id, type_ref.serialize_components::<C>()))
+        match groups {
+            GroupFilter::All => {
+                for group_id in self.component_manager.group_ids() {
+                    self.add_group::<C>(&mut target, group_id)
+                }
+            }
+            GroupFilter::Active => {
+                for group_id in self.component_manager.active_group_ids() {
+                    self.add_group::<C>(&mut target, group_id)
+                }
+            }
+            GroupFilter::Specific(groups) => {
+                for group_id in groups {
+                    self.add_group::<C>(&mut target, group_id)
                 }
             }
         }
@@ -269,11 +290,11 @@ impl<'a> SceneSerializer<'a> {
 }
 
 #[derive(serde::Deserialize)]
-pub struct SceneDeserializer {
+pub struct ComponentDeserializer {
     components: FxHashMap<ComponentTypeId, Vec<(u32, ron::Value)>>,
 }
 
-impl SceneDeserializer {
+impl ComponentDeserializer {
     pub fn deserialize<
         'de,
         C: serde::de::DeserializeOwned + ComponentController + ComponentIdentifier,
@@ -307,50 +328,3 @@ impl SceneDeserializer {
     ) {
     }
 }
-
-// impl<'de> serde::de::DeserializeSeed<'de> for Shura {
-//     type Value = Scene;
-
-//     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
-//     where
-//         D: serde::Deserializer<'de>,
-//     {
-//         impl<'de> serde::de::Visitor<'de> for Shura {
-//             type Value = Camera;
-
-//             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-//                 formatter.write_str("Test AB")
-//             }
-
-//             fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
-//             where
-//                 A: serde::de::MapAccess<'de>,
-//             {
-//                 let mut position = None;
-//                 let mut target = None;
-//                 let mut vertical_fov = None;
-//                 let mut ratio = None;
-
-//                 while let Some(key) = map.next_key::<&str>()? {
-//                     match key {
-//                         "position" => position = Some(map.next_value()?),
-//                         "target" => target = Some(map.next_value()?),
-//                         "vertical_fov" => vertical_fov = Some(map.next_value()?),
-//                         "ratio" => ratio = Some(map.next_value()?),
-//                         _ => {}
-//                     }
-//                 }
-
-//                 let cam = Camera::new(
-//                     &self.gpu,
-//                     position.unwrap(),
-//                     ratio.unwrap(),
-//                     vertical_fov.unwrap(),
-//                 );
-//                 cam.target = target;
-//                 return Ok(cam);
-//             }
-//         }
-//         return deserializer.deserialize_struct("", &[], self);
-//     }
-// }
