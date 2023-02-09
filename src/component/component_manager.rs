@@ -2,8 +2,8 @@
 use crate::physics::{PhysicsComponent, World};
 use crate::{
     Arena, ArenaEntry, ArenaIndex, ArenaPath, Camera, ComponentCluster, ComponentController,
-    ComponentGroup, ComponentGroupDescriptor, ComponentHandle, ComponentSet, ComponentSetMut,
-    DynamicComponent, Gpu, DEFAULT_GROUP_ID, ComponentIdentifier,
+    ComponentGroup, ComponentGroupDescriptor, ComponentHandle, ComponentIdentifier, ComponentSet,
+    ComponentSetMut, DynamicComponent, Gpu, DEFAULT_GROUP_ID, ComponentTypeId,
 };
 use log::info;
 use rustc_hash::{FxHashMap, FxHashSet};
@@ -31,7 +31,8 @@ pub struct ComponentManager {
     id_counter: u32,
     remove_current_commponent: bool,
     force_update_sets: bool,
-    current_component: Option<ComponentHandle>,
+    current_component: ComponentHandle,
+    current_type: ComponentTypeId,
     group_map: FxHashMap<u32, ArenaIndex>,
     groups: Arena<ComponentGroup>,
 
@@ -45,7 +46,7 @@ pub struct ComponentManager {
 
     #[cfg_attr(feature = "serialize", serde(skip))]
     #[cfg_attr(feature = "serialize", serde(default))]
-    active_components: Option<BTreeMap<(i16, u32), ComponentCluster>>,
+    active_components: Option<BTreeMap<(i16, ComponentTypeId), ComponentCluster>>,
 }
 
 impl ComponentManager {
@@ -68,6 +69,7 @@ impl ComponentManager {
             remove_current_commponent: false,
             force_update_sets: false,
             current_component: Default::default(),
+            current_type: Default::default(),
             active_components: Some(Default::default()),
         }
     }
@@ -149,7 +151,10 @@ impl ComponentManager {
         }
     }
 
-    pub fn force_buffer_groups<C: ComponentController + ComponentIdentifier>(&mut self, groups: &[u32]) {
+    pub fn force_buffer_groups<C: ComponentController + ComponentIdentifier>(
+        &mut self,
+        groups: &[u32],
+    ) {
         let type_id = C::IDENTIFIER;
         for group_id in groups {
             if let Some(group_index) = self.group_map.get(group_id) {
@@ -218,6 +223,7 @@ impl ComponentManager {
         c.base_mut().init(
             #[cfg(feature = "physics")]
             world,
+            type_id,
             handle,
         );
         return (c.downcast_mut().unwrap(), handle);
@@ -235,11 +241,9 @@ impl ComponentManager {
         #[cfg(feature = "physics")] world: &mut World,
     ) -> Option<DynamicComponent> {
         if let Some(group) = self.groups.get_mut(handle.group_index()) {
-            if let Some(current_handle) = &self.current_component {
-                if handle == current_handle {
-                    self.remove_current_commponent = true;
-                    return None;
-                }
+            if handle == &self.current_component {
+                self.remove_current_commponent = true;
+                return None;
             }
             if let Some(component_type) = group.type_mut(handle.type_index()) {
                 #[cfg(feature = "physics")]
@@ -265,20 +269,16 @@ impl ComponentManager {
         let type_id = C::IDENTIFIER;
         #[inline]
         fn remove(
-            current: &mut Option<ComponentHandle>,
+            current: &ComponentHandle,
             remove_current: &mut bool,
             group: &mut ComponentGroup,
             group_index: ArenaIndex,
-            type_id: u32,
+            type_id: ComponentTypeId,
             #[cfg(feature = "physics")] world: &mut World,
         ) {
             if let Some(type_index) = group.type_index(type_id) {
-                if let Some(current_handle) = current {
-                    if group_index == current_handle.group_index()
-                        && *type_index == current_handle.type_index()
-                    {
-                        *remove_current = true;
-                    }
+                if group_index == current.group_index() && *type_index == current.type_index() {
+                    *remove_current = true;
                 }
                 let component_type = group.type_mut(*type_index).unwrap();
                 #[cfg(feature = "physics")]
@@ -311,7 +311,7 @@ impl ComponentManager {
                 for index in &self.active_groups {
                     if let Some(group) = self.groups.get_mut(*index) {
                         remove(
-                            &mut self.current_component,
+                            &self.current_component,
                             &mut self.remove_current_commponent,
                             group,
                             *index,
@@ -327,7 +327,7 @@ impl ComponentManager {
                     if let Some(index) = self.group_map.get(&group_id) {
                         let group = self.groups.get_mut(*index).unwrap();
                         remove(
-                            &mut self.current_component,
+                            &self.current_component,
                             &mut self.remove_current_commponent,
                             group,
                             *index,
@@ -548,7 +548,6 @@ impl ComponentManager {
         self.group_map.contains_key(&group)
     }
 
-
     #[inline]
     pub(crate) fn group_mut(&mut self, index: ArenaIndex) -> Option<&mut ComponentGroup> {
         self.groups.get_mut(index)
@@ -622,21 +621,19 @@ impl ComponentManager {
     }
 
     #[inline]
-    pub(crate) fn active_components(&self) -> &BTreeMap<(i16, u32), ComponentCluster> {
+    pub(crate) fn active_components(&self) -> &BTreeMap<(i16, ComponentTypeId), ComponentCluster> {
         return self.active_components.as_ref().unwrap();
     }
 
     #[inline]
-    pub(crate) fn borrow_active_components(
-        &mut self,
-    ) -> BTreeMap<(i16, u32), ComponentCluster> {
+    pub(crate) fn borrow_active_components(&mut self) -> BTreeMap<(i16, ComponentTypeId), ComponentCluster> {
         return self.active_components.take().unwrap();
     }
 
     #[inline]
     pub(crate) fn return_active_components(
         &mut self,
-        active_components: BTreeMap<(i16, u32), ComponentCluster>,
+        active_components: BTreeMap<(i16, ComponentTypeId), ComponentCluster>,
     ) {
         return self.active_components = Some(active_components);
     }
@@ -649,14 +646,24 @@ impl ComponentManager {
     }
 
     #[inline]
-    pub(crate) fn current_component(&self) -> Option<ComponentHandle> {
-        self.current_component.clone()
+    pub(crate) fn current_component(&self) -> ComponentHandle {
+        self.current_component
+    }
+
+    #[inline]
+    pub(crate) fn current_type(&self) -> ComponentTypeId {
+        self.current_type
     }
 
     // Setters
     #[inline]
-    pub(crate) fn set_current_component(&mut self, current_component: Option<ComponentHandle>) {
-        self.current_component = current_component
+    pub(crate) fn set_current_component(&mut self,  current_component: ComponentHandle) {
+        self.current_component =  current_component
+    }
+
+    #[inline]
+    pub(crate) fn set_current_type(&mut self,  current_type: ComponentTypeId) {
+        self.current_type =  current_type
     }
 
     #[inline]

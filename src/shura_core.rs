@@ -235,10 +235,13 @@ impl Shura {
 
     #[cfg(feature = "physics")]
     fn step(ctx: &mut Context) {
-        ctx.step_world();
+        use crate::ComponentTypeId;
+
+        let delta = ctx.frame_time();
+        ctx.scene.world.step(delta);
         // while let Ok(contact_force_event) = ctx.scene.world.event_receivers.1.try_recv() {
         // }
-        while let Ok(collision_event) = ctx.collision_event() {
+        while let Ok(collision_event) = ctx.scene.world.collision_event() {
             let collider_handle1 = collision_event.collider1();
             let collider_handle2 = collision_event.collider2();
             let collision_type = if collision_event.started() {
@@ -255,6 +258,7 @@ impl Shura {
                         other_handle: ComponentHandle,
                         self_collider: ColliderHandle,
                         other_collider: ColliderHandle,
+                        self_type: ComponentTypeId,
                         collide_type: CollideType,
                     ) {
                         let path = ArenaPath {
@@ -262,10 +266,15 @@ impl Shura {
                             type_index: self_handle.type_index(),
                         };
                         let i = self_handle.component_index().index() as usize;
-                        if let Some(mut entry) = ctx.borrow_component(path, i) {
+                        if let Some(mut entry) =
+                            ctx.scene.component_manager.borrow_component(path, i)
+                        {
                             match &mut entry {
                                 crate::data::arena::ArenaEntry::Occupied { data, .. } => {
-                                    ctx.set_current_component(Some(self_handle));
+                                    ctx.scene.component_manager.set_current_type(self_type);
+                                    ctx.scene
+                                        .component_manager
+                                        .set_current_component(self_handle);
                                     data.collision(
                                         ctx,
                                         other_handle,
@@ -277,15 +286,15 @@ impl Shura {
                                 _ => {}
                             };
 
-                            if ctx.remove_current_commponent() {
-                                ctx.not_return_component(path, i);
+                            if ctx.scene.component_manager.remove_current_commponent() {
+                                ctx.scene.component_manager.not_return_component(path, i)
                             } else {
-                                ctx.return_component(path, i, entry);
+                                ctx.scene.component_manager.return_component(path, i, entry);
                             }
                         }
                     }
-                    let component1 = ctx.component_from_collider(&collider_handle1).unwrap();
-                    let component2 = ctx.component_from_collider(&collider_handle2).unwrap();
+                    let (component_type1, component1) = ctx.component_from_collider(&collider_handle1).unwrap();
+                    let (component_type2, component2) = ctx.component_from_collider(&collider_handle2).unwrap();
                     let collider1_events = collider1.active_events();
                     let collider2_events = collider2.active_events();
                     if collider1_events == ActiveEvents::COLLISION_EVENTS {
@@ -295,6 +304,7 @@ impl Shura {
                             component2,
                             collider_handle1,
                             collider_handle2,
+                            component_type1,
                             collision_type,
                         );
                     }
@@ -305,6 +315,7 @@ impl Shura {
                             component1,
                             collider_handle2,
                             collider_handle1,
+                            component_type2,
                             collision_type,
                         )
                     }
@@ -314,18 +325,44 @@ impl Shura {
     }
 
     fn update(&mut self, scene: &mut Scene) -> Result<(), wgpu::SurfaceError> {
-        let mut ctx = Context::new(self, scene);
-        ctx.start_update();
+        let mut ctx = Context {
+            shura: self,
+            scene: scene,
+        };
+
+        let window_size = ctx.window_size();
+        ctx.shura.frame_manager.update();
+        #[cfg(feature = "gui")]
+        ctx.shura.gui.begin(
+            &ctx.shura.frame_manager.total_time_duration(),
+            &ctx.shura.window,
+        );
+
+        if ctx.scene.resized {
+            ctx.scene
+                .camera
+                .resize(window_size.width as f32 / window_size.height as f32);
+        }
+
+        if ctx.scene.switched {
+            ctx.shura
+                .defaults
+                .apply_render_scale(&ctx.shura.gpu, ctx.scene.render_config.render_scale());
+        }
+
+        ctx.scene
+            .cursor
+            .compute(&ctx.scene.camera, &window_size, &ctx.shura.input);
 
         #[cfg(feature = "physics")]
         let mut done_step = false;
-        let total_frames = ctx.total_frames();
         let now = ctx.update_time();
 
         if ctx.update_components() {
-            let mut sets = ctx.borrow_active_components();
-            for set in sets.values_mut() {
+            let mut sets = ctx.scene.component_manager.borrow_active_components();
+            for ((_, id), set) in &mut sets {
                 let config = set.config();
+                ctx.scene.component_manager.set_current_type(*id);
 
                 #[cfg(feature = "physics")]
                 if !done_step && config.priority > ctx.physics_priority() {
@@ -355,18 +392,20 @@ impl Shura {
                 'outer: for path in set.paths() {
                     let mut i = 0;
                     loop {
-                        if let Some(mut entry) = ctx.borrow_component(*path, i) {
+                        if let Some(mut entry) =
+                            ctx.scene.component_manager.borrow_component(*path, i)
+                        {
                             match &mut entry {
                                 crate::data::arena::ArenaEntry::Occupied { data, .. } => {
-                                    if data.base().handle().start() != total_frames {
-                                        ctx.set_current_component(Some(*data.base().handle()));
-                                        data.update(&mut ctx);
-                                    }
+                                    ctx.scene
+                                        .component_manager
+                                        .set_current_component(*data.base().handle());
+                                    data.update(&mut ctx);
                                 }
                                 _ => (),
                             };
 
-                            if ctx.remove_current_commponent() {
+                            if ctx.scene.component_manager.remove_current_commponent() {
                                 #[cfg(feature = "physics")]
                                 match &mut entry {
                                     crate::data::arena::ArenaEntry::Occupied { data, .. } => {
@@ -378,9 +417,11 @@ impl Shura {
                                     }
                                     _ => (),
                                 };
-                                ctx.not_return_component(*path, i);
+                                ctx.scene.component_manager.not_return_component(*path, i)
                             } else {
-                                ctx.return_component(*path, i, entry);
+                                ctx.scene
+                                    .component_manager
+                                    .return_component(*path, i, entry);
                             }
                             i += 1;
                         } else {
@@ -389,7 +430,8 @@ impl Shura {
                     }
                 }
             }
-            ctx.return_active_components(sets);
+
+            ctx.scene.component_manager.return_active_components(sets)
         }
 
         #[cfg(feature = "physics")]
@@ -397,13 +439,35 @@ impl Shura {
             Self::step(&mut ctx);
         }
 
-        ctx.end_update();
+        ctx.shura.input.update();
+        ctx.scene.camera.apply_target(
+            &ctx.scene.component_manager,
+            #[cfg(feature = "physics")]
+            &ctx.scene.world,
+        );
+        ctx.scene.component_manager.update_sets(&ctx.scene.camera);
+        ctx.scene.resized = false;
+        ctx.scene.switched = false;
 
         if !ctx.render_components() {
             return Ok(());
         }
 
-        let (output, mut encoder) = ctx.buffer()?;
+        ctx.scene.component_manager.buffer_sets(
+            &ctx.shura.gpu,
+            #[cfg(feature = "physics")]
+            &ctx.scene.world,
+        );
+        ctx.shura.defaults.buffer(
+            &ctx.scene.camera,
+            &ctx.shura.gpu,
+            ctx.shura.frame_manager.total_time(),
+            ctx.shura.frame_manager.frame_time(),
+        );
+
+        let output = ctx.shura.gpu.surface.get_current_texture()?;
+        let mut encoder = ctx.shura.gpu.encoder();
+
         let mut saved_sprites = vec![];
         let render_size = ctx.render_size();
         let output_view = output

@@ -1,5 +1,5 @@
 use crate::{Dimension, Gpu};
-use egui::{Context};
+use egui::Context;
 use egui_wgpu::renderer::{Renderer, ScreenDescriptor};
 use egui_winit::State;
 use instant::Duration;

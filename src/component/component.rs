@@ -107,7 +107,6 @@ pub struct ComponentHandle {
     component_index: ArenaIndex,
     type_index: ArenaIndex,
     group_index: ArenaIndex,
-    start: u64,
     id: u32,
 }
 
@@ -138,7 +137,6 @@ impl ComponentHandle {
     ) -> Self {
         Self {
             id,
-            start,
             component_index,
             type_index,
             group_index,
@@ -165,11 +163,6 @@ impl ComponentHandle {
     pub fn id(&self) -> u32 {
         self.id
     }
-
-    #[inline]
-    pub fn start(&self) -> u64 {
-        self.start
-    }
 }
 
 #[allow(unused_variables)]
@@ -177,7 +170,12 @@ impl ComponentHandle {
 /// [PhysicsComponent](crate::physics::PhysicsComponent) implement this trait. This can be
 /// used to create your own component.
 pub trait BaseComponent: Downcast {
-    fn init(&mut self, #[cfg(feature = "physics")] world: &mut World, handle: ComponentHandle);
+    fn init(
+        &mut self,
+        #[cfg(feature = "physics")] world: &mut World,
+        type_id: ComponentTypeId,
+        handle: ComponentHandle,
+    );
     fn handle(&self) -> &ComponentHandle;
     fn matrix(&self, #[cfg(feature = "physics")] world: &World) -> Matrix;
 }
@@ -191,7 +189,7 @@ pub enum RenderOperation {
     None,
     /// Render all components in the same method by calling `grouped_render`. A Set of all components of
     /// a group get provided. Use this if your components all draw the same graphics on the same model.
-    Grouped
+    Grouped,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -343,7 +341,15 @@ impl<C: ComponentController> _StaticAccess for C {
     }
 }
 
+#[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+pub struct ComponentTypeId {
+    id: u32,
+}
+
 pub trait ComponentIdentifier {
     const TYPE_NAME: &'static str;
-    const IDENTIFIER: u32 = const_fnv1a_hash::fnv1a_hash_str_32(Self::TYPE_NAME);
+    const IDENTIFIER: ComponentTypeId = ComponentTypeId {
+        id: const_fnv1a_hash::fnv1a_hash_str_32(Self::TYPE_NAME),
+    };
 }

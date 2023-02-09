@@ -1,10 +1,9 @@
-use crate::{Color, Defaults, Gpu, InstanceBuffer, Model, Shader, Sprite, Uniform, CameraBuffers};
+use crate::{CameraBuffers, Color, Defaults, Gpu, InstanceBuffer, Model, Shader, Sprite, Uniform};
 
 /// Single index of an instance inside a [InstanceBuffer](crate::InstanceBuffer).
 pub type Instance = u32;
 /// Range of [instances](crate::Instance).
 pub type Instances = std::ops::Range<Instance>;
-
 
 /// Render grpahics to the screen or a sprite. The renderer can be extended with custom graphcis throught
 /// the [RenderPass](wgpu::RenderPass) or the provided methods for shura's shader system.
@@ -186,8 +185,7 @@ impl<'a> Renderer<'a> {
 
     #[inline]
     pub fn commit(&mut self, instances: Instances) {
-        self.render_pass
-            .draw_indexed(0..self.indices, 0, instances);
+        self.render_pass.draw_indexed(0..self.indices, 0, instances);
     }
 
     // Getter

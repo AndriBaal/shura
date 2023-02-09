@@ -1,6 +1,6 @@
 use crate::{
     physics::{ColliderHandle, World},
-    BaseComponent, ComponentHandle, Matrix,
+    BaseComponent, ComponentHandle, Matrix, ComponentTypeId,
 };
 use rapier2d::prelude::{ColliderBuilder, RigidBody, RigidBodyHandle};
 
@@ -36,14 +36,14 @@ impl PhysicsComponent {
 impl PhysicsComponent {
     pub fn body<'a>(&'a self, world: &'a World) -> &'a RigidBody {
         return match &self.body {
-            BodyStatus::RigidBody { handle } => world.rigid_body(*handle),
+            BodyStatus::RigidBody { handle } => world.body(*handle),
             BodyStatus::Pending { body, .. } => body,
         };
     }
 
     pub fn body_mut<'a>(&'a mut self, world: &'a mut World) -> &'a mut RigidBody {
         return match &mut self.body {
-            BodyStatus::RigidBody { handle } => world.rigid_body_mut(*handle).unwrap(),
+            BodyStatus::RigidBody { handle } => world.body_mut(*handle).unwrap(),
             BodyStatus::Pending { body, .. } => body,
         };
     }
@@ -80,7 +80,7 @@ impl PhysicsComponent {
         };
     }
 
-    pub(crate) fn add_to_world(&mut self, world: &mut World) {
+    pub(crate) fn add_to_world(&mut self, world: &mut World, type_id: ComponentTypeId) {
         match std::mem::replace(
             &mut self.body,
             BodyStatus::RigidBody {
@@ -92,7 +92,7 @@ impl PhysicsComponent {
                     handle: world.create_body(*body),
                 };
                 for collider in colliders {
-                    world.create_collider(self, &collider);
+                    world._create_collider(type_id, self, &collider);
                 }
             }
             BodyStatus::RigidBody { handle } => self.body = BodyStatus::RigidBody { handle },
@@ -113,10 +113,10 @@ impl BaseComponent for PhysicsComponent {
         return &self.handle;
     }
 
-    fn init(&mut self, world: &mut World, handle: ComponentHandle) {
+    fn init(&mut self, world: &mut World, type_id: ComponentTypeId, handle: ComponentHandle) {
         if self.handle.id() == 0 {
             self.handle = handle;
-            self.add_to_world(world);
+            self.add_to_world(world, type_id);
         }
     }
 }

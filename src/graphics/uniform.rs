@@ -55,8 +55,6 @@ impl<T: bytemuck::Pod> Uniform<T> {
             .write_buffer(&self.buffer, 0, bytemuck::cast_slice(&[data]));
     }
 
-
-
     #[inline]
     pub const fn bind_group(&self) -> &wgpu::BindGroup {
         &self.bind_group

@@ -1,6 +1,6 @@
 #[repr(C)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Copy, Clone, Default, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Copy, Clone, Debug, PartialEq, Default, bytemuck::Pod, bytemuck::Zeroable)]
 /// RGBA color represented by 4 floats between 0 and 1.
 pub struct Color {
     pub r: f32,

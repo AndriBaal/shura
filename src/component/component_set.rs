@@ -4,7 +4,7 @@ use crate::{
     ArenaIndex, ArenaIter, ArenaIterMut, ComponentConfig, ComponentController, ComponentType,
     DynamicComponent, Instances,
 };
-use std::{marker::PhantomData, iter::Enumerate};
+use std::{iter::Enumerate, marker::PhantomData};
 
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -42,7 +42,6 @@ impl ComponentCluster {
     pub fn add(&mut self, path: ArenaPath) {
         self.paths.push(path);
     }
-
 
     #[inline]
     pub fn last_update(&self) -> Option<Instant> {
@@ -324,7 +323,6 @@ where
     }
 }
 
-
 pub struct RenderIter<'a, C>
 where
     C: ComponentController,
@@ -337,9 +335,7 @@ impl<'a, C> RenderIter<'a, C>
 where
     C: ComponentController,
 {
-    pub(crate) fn new(
-        iter: ArenaIter<'a, DynamicComponent>
-    ) -> RenderIter<'a, C> {
+    pub(crate) fn new(iter: ArenaIter<'a, DynamicComponent>) -> RenderIter<'a, C> {
         RenderIter {
             iter: iter.enumerate(),
             marker: PhantomData::<C>,
@@ -364,7 +360,7 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         if let Some((i, entry)) = self.iter.next() {
             let i = i as u32;
-            return Some((i..i+1, entry.1.downcast_ref::<C>().unwrap()));
+            return Some((i..i + 1, entry.1.downcast_ref::<C>().unwrap()));
         }
         return None;
     }
@@ -377,7 +373,7 @@ where
     fn next_back(&mut self) -> Option<Self::Item> {
         if let Some((i, entry)) = self.iter.next_back() {
             let i = i as u32;
-            return Some((i-1..i, entry.1.downcast_ref::<C>().unwrap()));
+            return Some((i - 1..i, entry.1.downcast_ref::<C>().unwrap()));
         }
         return None;
     }

@@ -1,5 +1,5 @@
 use crate::data::arena::{Arena, ArenaIndex, ArenaIterMut};
-use crate::{ComponentController, ComponentIdentifier, ComponentType, Dimension, Vector};
+use crate::{ComponentController, ComponentIdentifier, ComponentType, Dimension, Vector, ComponentTypeId};
 use rustc_hash::FxHashMap;
 
 /// Helper to create a [ComponentGroup](crate::ComponentGroup).
@@ -31,7 +31,7 @@ pub const DEFAULT_GROUP_ID: u32 = u32::MAX / 2;
 /// from the [context](crate::Context).
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct ComponentGroup {
-    type_map: FxHashMap<u32, ArenaIndex>,
+    type_map: FxHashMap<ComponentTypeId, ArenaIndex>,
     types: Arena<ComponentType>,
     id: u32,
     position: Vector<f32>,
@@ -109,7 +109,7 @@ impl ComponentGroup {
     }
 
     #[inline]
-    pub(crate) fn type_index(&self, type_id: u32) -> Option<&ArenaIndex> {
+    pub(crate) fn type_index(&self, type_id: ComponentTypeId) -> Option<&ArenaIndex> {
         self.type_map.get(&type_id)
     }
 

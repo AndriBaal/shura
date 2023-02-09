@@ -13,8 +13,6 @@ impl Serialize for ArenaIndex {
     where
         S: Serializer,
     {
-        // Note: do not change the serialization format, or it may break
-        // forward and backward compatibility of serialized data!
         (self.index, self.generation).serialize(serializer)
     }
 }
@@ -61,6 +59,31 @@ impl Arena<Box<dyn ComponentController>> {
             });
         }
         return target;
+    }
+}
+
+impl Arena<ron::Value> {
+    pub fn cast<C: ComponentController + serde::de::DeserializeOwned>(
+        self,
+    ) -> Arena<Box<dyn ComponentController>> {
+        let mut items: Vec<ArenaEntry<Box<dyn ComponentController>>> =
+            Vec::with_capacity(self.items.capacity());
+        for item in self.items {
+            items.push(match item {
+                ArenaEntry::Free { next_free } => ArenaEntry::Free { next_free },
+                ArenaEntry::Occupied { generation, data } => ArenaEntry::Occupied {
+                    generation,
+                    data: Box::new(data.into_rust::<C>().unwrap()),
+                },
+                ArenaEntry::InUse => panic!(),
+            });
+        }
+        return Arena {
+            items,
+            generation: self.generation,
+            free_list_head: self.free_list_head,
+            len: self.len,
+        };
     }
 }
 

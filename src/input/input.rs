@@ -224,8 +224,6 @@ impl Input {
         }
     }
 
-
-
     #[inline]
     #[cfg(feature = "gamepad")]
     pub fn gamepads(&self) -> Option<ConnectedGamepadsIterator> {

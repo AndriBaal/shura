@@ -1,8 +1,8 @@
 #[cfg(feature = "physics")]
 use crate::physics::World;
 use crate::{
-    ComponentHandle, ComponentManager, CursorManager, Dimension, Gpu, Input, Isometry,
-    Matrix, Model, ModelBuilder, Rotation, Uniform, Vector, Vertex,
+    ComponentHandle, ComponentManager, CursorManager, Dimension, Gpu, Input, Isometry, Matrix,
+    Model, ModelBuilder, Rotation, Uniform, Vector, Vertex,
 };
 
 const MINIMAL_FOV: f32 = 0.0000001;
@@ -12,12 +12,13 @@ const MINIMAL_FOV: f32 = 0.0000001;
 /// relative camera has always the same fov and position where the bottom_left is (-1.0, -1.0) and the top right is (1.0, 1.0).
 
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug)]
 pub struct Camera {
     position: Isometry<f32>,
     target: Option<ComponentHandle>,
     vertical_fov: f32,
     ratio: f32,
-    proj: Matrix
+    proj: Matrix,
 }
 
 impl Camera {
@@ -59,8 +60,6 @@ impl Camera {
     pub(crate) fn reset_camera_projection(&mut self) {
         self.proj = Matrix::projection(self.fov());
     }
-
-
 
     #[inline]
     /// Returns the bottom left and top right corner of the camera. Computes AABB when the camera
@@ -199,7 +198,7 @@ impl Camera {
 pub struct CameraBuffers {
     model: Model,
     uniform: Uniform<Matrix>,
-    fov: Dimension<f32>
+    fov: Dimension<f32>,
 }
 
 impl CameraBuffers {
@@ -210,7 +209,7 @@ impl CameraBuffers {
         Self {
             model: Model::new(gpu, ModelBuilder::cuboid(fov)),
             uniform: Uniform::new_vertex(gpu, view * proj),
-            fov
+            fov,
         }
     }
 

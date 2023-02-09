@@ -1,6 +1,8 @@
 #[cfg(feature = "physics")]
 use crate::physics::World;
-use crate::{BaseComponent, ComponentHandle, Dimension, Isometry, Matrix, Rotation, Vector};
+use crate::{
+    BaseComponent, ComponentHandle, ComponentTypeId, Dimension, Isometry, Matrix, Rotation, Vector,
+};
 
 /// Easily create a [PositionComponent].
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -189,7 +191,12 @@ impl PositionComponent {
 }
 
 impl BaseComponent for PositionComponent {
-    fn init(&mut self, #[cfg(feature = "physics")] _world: &mut World, handle: ComponentHandle) {
+    fn init(
+        &mut self,
+        #[cfg(feature = "physics")] _world: &mut World,
+        _type_id: ComponentTypeId,
+        handle: ComponentHandle,
+    ) {
         if self.handle.id() == 0 {
             self.handle = handle;
         }

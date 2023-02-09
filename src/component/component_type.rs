@@ -3,7 +3,7 @@ use crate::physics::World;
 use crate::{
     data::arena::{ArenaEntry, ArenaIter, ArenaIterMut},
     Arena, ArenaIndex, ComponentConfig, ComponentController, ComponentHandle, ComponentIdentifier,
-    DynamicComponent, Gpu, InstanceBuffer, Matrix, RenderOperation,
+    DynamicComponent, Gpu, InstanceBuffer, Matrix, RenderOperation, ComponentTypeId,
 };
 
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -15,7 +15,7 @@ pub(crate) struct ComponentType {
     #[cfg_attr(feature = "serialize", serde(default))]
     buffer: Option<InstanceBuffer>,
 
-    type_id: u32,
+    type_id: ComponentTypeId,
     last_len: usize,
     force_rewrite_buffer: bool,
     config: ComponentConfig,
@@ -108,7 +108,7 @@ impl ComponentType {
     }
 
     #[inline]
-    pub const fn type_id(&self) -> u32 {
+    pub const fn type_id(&self) -> ComponentTypeId {
         self.type_id
     }
 

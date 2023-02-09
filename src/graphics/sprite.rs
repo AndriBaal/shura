@@ -1,4 +1,4 @@
-use crate::{Color, Defaults, Dimension, Gpu, InstanceBuffer, Instances, Renderer, CameraBuffers};
+use crate::{CameraBuffers, Color, Defaults, Dimension, Gpu, InstanceBuffer, Instances, Renderer};
 use image::GenericImageView;
 use std::num::NonZeroU32;
 
@@ -11,6 +11,7 @@ macro_rules! Where {
 }
 
 /// 2D Sprite used for rendering
+#[derive(Debug)]
 pub struct Sprite {
     texture: wgpu::Texture,
     bind_group: wgpu::BindGroup,
@@ -308,8 +309,6 @@ impl Sprite {
         output_buffer.unmap();
         return image;
     }
-    
-
 
     #[inline]
     pub const fn size(&self) -> &Dimension<u32> {

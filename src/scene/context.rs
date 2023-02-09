@@ -1,26 +1,20 @@
-use std::collections::BTreeMap;
-
 use crate::{
     data::arena::ArenaEntry, ArenaPath, CameraBuffers, Color, ComponentCluster,
     ComponentController, ComponentGroup, ComponentGroupDescriptor, ComponentHandle,
     ComponentIdentifier, ComponentSet, ComponentSetMut, Dimension, DynamicComponent, GroupFilter,
     InputEvent, InputTrigger, InstanceBuffer, Instances, Isometry, Key, Matrix, Model,
     ModelBuilder, Modifier, Renderer, Rotation, Scene, Shader, ShaderField, ShaderLang, Shura,
-    Sprite, SpriteSheet, Touch, Uniform, Vector,
+    Sprite, SpriteSheet, Touch, Uniform, Vector, ComponentTypeId
 };
 
 #[cfg(feature = "serialize")]
 use crate::SceneSerializer;
-#[cfg(feature = "serialize")]
-use ron::ser::PrettyConfig;
 
 #[cfg(feature = "audio")]
 use crate::audio::{Sink, Sound};
 
 #[cfg(feature = "physics")]
 use crate::{physics::*, Point};
-#[cfg(feature = "physics")]
-use rapier2d::prelude::CollisionEvent;
 
 #[cfg(feature = "gui")]
 use crate::gui::GuiContext;
@@ -51,160 +45,9 @@ pub struct Context<'a> {
 }
 
 impl<'a> Context<'a> {
-    pub(crate) fn new(shura: &'a mut Shura, scene: &'a mut Scene) -> Context<'a> {
-        Self { scene, shura }
-    }
-
-    #[inline]
-    pub(crate) fn buffer(
-        &mut self,
-    ) -> Result<(wgpu::SurfaceTexture, wgpu::CommandEncoder), wgpu::SurfaceError> {
-        self.scene.component_manager.buffer_sets(
-            &self.shura.gpu,
-            #[cfg(feature = "physics")]
-            &self.scene.world,
-        );
-        self.shura.defaults.buffer(
-            &self.scene.camera,
-            &self.shura.gpu,
-            self.shura.frame_manager.total_time(),
-            self.shura.frame_manager.frame_time(),
-        );
-
-        let output = self.shura.gpu.surface.get_current_texture()?;
-        let encoder = self.shura.gpu.encoder();
-
-        return Ok((output, encoder));
-    }
-
-    #[inline]
-    pub(crate) fn start_update(&mut self) {
-        let window = &self.shura.window;
-        let input = &self.shura.input;
-
-        self.shura.frame_manager.update();
-
-        #[cfg(target_arch = "wasm32")]
-        {
-            let browser_window = web_sys::window().unwrap();
-            let width: u32 = browser_window.inner_width().unwrap().as_f64().unwrap() as u32;
-            let height: u32 = browser_window.inner_height().unwrap().as_f64().unwrap() as u32;
-            let size = Dimension::new(width, height);
-            if size != self.shura.window.inner_size().into() {
-                self.shura.window.set_inner_size(size);
-            }
-        }
-
-        #[cfg(feature = "gui")]
-        self.shura
-            .gui
-            .begin(&self.shura.frame_manager.total_time_duration(), &window);
-
-        if self.scene.resized {
-            let new_size: Dimension<u32> = window.inner_size().into();
-            self.scene
-                .camera
-                .resize(new_size.width as f32 / new_size.height as f32);
-        }
-
-        if self.scene.switched {
-            self.shura
-                .defaults
-                .apply_render_scale(&self.shura.gpu, self.scene.render_config.render_scale());
-        }
-
-        self.scene
-            .cursor
-            .compute(&self.scene.camera, &window.inner_size().into(), input);
-    }
-
-    #[inline]
-    pub(crate) fn end_update(&mut self) {
-        self.scene.component_manager.set_current_component(None);
-        self.shura.input.update();
-        self.scene.camera.apply_target(
-            &self.scene.component_manager,
-            #[cfg(feature = "physics")]
-            &self.scene.world,
-        );
-        self.scene.component_manager.update_sets(&self.scene.camera);
-        self.scene.resized = false;
-        self.scene.switched = false;
-    }
-
-    #[inline]
-    pub(crate) fn borrow_active_components(&mut self) -> BTreeMap<(i16, u32), ComponentCluster> {
-        self.scene.component_manager.borrow_active_components()
-    }
-
-    #[inline]
-    pub(crate) fn return_active_components(
-        &mut self,
-        active_components: BTreeMap<(i16, u32), ComponentCluster>,
-    ) {
-        self.scene
-            .component_manager
-            .return_active_components(active_components)
-    }
-
     #[inline]
     #[cfg(feature = "physics")]
-    pub(crate) fn step_world(&mut self) {
-        let delta = self.frame_time();
-        self.scene.world.step(delta);
-    }
-
-    #[inline]
-    pub(crate) fn remove_current_commponent(&mut self) -> bool {
-        self.scene.component_manager.remove_current_commponent()
-    }
-
-    #[inline]
-    pub(crate) fn set_current_component(&mut self, current_component: Option<ComponentHandle>) {
-        self.scene
-            .component_manager
-            .set_current_component(current_component);
-    }
-
-    #[inline]
-    #[cfg(feature = "physics")]
-    pub(crate) fn collision_event(
-        &mut self,
-    ) -> Result<CollisionEvent, crossbeam::channel::TryRecvError> {
-        self.scene.world.collision_event()
-    }
-
-    #[inline]
-    pub(crate) fn borrow_component(
-        &mut self,
-        path: ArenaPath,
-        index: usize,
-    ) -> Option<ArenaEntry<DynamicComponent>> {
-        self.scene.component_manager.borrow_component(path, index)
-    }
-
-    #[inline]
-    pub(crate) fn return_component(
-        &mut self,
-        path: ArenaPath,
-        index: usize,
-        component: ArenaEntry<DynamicComponent>,
-    ) {
-        self.scene
-            .component_manager
-            .return_component(path, index, component)
-    }
-
-    #[inline]
-    pub(crate) fn not_return_component(&mut self, path: ArenaPath, index: usize) {
-        self.scene
-            .component_manager
-            .not_return_component(path, index)
-    }
-
-    #[inline]
-    #[cfg(feature = "physics")]
-    pub fn component_from_collider(&self, collider: &ColliderHandle) -> Option<ComponentHandle> {
+    pub fn component_from_collider(&self, collider: &ColliderHandle) -> Option<(ComponentTypeId, ComponentHandle)> {
         self.scene.world.component(collider)
     }
 
@@ -215,19 +58,16 @@ impl<'a> Context<'a> {
 
     #[cfg(feature = "serialize")]
     pub fn serialize(
-        &'a self,
+        &'a mut self,
         mut serialize: impl FnMut(&mut SceneSerializer),
         pretty: bool,
     ) -> Option<String> {
-        let mut s = SceneSerializer::new(self.scene);
+        let mut s = SceneSerializer::new(
+            self.scene,
+            self.scene.component_manager.current_type(),
+        );
         (serialize)(&mut s);
-        let o = if pretty {
-            let pretty_config = PrettyConfig::new();
-            ron::ser::to_string_pretty(&s, pretty_config)
-        } else {
-            ron::ser::to_string(&s)
-        };
-        return o.ok();
+        return s.serialize(pretty);
     }
 
     //////////////////////////////////////////////////////////////////////////////////////////////
@@ -355,9 +195,9 @@ impl<'a> Context<'a> {
 
     #[inline]
     #[cfg(feature = "physics")]
-    pub fn create_collider(
+    pub fn create_collider<C: ComponentController + ComponentIdentifier>(
         &mut self,
-        component: &PhysicsComponent,
+        component: &C,
         collider: &ColliderBuilder,
     ) -> ColliderHandle {
         self.scene.world.create_collider(component, collider)
@@ -443,7 +283,7 @@ impl<'a> Context<'a> {
     // Getter
     //////////////////////////////////////////////////////////////////////////////////////////////
     #[inline]
-    pub fn current_component(&self) -> Option<ComponentHandle> {
+    pub fn current_component(&self) -> ComponentHandle {
         self.scene.component_manager.current_component()
     }
 

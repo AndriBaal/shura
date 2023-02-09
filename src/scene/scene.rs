@@ -1,11 +1,12 @@
 use instant::Duration;
+use ron::ser::PrettyConfig;
 use rustc_hash::FxHashMap;
 
 #[cfg(feature = "physics")]
 use crate::physics::World;
 use crate::{
-    Camera, Color, ComponentController, ComponentIdentifier, ComponentManager, Context,
-    CursorManager, Dimension, Isometry, Shura, Sprite, data::arena::Arena,
+    data::arena::Arena, Camera, Color, ComponentController, ComponentIdentifier, ComponentManager,
+    ComponentTypeId, Context, CursorManager, Dimension, Isometry, Shura, Sprite,
 };
 
 pub trait SceneCreator {
@@ -18,6 +19,12 @@ pub struct NewScene<N: 'static + FnMut(&mut Context)> {
     pub init: N,
 }
 
+impl<N: 'static + FnMut(&mut Context)> NewScene<N> {
+    pub fn new(id: u32, init: N) -> NewScene<N> {
+        Self { id, init }
+    }
+}
+
 impl<N: 'static + FnMut(&mut Context)> SceneCreator for NewScene<N> {
     fn id(&self) -> u32 {
         self.id
@@ -27,55 +34,66 @@ impl<N: 'static + FnMut(&mut Context)> SceneCreator for NewScene<N> {
         let window_size: Dimension<u32> = shura.window.inner_size().into();
         let window_ratio = window_size.width as f32 / window_size.height as f32;
         let mut scene = Scene::new(window_ratio, self.id);
-        let mut ctx = Context::new(shura, &mut scene);
+        let mut ctx = Context {
+            shura,
+            scene: &mut scene,
+        };
         (self.init)(&mut ctx);
         return scene;
     }
 }
 
-// pub struct ExistingScene {
-//     pub new_id: u32,
-//     pub existing: DynamicScene,
-// }
+#[cfg(feature = "serialize")]
+pub struct SerializedScene<N: 'static + FnMut(&mut Context, &mut SceneDeserializer)> {
+    pub id: u32,
+    pub scene: String,
+    pub init: N,
+}
 
-// impl SceneCreator for ExistingScene {
-//     fn into_scene(mut self, shura: &mut Shura) -> DynamicScene {
-//         let window_size: Dimension<u32> = shura.window.inner_size().into();
-//         let window_ratio = window_size.width as f32 / window_size.height as f32;
-//         let base = self.existing.base_mut();
-//         base.id = self.id;
-//         base.camera.resize(window_ratio);
-//         base
-//             .cursor
-//             .compute(&base.camera.fov(), &window_size, &shura.input);
-//         return self.existing;
-//     }
-// }
+#[cfg(feature = "serialize")]
+impl<N: 'static + FnMut(&mut Context, &mut SceneDeserializer)> SerializedScene<N> {
+    pub fn new(id: u32, scene: String, init: N) -> SerializedScene<N> {
+        Self { id, scene, init }
+    }
+}
 
-// #[cfg(feature = "serialize")]
-// pub struct SerializedScene<
-//     S: SceneController,
-//     D: 'static + FnMut(&mut Context, ComponentDeserializer) -> S,
-// > {
-//     pub id: u32,
-//     pub serializer: SceneSerializer,
-//     pub deserialize: D,
-// }
+#[cfg(feature = "serialize")]
+impl<N: 'static + FnMut(&mut Context, &mut SceneDeserializer)> SceneCreator for SerializedScene<N> {
+    fn id(&self) -> u32 {
+        self.id
+    }
 
-// #[cfg(feature = "serialize")]
-// impl<S: SceneController, D: 'static + FnMut(&mut Context, ComponentDeserializer) -> S> SceneCreator
-//     for SerializedScene<S, D>
-// {
-//     fn into_scene(self, shura: &mut Shura) -> DynamicScene {
-//         todo!()
-//     }
-// }
+    fn create(&mut self, shura: &mut Shura) -> Scene {
+        #[derive(serde::Deserialize)]
+        struct DeserializeHelper {
+            scene: Scene,
+            components: FxHashMap<u32, Vec<(u32, ron::Value)>>,
+        }
+        impl From<DeserializeHelper> for (Scene, FxHashMap<u32, Vec<(u32, ron::Value)>>) {
+            fn from(e: DeserializeHelper) -> (Scene, FxHashMap<u32, Vec<(u32, ron::Value)>>) {
+                (e.scene, e.components)
+            }
+        }
+
+        let (mut scene, mut components): (Scene, FxHashMap<u32, Vec<(u32, ron::Value)>>) =
+            ron::from_str::<DeserializeHelper>(&self.scene)
+                .unwrap()
+                .into();
+        scene.before_deserialize(self.id, shura);
+
+        // let mut scene = Scene::new(window_ratio, self.id);
+        // let mut ctx = Context::new(shura, &mut scene);
+        // (self.init)(&mut ctx);
+        return scene;
+    }
+}
 
 fn bool_true() -> bool {
     return true;
 }
 
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
+#[derive(Clone, Debug)]
 pub struct SceneRenderConfig {
     clear_color: Option<Color>,
     render_scale: f32,
@@ -141,8 +159,6 @@ pub struct Scene {
     #[cfg_attr(feature = "serialize", serde(skip))]
     #[cfg_attr(feature = "serialize", serde(default))]
     pub saved_sprites: Vec<(String, Sprite)>,
-    #[cfg_attr(feature = "serialize", serde(skip))]
-    #[cfg_attr(feature = "serialize", serde(default))]
     pub cursor: CursorManager,
     pub render_config: SceneRenderConfig,
     pub camera: Camera,
@@ -168,6 +184,16 @@ impl Scene {
         }
     }
 
+    pub(crate) fn before_deserialize(&mut self, id: u32, shura: &Shura) {
+        let window_size: Dimension<u32> = shura.window.inner_size().into();
+        let window_ratio = window_size.width as f32 / window_size.height as f32;
+        self.id = id;
+        self.camera.resize(window_ratio);
+        self.cursor
+            .compute(&self.camera, &window_size, &shura.input);
+        self.component_manager.update_sets(&self.camera);
+    }
+
     pub fn resized(&self) -> bool {
         self.resized
     }
@@ -181,41 +207,54 @@ impl Scene {
     }
 }
 
-type GroupId = u32;
-type TypeId = u32;
-type Generation = u32;
-
 #[cfg(feature = "serialize")]
 #[derive(serde::Serialize)]
 pub struct SceneSerializer<'a> {
-    scene: &'a Scene,
+    scene: &'a mut Scene,
+    active_type: ComponentTypeId,
     components: FxHashMap<
-        TypeId,
-        Vec<(
-            GroupId,
-            Vec<Option<(&'a Generation, &'a dyn erased_serde::Serialize)>>,
-        )>,
+        ComponentTypeId,
+        Vec<(u32, Vec<Option<(&'a u32, &'a dyn erased_serde::Serialize)>>)>,
     >,
 }
 
 #[cfg(feature = "serialize")]
 impl<'a> SceneSerializer<'a> {
-    pub(crate) fn new(scene: &'a Scene) -> Self {
+    pub(crate) fn new(scene: &'a mut Scene, active_type: ComponentTypeId) -> Self {
         Self {
             scene,
+            active_type,
             components: Default::default(),
         }
     }
 
+    pub fn serialize(&mut self, pretty: bool) -> Option<String> {
+        let world_cpy = self.scene.world.clone();
+        // let to_remove = vec![];
+        for (body_handle, _body) in self.scene.world.bodies() {
+            // for 
+        }
+        let result =  if pretty {
+            let pretty_config = PrettyConfig::new();
+            ron::ser::to_string_pretty(self, pretty_config).ok()
+        } else {
+            ron::ser::to_string(self).ok()
+        };
+
+        return result;
+    }
+
     pub fn serialize_components<
-        'de,
         C: ComponentController + ComponentIdentifier + serde::Serialize,
     >(
-        &mut self,
+        &'a mut self,
         groups: &[u32],
     ) {
         let type_id = C::IDENTIFIER;
         let mut target = vec![];
+        if type_id == self.active_type {
+            panic!("Cannot serialize currently used component!");
+        }
         for group_id in groups {
             if let Some(group_index) = self.scene.component_manager.group_index(group_id) {
                 let group = self.scene.component_manager.group(*group_index).unwrap();
@@ -230,8 +269,8 @@ impl<'a> SceneSerializer<'a> {
 }
 
 #[derive(serde::Deserialize)]
-struct SceneDeserializer {
-    components: FxHashMap<u32, Vec<(u32, ron::Value)>>,
+pub struct SceneDeserializer {
+    components: FxHashMap<ComponentTypeId, Vec<(u32, ron::Value)>>,
 }
 
 impl SceneDeserializer {
@@ -244,13 +283,17 @@ impl SceneDeserializer {
     ) {
         let type_id = C::IDENTIFIER;
         let components = self.components.remove(&type_id).unwrap();
+
         for (group_id, components) in components {
-            let components = components.into_rust::<Arena<Box<C>>>().unwrap();
+            let components = components.into_rust::<Arena<ron::Value>>().unwrap();
+            let components = components.cast::<C>();
             let group = ctx.group_mut(group_id).unwrap();
             let type_index = group.type_index(type_id).unwrap();
-            group.type_mut(*type_index).unwrap().deserialize_components(components);
+            group
+                .type_mut(*type_index)
+                .unwrap()
+                .deserialize_components(components);
         }
-
     }
 
     pub fn deserialize_with_visitor<
