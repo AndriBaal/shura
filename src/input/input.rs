@@ -89,9 +89,9 @@ pub struct Input {
     cursor_raw: Vector<u32>,
     touches: FxHashMap<u64, Vector<u32>>,
     triggers: FxHashMap<InputTrigger, InputEvent>,
-    modifiers: Option<Modifier>,
+    modifiers: Modifier,
     wheel_delta: f32,
-    staged_key: Option<Key>,
+    staged_keys: Vec<Key>,
     #[cfg(feature = "gamepad")]
     game_pad_manager: Option<Gilrs>,
 }
@@ -102,8 +102,8 @@ impl Input {
             cursor_raw: Vector::new(0, 0),
             touches: Default::default(),
             triggers: Default::default(),
-            modifiers: None,
-            staged_key: None,
+            modifiers: Default::default(),
+            staged_keys: vec![],
             wheel_delta: 0.0,
             #[cfg(feature = "gamepad")]
             game_pad_manager: Gilrs::new().ok(),
@@ -139,6 +139,7 @@ impl Input {
             WindowEvent::KeyboardInput { input, .. } => match input.virtual_keycode {
                 Some(key) => {
                     let trigger = key.into();
+                    self.staged_keys.push(key);
                     match input.state {
                         ElementState::Pressed => {
                             if !self.triggers.contains_key(&trigger) {
@@ -179,7 +180,7 @@ impl Input {
                 }
             },
             WindowEvent::ModifiersChanged(state) => {
-                self.modifiers = Some(*state);
+                self.modifiers = *state;
             }
             _ => {}
         }
@@ -187,8 +188,7 @@ impl Input {
 
     pub(crate) fn update(&mut self) {
         self.wheel_delta = 0.0;
-        self.modifiers = None;
-        self.staged_key = None;
+        self.staged_keys.clear();
 
         for trigger in self.triggers.values_mut() {
             trigger.normalize();
@@ -250,8 +250,8 @@ impl Input {
     }
 
     #[inline]
-    pub const fn staged_key(&self) -> Option<Key> {
-        self.staged_key
+    pub fn staged_keys(&self) -> &[Key] {
+        &self.staged_keys
     }
 
     #[inline]
@@ -260,7 +260,7 @@ impl Input {
     }
 
     #[inline]
-    pub const fn modifiers(&self) -> Option<Modifier> {
+    pub const fn modifiers(&self) -> Modifier {
         self.modifiers
     }
 

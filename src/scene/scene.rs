@@ -245,7 +245,7 @@ impl SceneDeserializer {
         let type_id = C::IDENTIFIER;
         let components = self.components.remove(&type_id).unwrap();
         for (group_id, components) in components {
-            let components: Arena<Box<C>> = components.into_rust().unwrap();
+            let components = components.into_rust::<Arena<Box<C>>>().unwrap();
             let group = ctx.group_mut(group_id).unwrap();
             let type_index = group.type_index(type_id).unwrap();
             group.type_mut(*type_index).unwrap().deserialize_components(components);

@@ -533,12 +533,12 @@ impl<'a> Context<'a> {
     }
 
     #[inline]
-    pub fn staged_key(&self) -> Option<Key> {
-        self.shura.input.staged_key()
+    pub fn staged_keys(&self) -> &[Key] {
+        self.shura.input.staged_keys()
     }
 
     #[inline]
-    pub const fn modifiers(&self) -> Option<Modifier> {
+    pub const fn modifiers(&self) -> Modifier {
         self.shura.input.modifiers()
     }
 
