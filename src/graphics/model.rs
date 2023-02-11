@@ -8,7 +8,7 @@ use wgpu::util::DeviceExt;
 // use rapier2d::prelude::ColliderBuilder;
 
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// Shape of a [Model].
 pub enum ModelShape {
     Ball {
@@ -166,7 +166,7 @@ fn rotate_point_around_origin(
 }
 
 #[derive(Clone)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// Builder to easily create a [Model].
 pub struct ModelBuilder {
     pub vertices: Vec<Vertex>,

@@ -41,8 +41,6 @@ impl Shura {
             .build(&events)
             .unwrap();
         let shura_window_id = window.id();
-        let mut init = Some(creator);
-        let mut window = Some(window);
 
         #[cfg(target_arch = "wasm32")]
         {
@@ -52,7 +50,7 @@ impl Shura {
             std::panic::set_hook(Box::new(hook));
             wasm_logger::init(wasm_logger::Config::default().module_prefix("shura"));
 
-            let canvas = &web_sys::Element::from(shura.window.canvas());
+            let canvas = &web_sys::Element::from(window.canvas());
             canvas.set_attribute("tabindex", "0").unwrap();
             canvas
                 .set_attribute("oncontextmenu", "return false;")
@@ -71,14 +69,9 @@ impl Shura {
                 .unwrap();
 
             let browser_window = web_sys::window().unwrap();
-            let width: u32 = browser_window.inner_width().unwrap().as_f64().unwrap() as u32;
-            let height: u32 = browser_window.inner_height().unwrap().as_f64().unwrap() as u32;
-
             let document = browser_window.document().unwrap();
             let body = document.body().unwrap();
             body.append_child(canvas).ok();
-
-            shura.window.set_inner_size(Dimension::new(width, height));
         }
 
         #[cfg(not(target_arch = "wasm32"))]
@@ -93,6 +86,8 @@ impl Shura {
                 .init();
         }
 
+        let mut init = Some(creator);
+        let mut window = Some(window);
         let mut shura: Option<Shura> = if cfg!(target_os = "android") {
             None
         } else {

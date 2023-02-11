@@ -69,7 +69,18 @@ impl ComponentController for BoxManager {
         }
 
         if ctx.is_pressed(MouseButton::Right) {
-            ctx.create_component(None, PhysicsBox::new(*ctx.cursor_world()));
+            let cursor = *ctx.cursor_world();
+            let cursor_pos = Isometry::new(cursor, 0.0);
+            if ctx
+                .intersection_with_shape(
+                    &cursor_pos,
+                    &Cuboid::new(Vector::new(HALF_BOX_SIZE, HALF_BOX_SIZE)),
+                    Default::default(),
+                )
+                .is_none()
+            {
+                ctx.create_component(None, PhysicsBox::new(cursor));
+            }
         }
 
         if ctx.is_pressed(Key::Z) {
@@ -81,7 +92,7 @@ impl ComponentController for BoxManager {
                     true,
                 )
                 .unwrap();
-            std::fs::write("test.ron", ser).expect("Unable to write file");
+            std::fs::write("data.ron", ser).expect("Unable to write file");
         }
     }
 

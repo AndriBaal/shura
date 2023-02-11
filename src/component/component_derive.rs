@@ -1,13 +1,10 @@
-use core::hash::Hash;
-
 #[cfg(feature = "physics")]
 use crate::physics::{CollideType, ColliderHandle, World};
 use crate::{
-    data::arena::ArenaIter, ArenaIndex, Context, Instances, Matrix, Model, RenderIter, Renderer,
-    Sprite,
+    data::arena::ArenaIter, Context, Instances, Matrix, Model, RenderIter, Renderer,
+    Sprite, ComponentConfig, ComponentHandle, ComponentTypeId
 };
 use downcast_rs::*;
-use instant::Duration;
 
 /// Dynamic component, that can be downcasted to any [ComponentController](crate::ComponentController)
 /// using downcast_ref or downcast_mut.
@@ -56,6 +53,7 @@ pub trait ComponentController: Downcast + _StaticAccess + ComponentDerive {
         other_collider: ColliderHandle,
         collide_type: CollideType,
     ) {
+
     }
 
     /// Grouped render of multiple components. This method gets called once for every group inwhich
@@ -91,78 +89,10 @@ pub trait ComponentController: Downcast + _StaticAccess + ComponentDerive {
     where
         Self: Sized,
     {
-        return DEFAULT_CONFIG;
+        return ComponentConfig::default();
     }
 }
 impl_downcast!(ComponentController);
-
-/// Handle for a component. Through these handles components can be easily be fetches every frame
-/// with a specific type through the [component](crate::Context::component) or
-/// [component_mut](crate::Context::component_mut) method or without a specific type through the
-/// [component_dynamic](crate::Context::component_dynamic) or
-/// [component_dynamic_mut](crate::Context::component_dynamic_mut) method from the [context](crate::Context)
-#[derive(Copy, Clone, Default, Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-pub struct ComponentHandle {
-    component_index: ArenaIndex,
-    type_index: ArenaIndex,
-    group_index: ArenaIndex,
-    id: u32,
-}
-
-impl Hash for ComponentHandle {
-    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
-        // The id is unique per ComponentHandle, so hashing only the id is faster
-        self.id.hash(state)
-    }
-}
-
-impl Eq for ComponentHandle {}
-impl PartialEq for ComponentHandle {
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-    }
-}
-
-impl ComponentHandle {
-    pub const UNINITIALIZED_ID: u32 = 0;
-
-    #[inline]
-    pub(crate) const fn new(
-        component_index: ArenaIndex,
-        type_index: ArenaIndex,
-        group_index: ArenaIndex,
-        id: u32,
-    ) -> Self {
-        Self {
-            id,
-            component_index,
-            type_index,
-            group_index,
-        }
-    }
-
-    #[inline]
-    pub(crate) fn type_index(&self) -> ArenaIndex {
-        self.type_index
-    }
-
-    #[inline]
-    pub(crate) fn group_index(&self) -> ArenaIndex {
-        self.group_index
-    }
-
-    #[inline]
-    pub(crate) fn component_index(&self) -> ArenaIndex {
-        self.component_index
-    }
-
-    /// Unique if of the handle and its component
-    #[inline]
-    pub fn id(&self) -> u32 {
-        self.id
-    }
-}
 
 #[allow(unused_variables)]
 /// Every component like [PositionComponent](crate::PositionComponent) or
@@ -179,97 +109,6 @@ pub trait BaseComponent: Downcast {
     fn matrix(&self, #[cfg(feature = "physics")] world: &World) -> Matrix;
 }
 impl_downcast!(BaseComponent);
-
-/// Desribes how  a component gets rendered
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-pub enum RenderOperation {
-    /// Does not render at all and therefore does not create a Buffer on the GPU.
-    None,
-    /// Render all components in the same method by calling `grouped_render`. A Set of all components of
-    /// a group get provided. Use this if your components all draw the same graphics on the same model.
-    Grouped,
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-/// Defines which camera should be used for rendering
-pub enum CameraUse {
-    /// Use the camera of the world
-    World,
-    /// The position, rotation and the scale is always relative to the screen. On the top right is
-    /// always (1.0, 1.0) and on the bottom left (-1.0, -1.0). This only has affects on
-    /// `PositionComponent`
-    Relative,
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-/// Defines the update of a component
-pub enum UpdateOperation {
-    None,
-    EveryFrame,
-    EveryNFrame(u64),
-    AfterDuration(Duration),
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-/// Defines the postproccess operations
-pub enum PostproccessOperation {
-    /// No postprocessing is applied
-    None,
-    /// Postprocessing is done on the same layer as every other render operation
-    SameLayer,
-    /// The Postprocessing gets applied to a seperate layer before rendering it on top of the others
-    SeperateLayer,
-}
-
-/// Default configuration for a component.
-pub const DEFAULT_CONFIG: ComponentConfig = ComponentConfig::default();
-
-/// The configuration of a component type. This configuration is used to statically define
-/// behaviour of a component type for perfomance and utility reason.
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-pub struct ComponentConfig {
-    /// Describes which camera should be used for rendering
-    pub camera: CameraUse,
-    /// Describes the priority the update and render methods gets called.
-    pub priority: i16,
-    /// Indicates if the controller should be updated.
-    pub update: UpdateOperation,
-    /// Indicates if after rendering the component, postproccessing should be applied to the frame
-    pub postproccess: PostproccessOperation,
-    /// Defines how rendering is handled for the component
-    pub render: RenderOperation,
-    /// The position, rotation and the scale of the component does not change. For Example a Tree
-    /// or a Background Wall. This boosts performance by allot since not every frame the matrix of
-    /// the component needs to be computed and written into the buffer. You always can call
-    /// `force_matrix_update` on the `ComponentSet` of the type to manually force the update off the buffer.
-    pub does_move: bool,
-}
-
-impl Default for ComponentConfig {
-    fn default() -> Self {
-        Self::default()
-    }
-}
-
-impl ComponentConfig {
-    pub const DEFAULT: Self = Self {
-        does_move: true,
-        update: UpdateOperation::EveryFrame,
-        postproccess: PostproccessOperation::None,
-        render: RenderOperation::Grouped,
-        camera: CameraUse::World,
-        priority: 16,
-    };
-
-    pub const fn default() -> ComponentConfig {
-        Self::DEFAULT
-    }
-}
 
 impl<C: ComponentController + ?Sized> ComponentDerive for Box<C> {
     fn base(&self) -> &dyn BaseComponent {
@@ -340,15 +179,14 @@ impl<C: ComponentController> _StaticAccess for C {
     }
 }
 
-#[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-pub struct ComponentTypeId {
-    id: u32,
+#[cfg(feature = "serde")]
+pub(crate) trait SerializeableComponent:
+    erased_serde::Serialize + ComponentController
+{
 }
 
-pub trait ComponentIdentifier {
-    const TYPE_NAME: &'static str;
-    const IDENTIFIER: ComponentTypeId = ComponentTypeId {
-        id: const_fnv1a_hash::fnv1a_hash_str_32(Self::TYPE_NAME),
-    };
-}
+#[cfg(feature = "serde")]
+impl<T: erased_serde::Serialize + ComponentController> SerializeableComponent for T {}
+#[cfg(feature = "physics")]
+erased_serde::serialize_trait_object!(SerializeableComponent);
+

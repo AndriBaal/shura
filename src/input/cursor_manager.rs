@@ -1,7 +1,7 @@
 use crate::{Camera, Dimension, Input, Vector, RELATIVE_CAMERA_SIZE};
 
 #[derive(Copy, Clone, Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// Cursor positions of a touch somewhere in the window.
 pub struct Touch {
     pub id: u64,

@@ -1,5 +1,6 @@
 **/target
 **/Cargo.lock
+**/data.ron
 target
 Cargo.lock
 /.vscode

@@ -7,7 +7,7 @@ use crate::{
 };
 use rustc_hash::FxHashSet;
 
-#[cfg(feature = "serialize")]
+#[cfg(feature = "serde")]
 use crate::ComponentSerializer;
 
 #[cfg(feature = "audio")]
@@ -59,7 +59,7 @@ impl<'a> Context<'a> {
         self.scene.component_manager.does_group_exist(group)
     }
 
-    #[cfg(feature = "serialize")]
+    #[cfg(feature = "serde")]
     pub fn serialize(
         &mut self,
         mut serialize: impl FnMut(&mut ComponentSerializer),

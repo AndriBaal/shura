@@ -7,19 +7,19 @@ use crate::{
 use std::{iter::Enumerate, marker::PhantomData};
 
 #[derive(Debug, Clone, Copy)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct ArenaPath {
     pub group_index: ArenaIndex,
     pub type_index: ArenaIndex,
 }
 
 #[derive(Debug, Clone)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct ComponentCluster {
     paths: Vec<ArenaPath>,
     config: ComponentConfig,
-    #[cfg_attr(feature = "serialize", serde(skip))]
-    #[cfg_attr(feature = "serialize", serde(default))]
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[cfg_attr(feature = "serde", serde(default))]
     last_update: Option<Instant>,
 }
 

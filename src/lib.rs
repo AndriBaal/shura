@@ -46,12 +46,13 @@ pub use instant::Duration;
 pub use log::{debug, error, info, trace, warn};
 pub use shura_proc::*;
 
-pub(crate) use crate::{component::component_type::*, data::arena::*};
 
 pub use crate::{
+    data::arena::*,
     component::{
-        component::*, component_group::*, component_manager::*, component_set::*,
-        empty_component::*, position_component::*,
+        component_config::*, component_handle::*, component_derive::*, component_group::*,
+        component_manager::*, component_set::*, empty_component::*, position_component::*,
+        component_type::*
     },
     graphics::{camera::*, frame_manager::*},
     graphics::{
@@ -64,6 +65,7 @@ pub use crate::{
         sprite::*,
         sprite_sheet::*,
         uniform::*,
+        render_config::*,
         vertex::{Index, Vertex},
     },
     input::{cursor_manager::*, input::*},
@@ -100,6 +102,7 @@ mod world;
 pub mod physics {
     pub(crate) use crate::world::world::World;
     pub use crate::world::{physic_component::PhysicsComponent, world::CollideType};
+    pub use rapier2d::geometry::*;
     pub use rapier2d::parry::query::PointQuery;
     pub use rapier2d::prelude::{
         ActiveCollisionTypes, ActiveEvents, ActiveHooks, CoefficientCombineRule, Collider,
@@ -139,3 +142,9 @@ pub mod gamepad {
         MappingSource, PowerInfo,
     };
 }
+
+
+// serde
+#[cfg(feature = "serde")]
+pub use crate::scene::scene_serde::*;
+

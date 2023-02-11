@@ -14,3 +14,4 @@ pub mod sprite_sheet;
 pub mod text;
 pub mod uniform;
 pub mod vertex;
+pub mod render_config;

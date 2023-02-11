@@ -22,7 +22,7 @@ impl<'a> Default for GroupFilter<'a> {
     }
 }
 
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// Access to the component system.
 pub struct ComponentManager {
     update_components: bool,
@@ -36,16 +36,16 @@ pub struct ComponentManager {
     group_map: FxHashMap<u32, ArenaIndex>,
     groups: Arena<ComponentGroup>,
 
-    #[cfg_attr(feature = "serialize", serde(skip))]
-    #[cfg_attr(feature = "serialize", serde(default))]
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[cfg_attr(feature = "serde", serde(default))]
     active_groups: FxHashSet<ArenaIndex>,
 
-    #[cfg_attr(feature = "serialize", serde(skip))]
-    #[cfg_attr(feature = "serialize", serde(default))]
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[cfg_attr(feature = "serde", serde(default))]
     active_group_ids: Vec<u32>,
 
-    #[cfg_attr(feature = "serialize", serde(skip))]
-    #[cfg_attr(feature = "serialize", serde(default))]
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[cfg_attr(feature = "serde", serde(default))]
     active_components: Option<BTreeMap<(i16, ComponentTypeId), ComponentCluster>>,
 }
 

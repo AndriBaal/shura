@@ -11,7 +11,7 @@ const MINIMAL_FOV: f32 = 0.0000001;
 /// selected in the [ComponentConfig](crate::ComponentConfig) with [CameraUse](crate::CameraUse). The
 /// relative camera has always the same fov and position where the bottom_left is (-1.0, -1.0) and the top right is (1.0, 1.0).
 
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug)]
 pub struct Camera {
     position: Isometry<f32>,

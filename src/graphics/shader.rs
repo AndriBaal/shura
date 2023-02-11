@@ -157,11 +157,7 @@ impl Shader {
                     conservative: false,
                 },
                 depth_stencil: None,
-                multisample: wgpu::MultisampleState {
-                    count: gpu.base.sample_count,
-                    mask: !0,
-                    alpha_to_coverage_enabled: false,
-                },
+                multisample: gpu.base.multisample_state,
                 multiview: None,
             });
 

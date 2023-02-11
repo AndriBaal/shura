@@ -11,7 +11,9 @@ pub trait CreateFont {
         use wgpu_glyph::{ab_glyph, GlyphBrushBuilder};
         let inconsolata = ab_glyph::FontArc::try_from_slice(bytes).unwrap();
 
-        GlyphBrushBuilder::using_font(inconsolata).build(&gpu.device, gpu.config.format)
+        GlyphBrushBuilder::using_font(inconsolata)
+            .multisample_state(gpu.base.multisample_state)
+            .build(&gpu.device, gpu.config.format)
     }
 }
 

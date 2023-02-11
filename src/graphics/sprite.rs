@@ -134,6 +134,7 @@ impl Sprite {
             format: gpu.config.format,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             label: None,
+            view_formats: &[],
         };
 
         let msaa = gpu
@@ -197,6 +198,7 @@ impl Sprite {
                 | wgpu::TextureUsages::COPY_DST
                 | wgpu::TextureUsages::COPY_SRC
                 | wgpu::TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
         });
 
         return (gpu.config.format, texture);

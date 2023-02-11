@@ -31,7 +31,7 @@ pub const DEFAULT_GROUP_ID: u32 = u32::MAX / 2;
 /// [group_mut](crate::Context::group_mut). The components of the group can be accessed with
 /// [components](crate::Context::components) or [components_mut](crate::Context::components_mut)
 /// from the [context](crate::Context).
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ComponentGroup {
     type_map: FxHashMap<ComponentTypeId, ArenaIndex>,
     types: Arena<ComponentType>,

@@ -1,19 +1,33 @@
 #[cfg(feature = "physics")]
 use crate::physics::World;
+#[cfg(feature = "physics")]
 use crate::SerializeableComponent;
 use crate::{
     data::arena::{ArenaEntry, ArenaIter, ArenaIterMut},
-    Arena, ArenaIndex, ComponentConfig, ComponentController, ComponentHandle, ComponentIdentifier,
-    ComponentTypeId, DynamicComponent, Gpu, InstanceBuffer, Matrix, RenderOperation,
+    Arena, ArenaIndex, ComponentConfig, ComponentController, ComponentHandle, DynamicComponent,
+    Gpu, InstanceBuffer, Matrix, RenderOperation,
 };
 
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct ComponentTypeId {
+    id: u32,
+}
+
+pub trait ComponentIdentifier {
+    const TYPE_NAME: &'static str;
+    const IDENTIFIER: ComponentTypeId = ComponentTypeId {
+        id: const_fnv1a_hash::fnv1a_hash_str_32(Self::TYPE_NAME),
+    };
+}
+
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct ComponentType {
-    #[cfg_attr(feature = "serialize", serde(skip))]
-    #[cfg_attr(feature = "serialize", serde(default))]
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[cfg_attr(feature = "serde", serde(default))]
     components: Arena<DynamicComponent>,
-    #[cfg_attr(feature = "serialize", serde(skip))]
-    #[cfg_attr(feature = "serialize", serde(default))]
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[cfg_attr(feature = "serde", serde(default))]
     buffer: Option<InstanceBuffer>,
 
     type_id: ComponentTypeId,
@@ -82,7 +96,7 @@ impl ComponentType {
         return self.components.insert(Box::new(component));
     }
 
-    #[cfg(feature = "serialize")]
+    #[cfg(feature = "serde")]
     pub fn serialize_components<C: ComponentController + erased_serde::Serialize>(
         &self,
     ) -> Vec<Option<(&u32, &dyn SerializeableComponent)>> {

@@ -6,6 +6,7 @@ use crate::{
 };
 use log::info;
 use std::borrow::Cow;
+use wgpu::{Adapter, SurfaceConfiguration};
 
 pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 1.0;
 
@@ -23,8 +24,11 @@ pub struct Gpu {
 impl Gpu {
     pub(crate) async fn new(window: &winit::window::Window) -> Self {
         let window_size = window.inner_size();
-        let instance = wgpu::Instance::new(wgpu::Backends::all());
-        let surface = unsafe { instance.create_surface(window) };
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+            backends: wgpu::Backends::all(),
+            dx12_shader_compiler: wgpu::Dx12Compiler::Fxc,
+        });
+        let surface = unsafe { instance.create_surface(window).unwrap() };
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::HighPerformance,
@@ -37,20 +41,7 @@ impl Gpu {
         let limits = if cfg!(target_arch = "wasm32") {
             wgpu::Limits::downlevel_webgl2_defaults()
         } else {
-            let mut limits = wgpu::Limits::downlevel_webgl2_defaults();
-            if let Some(monitor) = window.current_monitor() {
-                let size = monitor.size();
-                if size.width > 2048 || size.height > 2048 {
-                    if size.width > size.height {
-                        limits.max_texture_dimension_1d = size.width;
-                        limits.max_texture_dimension_2d = size.width;
-                    } else {
-                        limits.max_texture_dimension_1d = size.height;
-                        limits.max_texture_dimension_2d = size.height;
-                    }
-                }
-            }
-            limits
+            wgpu::Limits::default()
         };
 
         let (device, queue) = adapter
@@ -65,24 +56,18 @@ impl Gpu {
             .await
             .unwrap();
 
-        let texture_format = surface.get_supported_formats(&adapter)[0];
+        let config = surface
+            .get_default_config(&adapter, window_size.width, window_size.height)
+            .expect("Surface unsupported by adapter");
 
-        let config = wgpu::SurfaceConfiguration {
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format: texture_format,
-            width: window_size.width,
-            height: window_size.height,
-            present_mode: wgpu::PresentMode::AutoNoVsync,
-            alpha_mode: wgpu::CompositeAlphaMode::Auto,
-        };
-        let base = WgpuBase::new(&device);
+        let base = WgpuBase::new(&device, &adapter, &config);
 
         surface.configure(&device, &config);
         let adapter_info = adapter.get_info();
 
         info!("Using GPU: {}", adapter_info.name);
         info!("Using WGPU backend: {:?}", adapter_info.backend);
-        info!("Using TextureFormat: {:?}", texture_format);
+        info!("Using TextureFormat: {:?}", config.format);
 
         let gpu = Self {
             instance,
@@ -157,6 +142,7 @@ impl Gpu {
             format: self.config.format,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             label: None,
+            view_formats: &[],
         };
 
         self.device
@@ -177,6 +163,7 @@ impl Gpu {
                 | wgpu::TextureUsages::COPY_DST
                 | wgpu::TextureUsages::COPY_SRC
                 | wgpu::TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
         });
 
         let target_view = target_texture.create_view(&wgpu::TextureViewDescriptor::default());
@@ -204,6 +191,7 @@ impl Gpu {
 /// Base Wgpu objects needed to create any further graphics object.
 pub struct WgpuBase {
     pub sample_count: u32,
+    pub multisample_state: wgpu::MultisampleState,
     pub sprite_uniform: wgpu::BindGroupLayout,
     pub vertex_uniform: wgpu::BindGroupLayout,
     pub fragment_uniform: wgpu::BindGroupLayout,
@@ -213,8 +201,7 @@ pub struct WgpuBase {
 }
 
 impl WgpuBase {
-    const SAMPLE_COUNT: u32 = 4;
-    pub fn new(device: &wgpu::Device) -> Self {
+    pub fn new(device: &wgpu::Device, adapter: &Adapter, config: &SurfaceConfiguration) -> Self {
         let sprite_uniform = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[
                 wgpu::BindGroupLayoutEntry {
@@ -286,8 +273,32 @@ impl WgpuBase {
             ..Default::default()
         });
 
+        let sample_flags = adapter.get_texture_format_features(config.format).flags;
+
+        let sample_count = 4;
+        // let sample_count = {
+        //     if sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X8) {
+        //         8
+        //     } else if sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X4) {
+        //         4
+        //     } else if sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X2) {
+        //         2
+        //     } else {
+        //         1
+        //     }
+        // };
+
+        println!("{:?}", sample_count);
+
+        let multisample_state = wgpu::MultisampleState {
+            count: sample_count,
+            mask: !0,
+            alpha_to_coverage_enabled: false,
+        };
+
         Self {
-            sample_count: Self::SAMPLE_COUNT,
+            sample_count: sample_count,
+            multisample_state,
             sprite_uniform,
             vertex_uniform,
             fragment_uniform,

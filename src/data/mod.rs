@@ -1,3 +1,3 @@
 pub mod arena;
-#[cfg(feature = "serialize")]
+#[cfg(feature = "serde")]
 pub mod arena_serde;

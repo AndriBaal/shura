@@ -6,7 +6,7 @@ use std::ops::*;
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable, Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// Matrix optimized for 2D rendering in shura.
 pub struct Matrix {
     pub x: Vector4<f32>,
