@@ -1,6 +1,6 @@
 **/target
 **/Cargo.lock
-**/data.ron
+**/data.binc
 target
 Cargo.lock
 /.vscode

@@ -32,7 +32,6 @@ pub struct ComponentManager {
     remove_current_commponent: bool,
     force_update_sets: bool,
     current_component: ComponentHandle,
-    current_type: ComponentTypeId,
     group_map: FxHashMap<u32, ArenaIndex>,
     groups: Arena<ComponentGroup>,
 
@@ -45,8 +44,12 @@ pub struct ComponentManager {
     active_group_ids: Vec<u32>,
 
     #[cfg_attr(feature = "serde", serde(skip))]
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[cfg_attr(feature = "serde", serde(default="default_active"))]
     active_components: Option<BTreeMap<(i16, ComponentTypeId), ComponentCluster>>,
+}
+
+fn default_active() -> Option<BTreeMap<(i16, ComponentTypeId), ComponentCluster>> {
+    return Some(Default::default());
 }
 
 impl ComponentManager {
@@ -69,7 +72,6 @@ impl ComponentManager {
             remove_current_commponent: false,
             force_update_sets: false,
             current_component: Default::default(),
-            current_type: Default::default(),
             active_components: Some(Default::default()),
         }
     }
@@ -220,7 +222,6 @@ impl ComponentManager {
         c.base_mut().init(
             #[cfg(feature = "physics")]
             world,
-            type_id,
             handle,
         );
         return (c.downcast_mut().unwrap(), handle);
@@ -649,20 +650,10 @@ impl ComponentManager {
         self.current_component
     }
 
-    #[inline]
-    pub(crate) fn current_type(&self) -> ComponentTypeId {
-        self.current_type
-    }
-
     // Setters
     #[inline]
     pub(crate) fn set_current_component(&mut self, current_component: ComponentHandle) {
         self.current_component = current_component
-    }
-
-    #[inline]
-    pub(crate) fn set_current_type(&mut self, current_type: ComponentTypeId) {
-        self.current_type = current_type
     }
 
     #[inline]

@@ -41,7 +41,7 @@ pub struct World {
     physics_priority: i16,
     bodies: RigidBodySet,
     colliders: ColliderSet,
-    component_mapping: FxHashMap<ColliderHandle, (ComponentTypeId, ComponentHandle)>,
+    component_mapping: FxHashMap<ColliderHandle, ComponentHandle>,
 
     query_pipeline: QueryPipeline,
     gravity: Vector<f32>,
@@ -113,9 +113,8 @@ impl World {
         self.bodies.insert(builder)
     }
 
-    pub(crate) fn _create_collider(
+    pub(crate) fn create_collider(
         &mut self,
-        type_id: ComponentTypeId,
         component: &PhysicsComponent,
         collider: &ColliderBuilder,
     ) -> ColliderHandle {
@@ -130,20 +129,8 @@ impl World {
         );
 
         self.component_mapping
-            .insert(collider_handle, (type_id, *component.handle()));
+            .insert(collider_handle, *component.handle());
         return collider_handle;
-    }
-
-    pub fn create_collider<C: ComponentController + ComponentIdentifier>(
-        &mut self,
-        component: &C,
-        collider: &ColliderBuilder,
-    ) -> ColliderHandle {
-        let base = component
-            .base()
-            .downcast_ref::<PhysicsComponent>()
-            .expect("Can only add collider to components that have a PhysicsComponent!");
-        self._create_collider(C::IDENTIFIER, base, collider)
     }
 
     pub(crate) fn remove_body(&mut self, handle: RigidBodyHandle) {
@@ -197,7 +184,7 @@ impl World {
                 .cast_ray(&self.bodies, &self.colliders, ray, max_toi, solid, filter)
         {
             return Some((
-                self.component(&collider.0).unwrap().1,
+                self.component(&collider.0).unwrap(),
                 collider.0,
                 collider.1,
             ));
@@ -226,7 +213,7 @@ impl World {
             filter,
         ) {
             return Some((
-                self.component(&collider.0).unwrap().1,
+                self.component(&collider.0).unwrap(),
                 collider.0,
                 collider.1,
             ));
@@ -251,7 +238,7 @@ impl World {
             filter,
         ) {
             return Some((
-                self.component(&collider.0).unwrap().1,
+                self.component(&collider.0).unwrap(),
                 collider.0,
                 collider.1,
             ));
@@ -305,7 +292,7 @@ impl World {
             max_toi,
             solid,
             filter,
-            |collider, ray| callback(self.component(&collider).unwrap().1, collider, ray),
+            |collider, ray| callback(self.component(&collider).unwrap(), collider, ray),
         );
     }
 
@@ -323,7 +310,7 @@ impl World {
             shape_pos,
             shape,
             filter,
-            |collider| callback(self.component(&collider).unwrap().1, collider),
+            |collider| callback(self.component(&collider).unwrap(), collider),
         );
     }
 
@@ -341,7 +328,7 @@ impl World {
             shape,
             filter,
         ) {
-            let component = self.component(&collider).unwrap().1;
+            let component = self.component(&collider).unwrap();
             return Some((component, collider));
         }
         return None;
@@ -359,7 +346,7 @@ impl World {
             &self.colliders,
             point,
             filter,
-            |collider| callback(self.component(&collider).unwrap().1, collider),
+            |collider| callback(self.component(&collider).unwrap(), collider),
         );
     }
 
@@ -433,7 +420,7 @@ impl World {
     pub fn component(
         &self,
         collider_handle: &ColliderHandle,
-    ) -> Option<(ComponentTypeId, ComponentHandle)> {
+    ) -> Option<ComponentHandle> {
         self.component_mapping.get(collider_handle).copied()
     }
 

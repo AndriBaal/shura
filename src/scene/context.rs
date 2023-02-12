@@ -47,10 +47,7 @@ pub struct Context<'a> {
 impl<'a> Context<'a> {
     #[inline]
     #[cfg(feature = "physics")]
-    pub fn component_from_collider(
-        &self,
-        collider: &ColliderHandle,
-    ) -> Option<(ComponentTypeId, ComponentHandle)> {
+    pub fn component_from_collider(&self, collider: &ColliderHandle) -> Option<ComponentHandle> {
         self.scene.world.component(collider)
     }
 
@@ -63,9 +60,7 @@ impl<'a> Context<'a> {
     pub fn serialize(
         &mut self,
         mut serialize: impl FnMut(&mut ComponentSerializer),
-        pretty: bool,
-    ) -> Option<String> {
-        use ron::ser::PrettyConfig;
+    ) -> Option<Vec<u8>> {
         use std::mem;
 
         let component_manager = &self.scene.component_manager;
@@ -73,26 +68,12 @@ impl<'a> Context<'a> {
         let mut serializer = ComponentSerializer::new(component_manager);
         (serialize)(&mut serializer);
 
+        let components = serializer.organized_components;
+        let body_handles = serializer.body_handles;
         let mut world_cpy = world.clone();
         let mut to_remove = vec![];
-        let mut serialized_body_handles = FxHashSet::default();
-        'outer: for (_type_id, groups) in &serializer.components {
-            for (_generation, components) in groups {
-                for option in components {
-                    if let Some(component) = option {
-                        if let Some(base) = component.1.base().downcast_ref::<PhysicsComponent>() {
-                            if let Some(body_handle) = base.body_handle() {
-                                serialized_body_handles.insert(body_handle);
-                            }
-                        } else {
-                            continue 'outer;
-                        }
-                    }
-                }
-            }
-        }
         for (body_handle, _body) in world.bodies() {
-            if !serialized_body_handles.contains(&body_handle) {
+            if !body_handles.contains(&body_handle) {
                 to_remove.push(body_handle);
             }
         }
@@ -103,14 +84,9 @@ impl<'a> Context<'a> {
 
         world_cpy.step(0.0);
         let old_world = mem::replace(world, world_cpy);
-        let components = serializer.finish();
-
-        let result = if pretty {
-            let pretty_config = PrettyConfig::new();
-            ron::ser::to_string_pretty(&(&*self.scene, components), pretty_config).ok()
-        } else {
-            ron::ser::to_string(&(&*self.scene, components)).ok()
-        };
+        let scene: (&Scene, FxHashMap<ComponentTypeId, Vec<(u32, Vec<u8>)>>) =
+            (&*self.scene, components);
+        let result = bincode::serialize(&scene).ok();
 
         self.scene.world = old_world;
 
@@ -242,9 +218,9 @@ impl<'a> Context<'a> {
 
     #[inline]
     #[cfg(feature = "physics")]
-    pub fn create_collider<C: ComponentController + ComponentIdentifier>(
+    pub fn create_collider(
         &mut self,
-        component: &C,
+        component: &PhysicsComponent,
         collider: &ColliderBuilder,
     ) -> ColliderHandle {
         self.scene.world.create_collider(component, collider)

@@ -1,7 +1,5 @@
 #[cfg(feature = "physics")]
 use crate::physics::World;
-#[cfg(feature = "physics")]
-use crate::SerializeableComponent;
 use crate::{
     data::arena::{ArenaEntry, ArenaIter, ArenaIterMut},
     Arena, ArenaIndex, ComponentConfig, ComponentController, ComponentHandle, DynamicComponent,
@@ -74,7 +72,11 @@ impl ComponentType {
                 world,
             );
             self.force_rewrite_buffer = false;
-            self.buffer.as_mut().unwrap().write(gpu, &data[..]);
+            if let Some(buffer) = &mut self.buffer {
+                buffer.write(gpu, &data[..]);
+            } else {
+                self.buffer = Some(InstanceBuffer::new(gpu, &data));
+            }
         }
     }
 
@@ -99,7 +101,7 @@ impl ComponentType {
     #[cfg(feature = "serde")]
     pub fn serialize_components<C: ComponentController + erased_serde::Serialize>(
         &self,
-    ) -> Vec<Option<(&u32, &dyn SerializeableComponent)>> {
+    ) -> Arena<&C> {
         return self.components.serialize_components::<C>();
     }
 
@@ -113,7 +115,7 @@ impl ComponentType {
     }
 
     #[inline]
-    pub fn deserialize_components(&mut self, components: Arena<Box<dyn ComponentController>>) {
+    pub fn deserialize_components(&mut self, components: Arena<DynamicComponent>) {
         self.components = components;
     }
 

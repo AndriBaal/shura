@@ -6,37 +6,42 @@ use std::fs;
 
 #[cfg_attr(target_os = "android", ndk_glue::main(backtrace = "on"))]
 fn main() {
-    if let Some(save_game) = fs::read_to_string("data.ron").ok() {
-        println!("{save_game}");
+    if let Some(save_game) = fs::read("data.binc").ok() {
+        Shura::init(SerializedScene {
+            id: 1,
+            scene: save_game,
+            init: |ctx, s| {
+                s.deserialize_components::<PhysicsBox>(ctx);
+            },
+        })
     } else {
-        
-    }
-    Shura::init(NewScene {
-        id: 1,
-        init: |ctx| {
-            const PYRAMID_ELEMENTS: i32 = 8;
-            const MINIMAL_SPACING: f32 = 0.1;
-            ctx.set_horizontal_fov(10.0);
-            ctx.set_gravity(Vector::new(0.00, -9.81));
+        Shura::init(NewScene {
+            id: 1,
+            init: |ctx| {
+                const PYRAMID_ELEMENTS: i32 = 8;
+                const MINIMAL_SPACING: f32 = 0.1;
+                ctx.set_horizontal_fov(10.0);
+                ctx.set_gravity(Vector::new(0.00, -9.81));
 
-            for x in -PYRAMID_ELEMENTS..PYRAMID_ELEMENTS {
-                for y in 0..(PYRAMID_ELEMENTS - x.abs()) {
-                    ctx.create_component(
-                        None,
-                        PhysicsBox::new(Vector::new(
-                            x as f32 * (HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING),
-                            y as f32 * (HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING * 2.0),
-                        )),
-                    );
+                for x in -PYRAMID_ELEMENTS..PYRAMID_ELEMENTS {
+                    for y in 0..(PYRAMID_ELEMENTS - x.abs()) {
+                        ctx.create_component(
+                            None,
+                            PhysicsBox::new(Vector::new(
+                                x as f32 * (HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING),
+                                y as f32 * (HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING * 2.0),
+                            )),
+                        );
+                    }
                 }
-            }
 
-            let (_, player_handle) = ctx.create_component(None, Player::new(ctx));
-            ctx.set_camera_target(Some(player_handle));
-            ctx.create_component(None, Floor::new(ctx));
-            ctx.create_component(None, BoxManager::new(ctx));
-        },
-    });
+                let (_, player_handle) = ctx.create_component(None, Player::new(ctx));
+                ctx.set_camera_target(Some(player_handle));
+                ctx.create_component(None, Floor::new(ctx));
+                ctx.create_component(None, BoxManager::new(ctx));
+            },
+        })
+    };
 }
 
 const HALF_BOX_SIZE: f32 = 0.3;
@@ -94,11 +99,10 @@ impl ComponentController for BoxManager {
                 .serialize(
                     |s| {
                         s.serialize_components::<PhysicsBox>(GroupFilter::All);
-                    },
-                    true,
+                    }
                 )
                 .unwrap();
-            fs::write("data.ron", ser).expect("Unable to write file");
+            fs::write("data.binc", ser).expect("Unable to write file");
         }
     }
 
@@ -223,7 +227,7 @@ impl ComponentController for Floor {
     }
 }
 
-#[derive(Component, serde::Serialize)]
+#[derive(Component, serde::Serialize, serde::Deserialize)]
 struct PhysicsBox {
     collided: bool,
     hovered: bool,

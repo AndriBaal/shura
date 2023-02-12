@@ -1,7 +1,6 @@
-use crate::ComponentController;
-use crate::SerializeableComponent;
-
 use super::arena::{Arena, ArenaEntry, ArenaIndex, DEFAULT_CAPACITY};
+use crate::ComponentController;
+use crate::DynamicComponent;
 use core::cmp;
 use core::fmt;
 use core::iter;
@@ -45,38 +44,50 @@ where
     }
 }
 
-impl Arena<Box<dyn ComponentController>> {
+impl Arena<DynamicComponent> {
     pub fn serialize_components<C: ComponentController + erased_serde::Serialize>(
         &self,
-    ) -> Vec<Option<(&u32, &dyn SerializeableComponent)>> {
-        let mut target = Vec::with_capacity(self.capacity());
+    ) -> Arena<&C> {
+        let mut items = Vec::with_capacity(self.capacity());
         for entry in self.items.iter() {
-            target.push(match entry {
-                ArenaEntry::Occupied { generation, data } => {
-                    let temp: &dyn SerializeableComponent = data.downcast_ref::<C>().unwrap();
-                    Some((generation, temp))
+            items.push(match entry {
+                ArenaEntry::Free { next_free } => ArenaEntry::Free {
+                    next_free: *next_free,
+                },
+                ArenaEntry::Occupied { generation, data } => ArenaEntry::Occupied {
+                    generation: *generation,
+                    data: data.downcast_ref::<C>().unwrap(),
+                },
+                ArenaEntry::InUse => {
+                    panic!("Cannot serialize in use component!");
                 }
-                _ => None,
             });
         }
-        return target;
+        return Arena {
+            free_list_head: self.free_list_head,
+            generation: self.generation,
+            len: self.len,
+            items,
+        };
     }
 }
 
-impl Arena<ron::Value> {
-    pub fn cast<C: ComponentController + serde::de::DeserializeOwned>(
-        self,
-    ) -> Arena<Box<dyn ComponentController>> {
+impl<C: ComponentController> Arena<C> {
+    pub fn cast(self) -> Arena<Box<dyn ComponentController>> {
         let mut items: Vec<ArenaEntry<Box<dyn ComponentController>>> =
             Vec::with_capacity(self.items.capacity());
-        for item in self.items {
-            items.push(match item {
-                ArenaEntry::Free { next_free } => ArenaEntry::Free { next_free },
-                ArenaEntry::Occupied { generation, data } => ArenaEntry::Occupied {
-                    generation,
-                    data: Box::new(data.into_rust::<C>().unwrap()),
+        for entry in self.items {
+            items.push(match entry {
+                ArenaEntry::Free { next_free } => ArenaEntry::Free {
+                    next_free: next_free,
                 },
-                ArenaEntry::InUse => panic!(),
+                ArenaEntry::Occupied { generation, data } => ArenaEntry::Occupied {
+                    generation: generation,
+                    data: Box::new(data),
+                },
+                ArenaEntry::InUse => {
+                    unreachable!();
+                }
             });
         }
         return Arena {

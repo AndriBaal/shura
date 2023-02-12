@@ -1,6 +1,6 @@
 #[cfg(feature = "physics")]
 use crate::physics::World;
-use crate::{BaseComponent, ComponentHandle, ComponentTypeId, Matrix};
+use crate::{BaseComponent, ComponentHandle, Matrix};
 
 #[derive(Default, Debug)]
 pub struct EmptyComponent {
@@ -11,7 +11,6 @@ impl BaseComponent for EmptyComponent {
     fn init(
         &mut self,
         #[cfg(feature = "physics")] _world: &mut World,
-        _type_id: ComponentTypeId,
         handle: ComponentHandle,
     ) {
         if self.handle.id() == 0 {

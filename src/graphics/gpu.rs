@@ -273,9 +273,9 @@ impl WgpuBase {
             ..Default::default()
         });
 
-        let sample_flags = adapter.get_texture_format_features(config.format).flags;
 
         let sample_count = 4;
+        // let sample_flags = adapter.get_texture_format_features(config.format).flags;
         // let sample_count = {
         //     if sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X8) {
         //         8

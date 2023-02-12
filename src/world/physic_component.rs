@@ -80,7 +80,7 @@ impl PhysicsComponent {
         };
     }
 
-    pub(crate) fn add_to_world(&mut self, world: &mut World, type_id: ComponentTypeId) {
+    pub(crate) fn add_to_world(&mut self, world: &mut World) {
         match std::mem::replace(
             &mut self.body,
             BodyStatus::RigidBody {
@@ -92,7 +92,7 @@ impl PhysicsComponent {
                     handle: world.create_body(*body),
                 };
                 for collider in colliders {
-                    world._create_collider(type_id, self, &collider);
+                    world.create_collider(self, &collider);
                 }
             }
             BodyStatus::RigidBody { handle } => self.body = BodyStatus::RigidBody { handle },
@@ -113,10 +113,10 @@ impl BaseComponent for PhysicsComponent {
         return &self.handle;
     }
 
-    fn init(&mut self, world: &mut World, type_id: ComponentTypeId, handle: ComponentHandle) {
+    fn init(&mut self, world: &mut World, handle: ComponentHandle) {
         if self.handle.id() == 0 {
             self.handle = handle;
-            self.add_to_world(world, type_id);
+            self.add_to_world(world);
         }
     }
 }

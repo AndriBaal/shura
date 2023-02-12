@@ -1,8 +1,8 @@
 #[cfg(feature = "physics")]
 use crate::physics::{CollideType, ColliderHandle, World};
 use crate::{
-    data::arena::ArenaIter, Context, Instances, Matrix, Model, RenderIter, Renderer,
-    Sprite, ComponentConfig, ComponentHandle, ComponentTypeId
+    data::arena::ArenaIter, ComponentConfig, ComponentHandle, Context, Instances, Matrix, Model,
+    RenderIter, Renderer, Sprite,
 };
 use downcast_rs::*;
 
@@ -53,7 +53,6 @@ pub trait ComponentController: Downcast + _StaticAccess + ComponentDerive {
         other_collider: ColliderHandle,
         collide_type: CollideType,
     ) {
-
     }
 
     /// Grouped render of multiple components. This method gets called once for every group inwhich
@@ -99,12 +98,7 @@ impl_downcast!(ComponentController);
 /// [PhysicsComponent](crate::physics::PhysicsComponent) implement this trait. This can be
 /// used to create your own component.
 pub trait BaseComponent: Downcast {
-    fn init(
-        &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
-        type_id: ComponentTypeId,
-        handle: ComponentHandle,
-    );
+    fn init(&mut self, #[cfg(feature = "physics")] world: &mut World, handle: ComponentHandle);
     fn handle(&self) -> &ComponentHandle;
     fn matrix(&self, #[cfg(feature = "physics")] world: &World) -> Matrix;
 }
@@ -178,15 +172,3 @@ impl<C: ComponentController> _StaticAccess for C {
         C::postproccess(ctx, renderer, instances, model, sprite);
     }
 }
-
-#[cfg(feature = "serde")]
-pub(crate) trait SerializeableComponent:
-    erased_serde::Serialize + ComponentController
-{
-}
-
-#[cfg(feature = "serde")]
-impl<T: erased_serde::Serialize + ComponentController> SerializeableComponent for T {}
-#[cfg(feature = "physics")]
-erased_serde::serialize_trait_object!(SerializeableComponent);
-

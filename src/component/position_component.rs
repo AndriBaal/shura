@@ -1,7 +1,7 @@
 #[cfg(feature = "physics")]
 use crate::physics::World;
 use crate::{
-    BaseComponent, ComponentHandle, ComponentTypeId, Dimension, Isometry, Matrix, Rotation, Vector,
+    BaseComponent, ComponentHandle, Dimension, Isometry, Matrix, Rotation, Vector,
 };
 
 /// Easily create a [PositionComponent].
@@ -194,7 +194,6 @@ impl BaseComponent for PositionComponent {
     fn init(
         &mut self,
         #[cfg(feature = "physics")] _world: &mut World,
-        _type_id: ComponentTypeId,
         handle: ComponentHandle,
     ) {
         if self.handle.id() == 0 {

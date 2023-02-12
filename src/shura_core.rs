@@ -253,7 +253,6 @@ impl Shura {
                         other_handle: ComponentHandle,
                         self_collider: ColliderHandle,
                         other_collider: ColliderHandle,
-                        self_type: ComponentTypeId,
                         collide_type: CollideType,
                     ) {
                         let path = ArenaPath {
@@ -266,7 +265,6 @@ impl Shura {
                         {
                             match &mut entry {
                                 crate::data::arena::ArenaEntry::Occupied { data, .. } => {
-                                    ctx.scene.component_manager.set_current_type(self_type);
                                     ctx.scene
                                         .component_manager
                                         .set_current_component(self_handle);
@@ -288,10 +286,8 @@ impl Shura {
                             }
                         }
                     }
-                    let (component_type1, component1) =
-                        ctx.component_from_collider(&collider_handle1).unwrap();
-                    let (component_type2, component2) =
-                        ctx.component_from_collider(&collider_handle2).unwrap();
+                    let component1 = ctx.component_from_collider(&collider_handle1).unwrap();
+                    let component2 = ctx.component_from_collider(&collider_handle2).unwrap();
                     let collider1_events = collider1.active_events();
                     let collider2_events = collider2.active_events();
                     if collider1_events == ActiveEvents::COLLISION_EVENTS {
@@ -301,7 +297,6 @@ impl Shura {
                             component2,
                             collider_handle1,
                             collider_handle2,
-                            component_type1,
                             collision_type,
                         );
                     }
@@ -312,7 +307,6 @@ impl Shura {
                             component1,
                             collider_handle2,
                             collider_handle1,
-                            component_type2,
                             collision_type,
                         )
                     }
@@ -359,8 +353,6 @@ impl Shura {
             let mut sets = ctx.scene.component_manager.borrow_active_components();
             for ((_, id), set) in &mut sets {
                 let config = set.config();
-                ctx.scene.component_manager.set_current_type(*id);
-
                 #[cfg(feature = "physics")]
                 if !done_step && config.priority > ctx.physics_priority() {
                     done_step = true;

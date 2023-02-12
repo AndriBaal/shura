@@ -89,7 +89,6 @@ impl Scene {
         self.camera.resize(window_ratio);
         self.cursor
             .compute(&self.camera, &window_size, &shura.input);
-        self.component_manager.update_sets(&self.camera);
     }
 
     pub fn resized(&self) -> bool {
