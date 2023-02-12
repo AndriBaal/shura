@@ -2,9 +2,15 @@
 
 use shura::physics::*;
 use shura::*;
+use std::fs;
 
 #[cfg_attr(target_os = "android", ndk_glue::main(backtrace = "on"))]
 fn main() {
+    if let Some(save_game) = fs::read_to_string("data.ron").ok() {
+        println!("{save_game}");
+    } else {
+        
+    }
     Shura::init(NewScene {
         id: 1,
         init: |ctx| {
@@ -92,7 +98,7 @@ impl ComponentController for BoxManager {
                     true,
                 )
                 .unwrap();
-            std::fs::write("data.ron", ser).expect("Unable to write file");
+            fs::write("data.ron", ser).expect("Unable to write file");
         }
     }
 

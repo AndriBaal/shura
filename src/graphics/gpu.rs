@@ -288,7 +288,6 @@ impl WgpuBase {
         //     }
         // };
 
-        println!("{:?}", sample_count);
 
         let multisample_state = wgpu::MultisampleState {
             count: sample_count,
