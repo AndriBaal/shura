@@ -45,30 +45,21 @@ where
 }
 
 impl Arena<DynamicComponent> {
-    pub fn serialize_components<C: ComponentController + erased_serde::Serialize>(
+    pub fn serialize_components<C: ComponentController + serde::Serialize>(
         &self,
-    ) -> Arena<&C> {
-        let mut items = Vec::with_capacity(self.capacity());
-        for entry in self.items.iter() {
-            items.push(match entry {
-                ArenaEntry::Free { next_free } => ArenaEntry::Free {
-                    next_free: *next_free,
-                },
-                ArenaEntry::Occupied { generation, data } => ArenaEntry::Occupied {
-                    generation: *generation,
-                    data: data.downcast_ref::<C>().unwrap(),
-                },
-                ArenaEntry::InUse => {
-                    panic!("Cannot serialize in use component!");
-                }
-            });
-        }
-        return Arena {
-            free_list_head: self.free_list_head,
-            generation: self.generation,
-            len: self.len,
-            items,
-        };
+    ) -> Vec<Option<(u32, Vec<u8>)>> {
+        let e = self
+            .items
+            .iter()
+            .map(|entry| match entry {
+                ArenaEntry::Occupied { generation, data } => Some((
+                    *generation,
+                    bincode::serialize(data.downcast_ref::<C>().unwrap()).unwrap(),
+                )),
+                _ => None,
+            })
+            .collect();
+        return e;
     }
 }
 
@@ -123,6 +114,37 @@ impl<T> ArenaVisitor<T> {
     }
 }
 
+impl<T> Arena<T> {
+    fn from_items(mut items: Vec<ArenaEntry<T>>, generation: u32) -> Arena<T> {
+        // items.len() must be same as item.capacity(), so fill the unused elements with Free.
+        if items.len() + 1 < items.capacity() {
+            let add_cap = items.capacity() - (items.len() + 1);
+            items.reserve_exact(add_cap);
+            items.extend(iter::repeat_with(|| ArenaEntry::Free { next_free: None }).take(add_cap));
+            debug_assert_eq!(items.len(), items.capacity());
+        }
+
+        let mut free_list_head = None;
+        let mut len = items.len();
+        // Iterates `arena.items` in reverse order so that free_list concatenates
+        // indices in ascending order.
+        for (idx, entry) in items.iter_mut().enumerate().rev() {
+            if let ArenaEntry::Free { next_free } = entry {
+                *next_free = free_list_head;
+                free_list_head = Some(idx as u32);
+                len -= 1;
+            }
+        }
+
+        Arena {
+            items,
+            generation,
+            free_list_head,
+            len,
+        }
+    }
+}
+
 impl<'de, T> Visitor<'de> for ArenaVisitor<T>
 where
     T: Deserialize<'de>,
@@ -155,31 +177,6 @@ where
             items.push(item);
         }
 
-        // items.len() must be same as item.capacity(), so fill the unused elements with Free.
-        if items.len() + 1 < items.capacity() {
-            let add_cap = items.capacity() - (items.len() + 1);
-            items.reserve_exact(add_cap);
-            items.extend(iter::repeat_with(|| ArenaEntry::Free { next_free: None }).take(add_cap));
-            debug_assert_eq!(items.len(), items.capacity());
-        }
-
-        let mut free_list_head = None;
-        let mut len = items.len();
-        // Iterates `arena.items` in reverse order so that free_list concatenates
-        // indices in ascending order.
-        for (idx, entry) in items.iter_mut().enumerate().rev() {
-            if let ArenaEntry::Free { next_free } = entry {
-                *next_free = free_list_head;
-                free_list_head = Some(idx as u32);
-                len -= 1;
-            }
-        }
-
-        Ok(Arena {
-            items,
-            generation,
-            free_list_head,
-            len,
-        })
+        return Ok(Arena::from_items(items, generation));
     }
 }

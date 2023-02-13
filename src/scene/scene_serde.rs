@@ -9,7 +9,8 @@ use crate::{
 
 pub struct ComponentSerializer<'a> {
     component_manager: &'a ComponentManager,
-    pub(crate) organized_components: FxHashMap<ComponentTypeId, Vec<(u32, Vec<u8>)>>,
+    pub(crate) organized_components:
+        FxHashMap<ComponentTypeId, Vec<(u32 /* Group id */, Vec<Option<(u32, Vec<u8>)>>)>>,
     pub(crate) body_handles: FxHashSet<RigidBodyHandle>,
 }
 
@@ -24,7 +25,7 @@ impl<'a> ComponentSerializer<'a> {
 
     fn add_group<C: ComponentController + ComponentIdentifier + serde::Serialize>(
         &mut self,
-        target: &mut Vec<(u32, Vec<u8>)>,
+        target: &mut Vec<(u32, Vec<Option<(u32, Vec<u8>)>>)>,
         group_id: &u32,
     ) {
         let type_id = C::IDENTIFIER;
@@ -32,10 +33,7 @@ impl<'a> ComponentSerializer<'a> {
             let group = self.component_manager.group(*group_index).unwrap();
             if let Some(type_index) = group.type_index(type_id) {
                 let type_ref = group.type_ref(*type_index).unwrap();
-                target.push((
-                    *group_id,
-                    bincode::serialize(&type_ref.serialize_components::<C>()).unwrap(),
-                ));
+                target.push((*group_id, type_ref.serialize_components::<C>()));
                 for component in type_ref {
                     if let Some(base) = component.1.base().downcast_ref::<PhysicsComponent>() {
                         if let Some(body_handle) = base.body_handle() {
@@ -96,7 +94,7 @@ impl<N: 'static + FnMut(&mut Context, &mut ComponentDeserializer)> SceneCreator
     }
 
     fn create(&mut self, shura: &mut Shura) -> Scene {
-        let (mut scene, components): (Scene, FxHashMap<ComponentTypeId, Vec<(u32, Vec<u8>)>>) =
+        let (mut scene, components): (Scene, FxHashMap<ComponentTypeId, Vec<(u32, Vec<Option<(u32, Vec<u8>)>>)>>) =
             bincode::deserialize(&self.scene).unwrap();
         let mut de = ComponentDeserializer::new(components);
         scene.before_deserialize(self.id, shura);
@@ -112,11 +110,13 @@ impl<N: 'static + FnMut(&mut Context, &mut ComponentDeserializer)> SceneCreator
 
 #[derive(serde::Deserialize)]
 pub struct ComponentDeserializer {
-    components: FxHashMap<ComponentTypeId, Vec<(u32, Vec<u8>)>>,
+    components: FxHashMap<ComponentTypeId, Vec<(u32, Vec<Option<(u32, Vec<u8>)>>)>>,
 }
 
 impl ComponentDeserializer {
-    pub(crate) fn new(components: FxHashMap<ComponentTypeId, Vec<(u32, Vec<u8>)>>) -> Self {
+    pub(crate) fn new(
+        components: FxHashMap<ComponentTypeId, Vec<(u32, Vec<Option<(u32, Vec<u8>)>>)>>,
+    ) -> Self {
         Self { components }
     }
 
@@ -131,42 +131,42 @@ impl ComponentDeserializer {
         let components = self.components.remove(&type_id).unwrap();
 
         for (group_id, components) in components {
-            let components: Arena<C> = bincode::deserialize(&components).unwrap();
-            let components = components.cast();
-            let group = ctx.group_mut(group_id).unwrap();
-            let type_index = group.type_index(type_id).unwrap();
-            group
-                .type_mut(*type_index)
-                .unwrap()
-                .deserialize_components(components);
+            
+
+            // let group = ctx.group_mut(group_id).unwrap();
+            // let type_index = group.type_index(type_id).unwrap();
+            // group
+            //     .type_mut(*type_index)
+            //     .unwrap()
+            //     .deserialize_components(components);
         }
     }
 
-    pub fn deserialize_components_with_ctx<
-        'de,
-        C: ComponentController + ComponentIdentifier,
-        V: serde::de::DeserializeSeed<'de, Value = Vec<Option<C>>> + From<&'de mut Context<'de>>,
-    >(
-        &mut self,
-        ctx: &mut Context,
-        visitor: V,
-    ) {
-        let type_id = C::IDENTIFIER;
-        let components = self.components.remove(&type_id).unwrap();
-        let seed = V::from(ctx);
+    // pub fn deserialize_components_with_ctx<
+    //     'de,
+    //     C: ComponentController + ComponentIdentifier,
+    //     V: serde::de::DeserializeSeed<'de, Value = Vec<Option<C>>> + From<&'de mut Context<'de>>,
+    // >(
+    //     &mut self,
+    //     ctx: &mut Context,
+    //     visitor: V,
+    // ) {
+    //     let type_id = C::IDENTIFIER;
+    //     let components = self.components.remove(&type_id).unwrap();
+    //     let seed = V::from(ctx);
 
-        for (group_id, components) in components {
-            let components: Vec<Option<C>> = bincode::DefaultOptions::new()
-                .with_fixint_encoding()
-                .allow_trailing_bytes()
-                .deserialize_seed(seed, &components)
-                .unwrap();
-            let group = ctx.group_mut(group_id).unwrap();
-            let type_index = group.type_index(type_id).unwrap();
-            group
-                .type_mut(*type_index)
-                .unwrap()
-                .deserialize_components(components);
-        }
-    }
+    //     for (group_id, components) in components {
+    //         let components: Vec<Option<C>> = bincode::DefaultOptions::new()
+    //             .with_fixint_encoding()
+    //             .allow_trailing_bytes()
+    //             .deserialize_seed(seed, &components)
+    //             .unwrap();
+    //         let group = ctx.group_mut(group_id).unwrap();
+    //         let type_index = group.type_index(type_id).unwrap();
+    //         group
+    //             .type_mut(*type_index)
+    //             .unwrap()
+    //             .deserialize_components(components);
+    //     }
+    // }
 }

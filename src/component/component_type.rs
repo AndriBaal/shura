@@ -99,9 +99,9 @@ impl ComponentType {
     }
 
     #[cfg(feature = "serde")]
-    pub fn serialize_components<C: ComponentController + erased_serde::Serialize>(
+    pub fn serialize_components<C: ComponentController + serde::Serialize>(
         &self,
-    ) -> Arena<&C> {
+    ) -> Vec<Option<(u32, Vec<u8>)>> {
         return self.components.serialize_components::<C>();
     }
 

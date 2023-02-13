@@ -84,8 +84,10 @@ impl<'a> Context<'a> {
 
         world_cpy.step(0.0);
         let old_world = mem::replace(world, world_cpy);
-        let scene: (&Scene, FxHashMap<ComponentTypeId, Vec<(u32, Vec<u8>)>>) =
-            (&*self.scene, components);
+        let scene: (
+            &Scene,
+            FxHashMap<ComponentTypeId, Vec<(u32, Vec<Option<(u32, Vec<u8>)>>)>>,
+        ) = (&*self.scene, components);
         let result = bincode::serialize(&scene).ok();
 
         self.scene.world = old_world;
