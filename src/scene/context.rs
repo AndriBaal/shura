@@ -57,11 +57,16 @@ impl<'a> Context<'a> {
     }
 
     #[cfg(feature = "serde")]
-    pub fn serialize(
+    pub fn serialize<C: ComponentController>(
         &mut self,
+        current_component: &C,
         mut serialize: impl FnMut(&mut ComponentSerializer),
     ) -> Option<Vec<u8>> {
         use std::mem;
+
+        assert!(
+            current_component.base().handle() == &self.scene.component_manager.current_component()
+        );
 
         let component_manager = &self.scene.component_manager;
         let world = &mut self.scene.world;
