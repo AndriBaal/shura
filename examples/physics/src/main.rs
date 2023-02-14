@@ -2,7 +2,7 @@
 
 use shura::physics::*;
 use shura::*;
-use std::fs;
+use std::{fmt, fs};
 
 #[cfg_attr(target_os = "android", ndk_glue::main(backtrace = "on"))]
 fn main() {
@@ -11,6 +11,15 @@ fn main() {
             id: 1,
             scene: save_game,
             init: |ctx, s| {
+                s.deserialize_components_with(ctx, |mut w, ctx| {
+                    w.dew_it(&[""], FloorVisitor { ctx })
+                });
+                s.deserialize_components_with(ctx, |mut w, ctx| {
+                    w.dew_it(&[""], PlayerVisitor { ctx })
+                });
+                s.deserialize_components_with(ctx, |mut w, ctx| {
+                    w.dew_it(&[""], BoxManagerVisitor { ctx })
+                });
                 s.deserialize_components::<PhysicsBox>(ctx);
             },
         })
@@ -28,8 +37,9 @@ fn main() {
                         ctx.create_component(
                             None,
                             PhysicsBox::new(Vector::new(
-                                x as f32 * (HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING),
-                                y as f32 * (HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING * 2.0),
+                                x as f32 * (BoxManager::HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING),
+                                y as f32
+                                    * (BoxManager::HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING * 2.0),
                             )),
                         );
                     }
@@ -44,27 +54,30 @@ fn main() {
     };
 }
 
-const HALF_BOX_SIZE: f32 = 0.3;
-
-#[derive(Component)]
+#[derive(Component, serde::Serialize)]
 struct BoxManager {
+    #[serde(skip)]
     default_color: Uniform<Color>,
+    #[serde(skip)]
     collision_color: Uniform<Color>,
+    #[serde(skip)]
     hover_color: Uniform<Color>,
+    #[serde(skip)]
     box_model: Model,
     #[component]
     component: EmptyComponent,
 }
 
 impl BoxManager {
+    const HALF_BOX_SIZE: f32 = 0.3;
     pub fn new(ctx: &Context) -> Self {
         Self {
             default_color: ctx.create_uniform(Color::new_rgba(0, 255, 0, 255)),
             collision_color: ctx.create_uniform(Color::new_rgba(255, 0, 0, 255)),
             hover_color: ctx.create_uniform(Color::new_rgba(0, 0, 255, 255)),
             box_model: ctx.create_model(ModelBuilder::cuboid(Dimension::new(
-                HALF_BOX_SIZE,
-                HALF_BOX_SIZE,
+                Self::HALF_BOX_SIZE,
+                Self::HALF_BOX_SIZE,
             ))),
             component: Default::default(),
         }
@@ -85,7 +98,10 @@ impl ComponentController for BoxManager {
             if ctx
                 .intersection_with_shape(
                     &cursor_pos,
-                    &Cuboid::new(Vector::new(HALF_BOX_SIZE, HALF_BOX_SIZE)),
+                    &Cuboid::new(Vector::new(
+                        BoxManager::HALF_BOX_SIZE,
+                        BoxManager::HALF_BOX_SIZE,
+                    )),
                     Default::default(),
                 )
                 .is_none()
@@ -96,11 +112,12 @@ impl ComponentController for BoxManager {
 
         if ctx.is_pressed(Key::Z) {
             let ser = ctx
-                .serialize(
-                    |s| {
-                        s.serialize_components::<PhysicsBox>(GroupFilter::All);
-                    }
-                )
+                .serialize(|s| {
+                    s.serialize_components::<Floor>(GroupFilter::All);
+                    s.serialize_components::<Player>(GroupFilter::All);
+                    s.serialize_components::<BoxManager>(GroupFilter::All);
+                    s.serialize_components::<PhysicsBox>(GroupFilter::All);
+                })
                 .unwrap();
             fs::write("data.binc", ser).expect("Unable to write file");
         }
@@ -115,23 +132,26 @@ impl ComponentController for BoxManager {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, serde::Serialize)]
 struct Player {
+    #[serde(skip)]
     sprite: Sprite,
+    #[serde(skip)]
     model: Model,
     #[component]
     component: PhysicsComponent,
 }
 
 impl Player {
+    const RADIUS: f32 = 0.75;
     pub fn new(ctx: &Context) -> Self {
-        let radius = 0.75;
         Self {
             sprite: ctx.create_sprite(include_bytes!("../img/burger.png")),
-            model: ctx.create_model(ModelBuilder::ball(radius, 24)),
+            model: ctx.create_model(ModelBuilder::ball(Self::RADIUS, 24)),
             component: PhysicsComponent::new(
                 RigidBodyBuilder::dynamic().translation(Vector::new(5.0, 4.0)),
-                vec![ColliderBuilder::ball(radius).active_events(ActiveEvents::COLLISION_EVENTS)],
+                vec![ColliderBuilder::ball(Self::RADIUS)
+                    .active_events(ActiveEvents::COLLISION_EVENTS)],
             ),
         }
     }
@@ -165,10 +185,10 @@ impl ComponentController for Player {
     }
 
     fn render<'a>(
-        ctx: &'a Context<'a>,
+        _ctx: &'a Context<'a>,
         renderer: &mut Renderer<'a>,
         components: RenderIter<'a, Self>,
-        instances: Instances,
+        _instances: Instances,
     ) {
         for (instances, player) in components {
             renderer.render_sprite(&player.model, &player.sprite);
@@ -191,23 +211,28 @@ impl ComponentController for Player {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, serde::Serialize)]
 struct Floor {
+    #[serde(skip)]
     color: Uniform<Color>,
+    #[serde(skip)]
     model: Model,
     #[component]
     component: PhysicsComponent,
 }
 
 impl Floor {
+    const FLOOR_SIZE: Dimension<f32> = Dimension::new(20.0, 0.4);
     pub fn new(ctx: &Context) -> Self {
-        let size = Dimension::new(20.0, 0.4);
         Self {
             color: ctx.create_uniform(Color::new_rgba(0, 0, 255, 255)),
-            model: ctx.create_model(ModelBuilder::cuboid(size)),
+            model: ctx.create_model(ModelBuilder::cuboid(Self::FLOOR_SIZE)),
             component: PhysicsComponent::new(
                 RigidBodyBuilder::fixed().translation(Vector::new(0.0, -1.0)),
-                vec![ColliderBuilder::cuboid(size.width, size.height)],
+                vec![ColliderBuilder::cuboid(
+                    Self::FLOOR_SIZE.width,
+                    Self::FLOOR_SIZE.height,
+                )],
             ),
         }
     }
@@ -215,10 +240,10 @@ impl Floor {
 
 impl ComponentController for Floor {
     fn render<'a>(
-        ctx: &'a Context<'a>,
+        _ctx: &'a Context<'a>,
         renderer: &mut Renderer<'a>,
         components: RenderIter<'a, Self>,
-        instances: Instances,
+        _instances: Instances,
     ) {
         for (instance, floor) in components {
             renderer.render_color(&floor.model, &floor.color);
@@ -242,7 +267,10 @@ impl PhysicsBox {
             hovered: false,
             component: PhysicsComponent::new(
                 RigidBodyBuilder::dynamic().translation(position),
-                vec![ColliderBuilder::cuboid(HALF_BOX_SIZE, HALF_BOX_SIZE)],
+                vec![ColliderBuilder::cuboid(
+                    BoxManager::HALF_BOX_SIZE,
+                    BoxManager::HALF_BOX_SIZE,
+                )],
             ),
         }
     }
@@ -253,7 +281,7 @@ impl ComponentController for PhysicsBox {
         ctx: &'a Context<'a>,
         renderer: &mut Renderer<'a>,
         components: RenderIter<'a, PhysicsBox>,
-        instances: Instances,
+        _instances: Instances,
     ) {
         let manager = ctx
             .components::<BoxManager>(GroupFilter::All)
@@ -287,5 +315,89 @@ impl ComponentController for PhysicsBox {
         } else {
             self.hovered = false;
         }
+    }
+}
+
+struct FloorVisitor<'a> {
+    ctx: &'a Context<'a>,
+}
+
+impl<'de, 'a> serde::de::Visitor<'de> for FloorVisitor<'a> {
+    type Value = Floor;
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("A Floor")
+    }
+
+    fn visit_seq<V>(self, mut seq: V) -> Result<Floor, V::Error>
+    where
+        V: serde::de::SeqAccess<'de>,
+    {
+        let component: PhysicsComponent = seq
+            .next_element()?
+            .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
+        Ok(Floor {
+            component,
+            color: self.ctx.create_uniform(Color::new_rgba(0, 0, 255, 255)),
+            model: self
+                .ctx
+                .create_model(ModelBuilder::cuboid(Floor::FLOOR_SIZE)),
+        })
+    }
+}
+
+struct PlayerVisitor<'a> {
+    ctx: &'a Context<'a>,
+}
+
+impl<'de, 'a> serde::de::Visitor<'de> for PlayerVisitor<'a> {
+    type Value = Player;
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("A Player")
+    }
+
+    fn visit_seq<V>(self, mut seq: V) -> Result<Player, V::Error>
+    where
+        V: serde::de::SeqAccess<'de>,
+    {
+        let component: PhysicsComponent = seq
+            .next_element()?
+            .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
+        Ok(Player {
+            component,
+            sprite: self.ctx.create_sprite(include_bytes!("../img/burger.png")),
+            model: self
+                .ctx
+                .create_model(ModelBuilder::ball(Player::RADIUS, 24)),
+        })
+    }
+}
+
+struct BoxManagerVisitor<'a> {
+    ctx: &'a Context<'a>,
+}
+
+impl<'de, 'a> serde::de::Visitor<'de> for BoxManagerVisitor<'a> {
+    type Value = BoxManager;
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("A BoxManager")
+    }
+
+    fn visit_seq<V>(self, mut seq: V) -> Result<BoxManager, V::Error>
+    where
+        V: serde::de::SeqAccess<'de>,
+    {
+        let component: EmptyComponent = seq
+            .next_element()?
+            .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
+        Ok(BoxManager {
+            component,
+            default_color: self.ctx.create_uniform(Color::new_rgba(0, 255, 0, 255)),
+            collision_color: self.ctx.create_uniform(Color::new_rgba(255, 0, 0, 255)),
+            hover_color: self.ctx.create_uniform(Color::new_rgba(0, 0, 255, 255)),
+            box_model: self.ctx.create_model(ModelBuilder::cuboid(Dimension::new(
+                BoxManager::HALF_BOX_SIZE,
+                BoxManager::HALF_BOX_SIZE,
+            ))),
+        })
     }
 }

@@ -3,6 +3,7 @@ use crate::physics::World;
 use crate::{BaseComponent, ComponentHandle, Matrix};
 
 #[derive(Default, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct EmptyComponent {
     handle: ComponentHandle,
 }

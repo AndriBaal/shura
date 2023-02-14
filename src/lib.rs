@@ -145,6 +145,9 @@ pub mod gamepad {
 
 
 // serde
+pub mod bincode {
+    pub use bincode::*;
+}
 #[cfg(feature = "serde")]
 pub use crate::scene::scene_serde::*;
 

@@ -1,10 +1,17 @@
-use bincode::Options;
+use bincode::{
+    config::{AllowTrailing, FixintEncoding, WithOtherIntEncoding, WithOtherTrailing},
+    de::read::SliceReader,
+    DefaultOptions, Options,
+};
 use rapier2d::prelude::RigidBodyHandle;
 use rustc_hash::{FxHashMap, FxHashSet};
+use serde::{de::Visitor, Deserializer};
+use std::{cmp, marker::PhantomData};
 
 use crate::{
-    physics::PhysicsComponent, Arena, ComponentController, ComponentIdentifier, ComponentManager,
-    ComponentTypeId, Context, GroupFilter, Scene, SceneCreator, Shura,
+    physics::PhysicsComponent, Arena, ArenaEntry, ComponentController, ComponentIdentifier,
+    ComponentManager, ComponentTypeId, Context, DynamicComponent, GroupFilter, Scene, SceneCreator,
+    Shura,
 };
 
 pub struct ComponentSerializer<'a> {
@@ -94,8 +101,10 @@ impl<N: 'static + FnMut(&mut Context, &mut ComponentDeserializer)> SceneCreator
     }
 
     fn create(&mut self, shura: &mut Shura) -> Scene {
-        let (mut scene, components): (Scene, FxHashMap<ComponentTypeId, Vec<(u32, Vec<Option<(u32, Vec<u8>)>>)>>) =
-            bincode::deserialize(&self.scene).unwrap();
+        let (mut scene, components): (
+            Scene,
+            FxHashMap<ComponentTypeId, Vec<(u32, Vec<Option<(u32, Vec<u8>)>>)>>,
+        ) = bincode::deserialize(&self.scene).unwrap();
         let mut de = ComponentDeserializer::new(components);
         scene.before_deserialize(self.id, shura);
 
@@ -104,6 +113,7 @@ impl<N: 'static + FnMut(&mut Context, &mut ComponentDeserializer)> SceneCreator
             scene: &mut scene,
         };
         (self.init)(&mut ctx, &mut de);
+        de.finish();
         return scene;
     }
 }
@@ -120,53 +130,116 @@ impl ComponentDeserializer {
         Self { components }
     }
 
+    pub(crate) fn finish(&self) {
+        assert!(
+            self.components.is_empty(),
+            "All components need to be deserialized!"
+        );
+    }
+
     pub fn deserialize_components<
-        'de,
         C: serde::de::DeserializeOwned + ComponentController + ComponentIdentifier,
     >(
-        &'de mut self,
+        &mut self,
         ctx: &mut Context,
     ) {
         let type_id = C::IDENTIFIER;
         let components = self.components.remove(&type_id).unwrap();
 
         for (group_id, components) in components {
-            
+            let mut items: Vec<ArenaEntry<DynamicComponent>> =
+                Vec::with_capacity(components.capacity());
+            let mut generation = 0;
+            for component in components {
+                let item = match component {
+                    Some((gen, data)) => {
+                        generation = cmp::max(generation, gen);
+                        let component: DynamicComponent =
+                            Box::new(bincode::deserialize::<C>(&data).unwrap());
+                        ArenaEntry::Occupied {
+                            generation: gen,
+                            data: component,
+                        }
+                    }
+                    None => ArenaEntry::Free { next_free: None },
+                };
+                items.push(item);
+            }
 
-            // let group = ctx.group_mut(group_id).unwrap();
-            // let type_index = group.type_index(type_id).unwrap();
-            // group
-            //     .type_mut(*type_index)
-            //     .unwrap()
-            //     .deserialize_components(components);
+            let group = ctx.group_mut(group_id).unwrap();
+            let type_index = group.type_index(type_id).unwrap();
+            let components = Arena::from_items(items, generation);
+            group
+                .type_mut(*type_index)
+                .unwrap()
+                .deserialize_components(components);
         }
     }
 
-    // pub fn deserialize_components_with_ctx<
-    //     'de,
-    //     C: ComponentController + ComponentIdentifier,
-    //     V: serde::de::DeserializeSeed<'de, Value = Vec<Option<C>>> + From<&'de mut Context<'de>>,
-    // >(
-    //     &mut self,
-    //     ctx: &mut Context,
-    //     visitor: V,
-    // ) {
-    //     let type_id = C::IDENTIFIER;
-    //     let components = self.components.remove(&type_id).unwrap();
-    //     let seed = V::from(ctx);
+    pub fn deserialize_components_with<C: ComponentController + ComponentIdentifier>(
+        &mut self,
+        ctx: &mut Context,
+        mut test: impl for<'de> FnMut(Wrapper<'de, C>, &'de Context<'de>) -> C,
+    ) {
+        let type_id = C::IDENTIFIER;
+        let components = self.components.remove(&type_id).unwrap();
 
-    //     for (group_id, components) in components {
-    //         let components: Vec<Option<C>> = bincode::DefaultOptions::new()
-    //             .with_fixint_encoding()
-    //             .allow_trailing_bytes()
-    //             .deserialize_seed(seed, &components)
-    //             .unwrap();
-    //         let group = ctx.group_mut(group_id).unwrap();
-    //         let type_index = group.type_index(type_id).unwrap();
-    //         group
-    //             .type_mut(*type_index)
-    //             .unwrap()
-    //             .deserialize_components(components);
-    //     }
-    // }
+        for (group_id, components) in components {
+            let mut items: Vec<ArenaEntry<DynamicComponent>> =
+                Vec::with_capacity(components.capacity());
+            let mut generation = 0;
+            for component in components {
+                let item = match component {
+                    Some((gen, data)) => {
+                        generation = cmp::max(generation, gen);
+                        let wrapper = Wrapper::new(&data);
+                        let component: DynamicComponent = Box::new((test)(wrapper, ctx));
+                        ArenaEntry::Occupied {
+                            generation: gen,
+                            data: component,
+                        }
+                    }
+                    None => ArenaEntry::Free { next_free: None },
+                };
+                items.push(item);
+            }
+
+            let group = ctx.group_mut(group_id).unwrap();
+            let type_index = group.type_index(type_id).unwrap();
+            let components = Arena::from_items(items, generation);
+            group
+                .type_mut(*type_index)
+                .unwrap()
+                .deserialize_components(components);
+        }
+    }
+}
+
+pub struct Wrapper<'de, C: ComponentController> {
+    de: bincode::Deserializer<
+        SliceReader<'de>,
+        WithOtherTrailing<WithOtherIntEncoding<DefaultOptions, FixintEncoding>, AllowTrailing>,
+    >,
+    _marker: PhantomData<C>,
+}
+
+impl<'de, C: ComponentController> Wrapper<'de, C> {
+    pub fn new(data: &'de [u8]) -> Self {
+        let options = bincode::DefaultOptions::new()
+            .with_fixint_encoding()
+            .allow_trailing_bytes();
+        let de = bincode::Deserializer::from_slice(&data, options);
+        Self {
+            de,
+            _marker: PhantomData::<C>,
+        }
+    }
+
+    pub fn dew_it(
+        &mut self,
+        fields: &'static [&'static str],
+        visitor: impl Visitor<'de, Value = C>,
+    ) -> C {
+        self.de.deserialize_struct("", fields, visitor).unwrap()
+    }
 }

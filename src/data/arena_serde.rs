@@ -56,7 +56,10 @@ impl Arena<DynamicComponent> {
                     *generation,
                     bincode::serialize(data.downcast_ref::<C>().unwrap()).unwrap(),
                 )),
-                _ => None,
+                ArenaEntry::Free { .. } => None,
+                ArenaEntry::InUse =>  {
+                    panic!("Cannot deserialize active component!")
+                },
             })
             .collect();
         return e;
@@ -115,7 +118,7 @@ impl<T> ArenaVisitor<T> {
 }
 
 impl<T> Arena<T> {
-    fn from_items(mut items: Vec<ArenaEntry<T>>, generation: u32) -> Arena<T> {
+    pub fn from_items(mut items: Vec<ArenaEntry<T>>, generation: u32) -> Arena<T> {
         // items.len() must be same as item.capacity(), so fill the unused elements with Free.
         if items.len() + 1 < items.capacity() {
             let add_cap = items.capacity() - (items.len() + 1);
