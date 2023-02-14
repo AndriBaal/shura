@@ -47,6 +47,7 @@ where
 impl Arena<DynamicComponent> {
     pub fn serialize_components<C: ComponentController + serde::Serialize>(
         &self,
+        current_component: &dyn ComponentController,
     ) -> Vec<Option<(u32, Vec<u8>)>> {
         let e = self
             .items
@@ -57,9 +58,10 @@ impl Arena<DynamicComponent> {
                     bincode::serialize(data.downcast_ref::<C>().unwrap()).unwrap(),
                 )),
                 ArenaEntry::Free { .. } => None,
-                ArenaEntry::InUse =>  {
-                    panic!("Cannot deserialize active component!")
-                },
+                ArenaEntry::InUse => Some((
+                    current_component.base().handle().component_index().generation,
+                    bincode::serialize(current_component.downcast_ref::<C>().unwrap()).unwrap(),
+                )),
             })
             .collect();
         return e;

@@ -1,7 +1,4 @@
-use crate::{
-    physics::PhysicsComponent, BaseComponent, ComponentController, ComponentHandle,
-    ComponentIdentifier, ComponentTypeId,
-};
+use crate::{BaseComponent, ComponentHandle, ComponentTypeId};
 use rapier2d::prelude::*;
 use rustc_hash::FxHashMap;
 
@@ -115,60 +112,77 @@ impl World {
 
     pub(crate) fn create_collider(
         &mut self,
-        component: &PhysicsComponent,
-        collider: &ColliderBuilder,
+        component: &BaseComponent,
+        collider: impl Into<Collider>,
     ) -> ColliderHandle {
+        let body_handle = component
+            .rigid_body_handle()
+            .expect("Cannot add a collider to a component with no RigidBody!");
         if component.handle().id() == 0 {
             panic!("Initialize the component before adding additional colliders!");
         }
 
-        let collider_handle = self.colliders.insert_with_parent(
-            collider.build(),
-            component.body_handle().unwrap(),
-            &mut self.bodies,
-        );
+        let collider_handle =
+            self.colliders
+                .insert_with_parent(collider, body_handle, &mut self.bodies);
 
         self.component_mapping
             .insert(collider_handle, *component.handle());
         return collider_handle;
     }
 
-    pub(crate) fn remove_body(&mut self, handle: RigidBodyHandle) {
-        if let Some(body) = self.bodies.get(handle) {
-            for collider in body.colliders() {
-                self.component_mapping.remove(collider);
-            }
-        }
+    pub(crate) fn remove_body(&mut self, handle: RigidBodyHandle) -> (RigidBody, Vec<Collider>) {
+        let colliders = self.bodies.get(handle).unwrap().colliders().to_vec();
+        let collider = colliders
+            .iter()
+            .map(|collider_handle| {
+                self.component_mapping.remove(collider_handle);
+                self.colliders
+                    .remove(*collider_handle, &mut self.islands, &mut self.bodies, false)
+                    .unwrap()
+            })
+            .collect();
 
-        self.bodies.remove(
-            handle,
-            &mut self.islands,
-            &mut self.colliders,
-            &mut self.impulse_joints,
-            &mut self.multibody_joints,
-            true,
-        );
+        let body = self
+            .bodies
+            .remove(
+                handle,
+                &mut self.islands,
+                &mut self.colliders,
+                &mut self.impulse_joints,
+                &mut self.multibody_joints,
+                true,
+            )
+            .unwrap();
+        return (body, collider);
     }
 
-    pub fn remove_collider(&mut self, handle: ColliderHandle) {
+    pub fn remove_collider(&mut self, handle: ColliderHandle) -> Option<Collider> {
         self.component_mapping.remove(&handle);
         self.colliders
-            .remove(handle, &mut self.islands, &mut self.bodies, true);
+            .remove(handle, &mut self.islands, &mut self.bodies, true)
     }
 
     #[inline]
     pub fn create_joint(
         &mut self,
-        body1: RigidBodyHandle,
-        body2: RigidBodyHandle,
+        component1: &BaseComponent,
+        component2: &BaseComponent,
         joint: impl Into<GenericJoint>,
     ) -> ImpulseJointHandle {
-        self.impulse_joints.insert(body1, body2, joint, true)
+        let body_handle1 = component1
+            .rigid_body_handle()
+            .expect("Cannot add a collider to a component with no RigidBody!");
+        let body_handle2 = component2
+            .rigid_body_handle()
+            .expect("Cannot add a collider to a component with no RigidBody!");
+        self.impulse_joints
+            .insert(body_handle1, body_handle2, joint, true)
     }
 
     #[inline]
-    pub fn remove_joint(&mut self, joint: ImpulseJointHandle) {
-        self.impulse_joints.remove(joint, true);
+    pub fn remove_joint(&mut self, joint: ImpulseJointHandle) -> Option<ImpulseJoint> {
+        self.impulse_joints.remove(joint, true)
     }
 
     #[inline]
@@ -183,11 +197,7 @@ impl World {
             self.query_pipeline
                 .cast_ray(&self.bodies, &self.colliders, ray, max_toi, solid, filter)
         {
-            return Some((
-                self.component(&collider.0).unwrap(),
-                collider.0,
-                collider.1,
-            ));
+            return Some((self.component(&collider.0).unwrap(), collider.0, collider.1));
         }
         return None;
     }
@@ -212,11 +222,7 @@ impl World {
             stop_at_penetration,
             filter,
         ) {
-            return Some((
-                self.component(&collider.0).unwrap(),
-                collider.0,
-                collider.1,
-            ));
+            return Some((self.component(&collider.0).unwrap(), collider.0, collider.1));
         }
         return None;
     }
@@ -237,11 +243,7 @@ impl World {
             solid,
             filter,
         ) {
-            return Some((
-                self.component(&collider.0).unwrap(),
-                collider.0,
-                collider.1,
-            ));
+            return Some((self.component(&collider.0).unwrap(), collider.0, collider.1));
         }
         return None;
     }
@@ -383,12 +385,12 @@ impl World {
     }
 
     #[inline]
-    pub(crate) fn body(&self, body_handle: RigidBodyHandle) -> &RigidBody {
-        self.bodies.get(body_handle).unwrap()
+    pub(crate) fn rigid_body(&self, body_handle: RigidBodyHandle) -> Option<&RigidBody> {
+        self.bodies.get(body_handle)
     }
 
     #[inline]
-    pub(crate) fn body_mut<'a>(
+    pub(crate) fn rigid_body_mut<'a>(
         &'a mut self,
         body_handle: RigidBodyHandle,
     ) -> Option<&'a mut RigidBody> {
@@ -417,10 +419,7 @@ impl World {
         self.impulse_joints.get_mut(joint)
     }
 
-    pub fn component(
-        &self,
-        collider_handle: &ColliderHandle,
-    ) -> Option<ComponentHandle> {
+    pub fn component(&self, collider_handle: &ColliderHandle) -> Option<ComponentHandle> {
         self.component_mapping.get(collider_handle).copied()
     }
 

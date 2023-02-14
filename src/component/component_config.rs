@@ -1,6 +1,5 @@
 use instant::Duration;
 
-
 /// Desribes how  a component gets rendered
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -80,4 +79,3 @@ impl Default for ComponentConfig {
         }
     }
 }
-

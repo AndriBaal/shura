@@ -1,8 +1,8 @@
 #[cfg(feature = "physics")]
 use crate::physics::{CollideType, ColliderHandle, World};
 use crate::{
-    data::arena::ArenaIter, ComponentConfig, ComponentHandle, Context, Instances, Matrix, Model,
-    RenderIter, Renderer, Sprite,
+    data::arena::ArenaIter, BaseComponent, ComponentConfig, ComponentHandle, Context, Instances,
+    Matrix, Model, RenderIter, Renderer, Sprite,
 };
 use downcast_rs::*;
 
@@ -22,8 +22,8 @@ pub type DynamicComponent = Box<dyn ComponentController>;
 /// }
 /// ```
 pub trait ComponentDerive {
-    fn base(&self) -> &dyn BaseComponent;
-    fn base_mut(&mut self) -> &mut dyn BaseComponent;
+    fn base(&self) -> &BaseComponent;
+    fn base_mut(&mut self) -> &mut BaseComponent;
 }
 
 #[allow(unused_variables)]
@@ -93,23 +93,12 @@ pub trait ComponentController: Downcast + _StaticAccess + ComponentDerive {
 }
 impl_downcast!(ComponentController);
 
-#[allow(unused_variables)]
-/// Every component like [PositionComponent](crate::PositionComponent) or
-/// [PhysicsComponent](crate::physics::PhysicsComponent) implement this trait. This can be
-/// used to create your own component.
-pub trait BaseComponent: Downcast {
-    fn init(&mut self, #[cfg(feature = "physics")] world: &mut World, handle: ComponentHandle);
-    fn handle(&self) -> &ComponentHandle;
-    fn matrix(&self, #[cfg(feature = "physics")] world: &World) -> Matrix;
-}
-impl_downcast!(BaseComponent);
-
 impl<C: ComponentController + ?Sized> ComponentDerive for Box<C> {
-    fn base(&self) -> &dyn BaseComponent {
+    fn base(&self) -> &BaseComponent {
         (**self).base()
     }
 
-    fn base_mut(&mut self) -> &mut dyn BaseComponent {
+    fn base_mut(&mut self) -> &mut BaseComponent {
         (**self).base_mut()
     }
 }

@@ -101,8 +101,9 @@ impl ComponentType {
     #[cfg(feature = "serde")]
     pub fn serialize_components<C: ComponentController + serde::Serialize>(
         &self,
+        current_component: &dyn ComponentController,
     ) -> Vec<Option<(u32, Vec<u8>)>> {
-        return self.components.serialize_components::<C>();
+        return self.components.serialize_components::<C>(current_component);
     }
 
     #[inline(always)]

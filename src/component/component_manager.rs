@@ -1,5 +1,5 @@
 #[cfg(feature = "physics")]
-use crate::physics::{PhysicsComponent, World};
+use crate::physics::World;
 use crate::{
     Arena, ArenaEntry, ArenaIndex, ArenaPath, Camera, ComponentCluster, ComponentController,
     ComponentGroup, ComponentGroupDescriptor, ComponentHandle, ComponentIdentifier, ComponentSet,
@@ -44,7 +44,7 @@ pub struct ComponentManager {
     active_group_ids: Vec<u32>,
 
     #[cfg_attr(feature = "serde", serde(skip))]
-    #[cfg_attr(feature = "serde", serde(default="default_active"))]
+    #[cfg_attr(feature = "serde", serde(default = "default_active"))]
     active_components: Option<BTreeMap<(i16, ComponentTypeId), ComponentCluster>>,
 }
 
@@ -199,23 +199,13 @@ impl ComponentManager {
             self.id_counter += 1;
             let component_type = group.type_mut(type_index).unwrap();
             let index = component_type.add(component);
-            handle = ComponentHandle::new(
-                index,
-                type_index,
-                *group_index,
-                self.id_counter,
-            );
+            handle = ComponentHandle::new(index, type_index, *group_index, self.id_counter);
         } else {
             // Create a new ComponentType
             self.id_counter += 1;
             self.force_update_sets = true;
             let (type_index, index) = group.add_component_type(component);
-            handle = ComponentHandle::new(
-                index,
-                type_index,
-                *group_index,
-                self.id_counter,
-            );
+            handle = ComponentHandle::new(index, type_index, *group_index, self.id_counter);
         }
 
         let c = self.component_dynamic_mut(&handle).unwrap();
@@ -223,6 +213,8 @@ impl ComponentManager {
             #[cfg(feature = "physics")]
             world,
             handle,
+            group_id,
+            type_id,
         );
         return (c.downcast_mut().unwrap(), handle);
     }
@@ -244,15 +236,12 @@ impl ComponentManager {
                 return None;
             }
             if let Some(component_type) = group.type_mut(handle.type_index()) {
-                #[cfg(feature = "physics")]
-                if let Some(mut component) = component_type.remove(handle) {
-                    if let Some(p) = component.base_mut().downcast_mut::<PhysicsComponent>() {
-                        p.remove_from_world(world);
-                    }
-                    return Some(component);
+                if let Some(mut to_remove) = component_type.remove(handle) {
+                    to_remove.base_mut().deinit(
+                        #[cfg(feature = "physics")]
+                        world,
+                    )
                 }
-                #[cfg(not(feature = "physics"))]
-                return component_type.remove(handle);
             }
         }
         return None;
@@ -279,13 +268,11 @@ impl ComponentManager {
                     *remove_current = true;
                 }
                 let component_type = group.type_mut(*type_index).unwrap();
-                #[cfg(feature = "physics")]
                 for (_, c) in component_type.iter_mut() {
-                    if let Some(p) = c.base_mut().downcast_mut::<PhysicsComponent>() {
-                        p.remove_from_world(world);
-                    } else {
-                        break;
-                    }
+                    c.base_mut().deinit(
+                        #[cfg(feature = "physics")]
+                        world,
+                    );
                 }
                 component_type.clear();
             }
@@ -347,13 +334,12 @@ impl ComponentManager {
         if let Some(index) = self.group_map.remove(&group_id) {
             #[cfg(feature = "physics")] // TODO: Find a way to fix iterating over all components
             if let Some(mut group) = self.groups.remove(index) {
-                'outer: for (_, component_type) in group.types() {
+                for (_, component_type) in group.types() {
                     for (_, c) in component_type.iter_mut() {
-                        if let Some(p) = c.base_mut().downcast_mut::<PhysicsComponent>() {
-                            p.remove_from_world(world);
-                        } else {
-                            break 'outer;
-                        }
+                        c.base_mut().deinit(
+                            #[cfg(feature = "physics")]
+                            world,
+                        );
                     }
                 }
             }

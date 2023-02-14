@@ -17,7 +17,7 @@ fn main() {
 #[derive(Component)]
 struct BunnyManager {
     #[component]
-    component: EmptyComponent,
+    component: BaseComponent,
     bunny_model: Model,
     bunny_sprite: Sprite,
 }
@@ -100,12 +100,12 @@ impl ComponentController for BunnyManager {
 #[derive(Component)]
 struct Bunny {
     #[component]
-    component: PositionComponent,
+    component: BaseComponent,
     linvel: Vector<f32>,
 }
 impl Bunny {
     pub fn new(ctx: &Context) -> Bunny {
-        let mut component = PositionComponent::new();
+        let mut component = BaseComponent::default();
         component.set_translation(*ctx.cursor_world());
         let linvel = Vector::new(
             thread_rng().gen_range(-2.5..2.5),

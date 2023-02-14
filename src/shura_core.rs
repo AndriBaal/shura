@@ -2,7 +2,7 @@
 use crate::gui::Gui;
 #[cfg(feature = "physics")]
 use crate::{
-    physics::{ActiveEvents, CollideType, ColliderHandle, PhysicsComponent},
+    physics::{ActiveEvents, CollideType, ColliderHandle},
     ArenaPath, ComponentHandle,
 };
 use crate::{
@@ -395,14 +395,12 @@ impl Shura {
                             };
 
                             if ctx.scene.component_manager.remove_current_commponent() {
-                                #[cfg(feature = "physics")]
                                 match &mut entry {
                                     crate::data::arena::ArenaEntry::Occupied { data, .. } => {
-                                        if let Some(p) =
-                                            data.base_mut().downcast_mut::<PhysicsComponent>()
-                                        {
-                                            p.remove_from_world(&mut ctx.scene.world);
-                                        }
+                                        data.base_mut().deinit(
+                                            #[cfg(feature = "physics")]
+                                            &mut ctx.scene.world,
+                                        )
                                     }
                                     _ => (),
                                 };

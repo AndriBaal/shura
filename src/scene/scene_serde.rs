@@ -9,12 +9,12 @@ use serde::{de::Visitor, Deserializer};
 use std::{cmp, marker::PhantomData};
 
 use crate::{
-    physics::PhysicsComponent, Arena, ArenaEntry, ComponentController, ComponentIdentifier,
-    ComponentManager, ComponentTypeId, Context, DynamicComponent, GroupFilter, Scene, SceneCreator,
-    Shura,
+    Arena, ArenaEntry, ComponentController, ComponentIdentifier, ComponentManager, ComponentTypeId,
+    Context, DynamicComponent, GroupFilter, Scene, SceneCreator, Shura,
 };
 
 pub struct ComponentSerializer<'a> {
+    current_component: &'a dyn ComponentController,
     component_manager: &'a ComponentManager,
     pub(crate) organized_components:
         FxHashMap<ComponentTypeId, Vec<(u32 /* Group id */, Vec<Option<(u32, Vec<u8>)>>)>>,
@@ -22,8 +22,12 @@ pub struct ComponentSerializer<'a> {
 }
 
 impl<'a> ComponentSerializer<'a> {
-    pub(crate) fn new(component_manager: &'a ComponentManager) -> Self {
+    pub(crate) fn new(
+        current_component: &'a dyn ComponentController,
+        component_manager: &'a ComponentManager,
+    ) -> Self {
         Self {
+            current_component,
             component_manager,
             body_handles: Default::default(),
             organized_components: Default::default(),
@@ -40,14 +44,10 @@ impl<'a> ComponentSerializer<'a> {
             let group = self.component_manager.group(*group_index).unwrap();
             if let Some(type_index) = group.type_index(type_id) {
                 let type_ref = group.type_ref(*type_index).unwrap();
-                target.push((*group_id, type_ref.serialize_components::<C>()));
-                for component in type_ref {
-                    if let Some(base) = component.1.base().downcast_ref::<PhysicsComponent>() {
-                        if let Some(body_handle) = base.body_handle() {
-                            self.body_handles.insert(body_handle);
-                        }
-                    } else {
-                        break;
+                target.push((*group_id, type_ref.serialize_components::<C>(self.current_component)));
+                for (_, component) in type_ref {
+                    if let Some(body_handle) = component.base().rigid_body_handle() {
+                        self.body_handles.insert(body_handle);
                     }
                 }
             }

@@ -46,26 +46,24 @@ pub use instant::Duration;
 pub use log::{debug, error, info, trace, warn};
 pub use shura_proc::*;
 
-
 pub use crate::{
-    data::arena::*,
     component::{
-        component_config::*, component_handle::*, component_derive::*, component_group::*,
-        component_manager::*, component_set::*, empty_component::*, position_component::*,
-        component_type::*
+        base_component::*, component_config::*, component_derive::*, component_group::*,
+        component_handle::*, component_manager::*, component_set::*, component_type::*,
     },
+    data::arena::*,
     graphics::{camera::*, frame_manager::*},
     graphics::{
         color::*,
         gpu::*,
         instance_buffer::*,
         model::*,
+        render_config::*,
         renderer::*,
         shader::*,
         sprite::*,
         sprite_sheet::*,
         uniform::*,
-        render_config::*,
         vertex::{Index, Vertex},
     },
     input::{cursor_manager::*, input::*},
@@ -100,8 +98,8 @@ mod world;
 #[cfg(feature = "physics")]
 /// Access to the relevant items from the [rapier2d](https://github.com/dimforge/rapier) library.
 pub mod physics {
+    pub use crate::world::world::CollideType;
     pub(crate) use crate::world::world::World;
-    pub use crate::world::{physic_component::PhysicsComponent, world::CollideType};
     pub use rapier2d::geometry::*;
     pub use rapier2d::parry::query::PointQuery;
     pub use rapier2d::prelude::{
@@ -143,11 +141,6 @@ pub mod gamepad {
     };
 }
 
-
 // serde
-pub mod bincode {
-    pub use bincode::*;
-}
 #[cfg(feature = "serde")]
 pub use crate::scene::scene_serde::*;
-

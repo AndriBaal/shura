@@ -1,7 +1,6 @@
 use instant::Duration;
 
-use crate::{Shura, Color};
-
+use crate::{Color, Shura};
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Clone, Debug)]

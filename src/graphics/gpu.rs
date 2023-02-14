@@ -273,7 +273,6 @@ impl WgpuBase {
             ..Default::default()
         });
 
-
         let sample_count = 4;
         // let sample_flags = adapter.get_texture_format_features(config.format).flags;
         // let sample_count = {
@@ -287,7 +286,6 @@ impl WgpuBase {
         //         1
         //     }
         // };
-
 
         let multisample_state = wgpu::MultisampleState {
             count: sample_count,

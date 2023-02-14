@@ -1,5 +1,4 @@
-use crate::Dimension;
-use crate::{Isometry, Vector};
+use crate::{Dimension, Isometry, Rotation, Vector};
 use nalgebra::Vector4;
 use std::mem;
 use std::ops::*;
@@ -31,7 +30,7 @@ impl Matrix {
     pub fn new(pos: Isometry<f32>) -> Self {
         let mut matrix = Matrix::default();
         matrix.translate(pos.translation.vector);
-        matrix.rotate(Vector::new(1.0, 1.0), pos.rotation.angle());
+        matrix.rotate(Vector::new(1.0, 1.0), pos.rotation);
         return matrix;
     }
 
@@ -40,9 +39,9 @@ impl Matrix {
         self[13] = pos.y;
     }
 
-    pub fn rotate(&mut self, scale: Vector<f32>, rot: f32) {
-        let s = rot.sin();
-        let c = rot.cos();
+    pub fn rotate(&mut self, scale: Vector<f32>, rotation: Rotation<f32>) {
+        let s = rotation.sin_angle();
+        let c = rotation.cos_angle();
         self[0] = c * scale.x;
         self[1] = s * scale.x;
         self[4] = -s * scale.y;

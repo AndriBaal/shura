@@ -65,7 +65,7 @@ struct BoxManager {
     #[serde(skip)]
     box_model: Model,
     #[component]
-    component: EmptyComponent,
+    component: BaseComponent,
 }
 
 impl BoxManager {
@@ -112,7 +112,7 @@ impl ComponentController for BoxManager {
 
         if ctx.is_pressed(Key::Z) {
             let ser = ctx
-                .serialize(|s| {
+                .serialize(self, |s| {
                     s.serialize_components::<Floor>(GroupFilter::All);
                     s.serialize_components::<Player>(GroupFilter::All);
                     s.serialize_components::<BoxManager>(GroupFilter::All);
@@ -139,7 +139,7 @@ struct Player {
     #[serde(skip)]
     model: Model,
     #[component]
-    component: PhysicsComponent,
+    component: BaseComponent,
 }
 
 impl Player {
@@ -148,7 +148,7 @@ impl Player {
         Self {
             sprite: ctx.create_sprite(include_bytes!("../img/burger.png")),
             model: ctx.create_model(ModelBuilder::ball(Self::RADIUS, 24)),
-            component: PhysicsComponent::new(
+            component: BaseComponent::new_rigid_body(
                 RigidBodyBuilder::dynamic().translation(Vector::new(5.0, 4.0)),
                 vec![ColliderBuilder::ball(Self::RADIUS)
                     .active_events(ActiveEvents::COLLISION_EVENTS)],
@@ -162,7 +162,7 @@ impl ComponentController for Player {
         let delta = ctx.frame_time();
         let world = &mut ctx.scene.world;
         let input = &mut ctx.shura.input;
-        let body = self.component.body_mut(world);
+        let body = self.component.rigid_body_mut(world).unwrap();
         let mut linvel = *body.linvel();
 
         if input.is_held(Key::D) {
@@ -218,7 +218,7 @@ struct Floor {
     #[serde(skip)]
     model: Model,
     #[component]
-    component: PhysicsComponent,
+    component: BaseComponent,
 }
 
 impl Floor {
@@ -227,7 +227,7 @@ impl Floor {
         Self {
             color: ctx.create_uniform(Color::new_rgba(0, 0, 255, 255)),
             model: ctx.create_model(ModelBuilder::cuboid(Self::FLOOR_SIZE)),
-            component: PhysicsComponent::new(
+            component: BaseComponent::new_rigid_body(
                 RigidBodyBuilder::fixed().translation(Vector::new(0.0, -1.0)),
                 vec![ColliderBuilder::cuboid(
                     Self::FLOOR_SIZE.width,
@@ -257,7 +257,7 @@ struct PhysicsBox {
     collided: bool,
     hovered: bool,
     #[component]
-    component: PhysicsComponent,
+    component: BaseComponent,
 }
 
 impl PhysicsBox {
@@ -265,7 +265,7 @@ impl PhysicsBox {
         Self {
             collided: false,
             hovered: false,
-            component: PhysicsComponent::new(
+            component: BaseComponent::new_rigid_body(
                 RigidBodyBuilder::dynamic().translation(position),
                 vec![ColliderBuilder::cuboid(
                     BoxManager::HALF_BOX_SIZE,
@@ -305,7 +305,7 @@ impl ComponentController for PhysicsBox {
 
     fn update(&mut self, ctx: &mut Context) {
         if ctx.intersects_point(
-            self.component.collider_handles(&ctx.scene.world)[0],
+            self.component.collider_handles(&ctx.scene.world).unwrap()[0],
             *ctx.cursor_world(),
         ) {
             self.hovered = true;
@@ -332,7 +332,7 @@ impl<'de, 'a> serde::de::Visitor<'de> for FloorVisitor<'a> {
     where
         V: serde::de::SeqAccess<'de>,
     {
-        let component: PhysicsComponent = seq
+        let component: BaseComponent = seq
             .next_element()?
             .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
         Ok(Floor {
@@ -359,7 +359,7 @@ impl<'de, 'a> serde::de::Visitor<'de> for PlayerVisitor<'a> {
     where
         V: serde::de::SeqAccess<'de>,
     {
-        let component: PhysicsComponent = seq
+        let component: BaseComponent = seq
             .next_element()?
             .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
         Ok(Player {
@@ -386,7 +386,7 @@ impl<'de, 'a> serde::de::Visitor<'de> for BoxManagerVisitor<'a> {
     where
         V: serde::de::SeqAccess<'de>,
     {
-        let component: EmptyComponent = seq
+        let component: BaseComponent = seq
             .next_element()?
             .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
         Ok(BoxManager {

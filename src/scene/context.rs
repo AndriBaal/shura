@@ -14,7 +14,7 @@ use crate::ComponentSerializer;
 use crate::audio::{Sink, Sound};
 
 #[cfg(feature = "physics")]
-use crate::{physics::*, Point};
+use crate::{physics::*, BaseComponent, Point};
 
 #[cfg(feature = "gui")]
 use crate::gui::GuiContext;
@@ -57,9 +57,9 @@ impl<'a> Context<'a> {
     }
 
     #[cfg(feature = "serde")]
-    pub fn serialize<C: ComponentController>(
+    pub fn serialize(
         &mut self,
-        current_component: &C,
+        current_component: &dyn ComponentController,
         mut serialize: impl FnMut(&mut ComponentSerializer),
     ) -> Option<Vec<u8>> {
         use std::mem;
@@ -70,7 +70,7 @@ impl<'a> Context<'a> {
 
         let component_manager = &self.scene.component_manager;
         let world = &mut self.scene.world;
-        let mut serializer = ComponentSerializer::new(component_manager);
+        let mut serializer = ComponentSerializer::new(current_component, component_manager);
         (serialize)(&mut serializer);
 
         let components = serializer.organized_components;
@@ -108,13 +108,11 @@ impl<'a> Context<'a> {
     #[cfg(feature = "physics")]
     pub fn create_joint(
         &mut self,
-        rigid_body1: RigidBodyHandle,
-        rigid_body2: RigidBodyHandle,
+        component1: &BaseComponent,
+        component2: &BaseComponent,
         joint: impl Into<GenericJoint>,
     ) -> ImpulseJointHandle {
-        self.scene
-            .world
-            .create_joint(rigid_body1, rigid_body2, joint)
+        self.scene.world.create_joint(component1, component2, joint)
     }
 
     #[inline]
@@ -227,8 +225,8 @@ impl<'a> Context<'a> {
     #[cfg(feature = "physics")]
     pub fn create_collider(
         &mut self,
-        component: &PhysicsComponent,
-        collider: &ColliderBuilder,
+        component: &BaseComponent,
+        collider: impl Into<Collider>,
     ) -> ColliderHandle {
         self.scene.world.create_collider(component, collider)
     }
@@ -298,14 +296,14 @@ impl<'a> Context<'a> {
 
     #[inline]
     #[cfg(feature = "physics")]
-    pub fn remove_joint(&mut self, joint: ImpulseJointHandle) {
+    pub fn remove_joint(&mut self, joint: ImpulseJointHandle) -> Option<ImpulseJoint> {
         self.scene.world.remove_joint(joint)
     }
 
     #[inline]
     #[cfg(feature = "physics")]
-    pub fn remove_collider(&mut self, collider_handle: ColliderHandle) {
-        self.scene.world.remove_collider(collider_handle);
+    pub fn remove_collider(&mut self, collider_handle: ColliderHandle) -> Option<Collider> {
+        self.scene.world.remove_collider(collider_handle)
     }
 
     //////////////////////////////////////////////////////////////////////////////////////////////
