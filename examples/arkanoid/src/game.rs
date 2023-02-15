@@ -410,9 +410,9 @@ impl ComponentController for Ball {
         other_handle: ComponentHandle,
         _self_collider: ColliderHandle,
         other_collider: ColliderHandle,
-        collide_type: CollideType,
+        collision_type: CollideType,
     ) {
-        if collide_type == CollideType::Started {
+        if collision_type == CollideType::Started {
             let body = self.component.body(ctx.world);
             let pos = *body.translation();
             let mut linvel = *body.linvel();

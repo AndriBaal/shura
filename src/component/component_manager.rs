@@ -29,9 +29,7 @@ pub struct ComponentManager {
     render_components: bool,
 
     id_counter: u32,
-    remove_current_commponent: bool,
     force_update_sets: bool,
-    current_component: ComponentHandle,
     group_map: FxHashMap<u32, ArenaIndex>,
     groups: Arena<ComponentGroup>,
 
@@ -69,9 +67,7 @@ impl ComponentManager {
             render_components: true,
 
             id_counter: 0,
-            remove_current_commponent: false,
             force_update_sets: false,
-            current_component: Default::default(),
             active_components: Some(Default::default()),
         }
     }
@@ -231,10 +227,6 @@ impl ComponentManager {
         #[cfg(feature = "physics")] world: &mut World,
     ) -> Option<DynamicComponent> {
         if let Some(group) = self.groups.get_mut(handle.group_index()) {
-            if handle == &self.current_component {
-                self.remove_current_commponent = true;
-                return None;
-            }
             if let Some(component_type) = group.type_mut(handle.type_index()) {
                 if let Some(mut to_remove) = component_type.remove(handle) {
                     to_remove.base_mut().deinit(
@@ -256,17 +248,12 @@ impl ComponentManager {
         let type_id = C::IDENTIFIER;
         #[inline]
         fn remove(
-            current: &ComponentHandle,
-            remove_current: &mut bool,
             group: &mut ComponentGroup,
             group_index: ArenaIndex,
             type_id: ComponentTypeId,
             #[cfg(feature = "physics")] world: &mut World,
         ) {
             if let Some(type_index) = group.type_index(type_id) {
-                if group_index == current.group_index() && *type_index == current.type_index() {
-                    *remove_current = true;
-                }
                 let component_type = group.type_mut(*type_index).unwrap();
                 for (_, c) in component_type.iter_mut() {
                     c.base_mut().deinit(
@@ -282,8 +269,6 @@ impl ComponentManager {
             GroupFilter::All => {
                 for (index, group) in &mut self.groups {
                     remove(
-                        &mut self.current_component,
-                        &mut self.remove_current_commponent,
                         group,
                         index,
                         type_id,
@@ -296,8 +281,6 @@ impl ComponentManager {
                 for index in &self.active_groups {
                     if let Some(group) = self.groups.get_mut(*index) {
                         remove(
-                            &self.current_component,
-                            &mut self.remove_current_commponent,
                             group,
                             *index,
                             type_id,
@@ -312,8 +295,6 @@ impl ComponentManager {
                     if let Some(index) = self.group_map.get(&group_id) {
                         let group = self.groups.get_mut(*index).unwrap();
                         remove(
-                            &self.current_component,
-                            &mut self.remove_current_commponent,
                             group,
                             *index,
                             type_id,
@@ -548,43 +529,6 @@ impl ComponentManager {
     }
 
     #[inline]
-    pub(crate) fn borrow_component(
-        &mut self,
-        path: ArenaPath,
-        index: usize,
-    ) -> Option<ArenaEntry<DynamicComponent>> {
-        if let Some(group) = self.groups.get_mut(path.group_index) {
-            if let Some(component_type) = group.type_mut(path.type_index) {
-                return component_type.borrow_component(index);
-            }
-        }
-        return None;
-    }
-
-    #[inline]
-    pub(crate) fn return_component(
-        &mut self,
-        path: ArenaPath,
-        index: usize,
-        component: ArenaEntry<DynamicComponent>,
-    ) {
-        if let Some(group) = self.groups.get_mut(path.group_index) {
-            if let Some(component_type) = group.type_mut(path.type_index) {
-                component_type.return_component(index, component);
-            }
-        }
-    }
-
-    #[inline]
-    pub(crate) fn not_return_component(&mut self, path: ArenaPath, index: usize) {
-        if let Some(group) = self.groups.get_mut(path.group_index) {
-            if let Some(component_type) = group.type_mut(path.type_index) {
-                component_type.not_return_component(index);
-            }
-        }
-    }
-
-    #[inline]
     pub fn active_group_ids(&self) -> &[u32] {
         return &self.active_group_ids;
     }
@@ -622,24 +566,6 @@ impl ComponentManager {
         active_components: BTreeMap<(i16, ComponentTypeId), ComponentCluster>,
     ) {
         return self.active_components = Some(active_components);
-    }
-
-    #[inline]
-    pub(crate) fn remove_current_commponent(&mut self) -> bool {
-        let result = self.remove_current_commponent;
-        self.remove_current_commponent = false;
-        return result;
-    }
-
-    #[inline]
-    pub(crate) fn current_component(&self) -> ComponentHandle {
-        self.current_component
-    }
-
-    // Setters
-    #[inline]
-    pub(crate) fn set_current_component(&mut self, current_component: ComponentHandle) {
-        self.current_component = current_component
     }
 
     #[inline]

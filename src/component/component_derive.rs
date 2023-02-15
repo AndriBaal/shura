@@ -1,3 +1,5 @@
+use core::marker::PhantomData;
+
 use crate::{
     data::arena::ArenaIter, BaseComponent, ComponentConfig, Context, Instances, Model, RenderIter,
     Renderer, Sprite,
@@ -8,6 +10,10 @@ use crate::{
     ComponentHandle,
 };
 use downcast_rs::*;
+
+pub struct CurrentSet<C: ComponentController> {
+    marker: PhantomData<C>,
+}
 
 /// Dynamic component, that can be downcasted to any [ComponentController](crate::ComponentController)
 /// using downcast_ref or downcast_mut.
@@ -41,7 +47,11 @@ pub trait ComponentController: Downcast + _StaticAccess + ComponentDerive {
     /// This component gets updated if the component's [group](crate::ComponentGroup) is active and enabled.
     /// Through the [context](crate::Context) you have access to all other scenes, groups,
     /// components with the matching controller and all data from the engine.
-    fn update(&mut self, ctx: &mut Context) {}
+    fn update(set: CurrentSet<Self>, ctx: &mut Context)
+    where
+        Self: Sized,
+    {
+    }
 
     #[cfg(feature = "physics")]
     /// Collision Event between 2 [PhysicsComponents](crate::physics::PhysicsComponent). It requires that
@@ -49,13 +59,15 @@ pub trait ComponentController: Downcast + _StaticAccess + ComponentDerive {
     /// flag set on its [RigidBody](crate::physics::RigidBody). Collisions still get processed even if
     /// the [ComponentGroup](crate::ComponentGroup) is inactive or disabled.
     fn collision(
-        &mut self,
         ctx: &mut Context,
-        other: ComponentHandle,
+        self_handle: ComponentHandle,
+        other_handle: ComponentHandle,
         self_collider: ColliderHandle,
         other_collider: ColliderHandle,
-        collide_type: CollideType,
-    ) {
+        collision_type: CollideType,
+    ) where
+        Self: Sized,
+    {
     }
 
     /// Grouped render of multiple components. This method gets called once for every group inwhich
@@ -79,6 +91,7 @@ pub trait ComponentController: Downcast + _StaticAccess + ComponentDerive {
     fn postproccess<'a>(
         ctx: &Context,
         renderer: &mut Renderer<'a>,
+        // components: RenderIter<'a, Self>,
         instance: Instances,
         screen_model: &'a Model,
         current_render: &'a Sprite,
@@ -106,26 +119,19 @@ impl<C: ComponentController + ?Sized> ComponentDerive for Box<C> {
     }
 }
 
-impl<C: ComponentController + ?Sized> ComponentController for Box<C> {
-    fn update(&mut self, ctx: &mut Context) {
-        (**self).update(ctx)
-    }
-    #[cfg(feature = "physics")]
-    fn collision(
-        &mut self,
-        ctx: &mut Context,
-        other: ComponentHandle,
-        self_collider: ColliderHandle,
-        other_collider: ColliderHandle,
-        collide_type: CollideType,
-    ) {
-        (**self).collision(ctx, other, self_collider, other_collider, collide_type)
-    }
-}
-
 /// Grants access to the static members of the component type. This should never be overwritten,
 /// since it is automatically implemented with generics.
 pub trait _StaticAccess {
+    fn call_update(&self, ctx: &mut Context);
+    fn call_collision(
+        &self,
+        ctx: &mut Context,
+        self_handle: ComponentHandle,
+        other_handle: ComponentHandle,
+        self_collider: ColliderHandle,
+        other_collider: ColliderHandle,
+        collision_type: CollideType,
+    );
     fn call_grouped_render<'a>(
         &self,
         ctx: &'a Context<'a>,
@@ -162,5 +168,21 @@ impl<C: ComponentController> _StaticAccess for C {
         sprite: &'a Sprite,
     ) {
         C::postproccess(ctx, renderer, instances, model, sprite);
+    }
+
+    fn call_update(&self, ctx: &mut Context) {
+        C::update(CurrentSet { marker: PhantomData }, ctx)
+    }
+
+    fn call_collision(
+        &self,
+        ctx: &mut Context,
+        self_handle: ComponentHandle,
+        other_handle: ComponentHandle,
+        self_collider: ColliderHandle,
+        other_collider: ColliderHandle,
+        collision_type: CollideType,
+    ) {
+        C::collision(ctx, self_handle, other_handle, self_collider, other_collider, collision_type)
     }
 }

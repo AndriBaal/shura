@@ -245,51 +245,12 @@ impl Shura {
 
             if let Some(collider1) = ctx.collider(collider_handle1) {
                 if let Some(collider2) = ctx.collider(collider_handle2) {
-                    fn call_collide(
-                        ctx: &mut Context,
-                        self_handle: ComponentHandle,
-                        other_handle: ComponentHandle,
-                        self_collider: ColliderHandle,
-                        other_collider: ColliderHandle,
-                        collide_type: CollideType,
-                    ) {
-                        let path = ArenaPath {
-                            group_index: self_handle.group_index(),
-                            type_index: self_handle.type_index(),
-                        };
-                        let i = self_handle.component_index().index() as usize;
-                        if let Some(mut entry) =
-                            ctx.scene.component_manager.borrow_component(path, i)
-                        {
-                            match &mut entry {
-                                crate::data::arena::ArenaEntry::Occupied { data, .. } => {
-                                    ctx.scene
-                                        .component_manager
-                                        .set_current_component(self_handle);
-                                    data.collision(
-                                        ctx,
-                                        other_handle,
-                                        self_collider,
-                                        other_collider,
-                                        collide_type,
-                                    );
-                                }
-                                _ => {}
-                            };
-
-                            if ctx.scene.component_manager.remove_current_commponent() {
-                                ctx.scene.component_manager.not_return_component(path, i)
-                            } else {
-                                ctx.scene.component_manager.return_component(path, i, entry);
-                            }
-                        }
-                    }
                     let component1 = ctx.component_from_collider(&collider_handle1).unwrap();
                     let component2 = ctx.component_from_collider(&collider_handle2).unwrap();
                     let collider1_events = collider1.active_events();
                     let collider2_events = collider2.active_events();
                     if collider1_events == ActiveEvents::COLLISION_EVENTS {
-                        call_collide(
+                        ctx.component_dynamic(&component1).unwrap().call_collision(
                             ctx,
                             component1,
                             component2,
@@ -299,14 +260,14 @@ impl Shura {
                         );
                     }
                     if collider2_events == ActiveEvents::COLLISION_EVENTS {
-                        call_collide(
+                        ctx.component_dynamic(&component2).unwrap().call_collision(
                             ctx,
                             component2,
                             component1,
                             collider_handle2,
                             collider_handle1,
                             collision_type,
-                        )
+                        );
                     }
                 }
             }
@@ -377,40 +338,12 @@ impl Shura {
                 }
 
                 'outer: for path in set.paths() {
-                    let mut i = 0;
-                    loop {
-                        if let Some(mut entry) =
-                            ctx.scene.component_manager.borrow_component(*path, i)
-                        {
-                            match &mut entry {
-                                crate::data::arena::ArenaEntry::Occupied { data, .. } => {
-                                    ctx.scene
-                                        .component_manager
-                                        .set_current_component(*data.base().handle());
-                                    data.update(&mut ctx);
-                                }
-                                _ => (),
-                            };
-
-                            if ctx.scene.component_manager.remove_current_commponent() {
-                                match &mut entry {
-                                    crate::data::arena::ArenaEntry::Occupied { data, .. } => {
-                                        data.base_mut().deinit(
-                                            #[cfg(feature = "physics")]
-                                            &mut ctx.scene.world,
-                                        )
-                                    }
-                                    _ => (),
-                                };
-                                ctx.scene.component_manager.not_return_component(*path, i)
-                            } else {
-                                ctx.scene
-                                    .component_manager
-                                    .return_component(*path, i, entry);
+                    if let Some(group) = ctx.scene.component_manager.group(path.group_index) {
+                        if let Some(component_type) = group.type_ref(path.type_index) {
+                            for component in component_type {
+                                component.1.call_update(&mut ctx);
+                                break 'outer;
                             }
-                            i += 1;
-                        } else {
-                            continue 'outer;
                         }
                     }
                 }

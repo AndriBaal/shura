@@ -106,9 +106,8 @@ impl ComponentType {
     #[cfg(feature = "serde")]
     pub fn serialize_components<C: ComponentController + serde::Serialize>(
         &self,
-        current_component: &dyn ComponentController,
     ) -> Vec<Option<(u32, Vec<u8>)>> {
-        return self.components.serialize_components::<C>(current_component);
+        return self.components.serialize_components::<C>();
     }
 
     #[inline(always)]
@@ -168,21 +167,6 @@ impl ComponentType {
     #[inline]
     pub fn len(&self) -> usize {
         self.components.len()
-    }
-
-    #[inline]
-    pub fn borrow_component(&mut self, index: usize) -> Option<ArenaEntry<DynamicComponent>> {
-        return self.components.borrow_value(index);
-    }
-
-    #[inline]
-    pub fn return_component(&mut self, index: usize, component: ArenaEntry<DynamicComponent>) {
-        self.components.return_value(index, component);
-    }
-
-    #[inline]
-    pub fn not_return_component(&mut self, index: usize) {
-        self.components.not_return_value(index);
     }
 
     // Setters

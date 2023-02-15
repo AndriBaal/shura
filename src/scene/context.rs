@@ -58,16 +58,11 @@ impl<'a> Context<'a> {
     #[cfg(feature = "serde")]
     pub fn serialize(
         &mut self,
-        current_component: &dyn ComponentController,
         mut serialize: impl FnMut(&mut ComponentSerializer),
     ) -> Option<Vec<u8>> {
-        assert!(
-            current_component.base().handle() == &self.scene.component_manager.current_component()
-        );
-
         let component_manager = &self.scene.component_manager;
 
-        let mut serializer = ComponentSerializer::new(current_component, component_manager);
+        let mut serializer = ComponentSerializer::new(component_manager);
         (serialize)(&mut serializer);
 
         let components = serializer.organized_components;
@@ -321,11 +316,6 @@ impl<'a> Context<'a> {
     //////////////////////////////////////////////////////////////////////////////////////////////
     // Getter
     //////////////////////////////////////////////////////////////////////////////////////////////
-    #[inline]
-    pub fn current_component(&self) -> ComponentHandle {
-        self.scene.component_manager.current_component()
-    }
-
     #[inline]
     pub fn relative_camera(&self) -> &CameraBuffers {
         &self.shura.defaults.relative_camera
@@ -819,9 +809,9 @@ impl<'a> Context<'a> {
 
     #[inline]
     pub fn components_mut<C: ComponentController + ComponentIdentifier>(
-        &'a mut self,
+        &mut self,
         filter: GroupFilter,
-    ) -> ComponentSetMut<'a, C> {
+    ) -> ComponentSetMut<C> {
         self.scene.component_manager.components_mut::<C>(filter)
     }
 

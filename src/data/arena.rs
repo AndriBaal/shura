@@ -14,7 +14,6 @@ pub(crate) struct Arena<T> {
 pub(crate) enum ArenaEntry<T> {
     Free { next_free: Option<u32> },
     Occupied { generation: u32, data: T },
-    InUse,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -50,35 +49,7 @@ impl<T> Arena<T> {
     pub fn new() -> Arena<T> {
         Arena::with_capacity(DEFAULT_CAPACITY)
     }
-
-    pub fn borrow_value(&mut self, index: usize) -> Option<ArenaEntry<T>> {
-        return match self.items.get_mut(index) {
-            Some(entry) => Some(mem::replace(entry, ArenaEntry::InUse)),
-            None => None,
-        };
-    }
-
-    pub fn return_value(&mut self, index: usize, entry: ArenaEntry<T>) {
-        self.items[index] = entry;
-    }
-
-    pub fn not_return_value(&mut self, index: usize) {
-        match self.items[index] {
-            ArenaEntry::InUse => {
-                let _ = mem::replace(
-                    &mut self.items[index],
-                    ArenaEntry::Free {
-                        next_free: self.free_list_head,
-                    },
-                );
-                self.generation += 1;
-                self.free_list_head = Some(index as u32);
-                self.len -= 1;
-            }
-            _ => {}
-        }
-    }
-
+    
     pub fn as_slice(&mut self) -> &mut [ArenaEntry<T>] {
         &mut self.items
     }

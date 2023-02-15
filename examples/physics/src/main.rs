@@ -1,7 +1,10 @@
+#![windows_subsystem = "windows"]
+
 use shura::physics::*;
 use shura::*;
 use std::{fmt, fs};
 
+#[cfg_attr(target_os = "android", ndk_glue::main(backtrace = "on"))]
 fn main() {
     if let Some(save_game) = fs::read("data.binc").ok() {
         Shura::init(SerializedScene {
@@ -200,10 +203,10 @@ impl ComponentController for Player {
         other: ComponentHandle,
         _self_collider: ColliderHandle,
         _other_collider: ColliderHandle,
-        collide_type: CollideType,
+        collision_type: CollideType,
     ) {
         if let Some(b) = ctx.component_mut::<PhysicsBox>(&other) {
-            b.collided = collide_type == CollideType::Started;
+            b.collided = collision_type == CollideType::Started;
         }
     }
 }

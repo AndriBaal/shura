@@ -90,11 +90,3 @@ wgpu = { version = "0.15.1", features = ["webgl", "glsl"] }
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 web-sys = { version = "0.3", features = ["Document", "Window", "Element"] }
-
-[dev-dependencies]
-rand = "0.8.5"
-
-[[example]]
-name = "bunnymark"
-default-features = false
-required-features = ["gui"]

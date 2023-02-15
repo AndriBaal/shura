@@ -17,7 +17,6 @@ use crate::{
 };
 
 pub struct ComponentSerializer<'a> {
-    current_component: &'a dyn ComponentController,
     component_manager: &'a ComponentManager,
     pub(crate) organized_components:
         FxHashMap<ComponentTypeId, Vec<(u32 /* Group id */, Vec<Option<(u32, Vec<u8>)>>)>>,
@@ -27,11 +26,9 @@ pub struct ComponentSerializer<'a> {
 
 impl<'a> ComponentSerializer<'a> {
     pub(crate) fn new(
-        current_component: &'a dyn ComponentController,
         component_manager: &'a ComponentManager,
     ) -> Self {
         Self {
-            current_component,
             component_manager,
             #[cfg(feature = "physics")]
             body_handles: Default::default(),
@@ -51,7 +48,7 @@ impl<'a> ComponentSerializer<'a> {
                 let type_ref = group.type_ref(*type_index).unwrap();
                 target.push((
                     *group_id,
-                    type_ref.serialize_components::<C>(self.current_component),
+                    type_ref.serialize_components::<C>(),
                 ));
                 #[cfg(feature = "physics")]
                 for (_, component) in type_ref {

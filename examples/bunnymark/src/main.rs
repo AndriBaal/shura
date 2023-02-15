@@ -1,6 +1,9 @@
+#![windows_subsystem = "windows"]
+
 use rand::{thread_rng, Rng};
 use shura::*;
 
+#[cfg_attr(target_os = "android", ndk_glue::main(backtrace = "on"))]
 fn main() {
     Shura::init(NewScene {
         id: 1,
@@ -29,6 +32,8 @@ impl BunnyManager {
         let bunny_sprite = ctx.create_sprite(include_bytes!("../img/wabbit.png"));
 
         ctx.create_component(None, Bunny::new(&ctx));
+
+        #[cfg(target_os = "android")]
         ctx.set_render_scale(0.667);
         BunnyManager {
             component: Default::default(),
@@ -77,6 +82,35 @@ impl ComponentController for BunnyManager {
             for handle in dead {
                 ctx.remove_component(&handle);
             }
+        }
+
+        let fov = ctx.camera_fov() / 2.0;
+        let frame = ctx.frame_time();
+        let mut test = ctx.components_mut::<Bunny>(GroupFilter::All);
+        for bunny in test.iter() {
+            const GRAVITY: f32 = -2.5;
+            let mut linvel = bunny.linvel;
+            let mut translation = *bunny.translation();
+    
+            linvel.y += GRAVITY * frame;
+            translation += linvel * frame;
+            if translation.x >= fov.width {
+                linvel.x = -linvel.x;
+                translation.x = fov.width;
+            } else if translation.x <= -fov.width {
+                linvel.x = -linvel.x;
+                translation.x = -fov.width;
+            }
+    
+            if translation.y < -fov.height {
+                linvel.y = thread_rng().gen_range(0.0..15.0);
+                translation.y = -fov.height;
+            } else if translation.y > fov.height {
+                linvel.y = -1.0;
+                translation.y = fov.height;
+            }
+            bunny.linvel = linvel;
+            bunny.component.set_translation(translation);
         }
     }
 
@@ -160,6 +194,7 @@ impl ComponentController for Bunny {
     {
         ComponentConfig {
             priority: 2,
+            update: UpdateOperation::None,
             render: RenderOperation::Grouped,
             ..ComponentConfig::default()
         }
