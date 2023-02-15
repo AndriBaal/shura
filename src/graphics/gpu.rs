@@ -24,7 +24,7 @@ impl Gpu {
     pub(crate) async fn new(window: &winit::window::Window) -> Self {
         let window_size = window.inner_size();
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::GL,
+            backends: wgpu::Backends::all(),
             dx12_shader_compiler: wgpu::Dx12Compiler::Fxc,
         });
         let surface = unsafe { instance.create_surface(window).unwrap() };

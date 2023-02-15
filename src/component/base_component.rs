@@ -230,10 +230,10 @@ impl BaseComponent {
             #[cfg(feature = "physics")]
             BodyStatus::RigidBody { handle } => {
                 let body = world.rigid_body_mut(*handle).unwrap();
-                body.set_position(position, true)
+                body.set_position(new_position, true)
             }
             #[cfg(feature = "physics")]
-            BodyStatus::RigidBodyPending { body, .. } => body.set_position(position, true),
+            BodyStatus::RigidBodyPending { body, .. } => body.set_position(new_position, true),
         }
     }
 

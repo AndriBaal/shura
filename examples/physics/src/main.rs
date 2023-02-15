@@ -266,7 +266,7 @@ impl PhysicsBox {
             collided: false,
             hovered: false,
             component: BaseComponent::new_rigid_body(
-                RigidBodyBuilder::fixed().translation(position),
+                RigidBodyBuilder::dynamic().translation(position),
                 vec![ColliderBuilder::cuboid(
                     BoxManager::HALF_BOX_SIZE,
                     BoxManager::HALF_BOX_SIZE,

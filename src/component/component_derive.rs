@@ -1,8 +1,11 @@
-#[cfg(feature = "physics")]
-use crate::physics::{CollideType, ColliderHandle, ComponentHandle};
 use crate::{
     data::arena::ArenaIter, BaseComponent, ComponentConfig, Context, Instances, Model, RenderIter,
     Renderer, Sprite,
+};
+#[cfg(feature = "physics")]
+use crate::{
+    physics::{CollideType, ColliderHandle},
+    ComponentHandle,
 };
 use downcast_rs::*;
 
