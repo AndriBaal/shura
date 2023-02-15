@@ -1,4 +1,4 @@
-use crate::{BaseComponent, ComponentHandle, ComponentTypeId};
+use crate::{BaseComponent, ComponentHandle};
 use rapier2d::prelude::*;
 use rustc_hash::FxHashMap;
 

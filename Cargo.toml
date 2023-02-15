@@ -34,13 +34,12 @@ serde = [
     "nalgebra/serde-serialize",
     "rapier2d?/serde-serialize",
 ]
-default = ["audio", "physics", "gui", "text", "gamepad", "serde"]
+default = ["gamepad", "text", "audio", "physics", "gui", "serde"]
 
 [lib]
 crate-type = ["lib", "cdylib"]
 
 [dependencies]
-const-fnv1a-hash = "1.1"
 nalgebra = { version = "0.32.1", features = ["convert-bytemuck"] }
 # wgpu_glyph = { version = "0.19.0", optional = true }
 wgpu_glyph = { git = "https://github.com/sconybeare/wgpu_glyph", branch = "wgpu-0.15", optional = true }

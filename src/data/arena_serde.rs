@@ -68,33 +68,6 @@ impl Arena<DynamicComponent> {
     }
 }
 
-impl<C: ComponentController> Arena<C> {
-    pub fn cast(self) -> Arena<Box<dyn ComponentController>> {
-        let mut items: Vec<ArenaEntry<Box<dyn ComponentController>>> =
-            Vec::with_capacity(self.items.capacity());
-        for entry in self.items {
-            items.push(match entry {
-                ArenaEntry::Free { next_free } => ArenaEntry::Free {
-                    next_free: next_free,
-                },
-                ArenaEntry::Occupied { generation, data } => ArenaEntry::Occupied {
-                    generation: generation,
-                    data: Box::new(data),
-                },
-                ArenaEntry::InUse => {
-                    unreachable!();
-                }
-            });
-        }
-        return Arena {
-            items,
-            generation: self.generation,
-            free_list_head: self.free_list_head,
-            len: self.len,
-        };
-    }
-}
-
 impl<'de, T> Deserialize<'de> for Arena<T>
 where
     T: Deserialize<'de>,

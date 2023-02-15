@@ -12,11 +12,16 @@ pub struct ComponentTypeId {
     id: u32,
 }
 
+impl ComponentTypeId {
+    pub const fn new(id: u32) -> Self {
+        Self { id }
+    }
+}
+
 pub trait ComponentIdentifier {
     const TYPE_NAME: &'static str;
-    const IDENTIFIER: ComponentTypeId = ComponentTypeId {
-        id: const_fnv1a_hash::fnv1a_hash_str_32(Self::TYPE_NAME),
-    };
+    const FIELDS: &'static [&'static str];
+    const IDENTIFIER: ComponentTypeId;
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

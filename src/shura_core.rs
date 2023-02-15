@@ -182,7 +182,7 @@ impl Shura {
 
     fn new<C: SceneCreator>(
         window: winit::window::Window,
-        event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
+        _event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
         mut creator: C,
     ) -> Self {
         let gpu = pollster::block_on(Gpu::new(&window));
@@ -199,7 +199,7 @@ impl Shura {
             audio_handle,
             end: false,
             #[cfg(feature = "gui")]
-            gui: Gui::new(event_loop, &gpu),
+            gui: Gui::new(_event_loop, &gpu),
             window,
             gpu: gpu,
             defaults,
@@ -230,8 +230,6 @@ impl Shura {
 
     #[cfg(feature = "physics")]
     fn step(ctx: &mut Context) {
-        use crate::ComponentTypeId;
-
         let delta = ctx.frame_time();
         ctx.scene.world.step(delta);
         // while let Ok(contact_force_event) = ctx.scene.world.event_receivers.1.try_recv() {
@@ -351,7 +349,7 @@ impl Shura {
 
         if ctx.update_components() {
             let mut sets = ctx.scene.component_manager.borrow_active_components();
-            for ((_, id), set) in &mut sets {
+            for (_, set) in &mut sets {
                 let config = set.config();
                 #[cfg(feature = "physics")]
                 if !done_step && config.priority > ctx.physics_priority() {

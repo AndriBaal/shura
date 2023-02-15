@@ -39,6 +39,7 @@ impl<N: 'static + FnMut(&mut Context)> SceneCreator for NewScene<N> {
     }
 }
 
+#[cfg(feature = "serde")]
 fn bool_true() -> bool {
     return true;
 }
@@ -80,15 +81,6 @@ impl Scene {
             world: World::new(),
             saved_sprites: vec![],
         }
-    }
-
-    pub(crate) fn before_deserialize(&mut self, id: u32, shura: &Shura) {
-        let window_size: Dimension<u32> = shura.window.inner_size().into();
-        let window_ratio = window_size.width as f32 / window_size.height as f32;
-        self.id = id;
-        self.camera.resize(window_ratio);
-        self.cursor
-            .compute(&self.camera, &window_size, &shura.input);
     }
 
     pub fn resized(&self) -> bool {

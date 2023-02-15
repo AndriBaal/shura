@@ -1,4 +1,5 @@
 use crate::{ComponentHandle, ComponentTypeId, Dimension, Isometry, Matrix, Rotation, Vector};
+#[cfg(feature = "physics")]
 use std::mem;
 
 #[cfg(feature = "physics")]
@@ -85,6 +86,7 @@ impl Default for BaseComponent {
     }
 }
 
+#[allow(unreachable_patterns)]
 impl BaseComponent {
     pub fn new(pos: PositionBuilder) -> Self {
         let mut matrix = Matrix::default();
@@ -217,13 +219,13 @@ impl BaseComponent {
     pub fn set_position(
         &mut self,
         #[cfg(feature = "physics")] world: &mut World,
-        position: Isometry<f32>,
+        new_position: Isometry<f32>,
     ) {
         match &mut self.body {
             BodyStatus::Position { position, matrix } => {
                 matrix.translate(position.translation.vector);
                 matrix.rotate(self.render_scale, position.rotation);
-                *position = *position;
+                *position = new_position;
             }
             #[cfg(feature = "physics")]
             BodyStatus::RigidBody { handle } => {
@@ -309,7 +311,7 @@ impl BaseComponent {
             BodyStatus::Position { position, matrix } => {
                 matrix.rotate(self.render_scale, position.rotation);
             }
-            _ => {}
+            _ => (),
         }
     }
 

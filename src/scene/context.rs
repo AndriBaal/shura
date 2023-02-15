@@ -1,14 +1,13 @@
 use crate::{
     CameraBuffers, Color, ComponentController, ComponentGroup, ComponentGroupDescriptor,
-    ComponentHandle, ComponentIdentifier, ComponentSet, ComponentSetMut, ComponentTypeId,
-    Dimension, DynamicComponent, GroupFilter, InputEvent, InputTrigger, InstanceBuffer, Instances,
-    Isometry, Key, Matrix, Model, ModelBuilder, Modifier, Renderer, Rotation, Scene, Shader,
-    ShaderField, ShaderLang, Shura, Sprite, SpriteSheet, Touch, Uniform, Vector,
+    ComponentHandle, ComponentIdentifier, ComponentSet, ComponentSetMut, Dimension,
+    DynamicComponent, GroupFilter, InputEvent, InputTrigger, InstanceBuffer, Instances, Isometry,
+    Key, Matrix, Model, ModelBuilder, Modifier, Renderer, Rotation, Scene, Shader, ShaderField,
+    ShaderLang, Shura, Sprite, SpriteSheet, Touch, Uniform, Vector,
 };
-use rustc_hash::FxHashSet;
 
 #[cfg(feature = "serde")]
-use crate::ComponentSerializer;
+use crate::{ComponentSerializer, ComponentTypeId};
 
 #[cfg(feature = "audio")]
 use crate::audio::{Sink, Sound};
@@ -62,42 +61,55 @@ impl<'a> Context<'a> {
         current_component: &dyn ComponentController,
         mut serialize: impl FnMut(&mut ComponentSerializer),
     ) -> Option<Vec<u8>> {
-        use std::mem;
-
         assert!(
             current_component.base().handle() == &self.scene.component_manager.current_component()
         );
 
         let component_manager = &self.scene.component_manager;
-        let world = &mut self.scene.world;
+
         let mut serializer = ComponentSerializer::new(current_component, component_manager);
         (serialize)(&mut serializer);
 
         let components = serializer.organized_components;
-        let body_handles = serializer.body_handles;
-        let mut world_cpy = world.clone();
-        let mut to_remove = vec![];
-        for (body_handle, _body) in world.bodies() {
-            if !body_handles.contains(&body_handle) {
-                to_remove.push(body_handle);
+
+        #[cfg(feature = "physics")]
+        {
+            use std::mem;
+            let world = &mut self.scene.world;
+            let body_handles = serializer.body_handles;
+            let mut world_cpy = world.clone();
+            let mut to_remove = vec![];
+            for (body_handle, _body) in world.bodies() {
+                if !body_handles.contains(&body_handle) {
+                    to_remove.push(body_handle);
+                }
             }
+
+            for to_remove in to_remove {
+                world_cpy.remove_body(to_remove);
+            }
+
+            let old_world = mem::replace(world, world_cpy);
+            let scene: (
+                &Scene,
+                FxHashMap<ComponentTypeId, Vec<(u32, Vec<Option<(u32, Vec<u8>)>>)>>,
+            ) = (&*self.scene, components);
+            let result = bincode::serialize(&scene).ok();
+
+            self.scene.world = old_world;
+
+            return result;
         }
 
-        for to_remove in to_remove {
-            world_cpy.remove_body(to_remove);
+        #[cfg(not(feature = "physics"))]
+        {
+            let scene: (
+                &Scene,
+                FxHashMap<ComponentTypeId, Vec<(u32, Vec<Option<(u32, Vec<u8>)>>)>>,
+            ) = (&*self.scene, components);
+            let result = bincode::serialize(&scene).ok();
+            return result;
         }
-
-        world_cpy.step(0.0);
-        let old_world = mem::replace(world, world_cpy);
-        let scene: (
-            &Scene,
-            FxHashMap<ComponentTypeId, Vec<(u32, Vec<Option<(u32, Vec<u8>)>>)>>,
-        ) = (&*self.scene, components);
-        let result = bincode::serialize(&scene).ok();
-
-        self.scene.world = old_world;
-
-        return result;
     }
 
     //////////////////////////////////////////////////////////////////////////////////////////////

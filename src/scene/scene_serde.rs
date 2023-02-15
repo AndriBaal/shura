@@ -1,16 +1,19 @@
+#[cfg(feature = "physics")]
+use crate::physics::RigidBodyHandle;
 use bincode::{
     config::{AllowTrailing, FixintEncoding, WithOtherIntEncoding, WithOtherTrailing},
     de::read::SliceReader,
     DefaultOptions, Options,
 };
-use rapier2d::prelude::RigidBodyHandle;
-use rustc_hash::{FxHashMap, FxHashSet};
+use rustc_hash::FxHashMap;
+#[cfg(feature = "physics")]
+use rustc_hash::FxHashSet;
 use serde::{de::Visitor, Deserializer};
 use std::{cmp, marker::PhantomData};
 
 use crate::{
     Arena, ArenaEntry, ComponentController, ComponentIdentifier, ComponentManager, ComponentTypeId,
-    Context, DynamicComponent, GroupFilter, Scene, SceneCreator, Shura,
+    Context, DynamicComponent, GroupFilter, Scene, SceneCreator, Shura, Dimension,
 };
 
 pub struct ComponentSerializer<'a> {
@@ -18,6 +21,7 @@ pub struct ComponentSerializer<'a> {
     component_manager: &'a ComponentManager,
     pub(crate) organized_components:
         FxHashMap<ComponentTypeId, Vec<(u32 /* Group id */, Vec<Option<(u32, Vec<u8>)>>)>>,
+    #[cfg(feature = "physics")]
     pub(crate) body_handles: FxHashSet<RigidBodyHandle>,
 }
 
@@ -29,6 +33,7 @@ impl<'a> ComponentSerializer<'a> {
         Self {
             current_component,
             component_manager,
+            #[cfg(feature = "physics")]
             body_handles: Default::default(),
             organized_components: Default::default(),
         }
@@ -44,7 +49,11 @@ impl<'a> ComponentSerializer<'a> {
             let group = self.component_manager.group(*group_index).unwrap();
             if let Some(type_index) = group.type_index(type_id) {
                 let type_ref = group.type_ref(*type_index).unwrap();
-                target.push((*group_id, type_ref.serialize_components::<C>(self.current_component)));
+                target.push((
+                    *group_id,
+                    type_ref.serialize_components::<C>(self.current_component),
+                ));
+                #[cfg(feature = "physics")]
                 for (_, component) in type_ref {
                     if let Some(body_handle) = component.base().rigid_body_handle() {
                         self.body_handles.insert(body_handle);
@@ -179,7 +188,7 @@ impl ComponentDeserializer {
     pub fn deserialize_components_with<C: ComponentController + ComponentIdentifier>(
         &mut self,
         ctx: &mut Context,
-        mut test: impl for<'de> FnMut(Wrapper<'de, C>, &'de Context<'de>) -> C,
+        mut test: impl for<'de> FnMut(DeserializeWrapper<'de, C>, &'de Context<'de>) -> C,
     ) {
         let type_id = C::IDENTIFIER;
         let components = self.components.remove(&type_id).unwrap();
@@ -192,7 +201,7 @@ impl ComponentDeserializer {
                 let item = match component {
                     Some((gen, data)) => {
                         generation = cmp::max(generation, gen);
-                        let wrapper = Wrapper::new(&data);
+                        let wrapper = DeserializeWrapper::new(&data);
                         let component: DynamicComponent = Box::new((test)(wrapper, ctx));
                         ArenaEntry::Occupied {
                             generation: gen,
@@ -215,7 +224,7 @@ impl ComponentDeserializer {
     }
 }
 
-pub struct Wrapper<'de, C: ComponentController> {
+pub struct DeserializeWrapper<'de, C: ComponentController> {
     de: bincode::Deserializer<
         SliceReader<'de>,
         WithOtherTrailing<WithOtherIntEncoding<DefaultOptions, FixintEncoding>, AllowTrailing>,
@@ -223,8 +232,8 @@ pub struct Wrapper<'de, C: ComponentController> {
     _marker: PhantomData<C>,
 }
 
-impl<'de, C: ComponentController> Wrapper<'de, C> {
-    pub fn new(data: &'de [u8]) -> Self {
+impl<'de, C: ComponentController> DeserializeWrapper<'de, C> {
+    pub(crate) fn new(data: &'de [u8]) -> Self {
         let options = bincode::DefaultOptions::new()
             .with_fixint_encoding()
             .allow_trailing_bytes();
@@ -235,11 +244,18 @@ impl<'de, C: ComponentController> Wrapper<'de, C> {
         }
     }
 
-    pub fn dew_it(
-        &mut self,
-        fields: &'static [&'static str],
-        visitor: impl Visitor<'de, Value = C>,
-    ) -> C {
-        self.de.deserialize_struct("", fields, visitor).unwrap()
+    pub fn deserialize(&mut self, visitor: impl Visitor<'de, Value = C>) -> C {
+        self.de.deserialize_struct("", &[""], visitor).unwrap()
+    }
+}
+
+impl Scene {
+    pub(crate) fn before_deserialize(&mut self, id: u32, shura: &Shura) {
+        let window_size: Dimension<u32> = shura.window.inner_size().into();
+        let window_ratio = window_size.width as f32 / window_size.height as f32;
+        self.id = id;
+        self.camera.resize(window_ratio);
+        self.cursor
+            .compute(&self.camera, &window_size, &shura.input);
     }
 }

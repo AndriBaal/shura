@@ -12,13 +12,13 @@ fn main() {
             scene: save_game,
             init: |ctx, s| {
                 s.deserialize_components_with(ctx, |mut w, ctx| {
-                    w.dew_it(&[""], FloorVisitor { ctx })
+                    w.deserialize(FloorVisitor { ctx })
                 });
                 s.deserialize_components_with(ctx, |mut w, ctx| {
-                    w.dew_it(&[""], PlayerVisitor { ctx })
+                    w.deserialize(PlayerVisitor { ctx })
                 });
                 s.deserialize_components_with(ctx, |mut w, ctx| {
-                    w.dew_it(&[""], BoxManagerVisitor { ctx })
+                    w.deserialize(BoxManagerVisitor { ctx })
                 });
                 s.deserialize_components::<PhysicsBox>(ctx);
             },
@@ -92,7 +92,7 @@ impl ComponentController for BoxManager {
             ctx.set_horizontal_fov(fov.width + scroll);
         }
 
-        if ctx.is_pressed(MouseButton::Right) {
+        if ctx.is_held(MouseButton::Right) {
             let cursor = *ctx.cursor_world();
             let cursor_pos = Isometry::new(cursor, 0.0);
             if ctx
@@ -173,8 +173,8 @@ impl ComponentController for Player {
             linvel.x += -15.0 * delta;
         }
 
-        if input.is_pressed(Key::W) {
-            linvel.y = 7.0;
+        if input.is_pressed(Key::W)  {
+            linvel.y += 15.0;
         }
 
         if input.is_pressed(Key::S) {
@@ -266,7 +266,7 @@ impl PhysicsBox {
             collided: false,
             hovered: false,
             component: BaseComponent::new_rigid_body(
-                RigidBodyBuilder::dynamic().translation(position),
+                RigidBodyBuilder::fixed().translation(position),
                 vec![ColliderBuilder::cuboid(
                     BoxManager::HALF_BOX_SIZE,
                     BoxManager::HALF_BOX_SIZE,
@@ -309,7 +309,7 @@ impl ComponentController for PhysicsBox {
             *ctx.cursor_world(),
         ) {
             self.hovered = true;
-            if ctx.is_pressed(MouseButton::Left) || ctx.is_pressed(ScreenTouch) {
+            if ctx.is_held(MouseButton::Left) || ctx.is_pressed(ScreenTouch) {
                 ctx.remove_component(self.component.handle());
             }
         } else {

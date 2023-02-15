@@ -6,7 +6,6 @@ use crate::{
 };
 use log::info;
 use std::borrow::Cow;
-use wgpu::{Adapter, SurfaceConfiguration};
 
 pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 1.0;
 
@@ -25,7 +24,7 @@ impl Gpu {
     pub(crate) async fn new(window: &winit::window::Window) -> Self {
         let window_size = window.inner_size();
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::all(),
+            backends: wgpu::Backends::GL,
             dx12_shader_compiler: wgpu::Dx12Compiler::Fxc,
         });
         let surface = unsafe { instance.create_surface(window).unwrap() };
@@ -60,7 +59,7 @@ impl Gpu {
             .get_default_config(&adapter, window_size.width, window_size.height)
             .expect("Surface unsupported by adapter");
 
-        let base = WgpuBase::new(&device, &adapter, &config);
+        let base = WgpuBase::new(&device);
 
         surface.configure(&device, &config);
         let adapter_info = adapter.get_info();
@@ -201,7 +200,7 @@ pub struct WgpuBase {
 }
 
 impl WgpuBase {
-    pub fn new(device: &wgpu::Device, adapter: &Adapter, config: &SurfaceConfiguration) -> Self {
+    pub fn new(device: &wgpu::Device) -> Self {
         let sprite_uniform = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[
                 wgpu::BindGroupLayoutEntry {
