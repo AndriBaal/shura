@@ -80,7 +80,7 @@ impl Shura {
             use log::LevelFilter;
             Builder::new()
                 .filter_level(LevelFilter::Info)
-                .filter_module("wgpu", LevelFilter::Error)
+                .filter_module("wgpu", LevelFilter::Warn)
                 .filter_module("winit", LevelFilter::Warn)
                 .filter_module("symphonia_core", LevelFilter::Warn)
                 .init();

@@ -1,10 +1,7 @@
-#![windows_subsystem = "windows"]
-
 use shura::physics::*;
 use shura::*;
 use std::{fmt, fs};
 
-#[cfg_attr(target_os = "android", ndk_glue::main(backtrace = "on"))]
 fn main() {
     if let Some(save_game) = fs::read("data.binc").ok() {
         Shura::init(SerializedScene {
@@ -266,7 +263,7 @@ impl PhysicsBox {
             collided: false,
             hovered: false,
             component: BaseComponent::new_rigid_body(
-                RigidBodyBuilder::dynamic().translation(position),
+                RigidBodyBuilder::fixed().translation(position),
                 vec![ColliderBuilder::cuboid(
                     BoxManager::HALF_BOX_SIZE,
                     BoxManager::HALF_BOX_SIZE,

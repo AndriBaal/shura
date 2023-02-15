@@ -32,7 +32,7 @@ impl FrameManager {
     }
 
     pub(crate) fn update(&mut self) {
-        const MAX_FRAME_TIME: Duration = Duration::from_millis(100);
+        const MAX_FRAME_TIME: Duration = Duration::from_millis(50);
         self.update_time = Instant::now();
         self.total_time = self.update_time - self.start_time;
 
