@@ -1,19 +1,15 @@
 use core::marker::PhantomData;
 
-use crate::{
-    data::arena::ArenaIter, BaseComponent, ComponentConfig, Context, Instances, Model, RenderIter,
-    Renderer, Sprite,
-};
 #[cfg(feature = "physics")]
 use crate::{
     physics::{CollideType, ColliderHandle},
     ComponentHandle,
 };
+use crate::{
+    ActiveComponents, ArenaPath, BaseComponent, ComponentConfig, Context, Instances, Model,
+    Renderer, Sprite,
+};
 use downcast_rs::*;
-
-pub struct CurrentSet<C: ComponentController> {
-    marker: PhantomData<C>,
-}
 
 /// Dynamic component, that can be downcasted to any [ComponentController](crate::ComponentController)
 /// using downcast_ref or downcast_mut.
@@ -43,11 +39,11 @@ pub trait ComponentDerive {
 /// A controller is used to add
 /// data to a Component and define the behaviour of the componencomponents.len() as u32§t it controlls. Every component belongs to
 /// one controller and every controller belongs to one component.
-pub trait ComponentController: Downcast + _StaticAccess + ComponentDerive {
+pub trait ComponentController: Downcast + ComponentControllerCaller + ComponentDerive {
     /// This component gets updated if the component's [group](crate::ComponentGroup) is active and enabled.
     /// Through the [context](crate::Context) you have access to all other scenes, groups,
     /// components with the matching controller and all data from the engine.
-    fn update(set: CurrentSet<Self>, ctx: &mut Context)
+    fn update(set: ActiveComponents<Self>, ctx: &mut Context)
     where
         Self: Sized,
     {
@@ -77,10 +73,10 @@ pub trait ComponentController: Downcast + _StaticAccess + ComponentDerive {
     /// For this method to work the render operation of this component must be set to
     /// [RenderOperation::Grouped](crate::RenderOperation::Grouped) in the [ComponentConfig](crate::ComponentConfig).
     fn render<'a>(
+        set: ActiveComponents<Self>,
         ctx: &'a Context<'a>,
         renderer: &mut Renderer<'a>,
-        components: RenderIter<'a, Self>,
-        instances: Instances,
+        all_instances: Instances,
     ) where
         Self: Sized,
     {
@@ -121,61 +117,60 @@ impl<C: ComponentController + ?Sized> ComponentDerive for Box<C> {
 
 /// Grants access to the static members of the component type. This should never be overwritten,
 /// since it is automatically implemented with generics.
-pub trait _StaticAccess {
-    fn call_update(&self, ctx: &mut Context);
+pub trait ComponentControllerCaller {
+    fn call_update(paths: &[ArenaPath], ctx: &mut Context)
+    where
+        Self: Sized;
     fn call_collision(
-        &self,
         ctx: &mut Context,
         self_handle: ComponentHandle,
         other_handle: ComponentHandle,
         self_collider: ColliderHandle,
         other_collider: ColliderHandle,
         collision_type: CollideType,
-    );
-    fn call_grouped_render<'a>(
-        &self,
+    ) where
+        Self: Sized;
+    fn call_render<'a>(
+        paths: &[ArenaPath],
         ctx: &'a Context<'a>,
         renderer: &mut Renderer<'a>,
-        iter: ArenaIter<'a, DynamicComponent>,
-        instances: Instances,
-    );
+        all_instances: Instances,
+    ) where
+        Self: Sized;
     fn call_postproccess<'a>(
-        &self,
         ctx: &'a Context<'a>,
         renderer: &mut Renderer<'a>,
-        instances: Instances,
+        all_instances: Instances,
         model: &'a Model,
         sprite: &'a Sprite,
-    );
+    ) where
+        Self: Sized;
 }
 
-impl<C: ComponentController> _StaticAccess for C {
-    fn call_grouped_render<'a>(
-        &self,
+impl<C: ComponentController> ComponentControllerCaller for C {
+    fn call_render<'a>(
+        paths: &[ArenaPath],
         ctx: &'a Context<'a>,
         renderer: &mut Renderer<'a>,
-        iter: ArenaIter<'a, DynamicComponent>,
-        instances: Instances,
+        all_instances: Instances,
     ) {
-        C::render(ctx, renderer, RenderIter::new(iter), instances);
+        C::render(ActiveComponents::new(paths), ctx, renderer, all_instances);
     }
     fn call_postproccess<'a>(
-        &self,
         ctx: &'a Context<'a>,
         renderer: &mut Renderer<'a>,
-        instances: Instances,
+        all_instances: Instances,
         model: &'a Model,
         sprite: &'a Sprite,
     ) {
-        C::postproccess(ctx, renderer, instances, model, sprite);
+        C::postproccess(ctx, renderer, all_instances, model, sprite);
     }
 
-    fn call_update(&self, ctx: &mut Context) {
-        C::update(CurrentSet { marker: PhantomData }, ctx)
+    fn call_update(paths: &[ArenaPath], ctx: &mut Context) {
+        C::update(ActiveComponents::new(paths), ctx)
     }
 
     fn call_collision(
-        &self,
         ctx: &mut Context,
         self_handle: ComponentHandle,
         other_handle: ComponentHandle,
@@ -183,6 +178,50 @@ impl<C: ComponentController> _StaticAccess for C {
         other_collider: ColliderHandle,
         collision_type: CollideType,
     ) {
-        C::collision(ctx, self_handle, other_handle, self_collider, other_collider, collision_type)
+        C::collision(
+            ctx,
+            self_handle,
+            other_handle,
+            self_collider,
+            other_collider,
+            collision_type,
+        )
+    }
+}
+
+#[derive(Copy, Clone)]
+pub(crate) struct ComponentCallbacks {
+    pub call_update: fn(paths: &[ArenaPath], ctx: &mut Context),
+    pub call_postproccess: for<'a> fn(
+        ctx: &'a Context<'a>,
+        renderer: &mut Renderer<'a>,
+        all_instances: Instances,
+        model: &'a Model,
+        sprite: &'a Sprite,
+    ),
+    pub call_collision: fn(
+        ctx: &mut Context,
+        self_handle: ComponentHandle,
+        other_handle: ComponentHandle,
+        self_collider: ColliderHandle,
+        other_collider: ColliderHandle,
+        collision_type: CollideType,
+    ),
+    pub call_render: for<'a> fn(
+        paths: &[ArenaPath],
+        ctx: &'a Context<'a>,
+        renderer: &mut Renderer<'a>,
+        all_instances: Instances,
+    ),
+}
+
+impl ComponentCallbacks {
+    pub fn new<C: ComponentController>() -> Self {
+        return Self {
+            call_update: C::call_update,
+            call_postproccess: C::call_postproccess,
+            call_collision: C::call_collision,
+            call_render: C::call_render,
+        };
     }
 }

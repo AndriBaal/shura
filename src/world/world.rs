@@ -1,4 +1,4 @@
-use crate::{BaseComponent, ComponentHandle};
+use crate::{BaseComponent, ComponentHandle, ComponentTypeId};
 use rapier2d::prelude::*;
 use rustc_hash::FxHashMap;
 
@@ -38,7 +38,7 @@ pub struct World {
     physics_priority: i16,
     bodies: RigidBodySet,
     colliders: ColliderSet,
-    component_mapping: FxHashMap<ColliderHandle, ComponentHandle>,
+    component_mapping: FxHashMap<ColliderHandle, (ComponentTypeId, ComponentHandle)>,
 
     query_pipeline: QueryPipeline,
     gravity: Vector<f32>,
@@ -127,7 +127,7 @@ impl World {
                 .insert_with_parent(collider, body_handle, &mut self.bodies);
 
         self.component_mapping
-            .insert(collider_handle, *component.handle());
+            .insert(collider_handle, (component.type_id(), *component.handle()));
         return collider_handle;
     }
 
@@ -197,7 +197,7 @@ impl World {
             self.query_pipeline
                 .cast_ray(&self.bodies, &self.colliders, ray, max_toi, solid, filter)
         {
-            return Some((self.component(&collider.0).unwrap(), collider.0, collider.1));
+            return Some((self.component(&collider.0).unwrap().1, collider.0, collider.1));
         }
         return None;
     }
@@ -222,7 +222,7 @@ impl World {
             stop_at_penetration,
             filter,
         ) {
-            return Some((self.component(&collider.0).unwrap(), collider.0, collider.1));
+            return Some((self.component(&collider.0).unwrap().1, collider.0, collider.1));
         }
         return None;
     }
@@ -243,7 +243,7 @@ impl World {
             solid,
             filter,
         ) {
-            return Some((self.component(&collider.0).unwrap(), collider.0, collider.1));
+            return Some((self.component(&collider.0).unwrap().1, collider.0, collider.1));
         }
         return None;
     }
@@ -294,7 +294,7 @@ impl World {
             max_toi,
             solid,
             filter,
-            |collider, ray| callback(self.component(&collider).unwrap(), collider, ray),
+            |collider, ray| callback(self.component(&collider).unwrap().1, collider, ray),
         );
     }
 
@@ -312,7 +312,7 @@ impl World {
             shape_pos,
             shape,
             filter,
-            |collider| callback(self.component(&collider).unwrap(), collider),
+            |collider| callback(self.component(&collider).unwrap().1, collider),
         );
     }
 
@@ -330,7 +330,7 @@ impl World {
             shape,
             filter,
         ) {
-            let component = self.component(&collider).unwrap();
+            let component = self.component(&collider).unwrap().1;
             return Some((component, collider));
         }
         return None;
@@ -348,7 +348,7 @@ impl World {
             &self.colliders,
             point,
             filter,
-            |collider| callback(self.component(&collider).unwrap(), collider),
+            |collider| callback(self.component(&collider).unwrap().1, collider),
         );
     }
 
@@ -419,8 +419,8 @@ impl World {
         self.impulse_joints.get_mut(joint)
     }
 
-    pub fn component(&self, collider_handle: &ColliderHandle) -> Option<ComponentHandle> {
-        self.component_mapping.get(collider_handle).copied()
+    pub fn component(&self, collider_handle: &ColliderHandle) -> Option<(ComponentTypeId, ComponentHandle)> {
+        self.component_mapping.get(collider_handle).cloned()
     }
 
     pub fn gravity(&self) -> &Vector<f32> {

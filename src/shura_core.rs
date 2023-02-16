@@ -245,29 +245,41 @@ impl Shura {
 
             if let Some(collider1) = ctx.collider(collider_handle1) {
                 if let Some(collider2) = ctx.collider(collider_handle2) {
-                    let component1 = ctx.component_from_collider(&collider_handle1).unwrap();
-                    let component2 = ctx.component_from_collider(&collider_handle2).unwrap();
+                    let (component_gype_id1, component1) =
+                        ctx.component_from_collider(&collider_handle1).unwrap();
+                    let (component_gype_id2, component2) =
+                        ctx.component_from_collider(&collider_handle2).unwrap();
                     let collider1_events = collider1.active_events();
                     let collider2_events = collider2.active_events();
                     if collider1_events == ActiveEvents::COLLISION_EVENTS {
-                        ctx.component_dynamic(&component1).unwrap().call_collision(
+                        let callback = ctx
+                            .scene
+                            .component_manager
+                            .component_callbacks(&component_gype_id1)
+                            .call_collision;
+                        (callback)(
                             ctx,
                             component1,
                             component2,
                             collider_handle1,
                             collider_handle2,
                             collision_type,
-                        );
+                        )
                     }
                     if collider2_events == ActiveEvents::COLLISION_EVENTS {
-                        ctx.component_dynamic(&component2).unwrap().call_collision(
+                        let callback = ctx
+                            .scene
+                            .component_manager
+                            .component_callbacks(&component_gype_id2)
+                            .call_collision;
+                        (callback)(
                             ctx,
                             component2,
                             component1,
                             collider_handle2,
                             collider_handle1,
                             collision_type,
-                        );
+                        )
                     }
                 }
             }
@@ -309,8 +321,8 @@ impl Shura {
         let now = ctx.update_time();
 
         if ctx.update_components() {
-            let mut sets = ctx.scene.component_manager.borrow_active_components();
-            for (_, set) in &mut sets {
+            let sets = ctx.scene.component_manager.copy_active_components();
+            for set in sets.values() {
                 let config = set.config();
                 #[cfg(feature = "physics")]
                 if !done_step && config.priority > ctx.physics_priority() {
@@ -329,27 +341,16 @@ impl Shura {
                         }
                     }
                     crate::UpdateOperation::AfterDuration(dur) => {
-                        if now > set.last_update().unwrap() + dur {
-                            set.set_last_update(now);
-                        } else {
+                        if now < set.last_update().unwrap() + dur {
                             continue;
                         }
                     }
                 }
 
-                'outer: for path in set.paths() {
-                    if let Some(group) = ctx.scene.component_manager.group(path.group_index) {
-                        if let Some(component_type) = group.type_ref(path.type_index) {
-                            for component in component_type {
-                                component.1.call_update(&mut ctx);
-                                break 'outer;
-                            }
-                        }
-                    }
-                }
+                (set.callbacks().call_update)(set.paths(), &mut ctx);
             }
 
-            ctx.scene.component_manager.return_active_components(sets)
+            // ctx.scene.component_manager.return_active_components(sets)
         }
 
         #[cfg(feature = "physics")]
@@ -401,7 +402,12 @@ impl Shura {
                 clear_color,
             );
         }
-        for set in ctx.scene.component_manager.active_components().values() {
+        for set in ctx
+            .scene
+            .component_manager
+            .copy_active_components()
+            .values()
+        {
             if set.is_empty() {
                 continue;
             }
@@ -450,10 +456,10 @@ impl Shura {
                             renderer.set_instance_buffer(buffer);
                             if let Some((_, first_component)) = component_type.iter().next() {
                                 let instances = 0..len as u32;
-                                first_component.call_grouped_render(
+                                (set.callbacks().call_render)(
+                                    &[*path],
                                     &ctx,
                                     &mut renderer,
-                                    component_type.iter(),
                                     instances,
                                 );
                             }
@@ -505,7 +511,7 @@ impl Shura {
                                 renderer.set_instance_buffer(
                                     &ctx.shura.defaults.single_centered_instance,
                                 );
-                                component.call_postproccess(
+                                (set.callbacks().call_postproccess)(
                                     &ctx,
                                     &mut renderer,
                                     instances,
@@ -526,7 +532,7 @@ impl Shura {
                                 renderer.set_instance_buffer(
                                     &ctx.shura.defaults.single_centered_instance,
                                 );
-                                component.call_postproccess(
+                                (set.callbacks().call_postproccess)(
                                     &ctx,
                                     &mut renderer,
                                     instances,

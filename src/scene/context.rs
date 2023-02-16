@@ -1,9 +1,10 @@
 use crate::{
-    CameraBuffers, Color, ComponentController, ComponentGroup, ComponentGroupDescriptor,
-    ComponentHandle, ComponentIdentifier, ComponentSet, ComponentSetMut, Dimension,
-    DynamicComponent, GroupFilter, InputEvent, InputTrigger, InstanceBuffer, Instances, Isometry,
-    Key, Matrix, Model, ModelBuilder, Modifier, Renderer, Rotation, Scene, Shader, ShaderField,
-    ShaderLang, Shura, Sprite, SpriteSheet, Touch, Uniform, Vector,
+    ActiveComponents, CameraBuffers, Color, ComponentController, ComponentGroup,
+    ComponentGroupDescriptor, ComponentHandle, ComponentIdentifier, ComponentSet, ComponentSetMut,
+    ComponentSetRender, Dimension, DynamicComponent, GroupFilter, InputEvent, InputTrigger,
+    InstanceBuffer, Instances, Isometry, Key, Matrix, Model, ModelBuilder, Modifier, Renderer,
+    Rotation, Scene, Shader, ShaderField, ShaderLang, Shura, Sprite, SpriteSheet, Touch, Uniform,
+    Vector,
 };
 
 #[cfg(feature = "serde")]
@@ -46,7 +47,10 @@ pub struct Context<'a> {
 impl<'a> Context<'a> {
     #[inline]
     #[cfg(feature = "physics")]
-    pub fn component_from_collider(&self, collider: &ColliderHandle) -> Option<ComponentHandle> {
+    pub fn component_from_collider(
+        &self,
+        collider: &ColliderHandle,
+    ) -> Option<(ComponentTypeId, ComponentHandle)> {
         self.scene.world.component(collider)
     }
 
@@ -808,10 +812,43 @@ impl<'a> Context<'a> {
     }
 
     #[inline]
-    pub fn components_mut<C: ComponentController + ComponentIdentifier>(
-        &mut self,
-        filter: GroupFilter,
+    pub fn active_components_render<C: ComponentController + ComponentIdentifier>(
+        &'a self,
+        active_components: &ActiveComponents<C>,
+    ) -> ComponentSetRender<'a, C> {
+        return self
+            .scene
+            .component_manager
+            .active_components_render(active_components);
+    }
+
+    #[inline]
+    pub fn active_components<C: ComponentController + ComponentIdentifier>(
+        &'a self,
+        active_components: &ActiveComponents<C>,
+    ) -> ComponentSet<'a, C> {
+        return self
+            .scene
+            .component_manager
+            .active_components(active_components);
+    }
+
+    #[inline]
+    pub fn active_components_mut<C: ComponentController + ComponentIdentifier>(
+        &'a mut self,
+        active_components: &'a ActiveComponents<C>,
     ) -> ComponentSetMut<C> {
+        return self
+            .scene
+            .component_manager
+            .active_components_mut(active_components);
+    }
+
+    #[inline]
+    pub fn components_mut<C: ComponentController + ComponentIdentifier>(
+        &'a mut self,
+        filter: GroupFilter,
+    ) -> ComponentSetMut<'a, C> {
         self.scene.component_manager.components_mut::<C>(filter)
     }
 

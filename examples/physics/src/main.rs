@@ -85,7 +85,7 @@ impl BoxManager {
 }
 
 impl ComponentController for BoxManager {
-    fn update(&mut self, ctx: &mut Context) {
+    fn update(components: ActiveComponents<Self>, ctx: &mut Context) {
         let scroll = ctx.wheel_delta();
         let fov = ctx.camera_fov();
         if scroll != 0.0 {
@@ -112,7 +112,7 @@ impl ComponentController for BoxManager {
 
         if ctx.is_pressed(Key::Z) {
             let ser = ctx
-                .serialize(self, |s| {
+                .serialize(|s| {
                     s.serialize_components::<Floor>(GroupFilter::All);
                     s.serialize_components::<Player>(GroupFilter::All);
                     s.serialize_components::<BoxManager>(GroupFilter::All);
@@ -158,54 +158,61 @@ impl Player {
 }
 
 impl ComponentController for Player {
-    fn update(&mut self, ctx: &mut Context) {
+    fn update(components: ActiveComponents<Self>, ctx: &mut Context) {
         let delta = ctx.frame_time();
         let world = &mut ctx.scene.world;
         let input = &mut ctx.shura.input;
-        let body = self.component.rigid_body_mut(world).unwrap();
-        let mut linvel = *body.linvel();
 
-        if input.is_held(Key::D) {
-            linvel.x += 15.0 * delta;
+        for player in &mut ctx
+            .scene
+            .component_manager
+            .active_components_mut(&components)
+        {
+            let body = player.rigid_body_mut(world).unwrap();
+            let mut linvel = *body.linvel();
+
+            if input.is_held(Key::D) {
+                linvel.x += 15.0 * delta;
+            }
+
+            if input.is_held(Key::A) {
+                linvel.x += -15.0 * delta;
+            }
+
+            if input.is_pressed(Key::W) {
+                linvel.y += 15.0;
+            }
+
+            if input.is_pressed(Key::S) {
+                linvel.y = -17.0;
+            }
+
+            body.set_linvel(linvel, true);
         }
-
-        if input.is_held(Key::A) {
-            linvel.x += -15.0 * delta;
-        }
-
-        if input.is_pressed(Key::W)  {
-            linvel.y += 15.0;
-        }
-
-        if input.is_pressed(Key::S) {
-            linvel.y = -17.0;
-        }
-
-        body.set_linvel(linvel, true);
     }
 
     fn render<'a>(
-        _ctx: &'a Context<'a>,
+        components: ActiveComponents<Self>,
+        ctx: &'a Context<'a>,
         renderer: &mut Renderer<'a>,
-        components: RenderIter<'a, Self>,
         _instances: Instances,
     ) {
-        for (instances, player) in components {
+        let test = ctx.active_components_render(&components);
+        for (instances, player) in &test {
             renderer.render_sprite(&player.model, &player.sprite);
             renderer.commit(instances);
         }
     }
 
     fn collision(
-        &mut self,
-
         ctx: &mut Context,
-        other: ComponentHandle,
+        self_handle: ComponentHandle,
+        other_handle: ComponentHandle,
         _self_collider: ColliderHandle,
         _other_collider: ColliderHandle,
         collision_type: CollideType,
     ) {
-        if let Some(b) = ctx.component_mut::<PhysicsBox>(&other) {
+        if let Some(b) = ctx.component_mut::<PhysicsBox>(&other_handle) {
             b.collided = collision_type == CollideType::Started;
         }
     }
@@ -240,12 +247,12 @@ impl Floor {
 
 impl ComponentController for Floor {
     fn render<'a>(
-        _ctx: &'a Context<'a>,
+        components: ActiveComponents<Self>,
+        ctx: &'a Context<'a>,
         renderer: &mut Renderer<'a>,
-        components: RenderIter<'a, Self>,
-        _instances: Instances,
+        all_instances: Instances,
     ) {
-        for (instance, floor) in components {
+        for (instance, floor) in &ctx.active_components_render(&components) {
             renderer.render_color(&floor.model, &floor.color);
             renderer.commit(instance);
         }
@@ -278,9 +285,9 @@ impl PhysicsBox {
 
 impl ComponentController for PhysicsBox {
     fn render<'a>(
+        components: ActiveComponents<Self>,
         ctx: &'a Context<'a>,
         renderer: &mut Renderer<'a>,
-        components: RenderIter<'a, PhysicsBox>,
         _instances: Instances,
     ) {
         let manager = ctx
@@ -289,7 +296,7 @@ impl ComponentController for PhysicsBox {
             .next()
             .unwrap();
 
-        for (instance, physics_box) in components {
+        for (instance, physics_box) in &ctx.active_components_render(&components) {
             let color: &Uniform<Color>;
             if physics_box.collided {
                 color = &manager.collision_color;
@@ -303,17 +310,32 @@ impl ComponentController for PhysicsBox {
         }
     }
 
-    fn update(&mut self, ctx: &mut Context) {
-        if ctx.intersects_point(
-            self.component.collider_handles(&ctx.scene.world).unwrap()[0],
-            *ctx.cursor_world(),
-        ) {
-            self.hovered = true;
-            if ctx.is_held(MouseButton::Left) || ctx.is_pressed(ScreenTouch) {
-                ctx.remove_component(self.component.handle());
+    fn update(components: ActiveComponents<Self>, ctx: &mut Context) {
+        let cursor_world = *ctx.cursor_world();
+        let world = &mut ctx.scene.world;
+        let cm = &mut ctx.scene.component_manager;
+        let input = &mut ctx.shura.input;
+        let mut to_remove = vec![];
+        let mut e = cm.active_components_mut(&components);
+        for physics_box in &mut e {
+            if world.intersects_point(
+                physics_box
+                    .component
+                    .collider_handles(&world)
+                    .unwrap()[0],
+                cursor_world,
+            ) {
+                physics_box.hovered = true;
+                if input.is_held(MouseButton::Left) || input.is_pressed(ScreenTouch) {
+                    to_remove.push(*physics_box.component.handle());
+                }
+            } else {
+                physics_box.hovered = false;
             }
-        } else {
-            self.hovered = false;
+        }
+        
+        for handle in to_remove {
+            cm.remove_component(&handle, world);
         }
     }
 }

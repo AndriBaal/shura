@@ -3,7 +3,7 @@ use crate::physics::World;
 use crate::{
     data::arena::{ArenaEntry, ArenaIter, ArenaIterMut},
     Arena, ArenaIndex, ComponentConfig, ComponentController, ComponentHandle, DynamicComponent,
-    Gpu, InstanceBuffer, Matrix, RenderOperation,
+    Gpu, InstanceBuffer, Matrix, RenderOperation, Context,
 };
 
 #[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]

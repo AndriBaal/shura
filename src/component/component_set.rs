@@ -1,38 +1,47 @@
 use instant::Instant;
 
 use crate::{
-    ArenaIndex, ArenaIter, ArenaIterMut, ComponentConfig, ComponentController, ComponentType,
-    DynamicComponent, Instances,
+    ArenaIndex, ArenaIter, ArenaIterMut, ComponentCallbacks, ComponentConfig, ComponentController,
+    ComponentType, DynamicComponent, Instances,
 };
 use std::{iter::Enumerate, marker::PhantomData};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub(crate) struct ArenaPath {
+pub struct ArenaPath {
     pub group_index: ArenaIndex,
     pub type_index: ArenaIndex,
 }
 
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone)]
 pub(crate) struct ComponentCluster {
     paths: Vec<ArenaPath>,
     config: ComponentConfig,
-    #[cfg_attr(feature = "serde", serde(skip))]
-    #[cfg_attr(feature = "serde", serde(default))]
     last_update: Option<Instant>,
+    callbacks: ComponentCallbacks,
 }
 
 impl ComponentCluster {
-    pub fn new(path: ArenaPath, config: ComponentConfig) -> Self {
+    pub fn new(
+        path: ArenaPath,
+        callbacks: ComponentCallbacks,
+        config: ComponentConfig,
+        now: Instant,
+    ) -> Self {
         Self {
             paths: vec![path],
             last_update: match &config.update {
-                crate::UpdateOperation::AfterDuration(_) => Some(Instant::now()),
+                crate::UpdateOperation::AfterDuration(_) => Some(now),
                 _ => None,
             },
             config: config,
+            callbacks,
         }
+    }
+
+    pub fn sort(&mut self) {
+        self.paths
+            .sort_by(|a, b| a.group_index.index().cmp(&b.group_index.index()));
     }
 
     pub fn clear(&mut self) {
@@ -49,8 +58,15 @@ impl ComponentCluster {
     }
 
     #[inline]
-    pub fn set_last_update(&mut self, now: Instant) {
-        self.last_update = Some(now);
+    pub fn update_time(&mut self, now: Instant) {
+        match &mut self.config.update {
+            crate::UpdateOperation::AfterDuration(dur) => {
+                if now > self.last_update.unwrap() + *dur {
+                    self.last_update = Some(now);
+                }
+            }
+            _ => {}
+        };
     }
 
     #[inline]
@@ -63,8 +79,31 @@ impl ComponentCluster {
         self.paths.is_empty()
     }
 
+    #[inline]
     pub fn paths(&self) -> &Vec<ArenaPath> {
         &self.paths
+    }
+
+    pub fn callbacks(&self) -> &ComponentCallbacks {
+        &self.callbacks
+    }
+}
+
+pub struct ActiveComponents<'a, C: ComponentController> {
+    paths: &'a [ArenaPath],
+    marker: PhantomData<C>,
+}
+
+impl<'a, C: ComponentController> ActiveComponents<'a, C> {
+    pub(crate) fn new(paths: &'a [ArenaPath]) -> Self {
+        Self {
+            paths,
+            marker: PhantomData,
+        }
+    }
+
+    pub(crate) fn paths(&self) -> &[ArenaPath] {
+        self.paths
     }
 }
 
@@ -100,16 +139,6 @@ impl<'a, C: ComponentController> ComponentSet<'a, C> {
     /// Iterate over this set
     pub fn iter(&self) -> ComponentIter<'a, C> {
         return ComponentIter::<'a, C>::new(&self.types, self.len);
-    }
-
-    pub fn test(&self) -> &'a C {
-        self.types[0]
-            .iter()
-            .next()
-            .unwrap()
-            .1
-            .downcast_ref::<C>()
-            .unwrap()
     }
 }
 
@@ -323,57 +352,115 @@ where
     }
 }
 
-pub struct RenderIter<'a, C>
-where
-    C: ComponentController,
-{
-    iter: Enumerate<ArenaIter<'a, DynamicComponent>>,
+pub struct ComponentSetRender<'a, C: ComponentController> {
+    pub(crate) types: Vec<&'a ComponentType>,
+    pub(crate) len: usize,
     marker: PhantomData<C>,
 }
 
-impl<'a, C> RenderIter<'a, C>
+impl<'a, C: ComponentController> ComponentSetRender<'a, C> {
+    pub(crate) fn new(types: Vec<&'a ComponentType>, len: usize) -> Self {
+        Self {
+            types,
+            len,
+            marker: PhantomData::<C>,
+        }
+    }
+
+    /// Get the amount of components in the set.
+    pub fn len(&self) -> usize {
+        return self.len;
+    }
+
+    /// Check if this set is empty
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    /// Iterate over this set
+    pub fn iter(&self) -> ComponentIterRender<'a, C> {
+        return ComponentIterRender::<'a, C>::new(&self.types, self.len);
+    }
+}
+
+impl<'a, C> IntoIterator for &'a ComponentSetRender<'a, C>
 where
     C: ComponentController,
 {
-    pub(crate) fn new(iter: ArenaIter<'a, DynamicComponent>) -> RenderIter<'a, C> {
-        RenderIter {
-            iter: iter.enumerate(),
+    type Item = (Instances, &'a C);
+    type IntoIter = ComponentIterRender<'a, C>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        return self.iter();
+    }
+}
+
+pub struct ComponentIterRender<'a, C>
+where
+    C: ComponentController,
+{
+    iters: Vec<Enumerate<ArenaIter<'a, DynamicComponent>>>,
+    iter_index: usize,
+    len: usize,
+    marker: PhantomData<C>,
+}
+
+impl<'a, C> ComponentIterRender<'a, C>
+where
+    C: ComponentController,
+{
+    pub(crate) fn new(types: &Vec<&'a ComponentType>, len: usize) -> ComponentIterRender<'a, C> {
+        let mut iters = Vec::with_capacity(types.len());
+        for t in types {
+            iters.push(t.iter().enumerate());
+        }
+        ComponentIterRender {
+            iters,
+            iter_index: 0,
+            len,
             marker: PhantomData::<C>,
         }
     }
 }
 
-impl<'a, C> ExactSizeIterator for RenderIter<'a, C>
+impl<'a, C> ExactSizeIterator for ComponentIterRender<'a, C>
 where
     C: ComponentController,
 {
     fn len(&self) -> usize {
-        self.iter.len()
+        self.len
     }
 }
 
-impl<'a, C> Iterator for RenderIter<'a, C>
+impl<'a, C> Iterator for ComponentIterRender<'a, C>
 where
     C: ComponentController,
 {
     type Item = (Instances, &'a C);
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some((i, entry)) = self.iter.next() {
-            let i = i as u32;
-            return Some((i..i + 1, entry.1.downcast_ref::<C>().unwrap()));
+        if let Some(iter) = self.iters.get_mut(self.iter_index) {
+            if let Some((i, entry)) = iter.next() {
+                let i = i as u32;
+                return Some((i..i + 1, entry.1.downcast_ref::<C>().unwrap()));
+            }
+            return None;
         }
         return None;
     }
 }
 
-impl<'a, C> DoubleEndedIterator for RenderIter<'a, C>
+impl<'a, C> DoubleEndedIterator for ComponentIterRender<'a, C>
 where
     C: ComponentController,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
-        if let Some((i, entry)) = self.iter.next_back() {
-            let i = i as u32;
-            return Some((i - 1..i, entry.1.downcast_ref::<C>().unwrap()));
+        let len = self.iters.len();
+        if let Some(iter) = self.iters.get_mut(len - 1 - self.iter_index) {
+            if let Some((i, entry)) = iter.next_back() {
+                let i = i as u32;
+                return Some((i - 1..i, entry.1.downcast_ref::<C>().unwrap()));
+            }
+            return None;
         }
         return None;
     }
