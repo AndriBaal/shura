@@ -53,6 +53,9 @@ pub struct ComponentManager {
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
     component_callbacks: FxHashMap<ComponentTypeId, ComponentCallbacks>,
+    
+    #[cfg(feature = "physics")]
+    world: World,
 }
 
 impl ComponentManager {

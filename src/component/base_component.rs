@@ -137,7 +137,7 @@ impl BaseComponent {
         }
     }
 
-    pub(crate) fn deinit(&mut self, #[cfg(feature = "physics")] world: &mut World) {
+    pub(crate) fn deinit(&mut self) {
         self.handle = Default::default();
         self.group_id = 0;
         self.type_id = Default::default();
@@ -148,7 +148,7 @@ impl BaseComponent {
         }
     }
 
-    pub(crate) fn matrix(&self, #[cfg(feature = "physics")] world: &World) -> Matrix {
+    pub fn matrix(&self) -> Matrix {
         return match &self.body {
             BodyStatus::Position { matrix, .. } => *matrix,
             #[cfg(feature = "physics")]
@@ -363,7 +363,7 @@ impl BaseComponent {
     // }
 
     #[cfg(feature = "physics")]
-    pub(crate) fn remove_from_world(&mut self, world: &mut World) {
+    pub(crate) fn remove_from_world(&mut self) {
         match std::mem::replace(
             &mut self.body,
             BodyStatus::RigidBody {

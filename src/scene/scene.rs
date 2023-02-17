@@ -62,8 +62,6 @@ pub struct Scene {
     pub render_config: RenderConfig,
     pub camera: Camera,
     pub component_manager: ComponentManager,
-    #[cfg(feature = "physics")]
-    pub world: World,
 }
 
 impl Scene {
