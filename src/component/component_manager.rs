@@ -11,7 +11,6 @@ use log::info;
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::{
     collections::BTreeMap,
-    marker::PhantomData,
     rc::Rc,
 };
 

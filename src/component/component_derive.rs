@@ -1,5 +1,3 @@
-use core::marker::PhantomData;
-
 #[cfg(feature = "physics")]
 use crate::{
     physics::{CollideType, ColliderHandle},
@@ -121,6 +119,7 @@ pub trait ComponentControllerCaller {
     fn call_update(paths: &[ArenaPath], ctx: &mut Context)
     where
         Self: Sized;
+    #[cfg(feature = "physics")]
     fn call_collision(
         ctx: &mut Context,
         self_handle: ComponentHandle,
@@ -170,6 +169,7 @@ impl<C: ComponentController> ComponentControllerCaller for C {
         C::update(ActiveComponents::new(paths), ctx)
     }
 
+    #[cfg(feature = "physics")]
     fn call_collision(
         ctx: &mut Context,
         self_handle: ComponentHandle,
@@ -199,6 +199,7 @@ pub(crate) struct ComponentCallbacks {
         model: &'a Model,
         sprite: &'a Sprite,
     ),
+    #[cfg(feature = "physics")]
     pub call_collision: fn(
         ctx: &mut Context,
         self_handle: ComponentHandle,
@@ -220,6 +221,7 @@ impl ComponentCallbacks {
         return Self {
             call_update: C::call_update,
             call_postproccess: C::call_postproccess,
+            #[cfg(feature = "physics")]
             call_collision: C::call_collision,
             call_render: C::call_render,
         };

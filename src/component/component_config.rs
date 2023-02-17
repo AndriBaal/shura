@@ -5,10 +5,10 @@ use instant::Duration;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum RenderOperation {
     /// Does not render at all and therefore does not create a Buffer on the GPU.
-    None,
+    Never,
     /// Render all components in the same method by calling `grouped_render`. A Set of all components of
     /// a group get provided. Use this if your components all draw the same graphics on the same model.
-    Grouped,
+    EveryFrame,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -27,7 +27,7 @@ pub enum CameraUse {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// Defines the update of a component
 pub enum UpdateOperation {
-    None,
+    Never,
     EveryFrame,
     EveryNFrame(u64),
     AfterDuration(Duration),
@@ -38,7 +38,7 @@ pub enum UpdateOperation {
 /// Defines the postproccess operations
 pub enum PostproccessOperation {
     /// No postprocessing is applied
-    None,
+    Never,
     /// Postprocessing is done on the same layer as every other render operation
     SameLayer,
     /// The Postprocessing gets applied to a seperate layer before rendering it on top of the others
@@ -67,15 +67,19 @@ pub struct ComponentConfig {
     pub does_move: bool,
 }
 
+impl ComponentConfig {
+    pub const DEFAULT_CONFIG: ComponentConfig = ComponentConfig {
+        does_move: true,
+        update: UpdateOperation::EveryFrame,
+        postproccess: PostproccessOperation::Never,
+        render: RenderOperation::EveryFrame,
+        camera: CameraUse::World,
+        priority: 16,
+    };
+}
+
 impl Default for ComponentConfig {
     fn default() -> Self {
-        Self {
-            does_move: true,
-            update: UpdateOperation::EveryFrame,
-            postproccess: PostproccessOperation::None,
-            render: RenderOperation::Grouped,
-            camera: CameraUse::World,
-            priority: 16,
-        }
+        Self::DEFAULT_CONFIG
     }
 }

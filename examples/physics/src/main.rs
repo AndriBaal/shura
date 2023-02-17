@@ -126,7 +126,7 @@ impl ComponentController for BoxManager {
     fn config() -> ComponentConfig {
         ComponentConfig {
             priority: 1,
-            render: RenderOperation::None,
+            render: RenderOperation::Never,
             ..ComponentConfig::default()
         }
     }
@@ -197,8 +197,7 @@ impl ComponentController for Player {
         renderer: &mut Renderer<'a>,
         _instances: Instances,
     ) {
-        let test = ctx.active_components_render(&components);
-        for (instances, player) in &test {
+        for (instances, player) in &ctx.active_components_render(&components) {
             renderer.render_sprite(&player.model, &player.sprite);
             renderer.commit(instances);
         }
@@ -252,7 +251,8 @@ impl ComponentController for Floor {
         renderer: &mut Renderer<'a>,
         all_instances: Instances,
     ) {
-        for (instance, floor) in &ctx.active_components_render(&components) {
+        let test = ctx.active_components_render(&components);
+        for (instance, floor) in &test {
             renderer.render_color(&floor.model, &floor.color);
             renderer.commit(instance);
         }
@@ -295,7 +295,7 @@ impl ComponentController for PhysicsBox {
             .iter()
             .next()
             .unwrap();
-
+        
         for (instance, physics_box) in &ctx.active_components_render(&components) {
             let color: &Uniform<Color>;
             if physics_box.collided {
@@ -316,8 +316,7 @@ impl ComponentController for PhysicsBox {
         let cm = &mut ctx.scene.component_manager;
         let input = &mut ctx.shura.input;
         let mut to_remove = vec![];
-        let mut e = cm.active_components_mut(&components);
-        for physics_box in &mut e {
+        for physics_box in &mut cm.active_components_mut(&components) {
             if world.intersects_point(
                 physics_box
                     .component

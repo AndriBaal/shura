@@ -1,9 +1,9 @@
 #[cfg(feature = "physics")]
 use crate::physics::World;
 use crate::{
-    data::arena::{ArenaEntry, ArenaIter, ArenaIterMut},
+    data::arena::{ArenaIter, ArenaIterMut},
     Arena, ArenaIndex, ComponentConfig, ComponentController, ComponentHandle, DynamicComponent,
-    Gpu, InstanceBuffer, Matrix, RenderOperation, Context,
+    Gpu, InstanceBuffer, Matrix, RenderOperation,
 };
 
 #[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
@@ -58,7 +58,7 @@ impl ComponentType {
 
     #[inline(always)]
     pub fn buffer_data(&mut self, gpu: &Gpu, #[cfg(feature = "physics")] world: &World) {
-        if self.config.render == RenderOperation::None {
+        if self.config.render == RenderOperation::Never {
             return;
         }
 

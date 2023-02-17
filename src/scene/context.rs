@@ -813,9 +813,9 @@ impl<'a> Context<'a> {
 
     #[inline]
     pub fn active_components_render<C: ComponentController + ComponentIdentifier>(
-        &'a self,
+        &self,
         active_components: &ActiveComponents<C>,
-    ) -> ComponentSetRender<'a, C> {
+    ) -> ComponentSetRender<C> {
         return self
             .scene
             .component_manager
@@ -824,9 +824,9 @@ impl<'a> Context<'a> {
 
     #[inline]
     pub fn active_components<C: ComponentController + ComponentIdentifier>(
-        &'a self,
+        &self,
         active_components: &ActiveComponents<C>,
-    ) -> ComponentSet<'a, C> {
+    ) -> ComponentSet<C> {
         return self
             .scene
             .component_manager
@@ -835,8 +835,8 @@ impl<'a> Context<'a> {
 
     #[inline]
     pub fn active_components_mut<C: ComponentController + ComponentIdentifier>(
-        &'a mut self,
-        active_components: &'a ActiveComponents<C>,
+        &mut self,
+        active_components: &ActiveComponents<C>,
     ) -> ComponentSetMut<C> {
         return self
             .scene
@@ -846,17 +846,17 @@ impl<'a> Context<'a> {
 
     #[inline]
     pub fn components_mut<C: ComponentController + ComponentIdentifier>(
-        &'a mut self,
+        &mut self,
         filter: GroupFilter,
-    ) -> ComponentSetMut<'a, C> {
+    ) -> ComponentSetMut<C> {
         self.scene.component_manager.components_mut::<C>(filter)
     }
 
     #[inline]
     pub fn components<C: ComponentController + ComponentIdentifier>(
-        &'a self,
+        &self,
         filter: GroupFilter,
-    ) -> ComponentSet<'a, C> {
+    ) -> ComponentSet<C> {
         self.scene.component_manager.components::<C>(filter)
     }
 

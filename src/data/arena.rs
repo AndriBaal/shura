@@ -17,7 +17,7 @@ pub(crate) enum ArenaEntry<T> {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ArenaIndex {
+pub(crate) struct ArenaIndex {
     pub(super) index: u32,
     pub(super) generation: u32,
 }
@@ -228,7 +228,7 @@ impl<'a, T> IntoIterator for &'a Arena<T> {
     }
 }
 
-pub struct ArenaIter<'a, T> {
+pub(crate) struct ArenaIter<'a, T> {
     len: usize,
     base: iter::Enumerate<slice::Iter<'a, ArenaEntry<T>>>,
 }

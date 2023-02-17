@@ -151,6 +151,7 @@ impl ComponentDeserializer {
     ) {
         let type_id = C::IDENTIFIER;
         let components = self.components.remove(&type_id).unwrap();
+        ctx.scene.component_manager.register_callbacks::<C>();
 
         for (group_id, components) in components {
             let mut items: Vec<ArenaEntry<DynamicComponent>> =

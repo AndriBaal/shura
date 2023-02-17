@@ -9,8 +9,8 @@ use std::{iter::Enumerate, marker::PhantomData};
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ArenaPath {
-    pub group_index: ArenaIndex,
-    pub type_index: ArenaIndex,
+    pub(crate) group_index: ArenaIndex,
+    pub(crate) type_index: ArenaIndex,
 }
 
 #[derive(Clone)]
@@ -142,7 +142,7 @@ impl<'a, C: ComponentController> ComponentSet<'a, C> {
     }
 }
 
-impl<'a, C> IntoIterator for &'a ComponentSet<'a, C>
+impl<'a, C> IntoIterator for &ComponentSet<'a, C>
 where
     C: ComponentController,
 {
@@ -383,7 +383,7 @@ impl<'a, C: ComponentController> ComponentSetRender<'a, C> {
     }
 }
 
-impl<'a, C> IntoIterator for &'a ComponentSetRender<'a, C>
+impl<'a, C> IntoIterator for &ComponentSetRender<'a, C>
 where
     C: ComponentController,
 {

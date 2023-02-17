@@ -43,9 +43,8 @@ impl BunnyManager {
     }
 }
 
-
 impl ComponentController for BunnyManager {
-    fn update(&mut self, ctx: &mut Context) {
+    fn update(active_components: ActiveComponents<Self>, ctx: &mut Context) {
         const MODIFY_STEP: usize = 1500;
         gui::Window::new("bunnymark")
             .anchor(gui::Align2::LEFT_TOP, gui::Vec2::default())
@@ -83,35 +82,6 @@ impl ComponentController for BunnyManager {
                 ctx.remove_component(&handle);
             }
         }
-
-        let fov = ctx.camera_fov() / 2.0;
-        let frame = ctx.frame_time();
-        let mut test = ctx.components_mut::<Bunny>(GroupFilter::All);
-        for bunny in test.iter() {
-            const GRAVITY: f32 = -2.5;
-            let mut linvel = bunny.linvel;
-            let mut translation = *bunny.translation();
-    
-            linvel.y += GRAVITY * frame;
-            translation += linvel * frame;
-            if translation.x >= fov.width {
-                linvel.x = -linvel.x;
-                translation.x = fov.width;
-            } else if translation.x <= -fov.width {
-                linvel.x = -linvel.x;
-                translation.x = -fov.width;
-            }
-    
-            if translation.y < -fov.height {
-                linvel.y = thread_rng().gen_range(0.0..15.0);
-                translation.y = -fov.height;
-            } else if translation.y > fov.height {
-                linvel.y = -1.0;
-                translation.y = fov.height;
-            }
-            bunny.linvel = linvel;
-            bunny.component.set_translation(translation);
-        }
     }
 
     fn config() -> ComponentConfig
@@ -120,7 +90,7 @@ impl ComponentController for BunnyManager {
     {
         ComponentConfig {
             priority: 1,
-            render: RenderOperation::None,
+            render: RenderOperation::Never,
             ..ComponentConfig::default()
         }
     }
@@ -145,38 +115,40 @@ impl Bunny {
 }
 
 impl ComponentController for Bunny {
-    fn update(&mut self, ctx: &mut Context) {
-        const GRAVITY: f32 = -2.5;
+    fn update(active_components: ActiveComponents<Self>, ctx: &mut Context) {
         let fov = ctx.camera_fov() / 2.0;
         let frame = ctx.frame_time();
-        let mut linvel = self.linvel;
-        let mut translation = *self.translation();
+        for bunny in &mut ctx.active_components_mut(&active_components) {
+            const GRAVITY: f32 = -2.5;
+            let mut linvel = bunny.linvel;
+            let mut translation = *bunny.translation();
 
-        linvel.y += GRAVITY * frame;
-        translation += linvel * frame;
-        if translation.x >= fov.width {
-            linvel.x = -linvel.x;
-            translation.x = fov.width;
-        } else if translation.x <= -fov.width {
-            linvel.x = -linvel.x;
-            translation.x = -fov.width;
-        }
+            linvel.y += GRAVITY * frame;
+            translation += linvel * frame;
+            if translation.x >= fov.width {
+                linvel.x = -linvel.x;
+                translation.x = fov.width;
+            } else if translation.x <= -fov.width {
+                linvel.x = -linvel.x;
+                translation.x = -fov.width;
+            }
 
-        if translation.y < -fov.height {
-            linvel.y = thread_rng().gen_range(0.0..15.0);
-            translation.y = -fov.height;
-        } else if translation.y > fov.height {
-            linvel.y = -1.0;
-            translation.y = fov.height;
+            if translation.y < -fov.height {
+                linvel.y = thread_rng().gen_range(0.0..15.0);
+                translation.y = -fov.height;
+            } else if translation.y > fov.height {
+                linvel.y = -1.0;
+                translation.y = fov.height;
+            }
+            bunny.linvel = linvel;
+            bunny.component.set_translation(translation);
         }
-        self.linvel = linvel;
-        self.component.set_translation(translation);
     }
 
     fn render<'a>(
+        _active_components: ActiveComponents<Self>,
         ctx: &'a Context<'a>,
         renderer: &mut Renderer<'a>,
-        _components: RenderIter<'a, Bunny>,
         instances: Instances,
     ) {
         let manager = ctx
@@ -194,8 +166,6 @@ impl ComponentController for Bunny {
     {
         ComponentConfig {
             priority: 2,
-            update: UpdateOperation::None,
-            render: RenderOperation::Grouped,
             ..ComponentConfig::default()
         }
     }

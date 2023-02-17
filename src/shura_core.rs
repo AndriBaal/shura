@@ -1,10 +1,7 @@
 #[cfg(feature = "gui")]
 use crate::gui::Gui;
 #[cfg(feature = "physics")]
-use crate::{
-    physics::{ActiveEvents, CollideType, ColliderHandle},
-    ArenaPath, ComponentHandle,
-};
+use crate::physics::{ActiveEvents, CollideType};
 use crate::{
     Color, Context, Defaults, Dimension, FrameManager, Gpu, Input, PostproccessOperation,
     RenderOperation, Renderer, Scene, SceneCreator, SceneManager, Sprite,
@@ -323,6 +320,10 @@ impl Shura {
         if ctx.update_components() {
             let sets = ctx.scene.component_manager.copy_active_components();
             for set in sets.values() {
+                if set.paths().len() < 1 {
+                    continue;
+                }
+
                 let config = set.config();
                 #[cfg(feature = "physics")]
                 if !done_step && config.priority > ctx.physics_priority() {
@@ -332,7 +333,7 @@ impl Shura {
 
                 match config.update {
                     crate::UpdateOperation::EveryFrame => {}
-                    crate::UpdateOperation::None => {
+                    crate::UpdateOperation::Never => {
                         continue;
                     }
                     crate::UpdateOperation::EveryNFrame(frames) => {
@@ -413,7 +414,7 @@ impl Shura {
             }
             let config = set.config();
             let mut save_sprite: Option<String> = None;
-            if config.render != RenderOperation::None {
+            if config.render != RenderOperation::Never {
                 let mut renderer = if config.postproccess == PostproccessOperation::SeperateLayer {
                     Renderer::clear(
                         &mut encoder,
@@ -446,7 +447,7 @@ impl Shura {
                     }
                 }
                 match config.render {
-                    RenderOperation::Grouped => {
+                    RenderOperation::EveryFrame => {
                         for path in set.paths() {
                             let group =
                                 ctx.scene.component_manager.group(path.group_index).unwrap();
@@ -454,8 +455,8 @@ impl Shura {
                             let len = component_type.len();
                             let buffer = component_type.buffer();
                             renderer.set_instance_buffer(buffer);
-                            if let Some((_, first_component)) = component_type.iter().next() {
-                                let instances = 0..len as u32;
+                            let instances = 0..len as u32;
+                            if component_type.len() > 0 {
                                 (set.callbacks().call_render)(
                                     &[*path],
                                     &ctx,
@@ -481,11 +482,11 @@ impl Shura {
                 saved_sprites.push((sprite_name, sprite));
             }
 
-            if config.postproccess != PostproccessOperation::None {
-                'outer: for path in set.paths() {
+            if config.postproccess != PostproccessOperation::Never {
+                for path in set.paths() {
                     let group = ctx.scene.component_manager.group(path.group_index).unwrap();
                     let component_type = group.type_ref(path.type_index).unwrap();
-                    for (_, component) in component_type.iter() {
+                    if component_type.len() > 0 {
                         let instances = 0..1;
                         match config.postproccess {
                             PostproccessOperation::SameLayer => {
@@ -540,9 +541,8 @@ impl Shura {
                                     &ctx.shura.defaults.layer,
                                 );
                             }
-                            PostproccessOperation::None => {}
+                            PostproccessOperation::Never => unreachable!(),
                         }
-                        break 'outer;
                     }
                 }
 
