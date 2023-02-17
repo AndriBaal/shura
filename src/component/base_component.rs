@@ -148,7 +148,7 @@ impl BaseComponent {
         }
     }
 
-    pub fn matrix(&self, #[cfg(feature = "physics")] world: &World) -> Matrix {
+    pub(crate) fn matrix(&self, #[cfg(feature = "physics")] world: &World) -> Matrix {
         return match &self.body {
             BodyStatus::Position { matrix, .. } => *matrix,
             #[cfg(feature = "physics")]
@@ -178,7 +178,6 @@ impl BaseComponent {
 
     pub fn set_rotation(
         &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
         rotation: Rotation<f32>,
     ) {
         match &mut self.body {
@@ -198,7 +197,6 @@ impl BaseComponent {
 
     pub fn set_translation(
         &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
         translation: Vector<f32>,
     ) {
         match &mut self.body {
@@ -218,7 +216,6 @@ impl BaseComponent {
 
     pub fn set_position(
         &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
         new_position: Isometry<f32>,
     ) {
         match &mut self.body {
@@ -239,7 +236,6 @@ impl BaseComponent {
 
     pub fn rotation<'a>(
         &'a self,
-        #[cfg(feature = "physics")] world: &'a World,
     ) -> &'a Rotation<f32> {
         return match &self.body {
             BodyStatus::Position { position, .. } => &position.rotation,
@@ -255,7 +251,6 @@ impl BaseComponent {
 
     pub fn translation<'a>(
         &'a self,
-        #[cfg(feature = "physics")] world: &'a World,
     ) -> &'a Vector<f32> {
         return match &self.body {
             BodyStatus::Position { position, .. } => &position.translation.vector,
@@ -271,7 +266,6 @@ impl BaseComponent {
 
     pub fn position<'a>(
         &'a self,
-        #[cfg(feature = "physics")] world: &'a World,
     ) -> &'a Isometry<f32> {
         return match &self.body {
             BodyStatus::Position { position, .. } => &position,
@@ -333,7 +327,7 @@ impl BaseComponent {
     }
 
     #[cfg(feature = "physics")]
-    pub fn rigid_body<'a>(&'a self, world: &'a World) -> Option<&'a RigidBody> {
+    pub fn rigid_body<'a>(&'a self) -> Option<&'a RigidBody> {
         return match &self.body {
             BodyStatus::RigidBody { handle } => world.rigid_body(*handle),
             BodyStatus::RigidBodyPending { body, .. } => Some(body),
@@ -342,7 +336,7 @@ impl BaseComponent {
     }
 
     #[cfg(feature = "physics")]
-    pub fn rigid_body_mut<'a>(&'a mut self, world: &'a mut World) -> Option<&'a mut RigidBody> {
+    pub fn rigid_body_mut<'a>(&'a mut self) -> Option<&'a mut RigidBody> {
         return match &mut self.body {
             BodyStatus::RigidBody { handle } => world.rigid_body_mut(*handle),
             BodyStatus::RigidBodyPending { body, .. } => Some(body),
@@ -351,7 +345,7 @@ impl BaseComponent {
     }
 
     #[cfg(feature = "physics")]
-    pub fn collider_handles<'a>(&'a self, world: &'a World) -> Option<&'a [ColliderHandle]> {
+    pub fn collider_handles<'a>(&'a self) -> Option<&'a [ColliderHandle]> {
         self.rigid_body(world).and_then(|b| Some(b.colliders()))
     }
 
