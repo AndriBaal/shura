@@ -57,7 +57,7 @@ impl ComponentType {
     }
 
     #[inline(always)]
-    pub fn buffer_data(&mut self, gpu: &Gpu, #[cfg(feature = "physics")] world: &World) {
+    pub fn buffer_data(&mut self, gpu: &Gpu) {
         if self.config.render == RenderOperation::Never {
             return;
         }
@@ -66,15 +66,11 @@ impl ComponentType {
         if new_len != self.last_len {
             // We have to resize the buffer
             let data = self.data(
-                #[cfg(feature = "physics")]
-                world,
             );
             self.last_len = new_len;
             self.buffer = Some(InstanceBuffer::new(gpu, &data[..]));
         } else if self.config.does_move || self.force_rewrite_buffer {
             let data = self.data(
-                #[cfg(feature = "physics")]
-                world,
             );
             self.force_rewrite_buffer = false;
             if let Some(buffer) = &mut self.buffer {
@@ -86,13 +82,12 @@ impl ComponentType {
     }
 
     #[inline(always)]
-    fn data(&mut self, #[cfg(feature = "physics")] world: &World) -> Vec<Matrix> {
+    fn data(&mut self) -> Vec<Matrix> {
         self.components
             .iter_mut()
             .map(|(_, component)| {
                 component.base().matrix(
                     #[cfg(feature = "physics")]
-                    world,
                 )
             })
             .collect::<Vec<Matrix>>()

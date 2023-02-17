@@ -78,6 +78,9 @@ impl ComponentManager {
             force_update_sets: false,
             active_components: Default::default(),
             component_callbacks: Default::default(),
+            
+            #[cfg(feature = "physics")]
+            world: World::new(),
         }
     }
 
@@ -147,7 +150,7 @@ impl ComponentManager {
         }
     }
 
-    pub(crate) fn buffer_sets(&mut self, gpu: &Gpu, #[cfg(feature = "physics")] world: &World) {
+    pub(crate) fn buffer_sets(&mut self, gpu: &Gpu) {
         for group in &self.active_groups {
             if let Some(group) = self.groups.get_mut(*group) {
                 for (_, t) in group.types() {
@@ -200,7 +203,6 @@ impl ComponentManager {
 
     pub fn create_component<C: ComponentController + ComponentIdentifier>(
         &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
         group_id: Option<u32>,
         component: C,
     ) -> (&mut C, ComponentHandle) {
@@ -251,7 +253,6 @@ impl ComponentManager {
     pub fn remove_component(
         &mut self,
         handle: &ComponentHandle,
-        #[cfg(feature = "physics")] world: &mut World,
     ) -> Option<DynamicComponent> {
         if let Some(group) = self.groups.get_mut(handle.group_index()) {
             if let Some(component_type) = group.type_mut(handle.type_index()) {
@@ -270,14 +271,12 @@ impl ComponentManager {
     pub fn remove_components<C: ComponentController + ComponentIdentifier>(
         &mut self,
         group_filter: GroupFilter,
-        #[cfg(feature = "physics")] world: &mut World,
     ) {
         let type_id = C::IDENTIFIER;
         #[inline]
         fn remove(
             group: &mut ComponentGroup,
-            type_id: ComponentTypeId,
-            #[cfg(feature = "physics")] world: &mut World,
+            type_id: ComponentTypeId
         ) {
             if let Some(type_index) = group.type_index(type_id) {
                 let component_type = group.type_mut(*type_index).unwrap();
@@ -330,7 +329,7 @@ impl ComponentManager {
         }
     }
 
-    pub fn remove_group(&mut self, group_id: u32, #[cfg(feature = "physics")] world: &mut World) {
+    pub fn remove_group(&mut self, group_id: u32) {
         if group_id == DEFAULT_GROUP_ID {
             panic!("Cannot the default group with ID {DEFAULT_GROUP_ID}!");
         }

@@ -36,8 +36,7 @@ impl Camera {
 
     pub fn apply_target(
         &mut self,
-        man: &ComponentManager,
-        #[cfg(feature = "physics")] world: &World,
+        man: &ComponentManager
     ) {
         if let Some(target) = self.target() {
             if let Some(component) = man.component_dynamic(&target) {

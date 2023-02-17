@@ -75,8 +75,6 @@ impl Scene {
             cursor: CursorManager::new(),
             component_manager: ComponentManager::new(),
             render_config: RenderConfig::new(),
-            #[cfg(feature = "physics")]
-            world: World::new(),
             saved_sprites: vec![],
         }
     }
