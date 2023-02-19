@@ -1,5 +1,3 @@
-#[cfg(feature = "physics")]
-use crate::physics::World;
 use crate::{
     ComponentHandle, ComponentManager, CursorManager, Dimension, Gpu, Input, Isometry, Matrix,
     Model, ModelBuilder, Rotation, Uniform, Vector, Vertex,
@@ -34,17 +32,11 @@ impl Camera {
         }
     }
 
-    pub fn apply_target(
-        &mut self,
-        man: &ComponentManager
-    ) {
+    pub fn apply_target(&mut self, man: &ComponentManager) {
         if let Some(target) = self.target() {
             if let Some(component) = man.component_dynamic(&target) {
-                let matrix = component.base().matrix(
-                    #[cfg(feature = "physics")]
-                    &world,
-                );
-                self.set_translation(Vector::new(matrix[12], matrix[13]));
+                let translation = component.base().translation();
+                self.set_translation(translation);
             } else {
                 self.set_target(None);
             }

@@ -228,10 +228,10 @@ impl Shura {
     #[cfg(feature = "physics")]
     fn step(ctx: &mut Context) {
         let delta = ctx.frame_time();
-        ctx.scene.world.step(delta);
-        // while let Ok(contact_force_event) = ctx.scene.world.event_receivers.1.try_recv() {
+        ctx.scene.component_manager.world_mut().step(delta);
+        // while let Ok(contact_force_event) = ctx.scene.component_manager.event_receivers.1.try_recv() {
         // }
-        while let Ok(collision_event) = ctx.scene.world.collision_event() {
+        while let Ok(collision_event) = ctx.scene.component_manager.world_mut().collision_event() {
             let collider_handle1 = collision_event.collider1();
             let collider_handle2 = collision_event.collider2();
             let collision_type = if collision_event.started() {
@@ -240,14 +240,18 @@ impl Shura {
                 CollideType::Stopped
             };
 
-            if let Some(collider1) = ctx.collider(collider_handle1) {
-                if let Some(collider2) = ctx.collider(collider_handle2) {
+            if let Some(collider1_events) = ctx
+                .collider(collider_handle1)
+                .and_then(|c| Some(c.active_events()))
+            {
+                if let Some(collider2_events) = ctx
+                    .collider(collider_handle2)
+                    .and_then(|c| Some(c.active_events()))
+                {
                     let (component_gype_id1, component1) =
                         ctx.component_from_collider(&collider_handle1).unwrap();
                     let (component_gype_id2, component2) =
                         ctx.component_from_collider(&collider_handle2).unwrap();
-                    let collider1_events = collider1.active_events();
-                    let collider2_events = collider2.active_events();
                     if collider1_events == ActiveEvents::COLLISION_EVENTS {
                         let callback = ctx
                             .scene
@@ -360,11 +364,7 @@ impl Shura {
         }
 
         ctx.shura.input.update();
-        ctx.scene.camera.apply_target(
-            &ctx.scene.component_manager,
-            #[cfg(feature = "physics")]
-            &ctx.scene.world,
-        );
+        ctx.scene.camera.apply_target(&ctx.scene.component_manager);
         ctx.scene.component_manager.update_sets(&ctx.scene.camera);
         ctx.scene.resized = false;
         ctx.scene.switched = false;
@@ -373,11 +373,7 @@ impl Shura {
             return Ok(());
         }
 
-        ctx.scene.component_manager.buffer_sets(
-            &ctx.shura.gpu,
-            #[cfg(feature = "physics")]
-            &ctx.scene.world,
-        );
+        ctx.scene.component_manager.buffer_sets(&ctx.shura.gpu);
         ctx.shura.defaults.buffer(
             &ctx.scene.camera,
             &ctx.shura.gpu,

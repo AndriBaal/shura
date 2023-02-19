@@ -29,7 +29,7 @@ impl BunnyManager {
         ctx.set_vertical_fov(6.0);
 
         let bunny_model = ctx.create_model(ModelBuilder::cuboid(Dimension::new(0.06, 0.09)));
-        let bunny_sprite = ctx.create_sprite(include_bytes!("../img/wabbit.png"));
+        let bunny_sprite = ctx.create_sprite(include_bytes!("./img/wabbit.png"));
 
         ctx.create_component(None, Bunny::new(&ctx));
 
@@ -44,7 +44,7 @@ impl BunnyManager {
 }
 
 impl ComponentController for BunnyManager {
-    fn update(active_components: ActiveComponents<Self>, ctx: &mut Context) {
+    fn update(_active_components: ActiveComponents<Self>, ctx: &mut Context) {
         const MODIFY_STEP: usize = 1500;
         gui::Window::new("bunnymark")
             .anchor(gui::Align2::LEFT_TOP, gui::Vec2::default())
@@ -121,7 +121,7 @@ impl ComponentController for Bunny {
         for bunny in &mut ctx.active_components_mut(&active_components) {
             const GRAVITY: f32 = -2.5;
             let mut linvel = bunny.linvel;
-            let mut translation = *bunny.translation();
+            let mut translation = bunny.translation();
 
             linvel.y += GRAVITY * frame;
             translation += linvel * frame;

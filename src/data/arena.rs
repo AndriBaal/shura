@@ -49,7 +49,7 @@ impl<T> Arena<T> {
     pub fn new() -> Arena<T> {
         Arena::with_capacity(DEFAULT_CAPACITY)
     }
-    
+
     pub fn as_slice(&mut self) -> &mut [ArenaEntry<T>] {
         &mut self.items
     }

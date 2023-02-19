@@ -56,7 +56,7 @@ impl Arena<DynamicComponent> {
                     *generation,
                     bincode::serialize(data.downcast_ref::<C>().unwrap()).unwrap(),
                 )),
-                ArenaEntry::Free { .. } => None
+                ArenaEntry::Free { .. } => None,
             })
             .collect();
         return e;

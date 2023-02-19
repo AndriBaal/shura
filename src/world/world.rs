@@ -1,3 +1,9 @@
+use std::{
+    cell::{Ref, RefCell, RefMut},
+    ops::{Deref, DerefMut},
+    rc::Rc,
+};
+
 use crate::{BaseComponent, ComponentHandle, ComponentTypeId};
 use rapier2d::prelude::*;
 use rustc_hash::FxHashMap;
@@ -36,8 +42,8 @@ impl WorldEvents {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct World {
     physics_priority: i16,
-    bodies: RigidBodySet,
-    colliders: ColliderSet,
+    bodies: Rc<RefCell<RigidBodySet>>,
+    colliders: Rc<RefCell<ColliderSet>>,
     component_mapping: FxHashMap<ColliderHandle, (ComponentTypeId, ComponentHandle)>,
 
     query_pipeline: QueryPipeline,
@@ -98,16 +104,20 @@ impl World {
             impulse_joints: ImpulseJointSet::new(),
             multibody_joints: MultibodyJointSet::new(),
             ccd_solver: CCDSolver::new(),
-            colliders: ColliderSet::new(),
-            bodies: RigidBodySet::new(),
+            colliders: Rc::new(RefCell::new(ColliderSet::new())),
+            bodies: Rc::new(RefCell::new(RigidBodySet::new())),
             physics_priority: 1000,
             events: Default::default(),
             component_mapping: Default::default(),
         }
     }
 
+    pub(crate) fn clone_refrence(&self) -> (Rc<RefCell<RigidBodySet>>, Rc<RefCell<ColliderSet>>) {
+        return (self.bodies.clone(), self.colliders.clone())
+    }
+
     pub(crate) fn create_body(&mut self, builder: impl Into<RigidBody>) -> RigidBodyHandle {
-        self.bodies.insert(builder)
+        self.bodies.borrow_mut().insert(builder)
     }
 
     pub(crate) fn create_collider(
@@ -122,9 +132,11 @@ impl World {
             panic!("Initialize the component before adding additional colliders!");
         }
 
-        let collider_handle =
-            self.colliders
-                .insert_with_parent(collider, body_handle, &mut self.bodies);
+        let collider_handle = self.colliders.borrow_mut().insert_with_parent(
+            collider,
+            body_handle,
+            &mut self.bodies.borrow_mut(),
+        );
 
         self.component_mapping
             .insert(collider_handle, (component.type_id(), *component.handle()));
@@ -132,23 +144,24 @@ impl World {
     }
 
     pub(crate) fn remove_body(&mut self, handle: RigidBodyHandle) -> (RigidBody, Vec<Collider>) {
-        let colliders = self.bodies.get(handle).unwrap().colliders().to_vec();
+        let mut bodies = self.bodies.borrow_mut();
+        let colliders = bodies.get(handle).unwrap().colliders().to_vec();
         let collider = colliders
             .iter()
             .map(|collider_handle| {
                 self.component_mapping.remove(collider_handle);
                 self.colliders
-                    .remove(*collider_handle, &mut self.islands, &mut self.bodies, false)
+                    .borrow_mut()
+                    .remove(*collider_handle, &mut self.islands, &mut bodies, false)
                     .unwrap()
             })
             .collect();
 
-        let body = self
-            .bodies
+        let body = bodies
             .remove(
                 handle,
                 &mut self.islands,
-                &mut self.colliders,
+                &mut self.colliders.borrow_mut(),
                 &mut self.impulse_joints,
                 &mut self.multibody_joints,
                 true,
@@ -159,8 +172,12 @@ impl World {
 
     pub fn remove_collider(&mut self, handle: ColliderHandle) -> Option<Collider> {
         self.component_mapping.remove(&handle);
-        self.colliders
-            .remove(handle, &mut self.islands, &mut self.bodies, true)
+        self.colliders.borrow_mut().remove(
+            handle,
+            &mut self.islands,
+            &mut self.bodies.borrow_mut(),
+            true,
+        )
     }
 
     #[inline]
@@ -193,11 +210,19 @@ impl World {
         solid: bool,
         filter: QueryFilter,
     ) -> Option<(ComponentHandle, ColliderHandle, f32)> {
-        if let Some(collider) =
-            self.query_pipeline
-                .cast_ray(&self.bodies, &self.colliders, ray, max_toi, solid, filter)
-        {
-            return Some((self.component(&collider.0).unwrap().1, collider.0, collider.1));
+        if let Some(collider) = self.query_pipeline.cast_ray(
+            &self.bodies.borrow(),
+            &self.colliders.borrow(),
+            ray,
+            max_toi,
+            solid,
+            filter,
+        ) {
+            return Some((
+                self.component_from_collider(&collider.0).unwrap().1,
+                collider.0,
+                collider.1,
+            ));
         }
         return None;
     }
@@ -213,8 +238,8 @@ impl World {
         filter: QueryFilter,
     ) -> Option<(ComponentHandle, ColliderHandle, TOI)> {
         if let Some(collider) = self.query_pipeline.cast_shape(
-            &self.bodies,
-            &self.colliders,
+            &self.bodies.borrow(),
+            &self.colliders.borrow(),
             position,
             velocity,
             shape,
@@ -222,7 +247,11 @@ impl World {
             stop_at_penetration,
             filter,
         ) {
-            return Some((self.component(&collider.0).unwrap().1, collider.0, collider.1));
+            return Some((
+                self.component_from_collider(&collider.0).unwrap().1,
+                collider.0,
+                collider.1,
+            ));
         }
         return None;
     }
@@ -236,14 +265,18 @@ impl World {
         filter: QueryFilter,
     ) -> Option<(ComponentHandle, ColliderHandle, RayIntersection)> {
         if let Some(collider) = self.query_pipeline.cast_ray_and_get_normal(
-            &self.bodies,
-            &self.colliders,
+            &self.bodies.borrow(),
+            &self.colliders.borrow(),
             ray,
             max_toi,
             solid,
             filter,
         ) {
-            return Some((self.component(&collider.0).unwrap().1, collider.0, collider.1));
+            return Some((
+                self.component_from_collider(&collider.0).unwrap().1,
+                collider.0,
+                collider.1,
+            ));
         }
         return None;
     }
@@ -275,7 +308,7 @@ impl World {
         handle: ColliderHandle,
         collider: &Collider,
     ) -> bool {
-        filter.test(&self.bodies, handle, collider)
+        filter.test(&self.bodies.borrow(), handle, collider)
     }
 
     #[inline]
@@ -288,13 +321,19 @@ impl World {
         mut callback: impl FnMut(ComponentHandle, ColliderHandle, RayIntersection) -> bool,
     ) {
         self.query_pipeline.intersections_with_ray(
-            &self.bodies,
-            &self.colliders,
+            &self.bodies.borrow(),
+            &self.colliders.borrow(),
             ray,
             max_toi,
             solid,
             filter,
-            |collider, ray| callback(self.component(&collider).unwrap().1, collider, ray),
+            |collider, ray| {
+                callback(
+                    self.component_from_collider(&collider).unwrap().1,
+                    collider,
+                    ray,
+                )
+            },
         );
     }
 
@@ -307,12 +346,12 @@ impl World {
         mut callback: impl FnMut(ComponentHandle, ColliderHandle) -> bool,
     ) {
         self.query_pipeline.intersections_with_shape(
-            &self.bodies,
-            &self.colliders,
+            &self.bodies.borrow(),
+            &self.colliders.borrow(),
             shape_pos,
             shape,
             filter,
-            |collider| callback(self.component(&collider).unwrap().1, collider),
+            |collider| callback(self.component_from_collider(&collider).unwrap().1, collider),
         );
     }
 
@@ -324,13 +363,13 @@ impl World {
         filter: QueryFilter,
     ) -> Option<(ComponentHandle, ColliderHandle)> {
         if let Some(collider) = self.query_pipeline.intersection_with_shape(
-            &self.bodies,
-            &self.colliders,
+            &self.bodies.borrow(),
+            &self.colliders.borrow(),
             shape_pos,
             shape,
             filter,
         ) {
-            let component = self.component(&collider).unwrap().1;
+            let component = self.component_from_collider(&collider).unwrap().1;
             return Some((component, collider));
         }
         return None;
@@ -344,11 +383,11 @@ impl World {
         mut callback: impl FnMut(ComponentHandle, ColliderHandle) -> bool,
     ) {
         self.query_pipeline.intersections_with_point(
-            &self.bodies,
-            &self.colliders,
+            &self.bodies.borrow(),
+            &self.colliders.borrow(),
             point,
             filter,
-            |collider| callback(self.component(&collider).unwrap().1, collider),
+            |collider| callback(self.component_from_collider(&collider).unwrap().1, collider),
         );
     }
 
@@ -360,8 +399,8 @@ impl World {
             &mut self.islands,
             &mut self.broad_phase,
             &mut self.narrow_phase,
-            &mut self.bodies,
-            &mut self.colliders,
+            &mut self.bodies.borrow_mut(),
+            &mut self.colliders.borrow_mut(),
             &mut self.impulse_joints,
             &mut self.multibody_joints,
             &mut self.ccd_solver,
@@ -372,34 +411,25 @@ impl World {
     }
 
     #[inline]
-    pub fn collider<'a>(&'a self, collider_handle: ColliderHandle) -> Option<&'a Collider> {
-        self.colliders.get(collider_handle)
-    }
-
-    #[inline]
-    pub fn collider_mut<'a>(
-        &'a mut self,
+    pub fn collider(
+        &self,
         collider_handle: ColliderHandle,
-    ) -> Option<&'a mut Collider> {
-        self.colliders.get_mut(collider_handle)
+    ) -> Option<impl Deref<Target = Collider> + '_> {
+        Ref::filter_map(self.colliders.borrow(), |c| c.get(collider_handle)).ok()
     }
 
     #[inline]
-    pub(crate) fn rigid_body(&self, body_handle: RigidBodyHandle) -> Option<&RigidBody> {
-        self.bodies.get(body_handle)
+    pub fn collider_mut(
+        &mut self,
+        collider_handle: ColliderHandle,
+    ) -> Option<impl DerefMut<Target = Collider> + '_> {
+        RefMut::filter_map(self.colliders.borrow_mut(), |c| c.get_mut(collider_handle)).ok()
     }
 
     #[inline]
-    pub(crate) fn rigid_body_mut<'a>(
-        &'a mut self,
-        body_handle: RigidBodyHandle,
-    ) -> Option<&'a mut RigidBody> {
-        self.bodies.get_mut(body_handle)
-    }
-
-    #[inline]
-    pub(crate) fn bodies(&self) -> impl Iterator<Item = (RigidBodyHandle, &RigidBody)> {
-        self.bodies.iter()
+    #[cfg(feature = "serde")]
+    pub(crate) fn bodies(&self) -> Ref<RigidBodySet> {
+        self.bodies.borrow()
     }
 
     #[inline]
@@ -419,7 +449,10 @@ impl World {
         self.impulse_joints.get_mut(joint)
     }
 
-    pub fn component(&self, collider_handle: &ColliderHandle) -> Option<(ComponentTypeId, ComponentHandle)> {
+    pub fn component_from_collider(
+        &self,
+        collider_handle: &ColliderHandle,
+    ) -> Option<(ComponentTypeId, ComponentHandle)> {
         self.component_mapping.get(collider_handle).cloned()
     }
 

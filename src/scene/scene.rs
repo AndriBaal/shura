@@ -1,5 +1,3 @@
-#[cfg(feature = "physics")]
-use crate::physics::World;
 use crate::{
     Camera, ComponentManager, Context, CursorManager, Dimension, Isometry, RenderConfig, Shura,
     Sprite,

@@ -13,7 +13,7 @@ use std::{cmp, marker::PhantomData};
 
 use crate::{
     Arena, ArenaEntry, ComponentController, ComponentIdentifier, ComponentManager, ComponentTypeId,
-    Context, DynamicComponent, GroupFilter, Scene, SceneCreator, Shura, Dimension,
+    Context, Dimension, DynamicComponent, GroupFilter, Scene, SceneCreator, Shura,
 };
 
 pub struct ComponentSerializer<'a> {
@@ -25,9 +25,7 @@ pub struct ComponentSerializer<'a> {
 }
 
 impl<'a> ComponentSerializer<'a> {
-    pub(crate) fn new(
-        component_manager: &'a ComponentManager,
-    ) -> Self {
+    pub(crate) fn new(component_manager: &'a ComponentManager) -> Self {
         Self {
             component_manager,
             #[cfg(feature = "physics")]
@@ -46,10 +44,7 @@ impl<'a> ComponentSerializer<'a> {
             let group = self.component_manager.group(*group_index).unwrap();
             if let Some(type_index) = group.type_index(type_id) {
                 let type_ref = group.type_ref(*type_index).unwrap();
-                target.push((
-                    *group_id,
-                    type_ref.serialize_components::<C>(),
-                ));
+                target.push((*group_id, type_ref.serialize_components::<C>()));
                 #[cfg(feature = "physics")]
                 for (_, component) in type_ref {
                     if let Some(body_handle) = component.base().rigid_body_handle() {

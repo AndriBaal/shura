@@ -1,5 +1,3 @@
-#[cfg(feature = "physics")]
-use crate::physics::World;
 use crate::{
     data::arena::{ArenaIter, ArenaIterMut},
     Arena, ArenaIndex, ComponentConfig, ComponentController, ComponentHandle, DynamicComponent,
@@ -65,13 +63,11 @@ impl ComponentType {
         let new_len = self.components.len();
         if new_len != self.last_len {
             // We have to resize the buffer
-            let data = self.data(
-            );
+            let data = self.data();
             self.last_len = new_len;
             self.buffer = Some(InstanceBuffer::new(gpu, &data[..]));
         } else if self.config.does_move || self.force_rewrite_buffer {
-            let data = self.data(
-            );
+            let data = self.data();
             self.force_rewrite_buffer = false;
             if let Some(buffer) = &mut self.buffer {
                 buffer.write(gpu, &data[..]);
@@ -85,11 +81,7 @@ impl ComponentType {
     fn data(&mut self) -> Vec<Matrix> {
         self.components
             .iter_mut()
-            .map(|(_, component)| {
-                component.base().matrix(
-                    #[cfg(feature = "physics")]
-                )
-            })
+            .map(|(_, component)| component.base().matrix())
             .collect::<Vec<Matrix>>()
     }
 
@@ -115,6 +107,7 @@ impl ComponentType {
     }
 
     #[inline]
+    #[cfg(feature = "serde")]
     pub fn deserialize_components(&mut self, components: Arena<DynamicComponent>) {
         self.components = components;
     }

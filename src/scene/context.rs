@@ -8,13 +8,16 @@ use crate::{
 };
 
 #[cfg(feature = "serde")]
-use crate::{ComponentSerializer, ComponentTypeId};
+use crate::ComponentSerializer;
 
 #[cfg(feature = "audio")]
 use crate::audio::{Sink, Sound};
 
 #[cfg(feature = "physics")]
-use crate::{physics::*, BaseComponent, Point};
+use crate::{physics::*, BaseComponent, ComponentTypeId, Point};
+
+#[cfg(feature = "physics")]
+use std::ops::{Deref, DerefMut};
 
 #[cfg(feature = "gui")]
 use crate::gui::GuiContext;
@@ -51,7 +54,10 @@ impl<'a> Context<'a> {
         &self,
         collider: &ColliderHandle,
     ) -> Option<(ComponentTypeId, ComponentHandle)> {
-        self.scene.world.component(collider)
+        self.scene
+            .component_manager
+            .world
+            .component_from_collider(collider)
     }
 
     #[inline]
@@ -74,11 +80,11 @@ impl<'a> Context<'a> {
         #[cfg(feature = "physics")]
         {
             use std::mem;
-            let world = &mut self.scene.world;
             let body_handles = serializer.body_handles;
+            let world = &mut self.scene.component_manager.world;
             let mut world_cpy = world.clone();
             let mut to_remove = vec![];
-            for (body_handle, _body) in world.bodies() {
+            for (body_handle, _body) in world.bodies().iter() {
                 if !body_handles.contains(&body_handle) {
                     to_remove.push(body_handle);
                 }
@@ -95,7 +101,7 @@ impl<'a> Context<'a> {
             ) = (&*self.scene, components);
             let result = bincode::serialize(&scene).ok();
 
-            self.scene.world = old_world;
+            self.scene.component_manager.world = old_world;
 
             return result;
         }
@@ -123,7 +129,10 @@ impl<'a> Context<'a> {
         component2: &BaseComponent,
         joint: impl Into<GenericJoint>,
     ) -> ImpulseJointHandle {
-        self.scene.world.create_joint(component1, component2, joint)
+        self.scene
+            .component_manager
+            .world_mut()
+            .create_joint(component1, component2, joint)
     }
 
     #[inline]
@@ -239,7 +248,10 @@ impl<'a> Context<'a> {
         component: &BaseComponent,
         collider: impl Into<Collider>,
     ) -> ColliderHandle {
-        self.scene.world.create_collider(component, collider)
+        self.scene
+            .component_manager
+            .world_mut()
+            .create_collider(component, collider)
     }
 
     #[inline]
@@ -253,12 +265,9 @@ impl<'a> Context<'a> {
         group: Option<u32>,
         component: C,
     ) -> (&mut C, ComponentHandle) {
-        self.scene.component_manager.create_component(
-            #[cfg(feature = "physics")]
-            &mut self.scene.world,
-            group,
-            component,
-        )
+        self.scene
+            .component_manager
+            .create_component(group, component)
     }
 
     #[inline]
@@ -277,11 +286,7 @@ impl<'a> Context<'a> {
 
     #[inline]
     pub fn remove_component(&mut self, handle: &ComponentHandle) -> Option<DynamicComponent> {
-        return self.scene.component_manager.remove_component(
-            handle,
-            #[cfg(feature = "physics")]
-            &mut self.scene.world,
-        );
+        return self.scene.component_manager.remove_component(handle);
     }
 
     #[inline]
@@ -289,32 +294,27 @@ impl<'a> Context<'a> {
         &mut self,
         filter: GroupFilter,
     ) {
-        self.scene.component_manager.remove_components::<C>(
-            filter,
-            #[cfg(feature = "physics")]
-            &mut self.scene.world,
-        );
+        self.scene.component_manager.remove_components::<C>(filter);
     }
 
     #[inline]
     pub fn remove_group(&mut self, group_id: u32) {
-        self.scene.component_manager.remove_group(
-            group_id,
-            #[cfg(feature = "physics")]
-            &mut self.scene.world,
-        )
+        self.scene.component_manager.remove_group(group_id)
     }
 
     #[inline]
     #[cfg(feature = "physics")]
     pub fn remove_joint(&mut self, joint: ImpulseJointHandle) -> Option<ImpulseJoint> {
-        self.scene.world.remove_joint(joint)
+        self.scene.component_manager.world_mut().remove_joint(joint)
     }
 
     #[inline]
     #[cfg(feature = "physics")]
     pub fn remove_collider(&mut self, collider_handle: ColliderHandle) -> Option<Collider> {
-        self.scene.world.remove_collider(collider_handle)
+        self.scene
+            .component_manager
+            .world_mut()
+            .remove_collider(collider_handle)
     }
 
     //////////////////////////////////////////////////////////////////////////////////////////////
@@ -353,26 +353,35 @@ impl<'a> Context<'a> {
 
     #[inline]
     #[cfg(feature = "physics")]
-    pub fn joint(&self, joint: ImpulseJointHandle) -> Option<&ImpulseJoint> {
-        self.scene.world.joint(joint)
+    pub fn joint(&self, joint_handle: ImpulseJointHandle) -> Option<&ImpulseJoint> {
+        self.scene.component_manager.world.joint(joint_handle)
     }
 
     #[inline]
     #[cfg(feature = "physics")]
-    pub fn joint_mut(&mut self, joint: ImpulseJointHandle) -> Option<&mut ImpulseJoint> {
-        self.scene.world.joint_mut(joint)
+    pub fn joint_mut(&mut self, joint_handle: ImpulseJointHandle) -> Option<&mut ImpulseJoint> {
+        self.scene.component_manager.world.joint_mut(joint_handle)
     }
 
     #[inline]
     #[cfg(feature = "physics")]
-    pub fn collider(&self, collider_handle: ColliderHandle) -> Option<&Collider> {
-        self.scene.world.collider(collider_handle)
+    pub fn collider(
+        &self,
+        collider_handle: ColliderHandle,
+    ) -> Option<impl Deref<Target = Collider> + '_> {
+        self.scene.component_manager.world.collider(collider_handle)
     }
 
     #[inline]
     #[cfg(feature = "physics")]
-    pub fn collider_mut(&mut self, collider_handle: ColliderHandle) -> Option<&mut Collider> {
-        self.scene.world.collider_mut(collider_handle)
+    pub fn collider_mut(
+        &mut self,
+        collider_handle: ColliderHandle,
+    ) -> Option<impl DerefMut<Target = Collider> + '_> {
+        self.scene
+            .component_manager
+            .world
+            .collider_mut(collider_handle)
     }
 
     #[inline]
@@ -531,14 +540,18 @@ impl<'a> Context<'a> {
     #[cfg(feature = "physics")]
     pub fn intersects_ray(&self, collider_handle: ColliderHandle, ray: Ray, max_toi: f32) -> bool {
         self.scene
-            .world
+            .component_manager
+            .world()
             .intersects_ray(collider_handle, ray, max_toi)
     }
 
     #[inline]
     #[cfg(feature = "physics")]
     pub fn intersects_point(&self, collider_handle: ColliderHandle, point: Vector<f32>) -> bool {
-        self.scene.world.intersects_point(collider_handle, point)
+        self.scene
+            .component_manager
+            .world()
+            .intersects_point(collider_handle, point)
     }
 
     #[inline]
@@ -549,7 +562,10 @@ impl<'a> Context<'a> {
         handle: ColliderHandle,
         collider: &Collider,
     ) -> bool {
-        self.scene.world.test_filter(filter, handle, collider)
+        self.scene
+            .component_manager
+            .world()
+            .test_filter(filter, handle, collider)
     }
 
     #[inline]
@@ -561,7 +577,10 @@ impl<'a> Context<'a> {
         solid: bool,
         filter: QueryFilter,
     ) -> Option<(ComponentHandle, ColliderHandle, f32)> {
-        self.scene.world.cast_ray(ray, max_toi, solid, filter)
+        self.scene
+            .component_manager
+            .world()
+            .cast_ray(ray, max_toi, solid, filter)
     }
 
     #[inline]
@@ -575,7 +594,7 @@ impl<'a> Context<'a> {
         stop_at_penetration: bool,
         filter: QueryFilter,
     ) -> Option<(ComponentHandle, ColliderHandle, TOI)> {
-        self.scene.world.cast_shape(
+        self.scene.component_manager.world().cast_shape(
             shape,
             position,
             velocity,
@@ -595,7 +614,8 @@ impl<'a> Context<'a> {
         filter: QueryFilter,
     ) -> Option<(ComponentHandle, ColliderHandle, RayIntersection)> {
         self.scene
-            .world
+            .component_manager
+            .world()
             .cast_ray_and_get_normal(ray, max_toi, solid, filter)
     }
 
@@ -610,7 +630,8 @@ impl<'a> Context<'a> {
         callback: impl FnMut(ComponentHandle, ColliderHandle, RayIntersection) -> bool,
     ) {
         self.scene
-            .world
+            .component_manager
+            .world()
             .intersections_with_ray(ray, max_toi, solid, filter, callback)
     }
 
@@ -624,7 +645,8 @@ impl<'a> Context<'a> {
         callback: impl FnMut(ComponentHandle, ColliderHandle) -> bool,
     ) {
         self.scene
-            .world
+            .component_manager
+            .world()
             .intersections_with_shape(shape_pos, shape, filter, callback)
     }
 
@@ -637,7 +659,8 @@ impl<'a> Context<'a> {
         filter: QueryFilter,
     ) -> Option<(ComponentHandle, ColliderHandle)> {
         self.scene
-            .world
+            .component_manager
+            .world()
             .intersection_with_shape(shape_pos, shape, filter)
     }
 
@@ -650,7 +673,8 @@ impl<'a> Context<'a> {
         callback: impl FnMut(ComponentHandle, ColliderHandle) -> bool,
     ) {
         self.scene
-            .world
+            .component_manager
+            .world()
             .intersections_with_point(point, filter, callback)
     }
 
@@ -802,13 +826,13 @@ impl<'a> Context<'a> {
     #[inline]
     #[cfg(feature = "physics")]
     pub fn gravity(&self) -> &Vector<f32> {
-        self.scene.world.gravity()
+        self.scene.component_manager.world().gravity()
     }
 
     #[inline]
     #[cfg(feature = "physics")]
     pub fn physics_priority(&self) -> i16 {
-        self.scene.world.physics_priority()
+        self.scene.component_manager.world().physics_priority()
     }
 
     #[inline]
@@ -989,13 +1013,19 @@ impl<'a> Context<'a> {
     #[inline]
     #[cfg(feature = "physics")]
     pub fn set_gravity(&mut self, gravity: Vector<f32>) {
-        self.scene.world.set_gravity(gravity);
+        self.scene
+            .component_manager
+            .world_mut()
+            .set_gravity(gravity);
     }
 
     #[inline]
     #[cfg(feature = "physics")]
     pub fn set_physics_priority(&mut self, step: i16) {
-        self.scene.world.set_physics_priority(step);
+        self.scene
+            .component_manager
+            .world_mut()
+            .set_physics_priority(step);
     }
 
     // #[inline]

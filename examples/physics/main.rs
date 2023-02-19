@@ -1,10 +1,7 @@
-#![windows_subsystem = "windows"]
-
 use shura::physics::*;
 use shura::*;
 use std::{fmt, fs};
 
-#[cfg_attr(target_os = "android", ndk_glue::main(backtrace = "on"))]
 fn main() {
     if let Some(save_game) = fs::read("data.binc").ok() {
         Shura::init(SerializedScene {
@@ -146,7 +143,7 @@ impl Player {
     const RADIUS: f32 = 0.75;
     pub fn new(ctx: &Context) -> Self {
         Self {
-            sprite: ctx.create_sprite(include_bytes!("../img/burger.png")),
+            sprite: ctx.create_sprite(include_bytes!("./img/burger.png")),
             model: ctx.create_model(ModelBuilder::ball(Self::RADIUS, 24)),
             component: BaseComponent::new_rigid_body(
                 RigidBodyBuilder::dynamic().translation(Vector::new(5.0, 4.0)),
@@ -160,7 +157,7 @@ impl Player {
 impl ComponentController for Player {
     fn update(components: ActiveComponents<Self>, ctx: &mut Context) {
         let delta = ctx.frame_time();
-        let world = &mut ctx.scene.world;
+        let world = &mut ctx.scene.component_manager;
         let input = &mut ctx.shura.input;
 
         for player in &mut ctx
@@ -168,7 +165,7 @@ impl ComponentController for Player {
             .component_manager
             .active_components_mut(&components)
         {
-            let body = player.rigid_body_mut(world).unwrap();
+            let mut body = player.rigid_body_mut().unwrap();
             let mut linvel = *body.linvel();
 
             if input.is_held(Key::D) {
@@ -295,7 +292,7 @@ impl ComponentController for PhysicsBox {
             .iter()
             .next()
             .unwrap();
-        
+
         for (instance, physics_box) in &ctx.active_components_render(&components) {
             let color: &Uniform<Color>;
             if physics_box.collided {
@@ -311,30 +308,26 @@ impl ComponentController for PhysicsBox {
     }
 
     fn update(components: ActiveComponents<Self>, ctx: &mut Context) {
-        let cursor_world = *ctx.cursor_world();
-        let world = &mut ctx.scene.world;
-        let cm = &mut ctx.scene.component_manager;
-        let input = &mut ctx.shura.input;
+        let cursor_world: Point<f32> = (*ctx.cursor_world()).into();
         let mut to_remove = vec![];
-        for physics_box in &mut cm.active_components_mut(&components) {
-            if world.intersects_point(
-                physics_box
-                    .component
-                    .collider_handles(&world)
-                    .unwrap()[0],
-                cursor_world,
-            ) {
+        let remove = ctx.is_held(MouseButton::Left) || ctx.is_pressed(ScreenTouch);
+        for physics_box in &mut ctx.active_components_mut(&components) {
+            let collider_handle = physics_box.collider_handles().unwrap()[0];
+            let collider = physics_box.collider(collider_handle).unwrap();
+            if collider.shape().contains_point(collider.position(), &cursor_world) {
+                drop(collider);
                 physics_box.hovered = true;
-                if input.is_held(MouseButton::Left) || input.is_pressed(ScreenTouch) {
+                if remove {
                     to_remove.push(*physics_box.component.handle());
                 }
             } else {
+                drop(collider);
                 physics_box.hovered = false;
             }
         }
-        
+
         for handle in to_remove {
-            cm.remove_component(&handle, world);
+            ctx.remove_component(&handle);
         }
     }
 }
@@ -385,7 +378,7 @@ impl<'de, 'a> serde::de::Visitor<'de> for PlayerVisitor<'a> {
             .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
         Ok(Player {
             component,
-            sprite: self.ctx.create_sprite(include_bytes!("../img/burger.png")),
+            sprite: self.ctx.create_sprite(include_bytes!("./img/burger.png")),
             model: self
                 .ctx
                 .create_model(ModelBuilder::ball(Player::RADIUS, 24)),

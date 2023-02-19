@@ -3,16 +3,13 @@ use crate::physics::World;
 use crate::{
     ActiveComponents, Arena, ArenaEntry, ArenaIndex, ArenaPath, Camera, ComponentCallbacks,
     ComponentCluster, ComponentController, ComponentGroup, ComponentGroupDescriptor,
-    ComponentHandle, ComponentIdentifier, ComponentSet, ComponentSetMut, ComponentTypeId,
-    DynamicComponent, Gpu, DEFAULT_GROUP_ID, ComponentSetRender,
+    ComponentHandle, ComponentIdentifier, ComponentSet, ComponentSetMut, ComponentSetRender,
+    ComponentTypeId, DynamicComponent, Gpu, DEFAULT_GROUP_ID,
 };
 use instant::Instant;
 use log::info;
 use rustc_hash::{FxHashMap, FxHashSet};
-use std::{
-    collections::BTreeMap,
-    rc::Rc,
-};
+use std::{collections::BTreeMap, rc::Rc};
 
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Ord, Eq)]
 pub enum GroupFilter<'a> {
@@ -53,9 +50,9 @@ pub struct ComponentManager {
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
     component_callbacks: FxHashMap<ComponentTypeId, ComponentCallbacks>,
-    
+
     #[cfg(feature = "physics")]
-    world: World,
+    pub world: World,
 }
 
 impl ComponentManager {
@@ -78,7 +75,7 @@ impl ComponentManager {
             force_update_sets: false,
             active_components: Default::default(),
             component_callbacks: Default::default(),
-            
+
             #[cfg(feature = "physics")]
             world: World::new(),
         }
@@ -133,7 +130,7 @@ impl ComponentManager {
                                 path,
                                 self.component_callbacks.get(&type_id).unwrap().clone(),
                                 config.clone(),
-                                now
+                                now,
                             ),
                         );
                     }
@@ -154,11 +151,7 @@ impl ComponentManager {
         for group in &self.active_groups {
             if let Some(group) = self.groups.get_mut(*group) {
                 for (_, t) in group.types() {
-                    t.buffer_data(
-                        gpu,
-                        #[cfg(feature = "physics")]
-                        world,
-                    );
+                    t.buffer_data(gpu);
                 }
             }
         }
@@ -233,10 +226,17 @@ impl ComponentManager {
             handle = ComponentHandle::new(index, type_index, *group_index, self.id_counter);
         }
 
-        let c = self.component_dynamic_mut(&handle).unwrap();
+        let c = self
+            .groups
+            .get_mut(handle.group_index())
+            .unwrap()
+            .type_mut(handle.type_index())
+            .unwrap()
+            .component_mut(handle.component_index())
+            .unwrap();
         c.base_mut().init(
             #[cfg(feature = "physics")]
-            world,
+            &mut self.world,
             handle,
             group_id,
             type_id,
@@ -250,16 +250,13 @@ impl ComponentManager {
         self.group_map.insert(descriptor.id, index);
     }
 
-    pub fn remove_component(
-        &mut self,
-        handle: &ComponentHandle,
-    ) -> Option<DynamicComponent> {
+    pub fn remove_component(&mut self, handle: &ComponentHandle) -> Option<DynamicComponent> {
         if let Some(group) = self.groups.get_mut(handle.group_index()) {
             if let Some(component_type) = group.type_mut(handle.type_index()) {
                 if let Some(mut to_remove) = component_type.remove(handle) {
                     to_remove.base_mut().deinit(
                         #[cfg(feature = "physics")]
-                        world,
+                        &mut self.world,
                     )
                 }
             }
@@ -276,7 +273,8 @@ impl ComponentManager {
         #[inline]
         fn remove(
             group: &mut ComponentGroup,
-            type_id: ComponentTypeId
+            type_id: ComponentTypeId,
+            #[cfg(feature = "physics")] world: &mut World,
         ) {
             if let Some(type_index) = group.type_index(type_id) {
                 let component_type = group.type_mut(*type_index).unwrap();
@@ -297,8 +295,8 @@ impl ComponentManager {
                         group,
                         type_id,
                         #[cfg(feature = "physics")]
-                        world,
-                    );
+                        &mut self.world,
+                    )
                 }
             }
             GroupFilter::Active => {
@@ -308,7 +306,7 @@ impl ComponentManager {
                             group,
                             type_id,
                             #[cfg(feature = "physics")]
-                            world,
+                            &mut self.world,
                         )
                     }
                 }
@@ -321,7 +319,7 @@ impl ComponentManager {
                             group,
                             type_id,
                             #[cfg(feature = "physics")]
-                            world,
+                            &mut self.world,
                         )
                     }
                 }
@@ -335,19 +333,15 @@ impl ComponentManager {
         }
 
         if let Some(index) = self.group_map.remove(&group_id) {
-            #[cfg(feature = "physics")] // TODO: Find a way to fix iterating over all components
+            #[cfg(feature = "physics")]
             if let Some(mut group) = self.groups.remove(index) {
                 for (_, component_type) in group.types() {
                     for (_, c) in component_type.iter_mut() {
-                        c.base_mut().deinit(
-                            #[cfg(feature = "physics")]
-                            world,
-                        );
+                        c.base_mut().deinit(&mut self.world);
                     }
                 }
             }
 
-            #[cfg(not(feature = "physics"))]
             self.groups.remove(index);
         }
     }
@@ -619,13 +613,16 @@ impl ComponentManager {
     }
 
     #[inline]
+    #[cfg(feature = "physics")]
     pub(crate) fn component_callbacks(&self, type_id: &ComponentTypeId) -> &ComponentCallbacks {
         return self.component_callbacks.get(&type_id).unwrap();
     }
 
     #[inline]
+    #[cfg(feature = "serde")]
     pub(crate) fn register_callbacks<C: ComponentController + ComponentIdentifier>(&mut self) {
-        self.component_callbacks.insert(C::IDENTIFIER, ComponentCallbacks::new::<C>());
+        self.component_callbacks
+            .insert(C::IDENTIFIER, ComponentCallbacks::new::<C>());
     }
 
     #[inline]
@@ -643,5 +640,17 @@ impl ComponentManager {
     #[inline]
     pub fn set_render_components(&mut self, render_components: bool) {
         self.render_components = render_components
+    }
+
+    #[inline]
+    #[cfg(feature = "physics")]
+    pub fn world(&self) -> &World {
+        &self.world
+    }
+
+    #[inline]
+    #[cfg(feature = "physics")]
+    pub fn world_mut(&mut self) -> &mut World {
+        &mut self.world
     }
 }
