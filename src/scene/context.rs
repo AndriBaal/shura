@@ -17,7 +17,7 @@ use crate::audio::{Sink, Sound};
 use crate::{physics::*, BaseComponent, ComponentTypeId, Point};
 
 #[cfg(feature = "physics")]
-use std::ops::{Deref, DerefMut};
+use std::{cell::{Ref, RefMut}, ops::{Deref, DerefMut}};
 
 #[cfg(feature = "gui")]
 use crate::gui::GuiContext;
@@ -56,7 +56,7 @@ impl<'a> Context<'a> {
     ) -> Option<(ComponentTypeId, ComponentHandle)> {
         self.scene
             .component_manager
-            .world
+            .world()
             .component_from_collider(collider)
     }
 
@@ -81,7 +81,7 @@ impl<'a> Context<'a> {
         {
             use std::mem;
             let body_handles = serializer.body_handles;
-            let world = &mut self.scene.component_manager.world;
+            let world: &mut World = &mut self.scene.component_manager.world.borrow_mut();
             let mut world_cpy = world.clone();
             let mut to_remove = vec![];
             for (body_handle, _body) in world.bodies().iter() {
@@ -101,7 +101,7 @@ impl<'a> Context<'a> {
             ) = (&*self.scene, components);
             let result = bincode::serialize(&scene).ok();
 
-            self.scene.component_manager.world = old_world;
+            *self.scene.component_manager.world.borrow_mut() = old_world;
 
             return result;
         }
@@ -243,9 +243,9 @@ impl<'a> Context<'a> {
 
     #[inline]
     #[cfg(feature = "physics")]
-    pub fn create_collider(
+    pub fn create_collider<C: ComponentController + ComponentIdentifier>(
         &mut self,
-        component: &BaseComponent,
+        component: &C,
         collider: impl Into<Collider>,
     ) -> ColliderHandle {
         self.scene
@@ -353,14 +353,14 @@ impl<'a> Context<'a> {
 
     #[inline]
     #[cfg(feature = "physics")]
-    pub fn joint(&self, joint_handle: ImpulseJointHandle) -> Option<&ImpulseJoint> {
-        self.scene.component_manager.world.joint(joint_handle)
+    pub fn joint(&self, joint_handle: ImpulseJointHandle) -> Option<impl Deref<Target = ImpulseJoint> + '_> {
+        Ref::filter_map(self.scene.component_manager.world(), |w| w.joint(joint_handle)).ok()
     }
 
     #[inline]
     #[cfg(feature = "physics")]
-    pub fn joint_mut(&mut self, joint_handle: ImpulseJointHandle) -> Option<&mut ImpulseJoint> {
-        self.scene.component_manager.world.joint_mut(joint_handle)
+    pub fn joint_mut(&mut self, joint_handle: ImpulseJointHandle) -> Option<impl DerefMut<Target = ImpulseJoint> + '_> {
+        RefMut::filter_map(self.scene.component_manager.world_mut(), |w| w.joint_mut(joint_handle)).ok()
     }
 
     #[inline]
@@ -369,7 +369,7 @@ impl<'a> Context<'a> {
         &self,
         collider_handle: ColliderHandle,
     ) -> Option<impl Deref<Target = Collider> + '_> {
-        self.scene.component_manager.world.collider(collider_handle)
+        Ref::filter_map(self.scene.component_manager.world(), |w| w.collider(collider_handle)).ok()
     }
 
     #[inline]
@@ -378,10 +378,41 @@ impl<'a> Context<'a> {
         &mut self,
         collider_handle: ColliderHandle,
     ) -> Option<impl DerefMut<Target = Collider> + '_> {
-        self.scene
-            .component_manager
-            .world
-            .collider_mut(collider_handle)
+        RefMut::filter_map(self.scene.component_manager.world_mut(), |w| w.collider_mut(collider_handle)).ok()
+    }
+
+    #[inline]
+    #[cfg(feature = "physics")]
+    pub fn rigid_body(
+        &self,
+        rigid_body_handle: RigidBodyHandle,
+    ) -> Option<impl Deref<Target = RigidBody> + '_> {
+        Ref::filter_map(self.scene.component_manager.world(), |w| w.rigid_body(rigid_body_handle)).ok()
+    }
+
+    #[inline]
+    #[cfg(feature = "physics")]
+    pub fn rigid_body_mut(
+        &mut self,
+        rigid_body_handle: RigidBodyHandle,
+    ) -> Option<impl DerefMut<Target = RigidBody> + '_> {
+        RefMut::filter_map(self.scene.component_manager.world_mut(), |w| w.rigid_body_mut(rigid_body_handle)).ok()
+    }
+
+    #[inline]
+    #[cfg(feature = "physics")]
+    pub fn world(
+        &self,
+    ) -> impl Deref<Target = World> + '_ {
+        self.scene.component_manager.world()
+    }
+
+    #[inline]
+    #[cfg(feature = "physics")]
+    pub fn world_mut(
+        &mut self,
+    ) -> impl DerefMut<Target = World> + '_ {
+        self.scene.component_manager.world_mut()
     }
 
     #[inline]

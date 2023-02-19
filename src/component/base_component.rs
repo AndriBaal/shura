@@ -1,11 +1,7 @@
 use crate::{ComponentHandle, ComponentTypeId, Dimension, Isometry, Matrix, Rotation, Vector};
-use rapier2d::prelude::ColliderSet;
-#[cfg(feature = "physics")]
-use rapier2d::prelude::RigidBodySet;
 #[cfg(feature = "physics")]
 use std::{
     cell::{Ref, RefCell, RefMut},
-    mem,
     ops::{Deref, DerefMut},
     rc::Rc,
 };
@@ -81,11 +77,9 @@ impl PositionBuilder {
 /// static position, since the matrix only updates when changing the component.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct BaseComponent {
-    handle: ComponentHandle,
+    handle: Option<ComponentHandle>,
     render_scale: Vector<f32>,
-    body: BodyStatus,
-    group_id: u32,
-    type_id: ComponentTypeId,
+    body: BodyStatus
 }
 
 impl Default for BaseComponent {
@@ -107,8 +101,6 @@ impl BaseComponent {
                 matrix: matrix,
                 position: pos.position,
             },
-            group_id: 0,
-            type_id: Default::default(),
         }
     }
 
@@ -119,24 +111,18 @@ impl BaseComponent {
             render_scale: Vector::new(1.0, 1.0),
             body: BodyStatus::RigidBodyPending {
                 body: Box::new(body.into()),
-                colliders: colliders.into_iter().map(|c| c.into()).collect(),
+                colliders: colliders.into_iter().map(|world| world.into()).collect(),
             },
-            group_id: 0,
-            type_id: Default::default(),
         }
     }
 
     pub(crate) fn init(
         &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
-        handle: ComponentHandle,
-        group_id: u32,
-        type_id: ComponentTypeId,
+        #[cfg(feature = "physics")] world: Rc<RefCell<World>>,
+        handle: ComponentHandle
     ) {
-        if self.handle.id() == 0 {
-            self.handle = handle;
-            self.group_id = group_id;
-            self.type_id = type_id;
+        if self.handle.is_none() {
+            self.handle = Some(handle);
             #[cfg(feature = "physics")]
             match &self.body {
                 BodyStatus::RigidBodyPending { .. } => self.add_to_world(world),
@@ -145,13 +131,11 @@ impl BaseComponent {
         }
     }
 
-    pub(crate) fn deinit(&mut self, #[cfg(feature = "physics")] world: &mut World) {
+    pub(crate) fn deinit(&mut self) {
         self.handle = Default::default();
-        self.group_id = 0;
-        self.type_id = Default::default();
         #[cfg(feature = "physics")]
         match self.body {
-            BodyStatus::RigidBody { .. } => self.remove_from_world(world),
+            BodyStatus::RigidBody { .. } => self.remove_from_world(),
             _ => {}
         }
     }
@@ -161,28 +145,17 @@ impl BaseComponent {
             BodyStatus::Position { matrix, .. } => *matrix,
             #[cfg(feature = "physics")]
             BodyStatus::RigidBody {
-                body_set,
+                world,
                 body_handle,
                 ..
-            } => Matrix::new(*body_set.borrow().get(*body_handle).unwrap().position()),
+            } => Matrix::new(*world.borrow().rigid_body(*body_handle).unwrap().position()),
             #[cfg(feature = "physics")]
             BodyStatus::RigidBodyPending { body, .. } => Matrix::new(*body.position()),
         };
     }
 
-    pub fn handle(&self) -> &ComponentHandle {
-        if self.handle.id() == ComponentHandle::UNINITIALIZED_ID {
-            panic!("Cannot get the handle from an unadded component!");
-        }
-        return &self.handle;
-    }
-
-    pub fn group_id(&self) -> u32 {
-        return self.group_id;
-    }
-
-    pub fn type_id(&self) -> ComponentTypeId {
-        return self.type_id;
+    pub fn handle(&self) -> Option<&ComponentHandle> {
+        return self.handle.as_ref();
     }
 
     pub fn set_rotation(&mut self, rotation: Rotation<f32>) {
@@ -193,12 +166,12 @@ impl BaseComponent {
             }
             #[cfg(feature = "physics")]
             BodyStatus::RigidBody {
-                body_set,
+                world,
                 body_handle,
                 ..
-            } => body_set
+            } => world
                 .borrow_mut()
-                .get_mut(*body_handle)
+                .rigid_body_mut(*body_handle)
                 .unwrap()
                 .set_rotation(rotation, true),
             #[cfg(feature = "physics")]
@@ -214,12 +187,12 @@ impl BaseComponent {
             }
             #[cfg(feature = "physics")]
             BodyStatus::RigidBody {
-                body_set,
+                world,
                 body_handle,
                 ..
-            } => body_set
+            } => world
                 .borrow_mut()
-                .get_mut(*body_handle)
+                .rigid_body_mut(*body_handle)
                 .unwrap()
                 .set_translation(translation, true),
             #[cfg(feature = "physics")]
@@ -236,12 +209,12 @@ impl BaseComponent {
             }
             #[cfg(feature = "physics")]
             BodyStatus::RigidBody {
-                body_set,
+                world,
                 body_handle,
                 ..
-            } => body_set
+            } => world
                 .borrow_mut()
-                .get_mut(*body_handle)
+                .rigid_body_mut(*body_handle)
                 .unwrap()
                 .set_position(new_position, true),
             #[cfg(feature = "physics")]
@@ -254,10 +227,10 @@ impl BaseComponent {
             BodyStatus::Position { position, .. } => position.rotation,
             #[cfg(feature = "physics")]
             BodyStatus::RigidBody {
-                body_set,
+                world,
                 body_handle,
                 ..
-            } => *body_set.borrow().get(*body_handle).unwrap().rotation(),
+            } => *world.borrow().rigid_body(*body_handle).unwrap().rotation(),
             #[cfg(feature = "physics")]
             BodyStatus::RigidBodyPending { body, .. } => *body.rotation(),
         };
@@ -268,10 +241,10 @@ impl BaseComponent {
             BodyStatus::Position { position, .. } => position.translation.vector,
             #[cfg(feature = "physics")]
             BodyStatus::RigidBody {
-                body_set,
+                world,
                 body_handle,
                 ..
-            } => *body_set.borrow().get(*body_handle).unwrap().translation(),
+            } => *world.borrow().rigid_body(*body_handle).unwrap().translation(),
             #[cfg(feature = "physics")]
             BodyStatus::RigidBodyPending { body, .. } => *body.translation(),
         };
@@ -282,10 +255,10 @@ impl BaseComponent {
             BodyStatus::Position { position, .. } => *position,
             #[cfg(feature = "physics")]
             BodyStatus::RigidBody {
-                body_set,
+                world,
                 body_handle,
                 ..
-            } => *body_set.borrow().get(*body_handle).unwrap().position(),
+            } => *world.borrow().rigid_body(*body_handle).unwrap().position(),
             #[cfg(feature = "physics")]
             BodyStatus::RigidBodyPending { body, .. } => *body.position(),
         };
@@ -340,14 +313,30 @@ impl BaseComponent {
 
     #[cfg(feature = "physics")]
     pub fn rigid_body(&self) -> Option<impl Deref<Target = RigidBody> + '_> {
+enum BodyWrapper<'a> {
+    Owned(&'a Box<RigidBody>),
+    Ref(Ref<'a, RigidBody>),
+}
+
+impl<'a> Deref for BodyWrapper<'a> {
+    type Target = RigidBody;
+
+    fn deref(&self) -> &Self::Target {
+        return match self {
+            BodyWrapper::Owned(o) => o,
+            BodyWrapper::Ref(r) => r,
+        };
+    }
+}
+
         match &self.body {
             BodyStatus::RigidBody {
-                body_set,
+                world,
                 body_handle,
                 ..
             } => {
-                return Some(BodyWrapper::Ref(Ref::map(body_set.borrow(), |body_set| {
-                    body_set.get(*body_handle).unwrap()
+                return Some(BodyWrapper::Ref(Ref::map(world.borrow(), |world| {
+                    world.rigid_body(*body_handle).unwrap()
                 })));
             }
             BodyStatus::RigidBodyPending { body, .. } => return Some(BodyWrapper::Owned(body)),
@@ -357,15 +346,41 @@ impl BaseComponent {
 
     #[cfg(feature = "physics")]
     pub fn rigid_body_mut(&mut self) -> Option<impl DerefMut<Target = RigidBody> + '_> {
+        
+enum BodyWrapperMut<'a> {
+    Owned(&'a mut Box<RigidBody>),
+    Ref(RefMut<'a, RigidBody>),
+}
+
+impl<'a> Deref for BodyWrapperMut<'a> {
+    type Target = RigidBody;
+
+    fn deref(&self) -> &Self::Target {
+        return match self {
+            BodyWrapperMut::Owned(o) => o,
+            BodyWrapperMut::Ref(r) => r,
+        };
+    }
+}
+
+impl<'a> DerefMut for BodyWrapperMut<'a> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        return match self {
+            BodyWrapperMut::Owned(o) => o,
+            BodyWrapperMut::Ref(r) => r,
+        };
+    }
+}
+
         match &mut self.body {
             BodyStatus::RigidBody {
-                body_set,
+                world,
                 body_handle,
                 ..
             } => {
                 return Some(BodyWrapperMut::Ref(RefMut::map(
-                    body_set.borrow_mut(),
-                    |body_set| body_set.get_mut(*body_handle).unwrap(),
+                    world.borrow_mut(),
+                    |world| world.rigid_body_mut(*body_handle).unwrap(),
                 )));
             }
             BodyStatus::RigidBodyPending { body, .. } => return Some(BodyWrapperMut::Owned(body)),
@@ -377,12 +392,12 @@ impl BaseComponent {
     pub fn collider_handles(&self) -> Option<impl Deref<Target = [ColliderHandle]> + '_> {
         match &self.body {
             BodyStatus::RigidBody {
-                body_set,
+                world,
                 body_handle,
                 ..
             } => {
-                return Some(Ref::map(body_set.borrow(), |body_set| {
-                    body_set.get(*body_handle).unwrap().colliders()
+                return Some(Ref::map(world.borrow(), |world| {
+                    world.rigid_body(*body_handle).unwrap().colliders()
                 }));
             }
             _ => return None,
@@ -405,11 +420,10 @@ impl BaseComponent {
         match &self.body {
             BodyStatus::RigidBody {
                 body_handle,
-                collider_set,
-                ..
+                world
             } => {
-                return Ref::filter_map(collider_set.borrow(), |c| {
-                    if let Some(collider) = c.get(collider_handle) {
+                return Ref::filter_map(world.borrow(), |world| {
+                    if let Some(collider) = world.collider(collider_handle) {
                         if collider.parent().unwrap() == *body_handle {
                             return Some(collider);
                         }
@@ -431,11 +445,10 @@ impl BaseComponent {
         match &mut self.body {
             BodyStatus::RigidBody {
                 body_handle,
-                collider_set,
-                ..
+                world
             } => {
-                return RefMut::filter_map(collider_set.borrow_mut(), |c| {
-                    if let Some(collider) = c.get_mut(collider_handle) {
+                return RefMut::filter_map(world.borrow_mut(), |world| {
+                    if let Some(collider) = world.collider_mut(collider_handle) {
                         if collider.parent().unwrap() == *body_handle {
                             return Some(collider);
                         }
@@ -455,52 +468,40 @@ impl BaseComponent {
     // }
 
     #[cfg(feature = "physics")]
-    pub(crate) fn remove_from_world(&mut self, world: &mut World) {
-        match std::mem::replace(
-            &mut self.body,
-            BodyStatus::Position {
-                position: Default::default(),
-                matrix: Default::default(),
-            },
-        ) {
+    pub(crate) fn remove_from_world(&mut self) {
+        let temp = std::mem::replace(&mut self.body, BodyStatus::Position { position: Default::default(), matrix: Default::default() });
+        match temp {
             BodyStatus::RigidBody {
-                body_set,
+                world,
                 body_handle,
                 ..
             } => {
-                let (body, colliders) = world.remove_body(body_handle);
+                let (body, colliders) = world.borrow_mut().remove_body(body_handle);
                 self.body = BodyStatus::RigidBodyPending {
                     body: Box::new(body),
                     colliders,
                 }
             }
-            _ => {}
-        };
+            _ =>  self.body = temp
+        }
     }
 
     #[cfg(feature = "physics")]
-    pub(crate) fn add_to_world(&mut self, world: &mut World) {
-        match mem::replace(
-            &mut self.body,
-            BodyStatus::Position {
-                position: Default::default(),
-                matrix: Default::default(),
-            },
-        ) {
+    pub(crate) fn add_to_world(&mut self, world: Rc<RefCell<World>>) {
+        let temp = std::mem::replace(&mut self.body, BodyStatus::Position { position: Default::default(), matrix: Default::default() });
+        match temp {
             BodyStatus::RigidBodyPending { body, colliders } => {
-                let body_handle = world.create_body(*body);
-                let (body_set, collider_set) = world.clone_refrence();
+                let body_handle = world.borrow_mut().create_body(*body);
                 self.body = BodyStatus::RigidBody {
                     body_handle,
-                    body_set,
-                    collider_set,
+                    world
                 };
                 for collider in colliders {
-                    world.create_collider(self, collider);
+                    world.borrow_mut().create_collider(self, collider);
                 }
             }
-            _ => {}
-        };
+            _ =>  self.body = temp
+        }
     }
 }
 
@@ -509,9 +510,7 @@ enum BodyStatus {
     #[cfg(feature = "physics")]
     RigidBody {
         #[cfg_attr(feature = "serde", serde(skip))]
-        collider_set: Rc<RefCell<ColliderSet>>,
-        #[cfg_attr(feature = "serde", serde(skip))]
-        body_set: Rc<RefCell<RigidBodySet>>,
+        world: Rc<RefCell<World>>,
         body_handle: RigidBodyHandle,
     },
     #[cfg(feature = "physics")]
@@ -526,47 +525,9 @@ enum BodyStatus {
 }
 
 #[cfg(feature = "physics")]
-enum BodyWrapper<'a> {
-    Owned(&'a Box<RigidBody>),
-    Ref(Ref<'a, RigidBody>),
-}
-
-#[cfg(feature = "physics")]
-impl<'a> Deref for BodyWrapper<'a> {
-    type Target = RigidBody;
-
-    fn deref(&self) -> &Self::Target {
-        return match self {
-            BodyWrapper::Owned(o) => o,
-            BodyWrapper::Ref(r) => r,
-        };
+impl Drop for BaseComponent {
+    fn drop(&mut self) {
+        self.remove_from_world();
     }
 }
 
-#[cfg(feature = "physics")]
-enum BodyWrapperMut<'a> {
-    Owned(&'a mut Box<RigidBody>),
-    Ref(RefMut<'a, RigidBody>),
-}
-
-#[cfg(feature = "physics")]
-impl<'a> Deref for BodyWrapperMut<'a> {
-    type Target = RigidBody;
-
-    fn deref(&self) -> &Self::Target {
-        return match self {
-            BodyWrapperMut::Owned(o) => o,
-            BodyWrapperMut::Ref(r) => r,
-        };
-    }
-}
-
-#[cfg(feature = "physics")]
-impl<'a> DerefMut for BodyWrapperMut<'a> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        return match self {
-            BodyWrapperMut::Owned(o) => o,
-            BodyWrapperMut::Ref(r) => r,
-        };
-    }
-}

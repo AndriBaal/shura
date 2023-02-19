@@ -30,8 +30,6 @@ impl PartialEq for ComponentHandle {
 }
 
 impl ComponentHandle {
-    pub const UNINITIALIZED_ID: u32 = 0;
-
     #[inline]
     pub(crate) const fn new(
         component_index: ArenaIndex,

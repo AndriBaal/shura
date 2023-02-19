@@ -1,5 +1,7 @@
 #[cfg(feature = "physics")]
 use crate::physics::World;
+#[cfg(feature = "physics")]
+use std::{cell::{RefCell, Ref, RefMut}, rc::{Rc}, ops::{Deref, DerefMut}};
 use crate::{
     ActiveComponents, Arena, ArenaEntry, ArenaIndex, ArenaPath, Camera, ComponentCallbacks,
     ComponentCluster, ComponentController, ComponentGroup, ComponentGroupDescriptor,
@@ -9,7 +11,7 @@ use crate::{
 use instant::Instant;
 use log::info;
 use rustc_hash::{FxHashMap, FxHashSet};
-use std::{collections::BTreeMap, rc::Rc};
+use std::{collections::BTreeMap};
 
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Ord, Eq)]
 pub enum GroupFilter<'a> {
@@ -52,7 +54,7 @@ pub struct ComponentManager {
     component_callbacks: FxHashMap<ComponentTypeId, ComponentCallbacks>,
 
     #[cfg(feature = "physics")]
-    pub world: World,
+    pub world: Rc<RefCell<World>>,
 }
 
 impl ComponentManager {
@@ -77,7 +79,7 @@ impl ComponentManager {
             component_callbacks: Default::default(),
 
             #[cfg(feature = "physics")]
-            world: World::new(),
+            world: Rc::new(RefCell::new(World::new())),
         }
     }
 
@@ -236,10 +238,8 @@ impl ComponentManager {
             .unwrap();
         c.base_mut().init(
             #[cfg(feature = "physics")]
-            &mut self.world,
-            handle,
-            group_id,
-            type_id,
+            self.world.clone(),
+            handle
         );
         return (c.downcast_mut().unwrap(), handle);
     }
@@ -255,8 +255,6 @@ impl ComponentManager {
             if let Some(component_type) = group.type_mut(handle.type_index()) {
                 if let Some(mut to_remove) = component_type.remove(handle) {
                     to_remove.base_mut().deinit(
-                        #[cfg(feature = "physics")]
-                        &mut self.world,
                     )
                 }
             }
@@ -273,15 +271,12 @@ impl ComponentManager {
         #[inline]
         fn remove(
             group: &mut ComponentGroup,
-            type_id: ComponentTypeId,
-            #[cfg(feature = "physics")] world: &mut World,
+            type_id: ComponentTypeId
         ) {
             if let Some(type_index) = group.type_index(type_id) {
                 let component_type = group.type_mut(*type_index).unwrap();
                 for (_, c) in component_type.iter_mut() {
                     c.base_mut().deinit(
-                        #[cfg(feature = "physics")]
-                        world,
                     );
                 }
                 component_type.clear();
@@ -294,8 +289,6 @@ impl ComponentManager {
                     remove(
                         group,
                         type_id,
-                        #[cfg(feature = "physics")]
-                        &mut self.world,
                     )
                 }
             }
@@ -305,8 +298,6 @@ impl ComponentManager {
                         remove(
                             group,
                             type_id,
-                            #[cfg(feature = "physics")]
-                            &mut self.world,
                         )
                     }
                 }
@@ -318,8 +309,6 @@ impl ComponentManager {
                         remove(
                             group,
                             type_id,
-                            #[cfg(feature = "physics")]
-                            &mut self.world,
                         )
                     }
                 }
@@ -337,7 +326,7 @@ impl ComponentManager {
             if let Some(mut group) = self.groups.remove(index) {
                 for (_, component_type) in group.types() {
                     for (_, c) in component_type.iter_mut() {
-                        c.base_mut().deinit(&mut self.world);
+                        c.base_mut().deinit();
                     }
                 }
             }
@@ -644,13 +633,17 @@ impl ComponentManager {
 
     #[inline]
     #[cfg(feature = "physics")]
-    pub fn world(&self) -> &World {
-        &self.world
+    pub fn world(
+        &self,
+    ) -> Ref<World> {
+        self.world.borrow()
     }
 
     #[inline]
     #[cfg(feature = "physics")]
-    pub fn world_mut(&mut self) -> &mut World {
-        &mut self.world
+    pub fn world_mut(
+        &mut self,
+    ) -> RefMut<World> {
+        self.world.borrow_mut()
     }
 }
