@@ -1,9 +1,6 @@
-#![windows_subsystem = "windows"]
-
 use rand::{thread_rng, Rng};
 use shura::*;
 
-#[cfg_attr(target_os = "android", ndk_glue::main(backtrace = "on"))]
 fn main() {
     Shura::init(NewScene {
         id: 1,
@@ -76,7 +73,7 @@ impl ComponentController for BunnyManager {
                 if dead.len() == MODIFY_STEP {
                     break;
                 }
-                dead.push(*bunny.base().handle());
+                dead.push(*bunny.base().handle().unwrap());
             }
             for handle in dead {
                 ctx.remove_component(&handle);

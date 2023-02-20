@@ -18,10 +18,10 @@ use crate::{
 
 pub struct ComponentSerializer<'a> {
     component_manager: &'a ComponentManager,
-    pub(crate) organized_components:
+    organized_components:
         FxHashMap<ComponentTypeId, Vec<(u32 /* Group id */, Vec<Option<(u32, Vec<u8>)>>)>>,
     #[cfg(feature = "physics")]
-    pub(crate) body_handles: FxHashSet<RigidBodyHandle>,
+    body_handles: FxHashSet<RigidBodyHandle>,
 }
 
 impl<'a> ComponentSerializer<'a> {
@@ -32,6 +32,15 @@ impl<'a> ComponentSerializer<'a> {
             body_handles: Default::default(),
             organized_components: Default::default(),
         }
+    }
+
+    pub(crate) fn finish(
+        self,
+    ) -> (
+        FxHashMap<ComponentTypeId, Vec<(u32, Vec<Option<(u32, Vec<u8>)>>)>>,
+        FxHashSet<RigidBodyHandle>,
+    ) {
+        (self.organized_components, self.body_handles)
     }
 
     fn add_group<C: ComponentController + ComponentIdentifier + serde::Serialize>(

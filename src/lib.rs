@@ -101,8 +101,8 @@ mod world;
 pub mod physics {
     pub use crate::world::world::CollideType;
     pub(crate) use crate::world::world::World;
-    pub use rapier2d::parry;
     pub use rapier2d::geometry::*;
+    pub use rapier2d::parry;
     pub use rapier2d::prelude::{
         ActiveCollisionTypes, ActiveEvents, ActiveHooks, CoefficientCombineRule, Collider,
         ColliderBroadPhaseData, ColliderBuilder, ColliderChanges, ColliderFlags, ColliderHandle,

@@ -1,7 +1,5 @@
 #[cfg(feature = "physics")]
 use crate::physics::World;
-#[cfg(feature = "physics")]
-use std::{cell::{RefCell, Ref, RefMut}, rc::{Rc}, ops::{Deref, DerefMut}};
 use crate::{
     ActiveComponents, Arena, ArenaEntry, ArenaIndex, ArenaPath, Camera, ComponentCallbacks,
     ComponentCluster, ComponentController, ComponentGroup, ComponentGroupDescriptor,
@@ -11,7 +9,13 @@ use crate::{
 use instant::Instant;
 use log::info;
 use rustc_hash::{FxHashMap, FxHashSet};
-use std::{collections::BTreeMap};
+use std::collections::BTreeMap;
+#[cfg(feature = "physics")]
+use std::{
+    cell::{Ref, RefCell, RefMut},
+    ops::{Deref, DerefMut},
+    rc::Rc,
+};
 
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Ord, Eq)]
 pub enum GroupFilter<'a> {
@@ -239,7 +243,8 @@ impl ComponentManager {
         c.base_mut().init(
             #[cfg(feature = "physics")]
             self.world.clone(),
-            handle
+            type_id,
+            handle,
         );
         return (c.downcast_mut().unwrap(), handle);
     }
@@ -254,8 +259,7 @@ impl ComponentManager {
         if let Some(group) = self.groups.get_mut(handle.group_index()) {
             if let Some(component_type) = group.type_mut(handle.type_index()) {
                 if let Some(mut to_remove) = component_type.remove(handle) {
-                    to_remove.base_mut().deinit(
-                    )
+                    to_remove.base_mut().deinit()
                 }
             }
         }
@@ -269,15 +273,11 @@ impl ComponentManager {
     ) {
         let type_id = C::IDENTIFIER;
         #[inline]
-        fn remove(
-            group: &mut ComponentGroup,
-            type_id: ComponentTypeId
-        ) {
+        fn remove(group: &mut ComponentGroup, type_id: ComponentTypeId) {
             if let Some(type_index) = group.type_index(type_id) {
                 let component_type = group.type_mut(*type_index).unwrap();
                 for (_, c) in component_type.iter_mut() {
-                    c.base_mut().deinit(
-                    );
+                    c.base_mut().deinit();
                 }
                 component_type.clear();
             }
@@ -286,19 +286,13 @@ impl ComponentManager {
         match group_filter {
             GroupFilter::All => {
                 for (_index, group) in &mut self.groups {
-                    remove(
-                        group,
-                        type_id,
-                    )
+                    remove(group, type_id)
                 }
             }
             GroupFilter::Active => {
                 for index in &self.active_groups {
                     if let Some(group) = self.groups.get_mut(*index) {
-                        remove(
-                            group,
-                            type_id,
-                        )
+                        remove(group, type_id)
                     }
                 }
             }
@@ -306,10 +300,7 @@ impl ComponentManager {
                 for group_id in group_ids {
                     if let Some(index) = self.group_map.get(&group_id) {
                         let group = self.groups.get_mut(*index).unwrap();
-                        remove(
-                            group,
-                            type_id,
-                        )
+                        remove(group, type_id)
                     }
                 }
             }
@@ -633,17 +624,21 @@ impl ComponentManager {
 
     #[inline]
     #[cfg(feature = "physics")]
-    pub fn world(
-        &self,
-    ) -> Ref<World> {
+    pub fn world(&self) -> Ref<World> {
         self.world.borrow()
     }
 
     #[inline]
     #[cfg(feature = "physics")]
-    pub fn world_mut(
-        &mut self,
-    ) -> RefMut<World> {
+    pub fn world_mut(&mut self) -> RefMut<World> {
         self.world.borrow_mut()
+    }
+
+    #[inline]
+    #[cfg(feature = "physics")]
+    pub fn collision_event(
+        &mut self,
+    ) -> Result<rapier2d::prelude::CollisionEvent, crossbeam::channel::TryRecvError> {
+        self.world.borrow_mut().collision_event()
     }
 }

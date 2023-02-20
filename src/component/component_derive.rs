@@ -20,7 +20,7 @@ pub type DynamicComponent = Box<dyn ComponentController>;
 /// ```
 /// #[derive(Component)]
 /// struct Bunny {
-///     #[component] component: PositionComponent,
+///     #[component] component: BaseComponent,
 ///     linvel: Vector<f32>,
 /// }
 /// ```

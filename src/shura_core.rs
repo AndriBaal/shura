@@ -231,7 +231,7 @@ impl Shura {
         ctx.scene.component_manager.world_mut().step(delta);
         // while let Ok(contact_force_event) = ctx.scene.component_manager.event_receivers.1.try_recv() {
         // }
-        while let Ok(collision_event) = ctx.scene.component_manager.world_mut().collision_event() {
+        while let Ok(collision_event) = ctx.scene.component_manager.collision_event() {
             let collider_handle1 = collision_event.collider1();
             let collider_handle2 = collision_event.collider2();
             let collision_type = if collision_event.started() {

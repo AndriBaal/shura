@@ -17,7 +17,10 @@ use crate::audio::{Sink, Sound};
 use crate::{physics::*, BaseComponent, ComponentTypeId, Point};
 
 #[cfg(feature = "physics")]
-use std::{cell::{Ref, RefMut}, ops::{Deref, DerefMut}};
+use std::{
+    cell::{Ref, RefMut},
+    ops::{Deref, DerefMut},
+};
 
 #[cfg(feature = "gui")]
 use crate::gui::GuiContext;
@@ -69,19 +72,17 @@ impl<'a> Context<'a> {
     pub fn serialize(
         &mut self,
         mut serialize: impl FnMut(&mut ComponentSerializer),
-    ) -> Option<Vec<u8>> {
+    ) -> Result<Vec<u8>, Box<bincode::ErrorKind>> {
         let component_manager = &self.scene.component_manager;
 
         let mut serializer = ComponentSerializer::new(component_manager);
         (serialize)(&mut serializer);
 
-        let components = serializer.organized_components;
-
         #[cfg(feature = "physics")]
         {
             use std::mem;
-            let body_handles = serializer.body_handles;
-            let world: &mut World = &mut self.scene.component_manager.world.borrow_mut();
+            let (components, body_handles) = serializer.finish();
+            let mut world = self.scene.component_manager.world.borrow_mut();
             let mut world_cpy = world.clone();
             let mut to_remove = vec![];
             for (body_handle, _body) in world.bodies().iter() {
@@ -94,12 +95,16 @@ impl<'a> Context<'a> {
                 world_cpy.remove_body(to_remove);
             }
 
-            let old_world = mem::replace(world, world_cpy);
+            let tmp: &mut World = &mut world;
+            let old_world = mem::replace(tmp, world_cpy);
+
+            drop(tmp);
+            drop(world);
             let scene: (
                 &Scene,
                 FxHashMap<ComponentTypeId, Vec<(u32, Vec<Option<(u32, Vec<u8>)>>)>>,
             ) = (&*self.scene, components);
-            let result = bincode::serialize(&scene).ok();
+            let result = bincode::serialize(&scene);
 
             *self.scene.component_manager.world.borrow_mut() = old_world;
 
@@ -248,10 +253,20 @@ impl<'a> Context<'a> {
         component: &C,
         collider: impl Into<Collider>,
     ) -> ColliderHandle {
-        self.scene
-            .component_manager
-            .world_mut()
-            .create_collider(component, collider)
+        let body_handle = component
+            .base()
+            .rigid_body_handle()
+            .expect("Cannot add a collider to a component with no RigidBody!");
+        let component_handle = *component
+            .base()
+            .handle()
+            .expect("Initialize the component before adding additional colliders!");
+        self.scene.component_manager.world_mut().create_collider(
+            body_handle,
+            component_handle,
+            C::IDENTIFIER,
+            collider,
+        )
     }
 
     #[inline]
@@ -353,14 +368,26 @@ impl<'a> Context<'a> {
 
     #[inline]
     #[cfg(feature = "physics")]
-    pub fn joint(&self, joint_handle: ImpulseJointHandle) -> Option<impl Deref<Target = ImpulseJoint> + '_> {
-        Ref::filter_map(self.scene.component_manager.world(), |w| w.joint(joint_handle)).ok()
+    pub fn joint(
+        &self,
+        joint_handle: ImpulseJointHandle,
+    ) -> Option<impl Deref<Target = ImpulseJoint> + '_> {
+        Ref::filter_map(self.scene.component_manager.world(), |w| {
+            w.joint(joint_handle)
+        })
+        .ok()
     }
 
     #[inline]
     #[cfg(feature = "physics")]
-    pub fn joint_mut(&mut self, joint_handle: ImpulseJointHandle) -> Option<impl DerefMut<Target = ImpulseJoint> + '_> {
-        RefMut::filter_map(self.scene.component_manager.world_mut(), |w| w.joint_mut(joint_handle)).ok()
+    pub fn joint_mut(
+        &mut self,
+        joint_handle: ImpulseJointHandle,
+    ) -> Option<impl DerefMut<Target = ImpulseJoint> + '_> {
+        RefMut::filter_map(self.scene.component_manager.world_mut(), |w| {
+            w.joint_mut(joint_handle)
+        })
+        .ok()
     }
 
     #[inline]
@@ -369,7 +396,10 @@ impl<'a> Context<'a> {
         &self,
         collider_handle: ColliderHandle,
     ) -> Option<impl Deref<Target = Collider> + '_> {
-        Ref::filter_map(self.scene.component_manager.world(), |w| w.collider(collider_handle)).ok()
+        Ref::filter_map(self.scene.component_manager.world(), |w| {
+            w.collider(collider_handle)
+        })
+        .ok()
     }
 
     #[inline]
@@ -378,7 +408,10 @@ impl<'a> Context<'a> {
         &mut self,
         collider_handle: ColliderHandle,
     ) -> Option<impl DerefMut<Target = Collider> + '_> {
-        RefMut::filter_map(self.scene.component_manager.world_mut(), |w| w.collider_mut(collider_handle)).ok()
+        RefMut::filter_map(self.scene.component_manager.world_mut(), |w| {
+            w.collider_mut(collider_handle)
+        })
+        .ok()
     }
 
     #[inline]
@@ -387,7 +420,10 @@ impl<'a> Context<'a> {
         &self,
         rigid_body_handle: RigidBodyHandle,
     ) -> Option<impl Deref<Target = RigidBody> + '_> {
-        Ref::filter_map(self.scene.component_manager.world(), |w| w.rigid_body(rigid_body_handle)).ok()
+        Ref::filter_map(self.scene.component_manager.world(), |w| {
+            w.rigid_body(rigid_body_handle)
+        })
+        .ok()
     }
 
     #[inline]
@@ -396,22 +432,21 @@ impl<'a> Context<'a> {
         &mut self,
         rigid_body_handle: RigidBodyHandle,
     ) -> Option<impl DerefMut<Target = RigidBody> + '_> {
-        RefMut::filter_map(self.scene.component_manager.world_mut(), |w| w.rigid_body_mut(rigid_body_handle)).ok()
+        RefMut::filter_map(self.scene.component_manager.world_mut(), |w| {
+            w.rigid_body_mut(rigid_body_handle)
+        })
+        .ok()
     }
 
     #[inline]
     #[cfg(feature = "physics")]
-    pub fn world(
-        &self,
-    ) -> impl Deref<Target = World> + '_ {
+    pub fn world(&self) -> impl Deref<Target = World> + '_ {
         self.scene.component_manager.world()
     }
 
     #[inline]
     #[cfg(feature = "physics")]
-    pub fn world_mut(
-        &mut self,
-    ) -> impl DerefMut<Target = World> + '_ {
+    pub fn world_mut(&mut self) -> impl DerefMut<Target = World> + '_ {
         self.scene.component_manager.world_mut()
     }
 
@@ -856,7 +891,7 @@ impl<'a> Context<'a> {
 
     #[inline]
     #[cfg(feature = "physics")]
-    pub fn gravity(&self) -> &Vector<f32> {
+    pub fn gravity(&self) -> Vector<f32> {
         self.scene.component_manager.world().gravity()
     }
 

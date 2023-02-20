@@ -82,7 +82,7 @@ impl BoxManager {
 }
 
 impl ComponentController for BoxManager {
-    fn update(components: ActiveComponents<Self>, ctx: &mut Context) {
+    fn update(_components: ActiveComponents<Self>, ctx: &mut Context) {
         let scroll = ctx.wheel_delta();
         let fov = ctx.camera_fov();
         if scroll != 0.0 {
@@ -157,7 +157,6 @@ impl Player {
 impl ComponentController for Player {
     fn update(components: ActiveComponents<Self>, ctx: &mut Context) {
         let delta = ctx.frame_time();
-        let world = &mut ctx.scene.component_manager;
         let input = &mut ctx.shura.input;
 
         for player in &mut ctx
@@ -270,7 +269,7 @@ impl PhysicsBox {
             collided: false,
             hovered: false,
             component: BaseComponent::new_rigid_body(
-                RigidBodyBuilder::fixed().translation(position),
+                RigidBodyBuilder::dynamic().translation(position),
                 vec![ColliderBuilder::cuboid(
                     BoxManager::HALF_BOX_SIZE,
                     BoxManager::HALF_BOX_SIZE,
@@ -314,11 +313,14 @@ impl ComponentController for PhysicsBox {
         for physics_box in &mut ctx.active_components_mut(&components) {
             let collider_handle = physics_box.collider_handles().unwrap()[0];
             let collider = physics_box.collider(collider_handle).unwrap();
-            if collider.shape().contains_point(collider.position(), &cursor_world) {
+            if collider
+                .shape()
+                .contains_point(collider.position(), &cursor_world)
+            {
                 drop(collider);
                 physics_box.hovered = true;
                 if remove {
-                    to_remove.push(*physics_box.component.handle());
+                    to_remove.push(*physics_box.component.handle().unwrap());
                 }
             } else {
                 drop(collider);
