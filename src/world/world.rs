@@ -1,5 +1,5 @@
 use crate::{
-    BaseComponent, ComponentController, ComponentHandle, ComponentIdentifier, ComponentTypeId,
+    BaseComponent, ComponentHandle, ComponentTypeId,
 };
 use rapier2d::prelude::*;
 use rustc_hash::FxHashMap;
@@ -50,6 +50,7 @@ pub struct World {
     narrow_phase: NarrowPhase,
     impulse_joints: ImpulseJointSet,
     multibody_joints: MultibodyJointSet,
+    time_scale: f32,
     ccd_solver: CCDSolver,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
@@ -77,6 +78,7 @@ impl Clone for World {
             ccd_solver: self.ccd_solver.clone(),
             physics_pipeline: Default::default(),
             events: Default::default(),
+            time_scale: self.time_scale
         }
     }
 }
@@ -92,7 +94,6 @@ impl World {
         Self {
             physics_pipeline: PhysicsPipeline::new(),
             query_pipeline: QueryPipeline::new(),
-            gravity: vector![0.0, 0.0],
             integration_parameters: IntegrationParameters::default(),
             islands: IslandManager::new(),
             broad_phase: BroadPhase::new(),
@@ -102,9 +103,11 @@ impl World {
             ccd_solver: CCDSolver::new(),
             colliders: ColliderSet::new(),
             bodies: RigidBodySet::new(),
-            physics_priority: 1000,
             events: Default::default(),
             component_mapping: Default::default(),
+            physics_priority: 1000,
+            gravity: vector![0.0, 0.0],
+time_scale: 1.0
         }
     }
 
@@ -368,7 +371,10 @@ impl World {
     }
 
     pub(crate) fn step(&mut self, delta: f32) {
-        self.integration_parameters.dt = delta;
+        if self.time_scale == 0.0 {
+            return;
+        }
+        self.integration_parameters.dt = delta * self.time_scale;
         self.physics_pipeline.step(
             &self.gravity,
             &self.integration_parameters,
@@ -440,6 +446,10 @@ impl World {
         self.gravity
     }
 
+    pub fn time_scale(&self) -> f32 {
+        self.time_scale
+    }
+
     pub fn physics_priority(&self) -> i16 {
         self.physics_priority
     }
@@ -447,6 +457,10 @@ impl World {
     // Setters
     pub fn set_gravity(&mut self, gravity: Vector<f32>) {
         self.gravity = gravity;
+    }
+
+    pub fn set_time_scale(&mut self, time_scale: f32) {
+        self.time_scale = time_scale;
     }
 
     pub fn set_physics_priority(&mut self, step: i16) {

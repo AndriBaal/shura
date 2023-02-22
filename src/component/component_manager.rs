@@ -13,7 +13,6 @@ use std::collections::BTreeMap;
 #[cfg(feature = "physics")]
 use std::{
     cell::{Ref, RefCell, RefMut},
-    ops::{Deref, DerefMut},
     rc::Rc,
 };
 
@@ -241,11 +240,11 @@ impl ComponentManager {
             .component_mut(handle.component_index())
             .unwrap();
         c.base_mut().init(
-            #[cfg(feature = "physics")]
-            self.world.clone(),
-            type_id,
             handle,
         );
+        if c.base().is_rigid_body() {
+            c.base_mut().add_to_world(C::IDENTIFIER, self.world.clone())
+        }
         return (c.downcast_mut().unwrap(), handle);
     }
 

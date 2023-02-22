@@ -897,6 +897,12 @@ impl<'a> Context<'a> {
 
     #[inline]
     #[cfg(feature = "physics")]
+    pub fn time_scale(&self) -> f32 {
+        self.scene.component_manager.world().time_scale()
+    }
+
+    #[inline]
+    #[cfg(feature = "physics")]
     pub fn physics_priority(&self) -> i16 {
         self.scene.component_manager.world().physics_priority()
     }
@@ -1083,6 +1089,15 @@ impl<'a> Context<'a> {
             .component_manager
             .world_mut()
             .set_gravity(gravity);
+    }
+
+    #[inline]
+    #[cfg(feature = "physics")]
+    pub fn set_time_scale(&mut self, time_scale: f32) {
+        self.scene
+            .component_manager
+            .world_mut()
+            .set_time_scale(time_scale);
     }
 
     #[inline]

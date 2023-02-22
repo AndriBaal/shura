@@ -201,7 +201,7 @@ impl ComponentController for Player {
 
     fn collision(
         ctx: &mut Context,
-        self_handle: ComponentHandle,
+        _self_handle: ComponentHandle,
         other_handle: ComponentHandle,
         _self_collider: ColliderHandle,
         _other_collider: ColliderHandle,
@@ -245,7 +245,7 @@ impl ComponentController for Floor {
         components: ActiveComponents<Self>,
         ctx: &'a Context<'a>,
         renderer: &mut Renderer<'a>,
-        all_instances: Instances,
+        _all_instances: Instances,
     ) {
         let test = ctx.active_components_render(&components);
         for (instance, floor) in &test {

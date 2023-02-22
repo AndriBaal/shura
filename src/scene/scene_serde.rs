@@ -165,8 +165,14 @@ impl ComponentDeserializer {
                 let item = match component {
                     Some((gen, data)) => {
                         generation = cmp::max(generation, gen);
-                        let component: DynamicComponent =
+                        let mut component: DynamicComponent =
                             Box::new(bincode::deserialize::<C>(&data).unwrap());
+                        #[cfg(feature = "physics")]
+                        if component.base().is_rigid_body() {
+                            component
+                            .base_mut()
+                            .init_world(ctx.scene.component_manager.world.clone());
+                        }
                         ArenaEntry::Occupied {
                             generation: gen,
                             data: component,
@@ -190,7 +196,7 @@ impl ComponentDeserializer {
     pub fn deserialize_components_with<C: ComponentController + ComponentIdentifier>(
         &mut self,
         ctx: &mut Context,
-        mut test: impl for<'de> FnMut(DeserializeWrapper<'de, C>, &'de Context<'de>) -> C,
+        mut de: impl for<'de> FnMut(DeserializeWrapper<'de, C>, &'de Context<'de>) -> C,
     ) {
         let type_id = C::IDENTIFIER;
         let components = self.components.remove(&type_id).unwrap();
@@ -205,7 +211,13 @@ impl ComponentDeserializer {
                     Some((gen, data)) => {
                         generation = cmp::max(generation, gen);
                         let wrapper = DeserializeWrapper::new(&data);
-                        let component: DynamicComponent = Box::new((test)(wrapper, ctx));
+                        let mut component: DynamicComponent = Box::new((de)(wrapper, ctx));
+                        #[cfg(feature = "physics")]
+                        if component.base().is_rigid_body() {
+                            component
+                            .base_mut()
+                            .init_world(ctx.scene.component_manager.world.clone());
+                        }
                         ArenaEntry::Occupied {
                             generation: gen,
                             data: component,
