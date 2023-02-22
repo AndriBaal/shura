@@ -1,6 +1,4 @@
-use crate::{
-    BaseComponent, ComponentHandle, ComponentTypeId,
-};
+use crate::{BaseComponent, ComponentHandle, ComponentTypeId};
 use rapier2d::prelude::*;
 use rustc_hash::FxHashMap;
 
@@ -37,7 +35,7 @@ impl WorldEvents {
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct World {
-    physics_priority: i16,
+    physics_priority: Option<i16>,
     bodies: RigidBodySet,
     colliders: ColliderSet,
     component_mapping: FxHashMap<ColliderHandle, (ComponentTypeId, ComponentHandle)>,
@@ -78,7 +76,7 @@ impl Clone for World {
             ccd_solver: self.ccd_solver.clone(),
             physics_pipeline: Default::default(),
             events: Default::default(),
-            time_scale: self.time_scale
+            time_scale: self.time_scale,
         }
     }
 }
@@ -105,9 +103,9 @@ impl World {
             bodies: RigidBodySet::new(),
             events: Default::default(),
             component_mapping: Default::default(),
-            physics_priority: 1000,
+            physics_priority: Some(1000),
             gravity: vector![0.0, 0.0],
-time_scale: 1.0
+            time_scale: 1.0,
         }
     }
 
@@ -371,9 +369,6 @@ time_scale: 1.0
     }
 
     pub(crate) fn step(&mut self, delta: f32) {
-        if self.time_scale == 0.0 {
-            return;
-        }
         self.integration_parameters.dt = delta * self.time_scale;
         self.physics_pipeline.step(
             &self.gravity,
@@ -450,7 +445,7 @@ time_scale: 1.0
         self.time_scale
     }
 
-    pub fn physics_priority(&self) -> i16 {
+    pub fn physics_priority(&self) -> Option<i16> {
         self.physics_priority
     }
 
@@ -463,7 +458,7 @@ time_scale: 1.0
         self.time_scale = time_scale;
     }
 
-    pub fn set_physics_priority(&mut self, step: i16) {
+    pub fn set_physics_priority(&mut self, step: Option<i16>) {
         self.physics_priority = step;
     }
 }

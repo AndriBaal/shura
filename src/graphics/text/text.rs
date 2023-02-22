@@ -102,7 +102,6 @@ impl CreateText for Sprite {
         )
         .expect("Draw queued");
 
-        // Submit the work!
         staging_belt.finish();
         gpu.queue.submit(Some(encoder.finish()));
     }

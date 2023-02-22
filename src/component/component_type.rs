@@ -1,7 +1,7 @@
 use crate::{
     data::arena::{ArenaIter, ArenaIterMut},
-    Arena, ArenaIndex, ComponentConfig, ComponentController, ComponentHandle, DynamicComponent,
-    Gpu, InstanceBuffer, Matrix, RenderOperation,
+    Arena, ArenaIndex, BufferOperation, ComponentConfig, ComponentController, ComponentHandle,
+    DynamicComponent, Gpu, InstanceBuffer, Matrix, RenderOperation,
 };
 
 #[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
@@ -48,7 +48,7 @@ impl ComponentType {
                 buffer: None,
                 force_rewrite_buffer: false,
                 last_len: 0,
-                config: C::config(),
+                config: C::CONFIG,
                 type_id: C::IDENTIFIER,
             },
         )
@@ -66,7 +66,7 @@ impl ComponentType {
             let data = self.data();
             self.last_len = new_len;
             self.buffer = Some(InstanceBuffer::new(gpu, &data[..]));
-        } else if self.config.does_move || self.force_rewrite_buffer {
+        } else if self.config.buffer == BufferOperation::EveryFrame || self.force_rewrite_buffer {
             let data = self.data();
             self.force_rewrite_buffer = false;
             if let Some(buffer) = &mut self.buffer {

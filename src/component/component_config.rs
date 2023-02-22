@@ -13,6 +13,20 @@ pub enum RenderOperation {
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum EndOperation {
+    None,
+    AllComponents,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum BufferOperation {
+    Manual,
+    EveryFrame,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// Defines which camera should be used for rendering
 pub enum CameraUse {
     /// Use the camera of the world
@@ -60,26 +74,24 @@ pub struct ComponentConfig {
     pub postproccess: PostproccessOperation,
     /// Defines how rendering is handled for the component
     pub render: RenderOperation,
-    /// The position, rotation and the scale of the component does not change. For Example a Tree
-    /// or a Background Wall. This boosts performance by allot since not every frame the matrix of
-    /// the component needs to be computed and written into the buffer. You always can call
-    /// `force_matrix_update` on the `ComponentSet` of the type to manually force the update off the buffer.
-    pub does_move: bool,
+    /// Defines when the position of the component should be buffered
+    pub buffer: BufferOperation,
+    /// Defines if the end method should be called upon ending the scene by either removing it or the window being closed
+    pub end: EndOperation,
 }
 
-impl ComponentConfig {
-    pub const DEFAULT_CONFIG: ComponentConfig = ComponentConfig {
-        does_move: true,
-        update: UpdateOperation::EveryFrame,
-        postproccess: PostproccessOperation::Never,
-        render: RenderOperation::EveryFrame,
-        camera: CameraUse::World,
-        priority: 16,
-    };
-}
+pub const DEFAULT_CONFIG: ComponentConfig = ComponentConfig {
+    buffer: BufferOperation::EveryFrame,
+    update: UpdateOperation::EveryFrame,
+    postproccess: PostproccessOperation::Never,
+    render: RenderOperation::EveryFrame,
+    end: EndOperation::None,
+    camera: CameraUse::World,
+    priority: 16,
+};
 
 impl Default for ComponentConfig {
     fn default() -> Self {
-        Self::DEFAULT_CONFIG
+        DEFAULT_CONFIG
     }
 }

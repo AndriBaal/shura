@@ -79,10 +79,29 @@ impl BoxManager {
             component: Default::default(),
         }
     }
+
+    fn serialize_scene(ctx: &mut Context) {
+        info!("Serializing scene!");
+        let ser = ctx
+            .serialize(|s| {
+                s.serialize_components::<Floor>(GroupFilter::All);
+                s.serialize_components::<Player>(GroupFilter::All);
+                s.serialize_components::<BoxManager>(GroupFilter::All);
+                s.serialize_components::<PhysicsBox>(GroupFilter::All);
+            })
+            .unwrap();
+        fs::write("data.binc", ser).expect("Unable to write file");
+    }
 }
 
 impl ComponentController for BoxManager {
-    fn update(_components: ActiveComponents<Self>, ctx: &mut Context) {
+    const CONFIG: ComponentConfig = ComponentConfig {
+        priority: 1,
+        render: RenderOperation::Never,
+        end: EndOperation::AllComponents,
+        ..DEFAULT_CONFIG
+    };
+    fn update(_active: ComponentPath<Self>, ctx: &mut Context) {
         let scroll = ctx.wheel_delta();
         let fov = ctx.camera_fov();
         if scroll != 0.0 {
@@ -108,24 +127,12 @@ impl ComponentController for BoxManager {
         }
 
         if ctx.is_pressed(Key::Z) {
-            let ser = ctx
-                .serialize(|s| {
-                    s.serialize_components::<Floor>(GroupFilter::All);
-                    s.serialize_components::<Player>(GroupFilter::All);
-                    s.serialize_components::<BoxManager>(GroupFilter::All);
-                    s.serialize_components::<PhysicsBox>(GroupFilter::All);
-                })
-                .unwrap();
-            fs::write("data.binc", ser).expect("Unable to write file");
+            Self::serialize_scene(ctx);
         }
     }
 
-    fn config() -> ComponentConfig {
-        ComponentConfig {
-            priority: 1,
-            render: RenderOperation::Never,
-            ..ComponentConfig::default()
-        }
+    fn end(_all: ComponentPath<Self>, ctx: &mut Context) {
+        Self::serialize_scene(ctx);
     }
 }
 
@@ -155,15 +162,11 @@ impl Player {
 }
 
 impl ComponentController for Player {
-    fn update(components: ActiveComponents<Self>, ctx: &mut Context) {
+    fn update(active: ComponentPath<Self>, ctx: &mut Context) {
         let delta = ctx.frame_time();
         let input = &mut ctx.shura.input;
 
-        for player in &mut ctx
-            .scene
-            .component_manager
-            .active_components_mut(&components)
-        {
+        for player in &mut ctx.scene.component_manager.path_mut(&active) {
             let mut body = player.rigid_body_mut().unwrap();
             let mut linvel = *body.linvel();
 
@@ -188,12 +191,12 @@ impl ComponentController for Player {
     }
 
     fn render<'a>(
-        components: ActiveComponents<Self>,
+        active: ComponentPath<Self>,
         ctx: &'a Context<'a>,
         renderer: &mut Renderer<'a>,
         _instances: Instances,
     ) {
-        for (instances, player) in &ctx.active_components_render(&components) {
+        for (instances, player) in &ctx.path_render(&active) {
             renderer.render_sprite(&player.model, &player.sprite);
             renderer.commit(instances);
         }
@@ -242,12 +245,12 @@ impl Floor {
 
 impl ComponentController for Floor {
     fn render<'a>(
-        components: ActiveComponents<Self>,
+        active: ComponentPath<Self>,
         ctx: &'a Context<'a>,
         renderer: &mut Renderer<'a>,
         _all_instances: Instances,
     ) {
-        let test = ctx.active_components_render(&components);
+        let test = ctx.path_render(&active);
         for (instance, floor) in &test {
             renderer.render_color(&floor.model, &floor.color);
             renderer.commit(instance);
@@ -281,7 +284,7 @@ impl PhysicsBox {
 
 impl ComponentController for PhysicsBox {
     fn render<'a>(
-        components: ActiveComponents<Self>,
+        active: ComponentPath<Self>,
         ctx: &'a Context<'a>,
         renderer: &mut Renderer<'a>,
         _instances: Instances,
@@ -292,7 +295,7 @@ impl ComponentController for PhysicsBox {
             .next()
             .unwrap();
 
-        for (instance, physics_box) in &ctx.active_components_render(&components) {
+        for (instance, physics_box) in &ctx.path_render(&active) {
             let color: &Uniform<Color>;
             if physics_box.collided {
                 color = &manager.collision_color;
@@ -306,11 +309,11 @@ impl ComponentController for PhysicsBox {
         }
     }
 
-    fn update(components: ActiveComponents<Self>, ctx: &mut Context) {
+    fn update(active: ComponentPath<Self>, ctx: &mut Context) {
         let cursor_world: Point<f32> = (*ctx.cursor_world()).into();
         let mut to_remove = vec![];
         let remove = ctx.is_held(MouseButton::Left) || ctx.is_pressed(ScreenTouch);
-        for physics_box in &mut ctx.active_components_mut(&components) {
+        for physics_box in &mut ctx.path_mut(&active) {
             let collider_handle = physics_box.collider_handles().unwrap()[0];
             let collider = physics_box.collider(collider_handle).unwrap();
             if collider

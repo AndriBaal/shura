@@ -1,15 +1,16 @@
 #[cfg(feature = "physics")]
 use crate::physics::World;
 use crate::{
-    ActiveComponents, Arena, ArenaEntry, ArenaIndex, ArenaPath, Camera, ComponentCallbacks,
-    ComponentCluster, ComponentController, ComponentGroup, ComponentGroupDescriptor,
-    ComponentHandle, ComponentIdentifier, ComponentSet, ComponentSetMut, ComponentSetRender,
-    ComponentTypeId, DynamicComponent, Gpu, DEFAULT_GROUP_ID,
+    Arena, ArenaEntry, ArenaIndex, ArenaPath, Camera, ComponentCallbacks, ComponentCluster,
+    ComponentController, ComponentGroup, ComponentGroupDescriptor, ComponentHandle,
+    ComponentIdentifier, ComponentPath, ComponentSet, ComponentSetMut, ComponentSetRender,
+    ComponentTypeId, DynamicComponent, EndOperation, Gpu, DEFAULT_GROUP_ID,
 };
 use instant::Instant;
 use log::info;
 use rustc_hash::{FxHashMap, FxHashSet};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
+use std::mem;
 #[cfg(feature = "physics")]
 use std::{
     cell::{Ref, RefCell, RefMut},
@@ -55,7 +56,7 @@ pub struct ComponentManager {
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
     component_callbacks: FxHashMap<ComponentTypeId, ComponentCallbacks>,
-
+    end_callbacks: BTreeSet<(i16, ComponentTypeId)>,
     #[cfg(feature = "physics")]
     pub world: Rc<RefCell<World>>,
 }
@@ -80,6 +81,7 @@ impl ComponentManager {
             force_update_sets: false,
             active_components: Default::default(),
             component_callbacks: Default::default(),
+            end_callbacks: Default::default(),
 
             #[cfg(feature = "physics")]
             world: Rc::new(RefCell::new(World::new())),
@@ -162,6 +164,23 @@ impl ComponentManager {
         }
     }
 
+    pub(crate) fn end_callbacks(&mut self) -> impl Iterator<Item = (i16, ComponentTypeId)> {
+        mem::take(&mut self.end_callbacks).into_iter()
+    }
+
+    pub(crate) fn all_paths(&self, type_id: ComponentTypeId) -> Vec<ArenaPath> {
+        let mut result = vec![];
+        for (group_index, group) in &self.groups {
+            if let Some(type_index) = group.type_index(type_id) {
+                result.push(ArenaPath {
+                    group_index,
+                    type_index: *type_index,
+                })
+            }
+        }
+        return result;
+    }
+
     pub fn force_buffer<C: ComponentController + ComponentIdentifier>(&mut self) {
         let type_id = C::IDENTIFIER;
         for group in &mut self.groups {
@@ -206,15 +225,17 @@ impl ComponentManager {
     ) -> (&mut C, ComponentHandle) {
         let group_id = group_id.unwrap_or(DEFAULT_GROUP_ID);
         let type_id = C::IDENTIFIER;
+        let config = C::CONFIG;
         let group_index = self
             .group_map
             .get(&group_id)
             .expect(format!("Group {} does not exist!", group_id).as_str());
         let group = &mut self.groups[*group_index];
 
-        if !self.component_callbacks.contains_key(&type_id) {
-            self.component_callbacks
-                .insert(type_id, ComponentCallbacks::new::<C>());
+        self.component_callbacks
+            .insert(type_id, ComponentCallbacks::new::<C>());
+        if config.end == EndOperation::AllComponents {
+            self.end_callbacks.insert((config.priority, type_id));
         }
 
         let handle;
@@ -239,9 +260,7 @@ impl ComponentManager {
             .unwrap()
             .component_mut(handle.component_index())
             .unwrap();
-        c.base_mut().init(
-            handle,
-        );
+        c.base_mut().init(handle);
         if c.base().is_rigid_body() {
             c.base_mut().add_to_world(C::IDENTIFIER, self.world.clone())
         }
@@ -325,14 +344,14 @@ impl ComponentManager {
         }
     }
 
-    pub fn active_components_render<'a, C: ComponentController>(
+    pub fn path_render<'a, C: ComponentController>(
         &'a self,
-        active_components: &ActiveComponents<C>,
+        path: &ComponentPath<C>,
     ) -> ComponentSetRender<'a, C> {
         let mut types = vec![];
         let mut len = 0;
 
-        for path in active_components.paths() {
+        for path in path.paths() {
             if let Some(group) = self.group(path.group_index) {
                 if let Some(component_type) = group.type_ref(path.type_index) {
                     let type_len = component_type.len();
@@ -347,14 +366,14 @@ impl ComponentManager {
         return ComponentSetRender::new(types, len);
     }
 
-    pub fn active_components<'a, C: ComponentController>(
+    pub fn path<'a, C: ComponentController>(
         &'a self,
-        active_components: &ActiveComponents<C>,
+        path: &ComponentPath<C>,
     ) -> ComponentSet<'a, C> {
         let mut types = vec![];
         let mut len = 0;
 
-        for path in active_components.paths() {
+        for path in path.paths() {
             if let Some(group) = self.group(path.group_index) {
                 if let Some(component_type) = group.type_ref(path.type_index) {
                     let type_len = component_type.len();
@@ -369,16 +388,16 @@ impl ComponentManager {
         return ComponentSet::new(types, len);
     }
 
-    pub fn active_components_mut<'a, C: ComponentController>(
+    pub fn path_mut<'a, C: ComponentController>(
         &'a mut self,
-        active_components: &ActiveComponents<C>,
+        path: &ComponentPath<C>,
     ) -> ComponentSetMut<'a, C> {
         let mut types = vec![];
         let mut len = 0;
 
         let mut head: &mut [ArenaEntry<_>] = self.groups.as_slice();
         let mut offset = 0;
-        for path in active_components.paths() {
+        for path in path.paths() {
             let split = head.split_at_mut(path.group_index.index() as usize + 1 - offset);
             head = split.1;
             offset += split.0.len();
@@ -421,9 +440,9 @@ impl ComponentManager {
                 }
             }
             GroupFilter::Active => {
-                let key = (C::config().priority, C::IDENTIFIER);
+                let key = (C::CONFIG.priority, C::IDENTIFIER);
                 if let Some(cluster) = self.active_components.get(&key) {
-                    return self.active_components(&ActiveComponents::new(cluster.paths()));
+                    return self.path(&ComponentPath::new(cluster.paths()));
                 }
             }
             GroupFilter::Specific(group_ids) => {
@@ -469,9 +488,9 @@ impl ComponentManager {
                 }
             }
             GroupFilter::Active => {
-                let key = (C::config().priority, C::IDENTIFIER);
+                let key = (C::CONFIG.priority, C::IDENTIFIER);
                 if let Some(cluster) = self.active_components.get(&key).cloned() {
-                    return self.active_components_mut(&ActiveComponents::new(&cluster.paths()));
+                    return self.path_mut(&ComponentPath::new(&cluster.paths()));
                 }
             }
             GroupFilter::Specific(group_ids) => {

@@ -1,6 +1,6 @@
 use crate::{
-    ActiveComponents, CameraBuffers, Color, ComponentController, ComponentGroup,
-    ComponentGroupDescriptor, ComponentHandle, ComponentIdentifier, ComponentSet, ComponentSetMut,
+    CameraBuffers, Color, ComponentController, ComponentGroup, ComponentGroupDescriptor,
+    ComponentHandle, ComponentIdentifier, ComponentPath, ComponentSet, ComponentSetMut,
     ComponentSetRender, Dimension, DynamicComponent, GroupFilter, InputEvent, InputTrigger,
     InstanceBuffer, Instances, Isometry, Key, Matrix, Model, ModelBuilder, Modifier, Renderer,
     Rotation, Scene, Shader, ShaderField, ShaderLang, Shura, Sprite, SpriteSheet, Touch, Uniform,
@@ -903,41 +903,32 @@ impl<'a> Context<'a> {
 
     #[inline]
     #[cfg(feature = "physics")]
-    pub fn physics_priority(&self) -> i16 {
+    pub fn physics_priority(&self) -> Option<i16> {
         self.scene.component_manager.world().physics_priority()
     }
 
     #[inline]
-    pub fn active_components_render<C: ComponentController + ComponentIdentifier>(
+    pub fn path_render<C: ComponentController + ComponentIdentifier>(
         &self,
-        active_components: &ActiveComponents<C>,
+        path: &ComponentPath<C>,
     ) -> ComponentSetRender<C> {
-        return self
-            .scene
-            .component_manager
-            .active_components_render(active_components);
+        return self.scene.component_manager.path_render(path);
     }
 
     #[inline]
-    pub fn active_components<C: ComponentController + ComponentIdentifier>(
+    pub fn path<C: ComponentController + ComponentIdentifier>(
         &self,
-        active_components: &ActiveComponents<C>,
+        path: &ComponentPath<C>,
     ) -> ComponentSet<C> {
-        return self
-            .scene
-            .component_manager
-            .active_components(active_components);
+        return self.scene.component_manager.path(path);
     }
 
     #[inline]
-    pub fn active_components_mut<C: ComponentController + ComponentIdentifier>(
+    pub fn path_mut<C: ComponentController + ComponentIdentifier>(
         &mut self,
-        active_components: &ActiveComponents<C>,
+        path: &ComponentPath<C>,
     ) -> ComponentSetMut<C> {
-        return self
-            .scene
-            .component_manager
-            .active_components_mut(active_components);
+        return self.scene.component_manager.path_mut(path);
     }
 
     #[inline]
@@ -1102,7 +1093,7 @@ impl<'a> Context<'a> {
 
     #[inline]
     #[cfg(feature = "physics")]
-    pub fn set_physics_priority(&mut self, step: i16) {
+    pub fn set_physics_priority(&mut self, step: Option<i16>) {
         self.scene
             .component_manager
             .world_mut()

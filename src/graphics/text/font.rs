@@ -12,7 +12,7 @@ pub trait CreateFont {
         let inconsolata = ab_glyph::FontArc::try_from_slice(bytes).unwrap();
 
         GlyphBrushBuilder::using_font(inconsolata)
-            .multisample_state(gpu.base.multisample_state)
+            // .multisample_state(gpu.base.multisample_state)
             .build(&gpu.device, gpu.config.format)
     }
 }

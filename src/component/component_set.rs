@@ -89,12 +89,12 @@ impl ComponentCluster {
     }
 }
 
-pub struct ActiveComponents<'a, C: ComponentController> {
+pub struct ComponentPath<'a, C: ComponentController> {
     paths: &'a [ArenaPath],
     marker: PhantomData<C>,
 }
 
-impl<'a, C: ComponentController> ActiveComponents<'a, C> {
+impl<'a, C: ComponentController> ComponentPath<'a, C> {
     pub(crate) fn new(paths: &'a [ArenaPath]) -> Self {
         Self {
             paths,

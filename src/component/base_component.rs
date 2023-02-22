@@ -114,10 +114,7 @@ impl BaseComponent {
         }
     }
 
-    pub(crate) fn init(
-        &mut self,
-        handle: ComponentHandle,
-    ) {
+    pub(crate) fn init(&mut self, handle: ComponentHandle) {
         if self.handle.is_none() {
             self.handle = Some(handle);
         }
@@ -500,8 +497,8 @@ impl BaseComponent {
         return match &self.body {
             BodyStatus::RigidBody { .. } => true,
             BodyStatus::RigidBodyPending { .. } => true,
-            _ => false
-        }
+            _ => false,
+        };
     }
 
     #[cfg(feature = "physics")]

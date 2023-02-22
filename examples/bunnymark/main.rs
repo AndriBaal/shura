@@ -41,7 +41,12 @@ impl BunnyManager {
 }
 
 impl ComponentController for BunnyManager {
-    fn update(_active_components: ActiveComponents<Self>, ctx: &mut Context) {
+    const CONFIG: ComponentConfig = ComponentConfig {
+        priority: 1,
+        render: RenderOperation::Never,
+        ..DEFAULT_CONFIG
+    };
+    fn update(_path: ComponentPath<Self>, ctx: &mut Context) {
         const MODIFY_STEP: usize = 1500;
         gui::Window::new("bunnymark")
             .anchor(gui::Align2::LEFT_TOP, gui::Vec2::default())
@@ -80,17 +85,6 @@ impl ComponentController for BunnyManager {
             }
         }
     }
-
-    fn config() -> ComponentConfig
-    where
-        Self: Sized,
-    {
-        ComponentConfig {
-            priority: 1,
-            render: RenderOperation::Never,
-            ..ComponentConfig::default()
-        }
-    }
 }
 
 #[derive(Component)]
@@ -112,10 +106,14 @@ impl Bunny {
 }
 
 impl ComponentController for Bunny {
-    fn update(active_components: ActiveComponents<Self>, ctx: &mut Context) {
+    const CONFIG: ComponentConfig = ComponentConfig {
+        priority: 2,
+        ..DEFAULT_CONFIG
+    };
+    fn update(active: ComponentPath<Self>, ctx: &mut Context) {
         let fov = ctx.camera_fov() / 2.0;
         let frame = ctx.frame_time();
-        for bunny in &mut ctx.active_components_mut(&active_components) {
+        for bunny in &mut ctx.path_mut(&active) {
             const GRAVITY: f32 = -2.5;
             let mut linvel = bunny.linvel;
             let mut translation = bunny.translation();
@@ -143,7 +141,7 @@ impl ComponentController for Bunny {
     }
 
     fn render<'a>(
-        _active_components: ActiveComponents<Self>,
+        _active: ComponentPath<Self>,
         ctx: &'a Context<'a>,
         renderer: &mut Renderer<'a>,
         instances: Instances,
@@ -155,15 +153,5 @@ impl ComponentController for Bunny {
             .unwrap();
         renderer.render_sprite(&manager.bunny_model, &manager.bunny_sprite);
         renderer.commit(instances);
-    }
-
-    fn config() -> ComponentConfig
-    where
-        Self: Sized,
-    {
-        ComponentConfig {
-            priority: 2,
-            ..ComponentConfig::default()
-        }
     }
 }

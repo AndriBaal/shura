@@ -11,7 +11,6 @@ fn main() {
     }));
 }
 
-
 #[derive(Component)]
 pub struct StartButton {
     model: Model,
@@ -19,12 +18,13 @@ pub struct StartButton {
     start: Sound,
     sink: Sink,
     #[component]
-    component: PositionComponent,
+    component: BaseComponent,
 }
 impl StartButton {
     pub fn new(ctx: &mut Context) -> Self {
         ctx.set_window_title("Arkanoid");
         ctx.set_horizontal_fov(5.0);
+        ctx.set_physics_priority(None);
         let text = ctx.create_text(TextDescriptor {
             font: None,
             size: Dimension::new(600, 200),
@@ -38,38 +38,42 @@ impl StartButton {
             }],
         });
         let sink = ctx.create_sink();
-        let start = ctx.create_sound(include_bytes!("../res/start.wav"));
+        let start = ctx.create_sound(include_bytes!("./audio/start.wav"));
         Self {
             model: ctx.create_model(ModelBuilder::cuboid(Dimension::new(0.5, 0.167))),
             text,
             sink,
             start,
-            component: PositionComponent::new(),
+            component: BaseComponent::default(),
         }
     }
 }
 
 impl ComponentController for StartButton {
-    fn update(&mut self, _scene: &mut DynamicScene, ctx: &mut Context) {
+    fn update(active: ComponentPath<Self>, ctx: &mut Context) {
         if ctx.is_pressed(Key::Space)
             || ctx.is_pressed(ScreenTouch)
             || ctx.is_pressed(MouseButton::Left)
         {
-            self.sink.append(self.start.decode());
-            if !ctx.does_scene_exist("game") {
-                ctx.create_scene("game", GameScene::new);
+            for button in ctx.path_mut(&active).iter() {
+                button.sink.append(button.start.decode());
+                // if !ctx.does_scene_exist("game") {
+                //     ctx.create_scene("game", GameScene::new);
+                // }
+                // ctx.set_active_scene("game");
             }
-            ctx.set_active_scene("game");
         }
     }
 
     fn render<'a>(
-        &'a self,
-        _scene: &DynamicScene,
+        active: ComponentPath<Self>,
+        ctx: &'a Context<'a>,
         renderer: &mut Renderer<'a>,
-        instances: Instances,
+        _all_instances: Instances,
     ) {
-        renderer.render_sprite(&self.model, &self.text);
-        renderer.commit(&instances);
+        for (instance, button) in ctx.path_render(&active).iter() {
+            renderer.render_sprite(&button.model, &button.text);
+            renderer.commit(instance);
+        }
     }
 }

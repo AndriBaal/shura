@@ -124,7 +124,7 @@ impl Shura {
                             }
                         }
                     }
-                    Event::RedrawRequested(window_id) if window_id == shura_window_id => {
+                    Event::RedrawRequested(window_id) if window_id == shura_window_id && !shura.end => {
                         let mut scene = shura.scene_manager.borrow_active_scene();
                         if let Some(max_frame_time) = scene.render_config.max_frame_time() {
                             let now = shura.frame_manager.now();
@@ -207,10 +207,21 @@ impl Shura {
     }
 
     fn end(&mut self, cf: &mut winit::event_loop::ControlFlow) {
-        // for scene in self.scene_manager.end_scenes() {
-        //     scene.1.unwrap().end(self);
-        // }
-        *cf = winit::event_loop::ControlFlow::Exit
+        self.end = true;
+        *cf = winit::event_loop::ControlFlow::Exit;
+        for (_, scene) in self.scene_manager.end_scenes() {
+            let mut ctx = Context {
+                scene: &mut scene.unwrap(),
+                shura: self,
+            };
+            for (_, type_id) in ctx.scene.component_manager.end_callbacks() {
+                let paths = ctx.scene.component_manager.all_paths(type_id);
+                if paths.len() > 0 {
+                    let callbacks = ctx.scene.component_manager.component_callbacks(&type_id);
+                    (callbacks.call_end)(&paths, &mut ctx);
+                }
+            }
+        }
     }
 
     fn resize(&mut self, new_size: Dimension<u32>) {
@@ -318,7 +329,13 @@ impl Shura {
             .compute(&ctx.scene.camera, &window_size, &ctx.shura.input);
 
         #[cfg(feature = "physics")]
-        let mut done_step = false;
+        let (mut done_step, physics_priority) = {
+            if let Some(physics_priority) = ctx.physics_priority() {
+                (false, physics_priority)
+            } else {
+                (true, 0)
+            }
+        };
         let now = ctx.update_time();
 
         if ctx.update_components() {
@@ -330,7 +347,7 @@ impl Shura {
 
                 let config = set.config();
                 #[cfg(feature = "physics")]
-                if !done_step && config.priority > ctx.physics_priority() {
+                if !done_step && config.priority > physics_priority {
                     done_step = true;
                     Self::step(&mut ctx);
                 }
@@ -359,7 +376,7 @@ impl Shura {
         }
 
         #[cfg(feature = "physics")]
-        if !done_step {
+        if !done_step && ctx.physics_priority().is_some() {
             Self::step(&mut ctx);
         }
 

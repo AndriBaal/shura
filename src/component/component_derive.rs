@@ -4,14 +4,14 @@ use crate::{
     ComponentHandle,
 };
 use crate::{
-    ActiveComponents, ArenaPath, BaseComponent, ComponentConfig, Context, Instances, Model,
-    Renderer, Sprite,
+    ArenaPath, BaseComponent, ComponentConfig, ComponentPath, Context, Instances, Model, Renderer,
+    Sprite, DEFAULT_CONFIG,
 };
 use downcast_rs::*;
 
 /// Dynamic component, that can be downcasted to any [ComponentController](crate::ComponentController)
 /// using downcast_ref or downcast_mut.
-pub type DynamicComponent = Box<dyn ComponentController>;
+pub type DynamicComponent = Box<dyn ComponentDerive>;
 
 /// All [ComponentControllers](crate::ComponentController) need to derive from this trait, however
 /// this is not done manually, but with the derive macro [Component](crate::Component).
@@ -24,10 +24,12 @@ pub type DynamicComponent = Box<dyn ComponentController>;
 ///     linvel: Vector<f32>,
 /// }
 /// ```
-pub trait ComponentDerive {
+pub trait ComponentDerive: Downcast {
     fn base(&self) -> &BaseComponent;
     fn base_mut(&mut self) -> &mut BaseComponent;
 }
+
+impl_downcast!(ComponentDerive);
 
 #[allow(unused_variables)]
 /// shura has its own component system so every thing in the game is a component. Every struct
@@ -37,15 +39,15 @@ pub trait ComponentDerive {
 /// A controller is used to add
 /// data to a Component and define the behaviour of the componencomponents.len() as u32§t it controlls. Every component belongs to
 /// one controller and every controller belongs to one component.
-pub trait ComponentController: Downcast + ComponentControllerCaller + ComponentDerive {
+pub trait ComponentController: ComponentControllerCaller + ComponentDerive
+where
+    Self: Sized,
+{
+    const CONFIG: ComponentConfig = DEFAULT_CONFIG;
     /// This component gets updated if the component's [group](crate::ComponentGroup) is active and enabled.
     /// Through the [context](crate::Context) you have access to all other scenes, groups,
     /// components with the matching controller and all data from the engine.
-    fn update(set: ActiveComponents<Self>, ctx: &mut Context)
-    where
-        Self: Sized,
-    {
-    }
+    fn update(active: ComponentPath<Self>, ctx: &mut Context) {}
 
     #[cfg(feature = "physics")]
     /// Collision Event between 2 [PhysicsComponents](crate::physics::PhysicsComponent). It requires that
@@ -59,9 +61,7 @@ pub trait ComponentController: Downcast + ComponentControllerCaller + ComponentD
         self_collider: ColliderHandle,
         other_collider: ColliderHandle,
         collision_type: CollideType,
-    ) where
-        Self: Sized,
-    {
+    ) {
     }
 
     /// Grouped render of multiple components. This method gets called once for every group inwhich
@@ -71,13 +71,11 @@ pub trait ComponentController: Downcast + ComponentControllerCaller + ComponentD
     /// For this method to work the render operation of this component must be set to
     /// [RenderOperation::Grouped](crate::RenderOperation::Grouped) in the [ComponentConfig](crate::ComponentConfig).
     fn render<'a>(
-        set: ActiveComponents<Self>,
+        active: ComponentPath<Self>,
         ctx: &'a Context<'a>,
         renderer: &mut Renderer<'a>,
         all_instances: Instances,
-    ) where
-        Self: Sized,
-    {
+    ) {
     }
 
     /// Apply postprocessing after rendering all components of this Component. During rendering
@@ -85,23 +83,14 @@ pub trait ComponentController: Downcast + ComponentControllerCaller + ComponentD
     fn postproccess<'a>(
         ctx: &Context,
         renderer: &mut Renderer<'a>,
-        // components: RenderIter<'a, Self>,
         instance: Instances,
         screen_model: &'a Model,
         current_render: &'a Sprite,
-    ) where
-        Self: Sized,
-    {
+    ) {
     }
 
-    fn config() -> ComponentConfig
-    where
-        Self: Sized,
-    {
-        return ComponentConfig::default();
-    }
+    fn end(all: ComponentPath<Self>, ctx: &mut Context) {}
 }
-impl_downcast!(ComponentController);
 
 impl<C: ComponentController + ?Sized> ComponentDerive for Box<C> {
     fn base(&self) -> &BaseComponent {
@@ -115,10 +104,11 @@ impl<C: ComponentController + ?Sized> ComponentDerive for Box<C> {
 
 /// Grants access to the static members of the component type. This should never be overwritten,
 /// since it is automatically implemented with generics.
-pub trait ComponentControllerCaller {
-    fn call_update(paths: &[ArenaPath], ctx: &mut Context)
-    where
-        Self: Sized;
+pub trait ComponentControllerCaller
+where
+    Self: Sized,
+{
+    fn call_update(paths: &[ArenaPath], ctx: &mut Context);
     #[cfg(feature = "physics")]
     fn call_collision(
         ctx: &mut Context,
@@ -127,23 +117,21 @@ pub trait ComponentControllerCaller {
         self_collider: ColliderHandle,
         other_collider: ColliderHandle,
         collision_type: CollideType,
-    ) where
-        Self: Sized;
+    );
     fn call_render<'a>(
         paths: &[ArenaPath],
         ctx: &'a Context<'a>,
         renderer: &mut Renderer<'a>,
         all_instances: Instances,
-    ) where
-        Self: Sized;
+    );
     fn call_postproccess<'a>(
         ctx: &'a Context<'a>,
         renderer: &mut Renderer<'a>,
         all_instances: Instances,
         model: &'a Model,
         sprite: &'a Sprite,
-    ) where
-        Self: Sized;
+    );
+    fn call_end(paths: &[ArenaPath], ctx: &mut Context);
 }
 
 impl<C: ComponentController> ComponentControllerCaller for C {
@@ -153,7 +141,7 @@ impl<C: ComponentController> ComponentControllerCaller for C {
         renderer: &mut Renderer<'a>,
         all_instances: Instances,
     ) {
-        C::render(ActiveComponents::new(paths), ctx, renderer, all_instances);
+        C::render(ComponentPath::new(paths), ctx, renderer, all_instances);
     }
     fn call_postproccess<'a>(
         ctx: &'a Context<'a>,
@@ -166,7 +154,11 @@ impl<C: ComponentController> ComponentControllerCaller for C {
     }
 
     fn call_update(paths: &[ArenaPath], ctx: &mut Context) {
-        C::update(ActiveComponents::new(paths), ctx)
+        C::update(ComponentPath::new(paths), ctx)
+    }
+
+    fn call_end(paths: &[ArenaPath], ctx: &mut Context) {
+        C::end(ComponentPath::new(paths), ctx)
     }
 
     #[cfg(feature = "physics")]
@@ -191,6 +183,7 @@ impl<C: ComponentController> ComponentControllerCaller for C {
 
 #[derive(Copy, Clone)]
 pub(crate) struct ComponentCallbacks {
+    pub call_end: fn(paths: &[ArenaPath], ctx: &mut Context),
     pub call_update: fn(paths: &[ArenaPath], ctx: &mut Context),
     pub call_postproccess: for<'a> fn(
         ctx: &'a Context<'a>,
@@ -219,6 +212,7 @@ pub(crate) struct ComponentCallbacks {
 impl ComponentCallbacks {
     pub fn new<C: ComponentController>() -> Self {
         return Self {
+            call_end: C::call_end,
             call_update: C::call_update,
             call_postproccess: C::call_postproccess,
             #[cfg(feature = "physics")]

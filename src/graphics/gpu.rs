@@ -179,7 +179,7 @@ impl Gpu {
                     resource: wgpu::BindingResource::Sampler(&self.base.texture_sampler),
                 },
             ],
-            label: Some("texture_bind_group"),
+            label: Some("target_bind_group"),
         });
 
         let sprite = Sprite::from_wgpu(size, target_texture, target_bindgroup, format);

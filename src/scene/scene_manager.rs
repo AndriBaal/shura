@@ -63,8 +63,8 @@ impl SceneManager {
     }
 
     #[inline]
-    pub(crate) fn end_scenes(&mut self) -> FxHashMap<u32, Option<Scene>> {
-        std::mem::take(&mut self.scenes)
+    pub(crate) fn end_scenes(&mut self) -> impl Iterator<Item = (u32, Option<Scene>)> {
+        std::mem::take(&mut self.scenes).into_iter()
     }
 
     #[inline]
