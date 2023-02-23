@@ -1,4 +1,4 @@
-use crate::{CameraBuffers, Color, Defaults, Dimension, Gpu, InstanceBuffer, Instances, Renderer};
+use crate::{CameraBuffers, Color, GpuDefaults, Dimension, Gpu, InstanceBuffer, Instances, Renderer};
 use image::GenericImageView;
 use std::num::NonZeroU32;
 
@@ -34,7 +34,7 @@ impl Sprite {
     /// Procedural rendered Sprite
     pub fn computed<'caller, F>(
         gpu: &Gpu,
-        defaults: &Defaults,
+        defaults: &GpuDefaults,
         instances: &InstanceBuffer,
         camera: &CameraBuffers,
         texture_size: Dimension<u32>,
@@ -114,7 +114,7 @@ impl Sprite {
     pub fn draw<'caller, F>(
         &self,
         gpu: &Gpu,
-        defaults: &Defaults,
+        defaults: &GpuDefaults,
         instances: &InstanceBuffer,
         camera: &CameraBuffers,
         texture_size: Dimension<u32>,
@@ -156,7 +156,7 @@ impl Sprite {
     pub(crate) fn write_current_render(
         &mut self,
         gpu: &Gpu,
-        defaults: &Defaults,
+        defaults: &GpuDefaults,
         encoder: &mut wgpu::CommandEncoder,
         relative_camera: &CameraBuffers,
     ) {

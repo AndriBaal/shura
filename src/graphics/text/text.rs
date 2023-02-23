@@ -1,6 +1,6 @@
 use crate::{
     text::{DefaultLineBreaker, Font, LineBreaker, Text},
-    Color, Defaults, Dimension, Gpu, Sprite, Vector,
+    Color, Dimension, Gpu, Sprite, Vector,
 };
 
 pub struct TextSection<'a> {
@@ -14,7 +14,7 @@ pub struct TextDescriptor<'a> {
     pub clear_color: Option<Color>,
     pub size: Dimension<u32>,
     pub sections: Vec<TextSection<'a>>,
-    pub font: Option<&'a mut Font>,
+    pub font: &'a mut Font,
 }
 
 impl<'a> TextSection<'a> {
@@ -40,25 +40,24 @@ impl<'a> Default for TextSection<'a> {
 }
 
 pub trait CreateText {
-    fn new_text(gpu: &Gpu, defaults: &mut Defaults, descriptor: TextDescriptor) -> Sprite;
-    fn write_text(&mut self, gpu: &Gpu, defaults: &mut Defaults, descriptor: TextDescriptor);
+    fn new_text(gpu: &Gpu, descriptor: TextDescriptor) -> Sprite;
+    fn write_text(&mut self, gpu: &Gpu, descriptor: TextDescriptor);
 }
 
 impl CreateText for Sprite {
-    fn new_text(gpu: &Gpu, defaults: &mut Defaults, descriptor: TextDescriptor) -> Sprite {
+    fn new_text(gpu: &Gpu, descriptor: TextDescriptor) -> Sprite {
         let mut sprite = Sprite::empty(gpu, descriptor.size);
-        sprite.write_text(gpu, defaults, descriptor);
+        sprite.write_text(gpu, descriptor);
         return sprite;
     }
 
     /// The text is written on the current sprite.
-    fn write_text(&mut self, gpu: &Gpu, defaults: &mut Defaults, descriptor: TextDescriptor) {
+    fn write_text(&mut self, gpu: &Gpu, descriptor: TextDescriptor) {
         if descriptor.size != *self.size() {
             *self = Sprite::empty(gpu, descriptor.size);
         }
 
         let mut staging_belt = wgpu::util::StagingBelt::new(1024);
-        let font = descriptor.font.unwrap_or(&mut defaults.default_font);
         let mut encoder = gpu
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -89,18 +88,20 @@ impl CreateText for Sprite {
         }
 
         for section in descriptor.sections {
-            font.queue(section.to_glyph_section());
+            descriptor.font.queue(section.to_glyph_section());
         }
 
-        font.draw_queued(
-            &gpu.device,
-            &mut staging_belt,
-            &mut encoder,
-            &view,
-            descriptor.size.width,
-            descriptor.size.height,
-        )
-        .expect("Draw queued");
+        descriptor
+            .font
+            .draw_queued(
+                &gpu.device,
+                &mut staging_belt,
+                &mut encoder,
+                &view,
+                descriptor.size.width,
+                descriptor.size.height,
+            )
+            .expect("Draw queued");
 
         staging_belt.finish();
         gpu.queue.submit(Some(encoder.finish()));

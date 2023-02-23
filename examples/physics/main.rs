@@ -72,25 +72,25 @@ impl BoxManager {
             default_color: ctx.create_uniform(Color::new_rgba(0, 255, 0, 255)),
             collision_color: ctx.create_uniform(Color::new_rgba(255, 0, 0, 255)),
             hover_color: ctx.create_uniform(Color::new_rgba(0, 0, 255, 255)),
-            box_model: ctx.create_model(ModelBuilder::cuboid(Dimension::new(
+            box_model: ctx.create_model(ModelBuilder::round_cuboid(Dimension::new(
                 Self::HALF_BOX_SIZE,
                 Self::HALF_BOX_SIZE,
-            ))),
+            ),0.1, 10)),
             component: Default::default(),
         }
     }
 
     fn serialize_scene(ctx: &mut Context) {
         info!("Serializing scene!");
-        let ser = ctx
-            .serialize(|s| {
-                s.serialize_components::<Floor>(GroupFilter::All);
-                s.serialize_components::<Player>(GroupFilter::All);
-                s.serialize_components::<BoxManager>(GroupFilter::All);
-                s.serialize_components::<PhysicsBox>(GroupFilter::All);
-            })
-            .unwrap();
-        fs::write("data.binc", ser).expect("Unable to write file");
+        // let ser = ctx
+        //     .serialize(|s| {
+        //         s.serialize_components::<Floor>(GroupFilter::All);
+        //         s.serialize_components::<Player>(GroupFilter::All);
+        //         s.serialize_components::<BoxManager>(GroupFilter::All);
+        //         s.serialize_components::<PhysicsBox>(GroupFilter::All);
+        //     })
+        //     .unwrap();
+        // fs::write("data.binc", ser).expect("Unable to write file");
     }
 }
 
@@ -148,10 +148,11 @@ struct Player {
 
 impl Player {
     const RADIUS: f32 = 0.75;
+    const RESOLUTION: u32 = 24;
     pub fn new(ctx: &Context) -> Self {
         Self {
             sprite: ctx.create_sprite(include_bytes!("./img/burger.png")),
-            model: ctx.create_model(ModelBuilder::ball(Self::RADIUS, 24)),
+            model: ctx.create_model(ModelBuilder::ball(Self::RADIUS, Self::RESOLUTION)),
             component: BaseComponent::new_rigid_body(
                 RigidBodyBuilder::dynamic().translation(Vector::new(5.0, 4.0)),
                 vec![ColliderBuilder::ball(Self::RADIUS)
@@ -165,6 +166,7 @@ impl ComponentController for Player {
     fn update(active: ComponentPath<Self>, ctx: &mut Context) {
         let delta = ctx.frame_time();
         let input = &mut ctx.shura.input;
+        let gpu = &ctx.shura.gpu;
 
         for player in &mut ctx.scene.component_manager.path_mut(&active) {
             let mut body = player.rigid_body_mut().unwrap();
@@ -386,7 +388,7 @@ impl<'de, 'a> serde::de::Visitor<'de> for PlayerVisitor<'a> {
             sprite: self.ctx.create_sprite(include_bytes!("./img/burger.png")),
             model: self
                 .ctx
-                .create_model(ModelBuilder::ball(Player::RADIUS, 24)),
+                .create_model(ModelBuilder::ball(Player::RADIUS, Player::RESOLUTION)),
         })
     }
 }

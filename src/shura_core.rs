@@ -3,7 +3,7 @@ use crate::gui::Gui;
 #[cfg(feature = "physics")]
 use crate::physics::{ActiveEvents, CollideType};
 use crate::{
-    Color, Context, Defaults, Dimension, FrameManager, Gpu, Input, PostproccessOperation,
+    Color, Context, GpuDefaults, Dimension, FrameManager, Gpu, Input, PostproccessOperation,
     RenderOperation, Renderer, Scene, SceneCreator, SceneManager, Sprite,
 };
 use log::{error, info};
@@ -18,7 +18,7 @@ pub struct Shura {
     pub window: winit::window::Window,
     pub input: Input,
     pub gpu: Gpu,
-    pub(crate) defaults: Defaults,
+    pub(crate) defaults: GpuDefaults,
     #[cfg(feature = "gui")]
     pub gui: Gui,
     #[cfg(feature = "audio")]
@@ -183,7 +183,7 @@ impl Shura {
         mut creator: C,
     ) -> Self {
         let gpu = pollster::block_on(Gpu::new(&window));
-        let defaults = Defaults::new(&gpu);
+        let defaults = GpuDefaults::new(&gpu);
         #[cfg(feature = "audio")]
         let (audio, audio_handle) = rodio::OutputStream::try_default().unwrap();
         let mut shura = Self {

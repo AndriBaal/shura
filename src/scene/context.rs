@@ -26,7 +26,7 @@ use std::{
 use crate::gui::GuiContext;
 
 #[cfg(feature = "text")]
-use crate::text::{CreateFont, CreateText, Font, TextDescriptor};
+use crate::text::{Font, TextDescriptor};
 
 #[cfg(feature = "gamepad")]
 use crate::gamepad::*;
@@ -148,27 +148,27 @@ impl<'a> Context<'a> {
 
     #[inline]
     pub fn create_instance_buffer(&self, instances: &[Matrix]) -> InstanceBuffer {
-        InstanceBuffer::new(&self.shura.gpu, instances)
+        self.shura.gpu.create_instance_buffer(instances)
     }
 
     #[inline]
     pub fn create_model(&self, builder: ModelBuilder) -> Model {
-        Model::new(&self.shura.gpu, builder)
+        self.shura.gpu.create_model(builder)
     }
 
     #[inline]
     pub fn create_sprite(&self, bytes: &[u8]) -> Sprite {
-        Sprite::new(&self.shura.gpu, bytes)
+        self.shura.gpu.create_sprite(bytes)
     }
 
     #[inline]
     pub fn create_sprite_from_image(&self, image: image::DynamicImage) -> Sprite {
-        Sprite::from_image(&self.shura.gpu, image)
+        self.shura.gpu.create_sprite_from_image(image)
     }
 
     #[inline]
     pub fn create_empty_sprite(&self, size: Dimension<u32>) -> Sprite {
-        Sprite::empty(&self.shura.gpu, size)
+        self.shura.gpu.create_empty_sprite(size)
     }
 
     #[inline]
@@ -178,24 +178,26 @@ impl<'a> Context<'a> {
         sprites: Dimension<u32>,
         sprite_size: Dimension<u32>,
     ) -> SpriteSheet {
-        SpriteSheet::new(&self.shura.gpu, bytes, sprites, sprite_size)
+        self.shura
+            .gpu
+            .create_sprite_sheet(bytes, sprites, sprite_size)
     }
 
     #[inline]
     #[cfg(feature = "text")]
     pub fn create_font(&self, bytes: &'static [u8]) -> Font {
-        Font::new_simple(&self.shura.gpu, bytes)
+        self.shura.gpu.create_font(bytes)
     }
 
     #[inline]
     #[cfg(feature = "text")]
     pub fn create_text(&mut self, descriptor: TextDescriptor) -> Sprite {
-        Sprite::new_text(&self.shura.gpu, &mut self.shura.defaults, descriptor)
+        self.shura.gpu.create_text(descriptor)
     }
 
     #[inline]
     pub fn create_uniform<T: bytemuck::Pod>(&self, data: T) -> Uniform<T> {
-        Uniform::new(&self.shura.gpu, data)
+        self.shura.gpu.create_uniform(data)
     }
 
     #[inline]
@@ -205,7 +207,9 @@ impl<'a> Context<'a> {
         shader_type: ShaderLang,
         shader_fields: &[ShaderField],
     ) -> Shader {
-        Shader::new(&self.shura.gpu, code, shader_type, shader_fields)
+        self.shura
+            .gpu
+            .create_shader(code, shader_type, shader_fields)
     }
 
     #[inline]
@@ -214,13 +218,7 @@ impl<'a> Context<'a> {
         shader_lang: ShaderLang,
         descriptor: &wgpu::RenderPipelineDescriptor,
     ) -> Shader {
-        Shader::new_custom(&self.shura.gpu, shader_lang, descriptor)
-    }
-
-    #[inline]
-    #[cfg(feature = "audio")]
-    pub fn create_sound(&self, sound: &'static [u8]) -> Sound {
-        return Sound::new(sound);
+        self.shura.gpu.create_custom_shader(shader_lang, descriptor)
     }
 
     #[inline]
@@ -235,15 +233,20 @@ impl<'a> Context<'a> {
     where
         F: for<'any> Fn(&mut Renderer<'any>, Instances, [Where!('caller >= 'any); 0]),
     {
-        return Sprite::computed(
-            &self.shura.gpu,
+        self.shura.gpu.create_computed_sprite(
             &self.shura.defaults,
             instances,
             camera,
             texture_size,
             clear_color,
             compute,
-        );
+        )
+    }
+
+    #[inline]
+    #[cfg(feature = "audio")]
+    pub fn create_sound(&self, sound: &'static [u8]) -> Sound {
+        return Sound::new(sound);
     }
 
     #[inline]

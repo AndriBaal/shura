@@ -1,13 +1,21 @@
 #[cfg(feature = "text")]
-use crate::text::{CreateFont, Font};
+use crate::text::{CreateFont, CreateText, Font, TextDescriptor};
 use crate::{
-    Camera, CameraBuffers, Dimension, InstanceBuffer, Matrix, Shader, ShaderField, ShaderLang,
-    Sprite, Uniform,
+    Camera, CameraBuffers, Color, Dimension, InstanceBuffer, Instances, Matrix, Model,
+    ModelBuilder, Renderer, Shader, ShaderField, ShaderLang, Sprite, SpriteSheet, Uniform,
 };
 use log::info;
 use std::borrow::Cow;
 
 pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 1.0;
+
+macro_rules! Where {
+    (
+    $a:lifetime >= $b:lifetime $(,)?
+) => {
+        &$b & $a()
+    };
+}
 
 /// Holds the connection to the GPU using wgpu. Also has some default buffers, layouts etc.
 pub struct Gpu {
@@ -185,6 +193,102 @@ impl Gpu {
         let sprite = Sprite::from_wgpu(size, target_texture, target_bindgroup, format);
         return (sprite, target_view);
     }
+
+    #[inline]
+    pub fn create_instance_buffer(&self, instances: &[Matrix]) -> InstanceBuffer {
+        InstanceBuffer::new(self, instances)
+    }
+
+    #[inline]
+    pub fn create_model(&self, builder: ModelBuilder) -> Model {
+        Model::new(self, builder)
+    }
+
+    #[inline]
+    pub fn create_sprite(&self, bytes: &[u8]) -> Sprite {
+        Sprite::new(self, bytes)
+    }
+
+    #[inline]
+    pub fn create_sprite_from_image(&self, image: image::DynamicImage) -> Sprite {
+        Sprite::from_image(self, image)
+    }
+
+    #[inline]
+    pub fn create_empty_sprite(&self, size: Dimension<u32>) -> Sprite {
+        Sprite::empty(self, size)
+    }
+
+    #[inline]
+    pub fn create_sprite_sheet(
+        &self,
+        bytes: &[u8],
+        sprites: Dimension<u32>,
+        sprite_size: Dimension<u32>,
+    ) -> SpriteSheet {
+        SpriteSheet::new(self, bytes, sprites, sprite_size)
+    }
+
+    #[inline]
+    #[cfg(feature = "text")]
+    pub fn create_font(&self, bytes: &'static [u8]) -> Font {
+        Font::new_simple(self, bytes)
+    }
+
+    #[inline]
+    #[cfg(feature = "text")]
+    pub fn create_text(&mut self, descriptor: TextDescriptor) -> Sprite {
+
+        Sprite::new_text(self,descriptor)
+    }
+
+    #[inline]
+    pub fn create_uniform<T: bytemuck::Pod>(&self, data: T) -> Uniform<T> {
+        Uniform::new(self, data)
+    }
+
+    #[inline]
+    pub fn create_shader(
+        &self,
+        code: &str,
+        shader_type: ShaderLang,
+        shader_fields: &[ShaderField],
+    ) -> Shader {
+        Shader::new(self, code, shader_type, shader_fields)
+    }
+
+    #[inline]
+    pub fn create_custom_shader(
+        &self,
+        shader_lang: ShaderLang,
+        descriptor: &wgpu::RenderPipelineDescriptor,
+    ) -> Shader {
+        Shader::new_custom(self, shader_lang, descriptor)
+    }
+
+    #[inline]
+    pub fn create_computed_sprite<'caller, F>(
+        &self,
+        defaults: &GpuDefaults,
+        instances: &InstanceBuffer,
+        camera: &CameraBuffers,
+        texture_size: Dimension<u32>,
+        clear_color: Option<Color>,
+        compute: F,
+    ) -> Sprite
+    where
+        F: for<'any> Fn(&mut Renderer<'any>, Instances, [Where!('caller >= 'any); 0]),
+    {
+        return Sprite::computed(
+            self,
+            &defaults,
+            instances,
+            camera,
+            texture_size,
+            clear_color,
+            compute,
+        );
+    }
 }
 
 /// Base Wgpu objects needed to create any further graphics object.
@@ -306,7 +410,7 @@ impl WgpuBase {
 }
 
 /// Holds default buffers, shaders, sprites and layouts needed by shura.
-pub struct Defaults {
+pub struct GpuDefaults {
     pub sprite: Shader,
     pub rainbow: Shader,
     pub color: Shader,
@@ -323,9 +427,6 @@ pub struct Defaults {
     pub relative_camera: CameraBuffers,
     pub world_camera: CameraBuffers,
     pub single_centered_instance: InstanceBuffer,
-    #[cfg(feature = "text")]
-    pub default_font: Font,
-
     pub present_msaa: wgpu::TextureView,
     pub target_msaa: wgpu::TextureView,
     pub target: Sprite,
@@ -337,7 +438,7 @@ pub struct Defaults {
     pub layer_view: wgpu::TextureView,
 }
 
-impl Defaults {
+impl GpuDefaults {
     pub(crate) fn new(gpu: &Gpu) -> Self {
         let sprite = Shader::new(
             gpu,
@@ -397,10 +498,6 @@ impl Defaults {
         let times = Uniform::new(gpu, [0.0, 0.0]);
         let single_centered_instance = InstanceBuffer::new(gpu, &[Matrix::new(Default::default())]);
 
-        #[cfg(feature = "text")]
-        let default_font =
-            Font::new_simple(gpu, include_bytes!("../../res/font/open_sans_bold.ttf"));
-
         let relative_and_default_camera =
             &Camera::new(Default::default(), 1.0, RELATIVE_CAMERA_SIZE);
         let relative_camera = CameraBuffers::new(gpu, &relative_and_default_camera);
@@ -416,8 +513,6 @@ impl Defaults {
             blurr,
             times,
             single_centered_instance,
-            #[cfg(feature = "text")]
-            default_font,
             relative_camera,
             world_camera,
 

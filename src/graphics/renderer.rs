@@ -1,4 +1,4 @@
-use crate::{CameraBuffers, Color, Defaults, Gpu, InstanceBuffer, Model, Shader, Sprite, Uniform};
+use crate::{CameraBuffers, Color, GpuDefaults, Gpu, InstanceBuffer, Model, Shader, Sprite, Uniform};
 
 /// Single index of an instance inside a [InstanceBuffer](crate::InstanceBuffer).
 pub type Instance = u32;
@@ -10,7 +10,7 @@ pub type Instances = std::ops::Range<Instance>;
 pub struct Renderer<'a> {
     pub render_pass: wgpu::RenderPass<'a>,
     pub gpu: &'a Gpu,
-    pub defaults: &'a Defaults,
+    pub defaults: &'a GpuDefaults,
     pub save_sprite: Option<String>,
     indices: u32,
 }
@@ -18,7 +18,7 @@ pub struct Renderer<'a> {
 impl<'a> Renderer<'a> {
     pub(crate) fn new(
         gpu: &'a Gpu,
-        defaults: &'a Defaults,
+        defaults: &'a GpuDefaults,
         encoder: &'a mut wgpu::CommandEncoder,
         target: &'a wgpu::TextureView,
         msaa: &'a wgpu::TextureView,

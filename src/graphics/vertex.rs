@@ -14,7 +14,7 @@ pub struct Vertex {
 }
 
 impl Vertex {
-    pub fn new(pos: Vector<f32>, tex_coords: Vector<f32>) -> Self {
+    pub const fn new(pos: Vector<f32>, tex_coords: Vector<f32>) -> Self {
         Vertex { pos, tex_coords }
     }
 
