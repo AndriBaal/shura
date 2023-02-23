@@ -23,6 +23,10 @@ pub enum ModelShape {
         radius: f32,
         resolution: u32,
     },
+    Star {
+        radius: f32,
+        points: u32
+    },
     Triangle {
         a: Vector<f32>,
         b: Vector<f32>,
@@ -206,10 +210,6 @@ impl<'a> WrapIter<'a> {
 impl<'a> Iterator for WrapIter<'a> {
     type Item = (usize, usize, Vertex, Vertex);
     fn next(&mut self) -> Option<Self::Item> {
-        // l = len(v)-1
-        // for i in range(l):
-        //     yield i,i+1,v[i],v[i+1]
-        // yield l,0,v[l],v[0]
         let i = self.counter;
         self.counter += 1;
         if i < self.len {
@@ -221,124 +221,60 @@ impl<'a> Iterator for WrapIter<'a> {
     }
 }
 
-struct DoubleWrapIter<'a> {
-    len: usize,
-    counter: usize,
-    vertices: &'a Vec<Vertex>,
-}
-
-impl<'a> DoubleWrapIter<'a> {
-    pub fn new(vertices: &'a Vec<Vertex>) -> DoubleWrapIter<'a> {
-        Self {
-            len: vertices.len() - 1,
-            counter: 0,
-            vertices,
-        }
-    }
-}
-
-impl<'a> Iterator for DoubleWrapIter<'a> {
-    type Item = (usize, usize, usize);
-    fn next(&mut self) -> Option<Self::Item> {
-        // l = len(v)-1
-        // yield l,0,1
-        // for i in range(1,l):
-        //     yield i-1,i,i+1
-        // yield l-1,l,0
-        let i = self.counter;
-        self.counter += 1;
-        if i == 0 {
-            return Some((self.len, 0, 1));
-        } else if i < self.len {
-            return Some((i - 1, i, i + 1));
-        } else if i == self.len {
-            return Some((self.len - 1, self.len, 0));
-        }
-        return None;
-    }
-}
-
 impl ModelBuilder {
     const DEFAULT_OFFSET: Vector<f32> = Vector::new(0.0, 0.0);
     const DEFAULT_ROTATION: f32 = 0.0;
     const DEFAULT_SCALE: Vector<f32> = Vector::new(1.0, 1.0);
     fn round_vertices(vertices: Vec<Vertex>, border_radius: f32, resolution: u32) -> Vec<Vertex> {
-        let pi_cos = PI.cos();
-        let pi_sin = PI.sin();
-        let ccw_left = Vector4::new(pi_cos, -pi_sin, pi_sin, pi_cos);
+        // let pi_cos = PI.cos();
+        // let pi_sin = PI.sin();
+        // let ccw_left = Vector4::new(pi_cos, -pi_sin, pi_sin, pi_cos);
 
-        let mut result: Vec<Vertex> = Vec::with_capacity(vertices.len());
-        let mut vertices_prime = vertices.clone();
+        // let mut result: Vec<Vertex> = Vec::with_capacity(vertices.len());
+        // let mut vertices_prime = vertices.clone();
 
-        let mut n = vec![];
-        let mut a = vec![];
-        for (_, _, v0, v1) in WrapIter::new(&vertices) {
-            let s = v1 - v0;
-            let t = (s * ccw_left).normalize() * border_radius;
-            n.push(t);
-            a.push(v0.pos.angle(&v1.pos));
-        }
+        // let mut n = vec![];
+        // let mut a = vec![];
+        // for (_, _, v0, v1) in WrapIter::new(&vertices) {
+        //     let s = v1 - v0;
+        //     let t = (s * ccw_left).normalize() * border_radius;
+        //     n.push(t);
+        //     a.push(v0.pos.angle(&v1.pos));
+        // }
 
-        for (i, j, k) in DoubleWrapIter::new(&vertices) {
-            let a_prime = (PI - a[i]) / 2.0;
-            let h = border_radius / a_prime.tan();
-            vertices_prime[j] = ((vertices[k] - vertices[j]).normalize() * h) + vertices[j] - n[j];
-        }
+        // for (i, j, k) in DoubleWrapIter::new(&vertices) {
+        //     let a_prime = (PI - a[i]) / 2.0;
+        //     let h = border_radius / a_prime.tan();
+        //     vertices_prime[j] = ((vertices[k] - vertices[j]).normalize() * h) + vertices[j] - n[j];
+        // }
 
-        let mut s = a.iter().map(|_| resolution as f32).collect::<Vec<f32>>();
+        // let mut s = a.iter().map(|_| resolution as f32).collect::<Vec<f32>>();
 
-        for i in 0..a.len() {
-            if s[i] > 0.0 {
-                a[i] /= s[i];
-                s[i] -= 1.0;
-            }
-        }
+        // for i in 0..a.len() {
+        //     if s[i] > 0.0 {
+        //         a[i] /= s[i];
+        //         s[i] -= 1.0;
+        //     }
+        // }
 
-        let mut index = 0;
-        for (i, j, v0, v1) in WrapIter::new(&vertices) {
-            result[index] = v0 + n[i];
-            index += 1;
-            result[index] = v1 + n[i];
-            index += 1;
+        // let mut index = 0;
+        // for (i, j, v0, v1) in WrapIter::new(&vertices) {
+        //     result[index] = v0 + n[i];
+        //     index += 1;
+        //     result[index] = v1 + n[i];
+        //     index += 1;
 
-            let cos = -a[i].cos();
-            let sin = -a[i].sin();
-            let m = Vector4::new(cos, -sin, sin, cos);
-            for _ in 0..s[i] as u32 {
-                let step = n[i] * m;
-                result[index] = v1 + step;
-                index += 1
-            }
-        }
-
-        return result;
-        //     n = [scale(normalize(mul(ccw_left, sub(v1,v0))), border) for _,_,v0,v1 in wrap(v)]
-        //     a = [get_angle(n0,n1) for _,_,n0,n1 in wrap(n)]
-        //     v_prime = [list(v0) for v0 in v]
-        //     for i,j,k in double_wrap(v):
-        //         a_prime = (math.pi - a[i])/2
-        //         h = border/math.tan(a_prime)
-        //         v_prime[j] = sub(add(v[j],scale(normalize(sub(v[k],v[j])),h)),n[j])
-        //     v = v_prime
-        //     s = [get_steps(a0) for a0 in a]
-        //     for i in range(len(a)):
-        //         if s[i] > 0:
-        //             a[i] /= s[i]
-        //             s[i] -= 1
-        //     v_new = [None] * (2*len(v) + sum(s))
-        //     index = 0
-        //     for i,j,v0,v1 in wrap(v):
-        //         v_new[index] = add(v0, n[i])
+        //     let cos = -a[i].cos();
+        //     let sin = -a[i].sin();
+        //     let m = Vector4::new(cos, -sin, sin, cos);
+        //     for _ in 0..s[i] as u32 {
+        //         let step = n[i] * m;
+        //         result[index] = v1 + step;
         //         index += 1
-        //         v_new[index] = add(v1, n[i])
-        //         index += 1
-        //         m = gen_rot_mat(-a[i])
-        //         step = n[i]
-        //         for _ in range(s[i]):
-        //             step = mul(m, step)
-        //             v_new[index] = add(v1, step)
-        //             index += 1
-        //     return v_new
+        //     }
+        // }
+
+        // return result;
     }
 
     fn convex_indices(vertices: &mut Vec<Vertex>) -> Vec<Index> {
