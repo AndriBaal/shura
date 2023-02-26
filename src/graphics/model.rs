@@ -361,7 +361,7 @@ impl ModelBuilder {
                     .shapes()
                     .iter()
                     .map(|s| {
-                        Self::from_collider_shape(&s.1, resolution, half_thickness)
+                        Self::from_collider_shape(s.1.as_ref(), resolution, half_thickness)
                             .vertex_position(s.0)
                     })
                     .collect();

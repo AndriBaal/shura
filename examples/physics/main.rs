@@ -70,7 +70,7 @@ impl BoxManager {
                 BoxManager::HALF_BOX_SIZE,
             ),
         },
-        border_radius: 0.25,
+        border_radius: 0.1,
     };
     pub fn new(ctx: &Context) -> Self {
         Self {
@@ -156,7 +156,7 @@ impl Player {
         .active_events(ActiveEvents::COLLISION_EVENTS);
         Self {
             sprite: ctx.create_sprite(include_bytes!("./img/burger.png")),
-            model: ctx.create_model(ModelBuilder::from_collider_shape(&collider.shape, Self::RESOLUTION, 0.0)),
+            model: ctx.create_model(ModelBuilder::from_collider_shape(collider.shape.as_ref(), Self::RESOLUTION, 0.0)),
             component: BaseComponent::new_rigid_body(
                 RigidBodyBuilder::dynamic().translation(Vector::new(5.0, 4.0)),
                 vec![collider],
@@ -169,7 +169,6 @@ impl ComponentController for Player {
     fn update(active: ComponentPath<Self>, ctx: &mut Context) {
         let delta = ctx.frame_time();
         let input = &mut ctx.shura.input;
-        let gpu = &ctx.shura.gpu;
 
         for player in &mut ctx.scene.component_manager.path_mut(&active) {
             let mut body = player.rigid_body_mut().unwrap();
@@ -240,7 +239,7 @@ impl Floor {
         );
         Self {
             color: ctx.create_uniform(Color::new_rgba(0, 0, 255, 255)),
-            model: ctx.create_model(ModelBuilder::from_collider_shape(&collider.shape, 0, 0.0)),
+            model: ctx.create_model(ModelBuilder::from_collider_shape(collider.shape.as_ref(), 0, 0.0)),
             component: BaseComponent::new_rigid_body(
                 RigidBodyBuilder::fixed().translation(Vector::new(0.0, -1.0)),
                 vec![collider],
@@ -279,10 +278,7 @@ impl PhysicsBox {
             hovered: false,
             component: BaseComponent::new_rigid_body(
                 RigidBodyBuilder::dynamic().translation(position),
-                vec![ColliderBuilder::cuboid(
-                    BoxManager::HALF_BOX_SIZE,
-                    BoxManager::HALF_BOX_SIZE,
-                )],
+                vec![ColliderBuilder::new(SharedShape::new(BoxManager::BOX_SHAPE))],
             ),
         }
     }
