@@ -277,15 +277,23 @@ impl<'a> Context<'a> {
         self.scene.component_manager.create_group(descriptor);
     }
 
-    #[inline]
     pub fn create_component<C: ComponentController + ComponentIdentifier>(
+        &mut self,
+        component: C,
+    ) -> (&mut C, ComponentHandle) {
+        return self.scene
+        .component_manager.create_component(component);
+    }
+
+    #[inline]
+    pub fn create_component_with_group<C: ComponentController + ComponentIdentifier>(
         &mut self,
         group: Option<u32>,
         component: C,
     ) -> (&mut C, ComponentHandle) {
         self.scene
             .component_manager
-            .create_component(group, component)
+            .create_component_with_group(group, component)
     }
 
     #[inline]

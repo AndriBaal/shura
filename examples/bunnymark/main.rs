@@ -6,7 +6,7 @@ fn main() {
         id: 1,
         init: |ctx| {
             let manager = BunnyManager::new(ctx);
-            ctx.create_component(None, manager);
+            ctx.create_component(manager);
         },
     });
 }
@@ -28,7 +28,7 @@ impl BunnyManager {
         let bunny_model = ctx.create_model(ModelBuilder::cuboid(Dimension::new(0.06, 0.09)));
         let bunny_sprite = ctx.create_sprite(include_bytes!("./img/wabbit.png"));
 
-        ctx.create_component(None, Bunny::new(&ctx));
+        ctx.create_component(Bunny::new(&ctx));
 
         #[cfg(target_os = "android")]
         ctx.set_render_scale(0.667);
@@ -65,7 +65,7 @@ impl ComponentController for BunnyManager {
 
         if ctx.is_held(MouseButton::Left) || ctx.is_held(ScreenTouch) {
             for _ in 0..MODIFY_STEP {
-                ctx.create_component(None, Bunny::new(&ctx));
+                ctx.create_component(Bunny::new(&ctx));
             }
         }
         if ctx.is_held(MouseButton::Right) {

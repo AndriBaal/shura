@@ -220,6 +220,13 @@ impl ComponentManager {
 
     pub fn create_component<C: ComponentController + ComponentIdentifier>(
         &mut self,
+        component: C,
+    ) -> (&mut C, ComponentHandle) {
+        return self.create_component_with_group(None, component);
+    }
+
+    pub fn create_component_with_group<C: ComponentController + ComponentIdentifier>(
+        &mut self,
         group_id: Option<u32>,
         component: C,
     ) -> (&mut C, ComponentHandle) {

@@ -4,26 +4,6 @@ use crate::{na::Matrix2, Dimension, Gpu, Index, Isometry, Rotation, Vector, Vert
 use std::f32::consts::{FRAC_PI_2, PI};
 use wgpu::util::DeviceExt;
 
-// ModelShape::Star {
-//     points,
-//     inner_radius,
-//     outer_radius,
-// } => {
-//     let a = PI / *points as f32;
-//     let mut l: Vec<Option<Vector<f32>>> = (0..2 * points).map(|_| None).collect();
-//     for i in 0..2 * points {
-//         let r = if i % 2 == 0 {
-//             inner_radius
-//         } else {
-//             outer_radius
-//         };
-//         l[(2 * points - 1 - i) as usize] = Some(Vector::new(
-//             r * (FRAC_PI_2 + a * i as f32).cos(),
-//             r * (FRAC_PI_2 + a * i as f32).sin(),
-//         ));
-//     }
-//     return l.into_iter().map(|v| v.unwrap()).collect();
-// }
 
 impl Default for ModelBuilder {
     fn default() -> Self {
@@ -262,66 +242,111 @@ impl ModelBuilder {
         }
     }
 
+    pub fn star(corners: u32, inner_radius: f32, outer_radius: f32) -> Self {
+        let a = PI / corners as f32;
+        let v_count = 2*corners;
+        let mut l: Vec<Option<Vector<f32>>> = (0..v_count).map(|_| None).collect();
+        let mut indices = vec![];
+        let mut prev = v_count;
+        l[0] = Some(Vector::new(0.0, 0.0));
+        for i in 0..v_count {
+            let r = if i % 2 == 1 {
+                inner_radius
+            } else {                
+                let next = v_count;
+                indices.push(Index::new(0, next, prev));
+                indices.push(Index::new(next, i+1, prev));
+                outer_radius
+            };
+            l[(v_count - 1 - i) as usize] = Some(Vector::new(
+                r * (FRAC_PI_2 + a * i as f32).cos(),
+                r * (FRAC_PI_2 + a * i as f32).sin(),
+            ));
+            let prev = i+1;
+        }
+        let mut vertices = vec![Vertex::new(Vector::new(0.0, 0.0), Vector::new(0.5, 0.5))];
+        vertices.append(&mut Self::create_tex_coords(l.into_iter().map(|v| v.unwrap()).collect()));
+        println!("{:#?}", indices);
+
+        Self {
+            vertices,
+            indices,
+            ..Default::default()
+        }
+    }
+
+    pub fn custom(vertices: Vec<Vertex>, indices: Vec<Index>) -> Self {
+        Self {
+            vertices,
+            indices,
+            ..Default::default()
+        }
+    }
+
     pub fn compound(shapes: Vec<ModelBuilder>) -> Self {
-        Self {
-            vertices,
-            indices,
-            ..Default::default()
-        }
-    }
-
-    pub fn custom(vertices: Vec<Vertex>, indces: Vec<Index>) -> Self {
-        Self {
-            vertices,
-            indices,
-            ..Default::default()
-        }
-    }
-
-    pub fn from_collider_shape(shape: TypedShape, resolution: u32, half_thickness: f32) -> Self {
-        return match shape {
-            TypedShape::Ball(_) => {
-                
-            },
-            TypedShape::Cuboid(_) => {
-                
-            },
-            TypedShape::Capsule(_) => {
-                
-            },
-            TypedShape::Segment(_) => {
-                
-            },
-            TypedShape::Triangle(_) => {
-                
-            },
-            TypedShape::Compound(_) => {
-                
-            },
-            TypedShape::ConvexPolygon(_) => {
-                
-            },
-            TypedShape::RoundCuboid(_) => {
-                
-            },
-            TypedShape::RoundTriangle(_) => {
-                
-            },
-            TypedShape::RoundConvexPolygon(_) => {
-                
-            },
-            TypedShape::TriMesh(_) => {
-                
-            },
-
-            TypedShape::Custom(_)
-            | TypedShape::Polyline(_)
-            | TypedShape::HalfSpace(_)
-            | TypedShape::HeightField(_) => {
-                panic!("Unsupported collider shape!");
+        let mut vertices = vec![];
+        let mut indices = vec![];
+        let mut offset = 0;
+        for mut shape in shapes {
+            shape.apply_modifiers();
+            vertices.extend(shape.vertices);
+            let len = shape.indices.len() as u32;
+            for index in shape.indices {
+                indices.push(Index { a: index.a + offset, b: index.b + offset, c: index.c + offset });
             }
-        };
+            offset += len;
+        }
+        Self {
+            vertices,
+            indices,
+            ..Default::default()
+        }
     }
+
+    // pub fn from_collider_shape(shape: TypedShape, resolution: u32, half_thickness: f32) -> Self {
+    //     return match shape {
+    //         TypedShape::Ball(_) => {
+                
+    //         },
+    //         TypedShape::Cuboid(_) => {
+                
+    //         },
+    //         TypedShape::Capsule(_) => {
+                
+    //         },
+    //         TypedShape::Segment(_) => {
+                
+    //         },
+    //         TypedShape::Triangle(_) => {
+                
+    //         },
+    //         TypedShape::Compound(_) => {
+                
+    //         },
+    //         TypedShape::ConvexPolygon(_) => {
+                
+    //         },
+    //         TypedShape::RoundCuboid(_) => {
+                
+    //         },
+    //         TypedShape::RoundTriangle(_) => {
+                
+    //         },
+    //         TypedShape::RoundConvexPolygon(_) => {
+                
+    //         },
+    //         TypedShape::TriMesh(_) => {
+                
+    //         },
+
+    //         TypedShape::Custom(_)
+    //         | TypedShape::Polyline(_)
+    //         | TypedShape::HalfSpace(_)
+    //         | TypedShape::HeightField(_) => {
+    //             panic!("Unsupported collider shape!");
+    //         }
+    //     };
+    // }
 
     fn tessellate(vertices: &Vec<Vertex>) -> Vec<Index> {
         use delaunator::{triangulate, Point};
