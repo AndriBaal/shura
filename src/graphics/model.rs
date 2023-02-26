@@ -1,184 +1,44 @@
 #[cfg(feature = "physics")]
-use crate::physics::{ColliderBuilder, TypedShape};
-use crate::{na::Vector4, Dimension, Gpu, Index, Isometry, Rotation, Vector, Vertex};
-use std::f32::consts::PI;
+use crate::physics::TypedShape;
+use crate::{na::Matrix2, Dimension, Gpu, Index, Isometry, Rotation, Vector, Vertex};
+use std::f32::consts::{FRAC_PI_2, PI};
 use wgpu::util::DeviceExt;
 
-// #[cfg(feature = "physics")]
-// use rapier2d::prelude::ColliderBuilder;
+// ModelShape::Star {
+//     points,
+//     inner_radius,
+//     outer_radius,
+// } => {
+//     let a = PI / *points as f32;
+//     let mut l: Vec<Option<Vector<f32>>> = (0..2 * points).map(|_| None).collect();
+//     for i in 0..2 * points {
+//         let r = if i % 2 == 0 {
+//             inner_radius
+//         } else {
+//             outer_radius
+//         };
+//         l[(2 * points - 1 - i) as usize] = Some(Vector::new(
+//             r * (FRAC_PI_2 + a * i as f32).cos(),
+//             r * (FRAC_PI_2 + a * i as f32).sin(),
+//         ));
+//     }
+//     return l.into_iter().map(|v| v.unwrap()).collect();
+// }
+
+impl Default for ModelBuilder {
+    fn default() -> Self {
+        Self {
+            vertices: Default::default(),
+            indices: Default::default(),
+            vertex_offset: Isometry::new(Self::DEFAULT_OFFSET, Self::DEFAULT_ROTATION),
+            vertex_scale: Self::DEFAULT_SCALE,
+            tex_coord_offset: Isometry::new(Self::DEFAULT_OFFSET, Self::DEFAULT_ROTATION),
+            tex_coord_scale: Self::DEFAULT_SCALE,
+        }
+    }
+}
 
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-/// Shape of a [Model].
-pub enum ModelShape {
-    Ball {
-        radius: f32,
-        resolution: u32,
-    },
-    Cuboid {
-        half_extents: Dimension<f32>,
-    },
-    Capsule {
-        half_height: f32,
-        radius: f32,
-        resolution: u32,
-    },
-    Star {
-        radius: f32,
-        points: u32
-    },
-    Triangle {
-        a: Vector<f32>,
-        b: Vector<f32>,
-        c: Vector<f32>,
-    },
-    Segment {
-        a: Vector<f32>,
-        b: Vector<f32>,
-        half_thickness: f32,
-    },
-    TriMesh {
-        vertices: Vec<Vector<f32>>,
-        indices: Option<Vec<Index>>,
-    },
-    ConvexPolygon {
-        vertices: Vec<Vector<f32>>,
-    },
-    Compound {
-        shapes: Vec<(Isometry<f32>, Vector<f32>, ModelShape)>,
-    },
-    PolyLine {
-        lines: Vec<(Vector<f32>, Vector<f32>, f32)>,
-    },
-    RoundCuboid {
-        half_extents: Dimension<f32>,
-        border_radius: f32,
-        resolution: u32,
-    },
-    RoundTriangle {
-        a: Vector<f32>,
-        b: Vector<f32>,
-        c: Vector<f32>,
-        border_radius: f32,
-        resolution: u32,
-    },
-    RoundConvexPolygon {
-        vertices: Vec<Vector<f32>>,
-        border_radius: f32,
-        resolution: u32,
-    },
-    RoundCompoundPolygon {
-        border_radius: f32,
-        radius: f32,
-        corners: u32,
-        resolution: u32,
-    },
-    Custom,
-}
-
-#[cfg(feature = "physics")]
-impl ModelShape {
-    // fn from_collider_shape(
-    //     shape: TypedShape,
-    //     resolution: u32,
-    //     half_thickness: f32,
-    // ) -> Option<Self> {
-    //     return match shape {
-    //         TypedShape::Ball(ball) => Some(ModelShape::Ball {
-    //             radius: ball.radius,
-    //             resolution,
-    //         }),
-    //         TypedShape::Cuboid(cuboid) => Some(ModelShape::Cuboid {
-    //             half_extents: cuboid.half_extents.into(),
-    //         }),
-    //         TypedShape::Capsule(capsule) => Some(ModelShape::Capsule {
-    //             half_height: capsule.half_height(),
-    //             radius: capsule.radius,
-    //             resolution,
-    //         }),
-    //         TypedShape::Segment(segment) => Some(ModelShape::Segment {
-    //             a: segment.a.coords,
-    //             b: segment.b.coords,
-    //             half_thickness,
-    //         }),
-    //         TypedShape::Triangle(triangle) => Some(ModelShape::Triangle {
-    //             a: triangle.a.coords,
-    //             b: triangle.b.coords,
-    //             c: triangle.c.coords,
-    //         }),
-    //         TypedShape::TriMesh(tri_mesh) => Some(ModelShape::TriMesh {
-    //             vertices: tri_mesh.vertices().iter().map(|p| p.coords).collect(),
-    //             indices: tri_mesh
-    //                 .indices()
-    //                 .iter()
-    //                 .map(|p| Some(Index::new(p[0], p[1], p[2])))
-    //                 .collect(),
-    //         }),
-    //         TypedShape::Polyline(compound) => Some(ModelShape::PolyLine {
-    //             lines: compound
-    //                 .segments()
-    //                 .map(|s| (s.a.coords, s.b.coords, half_thickness))
-    //                 .collect(),
-    //         }),
-
-    //         TypedShape::Compound(compound) => {
-    //             let mut shapes = vec![];
-    //             for (pos, shape) in compound.shapes() {
-    //                 if let Some(model_shape) = Self::from_collider_shape(
-    //                     shape.as_typed_shape(),
-    //                     resolution,
-    //                     half_thickness,
-    //                 ) {
-    //                     shapes.push((*pos, Vector::new(1.0 as f32, 1.0), model_shape));
-    //                 }
-    //             }
-    //             Some(ModelShape::Compound { shapes })
-    //         }
-    //         TypedShape::ConvexPolygon(convex_polygon) => Some(ModelShape::ConvexPolygon {
-    //             vertices: convex_polygon.points().iter().map(|p| p.coords).collect(),
-    //         }),
-    //         TypedShape::RoundCuboid(round_cuboid) => Some(ModelShape::RoundCuboid {
-    //             half_extents: round_cuboid.inner_shape.half_extents.into(),
-    //             border_radius: round_cuboid.border_radius,
-    //         }),
-    //         TypedShape::RoundTriangle(round_triangle) => Some(ModelShape::RoundTriangle {
-    //             a: round_triangle.inner_shape.a.coords,
-    //             b: round_triangle.inner_shape.b.coords,
-    //             c: round_triangle.inner_shape.c.coords,
-    //             border_radius: round_triangle.border_radius,
-    //         }),
-    //         TypedShape::RoundConvexPolygon(round_convex_polygon) => {
-    //             Some(ModelShape::RoundConvexPolygon {
-    //                 vertices: round_convex_polygon
-    //                     .inner_shape
-    //                     .points()
-    //                     .iter()
-    //                     .map(|p| p.coords)
-    //                     .collect(),
-    //                 border_radius: round_convex_polygon.border_radius,
-    //             })
-    //         }
-    //         TypedShape::HalfSpace(_) => None,
-    //         TypedShape::HeightField(_) => None,
-    //         TypedShape::Custom(_) => None,
-    //     };
-    // }
-}
-
-fn rotate_point_around_origin(
-    origin: Vector<f32>,
-    point: Vector<f32>,
-    rot: Rotation<f32>,
-) -> Vector<f32> {
-    let sin = rot.sin_angle();
-    let cos = rot.cos_angle();
-    return Vector::new(
-        origin.x + (point.x - origin.x) * cos - (point.y - origin.y) * sin,
-        origin.y + (point.x - origin.x) * sin + (point.y - origin.y) * cos,
-    );
-}
-
-#[derive(Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// Builder to easily create a [Model].
 pub struct ModelBuilder {
@@ -188,349 +48,49 @@ pub struct ModelBuilder {
     pub tex_coord_offset: Isometry<f32>,
     pub vertex_scale: Vector<f32>,
     pub tex_coord_scale: Vector<f32>,
-    pub shape: ModelShape,
-}
-
-struct WrapIter<'a> {
-    len: usize,
-    counter: usize,
-    vertices: &'a Vec<Vertex>,
-}
-
-impl<'a> WrapIter<'a> {
-    pub fn new(vertices: &'a Vec<Vertex>) -> WrapIter<'a> {
-        Self {
-            len: vertices.len() - 1,
-            counter: 0,
-            vertices,
-        }
-    }
-}
-
-impl<'a> Iterator for WrapIter<'a> {
-    type Item = (usize, usize, Vertex, Vertex);
-    fn next(&mut self) -> Option<Self::Item> {
-        let i = self.counter;
-        self.counter += 1;
-        if i < self.len {
-            return Some((i, i + 1, self.vertices[i], self.vertices[i + 1]));
-        } else if i == self.len {
-            return Some((self.len, 0, self.vertices[self.len], self.vertices[0]));
-        }
-        return None;
-    }
 }
 
 impl ModelBuilder {
     const DEFAULT_OFFSET: Vector<f32> = Vector::new(0.0, 0.0);
     const DEFAULT_ROTATION: f32 = 0.0;
     const DEFAULT_SCALE: Vector<f32> = Vector::new(1.0, 1.0);
-    fn round_vertices(vertices: Vec<Vertex>, border_radius: f32, resolution: u32) -> Vec<Vertex> {
-        // let pi_cos = PI.cos();
-        // let pi_sin = PI.sin();
-        // let ccw_left = Vector4::new(pi_cos, -pi_sin, pi_sin, pi_cos);
-
-        // let mut result: Vec<Vertex> = Vec::with_capacity(vertices.len());
-        // let mut vertices_prime = vertices.clone();
-
-        // let mut n = vec![];
-        // let mut a = vec![];
-        // for (_, _, v0, v1) in WrapIter::new(&vertices) {
-        //     let s = v1 - v0;
-        //     let t = (s * ccw_left).normalize() * border_radius;
-        //     n.push(t);
-        //     a.push(v0.pos.angle(&v1.pos));
-        // }
-
-        // for (i, j, k) in DoubleWrapIter::new(&vertices) {
-        //     let a_prime = (PI - a[i]) / 2.0;
-        //     let h = border_radius / a_prime.tan();
-        //     vertices_prime[j] = ((vertices[k] - vertices[j]).normalize() * h) + vertices[j] - n[j];
-        // }
-
-        // let mut s = a.iter().map(|_| resolution as f32).collect::<Vec<f32>>();
-
-        // for i in 0..a.len() {
-        //     if s[i] > 0.0 {
-        //         a[i] /= s[i];
-        //         s[i] -= 1.0;
-        //     }
-        // }
-
-        // let mut index = 0;
-        // for (i, j, v0, v1) in WrapIter::new(&vertices) {
-        //     result[index] = v0 + n[i];
-        //     index += 1;
-        //     result[index] = v1 + n[i];
-        //     index += 1;
-
-        //     let cos = -a[i].cos();
-        //     let sin = -a[i].sin();
-        //     let m = Vector4::new(cos, -sin, sin, cos);
-        //     for _ in 0..s[i] as u32 {
-        //         let step = n[i] * m;
-        //         result[index] = v1 + step;
-        //         index += 1
-        //     }
-        // }
-
-        // return result;
+    pub fn ball(radius: f32, resolution: u32) -> Self {
+        Self::regular_polygon(radius, resolution)
     }
 
-    fn convex_indices(vertices: &mut Vec<Vertex>) -> Vec<Index> {
-        let mut result = vec![];
-        // vertices.sort_by(|a, b| a.pos.x.total_cmp(&b.pos.x));
-
-        // for i in 0..vertices.len() {
-
-        // }
-
-        return result;
-    }
-
-    pub fn new(shape: ModelShape) -> Self {
-        return match shape {
-            ModelShape::Ball { radius, resolution } => Self::ball(radius, resolution),
-            ModelShape::Cuboid { half_extents } => Self::cuboid(half_extents),
-            // ModelShape::Capsule {
-            //     half_height,
-            //     radius,
-            //     resolution,
-            // } => Self::capsule(half_height, radius, resolution),
-            // ModelShape::Triangle { a, b, c } => Self::triangle(a, b, c),
-            // ModelShape::Segment {
-            //     a,
-            //     b,
-            //     half_thickness,
-            // } => Self::segment(a, b, half_thickness),
-            // ModelShape::TriMesh { vertices, indices } => Self::tri_mesh(vertices, indices),
-            // ModelShape::ConvexPolygon { vertices } => Self::convex_polygon(vertices),
-            // ModelShape::Compound { shapes } => Self::compound(shapes),
-            // ModelShape::PolyLine { lines } => Self::poly_line(lines),
-            ModelShape::RoundCuboid {
-                half_extents,
-                border_radius,
-                resolution
-            } => Self::round_cuboid(half_extents, border_radius, resolution),
-            // ModelShape::RoundTriangle {
-            //     a,
-            //     b,
-            //     c,
-            //     border_radius,
-            // } => Self::round_triangle(a, b, c, border_radius),
-            // ModelShape::RoundConvexPolygon {
-            //     vertices,
-            //     border_radius,
-            // } => Self::round_convex_polygon(vertices, border_radius),
-            // ModelShape::Custom { vertices, indices } => Self::custom(vertices, indices),
-            _ => unimplemented!(),
-        };
-    }
-
-    // #[cfg(feature = "physics")]
-    // pub fn from_collider_shape(
-    //     shape: TypedShape,
-    //     resolution: u32,
-    //     half_thickness: f32,
-    // ) -> Option<Self> {
-    //     let shape = ModelShape::from_collider_shape(shape);
-    // }
-
-    // #[cfg(feature = "physics")]
-    // pub fn into_collider(&self, shape: TypedShape, resolution: u32) -> Option<ColliderBuilder> {}
-
-    // pub fn segment(a: Vector<f32>, b: Vector<f32>, half_thickness: f32) -> Self {
-    //     let rot = a.angle(&b);
-    //     let angles = Vector::new(rot.cos(), rot.sin());
-
-    //     let mut min = Vector::new(0.0, 0.0);
-    //     let mut max = Vector::new(0.0, 0.0);
-
-    //     let mut indices = vec![Index::new(0, 1, 2), Index::new(2, 3, 0)];
-    //     Self {
-    //         vertex_offset: Isometry::new(Self::DEFAULT_OFFSET, Self::DEFAULT_ROTATION),
-    //         vertex_scale: Self::DEFAULT_SCALE,
-    //         tex_coord_offset: Isometry::new(Self::DEFAULT_OFFSET, Self::DEFAULT_ROTATION),
-    //         tex_coord_scale: Self::DEFAULT_SCALE,
-    //         vertices,
-    //         indices,
-    //         shape: ModelShape::Segment {
-    //             a,
-    //             b,
-    //             half_thickness,
-    //         },
-    //     }
-    // }
-
-    pub fn round_cuboid(half_extents: Dimension<f32>, border_radius: f32, resolution: u32) -> Self {
-        let vertices = Self::round_vertices(
-            Self::cuboid_vertices(half_extents),
-            border_radius,
-            resolution,
+    pub fn regular_polygon(radius: f32, corners: u32) -> Self {
+        const MIN_POINTS: u32 = 3;
+        assert!(
+            corners >= MIN_POINTS,
+            "A Ball must have at least {} points!",
+            MIN_POINTS
         );
-        for v in &vertices {
-            println!("{}", v.pos);
+        let mut vertices = vec![];
+        for i in 0..corners {
+            let i = i as f32;
+
+            let pos = Vector::new(
+                radius * (i / corners as f32 * 2.0 * PI).cos(),
+                radius * (i / corners as f32 * 2.0 * PI).sin(),
+            );
+
+            vertices.push(Vertex {
+                pos,
+                tex_coords: Vector::new(
+                    (i / corners as f32 * 2.0 * PI).cos() / 2.0 + 0.5,
+                    (i / corners as f32 * 2.0 * PI).sin() / -2.0 + 0.5,
+                ),
+            });
         }
         let indices = Self::tessellate(&vertices);
-
         Self {
-            vertex_offset: Isometry::new(Self::DEFAULT_OFFSET, Self::DEFAULT_ROTATION),
-            vertex_scale: Self::DEFAULT_SCALE,
-            tex_coord_offset: Isometry::new(Self::DEFAULT_OFFSET, Self::DEFAULT_ROTATION),
-            tex_coord_scale: Self::DEFAULT_SCALE,
             vertices,
             indices,
-            shape: ModelShape::RoundCuboid {
-                half_extents,
-                border_radius,
-                resolution
-            },
+            ..Default::default()
         }
     }
-
-    // pub fn round_triangle(
-    //     a: Vector<f32>,
-    //     b: Vector<f32>,
-    //     c: Vector<f32>,
-    //     border_radius: f32,
-    // ) -> Self {
-    //     // let mut vertices = vec![];
-    //     // let mut indices = vec![];
-    //     Self {
-    //         vertex_offset: Isometry::new(Self::DEFAULT_OFFSET, Self::DEFAULT_ROTATION),
-    //         vertex_scale: Self::DEFAULT_SCALE,
-    //         tex_coord_offset: Isometry::new(Self::DEFAULT_OFFSET, Self::DEFAULT_ROTATION),
-    //         tex_coord_scale: Self::DEFAULT_SCALE,
-    //         vertices,
-    //         indices,
-    //         shape: ModelShape::RoundTriangle {
-    //             a,
-    //             b,
-    //             c,
-    //             border_radius,
-    //         },
-    //     }
-    // }
-
-    // pub fn round_convex_polygon(vertices: Vec<Vector<f32>>, border_radius: f32) -> Self {
-    //     // let mut vertices = vec![];
-    //     // let mut indices = vec![];
-    //     Self {
-    //         vertex_offset: Isometry::new(Self::DEFAULT_OFFSET, Self::DEFAULT_ROTATION),
-    //         vertex_scale: Self::DEFAULT_SCALE,
-    //         tex_coord_offset: Isometry::new(Self::DEFAULT_OFFSET, Self::DEFAULT_ROTATION),
-    //         tex_coord_scale: Self::DEFAULT_SCALE,
-    //         vertices,
-    //         indices,
-    //         shape: ModelShape::RoundConvexPolygon {
-    //             vertices,
-    //             border_radius,
-    //         },
-    //     }
-    // }
-
-    // pub fn convex_polygon(vertices: Vec<Vector<f32>>) -> Self {
-    //     // let mut vertices = vec![];
-    //     // let mut indices = vec![];
-    //     Self {
-    //         vertex_offset: Isometry::new(Self::DEFAULT_OFFSET, Self::DEFAULT_ROTATION),
-    //         vertex_scale: Self::DEFAULT_SCALE,
-    //         tex_coord_offset: Isometry::new(Self::DEFAULT_OFFSET, Self::DEFAULT_ROTATION),
-    //         tex_coord_scale: Self::DEFAULT_SCALE,
-    //         vertices,
-    //         indices,
-    //         shape: ModelShape::ConvexPolygon { vertices },
-    //     }
-    // }
-
-    // pub fn poly_line(lines: Vec<(Vector<f32>, Vector<f32>, f32)>) -> Self {
-    //     // let mut vertices = vec![];
-    //     // let mut indices = vec![];
-    //     Self {
-    //         vertex_offset: Isometry::new(Self::DEFAULT_OFFSET, Self::DEFAULT_ROTATION),
-    //         vertex_scale: Self::DEFAULT_SCALE,
-    //         tex_coord_offset: Isometry::new(Self::DEFAULT_OFFSET, Self::DEFAULT_ROTATION),
-    //         tex_coord_scale: Self::DEFAULT_SCALE,
-    //         vertices,
-    //         indices,
-    //         shape: ModelShape::PolyLine { lines },
-    //     }
-    // }
-
-    // pub fn compound(shapes: Vec<(Isometry<f32>, Vector<f32>, ModelShape)>) -> Self {
-    //     // let mut vertices = vec![];
-    //     // let mut indices = vec![];
-    //     Self {
-    //         vertex_offset: Isometry::new(Self::DEFAULT_OFFSET, Self::DEFAULT_ROTATION),
-    //         vertex_scale: Self::DEFAULT_SCALE,
-    //         tex_coord_offset: Isometry::new(Self::DEFAULT_OFFSET, Self::DEFAULT_ROTATION),
-    //         tex_coord_scale: Self::DEFAULT_SCALE,
-    //         vertices,
-    //         indices,
-    //         shape: ModelShape::Compound { shapes },
-    //     }
-    // }
-
-    // pub fn capsule(half_height: f32, radius: f32, resolution: u32) -> Self {
-    //     // let mut vertices = vec![];
-    //     // let mut indices = vec![];
-    //     Self {
-    //         vertex_offset: Isometry::new(Self::DEFAULT_OFFSET, Self::DEFAULT_ROTATION),
-    //         vertex_scale: Self::DEFAULT_SCALE,
-    //         tex_coord_offset: Isometry::new(Self::DEFAULT_OFFSET, Self::DEFAULT_ROTATION),
-    //         tex_coord_scale: Self::DEFAULT_SCALE,
-    //         vertices,
-    //         indices,
-    //         shape: ModelShape::Capsule {
-    //             half_height,
-    //             radius,
-    //             resolution,
-    //         },
-    //     }
-    // }
-
-    // pub fn triangle(a: Vector<f32>, b: Vector<f32>, c: Vector<f32>) -> Self {
-    //     let mut vertices = vec![
-    //         Vertex::new(a, tex_coords),
-    //         Vertex::new(b, tex_coords),
-    //         Vertex::new(c, tex_coords),
-    //     ];
-    //     let mut indices = vec![Index::new(0, 1, 2)];
-    //     Self {
-    //         vertex_offset: Isometry::new(Self::DEFAULT_OFFSET, Self::DEFAULT_ROTATION),
-    //         vertex_scale: Self::DEFAULT_SCALE,
-    //         tex_coord_offset: Isometry::new(Self::DEFAULT_OFFSET, Self::DEFAULT_ROTATION),
-    //         tex_coord_scale: Self::DEFAULT_SCALE,
-    //         vertices,
-    //         indices,
-    //         shape: ModelShape::Triangle { a, b, c },
-    //     }
-    // }
-
-    // pub fn tri_mesh(vertices: Vec<Vector<f32>>, indices: Option<Vec<Index>>) -> Self {
-    //     assert!(vertices.len() % 3 == 0);
-    //     // let mut vertices = vec![];
-    //     // for v in vertices {
-    //     //     vertices.push(Vertex::new(v, tex_coords))
-    //     // }
-    //     // let mut indices = vec![];
-    //     // for i in 0..vertices.len() {
-    //     //     let index = i as u32 * 3;
-    //     //     indices.push(Index::new(index, index + 1, index + 2));
-    //     // }
-    //     Self {
-    //         vertex_offset: Isometry::new(Self::DEFAULT_OFFSET, Self::DEFAULT_ROTATION),
-    //         vertex_scale: Self::DEFAULT_SCALE,
-    //         tex_coord_offset: Isometry::new(Self::DEFAULT_OFFSET, Self::DEFAULT_ROTATION),
-    //         tex_coord_scale: Self::DEFAULT_SCALE,
-    //         vertices,
-    //         indices,
-    //         shape: ModelShape::TriMesh { vertices, indices },
-    //     }
-    // }
-
-    fn cuboid_vertices(half_extents: Dimension<f32>) -> Vec<Vertex> {
-        vec![
+    pub fn cuboid(half_extents: Dimension<f32>) -> Self {
+        let vertices = vec![
             Vertex::new(
                 Vector::new(-half_extents.width, half_extents.height),
                 Vector::new(0.0, 0.0),
@@ -547,100 +107,279 @@ impl ModelBuilder {
                 Vector::new(half_extents.width, half_extents.height),
                 Vector::new(1.0, 0.0),
             ),
-        ]
+        ];
+        let indices = vec![Index::new(0, 1, 2), Index::new(2, 3, 0)];
+        Self {
+            vertices,
+            indices,
+            ..Default::default()
+        }
+    }
+    pub fn triangle(a: Vector<f32>, b: Vector<f32>, c: Vector<f32>) -> Self {
+        let ccw = (b.x - a.x) * (c.y - a.y) - (c.x - a.x) * (b.y - a.y);
+        let vertices = if ccw > 0.0 {
+            vec![a, b, c]
+        } else {
+            vec![c, b, a]
+        };
+        let vertices = Self::create_tex_coords(vertices);
+        let indices = vec![Index::new(0, 1, 2)];
+        Self {
+            vertices,
+            indices,
+            ..Default::default()
+        }
+    }
+    pub fn segment(a: Vector<f32>, b: Vector<f32>, half_thickness: f32) -> Self {
+        let d = b - a;
+        let l = (d.x.powi(2) + d.y.powi(2)).sqrt();
+        let r = half_thickness / l;
+        let da = d * r;
+
+        let vertices = vec![
+            Vector::new(a.x - da.x, a.y + da.y),
+            Vector::new(a.x + da.x, a.y - da.y),
+            Vector::new(b.x + da.x, b.y - da.y),
+            Vector::new(b.x - da.x, b.y + da.y),
+        ];
+        let vertices = Self::create_tex_coords(vertices);
+        let indices = Self::tessellate(&vertices);
+        Self {
+            vertices,
+            indices,
+            ..Default::default()
+        }
+    }
+    pub fn convex_polygon(vertices: Vec<Vector<f32>>) -> Self {
+        let vertices = Self::create_tex_coords(vertices);
+        let indices = Self::tessellate(&vertices);
+        Self {
+            vertices,
+            indices,
+            ..Default::default()
+        }
+    }
+    pub fn rounded(inner_shape: ModelBuilder, border_radius: f32, resolution: u32) -> Self {
+        let v = inner_shape.vertices.iter().map(|v| v.pos).collect();
+        let border = border_radius;
+
+        fn det(v0: Vector<f32>, v1: Vector<f32>) -> f32 {
+            return v0.x * v1.y - v0.y * v1.x;
+        }
+
+        fn sign(n: f32) -> f32 {
+            return ((n > 0.0) as i32 - (n < 0.0) as i32) as f32;
+        }
+
+        struct WrapIter<'a> {
+            len: usize,
+            counter: usize,
+            vertices: &'a Vec<Vector<f32>>,
+        }
+
+        impl<'a> WrapIter<'a> {
+            pub fn new(vertices: &'a Vec<Vector<f32>>) -> WrapIter<'a> {
+                Self {
+                    len: vertices.len() - 1,
+                    counter: 0,
+                    vertices,
+                }
+            }
+        }
+
+        impl<'a> Iterator for WrapIter<'a> {
+            type Item = (usize, usize, Vector<f32>, Vector<f32>);
+            fn next(&mut self) -> Option<Self::Item> {
+                let i = self.counter;
+                self.counter += 1;
+                if i < self.len {
+                    return Some((i, i + 1, self.vertices[i], self.vertices[i + 1]));
+                } else if i == self.len {
+                    return Some((self.len, 0, self.vertices[self.len], self.vertices[0]));
+                }
+                return None;
+            }
+        }
+
+        let ccw_left = Matrix2::from(Rotation::new(FRAC_PI_2));
+        let n: Vec<Vector<f32>> = WrapIter::new(&v)
+            .map(|(__, _, v0, v1)| (ccw_left * (v1 - v0).normalize() * border))
+            .collect();
+
+        let mut a: Vec<f32> = WrapIter::new(&n)
+            .map(|(__, _, n0, n1)| n0.angle(&n1))
+            .collect();
+
+        let d: Vec<f32> = WrapIter::new(&n)
+            .map(|(__, _, n0, n1)| sign(det(n0, n1)))
+            .collect();
+
+        let s: Vec<u32> = a.iter().map(|_| resolution).collect();
+        let mut o: Vec<Option<Vector<f32>>> = v.iter().map(|_| None).collect();
+        let mut v_prime = v.clone();
+
+        for (i, j, _, v1) in WrapIter::new(&v) {
+            let a_prime = (PI - a[i]) / 2.0;
+            let h = border / a_prime.sin();
+            let v_h = ((n[j] + n[i]) * -1.0).normalize() * h;
+            v_prime[j] = v1 + v_h;
+            o[j] = Some(v1 - v_h * d[i]);
+        }
+        for (i, j, _, _) in WrapIter::new(&v) {
+            if s[i] > 0 {
+                a[i] /= s[i] as f32
+            } else {
+                o[j] = Some(v[j] + n[i] * d[i]);
+            }
+        }
+
+        let mut index = 0;
+        let mut v_new: Vec<Option<Vector<f32>>> = (0..(v_prime.len() as u32
+            + s.iter().sum::<u32>()))
+            .map(|_| None)
+            .collect();
+
+        for (i, j, _, _) in WrapIter::new(&v_prime) {
+            let m = Matrix2::from(Rotation::new(d[i] * a[i]));
+            let mut step = n[i] * -d[i];
+            let anchor = o[j];
+            v_new[index] = Some(anchor.unwrap() + step);
+            index += 1;
+            for _ in 0..s[i] {
+                step = m * step;
+                v_new[index] = Some(anchor.unwrap() + step);
+                index += 1;
+            }
+        }
+
+        let vertices = v_new.into_iter().map(|v| v.unwrap()).collect();
+        let vertices = Self::create_tex_coords(vertices);
+        let indices = Self::tessellate(&vertices);
+        Self {
+            vertices,
+            indices,
+            ..inner_shape
+        }
     }
 
-    fn tessellate(vertices: &[Vertex]) -> Vec<Index> {
-        use voronator::delaunator::Point;
+    pub fn compound(shapes: Vec<ModelBuilder>) -> Self {
+        Self {
+            vertices,
+            indices,
+            ..Default::default()
+        }
+    }
+
+    pub fn custom(vertices: Vec<Vertex>, indces: Vec<Index>) -> Self {
+        Self {
+            vertices,
+            indices,
+            ..Default::default()
+        }
+    }
+
+    pub fn from_collider_shape(shape: TypedShape, resolution: u32, half_thickness: f32) -> Self {
+        return match shape {
+            TypedShape::Ball(_) => {
+                
+            },
+            TypedShape::Cuboid(_) => {
+                
+            },
+            TypedShape::Capsule(_) => {
+                
+            },
+            TypedShape::Segment(_) => {
+                
+            },
+            TypedShape::Triangle(_) => {
+                
+            },
+            TypedShape::Compound(_) => {
+                
+            },
+            TypedShape::ConvexPolygon(_) => {
+                
+            },
+            TypedShape::RoundCuboid(_) => {
+                
+            },
+            TypedShape::RoundTriangle(_) => {
+                
+            },
+            TypedShape::RoundConvexPolygon(_) => {
+                
+            },
+            TypedShape::TriMesh(_) => {
+                
+            },
+
+            TypedShape::Custom(_)
+            | TypedShape::Polyline(_)
+            | TypedShape::HalfSpace(_)
+            | TypedShape::HeightField(_) => {
+                panic!("Unsupported collider shape");
+            }
+        };
+    }
+
+    fn tessellate(vertices: &Vec<Vertex>) -> Vec<Index> {
+        use delaunator::{triangulate, Point};
+
         let points: Vec<Point> = vertices
             .iter()
+            .rev()
             .map(|v| Point {
                 x: v.pos.x as f64,
                 y: v.pos.y as f64,
             })
             .collect();
-        let t = voronator::delaunator::triangulate::<Point>(&points).unwrap();
+        let t = triangulate(&points);
         let mut indices = vec![];
         for i in 0..t.len() {
             indices.push(Index::new(
                 t.triangles[3 * i] as u32,
-                t.triangles[3 * i + 2] as u32,
                 t.triangles[3 * i + 1] as u32,
+                t.triangles[3 * i + 2] as u32,
             ));
         }
         return indices;
     }
 
-    /// Cretae a by its half-extents [Dimension].
-    pub fn cuboid(half_extents: Dimension<f32>) -> Self {
-        Self {
-            vertex_offset: Isometry::new(Self::DEFAULT_OFFSET, Self::DEFAULT_ROTATION),
-            vertex_scale: Self::DEFAULT_SCALE,
-            tex_coord_offset: Isometry::new(Self::DEFAULT_OFFSET, Self::DEFAULT_ROTATION),
-            tex_coord_scale: Self::DEFAULT_SCALE,
-            vertices: Self::cuboid_vertices(half_extents),
-            indices: vec![Index::new(0, 1, 2), Index::new(2, 3, 0)],
-            shape: ModelShape::Cuboid { half_extents },
+    fn create_tex_coords(vertices: Vec<Vector<f32>>) -> Vec<Vertex> {
+        use std::cmp::Ordering::Equal;
+
+        let max_x = vertices
+            .iter()
+            .max_by(|v1, v2| v1.x.partial_cmp(&v2.x).unwrap_or(Equal))
+            .unwrap()
+            .x;
+        let min_x = vertices
+            .iter()
+            .min_by(|v1, v2| v1.x.partial_cmp(&v2.x).unwrap_or(Equal))
+            .unwrap()
+            .x;
+        let max_y = vertices
+            .iter()
+            .max_by(|v1, v2| v1.y.partial_cmp(&v2.y).unwrap_or(Equal))
+            .unwrap()
+            .y;
+        let min_y = vertices
+            .iter()
+            .min_by(|v1, v2| v1.y.partial_cmp(&v2.y).unwrap_or(Equal))
+            .unwrap()
+            .y;
+        let size = Dimension::new(max_x - min_x, max_y - min_y);
+        let mut result = vec![];
+        for v in vertices {
+            let delta_x = v.x - min_x;
+            let ratio_x = delta_x / size.width;
+            let delta_y = max_y - v.y;
+            let ratio_y = delta_y / size.height;
+            let tex_coords = Vector::new(ratio_x, ratio_y);
+            result.push(Vertex::new(v, tex_coords));
         }
-    }
-
-    pub fn ball(radius: f32, resolution: u32) -> Self {
-        Self {
-            shape: ModelShape::Ball { radius, resolution },
-            ..Self::regular_polygon(radius, resolution)
-        }
-    }
-
-    pub fn regular_polygon(radius: f32, corners: u32) -> Self {
-        const MIN_POINTS: u32 = 3;
-        assert!(
-            corners >= MIN_POINTS,
-            "A Ball must have at least {} points!",
-            MIN_POINTS
-        );
-        let mut vertices = vec![];
-        for i in 0..corners {
-            let i = i as f32;
-            let pos = Vector::new(
-                radius * (i / corners as f32 * 2.0 * PI).cos(),
-                radius * (i / corners as f32 * 2.0 * PI).sin(),
-            );
-
-            vertices.push(Vertex {
-                pos,
-                tex_coords: Vector::new(
-                    (i / corners as f32 * 2.0 * PI).cos() / 2.0 + 0.5,
-                    (i / corners as f32 * 2.0 * PI).sin() / -2.0 + 0.5,
-                ),
-            });
-        }
-
-        let indices = Self::tessellate(&vertices);
-
-        Self {
-            vertex_offset: Isometry::new(Self::DEFAULT_OFFSET, Self::DEFAULT_ROTATION),
-            vertex_scale: Self::DEFAULT_SCALE,
-            tex_coord_offset: Isometry::new(Self::DEFAULT_OFFSET, Self::DEFAULT_ROTATION),
-            tex_coord_scale: Self::DEFAULT_SCALE,
-            vertices,
-            indices,
-            shape: ModelShape::Ball {
-                radius,
-                resolution: corners,
-            },
-        }
-    }
-
-    pub fn custom(vertices: Vec<Vertex>, indices: Vec<Index>) -> Self {
-        Self {
-            vertex_offset: Isometry::new(Self::DEFAULT_OFFSET, Self::DEFAULT_ROTATION),
-            vertex_scale: Self::DEFAULT_SCALE,
-            tex_coord_offset: Isometry::new(Self::DEFAULT_OFFSET, Self::DEFAULT_ROTATION),
-            tex_coord_scale: Self::DEFAULT_SCALE,
-            vertices,
-            indices,
-            shape: ModelShape::Custom,
-        }
+        return result;
     }
 
     pub fn vertex_scale(mut self, scale: Vector<f32>) -> Self {
@@ -700,6 +439,19 @@ impl ModelBuilder {
         vertex_scale: Vector<f32>,
         tex_coord_scale: Vector<f32>,
     ) {
+        fn rotate_point_around_origin(
+            origin: Vector<f32>,
+            point: Vector<f32>,
+            rot: Rotation<f32>,
+        ) -> Vector<f32> {
+            let sin = rot.sin_angle();
+            let cos = rot.cos_angle();
+            return Vector::new(
+                origin.x + (point.x - origin.x) * cos - (point.y - origin.y) * sin,
+                origin.y + (point.x - origin.x) * sin + (point.y - origin.y) * cos,
+            );
+        }
+
         if vertex_scale != Self::DEFAULT_SCALE {
             for v in vertices.iter_mut() {
                 v.pos.x *= vertex_scale.x;

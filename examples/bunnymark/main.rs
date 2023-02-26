@@ -23,7 +23,7 @@ impl BunnyManager {
     pub fn new(ctx: &mut Context) -> BunnyManager {
         ctx.set_clear_color(Some(Color::new_rgba(220, 220, 220, 255)));
         ctx.set_window_size(Dimension::new(800, 600));
-        ctx.set_vertical_fov(6.0);
+        ctx.set_camera_vertical_fov(6.0);
 
         let bunny_model = ctx.create_model(ModelBuilder::cuboid(Dimension::new(0.06, 0.09)));
         let bunny_sprite = ctx.create_sprite(include_bytes!("./img/wabbit.png"));

@@ -100,11 +100,6 @@ impl<'a> Renderer<'a> {
             .set_bind_group(slot, sprite.bind_group(), &[]);
     }
 
-    pub fn use_color(&mut self, color: &'a Uniform<Color>, slot: u32) {
-        self.render_pass
-            .set_bind_group(slot, color.bind_group(), &[]);
-    }
-
     pub fn use_uniform<T: bytemuck::Pod>(&mut self, uniform: &'a Uniform<T>, slot: u32) {
         self.render_pass
             .set_bind_group(slot, uniform.bind_group(), &[]);
@@ -152,7 +147,7 @@ impl<'a> Renderer<'a> {
         self.use_shader(&self.defaults.colored_sprite);
         self.use_model(model);
         self.use_sprite(sprite, 1);
-        self.use_color(color, 2);
+        self.use_uniform(color, 2);
     }
 
     pub fn render_transparent_sprite(
@@ -170,7 +165,7 @@ impl<'a> Renderer<'a> {
     pub fn render_color(&mut self, model: &'a Model, color: &'a Uniform<Color>) {
         self.use_shader(&self.defaults.color);
         self.use_model(model);
-        self.use_color(color, 1);
+        self.use_uniform(color, 1);
     }
 
     pub fn render_rainbow(&mut self, model: &'a Model) {

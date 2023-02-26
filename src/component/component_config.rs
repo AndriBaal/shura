@@ -77,7 +77,7 @@ pub struct ComponentConfig {
     /// Defines when the position of the component should be buffered
     pub buffer: BufferOperation,
     /// Defines if the end method should be called upon ending the scene by either removing it or the window being closed
-    pub end: EndOperation,
+    pub end: EndOperation
 }
 
 pub const DEFAULT_CONFIG: ComponentConfig = ComponentConfig {

@@ -40,7 +40,7 @@ default = ["gamepad", "text", "audio", "physics", "gui", "serde"]
 crate-type = ["lib", "cdylib"]
 
 [dependencies]
-voronator="0.2.1"
+delaunator="1.0.1"
 nalgebra = { version = "0.32.1", features = ["convert-bytemuck"] }
 # wgpu_glyph = { version = "0.19.0", optional = true }
 wgpu_glyph = { git = "https://github.com/sconybeare/wgpu_glyph", branch = "wgpu-0.15", optional = true }

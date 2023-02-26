@@ -4,29 +4,29 @@ use std::{fmt, fs};
 
 fn main() {
     if let Some(save_game) = fs::read("data.binc").ok() {
-        Shura::init(SerializedScene {
-            id: 1,
-            scene: save_game,
-            init: |ctx, s| {
-                s.deserialize_components_with(ctx, |mut w, ctx| {
-                    w.deserialize(FloorVisitor { ctx })
-                });
-                s.deserialize_components_with(ctx, |mut w, ctx| {
-                    w.deserialize(PlayerVisitor { ctx })
-                });
-                s.deserialize_components_with(ctx, |mut w, ctx| {
-                    w.deserialize(BoxManagerVisitor { ctx })
-                });
-                s.deserialize_components::<PhysicsBox>(ctx);
-            },
-        })
+        // Shura::init(SerializedScene {
+        //     id: 1,
+        //     scene: save_game,
+        //     init: |ctx, s| {
+        //         s.deserialize_components_with(ctx, |mut w, ctx| {
+        //             w.deserialize(FloorVisitor { ctx })
+        //         });
+        //         s.deserialize_components_with(ctx, |mut w, ctx| {
+        //             w.deserialize(PlayerVisitor { ctx })
+        //         });
+        //         s.deserialize_components_with(ctx, |mut w, ctx| {
+        //             w.deserialize(BoxManagerVisitor { ctx })
+        //         });
+        //         s.deserialize_components::<PhysicsBox>(ctx);
+        //     },
+        // })
     } else {
         Shura::init(NewScene {
             id: 1,
             init: |ctx| {
                 const PYRAMID_ELEMENTS: i32 = 8;
                 const MINIMAL_SPACING: f32 = 0.1;
-                ctx.set_horizontal_fov(10.0);
+                ctx.set_camera_horizontal_fov(10.0);
                 ctx.set_gravity(Vector::new(0.00, -9.81));
 
                 for x in -PYRAMID_ELEMENTS..PYRAMID_ELEMENTS {
@@ -72,10 +72,13 @@ impl BoxManager {
             default_color: ctx.create_uniform(Color::new_rgba(0, 255, 0, 255)),
             collision_color: ctx.create_uniform(Color::new_rgba(255, 0, 0, 255)),
             hover_color: ctx.create_uniform(Color::new_rgba(0, 0, 255, 255)),
-            box_model: ctx.create_model(ModelBuilder::round_cuboid(Dimension::new(
-                Self::HALF_BOX_SIZE,
-                Self::HALF_BOX_SIZE,
-            ),0.1, 10)),
+            box_model: ctx.create_model(ModelBuilder::new(&ModelShape::Rounded {
+                inner_shape: Box::new(ModelShape::Cuboid {
+                    half_extents: Dimension::new(Self::HALF_BOX_SIZE, Self::HALF_BOX_SIZE),
+                }),
+                border_radius: 0.25,
+                resolution: 20,
+            })),
             component: Default::default(),
         }
     }
@@ -105,7 +108,7 @@ impl ComponentController for BoxManager {
         let scroll = ctx.wheel_delta();
         let fov = ctx.camera_fov();
         if scroll != 0.0 {
-            ctx.set_horizontal_fov(fov.width + scroll);
+            ctx.set_camera_horizontal_fov(fov.width + scroll);
         }
 
         if ctx.is_held(MouseButton::Right) {
@@ -152,7 +155,10 @@ impl Player {
     pub fn new(ctx: &Context) -> Self {
         Self {
             sprite: ctx.create_sprite(include_bytes!("./img/burger.png")),
-            model: ctx.create_model(ModelBuilder::ball(Self::RADIUS, Self::RESOLUTION)),
+            model: ctx.create_model(ModelBuilder::new(&ModelShape::RegularPolygon {
+                radius: Self::RADIUS,
+                corners: Self::RESOLUTION,
+            })),
             component: BaseComponent::new_rigid_body(
                 RigidBodyBuilder::dynamic().translation(Vector::new(5.0, 4.0)),
                 vec![ColliderBuilder::ball(Self::RADIUS)
@@ -233,7 +239,9 @@ impl Floor {
     pub fn new(ctx: &Context) -> Self {
         Self {
             color: ctx.create_uniform(Color::new_rgba(0, 0, 255, 255)),
-            model: ctx.create_model(ModelBuilder::cuboid(Self::FLOOR_SIZE)),
+            model: ctx.create_model(ModelBuilder::new(&ModelShape::Cuboid {
+                half_extents: Self::FLOOR_SIZE,
+            })),
             component: BaseComponent::new_rigid_body(
                 RigidBodyBuilder::fixed().translation(Vector::new(0.0, -1.0)),
                 vec![ColliderBuilder::cuboid(
@@ -339,86 +347,88 @@ impl ComponentController for PhysicsBox {
     }
 }
 
-struct FloorVisitor<'a> {
-    ctx: &'a Context<'a>,
-}
+// struct FloorVisitor<'a> {
+//     ctx: &'a Context<'a>,
+// }
 
-impl<'de, 'a> serde::de::Visitor<'de> for FloorVisitor<'a> {
-    type Value = Floor;
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("A Floor")
-    }
+// impl<'de, 'a> serde::de::Visitor<'de> for FloorVisitor<'a> {
+//     type Value = Floor;
+//     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+//         formatter.write_str("A Floor")
+//     }
 
-    fn visit_seq<V>(self, mut seq: V) -> Result<Floor, V::Error>
-    where
-        V: serde::de::SeqAccess<'de>,
-    {
-        let component: BaseComponent = seq
-            .next_element()?
-            .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
-        Ok(Floor {
-            component,
-            color: self.ctx.create_uniform(Color::new_rgba(0, 0, 255, 255)),
-            model: self
-                .ctx
-                .create_model(ModelBuilder::cuboid(Floor::FLOOR_SIZE)),
-        })
-    }
-}
+//     fn visit_seq<V>(self, mut seq: V) -> Result<Floor, V::Error>
+//     where
+//         V: serde::de::SeqAccess<'de>,
+//     {
+//         let component: BaseComponent = seq
+//             .next_element()?
+//             .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
+//         Ok(Floor {
+//             component,
+//             color: self.ctx.create_uniform(Color::new_rgba(0, 0, 255, 255)),
+//             model: self.ctx.create_model(ModelBuilder::new(&ModelShape::Cuboid {
+//                 half_extents: Floor::FLOOR_SIZE,
+//             })),
+//         })
+//     }
+// }
 
-struct PlayerVisitor<'a> {
-    ctx: &'a Context<'a>,
-}
+// struct PlayerVisitor<'a> {
+//     ctx: &'a Context<'a>,
+// }
 
-impl<'de, 'a> serde::de::Visitor<'de> for PlayerVisitor<'a> {
-    type Value = Player;
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("A Player")
-    }
+// impl<'de, 'a> serde::de::Visitor<'de> for PlayerVisitor<'a> {
+//     type Value = Player;
+//     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+//         formatter.write_str("A Player")
+//     }
 
-    fn visit_seq<V>(self, mut seq: V) -> Result<Player, V::Error>
-    where
-        V: serde::de::SeqAccess<'de>,
-    {
-        let component: BaseComponent = seq
-            .next_element()?
-            .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
-        Ok(Player {
-            component,
-            sprite: self.ctx.create_sprite(include_bytes!("./img/burger.png")),
-            model: self
-                .ctx
-                .create_model(ModelBuilder::ball(Player::RADIUS, Player::RESOLUTION)),
-        })
-    }
-}
+//     fn visit_seq<V>(self, mut seq: V) -> Result<Player, V::Error>
+//     where
+//         V: serde::de::SeqAccess<'de>,
+//     {
+//         let component: BaseComponent = seq
+//             .next_element()?
+//             .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
+//         Ok(Player {
+//             component,
+//             sprite: self.ctx.create_sprite(include_bytes!("./img/burger.png")),
+//             model: self
+//                 .ctx.create_model(ModelBuilder::new(&ModelShape::RegularPolygon {
+//                     radius: Player::RADIUS,
+//                     corners: Player::RESOLUTION,
+//                 }))
+//         })
+//     }
+// }
 
-struct BoxManagerVisitor<'a> {
-    ctx: &'a Context<'a>,
-}
+// struct BoxManagerVisitor<'a> {
+//     ctx: &'a Context<'a>,
+// }
 
-impl<'de, 'a> serde::de::Visitor<'de> for BoxManagerVisitor<'a> {
-    type Value = BoxManager;
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("A BoxManager")
-    }
+// impl<'de, 'a> serde::de::Visitor<'de> for BoxManagerVisitor<'a> {
+//     type Value = BoxManager;
+//     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+//         formatter.write_str("A BoxManager")
+//     }
 
-    fn visit_seq<V>(self, mut seq: V) -> Result<BoxManager, V::Error>
-    where
-        V: serde::de::SeqAccess<'de>,
-    {
-        let component: BaseComponent = seq
-            .next_element()?
-            .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
-        Ok(BoxManager {
-            component,
-            default_color: self.ctx.create_uniform(Color::new_rgba(0, 255, 0, 255)),
-            collision_color: self.ctx.create_uniform(Color::new_rgba(255, 0, 0, 255)),
-            hover_color: self.ctx.create_uniform(Color::new_rgba(0, 0, 255, 255)),
-            box_model: self.ctx.create_model(ModelBuilder::cuboid(Dimension::new(
-                BoxManager::HALF_BOX_SIZE,
-                BoxManager::HALF_BOX_SIZE,
-            ))),
-        })
-    }
-}
+//     fn visit_seq<V>(self, mut seq: V) -> Result<BoxManager, V::Error>
+//     where
+//         V: serde::de::SeqAccess<'de>,
+//     {
+//         let component: BaseComponent = seq
+//             .next_element()?
+//             .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
+//         Ok(BoxManager {
+//             component,
+//             default_color: self.ctx.create_uniform(Color::new_rgba(0, 255, 0, 255)),
+//             collision_color: self.ctx.create_uniform(Color::new_rgba(255, 0, 0, 255)),
+//             hover_color: self.ctx.create_uniform(Color::new_rgba(0, 0, 255, 255)),
+//             box_model: self.ctx.create_model(ModelBuilder::cuboid(Dimension::new(
+//                 BoxManager::HALF_BOX_SIZE,
+//                 BoxManager::HALF_BOX_SIZE,
+//             ))),
+//         })
+//     }
+// }

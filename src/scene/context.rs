@@ -1023,7 +1023,7 @@ impl<'a> Context<'a> {
 
     #[inline]
     /// Set the distance between the center of the camera to the top in world coordinates.
-    pub fn set_vertical_fov(&mut self, fov: f32) {
+    pub fn set_camera_vertical_fov(&mut self, fov: f32) {
         let window_size = self.window_size();
         self.scene.camera.set_vertical_fov(
             &mut self.scene.cursor,
@@ -1035,7 +1035,7 @@ impl<'a> Context<'a> {
 
     #[inline]
     /// Set the distance between the center of the camera to the right in world coordinates.
-    pub fn set_horizontal_fov(&mut self, fov: f32) {
+    pub fn set_camera_horizontal_fov(&mut self, fov: f32) {
         let window_size = self.window_size();
         self.scene.camera.set_horizontal_fov(
             &mut self.scene.cursor,
