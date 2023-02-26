@@ -62,7 +62,7 @@ impl ModelBuilder {
         const MIN_POINTS: u32 = 3;
         assert!(
             corners >= MIN_POINTS,
-            "A Ball must have at least {} points!",
+            "A Regular Polygon must have at least {} points!",
             MIN_POINTS
         );
         let mut vertices = vec![];
