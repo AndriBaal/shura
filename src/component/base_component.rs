@@ -109,7 +109,7 @@ impl BaseComponent {
             render_scale: Vector::new(1.0, 1.0),
             body: BodyStatus::RigidBodyPending {
                 body: Box::new(body.into()),
-                colliders: colliders.into_iter().map(|world| world.into()).collect(),
+                colliders: colliders.into_iter().map(|collider| collider.into()).collect(),
             },
         }
     }

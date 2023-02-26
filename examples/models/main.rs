@@ -3,132 +3,101 @@ use shura::*;
 fn main() {
     Shura::init(NewScene::new(1, |ctx| {
         ctx.set_camera_vertical_fov(10.0);
-        ctx.create_component(
-            ModelTest::new(
-                Vector::new(-3.0, 3.0),
-                ctx.create_model(ModelBuilder::cuboid(Dimension::new(0.5, 0.5))),
-                ctx.create_uniform(Color::BLUE),
-            ),
-        );
+        ctx.create_component(ModelTest::new(
+            Vector::new(-3.0, 3.0),
+            ctx.create_model(ModelBuilder::cuboid(Dimension::new(0.5, 0.5))),
+            ctx.create_uniform(Color::BLUE),
+        ));
 
-        ctx.create_component(
-            ModelTest::new(
-                Vector::new(-1.0, 3.0),
-                ctx.create_model(ModelBuilder::rounded(
-                    ModelBuilder::cuboid(Dimension::new(0.5, 0.5)),
-                    0.25,
-                    10,
-                )),
-                ctx.create_uniform(Color::BLUE),
-            ),
-        );
+        ctx.create_component(ModelTest::new(
+            Vector::new(-1.0, 3.0),
+            ctx.create_model(ModelBuilder::rounded(
+                ModelBuilder::cuboid(Dimension::new(0.5, 0.5)),
+                0.25,
+                10,
+            )),
+            ctx.create_uniform(Color::BLUE),
+        ));
 
-        ctx.create_component(
-            ModelTest::new(
-                Vector::new(1.0, 3.0),
-                ctx.create_model(ModelBuilder::triangle(
-                    Vector::new(0.0, 0.5),
-                    Vector::new(-0.5, -0.5),
-                    Vector::new(0.5, -0.5),
-                )),
-                ctx.create_uniform(Color::BLUE),
-            ),
-        );
+        ctx.create_component(ModelTest::new(
+            Vector::new(1.0, 3.0),
+            ctx.create_model(ModelBuilder::triangle(
+                Vector::new(0.0, 0.5),
+                Vector::new(-0.5, -0.5),
+                Vector::new(0.5, -0.5),
+            )),
+            ctx.create_uniform(Color::BLUE),
+        ));
 
-        ctx.create_component(
-            ModelTest::new(
-                Vector::new(3.0, 3.0),
-                ctx.create_model(ModelBuilder::rounded(
-                    ModelBuilder::triangle(
-                        Vector::new(0.5, 0.5),
-                        Vector::new(-0.5, -0.5),
-                        Vector::new(0.5, -0.5),
-                    ),
-                    0.15,
-                    10,
-                )),
-                ctx.create_uniform(Color::BLUE),
-            ),
-        );
-
-        ctx.create_component(
-            ModelTest::new(
-                Vector::new(-3.0, 1.0),
-                ctx.create_model(ModelBuilder::regular_polygon(0.5, 32)),
-                ctx.create_uniform(Color::BLUE),
-            ),
-        );
-
-        ctx.create_component(
-            ModelTest::new(
-                Vector::new(-1.0, 1.0),
-                ctx.create_model(ModelBuilder::rounded(
-                    ModelBuilder::regular_polygon(0.5, 5),
-                    0.15,
-                    5,
-                )),
-                ctx.create_uniform(Color::BLUE),
-            ),
-        );
-
-        ctx.create_component(
-            ModelTest::new(
-                Vector::new(1.0, 1.0),
-                ctx.create_model(ModelBuilder::segment(
+        ctx.create_component(ModelTest::new(
+            Vector::new(3.0, 3.0),
+            ctx.create_model(ModelBuilder::rounded(
+                ModelBuilder::triangle(
                     Vector::new(0.5, 0.5),
                     Vector::new(-0.5, -0.5),
-                    0.2,
-                )),
-                ctx.create_uniform(Color::BLUE),
-            ),
-        );
+                    Vector::new(0.5, -0.5),
+                ),
+                0.15,
+                10,
+            )),
+            ctx.create_uniform(Color::BLUE),
+        ));
 
-        ctx.create_component(
-            ModelTest::new(
-                Vector::new(3.0, 1.0),
-                ctx.create_model(ModelBuilder::rounded(
-                    ModelBuilder::segment(
-                        Vector::new(-0.5, 0.5),
-                        Vector::new(0.5, -0.5),
-                        0.2,
-                    ),
+        ctx.create_component(ModelTest::new(
+            Vector::new(-3.0, 1.0),
+            ctx.create_model(ModelBuilder::regular_polygon(0.5, 32)),
+            ctx.create_uniform(Color::BLUE),
+        ));
+
+        ctx.create_component(ModelTest::new(
+            Vector::new(-1.0, 1.0),
+            ctx.create_model(ModelBuilder::rounded(
+                ModelBuilder::regular_polygon(0.5, 5),
+                0.15,
+                5,
+            )),
+            ctx.create_uniform(Color::BLUE),
+        ));
+
+        ctx.create_component(ModelTest::new(
+            Vector::new(1.0, 1.0),
+            ctx.create_model(ModelBuilder::segment(
+                Vector::new(0.5, 0.5),
+                Vector::new(-0.5, -0.5),
+                0.2,
+            )),
+            ctx.create_uniform(Color::BLUE),
+        ));
+
+        ctx.create_component(ModelTest::new(
+            Vector::new(3.0, 1.0),
+            ctx.create_model(ModelBuilder::rounded(
+                ModelBuilder::segment(Vector::new(-0.5, 0.5), Vector::new(0.5, -0.5), 0.2),
+                0.2,
+                5,
+            )),
+            ctx.create_uniform(Color::BLUE),
+        ));
+
+        ctx.create_component(ModelTest::new(
+            Vector::new(-3.0, -1.0),
+            ctx.create_model(ModelBuilder::compound(vec![
+                ModelBuilder::segment(Vector::new(0.5, 0.5), Vector::new(-0.5, -0.5), 0.2),
+                ModelBuilder::rounded(
+                    ModelBuilder::segment(Vector::new(-0.5, 0.5), Vector::new(0.5, -0.5), 0.2),
                     0.2,
                     5,
-                )),
-                ctx.create_uniform(Color::BLUE),
-            ),
-        );
+                ),
+            ])),
+            ctx.create_uniform(Color::BLUE),
+        ));
 
-        ctx.create_component(
-            ModelTest::new(
-                Vector::new(-3.0, -1.0),
-                ctx.create_model(ModelBuilder::compound(vec![
-                    ModelBuilder::segment(
-                        Vector::new(0.5, 0.5),
-                        Vector::new(-0.5, -0.5),
-                        0.2,
-                    ),
-                    ModelBuilder::rounded(
-                        ModelBuilder::segment(
-                            Vector::new(-0.5, 0.5),
-                            Vector::new(0.5, -0.5),
-                            0.2,
-                        ),
-                        0.2,
-                        5,
-                    )
-                ])),
-                ctx.create_uniform(Color::BLUE),
-            ),
-        );
+        ctx.create_component(ModelTest::new(
+            Vector::new(-1.0, -1.0),
+            ctx.create_model(ModelBuilder::star(5, 0.2, 0.8)),
+            ctx.create_uniform(Color::BLUE),
+        ));
 
-        ctx.create_component(
-            ModelTest::new(
-                Vector::new(-1.0, -1.0),
-                ctx.create_model(ModelBuilder::star(6, 0.2, 0.8)),
-                ctx.create_uniform(Color::BLUE),
-            ),
-        );
     }))
 }
 

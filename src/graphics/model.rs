@@ -2,8 +2,8 @@
 use crate::physics::TypedShape;
 use crate::{na::Matrix2, Dimension, Gpu, Index, Isometry, Rotation, Vector, Vertex};
 use std::f32::consts::{FRAC_PI_2, PI};
+use rapier2d::prelude::{SharedShape, Shape};
 use wgpu::util::DeviceExt;
-
 
 impl Default for ModelBuilder {
     fn default() -> Self {
@@ -36,6 +36,14 @@ impl ModelBuilder {
     const DEFAULT_SCALE: Vector<f32> = Vector::new(1.0, 1.0);
     pub fn ball(radius: f32, resolution: u32) -> Self {
         Self::regular_polygon(radius, resolution)
+    }
+
+    pub fn capsule(radius: f32, half_height: f32, resolution: u32) -> Self {
+        Self::rounded(
+            ModelBuilder::cuboid(Dimension::new(radius, half_height)),
+            radius,
+            resolution,
+        )
     }
 
     pub fn regular_polygon(radius: f32, corners: u32) -> Self {
@@ -244,30 +252,26 @@ impl ModelBuilder {
 
     pub fn star(corners: u32, inner_radius: f32, outer_radius: f32) -> Self {
         let a = PI / corners as f32;
-        let v_count = 2*corners;
-        let mut l: Vec<Option<Vector<f32>>> = (0..v_count).map(|_| None).collect();
+        let v_count = 2 * corners as usize;
+        let mut vertices = Vec::with_capacity(v_count);
         let mut indices = vec![];
-        let mut prev = v_count;
-        l[0] = Some(Vector::new(0.0, 0.0));
         for i in 0..v_count {
             let r = if i % 2 == 1 {
                 inner_radius
-            } else {                
-                let next = v_count;
+            } else {
+                let prev = if i as i32 - 1 < 0 { v_count - 1 } else { i - 1 } as u32;
+                let next = if i + 1 >= v_count { 1 } else { i + 1 } as u32;
                 indices.push(Index::new(0, next, prev));
-                indices.push(Index::new(next, i+1, prev));
+                indices.push(Index::new(i as u32, prev, next));
                 outer_radius
             };
-            l[(v_count - 1 - i) as usize] = Some(Vector::new(
-                r * (FRAC_PI_2 + a * i as f32).cos(),
-                r * (FRAC_PI_2 + a * i as f32).sin(),
+            vertices.push(Vector::new(
+                r * (FRAC_PI_2 - a * i as f32).cos(),
+                r * (FRAC_PI_2 - a * i as f32).sin(),
             ));
-            let prev = i+1;
         }
-        let mut vertices = vec![Vertex::new(Vector::new(0.0, 0.0), Vector::new(0.5, 0.5))];
-        vertices.append(&mut Self::create_tex_coords(l.into_iter().map(|v| v.unwrap()).collect()));
-        println!("{:#?}", indices);
-
+        vertices.push(Vector::new(0.0, 0.0));
+        let vertices = Self::create_tex_coords(vertices);
         Self {
             vertices,
             indices,
@@ -292,9 +296,13 @@ impl ModelBuilder {
             vertices.extend(shape.vertices);
             let len = shape.indices.len() as u32;
             for index in shape.indices {
-                indices.push(Index { a: index.a + offset, b: index.b + offset, c: index.c + offset });
+                indices.push(Index {
+                    a: index.a + offset,
+                    b: index.b + offset,
+                    c: index.c + offset,
+                });
             }
-            offset += len;
+            offset += len + 1;
         }
         Self {
             vertices,
@@ -303,50 +311,82 @@ impl ModelBuilder {
         }
     }
 
-    // pub fn from_collider_shape(shape: TypedShape, resolution: u32, half_thickness: f32) -> Self {
-    //     return match shape {
-    //         TypedShape::Ball(_) => {
-                
-    //         },
-    //         TypedShape::Cuboid(_) => {
-                
-    //         },
-    //         TypedShape::Capsule(_) => {
-                
-    //         },
-    //         TypedShape::Segment(_) => {
-                
-    //         },
-    //         TypedShape::Triangle(_) => {
-                
-    //         },
-    //         TypedShape::Compound(_) => {
-                
-    //         },
-    //         TypedShape::ConvexPolygon(_) => {
-                
-    //         },
-    //         TypedShape::RoundCuboid(_) => {
-                
-    //         },
-    //         TypedShape::RoundTriangle(_) => {
-                
-    //         },
-    //         TypedShape::RoundConvexPolygon(_) => {
-                
-    //         },
-    //         TypedShape::TriMesh(_) => {
-                
-    //         },
+    pub fn from_collider_shape(shape: &dyn Shape, resolution: u32, half_thickness: f32) -> Self {
+        match shape.as_typed_shape() {
+            TypedShape::Ball(ball) => {
+                return Self::ball(ball.radius, resolution);
+            }
+            TypedShape::Cuboid(cuboid) => {
+                return Self::cuboid(cuboid.half_extents.into());
+            }
+            TypedShape::Capsule(capsule) => {
+                return Self::capsule(capsule.radius, capsule.half_height(), resolution);
+            }
+            TypedShape::Segment(segmenet) => {
+                return Self::segment(segmenet.a.coords, segmenet.b.coords, half_thickness)
+            }
+            TypedShape::Triangle(triangle) => {
+                return Self::triangle(triangle.a.coords, triangle.b.coords, triangle.c.coords);
+            }
+            TypedShape::ConvexPolygon(convex_polygon) => {
+                let vertices = convex_polygon.points().iter().map(|p| p.coords).collect();
+                return Self::convex_polygon(vertices);
+            }
+            TypedShape::RoundCuboid(round_cuboid) => {
+                return Self::rounded(
+                    ModelBuilder::cuboid(round_cuboid.inner_shape.half_extents.into()),
+                    round_cuboid.border_radius,
+                    resolution,
+                );
+            }
+            TypedShape::RoundTriangle(round_triangle) => {
+                let inner = round_triangle.inner_shape;
+                return Self::rounded(
+                    ModelBuilder::triangle(inner.a.coords, inner.b.coords, inner.c.coords),
+                    round_triangle.border_radius,
+                    resolution,
+                );
+            }
+            TypedShape::RoundConvexPolygon(round_convex_polygon) => {
+                let inner = &round_convex_polygon.inner_shape;
+                let vertices = inner.points().iter().map(|p| p.coords).collect();
+                return Self::rounded(
+                    ModelBuilder::convex_polygon(vertices),
+                    round_convex_polygon.border_radius,
+                    resolution,
+                );
+            }
+            TypedShape::Compound(compound) => {
+                let builders = compound
+                    .shapes()
+                    .iter()
+                    .map(|s| {
+                        Self::from_collider_shape(&s.1, resolution, half_thickness)
+                            .vertex_position(s.0)
+                    })
+                    .collect();
 
-    //         TypedShape::Custom(_)
-    //         | TypedShape::Polyline(_)
-    //         | TypedShape::HalfSpace(_)
-    //         | TypedShape::HeightField(_) => {
-    //             panic!("Unsupported collider shape!");
-    //         }
-    //     };
-    // }
+                return Self::compound(builders);
+            }
+            TypedShape::TriMesh(tri_mesh) => {
+                let builders = tri_mesh
+                    .triangles()
+                    .map(|s| Self::triangle(s.a.coords, s.b.coords, s.c.coords))
+                    .collect();
+                return Self::compound(builders);
+            }
+            TypedShape::Polyline(poly_line) => {
+                let builders = poly_line
+                    .segments()
+                    .map(|s| Self::segment(s.a.coords, s.b.coords, half_thickness))
+                    .collect();
+                return Self::compound(builders);
+            }
+            TypedShape::Custom(_) | TypedShape::HalfSpace(_) | TypedShape::HeightField(_) => {
+                panic!("Unsupported collider shape!");
+            }
+        };
+    }
 
     fn tessellate(vertices: &Vec<Vertex>) -> Vec<Index> {
         use delaunator::{triangulate, Point};
