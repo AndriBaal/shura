@@ -318,7 +318,7 @@ impl ModelBuilder {
             | TypedShape::Polyline(_)
             | TypedShape::HalfSpace(_)
             | TypedShape::HeightField(_) => {
-                panic!("Unsupported collider shape");
+                panic!("Unsupported collider shape!");
             }
         };
     }
