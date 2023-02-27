@@ -9,11 +9,11 @@ use std::{
 #[cfg(feature = "physics")]
 use crate::physics::{Collider, ColliderHandle, RigidBody, RigidBodyHandle, World};
 
-/// Easily create a [BaseComponent].
+/// Easily create a [BaseComponent] with a position and render_scale.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct PositionBuilder {
-    render_scale: Vector<f32>,
-    position: Isometry<f32>,
+    pub render_scale: Vector<f32>,
+    pub position: Isometry<f32>,
 }
 
 impl Default for PositionBuilder {
@@ -30,8 +30,8 @@ impl PositionBuilder {
         Self::default()
     }
 
-    /// Used when the relative Camera is used, since the relative camera does not adjust its
-    /// FOV, the bottom left is always (-0.5, -0.5). The components X axis of its render_scale value
+    /// Used for scaling with the relative camera since the relative camera does not adjust its
+    /// FOV, the bottom left is always (-1.0, -1.0). The components X axis of its render_scale value
     /// automatically gets stretched so the aspect ratio of the rendered model remains the
     /// same.
     pub fn render_scale_relative_width(mut self, window_size: Dimension<u32>) -> Self {
@@ -40,8 +40,8 @@ impl PositionBuilder {
         self
     }
 
-    /// Used when the relative Camera is used, since the relative camera does not adjust its
-    /// FOV, the bottom left is always (-0.5, -0.5). The components Y axis of its render_scale value
+    /// Used for scaling with the relative camera, since the relative camera does not adjust its
+    /// FOV, the bottom left is always (-1.0, -1.0). The components Y axis of its render_scale value
     /// automatically gets stretched so the aspect ratio of the rendered model remains the
     /// same.
     pub fn render_scale_relative_height(mut self, window_size: Dimension<u32>) -> Self {
@@ -71,8 +71,8 @@ impl PositionBuilder {
     }
 }
 
-/// [BaseComponent] that only holds a position and a scale. This is very optimized for components with a
-/// static position, since the matrix only updates when changing the component.
+/// Base of a component that is bound to a poisition on the screen, either by a
+/// Position or a RigidBody. 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct BaseComponent {
     handle: Option<ComponentHandle>,
@@ -271,8 +271,8 @@ impl BaseComponent {
         };
     }
 
-    /// Used when the relative Camera is used, since the relative camera does not adjust its
-    /// FOV, the bottom left is always (-0.5, -0.5). The components X axis of its render_scale value
+    /// Used for scaling with the relative camera since the relative camera does not adjust its
+    /// FOV, the bottom left is always (-1.0, -1.0). The components X axis of its render_scale value
     /// automatically gets stretched so the aspect ratio of the rendered model remains the
     /// same.
     pub fn scale_relative_width(&mut self, window_size: Dimension<u32>) {
@@ -286,8 +286,8 @@ impl BaseComponent {
         }
     }
 
-    /// Used when the relative Camera is used, since the relative camera does not adjust its
-    /// FOV, the bottom left is always (-0.5, -0.5). The components Y axis of its render_scale value
+    /// Used for scaling with the relative camera, since the relative camera does not adjust its
+    /// FOV, the bottom left is always (-1.0, -1.0). The components Y axis of its render_scale value
     /// automatically gets stretched so the aspect ratio of the rendered model remains the
     /// same.
     pub fn scale_relative_height(&mut self, window_size: Dimension<u32>) {
@@ -319,6 +319,7 @@ impl BaseComponent {
     }
 
     #[cfg(feature = "physics")]
+    /// Returns the [RigidBody] if the component has one.
     pub fn rigid_body(&self) -> Option<impl Deref<Target = RigidBody> + '_> {
         enum BodyWrapper<'a> {
             Owned(&'a Box<RigidBody>),
@@ -352,6 +353,7 @@ impl BaseComponent {
     }
 
     #[cfg(feature = "physics")]
+    /// Returns the [RigidBody] if the component has one.
     pub fn rigid_body_mut(&mut self) -> Option<impl DerefMut<Target = RigidBody> + '_> {
         enum BodyWrapperMut<'a> {
             Owned(&'a mut Box<RigidBody>),
@@ -395,6 +397,8 @@ impl BaseComponent {
     }
 
     #[cfg(feature = "physics")]
+    /// Returns a slice of (ColliderHandles)[ColliderHandles] if the component has a [RigidBody] and
+    /// the component is added to the [ComponentManager] of the [Scene].
     pub fn collider_handles(&self) -> Option<impl Deref<Target = [ColliderHandle]> + '_> {
         match &self.body {
             BodyStatus::RigidBody {
@@ -411,6 +415,8 @@ impl BaseComponent {
     }
 
     #[cfg(feature = "physics")]
+    /// Returns the handle of the RigidBody if the component has a [RigidBody] and
+    /// the component is added to the [ComponentManager] of the [Scene].
     pub fn rigid_body_handle(&self) -> Option<RigidBodyHandle> {
         return match self.body {
             BodyStatus::RigidBody { body_handle, .. } => Some(body_handle),
@@ -419,6 +425,7 @@ impl BaseComponent {
     }
 
     #[cfg(feature = "physics")]
+    /// Get a [Collider] that is attached to this components [RigidBody].
     pub fn collider(
         &self,
         collider_handle: ColliderHandle,
@@ -444,6 +451,7 @@ impl BaseComponent {
     }
 
     #[cfg(feature = "physics")]
+    /// Get a [Collider] that is attached to this components [RigidBody].
     pub fn collider_mut(
         &mut self,
         collider_handle: ColliderHandle,
@@ -493,6 +501,7 @@ impl BaseComponent {
         }
     }
 
+    /// Check if this component has a [RigidBody].
     pub fn is_rigid_body(&self) -> bool {
         return match &self.body {
             BodyStatus::RigidBody { .. } => true,
@@ -529,7 +538,8 @@ impl BaseComponent {
     }
 
     #[cfg(all(feature = "physics", feature = "serde"))]
-    pub fn init_world(&mut self, world: Rc<RefCell<World>>) {
+    /// Initialize the [RigidBody] after deserialization.
+    pub fn init_rigid_body(&mut self, world: Rc<RefCell<World>>) {
         match &mut self.body {
             BodyStatus::RigidBody { world_wrapper, .. } => {
                 *world_wrapper = WorldWrapper::new(world)
@@ -592,7 +602,7 @@ impl WorldWrapper {
         return self
             .world
             .as_ref()
-            .expect("Physic components can not be accessed before init_world was called on base!")
+            .expect("Physic components can not be accessed before init_rigid_body was called on base!")
             .borrow();
     }
 
@@ -601,7 +611,7 @@ impl WorldWrapper {
         return self
             .world
             .as_mut()
-            .expect("Physic components can not be accessed before init_world was called on base!")
+            .expect("Physic components can not be accessed before init_rigid_body was called on base!")
             .borrow_mut();
     }
 }

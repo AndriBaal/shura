@@ -33,7 +33,7 @@ pub(crate) struct ComponentType {
 
     type_id: ComponentTypeId,
     last_len: usize,
-    force_rewrite_buffer: bool,
+    force_buffer: bool,
     config: ComponentConfig,
 }
 
@@ -46,7 +46,7 @@ impl ComponentType {
             Self {
                 components,
                 buffer: None,
-                force_rewrite_buffer: false,
+                force_buffer: false,
                 last_len: 0,
                 config: C::CONFIG,
                 type_id: C::IDENTIFIER,
@@ -66,9 +66,9 @@ impl ComponentType {
             let data = self.data();
             self.last_len = new_len;
             self.buffer = Some(InstanceBuffer::new(gpu, &data[..]));
-        } else if self.config.buffer == BufferOperation::EveryFrame || self.force_rewrite_buffer {
+        } else if self.config.buffer == BufferOperation::EveryFrame || self.force_buffer {
             let data = self.data();
-            self.force_rewrite_buffer = false;
+            self.force_buffer = false;
             if let Some(buffer) = &mut self.buffer {
                 buffer.write(gpu, &data[..]);
             } else {
@@ -159,8 +159,8 @@ impl ComponentType {
 
     // Setters
     #[inline]
-    pub fn set_force_rewrite_buffer(&mut self, force_rewrite_buffer: bool) {
-        self.force_rewrite_buffer = force_rewrite_buffer;
+    pub fn set_force_buffer(&mut self, force_buffer: bool) {
+        self.force_buffer = force_buffer;
     }
 }
 

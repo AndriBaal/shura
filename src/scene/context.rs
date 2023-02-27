@@ -872,33 +872,10 @@ impl<'a> Context<'a> {
     }
 
     #[inline]
-    /// Force the position of the all component from the given generic to be updated inside the
-    /// (InstanceBuffer)[crate::InstanceBuffer]. This is used when the [crate::ComponentConfig::does_move]
-    /// flag is set, but the position needs to be updated.
-    pub fn force_buffer<C: ComponentController + ComponentIdentifier>(&mut self) {
-        self.scene.component_manager.force_buffer::<C>()
+    pub fn force_buffer<C: ComponentController + ComponentIdentifier>(&mut self, filter: GroupFilter) {
+        self.scene.component_manager.force_buffer::<C>(filter)
     }
 
-    #[inline]
-    /// Force the position of the components from the given groups from the given generic to be updated inside the
-    /// (InstanceBuffer)[crate::InstanceBuffer]. This is used when the [crate::ComponentConfig::does_move]
-    /// flag is set, but the position needs to be updated.
-    pub fn force_buffer_groups<C: ComponentController + ComponentIdentifier>(
-        &mut self,
-        group_ids: &[u32],
-    ) {
-        self.scene
-            .component_manager
-            .force_buffer_groups::<C>(group_ids)
-    }
-
-    #[inline]
-    /// Force the position of the active components from the given generic to be updated inside the
-    /// (InstanceBuffer)[crate::InstanceBuffer]. This is used when the [crate::ComponentConfig::does_move]
-    /// flag is set, but the position needs to be updated.
-    pub fn force_buffer_active<C: ComponentController + ComponentIdentifier>(&mut self) {
-        self.scene.component_manager.force_buffer_active::<C>()
-    }
 
     #[inline]
     #[cfg(feature = "physics")]

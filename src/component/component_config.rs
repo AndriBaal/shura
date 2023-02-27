@@ -1,27 +1,34 @@
 use instant::Duration;
 
-/// Desribes how  a component gets rendered
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+/// Desribes when a component gets rendered.
 pub enum RenderOperation {
     /// Does not render at all and therefore does not create a Buffer on the GPU.
     Never,
-    /// Render all components in the same method by calling `grouped_render`. A Set of all components of
-    /// a group get provided. Use this if your components all draw the same graphics on the same model.
+    /// Draw all currrently relative components every frame.
     EveryFrame,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+/// Describes if the end method of the [ComponentController] should be called
+/// when the [Scene] is destroyed, by either deleting it or the window closing. 
 pub enum EndOperation {
+    /// No operation will be called.
     None,
+    /// end method gets called of the [ComponentController] with all components of this type in the [ComponentPath].
     AllComponents,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+/// Describes when the position of the component should be bufferd.
 pub enum BufferOperation {
+    /// Manual buffering by calling [force_buffer](`crate::Context::force_buffer()`). This is used when you have component that dont
+    /// change their position.
     Manual,
+    /// Automatically buffer all positions every time before rendering.
     EveryFrame,
 }
 

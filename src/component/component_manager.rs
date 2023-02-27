@@ -181,42 +181,43 @@ impl ComponentManager {
         return result;
     }
 
-    pub fn force_buffer<C: ComponentController + ComponentIdentifier>(&mut self) {
-        let type_id = C::IDENTIFIER;
-        for group in &mut self.groups {
-            if let Some(index) = group.1.type_index(type_id) {
-                let component_type = group.1.type_mut(*index).unwrap();
-                component_type.set_force_rewrite_buffer(true);
-            }
-        }
-    }
-
-    pub fn force_buffer_groups<C: ComponentController + ComponentIdentifier>(
+    pub fn force_buffer<C: ComponentController + ComponentIdentifier>(
         &mut self,
-        groups: &[u32],
+        filter: GroupFilter,
     ) {
         let type_id = C::IDENTIFIER;
-        for group_id in groups {
-            if let Some(group_index) = self.group_map.get(group_id) {
-                let group = &mut self.groups[*group_index];
-                if let Some(index) = group.type_index(type_id) {
-                    let component_type = group.type_mut(*index).unwrap();
-                    component_type.set_force_rewrite_buffer(true);
+        match filter {
+            GroupFilter::All => {
+                for group in &mut self.groups {
+                    if let Some(index) = group.1.type_index(type_id) {
+                        let component_type = group.1.type_mut(*index).unwrap();
+                        component_type.set_force_buffer(true);
+                    }
+                }
+            }
+            GroupFilter::Active => {
+                for group in self.active_groups.iter() {
+                    let group = &mut self.groups[*group];
+                    if let Some(index) = group.type_index(type_id) {
+                        let component_type = group.type_mut(*index).unwrap();
+                        component_type.set_force_buffer(true);
+                    }
+                }
+            }
+            GroupFilter::Specific(groups) => {
+                for group_id in groups {
+                    if let Some(group_index) = self.group_map.get(group_id) {
+                        let group = &mut self.groups[*group_index];
+                        if let Some(index) = group.type_index(type_id) {
+                            let component_type = group.type_mut(*index).unwrap();
+                            component_type.set_force_buffer(true);
+                        }
+                    }
                 }
             }
         }
     }
 
-    pub fn force_buffer_active<C: ComponentController + ComponentIdentifier>(&mut self) {
-        let type_id = C::IDENTIFIER;
-        for group in self.active_groups.iter() {
-            let group = &mut self.groups[*group];
-            if let Some(index) = group.type_index(type_id) {
-                let component_type = group.type_mut(*index).unwrap();
-                component_type.set_force_rewrite_buffer(true);
-            }
-        }
-    }
 
     pub fn create_component<C: ComponentController + ComponentIdentifier>(
         &mut self,
@@ -294,7 +295,7 @@ impl ComponentManager {
     #[inline]
     pub fn remove_components<C: ComponentController + ComponentIdentifier>(
         &mut self,
-        group_filter: GroupFilter,
+        filter: GroupFilter,
     ) {
         let type_id = C::IDENTIFIER;
         #[inline]
@@ -308,7 +309,7 @@ impl ComponentManager {
             }
         }
 
-        match group_filter {
+        match filter {
             GroupFilter::All => {
                 for (_index, group) in &mut self.groups {
                     remove(group, type_id)
@@ -427,13 +428,13 @@ impl ComponentManager {
 
     pub fn components<'a, C: ComponentController + ComponentIdentifier>(
         &'a self,
-        group_filter: GroupFilter,
+        filter: GroupFilter,
     ) -> ComponentSet<'a, C> {
         let type_id = C::IDENTIFIER;
         let mut types = vec![];
         let mut len = 0;
 
-        match group_filter {
+        match filter {
             GroupFilter::All => {
                 for (_, group) in &self.groups {
                     if let Some(type_index) = group.type_index(type_id) {
@@ -475,13 +476,13 @@ impl ComponentManager {
 
     pub fn components_mut<C: ComponentController + ComponentIdentifier>(
         &mut self,
-        group_filter: GroupFilter,
+        filter: GroupFilter,
     ) -> ComponentSetMut<C> {
         let type_id = C::IDENTIFIER;
         let mut types = vec![];
         let mut len = 0;
 
-        match group_filter {
+        match filter {
             GroupFilter::All => {
                 for (_, group) in &mut self.groups {
                     if let Some(type_index) = group.type_index(type_id) {

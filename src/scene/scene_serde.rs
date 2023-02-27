@@ -171,7 +171,7 @@ impl ComponentDeserializer {
                         if component.base().is_rigid_body() {
                             component
                                 .base_mut()
-                                .init_world(ctx.scene.component_manager.world.clone());
+                                .init_rigid_body(ctx.scene.component_manager.world.clone());
                         }
                         ArenaEntry::Occupied {
                             generation: gen,
@@ -216,7 +216,7 @@ impl ComponentDeserializer {
                         if component.base().is_rigid_body() {
                             component
                                 .base_mut()
-                                .init_world(ctx.scene.component_manager.world.clone());
+                                .init_rigid_body(ctx.scene.component_manager.world.clone());
                         }
                         ArenaEntry::Occupied {
                             generation: gen,
