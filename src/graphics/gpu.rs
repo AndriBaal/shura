@@ -238,8 +238,7 @@ impl Gpu {
     #[inline]
     #[cfg(feature = "text")]
     pub fn create_text(&mut self, descriptor: TextDescriptor) -> Sprite {
-
-        Sprite::new_text(self,descriptor)
+        Sprite::new_text(self, descriptor)
     }
 
     #[inline]

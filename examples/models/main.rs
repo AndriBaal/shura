@@ -97,7 +97,6 @@ fn main() {
             ctx.create_model(ModelBuilder::star(5, 0.2, 0.8)),
             ctx.create_uniform(Color::BLUE),
         ));
-
     }))
 }
 

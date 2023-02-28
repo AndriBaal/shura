@@ -72,7 +72,7 @@ impl PositionBuilder {
 }
 
 /// Base of a component that is bound to a poisition on the screen, either by a
-/// Position or a RigidBody. 
+/// Position or a RigidBody.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct BaseComponent {
     handle: Option<ComponentHandle>,
@@ -109,7 +109,10 @@ impl BaseComponent {
             render_scale: Vector::new(1.0, 1.0),
             body: BodyStatus::RigidBodyPending {
                 body: Box::new(body.into()),
-                colliders: colliders.into_iter().map(|collider| collider.into()).collect(),
+                colliders: colliders
+                    .into_iter()
+                    .map(|collider| collider.into())
+                    .collect(),
             },
         }
     }
@@ -602,7 +605,9 @@ impl WorldWrapper {
         return self
             .world
             .as_ref()
-            .expect("Physic components can not be accessed before init_rigid_body was called on base!")
+            .expect(
+                "Physic components can not be accessed before init_rigid_body was called on base!",
+            )
             .borrow();
     }
 
@@ -611,7 +616,9 @@ impl WorldWrapper {
         return self
             .world
             .as_mut()
-            .expect("Physic components can not be accessed before init_rigid_body was called on base!")
+            .expect(
+                "Physic components can not be accessed before init_rigid_body was called on base!",
+            )
             .borrow_mut();
     }
 }

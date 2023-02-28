@@ -1,8 +1,8 @@
 #[cfg(feature = "physics")]
 use crate::physics::TypedShape;
 use crate::{na::Matrix2, Dimension, Gpu, Index, Isometry, Rotation, Vector, Vertex};
+use rapier2d::prelude::{Shape, SharedShape};
 use std::f32::consts::{FRAC_PI_2, PI};
-use rapier2d::prelude::{SharedShape, Shape};
 use wgpu::util::DeviceExt;
 
 impl Default for ModelBuilder {

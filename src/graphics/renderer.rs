@@ -1,4 +1,6 @@
-use crate::{CameraBuffers, Color, GpuDefaults, Gpu, InstanceBuffer, Model, Shader, Sprite, Uniform};
+use crate::{
+    CameraBuffers, Color, Gpu, GpuDefaults, InstanceBuffer, Model, Shader, Sprite, Uniform,
+};
 
 /// Single index of an instance inside a [InstanceBuffer](crate::InstanceBuffer).
 pub type Instance = u32;

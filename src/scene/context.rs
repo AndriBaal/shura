@@ -281,8 +281,7 @@ impl<'a> Context<'a> {
         &mut self,
         component: C,
     ) -> (&mut C, ComponentHandle) {
-        return self.scene
-        .component_manager.create_component(component);
+        return self.scene.component_manager.create_component(component);
     }
 
     #[inline]
@@ -872,10 +871,12 @@ impl<'a> Context<'a> {
     }
 
     #[inline]
-    pub fn force_buffer<C: ComponentController + ComponentIdentifier>(&mut self, filter: GroupFilter) {
+    pub fn force_buffer<C: ComponentController + ComponentIdentifier>(
+        &mut self,
+        filter: GroupFilter,
+    ) {
         self.scene.component_manager.force_buffer::<C>(filter)
     }
-
 
     #[inline]
     #[cfg(feature = "physics")]

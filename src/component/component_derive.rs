@@ -4,8 +4,8 @@ use crate::{
     ComponentHandle,
 };
 use crate::{
-    ArenaPath, BaseComponent, ComponentConfig, ComponentPath, Context, Instances, Model, Renderer,
-    Sprite, DEFAULT_CONFIG,
+    BaseComponent, ComponentConfig, ComponentControllerCaller, ComponentPath, Context, Instances,
+    Model, Renderer, Sprite, DEFAULT_CONFIG,
 };
 use downcast_rs::*;
 
@@ -99,125 +99,5 @@ impl<C: ComponentController + ?Sized> ComponentDerive for Box<C> {
 
     fn base_mut(&mut self) -> &mut BaseComponent {
         (**self).base_mut()
-    }
-}
-
-/// Grants access to the static members of the component type. This should never be overwritten,
-/// since it is automatically implemented with generics.
-pub trait ComponentControllerCaller
-where
-    Self: Sized,
-{
-    fn call_update(paths: &[ArenaPath], ctx: &mut Context);
-    #[cfg(feature = "physics")]
-    fn call_collision(
-        ctx: &mut Context,
-        self_handle: ComponentHandle,
-        other_handle: ComponentHandle,
-        self_collider: ColliderHandle,
-        other_collider: ColliderHandle,
-        collision_type: CollideType,
-    );
-    fn call_render<'a>(
-        paths: &[ArenaPath],
-        ctx: &'a Context<'a>,
-        renderer: &mut Renderer<'a>,
-        all_instances: Instances,
-    );
-    fn call_postproccess<'a>(
-        ctx: &'a Context<'a>,
-        renderer: &mut Renderer<'a>,
-        all_instances: Instances,
-        model: &'a Model,
-        sprite: &'a Sprite,
-    );
-    fn call_end(paths: &[ArenaPath], ctx: &mut Context);
-}
-
-impl<C: ComponentController> ComponentControllerCaller for C {
-    fn call_render<'a>(
-        paths: &[ArenaPath],
-        ctx: &'a Context<'a>,
-        renderer: &mut Renderer<'a>,
-        all_instances: Instances,
-    ) {
-        C::render(ComponentPath::new(paths), ctx, renderer, all_instances);
-    }
-    fn call_postproccess<'a>(
-        ctx: &'a Context<'a>,
-        renderer: &mut Renderer<'a>,
-        all_instances: Instances,
-        model: &'a Model,
-        sprite: &'a Sprite,
-    ) {
-        C::postproccess(ctx, renderer, all_instances, model, sprite);
-    }
-
-    fn call_update(paths: &[ArenaPath], ctx: &mut Context) {
-        C::update(ComponentPath::new(paths), ctx)
-    }
-
-    fn call_end(paths: &[ArenaPath], ctx: &mut Context) {
-        C::end(ComponentPath::new(paths), ctx)
-    }
-
-    #[cfg(feature = "physics")]
-    fn call_collision(
-        ctx: &mut Context,
-        self_handle: ComponentHandle,
-        other_handle: ComponentHandle,
-        self_collider: ColliderHandle,
-        other_collider: ColliderHandle,
-        collision_type: CollideType,
-    ) {
-        C::collision(
-            ctx,
-            self_handle,
-            other_handle,
-            self_collider,
-            other_collider,
-            collision_type,
-        )
-    }
-}
-
-#[derive(Copy, Clone)]
-pub(crate) struct ComponentCallbacks {
-    pub call_end: fn(paths: &[ArenaPath], ctx: &mut Context),
-    pub call_update: fn(paths: &[ArenaPath], ctx: &mut Context),
-    pub call_postproccess: for<'a> fn(
-        ctx: &'a Context<'a>,
-        renderer: &mut Renderer<'a>,
-        all_instances: Instances,
-        model: &'a Model,
-        sprite: &'a Sprite,
-    ),
-    #[cfg(feature = "physics")]
-    pub call_collision: fn(
-        ctx: &mut Context,
-        self_handle: ComponentHandle,
-        other_handle: ComponentHandle,
-        self_collider: ColliderHandle,
-        other_collider: ColliderHandle,
-        collision_type: CollideType,
-    ),
-    pub call_render: for<'a> fn(
-        paths: &[ArenaPath],
-        ctx: &'a Context<'a>,
-        renderer: &mut Renderer<'a>,
-        all_instances: Instances,
-    ),
-}
-
-impl ComponentCallbacks {
-    pub fn new<C: ComponentController>() -> Self {
-        return Self {
-            call_end: C::call_end,
-            call_update: C::call_update,
-            call_postproccess: C::call_postproccess,
-            #[cfg(feature = "physics")]
-            call_collision: C::call_collision,
-            call_render: C::call_render,
-        };
     }
 }

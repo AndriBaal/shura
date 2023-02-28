@@ -65,10 +65,7 @@ impl BoxManager {
     const HALF_BOX_SIZE: f32 = 0.3;
     const BOX_SHAPE: RoundCuboid = RoundCuboid {
         inner_shape: Cuboid {
-            half_extents: Vector::new(
-                BoxManager::HALF_BOX_SIZE,
-                BoxManager::HALF_BOX_SIZE,
-            ),
+            half_extents: Vector::new(BoxManager::HALF_BOX_SIZE, BoxManager::HALF_BOX_SIZE),
         },
         border_radius: 0.1,
     };
@@ -77,7 +74,11 @@ impl BoxManager {
             default_color: ctx.create_uniform(Color::new_rgba(0, 255, 0, 255)),
             collision_color: ctx.create_uniform(Color::new_rgba(255, 0, 0, 255)),
             hover_color: ctx.create_uniform(Color::new_rgba(0, 0, 255, 255)),
-            box_model: ctx.create_model(ModelBuilder::from_collider_shape(&Self::BOX_SHAPE, 24, 0.0)),
+            box_model: ctx.create_model(ModelBuilder::from_collider_shape(
+                &Self::BOX_SHAPE,
+                24,
+                0.0,
+            )),
             component: Default::default(),
         }
     }
@@ -152,11 +153,15 @@ impl Player {
     const RADIUS: f32 = 0.75;
     const RESOLUTION: u32 = 24;
     pub fn new(ctx: &Context) -> Self {
-        let collider = ColliderBuilder::ball(Self::RADIUS)
-        .active_events(ActiveEvents::COLLISION_EVENTS);
+        let collider =
+            ColliderBuilder::ball(Self::RADIUS).active_events(ActiveEvents::COLLISION_EVENTS);
         Self {
             sprite: ctx.create_sprite(include_bytes!("./img/burger.png")),
-            model: ctx.create_model(ModelBuilder::from_collider_shape(collider.shape.as_ref(), Self::RESOLUTION, 0.0)),
+            model: ctx.create_model(ModelBuilder::from_collider_shape(
+                collider.shape.as_ref(),
+                Self::RESOLUTION,
+                0.0,
+            )),
             component: BaseComponent::new_rigid_body(
                 RigidBodyBuilder::dynamic().translation(Vector::new(5.0, 4.0)),
                 vec![collider],
@@ -233,13 +238,14 @@ struct Floor {
 impl Floor {
     const FLOOR_SIZE: Dimension<f32> = Dimension::new(20.0, 0.4);
     pub fn new(ctx: &Context) -> Self {
-        let collider = ColliderBuilder::cuboid(
-            Self::FLOOR_SIZE.width,
-            Self::FLOOR_SIZE.height,
-        );
+        let collider = ColliderBuilder::cuboid(Self::FLOOR_SIZE.width, Self::FLOOR_SIZE.height);
         Self {
             color: ctx.create_uniform(Color::new_rgba(0, 0, 255, 255)),
-            model: ctx.create_model(ModelBuilder::from_collider_shape(collider.shape.as_ref(), 0, 0.0)),
+            model: ctx.create_model(ModelBuilder::from_collider_shape(
+                collider.shape.as_ref(),
+                0,
+                0.0,
+            )),
             component: BaseComponent::new_rigid_body(
                 RigidBodyBuilder::fixed().translation(Vector::new(0.0, -1.0)),
                 vec![collider],
@@ -278,7 +284,9 @@ impl PhysicsBox {
             hovered: false,
             component: BaseComponent::new_rigid_body(
                 RigidBodyBuilder::dynamic().translation(position),
-                vec![ColliderBuilder::new(SharedShape::new(BoxManager::BOX_SHAPE))],
+                vec![ColliderBuilder::new(SharedShape::new(
+                    BoxManager::BOX_SHAPE,
+                ))],
             ),
         }
     }

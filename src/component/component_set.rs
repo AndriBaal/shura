@@ -1,17 +1,10 @@
 use instant::Instant;
 
 use crate::{
-    ArenaIndex, ArenaIter, ArenaIterMut, ComponentCallbacks, ComponentConfig, ComponentController,
+    ArenaIter, ArenaIterMut, ArenaPath, ComponentCallbacks, ComponentConfig, ComponentController,
     ComponentType, DynamicComponent, Instances,
 };
 use std::{iter::Enumerate, marker::PhantomData};
-
-#[derive(Clone, Copy)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct ArenaPath {
-    pub(crate) group_index: ArenaIndex,
-    pub(crate) type_index: ArenaIndex,
-}
 
 #[derive(Clone)]
 pub(crate) struct ComponentCluster {

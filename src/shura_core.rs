@@ -3,7 +3,7 @@ use crate::gui::Gui;
 #[cfg(feature = "physics")]
 use crate::physics::{ActiveEvents, CollideType};
 use crate::{
-    Color, Context, GpuDefaults, Dimension, FrameManager, Gpu, Input, PostproccessOperation,
+    Color, Context, Dimension, FrameManager, Gpu, GpuDefaults, Input, PostproccessOperation,
     RenderOperation, Renderer, Scene, SceneCreator, SceneManager, Sprite,
 };
 use log::{error, info};
@@ -124,7 +124,9 @@ impl Shura {
                             }
                         }
                     }
-                    Event::RedrawRequested(window_id) if window_id == shura_window_id && !shura.end => {
+                    Event::RedrawRequested(window_id)
+                        if window_id == shura_window_id && !shura.end =>
+                    {
                         let mut scene = shura.scene_manager.borrow_active_scene();
                         if let Some(max_frame_time) = scene.render_config.max_frame_time() {
                             let now = shura.frame_manager.now();

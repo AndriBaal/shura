@@ -1,4 +1,6 @@
-use crate::{CameraBuffers, Color, GpuDefaults, Dimension, Gpu, InstanceBuffer, Instances, Renderer};
+use crate::{
+    CameraBuffers, Color, Dimension, Gpu, GpuDefaults, InstanceBuffer, Instances, Renderer,
+};
 use image::GenericImageView;
 use std::num::NonZeroU32;
 

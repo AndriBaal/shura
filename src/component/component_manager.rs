@@ -218,7 +218,6 @@ impl ComponentManager {
         }
     }
 
-
     pub fn create_component<C: ComponentController + ComponentIdentifier>(
         &mut self,
         component: C,

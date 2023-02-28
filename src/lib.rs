@@ -33,10 +33,9 @@
 #![crate_type = "lib"]
 #![crate_name = "shura"]
 
-#[macro_use]
-mod graphics;
 mod component;
 mod data;
+mod graphics;
 mod input;
 mod math;
 mod scene;
@@ -46,7 +45,7 @@ pub use instant::Duration;
 pub use log::{debug, error, info, trace, warn};
 pub use shura_proc::*;
 
-pub(crate) use data::arena::*;
+pub(crate) use {component::controller_caller::*, data::arena::*, data::arena_path::*};
 
 pub use crate::{
     component::{

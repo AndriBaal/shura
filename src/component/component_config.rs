@@ -13,7 +13,7 @@ pub enum RenderOperation {
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// Describes if the end method of the [ComponentController] should be called
-/// when the [Scene] is destroyed, by either deleting it or the window closing. 
+/// when the [Scene] is destroyed, by either deleting it or the window closing.
 pub enum EndOperation {
     /// No operation will be called.
     None,
@@ -84,7 +84,7 @@ pub struct ComponentConfig {
     /// Defines when the position of the component should be buffered
     pub buffer: BufferOperation,
     /// Defines if the end method should be called upon ending the scene by either removing it or the window being closed
-    pub end: EndOperation
+    pub end: EndOperation,
 }
 
 pub const DEFAULT_CONFIG: ComponentConfig = ComponentConfig {
