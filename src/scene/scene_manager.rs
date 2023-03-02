@@ -3,8 +3,8 @@ use rustc_hash::FxHashMap;
 
 use crate::Scene;
 
-/// Access to the scenes. (Removing)[crate::Context::remove_scene] and (creating)[crate::Context::create_scene]
-/// scenes must be done from the (Context)[crate::Context].
+/// Access to the scenes. [Removing](crate::Context::remove_scene) and [creating](crate::Context::create_scene)
+/// scenes must be done from the [Context](crate::Context).
 pub struct SceneManager {
     scenes: FxHashMap<u32, Option<Scene>>,
     active_scene: u32,
@@ -20,7 +20,6 @@ impl SceneManager {
         }
     }
 
-    #[inline]
     pub(crate) fn init(&mut self, scene: Scene) {
         let scene_id = scene.id;
         self.scenes.insert(scene_id, Some(scene));
@@ -52,22 +51,18 @@ impl SceneManager {
         return None;
     }
 
-    #[inline]
     pub fn scene_ids(&self) -> impl Iterator<Item = &u32> {
         self.scenes.keys().into_iter()
     }
 
-    #[inline]
     pub const fn active_scene(&self) -> u32 {
         self.active_scene
     }
 
-    #[inline]
     pub(crate) fn end_scenes(&mut self) -> impl Iterator<Item = (u32, Option<Scene>)> {
         std::mem::take(&mut self.scenes).into_iter()
     }
 
-    #[inline]
     pub(crate) fn resize(&mut self) -> &Scene {
         for scene in self.scenes.values_mut() {
             scene.as_mut().unwrap().resized = true;
@@ -86,12 +81,10 @@ impl SceneManager {
             .unwrap();
     }
 
-    #[inline]
     pub fn set_active_scene(&mut self, active_scene: u32) {
         self.active_scene = active_scene;
     }
 
-    #[inline]
     pub(crate) fn borrow_active_scene(&mut self) -> Scene {
         let active_scene = self.active_scene;
         if let Some(scene) = self.scenes.get_mut(&active_scene) {
@@ -101,7 +94,6 @@ impl SceneManager {
         }
     }
 
-    #[inline]
     pub(crate) fn return_active_scene(&mut self, scene: Scene) {
         let scene_id = scene.id();
         let _ = std::mem::replace(self.scenes.get_mut(&scene_id).unwrap(), Some(scene));

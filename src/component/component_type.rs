@@ -54,7 +54,6 @@ impl ComponentType {
         )
     }
 
-    #[inline(always)]
     pub fn buffer_data(&mut self, gpu: &Gpu) {
         if self.config.render == RenderOperation::Never {
             return;
@@ -77,7 +76,6 @@ impl ComponentType {
         }
     }
 
-    #[inline(always)]
     fn data(&mut self) -> Vec<Matrix> {
         self.components
             .iter_mut()
@@ -85,7 +83,6 @@ impl ComponentType {
             .collect::<Vec<Matrix>>()
     }
 
-    #[inline(always)]
     pub fn add<C: ComponentController>(&mut self, component: C) -> ArenaIndex {
         return self.components.insert(Box::new(component));
     }
@@ -97,7 +94,6 @@ impl ComponentType {
         return self.components.serialize_components::<C>();
     }
 
-    #[inline(always)]
     pub fn remove(&mut self, handle: &ComponentHandle) -> Option<DynamicComponent> {
         self.components.remove(handle.component_index())
     }
@@ -106,59 +102,49 @@ impl ComponentType {
         self.buffer.as_ref().unwrap()
     }
 
-    #[inline]
     #[cfg(feature = "serde")]
     pub fn deserialize_components(&mut self, components: Arena<DynamicComponent>) {
         self.components = components;
     }
 
-    #[inline]
     pub const fn config(&self) -> &ComponentConfig {
         &self.config
     }
 
-    #[inline]
     pub const fn type_id(&self) -> ComponentTypeId {
         self.type_id
     }
 
-    #[inline]
     pub fn is_empty(&self) -> bool {
         self.components.is_empty()
     }
 
-    #[inline]
     pub fn clear(&mut self) {
         self.components = Arena::new();
     }
 
-    #[inline]
     pub fn component(&self, index: ArenaIndex) -> Option<&DynamicComponent> {
         self.components.get(index)
     }
 
-    #[inline]
     pub fn component_mut(&mut self, index: ArenaIndex) -> Option<&mut DynamicComponent> {
         self.components.get_mut(index)
     }
 
-    #[inline]
     pub fn iter(&self) -> ArenaIter<DynamicComponent> {
         return self.components.iter();
     }
 
-    #[inline]
     pub fn iter_mut(&mut self) -> ArenaIterMut<DynamicComponent> {
         return self.components.iter_mut();
     }
 
-    #[inline]
     pub fn len(&self) -> usize {
         self.components.len()
     }
 
     // Setters
-    #[inline]
+
     pub fn set_force_buffer(&mut self, force_buffer: bool) {
         self.force_buffer = force_buffer;
     }

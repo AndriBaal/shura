@@ -12,12 +12,12 @@ pub enum RenderOperation {
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-/// Describes if the end method of the [ComponentController] should be called
-/// when the [Scene] is destroyed, by either deleting it or the window closing.
+/// Describes if the end method of the [ComponentController](crate::ComponentController) should be called
+/// when the [Scene](crate::Scene) is destroyed, by either deleting it or the window closing.
 pub enum EndOperation {
     /// No operation will be called.
     None,
-    /// end method gets called of the [ComponentController] with all components of this type in the [ComponentPath].
+    /// end method gets called of the [ComponentController](crate::ComponentController) with all components of this type in the [ComponentPath](crate::ComponentPath).
     AllComponents,
 }
 
@@ -71,19 +71,13 @@ pub enum PostproccessOperation {
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ComponentConfig {
-    /// Describes which camera should be used for rendering
-    pub camera: CameraUse,
-    /// Describes the priority the update and render methods gets called.
+    /// Describes the order in which components are processed
     pub priority: i16,
-    /// Indicates if the controller should be updated.
+    pub camera: CameraUse,
     pub update: UpdateOperation,
-    /// Indicates if after rendering the component, postproccessing should be applied to the frame
     pub postproccess: PostproccessOperation,
-    /// Defines how rendering is handled for the component
     pub render: RenderOperation,
-    /// Defines when the position of the component should be buffered
     pub buffer: BufferOperation,
-    /// Defines if the end method should be called upon ending the scene by either removing it or the window being closed
     pub end: EndOperation,
 }
 

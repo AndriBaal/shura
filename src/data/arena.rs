@@ -66,7 +66,6 @@ impl<T> Arena<T> {
         arena
     }
 
-    #[inline]
     pub fn try_insert(&mut self, data: T) -> Result<ArenaIndex, T> {
         match self.try_alloc_next_index() {
             None => Err(data),
@@ -80,7 +79,6 @@ impl<T> Arena<T> {
         }
     }
 
-    #[inline]
     fn try_alloc_next_index(&mut self) -> Option<ArenaIndex> {
         match self.free_list_head {
             None => None,
@@ -98,7 +96,6 @@ impl<T> Arena<T> {
         }
     }
 
-    #[inline]
     pub fn insert(&mut self, data: T) -> ArenaIndex {
         match self.try_insert(data) {
             Ok(i) => i,

@@ -4,7 +4,7 @@ use crate::{
     Arena, ArenaEntry, ArenaIndex, ArenaPath, Camera, ComponentCallbacks, ComponentCluster,
     ComponentController, ComponentGroup, ComponentGroupDescriptor, ComponentHandle,
     ComponentIdentifier, ComponentPath, ComponentSet, ComponentSetMut, ComponentSetRender,
-    ComponentTypeId, DynamicComponent, EndOperation, Gpu, DEFAULT_GROUP_ID,
+    ComponentTypeId, DynamicComponent, EndOperation, Gpu, GroupActivation, DEFAULT_GROUP_ID,
 };
 use instant::Instant;
 use log::info;
@@ -63,7 +63,11 @@ pub struct ComponentManager {
 
 impl ComponentManager {
     pub(crate) fn new() -> Self {
-        let default_component_group = ComponentGroup::default();
+        let default_component_group = ComponentGroup::new(&ComponentGroupDescriptor {
+            id: DEFAULT_GROUP_ID,
+            activation: GroupActivation::Always,
+            enabled: true,
+        });
         let mut groups = Arena::default();
         let mut group_map = FxHashMap::default();
         let index = groups.insert(default_component_group);
@@ -275,7 +279,7 @@ impl ComponentManager {
     }
 
     pub fn create_group(&mut self, descriptor: &ComponentGroupDescriptor) {
-        let group = ComponentGroup::new(descriptor.id, descriptor);
+        let group = ComponentGroup::new(descriptor);
         let index = self.groups.insert(group);
         self.group_map.insert(descriptor.id, index);
     }
@@ -291,13 +295,12 @@ impl ComponentManager {
         return None;
     }
 
-    #[inline]
     pub fn remove_components<C: ComponentController + ComponentIdentifier>(
         &mut self,
         filter: GroupFilter,
     ) {
         let type_id = C::IDENTIFIER;
-        #[inline]
+
         fn remove(group: &mut ComponentGroup, type_id: ComponentTypeId) {
             if let Some(type_index) = group.type_index(type_id) {
                 let component_type = group.type_mut(*type_index).unwrap();
@@ -582,84 +585,69 @@ impl ComponentManager {
         self.group_map.contains_key(&group)
     }
 
-    #[inline]
     pub(crate) fn group_mut(&mut self, index: ArenaIndex) -> Option<&mut ComponentGroup> {
         self.groups.get_mut(index)
     }
 
-    #[inline]
     pub(crate) fn group(&self, index: ArenaIndex) -> Option<&ComponentGroup> {
         self.groups.get(index)
     }
 
-    #[inline]
     pub(crate) fn group_index(&self, id: &u32) -> Option<&ArenaIndex> {
         return self.group_map.get(id);
     }
 
-    #[inline]
     pub fn active_group_ids(&self) -> &[u32] {
         return &self.active_group_ids;
     }
 
-    #[inline]
     pub fn group_ids(&self) -> impl Iterator<Item = &u32> {
         self.group_map.keys()
     }
 
-    #[inline]
     pub const fn update_components(&self) -> bool {
         self.update_components
     }
 
-    #[inline]
     pub const fn render_components(&self) -> bool {
         self.render_components
     }
 
-    #[inline]
     #[cfg(feature = "physics")]
     pub(crate) fn component_callbacks(&self, type_id: &ComponentTypeId) -> &ComponentCallbacks {
         return self.component_callbacks.get(&type_id).unwrap();
     }
 
-    #[inline]
     #[cfg(feature = "serde")]
     pub(crate) fn register_callbacks<C: ComponentController + ComponentIdentifier>(&mut self) {
         self.component_callbacks
             .insert(C::IDENTIFIER, ComponentCallbacks::new::<C>());
     }
 
-    #[inline]
     pub(crate) fn copy_active_components(
         &self,
     ) -> Rc<BTreeMap<(i16, ComponentTypeId), ComponentCluster>> {
         return self.active_components.clone();
     }
 
-    #[inline]
     pub fn set_update_components(&mut self, update_components: bool) {
         self.update_components = update_components
     }
 
-    #[inline]
     pub fn set_render_components(&mut self, render_components: bool) {
         self.render_components = render_components
     }
 
-    #[inline]
     #[cfg(feature = "physics")]
     pub fn world(&self) -> Ref<World> {
         self.world.borrow()
     }
 
-    #[inline]
     #[cfg(feature = "physics")]
     pub fn world_mut(&mut self) -> RefMut<World> {
         self.world.borrow_mut()
     }
 
-    #[inline]
     #[cfg(feature = "physics")]
     pub fn collision_event(
         &mut self,

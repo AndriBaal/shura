@@ -112,7 +112,6 @@ impl Gpu {
         self.surface.configure(&self.device, &self.config);
     }
 
-    #[inline]
     pub fn is_vsync(&self) -> bool {
         self.config.present_mode == wgpu::PresentMode::AutoVsync
     }
@@ -194,32 +193,26 @@ impl Gpu {
         return (sprite, target_view);
     }
 
-    #[inline]
     pub fn create_instance_buffer(&self, instances: &[Matrix]) -> InstanceBuffer {
         InstanceBuffer::new(self, instances)
     }
 
-    #[inline]
     pub fn create_model(&self, builder: ModelBuilder) -> Model {
         Model::new(self, builder)
     }
 
-    #[inline]
     pub fn create_sprite(&self, bytes: &[u8]) -> Sprite {
         Sprite::new(self, bytes)
     }
 
-    #[inline]
     pub fn create_sprite_from_image(&self, image: image::DynamicImage) -> Sprite {
         Sprite::from_image(self, image)
     }
 
-    #[inline]
     pub fn create_empty_sprite(&self, size: Dimension<u32>) -> Sprite {
         Sprite::empty(self, size)
     }
 
-    #[inline]
     pub fn create_sprite_sheet(
         &self,
         bytes: &[u8],
@@ -229,24 +222,20 @@ impl Gpu {
         SpriteSheet::new(self, bytes, sprites, sprite_size)
     }
 
-    #[inline]
     #[cfg(feature = "text")]
     pub fn create_font(&self, bytes: &'static [u8]) -> Font {
         Font::new_simple(self, bytes)
     }
 
-    #[inline]
     #[cfg(feature = "text")]
     pub fn create_text(&mut self, descriptor: TextDescriptor) -> Sprite {
         Sprite::new_text(self, descriptor)
     }
 
-    #[inline]
     pub fn create_uniform<T: bytemuck::Pod>(&self, data: T) -> Uniform<T> {
         Uniform::new(self, data)
     }
 
-    #[inline]
     pub fn create_shader(
         &self,
         code: &str,
@@ -256,7 +245,6 @@ impl Gpu {
         Shader::new(self, code, shader_type, shader_fields)
     }
 
-    #[inline]
     pub fn create_custom_shader(
         &self,
         shader_lang: ShaderLang,
@@ -265,7 +253,6 @@ impl Gpu {
         Shader::new_custom(self, shader_lang, descriptor)
     }
 
-    #[inline]
     pub fn create_computed_sprite<'caller, F>(
         &self,
         defaults: &GpuDefaults,

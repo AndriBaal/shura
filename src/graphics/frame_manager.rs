@@ -57,47 +57,39 @@ impl FrameManager {
     }
 
     // Getter
-    #[inline]
+
     pub const fn start_time(&self) -> Instant {
         self.start_time
     }
 
-    #[inline]
     pub const fn update_time(&self) -> Instant {
         self.update_time
     }
 
-    #[inline]
     pub fn now(&self) -> Instant {
         Instant::now()
     }
 
-    #[inline]
     pub fn frame_time(&self) -> f32 {
         self.frame_time.as_secs_f32()
     }
 
-    #[inline]
     pub fn total_time(&self) -> f32 {
         self.total_time.as_secs_f32()
     }
 
-    #[inline]
     pub const fn frame_time_duration(&self) -> Duration {
         self.frame_time
     }
 
-    #[inline]
     pub const fn total_time_duration(&self) -> Duration {
         self.total_time
     }
 
-    #[inline]
     pub const fn total_frames(&self) -> u64 {
         self.total_frames
     }
 
-    #[inline]
     pub const fn fps(&self) -> u32 {
         self.fps
     }

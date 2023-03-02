@@ -1,3 +1,5 @@
+use std::any::Any;
+
 #[cfg(feature = "gui")]
 use crate::gui::Gui;
 #[cfg(feature = "physics")]
@@ -18,7 +20,8 @@ pub struct Shura {
     pub window: winit::window::Window,
     pub input: Input,
     pub gpu: Gpu,
-    pub(crate) defaults: GpuDefaults,
+    pub global_state: Box<dyn Any>,
+    pub defaults: GpuDefaults,
     #[cfg(feature = "gui")]
     pub gui: Gui,
     #[cfg(feature = "audio")]
@@ -28,7 +31,7 @@ pub struct Shura {
 }
 
 impl Shura {
-    /// Start a new game with the given callback to initialize the first [SceneController].
+    /// Start a new game with the given callback to initialize the first [Scene](crate::Scene).
     pub fn init<C: SceneCreator>(creator: C) {
         info!("Using shura version: {}", env!("CARGO_PKG_VERSION"));
         let events = winit::event_loop::EventLoop::new();
@@ -192,6 +195,7 @@ impl Shura {
             scene_manager: SceneManager::new(creator.id()),
             frame_manager: FrameManager::new(),
             input: Input::new(),
+            global_state: Box::new(()),
             #[cfg(feature = "audio")]
             audio,
             #[cfg(feature = "audio")]

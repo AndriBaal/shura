@@ -7,7 +7,7 @@ fn main() {
     Shura::init(NewScene::new(MENU_SCENE_ID, |ctx| {
         let button = StartButton::new(ctx);
         ctx.set_vsync(true);
-        ctx.create_component(None, button);
+        ctx.create_component(button);
     }));
 }
 
@@ -23,10 +23,10 @@ pub struct StartButton {
 impl StartButton {
     pub fn new(ctx: &mut Context) -> Self {
         ctx.set_window_title("Arkanoid");
-        ctx.set_horizontal_fov(5.0);
+        ctx.set_camera_horizontal_fov(5.0);
         ctx.set_physics_priority(None);
         let text = ctx.create_text(TextDescriptor {
-            font: None,
+            font: ctx.create_font(include_bytes!("")),
             size: Dimension::new(600, 200),
             clear_color: Some(Color::new_rgba(0, 0, 0, 255)),
             sections: vec![TextSection {

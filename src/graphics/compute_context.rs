@@ -131,22 +131,22 @@ impl<'a> ComputeContext<'a> {
     }
 
 
-    #[inline]
+    
     pub const fn assets(&self) -> &'a Assets {
         &self.assets
     }
 
-    #[inline]
+    
     pub const fn gpu(&self) -> &Gpu {
         &self.gpu
     }
 
-    #[inline]
+    
     pub fn current_shader(&self) -> &'a ComputeShader {
         self.current_shader.as_ref().unwrap()
     }
 
-    #[inline]
+    
     pub fn render_pass(&mut self) -> &mut wgpu::RenderPass<'a> {
         &mut self.render_pass
     }

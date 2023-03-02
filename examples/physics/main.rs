@@ -4,22 +4,22 @@ use std::{fmt, fs};
 
 fn main() {
     if let Some(save_game) = fs::read("data.binc").ok() {
-        // Shura::init(SerializedScene {
-        //     id: 1,
-        //     scene: save_game,
-        //     init: |ctx, s| {
-        //         s.deserialize_components_with(ctx, |mut w, ctx| {
-        //             w.deserialize(FloorVisitor { ctx })
-        //         });
-        //         s.deserialize_components_with(ctx, |mut w, ctx| {
-        //             w.deserialize(PlayerVisitor { ctx })
-        //         });
-        //         s.deserialize_components_with(ctx, |mut w, ctx| {
-        //             w.deserialize(BoxManagerVisitor { ctx })
-        //         });
-        //         s.deserialize_components::<PhysicsBox>(ctx);
-        //     },
-        // })
+        Shura::init(SerializedScene {
+            id: 1,
+            scene: save_game,
+            init: |ctx, s| {
+                s.deserialize_components_with(ctx, |mut w, ctx| {
+                    w.deserialize(FloorVisitor { ctx })
+                });
+                s.deserialize_components_with(ctx, |mut w, ctx| {
+                    w.deserialize(PlayerVisitor { ctx })
+                });
+                s.deserialize_components_with(ctx, |mut w, ctx| {
+                    w.deserialize(BoxManagerVisitor { ctx })
+                });
+                s.deserialize_components::<PhysicsBox>(ctx);
+            },
+        })
     } else {
         Shura::init(NewScene {
             id: 1,
@@ -62,7 +62,7 @@ struct BoxManager {
 }
 
 impl BoxManager {
-    const HALF_BOX_SIZE: f32 = 0.3;
+    const HALF_BOX_SIZE: f32 = 0.2;
     const BOX_SHAPE: RoundCuboid = RoundCuboid {
         inner_shape: Cuboid {
             half_extents: Vector::new(BoxManager::HALF_BOX_SIZE, BoxManager::HALF_BOX_SIZE),
@@ -347,88 +347,91 @@ impl ComponentController for PhysicsBox {
     }
 }
 
-// struct FloorVisitor<'a> {
-//     ctx: &'a Context<'a>,
-// }
+struct FloorVisitor<'a> {
+    ctx: &'a Context<'a>,
+}
 
-// impl<'de, 'a> serde::de::Visitor<'de> for FloorVisitor<'a> {
-//     type Value = Floor;
-//     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-//         formatter.write_str("A Floor")
-//     }
+impl<'de, 'a> serde::de::Visitor<'de> for FloorVisitor<'a> {
+    type Value = Floor;
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("A Floor")
+    }
 
-//     fn visit_seq<V>(self, mut seq: V) -> Result<Floor, V::Error>
-//     where
-//         V: serde::de::SeqAccess<'de>,
-//     {
-//         let component: BaseComponent = seq
-//             .next_element()?
-//             .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
-//         Ok(Floor {
-//             component,
-//             color: self.ctx.create_uniform(Color::new_rgba(0, 0, 255, 255)),
-//             model: self.ctx.create_model(ModelBuilder::new(&ModelShape::Cuboid {
-//                 half_extents: Floor::FLOOR_SIZE,
-//             })),
-//         })
-//     }
-// }
+    fn visit_seq<V>(self, mut seq: V) -> Result<Floor, V::Error>
+    where
+        V: serde::de::SeqAccess<'de>,
+    {
+        let component: BaseComponent = seq
+            .next_element()?
+            .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
+        Ok(Floor {
+            component,
+            color: self.ctx.create_uniform(Color::new_rgba(0, 0, 255, 255)),
+            model: self.ctx.create_model(ModelBuilder::from_collider_shape(
+                shape,
+                resolution,
+                half_thickness,
+            )),
+        })
+    }
+}
 
-// struct PlayerVisitor<'a> {
-//     ctx: &'a Context<'a>,
-// }
+struct PlayerVisitor<'a> {
+    ctx: &'a Context<'a>,
+}
 
-// impl<'de, 'a> serde::de::Visitor<'de> for PlayerVisitor<'a> {
-//     type Value = Player;
-//     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-//         formatter.write_str("A Player")
-//     }
+impl<'de, 'a> serde::de::Visitor<'de> for PlayerVisitor<'a> {
+    type Value = Player;
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("A Player")
+    }
 
-//     fn visit_seq<V>(self, mut seq: V) -> Result<Player, V::Error>
-//     where
-//         V: serde::de::SeqAccess<'de>,
-//     {
-//         let component: BaseComponent = seq
-//             .next_element()?
-//             .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
-//         Ok(Player {
-//             component,
-//             sprite: self.ctx.create_sprite(include_bytes!("./img/burger.png")),
-//             model: self
-//                 .ctx.create_model(ModelBuilder::new(&ModelShape::RegularPolygon {
-//                     radius: Player::RADIUS,
-//                     corners: Player::RESOLUTION,
-//                 }))
-//         })
-//     }
-// }
+    fn visit_seq<V>(self, mut seq: V) -> Result<Player, V::Error>
+    where
+        V: serde::de::SeqAccess<'de>,
+    {
+        let component: BaseComponent = seq
+            .next_element()?
+            .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
+        Ok(Player {
+            component,
+            sprite: self.ctx.create_sprite(include_bytes!("./img/burger.png")),
+            model: self.ctx.create_model(ModelBuilder::from_collider_shape(
+                shape,
+                resolution,
+                half_thickness,
+            )),
+        })
+    }
+}
 
-// struct BoxManagerVisitor<'a> {
-//     ctx: &'a Context<'a>,
-// }
+struct BoxManagerVisitor<'a> {
+    ctx: &'a Context<'a>,
+}
 
-// impl<'de, 'a> serde::de::Visitor<'de> for BoxManagerVisitor<'a> {
-//     type Value = BoxManager;
-//     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-//         formatter.write_str("A BoxManager")
-//     }
+impl<'de, 'a> serde::de::Visitor<'de> for BoxManagerVisitor<'a> {
+    type Value = BoxManager;
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("A BoxManager")
+    }
 
-//     fn visit_seq<V>(self, mut seq: V) -> Result<BoxManager, V::Error>
-//     where
-//         V: serde::de::SeqAccess<'de>,
-//     {
-//         let component: BaseComponent = seq
-//             .next_element()?
-//             .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
-//         Ok(BoxManager {
-//             component,
-//             default_color: self.ctx.create_uniform(Color::new_rgba(0, 255, 0, 255)),
-//             collision_color: self.ctx.create_uniform(Color::new_rgba(255, 0, 0, 255)),
-//             hover_color: self.ctx.create_uniform(Color::new_rgba(0, 0, 255, 255)),
-//             box_model: self.ctx.create_model(ModelBuilder::cuboid(Dimension::new(
-//                 BoxManager::HALF_BOX_SIZE,
-//                 BoxManager::HALF_BOX_SIZE,
-//             ))),
-//         })
-//     }
-// }
+    fn visit_seq<V>(self, mut seq: V) -> Result<BoxManager, V::Error>
+    where
+        V: serde::de::SeqAccess<'de>,
+    {
+        let component: BaseComponent = seq
+            .next_element()?
+            .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
+        Ok(BoxManager {
+            component,
+            default_color: self.ctx.create_uniform(Color::new_rgba(0, 255, 0, 255)),
+            collision_color: self.ctx.create_uniform(Color::new_rgba(255, 0, 0, 255)),
+            hover_color: self.ctx.create_uniform(Color::new_rgba(0, 0, 255, 255)),
+            box_model: self.ctx.create_model(ModelBuilder::from_collider_shape(
+                BoxManager::BOX_SHAPE,
+                resolution,
+                half_thickness,
+            )),
+        })
+    }
+}

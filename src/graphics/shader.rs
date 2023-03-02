@@ -11,7 +11,7 @@ pub enum ShaderField {
     /// var s_diffuse: sampler;
     /// ```
     Sprite,
-    /// Looks the following inside wgsl (Example for a [Uniform<Color>](crate::Uniform)):
+    /// Looks the following inside wgsl (Example for a [`Uniform<Color>`](crate::Uniform)):
     /// ```
     /// struct Color {
     ///     color: vec4<f32>

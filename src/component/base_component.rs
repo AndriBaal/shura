@@ -304,13 +304,12 @@ impl BaseComponent {
         }
     }
 
-    #[inline]
     pub const fn render_scale(&self) -> &Vector<f32> {
         &self.render_scale
     }
 
     // Setters
-    #[inline]
+
     pub fn set_scale(&mut self, render_scale: Vector<f32>) {
         self.render_scale = render_scale;
         match &mut self.body {
@@ -400,8 +399,8 @@ impl BaseComponent {
     }
 
     #[cfg(feature = "physics")]
-    /// Returns a slice of (ColliderHandles)[ColliderHandles] if the component has a [RigidBody] and
-    /// the component is added to the [ComponentManager] of the [Scene].
+    /// Returns a slice of [ColliderHandles](crate::physics::ColliderHandle) if the component has a [RigidBody](crate::physics::RigidBody) and
+    /// the component is added to the [ComponentManager](crate::ComponentManager) of the [Scene](crate::Scene).
     pub fn collider_handles(&self) -> Option<impl Deref<Target = [ColliderHandle]> + '_> {
         match &self.body {
             BodyStatus::RigidBody {
@@ -419,7 +418,7 @@ impl BaseComponent {
 
     #[cfg(feature = "physics")]
     /// Returns the handle of the RigidBody if the component has a [RigidBody] and
-    /// the component is added to the [ComponentManager] of the [Scene].
+    /// the component is added to the [ComponentManager](crate::ComponentManager) of the [Scene](crate::Scene).
     pub fn rigid_body_handle(&self) -> Option<RigidBodyHandle> {
         return match self.body {
             BodyStatus::RigidBody { body_handle, .. } => Some(body_handle),
@@ -600,7 +599,6 @@ impl WorldWrapper {
 
 #[cfg(feature = "serde")]
 impl WorldWrapper {
-    #[inline(always)]
     pub fn world(&self) -> Ref<World> {
         return self
             .world
@@ -611,7 +609,6 @@ impl WorldWrapper {
             .borrow();
     }
 
-    #[inline(always)]
     pub fn world_mut(&mut self) -> RefMut<World> {
         return self
             .world
@@ -625,12 +622,10 @@ impl WorldWrapper {
 
 #[cfg(not(feature = "serde"))]
 impl WorldWrapper {
-    #[inline(always)]
     pub fn world(&self) -> Ref<World> {
         return self.world.borrow();
     }
 
-    #[inline(always)]
     pub fn world_mut(&mut self) -> RefMut<World> {
         return self.world.borrow_mut();
     }

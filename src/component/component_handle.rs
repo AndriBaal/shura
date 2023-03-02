@@ -30,7 +30,6 @@ impl PartialEq for ComponentHandle {
 }
 
 impl ComponentHandle {
-    #[inline]
     pub(crate) const fn new(
         component_index: ArenaIndex,
         type_index: ArenaIndex,
@@ -45,23 +44,20 @@ impl ComponentHandle {
         }
     }
 
-    #[inline]
     pub(crate) fn type_index(&self) -> ArenaIndex {
         self.type_index
     }
 
-    #[inline]
     pub(crate) fn group_index(&self) -> ArenaIndex {
         self.group_index
     }
 
-    #[inline]
     pub(crate) fn component_index(&self) -> ArenaIndex {
         self.component_index
     }
 
     /// Unique if of the handle and its component
-    #[inline]
+
     pub fn id(&self) -> u32 {
         self.id
     }

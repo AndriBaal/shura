@@ -77,22 +77,18 @@ impl CursorManager {
         }
     }
 
-    #[inline]
     pub fn touches(&self) -> &[Touch] {
         &self.touches
     }
 
-    #[inline]
     pub const fn cursor_raw(&self) -> &Vector<u32> {
         &self.cursor_raw
     }
 
-    #[inline]
     pub const fn cursor_world(&self) -> &Vector<f32> {
         &self.cursor_world
     }
 
-    #[inline]
     pub const fn cursor_relative(&self) -> &Vector<f32> {
         &self.cursor_relative
     }

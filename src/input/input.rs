@@ -44,7 +44,7 @@ impl From<ScreenTouch> for InputTrigger {
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
-/// Trigger of a key-like event. Gamepad inputs can be get with the (gamepad)[crate::Context::gamepad] method.
+/// Trigger of a key-like event
 pub enum InputTrigger {
     Key(Key),
     MouseButton(MouseButton),
@@ -195,7 +195,6 @@ impl Input {
         }
     }
 
-    #[inline]
     pub fn is_pressed(&self, trigger: impl Into<InputTrigger>) -> bool {
         match self.triggers.get(&trigger.into()) {
             Some(i) => return i.is_pressed(),
@@ -203,12 +202,10 @@ impl Input {
         }
     }
 
-    #[inline]
     pub fn is_held(&self, trigger: impl Into<InputTrigger>) -> bool {
         return self.triggers.contains_key(&trigger.into());
     }
 
-    #[inline]
     pub fn held_time(&self, trigger: impl Into<InputTrigger>) -> f32 {
         match self.triggers.get(&trigger.into()) {
             Some(i) => return i.held_time().as_secs_f32(),
@@ -216,7 +213,6 @@ impl Input {
         }
     }
 
-    #[inline]
     pub fn held_time_duration(&self, trigger: impl Into<InputTrigger>) -> Option<Duration> {
         match self.triggers.get(&trigger.into()) {
             Some(i) => return Some(i.held_time()),
@@ -224,7 +220,6 @@ impl Input {
         }
     }
 
-    #[inline]
     #[cfg(feature = "gamepad")]
     pub fn gamepads(&self) -> Option<ConnectedGamepadsIterator> {
         if let Some(game_pad_manager) = &self.game_pad_manager {
@@ -233,7 +228,6 @@ impl Input {
         return None;
     }
 
-    #[inline]
     #[cfg(feature = "gamepad")]
     pub fn gamepad(&self, gamepad_id: GamepadId) -> Option<Gamepad> {
         if let Some(game_pad_manager) = &self.game_pad_manager {
@@ -242,39 +236,33 @@ impl Input {
         return None;
     }
 
-    #[inline]
     pub const fn touches(&self) -> &FxHashMap<u64, Vector<u32>> {
         &self.touches
     }
 
-    #[inline]
     pub fn staged_keys(&self) -> &[Key] {
         &self.staged_keys
     }
 
-    #[inline]
     pub const fn triggers(&self) -> &FxHashMap<InputTrigger, InputEvent> {
         &self.triggers
     }
 
-    #[inline]
     pub const fn modifiers(&self) -> Modifier {
         self.modifiers
     }
 
-    #[inline]
     pub const fn wheel_delta(&self) -> f32 {
         self.wheel_delta
     }
 
-    #[inline]
     pub const fn cursor_raw(&self) -> &Vector<u32> {
         &self.cursor_raw
     }
 
     // Setters
 
-    // #[inline]
+    //
     // #[cfg(feature = "gamepad")]
     // pub fn set_gamepad_mapping(
     //     &mut self,
@@ -288,7 +276,7 @@ impl Input {
     //     return Err(MappingError::NotConnected);
     // }
 
-    // #[inline]
+    //
     // #[cfg(feature = "gamepad")]
     // pub fn set_gamepad_mapping_strict(
     //     &mut self,

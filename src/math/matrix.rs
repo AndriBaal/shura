@@ -107,14 +107,12 @@ impl Default for Matrix {
 }
 
 impl AsRef<[f32; 16]> for Matrix {
-    #[inline(always)]
     fn as_ref(&self) -> &[f32; 16] {
         unsafe { mem::transmute(self) }
     }
 }
 
 impl AsMut<[f32; 16]> for Matrix {
-    #[inline(always)]
     fn as_mut(&mut self) -> &mut [f32; 16] {
         unsafe { mem::transmute(self) }
     }
@@ -123,7 +121,6 @@ impl AsMut<[f32; 16]> for Matrix {
 impl Index<usize> for Matrix {
     type Output = f32;
 
-    #[inline]
     fn index<'a>(&'a self, i: usize) -> &'a f32 {
         let v: &[f32; 16] = self.as_ref();
         &v[i]
@@ -131,7 +128,6 @@ impl Index<usize> for Matrix {
 }
 
 impl IndexMut<usize> for Matrix {
-    #[inline]
     fn index_mut<'a>(&'a mut self, i: usize) -> &'a mut f32 {
         let v: &mut [f32; 16] = self.as_mut();
         &mut v[i]

@@ -1,7 +1,7 @@
 #[cfg(feature = "physics")]
 use crate::physics::TypedShape;
 use crate::{na::Matrix2, Dimension, Gpu, Index, Isometry, Rotation, Vector, Vertex};
-use rapier2d::prelude::{Shape, SharedShape};
+use rapier2d::prelude::Shape;
 use std::f32::consts::{FRAC_PI_2, PI};
 use wgpu::util::DeviceExt;
 

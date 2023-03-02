@@ -45,12 +45,10 @@ impl ComponentCluster {
         self.paths.push(path);
     }
 
-    #[inline]
     pub fn last_update(&self) -> Option<Instant> {
         self.last_update
     }
 
-    #[inline]
     pub fn update_time(&mut self, now: Instant) {
         match &mut self.config.update {
             crate::UpdateOperation::AfterDuration(dur) => {
@@ -62,17 +60,14 @@ impl ComponentCluster {
         };
     }
 
-    #[inline]
     pub const fn config(&self) -> &ComponentConfig {
         &self.config
     }
 
-    #[inline]
     pub fn is_empty(&self) -> bool {
         self.paths.is_empty()
     }
 
-    #[inline]
     pub fn paths(&self) -> &Vec<ArenaPath> {
         &self.paths
     }

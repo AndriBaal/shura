@@ -52,7 +52,6 @@ impl Camera {
         self.proj = Matrix::projection(self.fov());
     }
 
-    #[inline]
     /// Returns the bottom left and top right corner of the camera. Computes AABB when the camera
     /// is rotated.
     pub fn rect(&self) -> (Vector<f32>, Vector<f32>) {
@@ -97,63 +96,52 @@ impl Camera {
         );
     }
 
-    #[inline]
     pub const fn position(&self) -> &Isometry<f32> {
         &self.position
     }
 
-    #[inline]
     pub const fn translation(&self) -> &Vector<f32> {
         &self.position.translation.vector
     }
 
-    #[inline]
     pub fn view(&self) -> Matrix {
         Matrix::view(self.position)
     }
 
-    #[inline]
     pub fn proj(&self) -> Matrix {
         self.proj
     }
 
-    #[inline]
     pub fn rotation(&self) -> &Rotation<f32> {
         &self.position.rotation
     }
 
-    #[inline]
     pub fn target(&self) -> Option<ComponentHandle> {
         self.target
     }
 
-    #[inline]
     pub fn fov(&self) -> Dimension<f32> {
         Dimension::new(self.vertical_fov * self.ratio, self.vertical_fov)
     }
 
     // Setters
-    #[inline]
+
     pub fn set_rotation(&mut self, rotation: Rotation<f32>) {
         self.position.rotation = rotation;
     }
 
-    #[inline]
     pub fn set_position(&mut self, position: Isometry<f32>) {
         self.position = position;
     }
 
-    #[inline]
     pub fn set_translation(&mut self, translation: Vector<f32>) {
         self.position.translation.vector = translation;
     }
 
-    #[inline]
     pub fn set_target(&mut self, target: Option<ComponentHandle>) {
         self.target = target;
     }
 
-    #[inline]
     pub fn set_vertical_fov(
         &mut self,
         cursors: &mut CursorManager,
@@ -169,7 +157,6 @@ impl Camera {
         cursors.compute(self, &window_size, input)
     }
 
-    #[inline]
     pub fn set_horizontal_fov(
         &mut self,
         cursors: &mut CursorManager,

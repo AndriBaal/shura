@@ -6,17 +6,32 @@ fn main() {
         id: 1,
         init: |ctx| {
             let manager = BunnyManager::new(ctx);
+            ctx.set_global_state(BunnyRessources::new(ctx));
             ctx.create_component(manager);
         },
     });
+}
+
+struct BunnyRessources {
+    bunny_model: Model,
+    bunny_sprite: Sprite,
+}
+
+impl BunnyRessources {
+    pub fn new(ctx: &Context) -> Self {
+        let bunny_model = ctx.create_model(ModelBuilder::cuboid(Dimension::new(0.06, 0.09)));
+        let bunny_sprite = ctx.create_sprite(include_bytes!("./img/wabbit.png"));
+        BunnyRessources {
+            bunny_model,
+            bunny_sprite,
+        }
+    }
 }
 
 #[derive(Component)]
 struct BunnyManager {
     #[component]
     component: BaseComponent,
-    bunny_model: Model,
-    bunny_sprite: Sprite,
 }
 
 impl BunnyManager {
@@ -24,18 +39,12 @@ impl BunnyManager {
         ctx.set_clear_color(Some(Color::new_rgba(220, 220, 220, 255)));
         ctx.set_window_size(Dimension::new(800, 600));
         ctx.set_camera_vertical_fov(6.0);
-
-        let bunny_model = ctx.create_model(ModelBuilder::cuboid(Dimension::new(0.06, 0.09)));
-        let bunny_sprite = ctx.create_sprite(include_bytes!("./img/wabbit.png"));
-
         ctx.create_component(Bunny::new(&ctx));
 
         #[cfg(target_os = "android")]
         ctx.set_render_scale(0.667);
         BunnyManager {
             component: Default::default(),
-            bunny_model,
-            bunny_sprite,
         }
     }
 }
@@ -146,12 +155,8 @@ impl ComponentController for Bunny {
         renderer: &mut Renderer<'a>,
         instances: Instances,
     ) {
-        let manager = ctx
-            .components::<BunnyManager>(GroupFilter::All)
-            .iter()
-            .next()
-            .unwrap();
-        renderer.render_sprite(&manager.bunny_model, &manager.bunny_sprite);
+        let state = ctx.global_state::<BunnyRessources>().unwrap();
+        renderer.render_sprite(&state.bunny_model, &state.bunny_sprite);
         renderer.commit(instances);
     }
 }

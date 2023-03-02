@@ -180,18 +180,16 @@ impl<'a> Renderer<'a> {
 
     // }
 
-    #[inline]
     pub fn commit(&mut self, instances: Instances) {
         self.render_pass.draw_indexed(0..self.indices, 0, instances);
     }
 
     // Getter
-    #[inline]
+
     pub const fn gpu(&self) -> &Gpu {
         &self.gpu
     }
 
-    #[inline]
     pub fn render_pass(&mut self) -> &mut wgpu::RenderPass<'a> {
         &mut self.render_pass
     }

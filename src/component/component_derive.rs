@@ -9,12 +9,11 @@ use crate::{
 };
 use downcast_rs::*;
 
-/// Dynamic component, that can be downcasted to any [ComponentController](crate::ComponentController)
+/// Dynamic component, that can be downcasted to any [ComponentDerive](crate::ComponentDerive)
 /// using downcast_ref or downcast_mut.
 pub type DynamicComponent = Box<dyn ComponentDerive>;
 
-/// All [ComponentControllers](crate::ComponentController) need to derive from this trait, however
-/// this is not done manually, but with the derive macro [Component](crate::Component).
+/// All components need to implement from this trait. This is not done manually, but with the derive macro [Component](crate::Component).
 ///
 /// # Example
 /// ```
@@ -32,13 +31,8 @@ pub trait ComponentDerive: Downcast {
 impl_downcast!(ComponentDerive);
 
 #[allow(unused_variables)]
-/// shura has its own component system so every thing in the game is a component. Every struct
-/// that implements this trait must have a [Component](crate::BaseComponent) field. This is usually
-/// done with the [component derive macro](crate::Component)
-///
-/// A controller is used to add
-/// data to a Component and define the behaviour of the componencomponents.len() as u32§t it controlls. Every component belongs to
-/// one controller and every controller belongs to one component.
+/// A controller is used to define the behaviour of a component, by the given config and callbacks. The
+/// currently relevant components get passed through the [ComponentPath](crate::ComponentPath).
 pub trait ComponentController: ComponentControllerCaller + ComponentDerive
 where
     Self: Sized,
@@ -50,7 +44,7 @@ where
     fn update(active: ComponentPath<Self>, ctx: &mut Context) {}
 
     #[cfg(feature = "physics")]
-    /// Collision Event between 2 [PhysicsComponents](crate::physics::PhysicsComponent). It requires that
+    /// Collision Event between 2 components. It requires that
     /// this component has the [ActiveEvents::COLLISION_EVENTS](crate::physics::ActiveEvents::COLLISION_EVENTS)
     /// flag set on its [RigidBody](crate::physics::RigidBody). Collisions still get processed even if
     /// the [ComponentGroup](crate::ComponentGroup) is inactive or disabled.
@@ -64,12 +58,12 @@ where
     ) {
     }
 
-    /// Grouped render of multiple components. This method gets called once for every group inwhich
-    /// components of this type exist. This has massive performance advantes since many components
+    /// This method gets called once for every group inwhich components of this type exist.
+    /// This has massive performance advantes since many components
     /// can be rendered with the same operation, therefore it is mainly used for rendering
     /// components that have the exact same [model](crate::Model), [uniforms](crate::Uniform) or [sprites](crate::Sprite).
     /// For this method to work the render operation of this component must be set to
-    /// [RenderOperation::Grouped](crate::RenderOperation::Grouped) in the [ComponentConfig](crate::ComponentConfig).
+    /// [RenderOperation::EveryFrame](crate::RenderOperation::EveryFrame) in the [ComponentConfig](crate::ComponentConfig).
     fn render<'a>(
         active: ComponentPath<Self>,
         ctx: &'a Context<'a>,

@@ -161,7 +161,6 @@ impl World {
         return (body, collider);
     }
 
-    #[inline]
     pub fn create_joint(
         &mut self,
         component1: &BaseComponent,
@@ -178,12 +177,10 @@ impl World {
             .insert(body_handle1, body_handle2, joint, true)
     }
 
-    #[inline]
     pub fn remove_joint(&mut self, joint: ImpulseJointHandle) -> Option<ImpulseJoint> {
         self.impulse_joints.remove(joint, true)
     }
 
-    #[inline]
     pub fn cast_ray(
         &self,
         ray: &Ray,
@@ -204,7 +201,6 @@ impl World {
         return None;
     }
 
-    #[inline]
     pub fn cast_shape(
         &self,
         shape: &dyn Shape,
@@ -233,7 +229,6 @@ impl World {
         return None;
     }
 
-    #[inline]
     pub fn cast_ray_and_get_normal(
         &self,
         ray: &Ray,
@@ -258,7 +253,6 @@ impl World {
         return None;
     }
 
-    #[inline]
     pub fn intersects_point(&self, collider_handle: ColliderHandle, point: Vector<f32>) -> bool {
         if let Some(collider) = self.collider(collider_handle) {
             return collider
@@ -268,7 +262,6 @@ impl World {
         return false;
     }
 
-    #[inline]
     pub fn intersects_ray(&self, collider_handle: ColliderHandle, ray: Ray, max_toi: f32) -> bool {
         if let Some(collider) = self.collider(collider_handle) {
             return collider
@@ -278,7 +271,6 @@ impl World {
         return false;
     }
 
-    #[inline]
     pub fn test_filter(
         &self,
         filter: QueryFilter,
@@ -288,7 +280,6 @@ impl World {
         filter.test(&self.bodies, handle, collider)
     }
 
-    #[inline]
     pub fn intersections_with_ray(
         &self,
         ray: &Ray,
@@ -314,7 +305,6 @@ impl World {
         );
     }
 
-    #[inline]
     pub fn intersections_with_shape(
         &self,
         shape_pos: &Isometry<f32>,
@@ -332,7 +322,6 @@ impl World {
         );
     }
 
-    #[inline]
     pub fn intersection_with_shape(
         &self,
         shape_pos: &Isometry<f32>,
@@ -352,7 +341,6 @@ impl World {
         return None;
     }
 
-    #[inline]
     pub fn intersections_with_point(
         &self,
         point: &Point<f32>,
@@ -387,45 +375,37 @@ impl World {
         );
     }
 
-    #[inline]
     pub fn rigid_body(&self, rigid_body_handle: RigidBodyHandle) -> Option<&RigidBody> {
         return self.bodies.get(rigid_body_handle);
     }
 
-    #[inline]
     pub fn rigid_body_mut(&mut self, rigid_body_handle: RigidBodyHandle) -> Option<&mut RigidBody> {
         return self.bodies.get_mut(rigid_body_handle);
     }
 
-    #[inline]
     pub fn collider(&self, collider_handle: ColliderHandle) -> Option<&Collider> {
         self.colliders.get(collider_handle)
     }
 
-    #[inline]
     pub fn collider_mut(&mut self, collider_handle: ColliderHandle) -> Option<&mut Collider> {
         self.colliders.get_mut(collider_handle)
     }
 
-    #[inline]
     #[cfg(feature = "serde")]
     pub(crate) fn bodies(&self) -> &RigidBodySet {
         &self.bodies
     }
 
-    #[inline]
     pub(crate) fn collision_event(
         &mut self,
     ) -> Result<CollisionEvent, crossbeam::channel::TryRecvError> {
         self.events.collision_event()
     }
 
-    #[inline]
     pub fn joint(&self, joint: ImpulseJointHandle) -> Option<&ImpulseJoint> {
         self.impulse_joints.get(joint)
     }
 
-    #[inline]
     pub fn joint_mut(&mut self, joint: ImpulseJointHandle) -> Option<&mut ImpulseJoint> {
         self.impulse_joints.get_mut(joint)
     }

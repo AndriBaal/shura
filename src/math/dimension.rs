@@ -104,7 +104,7 @@ macro_rules! impl_dimension {
     ($DimN:ident { $($field:ident),+ }, $n:expr) => {
 
         impl <T>$DimN<T> {
-            #[inline]
+
             pub const fn new($($field: T),+) -> $DimN<T> {
                 $DimN { $($field: $field),+ }
             }
@@ -200,7 +200,7 @@ macro_rules! impl_dimension {
         where S: Scalar {
             type Output = $DimN<S>;
 
-            #[inline]
+
             fn neg(self) -> $DimN<S> {
                 $DimN::new($(-self.$field),+)
             }

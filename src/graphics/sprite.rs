@@ -314,22 +314,18 @@ impl Sprite {
         return image;
     }
 
-    #[inline]
     pub const fn size(&self) -> &Dimension<u32> {
         &self.size
     }
 
-    #[inline]
     pub const fn bind_group(&self) -> &wgpu::BindGroup {
         &self.bind_group
     }
 
-    #[inline]
     pub const fn format(&self) -> &wgpu::TextureFormat {
         &self.format
     }
 
-    #[inline]
     pub const fn texture(&self) -> &wgpu::Texture {
         &self.texture
     }

@@ -6,27 +6,32 @@ use rustc_hash::FxHashMap;
 
 /// Helper to create a [ComponentGroup](crate::ComponentGroup).
 pub struct ComponentGroupDescriptor {
-    /// Id of the grou
+    /// Id of the group.
     pub id: u32,
-    /// Position of the group
-    pub position: Vector<f32>,
-    /// Size where the group operates
-    pub size: Dimension<f32>,
-    /// Describes if the group is enabled from the start
+    /// Describes when the ggroup is active.
+    pub activation: GroupActivation,
+    /// Describes if the group is enabled from the start.
     pub enabled: bool,
-    /// Indicates if the group is always active
-    pub always_active: bool,
 }
 
 /// Id of the default [ComponentGroup](crate::ComponentGroup). Components within this group are
 /// always getting rendered and updated in every cycle.
 pub const DEFAULT_GROUP_ID: u32 = u32::MAX / 2;
 
-/// Every group has a name and a fixed position where it operates. When the camera intersects with
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Copy, Clone)]
+pub enum GroupActivation {
+    Position {
+        position: Vector<f32>,
+        size: Dimension<f32>,
+    },
+    Always,
+}
+
+/// Every group has a id and a fixed position where it operates. When the camera intersects with
 /// the position and size of the group the group is marked as `active`.It can be used like a chunk
 /// system to make huge 2D worlds possible or to just order your components. The Engine has a
-/// default [ComponentGroup](crate::ComponentGroup) for components that are used all the
-/// time. After every update, before rendering, the set of active component groups gets
+/// default [ComponentGroup](crate::ComponentGroup) that holds the [DEFAULT_GROUP_ID]. After every update and before rendering, the set of active component groups gets
 /// computed. A group can be accessed with [group](crate::Context::group) or
 /// [group_mut](crate::Context::group_mut). The components of the group can be accessed with
 /// [components](crate::Context::components) or [components_mut](crate::Context::components_mut)
@@ -36,21 +41,17 @@ pub struct ComponentGroup {
     type_map: FxHashMap<ComponentTypeId, ArenaIndex>,
     types: Arena<ComponentType>,
     id: u32,
-    position: Vector<f32>,
-    size: Dimension<f32>,
+    activation: GroupActivation,
     enabled: bool,
     active: bool,
-    always_active: bool,
 }
 
 impl ComponentGroup {
-    pub(crate) fn new(id: u32, descriptor: &ComponentGroupDescriptor) -> Self {
+    pub(crate) fn new(descriptor: &ComponentGroupDescriptor) -> Self {
         Self {
-            id,
-            position: descriptor.position,
-            size: descriptor.size,
+            id: descriptor.id,
             enabled: descriptor.enabled,
-            always_active: descriptor.always_active,
+            activation: descriptor.activation,
             type_map: Default::default(),
             types: Default::default(),
             active: false,
@@ -62,75 +63,59 @@ impl ComponentGroup {
         cam_bottom_left: Vector<f32>,
         cam_top_right: Vector<f32>,
     ) -> bool {
-        if self.always_active {
-            return true;
+        match &self.activation {
+            GroupActivation::Position { position, size } => {
+                let half_size = *size / 2.0;
+                let self_bl =
+                    Vector::new(position.x - half_size.width, position.y - half_size.height);
+                let self_tr =
+                    Vector::new(position.x + half_size.width, position.y + half_size.height);
+                return (cam_bottom_left.x < self_tr.x)
+                    && (self_bl.x < cam_top_right.x)
+                    && (cam_bottom_left.y < self_tr.y)
+                    && (self_bl.y < cam_top_right.y);
+            }
+            GroupActivation::Always => {
+                return true;
+            }
         }
-
-        let pos = self.position;
-        let half_size = self.size / 2.0;
-        let self_bl = Vector::new(pos.x - half_size.width, pos.y - half_size.height);
-        let self_tr = Vector::new(pos.x + half_size.width, pos.y + half_size.height);
-        return (cam_bottom_left.x < self_tr.x)
-            && (self_bl.x < cam_top_right.x)
-            && (cam_bottom_left.y < self_tr.y)
-            && (self_bl.y < cam_top_right.y);
     }
 
     // Setters
 
-    #[inline]
     pub(crate) fn set_active(&mut self, active: bool) {
         self.active = active;
     }
 
-    #[inline]
     /// Disable or enable a group
     ///
-    /// # Warning (TODO)
-    /// Currently [PhysicsComponents](crate::physics::PhysicsComponent) collisions do not get disabled.
+    /// # Warning
+    /// [RigidBody](crate::physics::RigidBody) collisions do not get disabled and must be manually disabled per [RigidBody](crate::physics::RigidBody).
     pub fn set_enabled(&mut self, enabled: bool) {
         self.enabled = enabled;
     }
 
-    #[inline]
-    /// Set the operation size of this group.
-    pub fn set_size(&mut self, size: Dimension<f32>) {
-        self.size = size;
+    /// Set the activation of this group.
+    pub fn set_activation(&mut self, activation: GroupActivation) {
+        self.activation = activation;
     }
 
-    #[inline]
-    /// Set the position of this group.
-    pub fn set_position(&mut self, position: Vector<f32>) {
-        self.position = position;
-    }
-
-    #[inline]
-    /// Set the position of this group.
-    pub fn set_always_active(&mut self, always_active: bool) {
-        self.always_active = always_active;
-    }
-
-    #[inline]
     pub(crate) fn type_index(&self, type_id: ComponentTypeId) -> Option<&ArenaIndex> {
         self.type_map.get(&type_id)
     }
 
-    #[inline]
     pub(crate) fn type_ref(&self, index: ArenaIndex) -> Option<&ComponentType> {
         self.types.get(index)
     }
 
-    #[inline]
     pub(crate) fn type_mut(&mut self, index: ArenaIndex) -> Option<&mut ComponentType> {
         self.types.get_mut(index)
     }
 
-    #[inline]
     pub(crate) fn types(&mut self) -> ArenaIterMut<ComponentType> {
         self.types.iter_mut()
     }
 
-    #[inline]
     pub(crate) fn add_component_type<C: ComponentController + ComponentIdentifier>(
         &mut self,
         component: C,
@@ -141,54 +126,23 @@ impl ComponentGroup {
         return (type_index, component_index);
     }
 
-    #[inline]
     /// Get if the group is enabled
     pub const fn enabled(&self) -> bool {
         self.enabled
     }
 
-    #[inline]
     /// Get the id of the group.
     pub const fn id(&self) -> u32 {
         self.id
     }
 
-    #[inline]
-    /// Get the position of the group.
-    pub const fn pos(&self) -> &Vector<f32> {
-        &self.position
+    /// Get the activation of this Group.
+    pub const fn activation(&self) -> &GroupActivation {
+        &self.activation
     }
 
-    #[inline]
-    /// Get the operation dimension of the group.
-    pub const fn size(&self) -> &Dimension<f32> {
-        &self.size
-    }
-
-    #[inline]
     /// See if this group is active in the current cycle.
     pub const fn active(&self) -> bool {
         self.active
-    }
-
-    #[inline]
-    /// See if this group is active in the current cycle.
-    pub const fn always_active(&self) -> bool {
-        self.always_active
-    }
-}
-
-impl Default for ComponentGroup {
-    fn default() -> Self {
-        Self {
-            id: DEFAULT_GROUP_ID,
-            position: Vector::new(0.0, 0.0),
-            size: Dimension::new(0.0, 0.0),
-            enabled: true,
-            type_map: Default::default(),
-            types: Default::default(),
-            active: true,
-            always_active: true,
-        }
     }
 }
