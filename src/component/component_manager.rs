@@ -10,7 +10,6 @@ use instant::Instant;
 use log::info;
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::collections::{BTreeMap, BTreeSet};
-use std::mem;
 #[cfg(feature = "physics")]
 use std::{
     cell::{Ref, RefCell, RefMut},
@@ -35,7 +34,7 @@ impl<'a> Default for GroupFilter<'a> {
 pub struct ComponentManager {
     update_components: bool,
     render_components: bool,
-
+    end_callbacks: BTreeSet<(i16, ComponentTypeId)>,
     id_counter: u32,
     force_update_sets: bool,
     group_map: FxHashMap<u32, ArenaIndex>,
@@ -56,7 +55,6 @@ pub struct ComponentManager {
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
     component_callbacks: FxHashMap<ComponentTypeId, ComponentCallbacks>,
-    end_callbacks: BTreeSet<(i16, ComponentTypeId)>,
     #[cfg(feature = "physics")]
     pub world: Rc<RefCell<World>>,
 }
@@ -169,7 +167,7 @@ impl ComponentManager {
     }
 
     pub(crate) fn end_callbacks(&mut self) -> impl Iterator<Item = (i16, ComponentTypeId)> {
-        mem::take(&mut self.end_callbacks).into_iter()
+        self.end_callbacks.clone().into_iter()
     }
 
     pub(crate) fn all_paths(&self, type_id: ComponentTypeId) -> Vec<ArenaPath> {

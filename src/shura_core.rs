@@ -220,6 +220,7 @@ impl Shura {
                 scene: &mut scene.unwrap(),
                 shura: self,
             };
+            
             for (_, type_id) in ctx.scene.component_manager.end_callbacks() {
                 let paths = ctx.scene.component_manager.all_paths(type_id);
                 if paths.len() > 0 {

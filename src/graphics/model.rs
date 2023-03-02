@@ -147,8 +147,8 @@ impl ModelBuilder {
             ..Default::default()
         }
     }
-    pub fn rounded(inner_shape: ModelBuilder, border_radius: f32, resolution: u32) -> Self {
-        let v = inner_shape.vertices.iter().map(|v| v.pos).collect();
+    pub fn rounded(inner: ModelBuilder, border_radius: f32, resolution: u32) -> Self {
+        let v = inner.vertices.iter().map(|v| v.pos).collect();
         let border = border_radius;
 
         fn det(v0: Vector<f32>, v1: Vector<f32>) -> f32 {
@@ -246,7 +246,7 @@ impl ModelBuilder {
         Self {
             vertices,
             indices,
-            ..inner_shape
+            ..inner
         }
     }
 

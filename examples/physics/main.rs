@@ -62,12 +62,9 @@ struct BoxManager {
 }
 
 impl BoxManager {
-    const HALF_BOX_SIZE: f32 = 0.2;
-    const BOX_SHAPE: RoundCuboid = RoundCuboid {
-        inner_shape: Cuboid {
-            half_extents: Vector::new(BoxManager::HALF_BOX_SIZE, BoxManager::HALF_BOX_SIZE),
-        },
-        border_radius: 0.1,
+    const HALF_BOX_SIZE: f32 = 0.3;
+    const BOX_SHAPE: Cuboid = Cuboid {
+        half_extents: Vector::new(BoxManager::HALF_BOX_SIZE, BoxManager::HALF_BOX_SIZE),
     };
     pub fn new(ctx: &Context) -> Self {
         Self {
@@ -76,7 +73,7 @@ impl BoxManager {
             hover_color: ctx.create_uniform(Color::new_rgba(0, 0, 255, 255)),
             box_model: ctx.create_model(ModelBuilder::from_collider_shape(
                 &Self::BOX_SHAPE,
-                24,
+                0,
                 0.0,
             )),
             component: Default::default(),
@@ -85,15 +82,15 @@ impl BoxManager {
 
     fn serialize_scene(ctx: &mut Context) {
         info!("Serializing scene!");
-        // let ser = ctx
-        //     .serialize(|s| {
-        //         s.serialize_components::<Floor>(GroupFilter::All);
-        //         s.serialize_components::<Player>(GroupFilter::All);
-        //         s.serialize_components::<BoxManager>(GroupFilter::All);
-        //         s.serialize_components::<PhysicsBox>(GroupFilter::All);
-        //     })
-        //     .unwrap();
-        // fs::write("data.binc", ser).expect("Unable to write file");
+        let ser = ctx
+            .serialize(|s| {
+                s.serialize_components::<Floor>(GroupFilter::All);
+                s.serialize_components::<Player>(GroupFilter::All);
+                s.serialize_components::<BoxManager>(GroupFilter::All);
+                s.serialize_components::<PhysicsBox>(GroupFilter::All);
+            })
+            .unwrap();
+        fs::write("data.binc", ser).expect("Unable to write file");
     }
 }
 
@@ -152,6 +149,9 @@ struct Player {
 impl Player {
     const RADIUS: f32 = 0.75;
     const RESOLUTION: u32 = 24;
+    const SHAPE: Ball = Ball {
+        radius: Self::RADIUS,
+    };
     pub fn new(ctx: &Context) -> Self {
         let collider =
             ColliderBuilder::ball(Self::RADIUS).active_events(ActiveEvents::COLLISION_EVENTS);
@@ -236,14 +236,20 @@ struct Floor {
 }
 
 impl Floor {
-    const FLOOR_SIZE: Dimension<f32> = Dimension::new(20.0, 0.4);
+    const FLOOR_RESOLUTION: u32 = 12;
+    const FLOOR_SHAPE: RoundCuboid = RoundCuboid {
+        inner_shape: Cuboid {
+            half_extents: Vector::new(20.0, 0.4),
+        },
+        border_radius: 0.1,
+    };
     pub fn new(ctx: &Context) -> Self {
-        let collider = ColliderBuilder::cuboid(Self::FLOOR_SIZE.width, Self::FLOOR_SIZE.height);
+        let collider = ColliderBuilder::new(SharedShape::new(Self::FLOOR_SHAPE));
         Self {
             color: ctx.create_uniform(Color::new_rgba(0, 0, 255, 255)),
             model: ctx.create_model(ModelBuilder::from_collider_shape(
                 collider.shape.as_ref(),
-                0,
+                Self::FLOOR_RESOLUTION,
                 0.0,
             )),
             component: BaseComponent::new_rigid_body(
@@ -368,9 +374,9 @@ impl<'de, 'a> serde::de::Visitor<'de> for FloorVisitor<'a> {
             component,
             color: self.ctx.create_uniform(Color::new_rgba(0, 0, 255, 255)),
             model: self.ctx.create_model(ModelBuilder::from_collider_shape(
-                shape,
-                resolution,
-                half_thickness,
+                &Floor::FLOOR_SHAPE,
+                Floor::FLOOR_RESOLUTION,
+                0.0,
             )),
         })
     }
@@ -397,9 +403,9 @@ impl<'de, 'a> serde::de::Visitor<'de> for PlayerVisitor<'a> {
             component,
             sprite: self.ctx.create_sprite(include_bytes!("./img/burger.png")),
             model: self.ctx.create_model(ModelBuilder::from_collider_shape(
-                shape,
-                resolution,
-                half_thickness,
+                &Player::SHAPE,
+                Player::RESOLUTION,
+                0.0,
             )),
         })
     }
@@ -428,10 +434,10 @@ impl<'de, 'a> serde::de::Visitor<'de> for BoxManagerVisitor<'a> {
             collision_color: self.ctx.create_uniform(Color::new_rgba(255, 0, 0, 255)),
             hover_color: self.ctx.create_uniform(Color::new_rgba(0, 0, 255, 255)),
             box_model: self.ctx.create_model(ModelBuilder::from_collider_shape(
-                BoxManager::BOX_SHAPE,
-                resolution,
-                half_thickness,
-            )),
+                &BoxManager::BOX_SHAPE,
+                0,
+                0.0,
+            ))
         })
     }
 }
