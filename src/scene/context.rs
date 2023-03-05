@@ -3,7 +3,7 @@ use crate::{
     ComponentHandle, ComponentIdentifier, ComponentPath, ComponentSet, ComponentSetMut,
     ComponentSetRender, Vector, DynamicComponent, GroupFilter, InputEvent, InputTrigger,
     InstanceBuffer, Instances, Isometry, Key, Matrix, Model, ModelBuilder, Modifier, Renderer,
-    Rotation, Scene, Shader, ShaderField, ShaderLang, Shura, Sprite, SpriteSheet, Touch, Uniform,
+    Rotation, Scene, Shader, ShaderField, ShaderLang, Shura, Sprite, SpriteSheet, Touch, Uniform, SceneCreator,
     
 };
 
@@ -289,7 +289,8 @@ impl<'a> Context<'a> {
             .create_component_with_group(group, component)
     }
 
-    pub fn create_scene(&mut self, scene: Scene) {
+    pub fn create_scene(&mut self, mut scene: impl SceneCreator) {
+        let scene = scene.create(self.shura);
         self.shura.scene_manager.add(scene);
     }
 
