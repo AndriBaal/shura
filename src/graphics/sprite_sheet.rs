@@ -1,4 +1,4 @@
-use crate::{Vector, Gpu, Sprite};
+use crate::{Gpu, Sprite, Vector};
 use std::ops::{Index, IndexMut};
 
 /// Collection of [Sprites](crate::Sprite) that will be loaded from the same image where all sprites have the same size.

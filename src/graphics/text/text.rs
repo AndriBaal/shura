@@ -1,6 +1,6 @@
 use crate::{
     text::{DefaultLineBreaker, Font, LineBreaker, Text},
-    Color, Vector, Gpu, Sprite
+    Color, Gpu, Sprite, Vector,
 };
 
 pub struct TextSection<'a> {

@@ -1,4 +1,4 @@
-use crate::{Vector, Isometry, Rotation};
+use crate::{Isometry, Rotation, Vector};
 use nalgebra::Vector4;
 use std::mem;
 use std::ops::*;

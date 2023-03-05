@@ -437,7 +437,7 @@ impl<'de, 'a> serde::de::Visitor<'de> for BoxManagerVisitor<'a> {
                 &BoxManager::BOX_SHAPE,
                 0,
                 0.0,
-            ))
+            )),
         })
     }
 }

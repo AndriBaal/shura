@@ -1,4 +1,4 @@
-use crate::{ComponentHandle, ComponentTypeId, Vector, Isometry, Matrix, Rotation};
+use crate::{ComponentHandle, ComponentTypeId, Isometry, Matrix, Rotation, Vector};
 #[cfg(feature = "physics")]
 use std::{
     cell::{Ref, RefCell, RefMut},
@@ -73,7 +73,7 @@ impl PositionBuilder {
 
 impl Into<BaseComponent> for PositionBuilder {
     fn into(self) -> BaseComponent {
-        return BaseComponent::new(self)
+        return BaseComponent::new(self);
     }
 }
 

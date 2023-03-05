@@ -1,7 +1,5 @@
 use crate::data::arena::{Arena, ArenaIndex, ArenaIterMut};
-use crate::{
-    ComponentController, ComponentIdentifier, ComponentType, ComponentTypeId, Vector,
-};
+use crate::{ComponentController, ComponentIdentifier, ComponentType, ComponentTypeId, Vector};
 use rustc_hash::FxHashMap;
 
 /// Helper to create a [ComponentGroup](crate::ComponentGroup).
@@ -66,10 +64,8 @@ impl ComponentGroup {
         match &self.activation {
             GroupActivation::Position { position, size } => {
                 let half_size = *size / 2.0;
-                let self_bl =
-                    Vector::new(position.x - half_size.x, position.y - half_size.y);
-                let self_tr =
-                    Vector::new(position.x + half_size.x, position.y + half_size.y);
+                let self_bl = Vector::new(position.x - half_size.x, position.y - half_size.y);
+                let self_tr = Vector::new(position.x + half_size.x, position.y + half_size.y);
                 return (cam_bottom_left.x < self_tr.x)
                     && (self_bl.x < cam_top_right.x)
                     && (cam_bottom_left.y < self_tr.y)

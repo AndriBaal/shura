@@ -1,4 +1,4 @@
-use crate::{Vector, Gpu};
+use crate::{Gpu, Vector};
 use egui::Context;
 use egui_wgpu::renderer::{Renderer, ScreenDescriptor};
 use egui_winit::State;

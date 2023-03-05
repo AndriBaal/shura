@@ -1,4 +1,4 @@
-use crate::{Camera, Vector, Input, RELATIVE_CAMERA_SIZE};
+use crate::{Camera, Input, Vector, RELATIVE_CAMERA_SIZE};
 
 #[derive(Copy, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -65,8 +65,7 @@ impl CursorManager {
                 );
             let relative_touch_pos = Vector::new(
                 raw_touch.x / window_size.x * RELATIVE_CAMERA_SIZE - RELATIVE_CAMERA_SIZE / 2.0,
-                raw_touch.y / window_size.y * -RELATIVE_CAMERA_SIZE
-                    + RELATIVE_CAMERA_SIZE / 2.0,
+                raw_touch.y / window_size.y * -RELATIVE_CAMERA_SIZE + RELATIVE_CAMERA_SIZE / 2.0,
             );
             self.touches.push(Touch {
                 id: *id,

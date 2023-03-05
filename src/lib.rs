@@ -145,7 +145,6 @@ pub mod gamepad {
 #[cfg(feature = "serde")]
 pub use crate::scene::scene_serde::*;
 
-
 pub mod na {
     pub use nalgebra::*;
 }
@@ -153,4 +152,3 @@ pub mod na {
 pub mod mint {
     pub use mint::*;
 }
-

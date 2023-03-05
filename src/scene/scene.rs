@@ -1,6 +1,5 @@
 use crate::{
-    Camera, ComponentManager, Context, CursorManager, Vector, Isometry, RenderConfig, Shura,
-    Sprite,
+    Camera, ComponentManager, Context, CursorManager, Isometry, RenderConfig, Shura, Sprite, Vector,
 };
 
 pub trait SceneCreator {
@@ -66,7 +65,10 @@ pub struct Scene {
 impl Scene {
     pub(crate) fn new(ratio: f32, id: u32) -> Self {
         const DEFAULT_VERTICAL_CAMERA_FOV: f32 = 5.0;
-        let fov = Vector::new(DEFAULT_VERTICAL_CAMERA_FOV * ratio, DEFAULT_VERTICAL_CAMERA_FOV);
+        let fov = Vector::new(
+            DEFAULT_VERTICAL_CAMERA_FOV * ratio,
+            DEFAULT_VERTICAL_CAMERA_FOV,
+        );
         Self {
             id: id,
             switched: true,

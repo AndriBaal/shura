@@ -1,6 +1,6 @@
 use crate::{
-    ComponentHandle, ComponentManager, CursorManager, Vector, Gpu, Input, Isometry, Matrix,
-    Model, ModelBuilder, Rotation, Uniform, Vertex,
+    ComponentHandle, ComponentManager, CursorManager, Gpu, Input, Isometry, Matrix, Model,
+    ModelBuilder, Rotation, Uniform, Vector, Vertex,
 };
 
 const MINIMAL_FOV: f32 = 0.0000001;
