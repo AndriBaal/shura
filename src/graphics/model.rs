@@ -1,6 +1,6 @@
 #[cfg(feature = "physics")]
 use crate::physics::TypedShape;
-use crate::{na::Matrix2, Dimension, Gpu, Index, Isometry, Rotation, Vector, Vertex};
+use crate::{na::Matrix2, Vector, Gpu, Index, Isometry, Rotation, Vertex};
 use rapier2d::prelude::Shape;
 use std::f32::consts::{FRAC_PI_2, PI};
 use wgpu::util::DeviceExt;
@@ -40,7 +40,7 @@ impl ModelBuilder {
 
     pub fn capsule(radius: f32, half_height: f32, resolution: u32) -> Self {
         Self::rounded(
-            ModelBuilder::cuboid(Dimension::new(radius, half_height)),
+            ModelBuilder::cuboid(Vector::new(radius, half_height)),
             radius,
             resolution,
         )
@@ -77,22 +77,22 @@ impl ModelBuilder {
             ..Default::default()
         }
     }
-    pub fn cuboid(half_extents: Dimension<f32>) -> Self {
+    pub fn cuboid(half_extents: Vector<f32>) -> Self {
         let vertices = vec![
             Vertex::new(
-                Vector::new(-half_extents.width, half_extents.height),
+                Vector::new(-half_extents.x, half_extents.y),
                 Vector::new(0.0, 0.0),
             ),
             Vertex::new(
-                Vector::new(-half_extents.width, -half_extents.height),
+                Vector::new(-half_extents.x, -half_extents.y),
                 Vector::new(0.0, 1.0),
             ),
             Vertex::new(
-                Vector::new(half_extents.width, -half_extents.height),
+                Vector::new(half_extents.x, -half_extents.y),
                 Vector::new(1.0, 1.0),
             ),
             Vertex::new(
-                Vector::new(half_extents.width, half_extents.height),
+                Vector::new(half_extents.x, half_extents.y),
                 Vector::new(1.0, 0.0),
             ),
         ];
@@ -434,13 +434,13 @@ impl ModelBuilder {
             .min_by(|v1, v2| v1.y.partial_cmp(&v2.y).unwrap_or(Equal))
             .unwrap()
             .y;
-        let size = Dimension::new(max_x - min_x, max_y - min_y);
+        let size = Vector::new(max_x - min_x, max_y - min_y);
         let mut result = vec![];
         for v in vertices {
             let delta_x = v.x - min_x;
-            let ratio_x = delta_x / size.width;
+            let ratio_x = delta_x / size.x;
             let delta_y = max_y - v.y;
-            let ratio_y = delta_y / size.height;
+            let ratio_y = delta_y / size.y;
             let tex_coords = Vector::new(ratio_x, ratio_y);
             result.push(Vertex::new(v, tex_coords));
         }

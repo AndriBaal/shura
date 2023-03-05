@@ -1,18 +1,18 @@
 use crate::{
     text::{DefaultLineBreaker, Font, LineBreaker, Text},
-    Color, Dimension, Gpu, Sprite, Vector,
+    Color, Vector, Gpu, Sprite
 };
 
 pub struct TextSection<'a> {
     pub position: Vector<f32>,
-    pub bounds: Dimension<f32>,
+    pub bounds: Vector<f32>,
     pub layout: LineBreaker<DefaultLineBreaker>,
     pub text: Vec<Text<'a>>,
 }
 
 pub struct TextDescriptor<'a> {
     pub clear_color: Option<Color>,
-    pub size: Dimension<u32>,
+    pub size: Vector<u32>,
     pub sections: Vec<TextSection<'a>>,
     pub font: &'a mut Font,
 }
@@ -21,7 +21,7 @@ impl<'a> TextSection<'a> {
     fn to_glyph_section(self) -> wgpu_glyph::Section<'a> {
         wgpu_glyph::Section {
             screen_position: (self.position.x, self.position.y),
-            bounds: (self.bounds.width, self.bounds.height),
+            bounds: (self.bounds.x, self.bounds.y),
             layout: self.layout,
             text: self.text,
         }
@@ -32,7 +32,7 @@ impl<'a> Default for TextSection<'a> {
     fn default() -> Self {
         Self {
             position: Vector::new(0.0, 0.0),
-            bounds: Dimension::new(f32::INFINITY, f32::INFINITY),
+            bounds: Vector::new(f32::INFINITY, f32::INFINITY),
             layout: Default::default(),
             text: vec![],
         }
@@ -98,8 +98,8 @@ impl CreateText for Sprite {
                 &mut staging_belt,
                 &mut encoder,
                 &view,
-                descriptor.size.width,
-                descriptor.size.height,
+                descriptor.size.x,
+                descriptor.size.y,
             )
             .expect("Draw queued");
 

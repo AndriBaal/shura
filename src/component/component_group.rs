@@ -1,6 +1,6 @@
 use crate::data::arena::{Arena, ArenaIndex, ArenaIterMut};
 use crate::{
-    ComponentController, ComponentIdentifier, ComponentType, ComponentTypeId, Dimension, Vector,
+    ComponentController, ComponentIdentifier, ComponentType, ComponentTypeId, Vector,
 };
 use rustc_hash::FxHashMap;
 
@@ -23,7 +23,7 @@ pub const DEFAULT_GROUP_ID: u32 = u32::MAX / 2;
 pub enum GroupActivation {
     Position {
         position: Vector<f32>,
-        size: Dimension<f32>,
+        size: Vector<f32>,
     },
     Always,
 }
@@ -67,9 +67,9 @@ impl ComponentGroup {
             GroupActivation::Position { position, size } => {
                 let half_size = *size / 2.0;
                 let self_bl =
-                    Vector::new(position.x - half_size.width, position.y - half_size.height);
+                    Vector::new(position.x - half_size.x, position.y - half_size.y);
                 let self_tr =
-                    Vector::new(position.x + half_size.width, position.y + half_size.height);
+                    Vector::new(position.x + half_size.x, position.y + half_size.y);
                 return (cam_bottom_left.x < self_tr.x)
                     && (self_bl.x < cam_top_right.x)
                     && (cam_bottom_left.y < self_tr.y)

@@ -19,7 +19,7 @@ struct BunnyRessources {
 
 impl BunnyRessources {
     pub fn new(ctx: &Context) -> Self {
-        let bunny_model = ctx.create_model(ModelBuilder::cuboid(Dimension::new(0.06, 0.09)));
+        let bunny_model = ctx.create_model(ModelBuilder::cuboid(Vector::new(0.06, 0.09)));
         let bunny_sprite = ctx.create_sprite(include_bytes!("./img/wabbit.png"));
         BunnyRessources {
             bunny_model,
@@ -37,7 +37,7 @@ struct BunnyManager {
 impl BunnyManager {
     pub fn new(ctx: &mut Context) -> BunnyManager {
         ctx.set_clear_color(Some(Color::new_rgba(220, 220, 220, 255)));
-        ctx.set_window_size(Dimension::new(800, 600));
+        ctx.set_window_size(Vector::new(800, 600));
         ctx.set_camera_vertical_fov(6.0);
         ctx.create_component(Bunny::new(&ctx));
 
@@ -129,20 +129,20 @@ impl ComponentController for Bunny {
 
             linvel.y += GRAVITY * frame;
             translation += linvel * frame;
-            if translation.x >= fov.width {
+            if translation.x >= fov.x {
                 linvel.x = -linvel.x;
-                translation.x = fov.width;
-            } else if translation.x <= -fov.width {
+                translation.x = fov.x;
+            } else if translation.x <= -fov.x {
                 linvel.x = -linvel.x;
-                translation.x = -fov.width;
+                translation.x = -fov.x;
             }
 
-            if translation.y < -fov.height {
+            if translation.y < -fov.y {
                 linvel.y = thread_rng().gen_range(0.0..15.0);
-                translation.y = -fov.height;
-            } else if translation.y > fov.height {
+                translation.y = -fov.y;
+            } else if translation.y > fov.y {
                 linvel.y = -1.0;
-                translation.y = fov.height;
+                translation.y = fov.y;
             }
             bunny.linvel = linvel;
             bunny.component.set_translation(translation);

@@ -1,6 +1,6 @@
 use crate::{
-    ComponentHandle, ComponentManager, CursorManager, Dimension, Gpu, Input, Isometry, Matrix,
-    Model, ModelBuilder, Rotation, Uniform, Vector, Vertex,
+    ComponentHandle, ComponentManager, CursorManager, Vector, Gpu, Input, Isometry, Matrix,
+    Model, ModelBuilder, Rotation, Uniform, Vertex,
 };
 
 const MINIMAL_FOV: f32 = 0.0000001;
@@ -20,14 +20,14 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn new(position: Isometry<f32>, ratio: f32, vertical_fov: f32) -> Self {
-        let fov = Dimension::new(vertical_fov * ratio, vertical_fov);
+    pub fn new(position: Isometry<f32>, fov: Vector<f32>) -> Self {
         let proj = Matrix::projection(fov);
+        let ratio = fov.x / fov.y;
         Camera {
             ratio,
             target: None,
             position,
-            vertical_fov: vertical_fov,
+            vertical_fov: fov.y,
             proj,
         }
     }
@@ -120,8 +120,8 @@ impl Camera {
         self.target
     }
 
-    pub fn fov(&self) -> Dimension<f32> {
-        Dimension::new(self.vertical_fov * self.ratio, self.vertical_fov)
+    pub fn fov(&self) -> Vector<f32> {
+        Vector::new(self.vertical_fov * self.ratio, self.vertical_fov)
     }
 
     // Setters
@@ -146,7 +146,7 @@ impl Camera {
         &mut self,
         cursors: &mut CursorManager,
         input: &Input,
-        window_size: Dimension<u32>,
+        window_size: Vector<u32>,
         mut new_fov: f32,
     ) {
         if new_fov < MINIMAL_FOV {
@@ -161,7 +161,7 @@ impl Camera {
         &mut self,
         cursors: &mut CursorManager,
         input: &Input,
-        window_size: Dimension<u32>,
+        window_size: Vector<u32>,
         mut new_fov: f32,
     ) {
         if new_fov < MINIMAL_FOV {
@@ -176,7 +176,7 @@ impl Camera {
 pub struct CameraBuffers {
     model: Model,
     uniform: Uniform<Matrix>,
-    fov: Dimension<f32>,
+    fov: Vector<f32>,
 }
 
 impl CameraBuffers {
@@ -196,10 +196,10 @@ impl CameraBuffers {
         let view = camera.view();
         let proj = camera.proj();
         let vertices = [
-            Vertex::new(Vector::new(-fov.width, fov.height), Vector::new(0.0, 0.0)),
-            Vertex::new(Vector::new(-fov.width, -fov.height), Vector::new(0.0, 1.0)),
-            Vertex::new(Vector::new(fov.width, -fov.height), Vector::new(1.0, 1.0)),
-            Vertex::new(Vector::new(fov.width, fov.height), Vector::new(1.0, 0.0)),
+            Vertex::new(Vector::new(-fov.x, fov.y), Vector::new(0.0, 0.0)),
+            Vertex::new(Vector::new(-fov.x, -fov.y), Vector::new(0.0, 1.0)),
+            Vertex::new(Vector::new(fov.x, -fov.y), Vector::new(1.0, 1.0)),
+            Vertex::new(Vector::new(fov.x, fov.y), Vector::new(1.0, 0.0)),
         ];
         self.model.write_vertices(gpu, &vertices);
         self.uniform.write(gpu, view * proj);
@@ -214,7 +214,7 @@ impl CameraBuffers {
         &self.model
     }
 
-    pub fn fov(&self) -> Dimension<f32> {
+    pub fn fov(&self) -> Vector<f32> {
         self.fov
     }
 }

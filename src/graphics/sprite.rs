@@ -1,6 +1,4 @@
-use crate::{
-    CameraBuffers, Color, Dimension, Gpu, GpuDefaults, InstanceBuffer, Instances, Renderer,
-};
+use crate::{CameraBuffers, Color, Gpu, GpuDefaults, InstanceBuffer, Instances, Renderer, Vector};
 use image::GenericImageView;
 use std::num::NonZeroU32;
 
@@ -18,7 +16,7 @@ pub struct Sprite {
     texture: wgpu::Texture,
     bind_group: wgpu::BindGroup,
     format: wgpu::TextureFormat,
-    size: Dimension<u32>,
+    size: Vector<u32>,
 }
 
 impl Sprite {
@@ -39,7 +37,7 @@ impl Sprite {
         defaults: &GpuDefaults,
         instances: &InstanceBuffer,
         camera: &CameraBuffers,
-        texture_size: Dimension<u32>,
+        texture_size: Vector<u32>,
         clear_color: Option<Color>,
         compute: F,
     ) -> Self
@@ -59,8 +57,8 @@ impl Sprite {
         return target;
     }
 
-    pub fn empty(gpu: &Gpu, size: Dimension<u32>) -> Self {
-        assert!(size.width != 0 && size.height != 0);
+    pub fn empty(gpu: &Gpu, size: Vector<u32>) -> Self {
+        assert!(size.x != 0 && size.y != 0);
         let (format, texture) = Self::create_texture(gpu, size);
         let bind_group = Self::create_bind_group(gpu, &texture);
         Self {
@@ -73,7 +71,7 @@ impl Sprite {
 
     pub fn from_image(gpu: &Gpu, image: image::DynamicImage) -> Self {
         use wgpu::TextureFormat;
-        let size = Dimension::new(image.width(), image.height());
+        let size = Vector::new(image.width(), image.height());
         let (format, texture) = Self::create_texture(gpu, size);
         match gpu.config.format {
             TextureFormat::Bgra8Unorm | TextureFormat::Bgra8UnormSrgb => {
@@ -86,7 +84,11 @@ impl Sprite {
                         bytes_per_row: NonZeroU32::new(4 * image.width()),
                         rows_per_image: NonZeroU32::new(image.height()),
                     },
-                    size.into(),
+                    wgpu::Extent3d {
+                        width: size.x,
+                        height: size.y,
+                        depth_or_array_layers: 1,
+                    },
                 );
             }
             _ => {
@@ -99,7 +101,11 @@ impl Sprite {
                         bytes_per_row: NonZeroU32::new(4 * image.width()),
                         rows_per_image: NonZeroU32::new(image.height()),
                     },
-                    size.into(),
+                    wgpu::Extent3d {
+                        width: size.x,
+                        height: size.y,
+                        depth_or_array_layers: 1,
+                    },
                 );
             }
         };
@@ -119,7 +125,7 @@ impl Sprite {
         defaults: &GpuDefaults,
         instances: &InstanceBuffer,
         camera: &CameraBuffers,
-        texture_size: Dimension<u32>,
+        texture_size: Vector<u32>,
         clear_color: Option<Color>,
         compute: F,
     ) where
@@ -129,7 +135,11 @@ impl Sprite {
         let target_view = self.texture.create_view(&Default::default());
 
         let multisampled_frame_descriptor = &wgpu::TextureDescriptor {
-            size: texture_size.into(),
+            size: wgpu::Extent3d {
+                width: texture_size.x,
+                height: texture_size.y,
+                depth_or_array_layers: 1,
+            },
             mip_level_count: 1,
             sample_count: gpu.base.sample_count,
             dimension: wgpu::TextureDimension::D2,
@@ -172,7 +182,7 @@ impl Sprite {
     }
 
     pub fn from_wgpu(
-        size: Dimension<u32>,
+        size: Vector<u32>,
         texture: wgpu::Texture,
         bind_group: wgpu::BindGroup,
         format: wgpu::TextureFormat,
@@ -187,11 +197,15 @@ impl Sprite {
 
     pub(crate) fn create_texture(
         gpu: &Gpu,
-        size: Dimension<u32>,
+        size: Vector<u32>,
     ) -> (wgpu::TextureFormat, wgpu::Texture) {
         let texture = gpu.device.create_texture(&wgpu::TextureDescriptor {
             label: None,
-            size: size.into(),
+            size: wgpu::Extent3d {
+                width: size.x,
+                height: size.y,
+                depth_or_array_layers: 1,
+            },
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
@@ -233,10 +247,14 @@ impl Sprite {
             rgba,
             wgpu::ImageDataLayout {
                 offset: 0,
-                bytes_per_row: NonZeroU32::new(4 * self.size.width),
-                rows_per_image: NonZeroU32::new(self.size.height),
+                bytes_per_row: NonZeroU32::new(4 * self.size.x),
+                rows_per_image: NonZeroU32::new(self.size.y),
             },
-            self.size.into(),
+            wgpu::Extent3d {
+                width: self.size.x,
+                height: self.size.y,
+                depth_or_array_layers: 1,
+            },
         );
     }
 
@@ -248,9 +266,9 @@ impl Sprite {
     }
 
     pub fn to_image(&self, gpu: &Gpu) -> image::DynamicImage {
-        let o_texture_width = self.size.width;
+        let o_texture_width = self.size.x;
         let texture_width = (o_texture_width as f64 / 64.0).ceil() as u32 * 64;
-        let texture_height = self.size.height;
+        let texture_height = self.size.y;
         let output_buffer_size = (4 * texture_width * texture_height) as wgpu::BufferAddress;
         let output_buffer_desc = wgpu::BufferDescriptor {
             size: output_buffer_size,
@@ -280,7 +298,11 @@ impl Sprite {
                     rows_per_image: NonZeroU32::new(texture_height),
                 },
             },
-            self.size.into(),
+            wgpu::Extent3d {
+                width: self.size.x,
+                height: self.size.y,
+                depth_or_array_layers: 1,
+            },
         );
         gpu.queue.submit(Some(encoder.finish()));
 
@@ -314,7 +336,7 @@ impl Sprite {
         return image;
     }
 
-    pub const fn size(&self) -> &Dimension<u32> {
+    pub const fn size(&self) -> &Vector<u32> {
         &self.size
     }
 

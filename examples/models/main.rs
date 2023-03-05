@@ -5,14 +5,14 @@ fn main() {
         ctx.set_camera_vertical_fov(10.0);
         ctx.create_component(ModelTest::new(
             Vector::new(-3.0, 3.0),
-            ctx.create_model(ModelBuilder::cuboid(Dimension::new(0.5, 0.5))),
+            ctx.create_model(ModelBuilder::cuboid(Vector::new(0.5, 0.5))),
             ctx.create_uniform(Color::BLUE),
         ));
 
         ctx.create_component(ModelTest::new(
             Vector::new(-1.0, 3.0),
             ctx.create_model(ModelBuilder::rounded(
-                ModelBuilder::cuboid(Dimension::new(0.5, 0.5)),
+                ModelBuilder::cuboid(Vector::new(0.5, 0.5)),
                 0.25,
                 10,
             )),

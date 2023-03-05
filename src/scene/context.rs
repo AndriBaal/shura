@@ -1,10 +1,10 @@
 use crate::{
     CameraBuffers, Color, ComponentController, ComponentGroup, ComponentGroupDescriptor,
     ComponentHandle, ComponentIdentifier, ComponentPath, ComponentSet, ComponentSetMut,
-    ComponentSetRender, Dimension, DynamicComponent, GroupFilter, InputEvent, InputTrigger,
+    ComponentSetRender, Vector, DynamicComponent, GroupFilter, InputEvent, InputTrigger,
     InstanceBuffer, Instances, Isometry, Key, Matrix, Model, ModelBuilder, Modifier, Renderer,
     Rotation, Scene, Shader, ShaderField, ShaderLang, Shura, Sprite, SpriteSheet, Touch, Uniform,
-    Vector,
+    
 };
 
 #[cfg(feature = "serde")]
@@ -125,6 +125,11 @@ impl<'a> Context<'a> {
     // Create
     //////////////////////////////////////////////////////////////////////////////////////////////
 
+    pub fn take_global_state<T: Any>(&mut self) -> Option<Box<T>> {
+        let state = std::mem::replace(&mut self.shura.global_state, Box::new(()));
+        return state.downcast::<T>().ok();
+    }
+
     pub fn global_state<T: Any>(&self) -> Option<&T> {
         self.shura.global_state.downcast_ref::<T>()
     }
@@ -167,15 +172,15 @@ impl<'a> Context<'a> {
         self.shura.gpu.create_sprite_from_image(image)
     }
 
-    pub fn create_empty_sprite(&self, size: Dimension<u32>) -> Sprite {
+    pub fn create_empty_sprite(&self, size: Vector<u32>) -> Sprite {
         self.shura.gpu.create_empty_sprite(size)
     }
 
     pub fn create_sprite_sheet(
         &self,
         bytes: &[u8],
-        sprites: Dimension<u32>,
-        sprite_size: Dimension<u32>,
+        sprites: Vector<u32>,
+        sprite_size: Vector<u32>,
     ) -> SpriteSheet {
         self.shura
             .gpu
@@ -219,7 +224,7 @@ impl<'a> Context<'a> {
         &self,
         instances: &InstanceBuffer,
         camera: &CameraBuffers,
-        texture_size: Dimension<u32>,
+        texture_size: Vector<u32>,
         clear_color: Option<Color>,
         compute: F,
     ) -> Sprite
@@ -466,7 +471,7 @@ impl<'a> Context<'a> {
         self.shura.gpu.is_vsync()
     }
 
-    pub fn render_size(&self) -> Dimension<u32> {
+    pub fn render_size(&self) -> Vector<u32> {
         self.shura.gpu.render_size(self.render_scale())
     }
 
@@ -496,7 +501,7 @@ impl<'a> Context<'a> {
 
     /// Returns a dimension with the distance from the center of the camera to the right and from the
     /// center to the top.
-    pub fn camera_fov(&self) -> Dimension<f32> {
+    pub fn camera_fov(&self) -> Vector<f32> {
         self.scene.camera.fov()
     }
 
@@ -548,8 +553,9 @@ impl<'a> Context<'a> {
         self.shura.end = end
     }
 
-    pub fn window_size(&self) -> Dimension<u32> {
-        self.shura.window.inner_size().into()
+    pub fn window_size(&self) -> Vector<u32> {
+        let mint: mint::Vector2<u32> = self.shura.window.inner_size().into();
+        return mint.into();
     }
 
     #[cfg(feature = "physics")]
@@ -922,8 +928,9 @@ impl<'a> Context<'a> {
         );
     }
 
-    pub fn set_window_size(&mut self, size: Dimension<u32>) {
-        let size: winit::dpi::PhysicalSize<u32> = size.into();
+    pub fn set_window_size(&mut self, size: Vector<u32>) {
+        let mint: mint::Vector2<u32> = size.into();
+        let size: winit::dpi::PhysicalSize<u32> = mint.into();
         self.shura.window.set_inner_size(size);
     }
 

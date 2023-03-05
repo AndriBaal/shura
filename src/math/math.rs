@@ -1,5 +1,3 @@
-use crate::Dimension;
-
 pub use nalgebra::Isometry2 as Isometry;
 pub use nalgebra::Point2 as Point;
 pub use nalgebra::Translation2 as Translation;
@@ -10,12 +8,4 @@ pub use nalgebra::Vector3 as SpacialVector;
 
 pub const fn vector<T>(x: T, y: T) -> Vector<T> {
     return Vector::new(x, y);
-}
-
-pub const fn dim<T>(x: T, y: T) -> Dimension<T> {
-    return Dimension::new(x, y);
-}
-
-pub mod na {
-    pub use nalgebra::*;
 }

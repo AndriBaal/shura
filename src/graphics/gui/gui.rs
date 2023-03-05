@@ -1,4 +1,4 @@
-use crate::{Dimension, Gpu};
+use crate::{Vector, Gpu};
 use egui::Context;
 use egui_wgpu::renderer::{Renderer, ScreenDescriptor};
 use egui_winit::State;
@@ -35,9 +35,9 @@ impl Gui {
         }
     }
 
-    pub(crate) fn resize(&mut self, size: &Dimension<u32>) {
+    pub(crate) fn resize(&mut self, size: &Vector<u32>) {
         self.screen_descriptor = ScreenDescriptor {
-            size_in_pixels: [size.width, size.height],
+            size_in_pixels: [size.x, size.y],
             pixels_per_point: 1.0,
         };
     }

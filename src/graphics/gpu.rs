@@ -1,12 +1,11 @@
 #[cfg(feature = "text")]
 use crate::text::{CreateFont, CreateText, Font, TextDescriptor};
 use crate::{
-    Camera, CameraBuffers, Color, Dimension, InstanceBuffer, Instances, Matrix, Model,
-    ModelBuilder, Renderer, Shader, ShaderField, ShaderLang, Sprite, SpriteSheet, Uniform,
+    Camera, CameraBuffers, Color, InstanceBuffer, Instances, Matrix, Model, ModelBuilder, Renderer,
+    Shader, ShaderField, ShaderLang, Sprite, SpriteSheet, Uniform, Vector,
 };
 use log::info;
 use std::borrow::Cow;
-
 pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 1.0;
 
 macro_rules! Where {
@@ -89,9 +88,9 @@ impl Gpu {
         return gpu;
     }
 
-    pub(crate) fn resize(&mut self, size: Dimension<u32>) {
-        self.config.width = size.width;
-        self.config.height = size.height;
+    pub(crate) fn resize(&mut self, size: Vector<u32>) {
+        self.config.width = size.x;
+        self.config.height = size.y;
         self.surface.configure(&self.device, &self.config);
     }
 
@@ -116,15 +115,15 @@ impl Gpu {
         self.config.present_mode == wgpu::PresentMode::AutoVsync
     }
 
-    pub fn render_size(&self, scale: f32) -> Dimension<u32> {
-        Dimension::new(
+    pub fn render_size(&self, scale: f32) -> Vector<u32> {
+        Vector::new(
             (self.config.width as f32 * scale) as u32,
             (self.config.height as f32 * scale) as u32,
         )
     }
 
-    pub fn render_size_no_scale(&self) -> Dimension<u32> {
-        Dimension::new(self.config.width, self.config.height)
+    pub fn render_size_no_scale(&self) -> Vector<u32> {
+        Vector::new(self.config.width, self.config.height)
     }
 
     /// Tries to enable or disable vSync. The default is always vSync to be on.
@@ -138,10 +137,14 @@ impl Gpu {
         self.surface.configure(&self.device, &self.config);
     }
 
-    fn create_msaa(&self, size: Dimension<u32>) -> wgpu::TextureView {
+    fn create_msaa(&self, size: Vector<u32>) -> wgpu::TextureView {
         let sample_count = self.base.sample_count;
         let multisampled_frame_descriptor = &wgpu::TextureDescriptor {
-            size: size.into(),
+            size: wgpu::Extent3d {
+                width: size.x,
+                height: size.y,
+                depth_or_array_layers: 1,
+            },
             mip_level_count: 1,
             sample_count,
             dimension: wgpu::TextureDimension::D2,
@@ -156,11 +159,15 @@ impl Gpu {
             .create_view(&wgpu::TextureViewDescriptor::default())
     }
 
-    fn create_target(&self, size: Dimension<u32>) -> (Sprite, wgpu::TextureView) {
+    fn create_target(&self, size: Vector<u32>) -> (Sprite, wgpu::TextureView) {
         let format = self.config.format;
         let target_texture = self.device.create_texture(&wgpu::TextureDescriptor {
             label: Some("Render Target"),
-            size: size.into(),
+            size: wgpu::Extent3d {
+                width: size.x,
+                height: size.y,
+                depth_or_array_layers: 1,
+            },
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
@@ -193,6 +200,10 @@ impl Gpu {
         return (sprite, target_view);
     }
 
+    pub fn create_camera_buffers(&self, camera: &Camera) -> CameraBuffers {
+        CameraBuffers::new(self, camera)
+    }
+
     pub fn create_instance_buffer(&self, instances: &[Matrix]) -> InstanceBuffer {
         InstanceBuffer::new(self, instances)
     }
@@ -209,15 +220,15 @@ impl Gpu {
         Sprite::from_image(self, image)
     }
 
-    pub fn create_empty_sprite(&self, size: Dimension<u32>) -> Sprite {
+    pub fn create_empty_sprite(&self, size: Vector<u32>) -> Sprite {
         Sprite::empty(self, size)
     }
 
     pub fn create_sprite_sheet(
         &self,
         bytes: &[u8],
-        sprites: Dimension<u32>,
-        sprite_size: Dimension<u32>,
+        sprites: Vector<u32>,
+        sprite_size: Vector<u32>,
     ) -> SpriteSheet {
         SpriteSheet::new(self, bytes, sprites, sprite_size)
     }
@@ -258,7 +269,7 @@ impl Gpu {
         defaults: &GpuDefaults,
         instances: &InstanceBuffer,
         camera: &CameraBuffers,
-        texture_size: Dimension<u32>,
+        texture_size: Vector<u32>,
         clear_color: Option<Color>,
         compute: F,
     ) -> Sprite
@@ -484,8 +495,10 @@ impl GpuDefaults {
         let times = Uniform::new(gpu, [0.0, 0.0]);
         let single_centered_instance = InstanceBuffer::new(gpu, &[Matrix::new(Default::default())]);
 
-        let relative_and_default_camera =
-            &Camera::new(Default::default(), 1.0, RELATIVE_CAMERA_SIZE);
+        let relative_and_default_camera = &Camera::new(
+            Default::default(),
+            Vector::new(RELATIVE_CAMERA_SIZE, RELATIVE_CAMERA_SIZE),
+        );
         let relative_camera = CameraBuffers::new(gpu, &relative_and_default_camera);
         let world_camera = CameraBuffers::new(gpu, &relative_and_default_camera);
 

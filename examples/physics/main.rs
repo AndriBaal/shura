@@ -105,7 +105,7 @@ impl ComponentController for BoxManager {
         let scroll = ctx.wheel_delta();
         let fov = ctx.camera_fov();
         if scroll != 0.0 {
-            ctx.set_camera_horizontal_fov(fov.width + scroll);
+            ctx.set_camera_horizontal_fov(fov.x + scroll);
         }
 
         if ctx.is_held(MouseButton::Right) {

@@ -1,5 +1,5 @@
 use crate::{
-    Camera, ComponentManager, Context, CursorManager, Dimension, Isometry, RenderConfig, Shura,
+    Camera, ComponentManager, Context, CursorManager, Vector, Isometry, RenderConfig, Shura,
     Sprite,
 };
 
@@ -25,8 +25,9 @@ impl<N: 'static + FnMut(&mut Context)> SceneCreator for NewScene<N> {
     }
 
     fn create(&mut self, shura: &mut Shura) -> Scene {
-        let window_size: Dimension<u32> = shura.window.inner_size().into();
-        let window_ratio = window_size.width as f32 / window_size.height as f32;
+        let mint: mint::Vector2<u32> = shura.window.inner_size().into();
+        let window_size: Vector<u32> = mint.into();
+        let window_ratio = window_size.x as f32 / window_size.y as f32;
         let mut scene = Scene::new(window_ratio, self.id);
         let mut ctx = Context {
             shura,
@@ -65,11 +66,12 @@ pub struct Scene {
 impl Scene {
     pub(crate) fn new(ratio: f32, id: u32) -> Self {
         const DEFAULT_VERTICAL_CAMERA_FOV: f32 = 5.0;
+        let fov = Vector::new(DEFAULT_VERTICAL_CAMERA_FOV * ratio, DEFAULT_VERTICAL_CAMERA_FOV);
         Self {
             id: id,
             switched: true,
             resized: true,
-            camera: Camera::new(Isometry::default(), ratio, DEFAULT_VERTICAL_CAMERA_FOV),
+            camera: Camera::new(Isometry::default(), fov),
             cursor: CursorManager::new(),
             component_manager: ComponentManager::new(),
             render_config: RenderConfig::new(),

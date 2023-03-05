@@ -27,7 +27,7 @@ impl StartButton {
         ctx.set_physics_priority(None);
         let text = ctx.create_text(TextDescriptor {
             font: ctx.create_font(include_bytes!("")),
-            size: Dimension::new(600, 200),
+            size: Vector::new(600, 200),
             clear_color: Some(Color::new_rgba(0, 0, 0, 255)),
             sections: vec![TextSection {
                 position: Vector::new(0.0, 0.0),
@@ -40,7 +40,7 @@ impl StartButton {
         let sink = ctx.create_sink();
         let start = ctx.create_sound(include_bytes!("./audio/start.wav"));
         Self {
-            model: ctx.create_model(ModelBuilder::cuboid(Dimension::new(0.5, 0.167))),
+            model: ctx.create_model(ModelBuilder::cuboid(Vector::new(0.5, 0.167))),
             text,
             sink,
             start,

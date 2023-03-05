@@ -1,4 +1,4 @@
-use crate::{Dimension, Isometry, Rotation, Vector};
+use crate::{Vector, Isometry, Rotation};
 use nalgebra::Vector4;
 use std::mem;
 use std::ops::*;
@@ -49,14 +49,14 @@ impl Matrix {
     }
 
     /// Frustum
-    pub fn projection(mut fov: Dimension<f32>) -> Matrix {
+    pub fn projection(mut fov: Vector<f32>) -> Matrix {
         const NEAR: f32 = 3.0;
         const FAR: f32 = 7.0;
         fov /= 2.0;
-        let left = -fov.width;
-        let right = fov.width;
-        let bottom = -fov.height;
-        let top = fov.height;
+        let left = -fov.x;
+        let right = fov.x;
+        let bottom = -fov.y;
+        let top = fov.y;
         let r_width = 1.0 / (left - right);
         let r_height = 1.0 / (top - bottom);
         let r_depth = 1.0 / (NEAR - FAR);

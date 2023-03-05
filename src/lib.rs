@@ -67,7 +67,7 @@ pub use crate::{
         vertex::{Index, Vertex},
     },
     input::{cursor_manager::*, input::*},
-    math::{dimension::*, math::*, matrix::*},
+    math::{math::*, matrix::*},
     scene::{context::*, scene::*, scene_manager::*},
     shura_core::*,
 };
@@ -144,3 +144,13 @@ pub mod gamepad {
 // serde
 #[cfg(feature = "serde")]
 pub use crate::scene::scene_serde::*;
+
+
+pub mod na {
+    pub use nalgebra::*;
+}
+
+pub mod mint {
+    pub use mint::*;
+}
+

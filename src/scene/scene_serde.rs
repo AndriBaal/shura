@@ -13,7 +13,7 @@ use std::{cmp, marker::PhantomData};
 
 use crate::{
     Arena, ArenaEntry, ComponentController, ComponentIdentifier, ComponentManager, ComponentTypeId,
-    Context, Dimension, DynamicComponent, GroupFilter, Scene, SceneCreator, Shura,
+    Context, DynamicComponent, GroupFilter, Scene, SceneCreator, Shura, Vector,
 };
 
 pub struct ComponentSerializer<'a> {
@@ -266,8 +266,9 @@ impl<'de, C: ComponentController> DeserializeWrapper<'de, C> {
 
 impl Scene {
     pub(crate) fn before_deserialize(&mut self, id: u32, shura: &Shura) {
-        let window_size: Dimension<u32> = shura.window.inner_size().into();
-        let window_ratio = window_size.width as f32 / window_size.height as f32;
+        let mint: mint::Vector2<u32> = shura.window.inner_size().into();
+        let window_size: Vector<u32> = mint.into();
+        let window_ratio = window_size.x as f32 / window_size.y as f32;
         self.id = id;
         self.camera.resize(window_ratio);
         self.cursor

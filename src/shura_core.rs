@@ -1,12 +1,15 @@
 use std::any::Any;
 
+#[cfg(target_os = "android")]
+use winit::platform::android::activity::AndroidApp;
+
 #[cfg(feature = "gui")]
 use crate::gui::Gui;
 #[cfg(feature = "physics")]
 use crate::physics::{ActiveEvents, CollideType};
 use crate::{
-    Color, Context, Dimension, FrameManager, Gpu, GpuDefaults, Input, PostproccessOperation,
-    RenderOperation, Renderer, Scene, SceneCreator, SceneManager, Sprite,
+    Color, Context, FrameManager, Gpu, GpuDefaults, Input, PostproccessOperation, RenderOperation,
+    Renderer, Scene, SceneCreator, SceneManager, Sprite, Vector,
 };
 use log::{error, info};
 
@@ -32,8 +35,20 @@ pub struct Shura {
 
 impl Shura {
     /// Start a new game with the given callback to initialize the first [Scene](crate::Scene).
-    pub fn init<C: SceneCreator>(creator: C) {
+    pub fn init<C: SceneCreator>(#[cfg(target_os = "android")] app: AndroidApp, creator: C) {
+        #[cfg(target_os = "android")]
+        use winit::platform::android::EventLoopBuilderExtAndroid;
+        #[cfg(target_os = "android")]
+        android_logger::init_once(
+            android_logger::Config::default().with_min_level(log::Level::Info),
+        );
+
         info!("Using shura version: {}", env!("CARGO_PKG_VERSION"));
+        #[cfg(target_os = "android")]
+        let events = winit::event_loop::EventLoopBuilder::new()
+            .with_android_app(app)
+            .build();
+        #[cfg(not(target_os = "android"))]
         let events = winit::event_loop::EventLoop::new();
         let window = winit::window::WindowBuilder::new()
             .with_inner_size(winit::dpi::PhysicalSize::new(INITIAL_WIDTH, INITIAL_HEIGHT))
@@ -114,14 +129,14 @@ impl Shura {
                                     shura.end(control_flow);
                                 }
                                 WindowEvent::Resized(physical_size) => {
-                                    shura.resize(
-                                        (*physical_size as winit::dpi::PhysicalSize<u32>).into(),
-                                    );
+                                    let mint: mint::Vector2<u32> = (*physical_size).into();
+                                    let window_size: Vector<u32> = mint.into();
+                                    shura.resize(window_size);
                                 }
                                 WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                                    shura.resize(
-                                        (**new_inner_size as winit::dpi::PhysicalSize<u32>).into(),
-                                    );
+                                    let mint: mint::Vector2<u32> = (**new_inner_size).into();
+                                    let window_size: Vector<u32> = mint.into();
+                                    shura.resize(window_size);
                                 }
                                 _ => shura.input.event(event),
                             }
@@ -145,7 +160,9 @@ impl Shura {
                         match update_status {
                             Ok(_) => {}
                             Err(wgpu::SurfaceError::Lost) => {
-                                shura.resize(shura.window.inner_size().into())
+                                let mint: mint::Vector2<u32> = shura.window.inner_size().into();
+                                let window_size: Vector<u32> = mint.into();
+                                shura.resize(window_size);
                             }
                             Err(wgpu::SurfaceError::OutOfMemory) => {
                                 *control_flow = winit::event_loop::ControlFlow::Exit
@@ -220,7 +237,7 @@ impl Shura {
                 scene: &mut scene.unwrap(),
                 shura: self,
             };
-            
+
             for (_, type_id) in ctx.scene.component_manager.end_callbacks() {
                 let paths = ctx.scene.component_manager.all_paths(type_id);
                 if paths.len() > 0 {
@@ -231,9 +248,9 @@ impl Shura {
         }
     }
 
-    fn resize(&mut self, new_size: Dimension<u32>) {
+    fn resize(&mut self, new_size: Vector<u32>) {
         let config_size = self.gpu.render_size_no_scale();
-        if new_size.width > 0 && new_size.height > 0 && new_size != config_size {
+        if new_size.x > 0 && new_size.y > 0 && new_size != config_size {
             let active = self.scene_manager.resize();
             self.gpu.resize(new_size);
             self.defaults
@@ -322,7 +339,7 @@ impl Shura {
         if ctx.scene.resized {
             ctx.scene
                 .camera
-                .resize(window_size.width as f32 / window_size.height as f32);
+                .resize(window_size.x as f32 / window_size.y as f32);
         }
 
         if ctx.scene.switched {

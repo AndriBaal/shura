@@ -40,23 +40,25 @@ default = ["gamepad", "text", "audio", "physics", "gui", "serde"]
 crate-type = ["lib", "cdylib"]
 
 [dependencies]
-delaunator="1.0.1"
-nalgebra = { version = "0.32.1", features = ["convert-bytemuck"] }
+delaunator = "1.0.1"
+mint = { version = "0.5.6" }
+nalgebra = { version = "0.32.1", features = ["convert-bytemuck", "mint"] }
 # wgpu_glyph = { version = "0.19.0", optional = true }
 wgpu_glyph = { git = "https://github.com/sconybeare/wgpu_glyph", branch = "wgpu-0.15", optional = true }
 gilrs = { version = "0.10.1", optional = true }
 naga = "0.11.0"
-egui-winit = { version = "0.21.0", optional = true }
-egui-wgpu = { version = "0.21.0", features = ["winit"], optional = true }
-egui = { version = "0.21.0", default-features = false, optional = true, features = [
+egui-winit = { version = "0.21", optional = true }
+egui-wgpu = { version = "0.21", features = ["winit"], optional = true }
+egui = { version = "0.21", default-features = false, optional = true, features = [
     "bytemuck",
     "tracing",
     "default_fonts",
+    "mint",
 ] }
-rapier2d = { version = "0.17.1", optional = true }
+rapier2d = { version = "0.17", optional = true }
 log = "0.4.17"
 downcast-rs = "1.2.0"
-winit = { version = "0.28.1" }
+winit = { version = "0.28", features = ["mint"] }
 rustc-hash = "1.1"
 futures-intrusive = "0.5.0"
 pollster = "0.3.0"
@@ -78,6 +80,9 @@ wgpu = { version = "0.15.1", features = ["glsl"] }
 rodio = { version = "0.17.0", default-features = false, optional = true, features = [
     "symphonia-all",
 ] }
+
+[target.'cfg(target_os = "android")'.dependencies]
+android_logger = "0.11.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.2", features = ["js"] }
