@@ -1,10 +1,10 @@
 use crate::{
-    CameraBuffer, Color, ComponentController, ComponentGroup, ComponentGroupDescriptor,
+    Camera, CameraBuffer, Color, ComponentController, ComponentGroup, ComponentGroupDescriptor,
     ComponentHandle, ComponentIdentifier, ComponentPath, ComponentSet, ComponentSetMut,
     ComponentSetRender, DynamicComponent, GroupFilter, InputEvent, InputTrigger, InstanceBuffer,
     Instances, Isometry, Key, Matrix, Model, ModelBuilder, Modifier, Renderer, Rotation, Scene,
     SceneCreator, Shader, ShaderField, ShaderLang, Shura, Sprite, SpriteSheet, Touch, Uniform,
-    Vector, Camera,
+    Vector,
 };
 
 #[cfg(feature = "serde")]

@@ -622,7 +622,6 @@ impl ComponentManager {
         return self.active_components.clone();
     }
 
-
     pub fn set_render_components(&mut self, render_components: bool) {
         self.render_components = render_components
     }

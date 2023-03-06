@@ -181,7 +181,8 @@ impl<'a> Renderer<'a> {
     }
 
     pub fn commit_one(&mut self, instance: Instance) {
-        self.render_pass.draw_indexed(0..self.indices, 0, instance..instance+1);
+        self.render_pass
+            .draw_indexed(0..self.indices, 0, instance..instance + 1);
     }
 
     pub const fn gpu(&self) -> &Gpu {
