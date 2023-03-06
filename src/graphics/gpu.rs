@@ -107,7 +107,7 @@ impl Gpu {
 
     #[cfg(target_os = "android")]
     pub(crate) fn resume(&mut self, window: &winit::window::Window) {
-        self.surface = unsafe { self.instance.create_surface(window) };
+        self.surface = unsafe { self.instance.create_surface(window).unwrap() };
         self.surface.configure(&self.device, &self.config);
     }
 

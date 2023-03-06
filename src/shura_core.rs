@@ -35,13 +35,13 @@ pub struct Shura {
 
 impl Shura {
     /// Start a new game with the given callback to initialize the first [Scene](crate::Scene).
-    pub fn init<C: SceneCreator>(#[cfg(target_os = "android")] app: AndroidApp, creator: C) {
+    pub fn init<C: SceneCreator + 'static>(#[cfg(target_os = "android")] app: AndroidApp, creator: C) {
         #[cfg(target_os = "android")]
         use winit::platform::android::EventLoopBuilderExtAndroid;
-        #[cfg(target_os = "android")]
-        android_logger::init_once(
-            android_logger::Config::default().with_min_level(log::Level::Info),
-        );
+        // #[cfg(target_os = "android")]
+        // android_logger::init_once(
+        //     android_logger::Config::default().with_min_level(log::Level::Info),
+        // );
 
         info!("Using shura version: {}", env!("CARGO_PKG_VERSION"));
         #[cfg(target_os = "android")]
@@ -187,7 +187,7 @@ impl Shura {
                 #[cfg(target_os = "android")]
                 match event {
                     Event::Resumed => {
-                        active = Some(Shura::new(
+                        shura = Some(Shura::new(
                             window.take().unwrap(),
                             &_target,
                             init.take().unwrap(),
@@ -344,6 +344,7 @@ impl Shura {
             }
             if size != ctx.shura.window.inner_size().into() {
                 ctx.shura.window.set_inner_size(size);
+                info!("{:?}", browser_window.document().unwrap().body().unwrap().client_width());
                 info!("Adjusting canvas to browser window!");
             }
         }
@@ -438,15 +439,9 @@ impl Shura {
             ctx.shura.frame_manager.frame_time(),
         );
 
-        let output = ctx.shura.gpu.surface.get_current_texture()?;
         let mut encoder = ctx.shura.gpu.encoder();
-
         let mut saved_sprites = vec![];
         let render_size = ctx.render_size();
-        let output_view = output
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
-
         // Clear the texture
         if let Some(clear_color) = ctx.clear_color() {
             Renderer::clear(
@@ -613,6 +608,10 @@ impl Shura {
         }
 
         ctx.scene.saved_sprites = saved_sprites;
+        let output = ctx.shura.gpu.surface.get_current_texture()?;
+        let output_view = output
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
 
         {
             let mut renderer = Renderer::new(

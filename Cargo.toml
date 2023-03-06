@@ -58,7 +58,6 @@ egui = { version = "0.21", default-features = false, optional = true, features =
 rapier2d = { version = "0.17", optional = true }
 log = "0.4.17"
 downcast-rs = "1.2.0"
-winit = { version = "0.28", features = ["mint"] }
 rustc-hash = "1.1"
 futures-intrusive = "0.5.0"
 pollster = "0.3.0"
@@ -75,18 +74,16 @@ bincode = { version = "1.3.3", optional = true }
 
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-env_logger = "0.10.0"
-wgpu = { version = "0.15.1", features = ["glsl"] }
-rodio = { version = "0.17.0", default-features = false, optional = true, features = [
+env_logger = "0.10"
+wgpu = { version = "0.15", features = ["glsl"] }
+rodio = { version = "0.17", default-features = false, optional = true, features = [
     "symphonia-all",
 ] }
 
-[target.'cfg(target_os = "android")'.dependencies]
-android_logger = "0.11.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.2", features = ["js"] }
-rodio = { version = "0.17.0", features = [
+rodio = { version = "0.17", features = [
     "wasm-bindgen",
     "symphonia-all",
 ], default-features = false, optional = true }
@@ -99,3 +96,10 @@ web-sys = { version = "0.3", features = ["Document", "Window", "Element"] }
 
 [dev-dependencies]
 rand = "0.8.5"
+
+
+[target.'cfg(target_os = "android")'.dependencies]
+winit = { version = "0.28", features = ["mint", "android-native-activity"] }
+
+[target.'cfg(not(target_os = "android"))'.dependencies]
+winit = { version = "0.28", features = ["mint"] }

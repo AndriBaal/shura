@@ -1,3 +1,4 @@
+use shura::log::*;
 use shura::physics::*;
 use shura::*;
 use std::{fmt, fs};
