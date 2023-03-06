@@ -59,7 +59,7 @@ pub struct Scene {
     pub cursor: CursorManager,
     pub render_config: RenderConfig,
     pub camera: Camera,
-    pub component_manager: ComponentManager,
+    pub component_manager: ComponentManager
 }
 
 impl Scene {

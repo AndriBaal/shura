@@ -328,6 +328,25 @@ impl Shura {
             scene: scene,
         };
 
+        #[cfg(target_arch = "wasm32")]
+        {
+            use crate::log::warn;
+            const MAX_WEBGL_TEXTURE_SIZE: u32 = 2048;
+            let browser_window = web_sys::window().unwrap();
+            let width: u32 = browser_window.inner_width().unwrap().as_f64().unwrap() as u32;
+            let height: u32 = browser_window.inner_height().unwrap().as_f64().unwrap() as u32;
+            let size = winit::dpi::PhysicalSize::new(width, height);
+            if size.width > MAX_WEBGL_TEXTURE_SIZE || size.height > MAX_WEBGL_TEXTURE_SIZE {
+                let max = size.width.max(size.height);
+                let scale = MAX_WEBGL_TEXTURE_SIZE as f32 / max as f32;
+                warn!("Auto scaling down to {} because the maximum WebGL texturesize has been surpassed!", scale);
+                ctx.set_render_scale(scale);
+            }
+            if size != ctx.shura.window.inner_size().into() {
+                ctx.shura.window.set_inner_size(size);
+                info!("Adjusting canvas to browser window!");
+            }
+        }
         let window_size = ctx.window_size();
         ctx.shura.frame_manager.update();
         #[cfg(feature = "gui")]
@@ -361,8 +380,7 @@ impl Shura {
             }
         };
         let now = ctx.update_time();
-
-        if ctx.update_components() {
+        {
             let sets = ctx.scene.component_manager.copy_active_components();
             for set in sets.values() {
                 if set.paths().len() < 1 {
@@ -395,8 +413,6 @@ impl Shura {
 
                 (set.callbacks().call_update)(set.paths(), &mut ctx);
             }
-
-            // ctx.scene.component_manager.return_active_components(sets)
         }
 
         #[cfg(feature = "physics")]

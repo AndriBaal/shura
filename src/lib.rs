@@ -42,7 +42,6 @@ mod scene;
 mod shura_core;
 
 pub use instant::Duration;
-pub use log::{debug, error, info, trace, warn};
 pub use shura_proc::*;
 
 pub(crate) use {component::controller_caller::*, data::arena::*, data::arena_path::*};
@@ -151,4 +150,8 @@ pub mod na {
 
 pub mod mint {
     pub use mint::*;
+}
+
+pub mod log {
+    pub use log::{debug, error, info, trace, warn};
 }

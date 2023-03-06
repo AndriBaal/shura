@@ -1,4 +1,4 @@
-use crate::{math::matrix::Matrix, Gpu};
+use crate::{math::matrix::Matrix, Gpu, Instances};
 use wgpu::util::DeviceExt;
 
 /// Buffer holding multiple [Positions](crate::Isometry) in form of [Matrices](crate::Matrix).
@@ -20,7 +20,7 @@ impl InstanceBuffer {
     }
 
     pub fn write(&mut self, gpu: &Gpu, data: &[Matrix]) {
-        assert_eq!(data.len() as u32, self.instances());
+        assert_eq!(data.len() as u32, self.amount_of_instances());
         gpu.queue
             .write_buffer(&self.buffer, 0, bytemuck::cast_slice(&data));
     }
@@ -33,7 +33,11 @@ impl InstanceBuffer {
         self.buffer.size()
     }
 
-    pub fn instances(&self) -> u32 {
+    pub fn instances(&self) -> Instances {
+        0..self.amount_of_instances()
+    }
+
+    pub fn amount_of_instances(&self) -> u32 {
         const MATRIX_SIZE: u64 = std::mem::size_of::<Matrix>() as u64;
         let buffer_size = self.size();
         return (buffer_size / MATRIX_SIZE) as u32;

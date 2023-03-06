@@ -1,4 +1,4 @@
-use crate::{CameraBuffers, Color, Gpu, GpuDefaults, InstanceBuffer, Instances, Renderer, Vector};
+use crate::{CameraBuffer, Color, Gpu, GpuDefaults, InstanceBuffer, Instances, Renderer, Vector};
 use image::GenericImageView;
 use std::num::NonZeroU32;
 
@@ -36,7 +36,7 @@ impl Sprite {
         gpu: &Gpu,
         defaults: &GpuDefaults,
         instances: &InstanceBuffer,
-        camera: &CameraBuffers,
+        camera: &CameraBuffer,
         texture_size: Vector<u32>,
         clear_color: Option<Color>,
         compute: F,
@@ -123,8 +123,8 @@ impl Sprite {
         &self,
         gpu: &Gpu,
         defaults: &GpuDefaults,
-        instances: &InstanceBuffer,
-        camera: &CameraBuffers,
+        instance_buffer: &InstanceBuffer,
+        camera: &CameraBuffer,
         texture_size: Vector<u32>,
         clear_color: Option<Color>,
         compute: F,
@@ -159,8 +159,8 @@ impl Sprite {
         {
             let mut renderer = Renderer::new(gpu, defaults, &mut encoder, &target_view, &msaa);
             renderer.use_uniform(&camera.uniform(), 0);
-            renderer.set_instance_buffer(&defaults.single_centered_instance);
-            compute(&mut renderer, 0..instances.instances(), []);
+            renderer.set_instance_buffer(instance_buffer);
+            compute(&mut renderer, instance_buffer.instances(), []);
         }
         gpu.finish_enocder(encoder);
     }
@@ -170,7 +170,7 @@ impl Sprite {
         gpu: &Gpu,
         defaults: &GpuDefaults,
         encoder: &mut wgpu::CommandEncoder,
-        relative_camera: &CameraBuffers,
+        relative_camera: &CameraBuffer,
     ) {
         let target_view = self.texture.create_view(&Default::default());
         let mut renderer =

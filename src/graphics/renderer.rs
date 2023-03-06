@@ -1,5 +1,5 @@
 use crate::{
-    CameraBuffers, Color, Gpu, GpuDefaults, InstanceBuffer, Model, Shader, Sprite, Uniform,
+    CameraBuffer, Color, Gpu, GpuDefaults, InstanceBuffer, Model, Shader, Sprite, Uniform,
 };
 
 /// Single index of an instance inside a [InstanceBuffer](crate::InstanceBuffer).
@@ -74,7 +74,7 @@ impl<'a> Renderer<'a> {
         self.render_pass.set_vertex_buffer(1, buffer.slice());
     }
 
-    pub(crate) fn enable_camera(&mut self, camera: &'a CameraBuffers) {
+    pub(crate) fn enable_camera(&mut self, camera: &'a CameraBuffer) {
         self.render_pass
             .set_bind_group(0, camera.uniform().bind_group(), &[]);
     }
@@ -176,15 +176,13 @@ impl<'a> Renderer<'a> {
         self.use_uniform(&self.defaults.times, 1);
     }
 
-    // pub fn render_cropped(&mut self, model: &'a Model) {
-
-    // }
-
     pub fn commit(&mut self, instances: Instances) {
         self.render_pass.draw_indexed(0..self.indices, 0, instances);
     }
 
-    // Getter
+    pub fn commit_one(&mut self, instance: Instance) {
+        self.render_pass.draw_indexed(0..self.indices, 0, instance..instance+1);
+    }
 
     pub const fn gpu(&self) -> &Gpu {
         &self.gpu

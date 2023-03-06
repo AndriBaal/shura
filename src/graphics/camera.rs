@@ -173,14 +173,14 @@ impl Camera {
     }
 }
 
-pub struct CameraBuffers {
+pub struct CameraBuffer {
     model: Model,
     uniform: Uniform<Matrix>,
     fov: Vector<f32>,
 }
 
-impl CameraBuffers {
-    pub fn new(gpu: &Gpu, camera: &Camera) -> CameraBuffers {
+impl CameraBuffer {
+    pub fn new(gpu: &Gpu, camera: &Camera) -> CameraBuffer {
         let fov = camera.fov() / 2.0;
         let view = camera.view();
         let proj = camera.proj();

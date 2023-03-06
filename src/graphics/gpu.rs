@@ -1,7 +1,7 @@
 #[cfg(feature = "text")]
 use crate::text::{CreateFont, CreateText, Font, TextDescriptor};
 use crate::{
-    Camera, CameraBuffers, Color, InstanceBuffer, Instances, Matrix, Model, ModelBuilder, Renderer,
+    Camera, CameraBuffer, Color, InstanceBuffer, Instances, Matrix, Model, ModelBuilder, Renderer,
     Shader, ShaderField, ShaderLang, Sprite, SpriteSheet, Uniform, Vector,
 };
 use log::info;
@@ -200,8 +200,8 @@ impl Gpu {
         return (sprite, target_view);
     }
 
-    pub fn create_camera_buffers(&self, camera: &Camera) -> CameraBuffers {
-        CameraBuffers::new(self, camera)
+    pub fn create_camera_buffer(&self, camera: &Camera) -> CameraBuffer {
+        CameraBuffer::new(self, camera)
     }
 
     pub fn create_instance_buffer(&self, instances: &[Matrix]) -> InstanceBuffer {
@@ -268,7 +268,7 @@ impl Gpu {
         &self,
         defaults: &GpuDefaults,
         instances: &InstanceBuffer,
-        camera: &CameraBuffers,
+        camera: &CameraBuffer,
         texture_size: Vector<u32>,
         clear_color: Option<Color>,
         compute: F,
@@ -421,8 +421,8 @@ pub struct GpuDefaults {
     /// the struct also needs 2 additional floats which are empty to match the 16 byte alignment
     /// some devices need.
     pub times: Uniform<[f32; 2]>,
-    pub relative_camera: CameraBuffers,
-    pub world_camera: CameraBuffers,
+    pub relative_camera: CameraBuffer,
+    pub world_camera: CameraBuffer,
     pub single_centered_instance: InstanceBuffer,
     pub present_msaa: wgpu::TextureView,
     pub target_msaa: wgpu::TextureView,
@@ -499,8 +499,8 @@ impl GpuDefaults {
             Default::default(),
             Vector::new(RELATIVE_CAMERA_SIZE, RELATIVE_CAMERA_SIZE),
         );
-        let relative_camera = CameraBuffers::new(gpu, &relative_and_default_camera);
-        let world_camera = CameraBuffers::new(gpu, &relative_and_default_camera);
+        let relative_camera = CameraBuffer::new(gpu, &relative_and_default_camera);
+        let world_camera = CameraBuffer::new(gpu, &relative_and_default_camera);
 
         Self {
             sprite,

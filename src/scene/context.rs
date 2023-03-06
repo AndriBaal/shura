@@ -1,10 +1,10 @@
 use crate::{
-    CameraBuffers, Color, ComponentController, ComponentGroup, ComponentGroupDescriptor,
+    CameraBuffer, Color, ComponentController, ComponentGroup, ComponentGroupDescriptor,
     ComponentHandle, ComponentIdentifier, ComponentPath, ComponentSet, ComponentSetMut,
     ComponentSetRender, DynamicComponent, GroupFilter, InputEvent, InputTrigger, InstanceBuffer,
     Instances, Isometry, Key, Matrix, Model, ModelBuilder, Modifier, Renderer, Rotation, Scene,
     SceneCreator, Shader, ShaderField, ShaderLang, Shura, Sprite, SpriteSheet, Touch, Uniform,
-    Vector,
+    Vector, Camera,
 };
 
 #[cfg(feature = "serde")]
@@ -164,6 +164,10 @@ impl<'a> Context<'a> {
         self.shura.gpu.create_model(builder)
     }
 
+    pub fn create_camera_buffer(&self, camera: &Camera) -> CameraBuffer {
+        self.shura.gpu.create_camera_buffer(camera)
+    }
+
     pub fn create_sprite(&self, bytes: &[u8]) -> Sprite {
         self.shura.gpu.create_sprite(bytes)
     }
@@ -223,7 +227,7 @@ impl<'a> Context<'a> {
     pub fn create_computed_sprite<'caller, F>(
         &self,
         instances: &InstanceBuffer,
-        camera: &CameraBuffers,
+        camera: &CameraBuffer,
         texture_size: Vector<u32>,
         clear_color: Option<Color>,
         compute: F,
@@ -335,7 +339,7 @@ impl<'a> Context<'a> {
     // Getter
     //////////////////////////////////////////////////////////////////////////////////////////////
 
-    pub fn relative_camera(&self) -> &CameraBuffers {
+    pub fn relative_camera(&self) -> &CameraBuffer {
         &self.shura.defaults.relative_camera
     }
 
@@ -494,10 +498,6 @@ impl<'a> Context<'a> {
 
     pub fn render_components(&self) -> bool {
         self.scene.component_manager.render_components()
-    }
-
-    pub fn update_components(&self) -> bool {
-        self.scene.component_manager.update_components()
     }
 
     /// Returns a dimension with the distance from the center of the camera to the right and from the
@@ -867,12 +867,6 @@ impl<'a> Context<'a> {
 
     pub fn set_active_scene(&mut self, active_scene: u32) {
         self.shura.scene_manager.set_active_scene(active_scene)
-    }
-
-    pub fn set_update_components(&mut self, update_components: bool) {
-        self.scene
-            .component_manager
-            .set_update_components(update_components)
     }
 
     pub fn set_render_components(&mut self, render_components: bool) {

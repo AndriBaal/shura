@@ -32,7 +32,6 @@ impl<'a> Default for GroupFilter<'a> {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// Access to the component system.
 pub struct ComponentManager {
-    update_components: bool,
     render_components: bool,
     end_callbacks: BTreeSet<(i16, ComponentTypeId)>,
     id_counter: u32,
@@ -76,7 +75,6 @@ impl ComponentManager {
             groups,
             group_map,
 
-            update_components: true,
             render_components: true,
 
             id_counter: 0,
@@ -103,7 +101,7 @@ impl ComponentManager {
                 }
             } else {
                 group.set_active(false);
-                if !self.active_groups.remove(&index) {
+                if self.active_groups.remove(&index) {
                     groups_changed = true;
                 }
             }
@@ -603,10 +601,6 @@ impl ComponentManager {
         self.group_map.keys()
     }
 
-    pub const fn update_components(&self) -> bool {
-        self.update_components
-    }
-
     pub const fn render_components(&self) -> bool {
         self.render_components
     }
@@ -628,9 +622,6 @@ impl ComponentManager {
         return self.active_components.clone();
     }
 
-    pub fn set_update_components(&mut self, update_components: bool) {
-        self.update_components = update_components
-    }
 
     pub fn set_render_components(&mut self, render_components: bool) {
         self.render_components = render_components
