@@ -75,7 +75,8 @@ where
     /// Apply postprocessing after rendering all components of this Component. During rendering
     /// the relative camera is bound.
     fn postproccess<'a>(
-        ctx: &Context,
+        active: ComponentPath<Self>,
+        ctx: &'a Context,
         renderer: &mut Renderer<'a>,
         instance: Instances,
         screen_model: &'a Model,

@@ -844,6 +844,20 @@ impl<'a> Context<'a> {
         self.scene.component_manager.components::<C>(filter)
     }
 
+    pub fn first<C: ComponentController + ComponentIdentifier>(
+        &self,
+        filter: GroupFilter,
+    ) -> Option<&C> {
+        self.scene.component_manager.first::<C>(filter)
+    }
+
+    pub fn first_mut<C: ComponentController + ComponentIdentifier>(
+        &mut self,
+        filter: GroupFilter,
+    ) -> Option<&mut C> {
+        self.scene.component_manager.first_mut::<C>(filter)
+    }
+
     #[cfg(feature = "gamepad")]
     pub fn gamepads(&self) -> Option<ConnectedGamepadsIterator> {
         self.shura.input.gamepads()

@@ -30,6 +30,7 @@ where
         all_instances: Instances,
     );
     fn call_postproccess<'a>(
+        paths: &[ArenaPath],
         ctx: &'a Context<'a>,
         renderer: &mut Renderer<'a>,
         all_instances: Instances,
@@ -49,13 +50,21 @@ impl<C: ComponentController> ComponentControllerCaller for C {
         C::render(ComponentPath::new(paths), ctx, renderer, all_instances);
     }
     fn call_postproccess<'a>(
+        paths: &[ArenaPath],
         ctx: &'a Context<'a>,
         renderer: &mut Renderer<'a>,
         all_instances: Instances,
         model: &'a Model,
         sprite: &'a Sprite,
     ) {
-        C::postproccess(ctx, renderer, all_instances, model, sprite);
+        C::postproccess(
+            ComponentPath::new(paths),
+            ctx,
+            renderer,
+            all_instances,
+            model,
+            sprite,
+        );
     }
 
     fn call_update(paths: &[ArenaPath], ctx: &mut Context) {
@@ -91,6 +100,7 @@ pub(crate) struct ComponentCallbacks {
     pub call_end: fn(paths: &[ArenaPath], ctx: &mut Context),
     pub call_update: fn(paths: &[ArenaPath], ctx: &mut Context),
     pub call_postproccess: for<'a> fn(
+        paths: &[ArenaPath],
         ctx: &'a Context<'a>,
         renderer: &mut Renderer<'a>,
         all_instances: Instances,

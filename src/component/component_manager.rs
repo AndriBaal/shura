@@ -197,10 +197,11 @@ impl ComponentManager {
             }
             GroupFilter::Active => {
                 for group in self.active_groups.iter() {
-                    let group = &mut self.groups[*group];
-                    if let Some(index) = group.type_index(type_id) {
-                        let component_type = group.type_mut(*index).unwrap();
-                        component_type.set_force_buffer(true);
+                    if let Some(group) = self.groups.get_mut(*group) {
+                        if let Some(index) = group.type_index(type_id) {
+                            let component_type = group.type_mut(*index).unwrap();
+                            component_type.set_force_buffer(true);
+                        }
                     }
                 }
             }
@@ -422,6 +423,93 @@ impl ComponentManager {
         }
 
         return ComponentSetMut::new(types, len);
+    }
+
+    pub fn first<'a, C: ComponentController + ComponentIdentifier>(
+        &'a self,
+        filter: GroupFilter,
+    ) -> Option<&'a C> {
+        let type_id = C::IDENTIFIER;
+        match filter {
+            GroupFilter::All => {
+                for (_, group) in &self.groups {
+                    if let Some(type_index) = group.type_index(type_id) {
+                        for (_, component) in group.type_ref(*type_index).unwrap().iter() {
+                            return component.downcast_ref::<C>();
+                        }
+                    }
+                }
+            }
+            GroupFilter::Active => {
+                for group_handle in &self.active_groups {
+                    if let Some(group) = self.groups.get(*group_handle) {
+                        if let Some(type_index) = group.type_index(type_id) {
+                            for (_, component) in group.type_ref(*type_index).unwrap().iter() {
+                                return component.downcast_ref::<C>();
+                            }
+                        }
+                    }
+                }
+            }
+            GroupFilter::Specific(group_ids) => {
+                for group_id in group_ids {
+                    if let Some(group_handle) = self.group_map.get(group_id) {
+                        let group = self.groups.get(*group_handle).unwrap();
+                        if let Some(type_index) = group.type_index(type_id) {
+                            for (_, component) in group.type_ref(*type_index).unwrap().iter() {
+                                return component.downcast_ref::<C>();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return None;
+    }
+
+
+    pub fn first_mut<'a, C: ComponentController + ComponentIdentifier>(
+        &'a mut self,
+        filter: GroupFilter,
+    ) -> Option<&'a mut C> {
+        let type_id = C::IDENTIFIER;
+        return match filter {
+            GroupFilter::All => {
+                for (_, group) in &mut self.groups {
+                    if let Some(type_index) = group.type_index(type_id) {
+                        for (_, component) in group.type_mut(*type_index).unwrap().iter_mut() {
+                            component.downcast_mut::<C>();
+                        }
+                    }
+                }
+                None
+            }
+            GroupFilter::Active => {
+                for group_handle in &self.active_groups {
+                    if let Some(group) = self.groups.get_mut(*group_handle) {
+                        if let Some(type_index) = group.type_index(type_id) {
+                            for (_, component) in group.type_mut(*type_index).unwrap().iter_mut() {
+                                component.downcast_mut::<C>();
+                            }
+                        }
+                    }
+                }
+                None
+            }
+            GroupFilter::Specific(group_ids) => {
+                for group_id in group_ids {
+                    if let Some(group_handle) = self.group_map.get(group_id) {
+                        let group = self.groups.get_mut(*group_handle).unwrap();
+                        if let Some(type_index) = group.type_index(type_id) {
+                            for (_, component) in group.type_mut(*type_index).unwrap().iter_mut() {
+                                component.downcast_mut::<C>();
+                            }
+                        }
+                    }
+                }
+                None
+            }
+        };
     }
 
     pub fn components<'a, C: ComponentController + ComponentIdentifier>(
