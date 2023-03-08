@@ -1,8 +1,8 @@
 #[cfg(feature = "text")]
 use crate::text::{CreateFont, CreateText, Font, TextDescriptor};
 use crate::{
-    Camera, CameraBuffer, Color, InstanceBuffer, Instances, Matrix, Model, ModelBuilder, Renderer,
-    Shader, ShaderField, ShaderLang, Sprite, SpriteSheet, Uniform, Vector,
+    Camera, CameraBuffer, Color, InstanceBuffer, Instances, Matrix, Model, ModelBuilder,
+    RenderTarget, Renderer, Shader, ShaderField, ShaderLang, Sprite, SpriteSheet, Uniform, Vector,
 };
 use log::info;
 use std::borrow::Cow;
@@ -30,6 +30,7 @@ pub struct Gpu {
 impl Gpu {
     pub(crate) async fn new(window: &winit::window::Window) -> Self {
         let window_size = window.inner_size();
+        let window_size = Vector::new(window_size.width, window_size.height);
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::all(),
             dx12_shader_compiler: wgpu::Dx12Compiler::Fxc,
@@ -63,10 +64,24 @@ impl Gpu {
             .unwrap();
 
         let config = surface
-            .get_default_config(&adapter, window_size.width, window_size.height)
+            .get_default_config(&adapter, window_size.x, window_size.y)
             .expect("Surface unsupported by adapter");
 
-        let base = WgpuBase::new(&device);
+        let sample_count = 4;
+        // let sample_flags = adapter.get_texture_format_features(config.format).flags;
+        // let sample_count = {
+        //     if sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X8) {
+        //         8
+        //     } else if sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X4) {
+        //         4
+        //     } else if sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X2) {
+        //         2
+        //     } else {
+        //         1
+        //     }
+        // };
+
+        let base = WgpuBase::new(&device, config.format, sample_count, window_size);
 
         surface.configure(&device, &config);
         let adapter_info = adapter.get_info();
@@ -92,6 +107,7 @@ impl Gpu {
         self.config.width = size.x;
         self.config.height = size.y;
         self.surface.configure(&self.device, &self.config);
+        self.base.resize(&self.device, self.config.format, size);
     }
 
     pub(crate) fn encoder(&self) -> wgpu::CommandEncoder {
@@ -101,7 +117,7 @@ impl Gpu {
             })
     }
 
-    pub(crate) fn finish_enocder(&self, encoder: wgpu::CommandEncoder) {
+    pub(crate) fn finish_encoder(&self, encoder: wgpu::CommandEncoder) {
         self.queue.submit(std::iter::once(encoder.finish()));
     }
 
@@ -137,71 +153,12 @@ impl Gpu {
         self.surface.configure(&self.device, &self.config);
     }
 
-    fn create_msaa(&self, size: Vector<u32>) -> wgpu::TextureView {
-        let sample_count = self.base.sample_count;
-        let multisampled_frame_descriptor = &wgpu::TextureDescriptor {
-            size: wgpu::Extent3d {
-                width: size.x,
-                height: size.y,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count,
-            dimension: wgpu::TextureDimension::D2,
-            format: self.config.format,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            label: None,
-            view_formats: &[],
-        };
-
-        self.device
-            .create_texture(multisampled_frame_descriptor)
-            .create_view(&wgpu::TextureViewDescriptor::default())
-    }
-
-    fn create_target(&self, size: Vector<u32>) -> (Sprite, wgpu::TextureView) {
-        let format = self.config.format;
-        let target_texture = self.device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("Render Target"),
-            size: wgpu::Extent3d {
-                width: size.x,
-                height: size.y,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING
-                | wgpu::TextureUsages::COPY_DST
-                | wgpu::TextureUsages::COPY_SRC
-                | wgpu::TextureUsages::RENDER_ATTACHMENT,
-            view_formats: &[],
-        });
-
-        let target_view = target_texture.create_view(&wgpu::TextureViewDescriptor::default());
-
-        let target_bindgroup = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &self.base.sprite_uniform,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&target_view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&self.base.texture_sampler),
-                },
-            ],
-            label: Some("target_bind_group"),
-        });
-
-        let sprite = Sprite::from_wgpu(size, target_texture, target_bindgroup, format);
-        return (sprite, target_view);
-    }
-
     pub fn create_camera_buffer(&self, camera: &Camera) -> CameraBuffer {
         CameraBuffer::new(self, camera)
+    }
+
+    pub fn create_render_target(&self, size: Vector<u32>) -> RenderTarget {
+        RenderTarget::new(self, size)
     }
 
     pub fn create_instance_buffer(&self, instances: &[Matrix]) -> InstanceBuffer {
@@ -264,28 +221,28 @@ impl Gpu {
         Shader::new_custom(self, shader_lang, descriptor)
     }
 
-    pub fn create_computed_sprite<'caller, F>(
-        &self,
-        defaults: &GpuDefaults,
-        instances: &InstanceBuffer,
-        camera: &CameraBuffer,
-        texture_size: Vector<u32>,
-        clear_color: Option<Color>,
-        compute: F,
-    ) -> Sprite
-    where
-        F: for<'any> Fn(&mut Renderer<'any>, Instances, [Where!('caller >= 'any); 0]),
-    {
-        return Sprite::computed(
-            self,
-            &defaults,
-            instances,
-            camera,
-            texture_size,
-            clear_color,
-            compute,
-        );
-    }
+    // pub fn create_computed_sprite<'caller, F>(
+    //     &self,
+    //     defaults: &GpuDefaults,
+    //     instances: &InstanceBuffer,
+    //     camera: &CameraBuffer,
+    //     texture_size: Vector<u32>,
+    //     clear_color: Option<Color>,
+    //     compute: F,
+    // ) -> Sprite
+    // where
+    //     F: for<'any> Fn(&mut Renderer<'any>, Instances, [Where!('caller >= 'any); 0]),
+    // {
+    //     return Sprite::computed(
+    //         self,
+    //         &defaults,
+    //         instances,
+    //         camera,
+    //         texture_size,
+    //         clear_color,
+    //         compute,
+    //     );
+    // }
 }
 
 /// Base Wgpu objects needed to create any further graphics object.
@@ -298,10 +255,16 @@ pub struct WgpuBase {
     pub vertex_wgsl: wgpu::ShaderModule,
     pub vertex_glsl: wgpu::ShaderModule,
     pub texture_sampler: wgpu::Sampler,
+    pub output_msaa: wgpu::TextureView,
 }
 
 impl WgpuBase {
-    pub fn new(device: &wgpu::Device) -> Self {
+    pub fn new(
+        device: &wgpu::Device,
+        format: wgpu::TextureFormat,
+        sample_count: u32,
+        size: Vector<u32>,
+    ) -> Self {
         let sprite_uniform = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[
                 wgpu::BindGroupLayoutEntry {
@@ -373,25 +336,13 @@ impl WgpuBase {
             ..Default::default()
         });
 
-        let sample_count = 4;
-        // let sample_flags = adapter.get_texture_format_features(config.format).flags;
-        // let sample_count = {
-        //     if sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X8) {
-        //         8
-        //     } else if sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X4) {
-        //         4
-        //     } else if sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X2) {
-        //         2
-        //     } else {
-        //         1
-        //     }
-        // };
-
         let multisample_state = wgpu::MultisampleState {
             count: sample_count,
             mask: !0,
             alpha_to_coverage_enabled: false,
         };
+
+        let output_msaa = RenderTarget::create_msaa(device, format, sample_count, size);
 
         Self {
             sample_count: sample_count,
@@ -402,7 +353,17 @@ impl WgpuBase {
             vertex_wgsl,
             vertex_glsl,
             texture_sampler,
+            output_msaa,
         }
+    }
+
+    pub fn resize(
+        &mut self,
+        device: &wgpu::Device,
+        format: wgpu::TextureFormat,
+        size: Vector<u32>,
+    ) {
+        self.output_msaa = RenderTarget::create_msaa(device, format, self.sample_count, size);
     }
 }
 
@@ -424,83 +385,65 @@ pub struct GpuDefaults {
     pub relative_camera: CameraBuffer,
     pub world_camera: CameraBuffer,
     pub single_centered_instance: InstanceBuffer,
-    pub present_msaa: wgpu::TextureView,
-    pub target_msaa: wgpu::TextureView,
-    pub target: Sprite,
-    pub target_view: wgpu::TextureView,
-    pub layer_msaa: wgpu::TextureView,
-
-    /// Additional layer for postproccessing
-    pub layer: Sprite,
-    pub layer_view: wgpu::TextureView,
+    pub target: RenderTarget,
 }
 
 impl GpuDefaults {
     pub(crate) fn new(gpu: &Gpu) -> Self {
-        let sprite = Shader::new(
-            gpu,
+        let sprite = gpu.create_shader(
             include_str!("../../res/shader/sprite.wgsl"),
             ShaderLang::WGSL,
             &[ShaderField::Sprite],
         );
 
-        let rainbow = Shader::new(
-            gpu,
+        let rainbow = gpu.create_shader(
             include_str!("../../res/shader/rainbow.wgsl"),
             ShaderLang::WGSL,
             &[ShaderField::Uniform],
         );
 
-        let color = Shader::new(
-            gpu,
+        let color = gpu.create_shader(
             include_str!("../../res/shader/color.wgsl"),
             ShaderLang::WGSL,
             &[ShaderField::Uniform],
         );
 
-        let colored_sprite = Shader::new(
-            gpu,
+        let colored_sprite = gpu.create_shader(
             include_str!("../../res/shader/colored_sprite.glsl"),
             ShaderLang::GLSL,
             &[ShaderField::Sprite, ShaderField::Uniform],
         );
 
-        let grey = Shader::new(
-            gpu,
+        let grey = gpu.create_shader(
             include_str!("../../res/shader/grey.wgsl"),
             ShaderLang::WGSL,
             &[ShaderField::Sprite],
         );
 
-        let blurr = Shader::new(
-            gpu,
+        let blurr = gpu.create_shader(
             include_str!("../../res/shader/blurr.wgsl"),
             ShaderLang::WGSL,
             &[ShaderField::Sprite],
         );
 
-        let transparent = Shader::new(
-            gpu,
+        let transparent = gpu.create_shader(
             include_str!("../../res/shader/transparent_sprite.wgsl"),
             ShaderLang::WGSL,
             &[ShaderField::Sprite, ShaderField::Uniform],
         );
 
         let size = gpu.render_size(1.0);
-        let target_msaa = gpu.create_msaa(size);
-        let present_msaa = gpu.create_msaa(size);
-        let layer_msaa = gpu.create_msaa(size);
-        let (target, target_view) = gpu.create_target(size);
-        let (layer, layer_view) = gpu.create_target(size);
+        let target = gpu.create_render_target(size);
         let times = Uniform::new(gpu, [0.0, 0.0]);
-        let single_centered_instance = InstanceBuffer::new(gpu, &[Matrix::new(Default::default())]);
+        let single_centered_instance =
+            gpu.create_instance_buffer(&[Matrix::new(Default::default())]);
 
         let relative_and_default_camera = &Camera::new(
             Default::default(),
             Vector::new(RELATIVE_CAMERA_SIZE, RELATIVE_CAMERA_SIZE),
         );
-        let relative_camera = CameraBuffer::new(gpu, &relative_and_default_camera);
-        let world_camera = CameraBuffer::new(gpu, &relative_and_default_camera);
+        let relative_camera = gpu.create_camera_buffer(&relative_and_default_camera);
+        let world_camera = gpu.create_camera_buffer(&relative_and_default_camera);
 
         Self {
             sprite,
@@ -514,14 +457,7 @@ impl GpuDefaults {
             single_centered_instance,
             relative_camera,
             world_camera,
-
-            target_msaa,
-            present_msaa,
-            layer_msaa,
             target,
-            target_view,
-            layer,
-            layer_view,
         }
     }
 
@@ -536,19 +472,8 @@ impl GpuDefaults {
         self.times.write(&gpu, [total_time, frame_time]);
     }
 
-    pub(crate) fn resize(&mut self, gpu: &Gpu, scale: f32) {
-        let size = gpu.render_size(scale);
-        self.present_msaa = gpu.create_msaa(size);
-        self.target_msaa = gpu.create_msaa(size);
-        self.layer_msaa = gpu.create_msaa(size);
-        (self.target, self.target_view) = gpu.create_target(size);
-        (self.layer, self.layer_view) = gpu.create_target(size);
-    }
-
     pub(crate) fn apply_render_scale(&mut self, gpu: &Gpu, scale: f32) {
         let size = gpu.render_size(scale);
-        self.target_msaa = gpu.create_msaa(size);
-        (self.target, self.target_view) = gpu.create_target(size);
-        (self.layer, self.layer_view) = gpu.create_target(size);
+        self.target = gpu.create_render_target(size);
     }
 }

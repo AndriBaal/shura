@@ -73,9 +73,9 @@ pub enum PostproccessOperation {
 pub struct ComponentConfig {
     /// Describes the order in which components are processed
     pub priority: i16,
-    pub camera: CameraUse,
+    // pub camera: CameraUse,
+    // pub postproccess: PostproccessOperation,
     pub update: UpdateOperation,
-    pub postproccess: PostproccessOperation,
     pub render: RenderOperation,
     pub buffer: BufferOperation,
     pub end: EndOperation,
@@ -84,10 +84,10 @@ pub struct ComponentConfig {
 pub const DEFAULT_CONFIG: ComponentConfig = ComponentConfig {
     buffer: BufferOperation::EveryFrame,
     update: UpdateOperation::EveryFrame,
-    postproccess: PostproccessOperation::Never,
     render: RenderOperation::EveryFrame,
     end: EndOperation::None,
-    camera: CameraUse::World,
+    // camera: CameraUse::World,
+    // postproccess: PostproccessOperation::Never,
     priority: 16,
 };
 

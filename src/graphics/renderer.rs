@@ -1,5 +1,6 @@
 use crate::{
-    CameraBuffer, Color, Gpu, GpuDefaults, InstanceBuffer, Model, Shader, Sprite, Uniform,
+    CameraBuffer, Color, Gpu, GpuDefaults, InstanceBuffer, Model, RenderTarget, Shader, Shura,
+    Sprite, Uniform,
 };
 
 /// Single index of an instance inside a [InstanceBuffer](crate::InstanceBuffer).
@@ -13,23 +14,55 @@ pub struct Renderer<'a> {
     pub render_pass: wgpu::RenderPass<'a>,
     pub gpu: &'a Gpu,
     pub defaults: &'a GpuDefaults,
-    pub save_sprite: Option<String>,
-    indices: u32,
+    pub indices: u32,
 }
 
 impl<'a> Renderer<'a> {
-    pub(crate) fn new(
-        gpu: &'a Gpu,
-        defaults: &'a GpuDefaults,
+    pub fn new(
+        shura: &'a Shura,
         encoder: &'a mut wgpu::CommandEncoder,
-        target: &'a wgpu::TextureView,
-        msaa: &'a wgpu::TextureView,
+        target: &'a RenderTarget,
+        clear_color: Option<Color>,
     ) -> Renderer<'a> {
         let render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("render_pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: msaa,
-                resolve_target: Some(target),
+                view: target.target_msaa(),
+                resolve_target: Some(target.target_view()),
+                ops: if let Some(color) = clear_color {
+                    wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(color.into()),
+                        store: true,
+                    }
+                } else {
+                    wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: true,
+                    }
+                },
+            })],
+
+            depth_stencil_attachment: None,
+        });
+
+        Self {
+            render_pass,
+            gpu: &shura.gpu,
+            defaults: &shura.defaults,
+            indices: 0,
+        }
+    }
+
+    pub(crate) fn output_renderer(
+        shura: &'a Shura,
+        encoder: &'a mut wgpu::CommandEncoder,
+        output: &'a wgpu::TextureView,
+    ) -> Renderer<'a> {
+        let render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("render_pass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &shura.gpu.base.output_msaa,
+                resolve_target: Some(output),
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Load,
                     store: true,
@@ -41,32 +74,10 @@ impl<'a> Renderer<'a> {
 
         Self {
             render_pass,
-            gpu,
-            defaults,
+            gpu: &shura.gpu,
+            defaults: &shura.defaults,
             indices: 0,
-            save_sprite: None,
         }
-    }
-
-    pub(crate) fn clear(
-        encoder: &'a mut wgpu::CommandEncoder,
-        target: &'a wgpu::TextureView,
-        msaa: &'a wgpu::TextureView,
-        color: Color,
-    ) {
-        encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("compute_pass"),
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: msaa,
-                resolve_target: Some(&target),
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(color.into()),
-                    store: true,
-                },
-            })],
-
-            depth_stencil_attachment: None,
-        });
     }
 
     /// Sets the instance buffer at the position 1
@@ -74,15 +85,9 @@ impl<'a> Renderer<'a> {
         self.render_pass.set_vertex_buffer(1, buffer.slice());
     }
 
-    pub(crate) fn enable_camera(&mut self, camera: &'a CameraBuffer) {
+    pub(crate) fn use_camera(&mut self, camera: &'a CameraBuffer) {
         self.render_pass
             .set_bind_group(0, camera.uniform().bind_group(), &[]);
-    }
-
-    /// Save the current render after finishing the current function onto a new [Sprite]. This does only work
-    /// after rendering all components of a type or after postprocessing. The saved sprites
-    pub fn save_sprite(&mut self, target_sprite: String) {
-        self.save_sprite = Some(target_sprite);
     }
 
     pub fn use_shader(&mut self, shader: &'a Shader) {

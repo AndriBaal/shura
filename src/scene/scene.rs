@@ -1,3 +1,5 @@
+use rustc_hash::FxHashMap;
+
 use crate::{
     Camera, ComponentManager, Context, CursorManager, Isometry, RenderConfig, Shura, Sprite, Vector,
 };
@@ -53,7 +55,7 @@ pub struct Scene {
     pub(crate) switched: bool,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
-    pub saved_sprites: Vec<(String, Sprite)>,
+    pub saved_sprites: FxHashMap<String, Sprite>,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
     pub cursor: CursorManager,
@@ -77,7 +79,7 @@ impl Scene {
             cursor: CursorManager::new(),
             component_manager: ComponentManager::new(),
             render_config: RenderConfig::new(),
-            saved_sprites: vec![],
+            saved_sprites: Default::default(),
         }
     }
 

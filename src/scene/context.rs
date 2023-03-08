@@ -2,9 +2,9 @@ use crate::{
     Camera, CameraBuffer, Color, ComponentController, ComponentGroup, ComponentGroupDescriptor,
     ComponentHandle, ComponentIdentifier, ComponentPath, ComponentSet, ComponentSetMut,
     ComponentSetRender, DynamicComponent, GroupFilter, InputEvent, InputTrigger, InstanceBuffer,
-    Instances, Isometry, Key, Matrix, Model, ModelBuilder, Modifier, Renderer, Rotation, Scene,
-    SceneCreator, Shader, ShaderField, ShaderLang, Shura, Sprite, SpriteSheet, Touch, Uniform,
-    Vector,
+    Instances, Isometry, Key, Matrix, Model, ModelBuilder, Modifier, RenderTarget, Renderer,
+    Rotation, Scene, SceneCreator, Shader, ShaderField, ShaderLang, Shura, Sprite, SpriteSheet,
+    Touch, Uniform, Vector,
 };
 
 #[cfg(feature = "serde")]
@@ -172,6 +172,10 @@ impl<'a> Context<'a> {
         self.shura.gpu.create_sprite(bytes)
     }
 
+    pub fn create_render_target(&self, size: Vector<u32>) -> RenderTarget {
+        self.shura.gpu.create_render_target(size)
+    }
+
     pub fn create_sprite_from_image(&self, image: image::DynamicImage) -> Sprite {
         self.shura.gpu.create_sprite_from_image(image)
     }
@@ -224,26 +228,26 @@ impl<'a> Context<'a> {
         self.shura.gpu.create_custom_shader(shader_lang, descriptor)
     }
 
-    pub fn create_computed_sprite<'caller, F>(
-        &self,
-        instances: &InstanceBuffer,
-        camera: &CameraBuffer,
-        texture_size: Vector<u32>,
-        clear_color: Option<Color>,
-        compute: F,
-    ) -> Sprite
-    where
-        F: for<'any> Fn(&mut Renderer<'any>, Instances, [Where!('caller >= 'any); 0]),
-    {
-        self.shura.gpu.create_computed_sprite(
-            &self.shura.defaults,
-            instances,
-            camera,
-            texture_size,
-            clear_color,
-            compute,
-        )
-    }
+    // pub fn create_computed_sprite<'caller, F>(
+    //     &self,
+    //     instances: &InstanceBuffer,
+    //     camera: &CameraBuffer,
+    //     texture_size: Vector<u32>,
+    //     clear_color: Option<Color>,
+    //     compute: F,
+    // ) -> Sprite
+    // where
+    //     F: for<'any> Fn(&mut Renderer<'any>, Instances, [Where!('caller >= 'any); 0]),
+    // {
+    //     self.shura.gpu.create_computed_sprite(
+    //         &self.shura.defaults,
+    //         instances,
+    //         camera,
+    //         texture_size,
+    //         clear_color,
+    //         compute,
+    //     )
+    // }
 
     #[cfg(feature = "audio")]
     pub fn create_sound(&self, sound: &'static [u8]) -> Sound {
@@ -339,20 +343,28 @@ impl<'a> Context<'a> {
     // Getter
     //////////////////////////////////////////////////////////////////////////////////////////////
 
-    pub fn relative_camera(&self) -> &CameraBuffer {
+    pub fn relative_camera_buffer(&self) -> &CameraBuffer {
         &self.shura.defaults.relative_camera
     }
 
-    pub fn saved_sprites(&self) -> &Vec<(String, Sprite)> {
-        &self.scene.saved_sprites
+    pub fn world_camera_buffer(&self) -> &CameraBuffer {
+        &self.shura.defaults.world_camera
     }
 
-    pub fn saved_sprites_mut(&mut self) -> &mut Vec<(String, Sprite)> {
-        &mut self.scene.saved_sprites
+    pub fn saved_sprite(&self, name: String) -> Option<&Sprite> {
+        self.scene.saved_sprites.get(&name)
     }
 
-    pub fn clear_saved_sprites(&mut self) -> Vec<(String, Sprite)> {
-        return std::mem::replace(&mut self.scene.saved_sprites, vec![]);
+    pub fn saved_sprite_mut(&mut self, name: String) -> Option<&mut Sprite> {
+        self.scene.saved_sprites.get_mut(&name)
+    }
+
+    pub fn take_saved_sprite(&mut self, name: String) -> Option<Sprite> {
+        self.scene.saved_sprites.remove(&name)
+    }
+
+    pub fn clear_saved_sprites(&mut self) -> impl Iterator<Item = (String, Sprite)> {
+        return std::mem::replace(&mut self.scene.saved_sprites, Default::default()).into_iter();
     }
 
     pub fn render_scale(&self) -> f32 {

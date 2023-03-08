@@ -467,7 +467,6 @@ impl ComponentManager {
         return None;
     }
 
-
     pub fn first_mut<'a, C: ComponentController + ComponentIdentifier>(
         &'a mut self,
         filter: GroupFilter,

@@ -32,30 +32,30 @@ impl Sprite {
     }
 
     /// Procedural rendered Sprite
-    pub fn computed<'caller, F>(
-        gpu: &Gpu,
-        defaults: &GpuDefaults,
-        instances: &InstanceBuffer,
-        camera: &CameraBuffer,
-        texture_size: Vector<u32>,
-        clear_color: Option<Color>,
-        compute: F,
-    ) -> Self
-    where
-        F: for<'any> Fn(&mut Renderer<'any>, Instances, [Where!('caller >= 'any); 0]),
-    {
-        let target = Sprite::empty(gpu, texture_size);
-        target.draw(
-            gpu,
-            defaults,
-            instances,
-            camera,
-            texture_size,
-            clear_color,
-            compute,
-        );
-        return target;
-    }
+    // pub fn computed<'caller, F>(
+    //     gpu: &Gpu,
+    //     defaults: &GpuDefaults,
+    //     instances: &InstanceBuffer,
+    //     camera: &CameraBuffer,
+    //     texture_size: Vector<u32>,
+    //     clear_color: Option<Color>,
+    //     compute: F,
+    // ) -> Self
+    // where
+    //     F: for<'any> Fn(&mut Renderer<'any>, Instances, [Where!('caller >= 'any); 0]),
+    // {
+    //     let target = Sprite::empty(gpu, texture_size);
+    //     target.draw(
+    //         gpu,
+    //         defaults,
+    //         instances,
+    //         camera,
+    //         texture_size,
+    //         clear_color,
+    //         compute,
+    //     );
+    //     return target;
+    // }
 
     pub fn empty(gpu: &Gpu, size: Vector<u32>) -> Self {
         assert!(size.x != 0 && size.y != 0);
@@ -119,81 +119,67 @@ impl Sprite {
         }
     }
 
-    pub fn draw<'caller, F>(
-        &self,
-        gpu: &Gpu,
-        defaults: &GpuDefaults,
-        instance_buffer: &InstanceBuffer,
-        camera: &CameraBuffer,
-        texture_size: Vector<u32>,
-        clear_color: Option<Color>,
-        compute: F,
-    ) where
-        F: for<'any> Fn(&mut Renderer<'any>, Instances, [Where!('caller >= 'any); 0]),
-    {
-        let mut encoder = gpu.encoder();
-        let target_view = self.texture.create_view(&Default::default());
+    // pub fn draw<'caller, F>(
+    //     &self,
+    //     gpu: &Gpu,
+    //     defaults: &GpuDefaults,
+    //     instance_buffer: &InstanceBuffer,
+    //     camera: &CameraBuffer,
+    //     texture_size: Vector<u32>,
+    //     clear_color: Option<Color>,
+    //     compute: F,
+    // ) where
+    //     F: for<'any> Fn(&mut Renderer<'any>, Instances, [Where!('caller >= 'any); 0]),
+    // {
+    //     let mut encoder = gpu.encoder();
+    //     let target_view = self.texture.create_view(&Default::default());
 
-        let multisampled_frame_descriptor = &wgpu::TextureDescriptor {
-            size: wgpu::Extent3d {
-                width: texture_size.x,
-                height: texture_size.y,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: gpu.base.sample_count,
-            dimension: wgpu::TextureDimension::D2,
-            format: gpu.config.format,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            label: None,
-            view_formats: &[],
-        };
+    //     let multisampled_frame_descriptor = &wgpu::TextureDescriptor {
+    //         size: wgpu::Extent3d {
+    //             width: texture_size.x,
+    //             height: texture_size.y,
+    //             depth_or_array_layers: 1,
+    //         },
+    //         mip_level_count: 1,
+    //         sample_count: gpu.base.sample_count,
+    //         dimension: wgpu::TextureDimension::D2,
+    //         format: gpu.config.format,
+    //         usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+    //         label: None,
+    //         view_formats: &[],
+    //     };
 
-        let msaa = gpu
-            .device
-            .create_texture(multisampled_frame_descriptor)
-            .create_view(&wgpu::TextureViewDescriptor::default());
-        if let Some(color) = clear_color {
-            Renderer::clear(&mut encoder, &target_view, &msaa, color);
-        }
-        {
-            let mut renderer = Renderer::new(gpu, defaults, &mut encoder, &target_view, &msaa);
-            renderer.use_uniform(&camera.uniform(), 0);
-            renderer.set_instance_buffer(instance_buffer);
-            compute(&mut renderer, instance_buffer.instances(), []);
-        }
-        gpu.finish_enocder(encoder);
-    }
+    //     let msaa = gpu
+    //         .device
+    //         .create_texture(multisampled_frame_descriptor)
+    //         .create_view(&wgpu::TextureViewDescriptor::default());
+    //     if let Some(color) = clear_color {
+    //         Renderer::clear(&mut encoder, &target_view, &msaa, color);
+    //     }
+    //     {
+    //         let mut renderer = Renderer::new(gpu, defaults, &mut encoder, &target_view, &msaa);
+    //         renderer.use_uniform(&camera.uniform(), 0);
+    //         renderer.set_instance_buffer(instance_buffer);
+    //         compute(&mut renderer, instance_buffer.instances(), []);
+    //     }
+    //     gpu.finish_encoder(encoder);
+    // }
 
-    pub(crate) fn write_current_render(
-        &mut self,
-        gpu: &Gpu,
-        defaults: &GpuDefaults,
-        encoder: &mut wgpu::CommandEncoder,
-        relative_camera: &CameraBuffer,
-    ) {
-        let target_view = self.texture.create_view(&Default::default());
-        let mut renderer =
-            Renderer::new(gpu, defaults, encoder, &target_view, &defaults.target_msaa);
-        renderer.use_uniform(relative_camera.uniform(), 0);
-        renderer.set_instance_buffer(&defaults.single_centered_instance);
-        renderer.render_sprite(relative_camera.model(), &defaults.target);
-        renderer.commit(0..1);
-    }
-
-    pub fn from_wgpu(
-        size: Vector<u32>,
-        texture: wgpu::Texture,
-        bind_group: wgpu::BindGroup,
-        format: wgpu::TextureFormat,
-    ) -> Self {
-        Self {
-            texture,
-            format,
-            size,
-            bind_group,
-        }
-    }
+    // pub(crate) fn write_current_render(
+    //     &mut self,
+    //     gpu: &Gpu,
+    //     defaults: &GpuDefaults,
+    //     encoder: &mut wgpu::CommandEncoder,
+    //     relative_camera: &CameraBuffer,
+    // ) {
+    //     let target_view = self.texture.create_view(&Default::default());
+    //     let mut renderer =
+    //         Renderer::new(gpu, defaults, encoder, &target_view, &defaults.target_msaa);
+    //     renderer.use_uniform(relative_camera.uniform(), 0);
+    //     renderer.set_instance_buffer(&defaults.single_centered_instance);
+    //     renderer.render_sprite(relative_camera.model(), &defaults.target);
+    //     renderer.commit(0..1);
+    // }
 
     pub(crate) fn create_texture(
         gpu: &Gpu,

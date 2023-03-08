@@ -3,9 +3,7 @@ use crate::{
     physics::{CollideType, ColliderHandle},
     ComponentHandle,
 };
-use crate::{
-    ArenaPath, ComponentController, ComponentPath, Context, Instances, Model, Renderer, Sprite,
-};
+use crate::{ArenaPath, ComponentController, ComponentPath, Context, Instances, Renderer};
 
 /// Grants access to the static members of the component type. This should never be overwritten,
 /// since it is automatically implemented with generics.
@@ -29,14 +27,6 @@ where
         renderer: &mut Renderer<'a>,
         all_instances: Instances,
     );
-    fn call_postproccess<'a>(
-        paths: &[ArenaPath],
-        ctx: &'a Context<'a>,
-        renderer: &mut Renderer<'a>,
-        all_instances: Instances,
-        model: &'a Model,
-        sprite: &'a Sprite,
-    );
     fn call_end(paths: &[ArenaPath], ctx: &mut Context);
 }
 
@@ -48,23 +38,6 @@ impl<C: ComponentController> ComponentControllerCaller for C {
         all_instances: Instances,
     ) {
         C::render(ComponentPath::new(paths), ctx, renderer, all_instances);
-    }
-    fn call_postproccess<'a>(
-        paths: &[ArenaPath],
-        ctx: &'a Context<'a>,
-        renderer: &mut Renderer<'a>,
-        all_instances: Instances,
-        model: &'a Model,
-        sprite: &'a Sprite,
-    ) {
-        C::postproccess(
-            ComponentPath::new(paths),
-            ctx,
-            renderer,
-            all_instances,
-            model,
-            sprite,
-        );
     }
 
     fn call_update(paths: &[ArenaPath], ctx: &mut Context) {
@@ -99,14 +72,6 @@ impl<C: ComponentController> ComponentControllerCaller for C {
 pub(crate) struct ComponentCallbacks {
     pub call_end: fn(paths: &[ArenaPath], ctx: &mut Context),
     pub call_update: fn(paths: &[ArenaPath], ctx: &mut Context),
-    pub call_postproccess: for<'a> fn(
-        paths: &[ArenaPath],
-        ctx: &'a Context<'a>,
-        renderer: &mut Renderer<'a>,
-        all_instances: Instances,
-        model: &'a Model,
-        sprite: &'a Sprite,
-    ),
     #[cfg(feature = "physics")]
     pub call_collision: fn(
         ctx: &mut Context,
@@ -129,7 +94,6 @@ impl ComponentCallbacks {
         return Self {
             call_end: C::call_end,
             call_update: C::call_update,
-            call_postproccess: C::call_postproccess,
             #[cfg(feature = "physics")]
             call_collision: C::call_collision,
             call_render: C::call_render,

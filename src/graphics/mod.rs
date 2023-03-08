@@ -7,6 +7,7 @@ pub mod gui;
 pub mod instance_buffer;
 pub mod model;
 pub mod render_config;
+pub mod render_taget;
 pub mod renderer;
 pub mod shader;
 pub mod sprite;
