@@ -1,14 +1,6 @@
-use crate::{CameraBuffer, Color, Gpu, GpuDefaults, InstanceBuffer, Instances, Renderer, Vector};
+use crate::{Gpu, Vector};
 use image::GenericImageView;
 use std::num::NonZeroU32;
-
-macro_rules! Where {
-    (
-    $a:lifetime >= $b:lifetime $(,)?
-) => {
-        &$b & $a()
-    };
-}
 
 /// 2D Sprite used for rendering
 #[derive(Debug)]
@@ -30,32 +22,6 @@ impl Sprite {
         let img = image::load_from_memory(bytes).unwrap();
         Self::from_image(gpu, img)
     }
-
-    /// Procedural rendered Sprite
-    // pub fn computed<'caller, F>(
-    //     gpu: &Gpu,
-    //     defaults: &GpuDefaults,
-    //     instances: &InstanceBuffer,
-    //     camera: &CameraBuffer,
-    //     texture_size: Vector<u32>,
-    //     clear_color: Option<Color>,
-    //     compute: F,
-    // ) -> Self
-    // where
-    //     F: for<'any> Fn(&mut Renderer<'any>, Instances, [Where!('caller >= 'any); 0]),
-    // {
-    //     let target = Sprite::empty(gpu, texture_size);
-    //     target.draw(
-    //         gpu,
-    //         defaults,
-    //         instances,
-    //         camera,
-    //         texture_size,
-    //         clear_color,
-    //         compute,
-    //     );
-    //     return target;
-    // }
 
     pub fn empty(gpu: &Gpu, size: Vector<u32>) -> Self {
         assert!(size.x != 0 && size.y != 0);

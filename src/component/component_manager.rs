@@ -347,6 +347,8 @@ impl ComponentManager {
                 }
             }
 
+            self.force_update_sets = true;
+            self.active_groups.remove(&index);
             self.groups.remove(index);
         }
     }

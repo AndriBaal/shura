@@ -221,28 +221,28 @@ impl Gpu {
         Shader::new_custom(self, shader_lang, descriptor)
     }
 
-    // pub fn create_computed_sprite<'caller, F>(
-    //     &self,
-    //     defaults: &GpuDefaults,
-    //     instances: &InstanceBuffer,
-    //     camera: &CameraBuffer,
-    //     texture_size: Vector<u32>,
-    //     clear_color: Option<Color>,
-    //     compute: F,
-    // ) -> Sprite
-    // where
-    //     F: for<'any> Fn(&mut Renderer<'any>, Instances, [Where!('caller >= 'any); 0]),
-    // {
-    //     return Sprite::computed(
-    //         self,
-    //         &defaults,
-    //         instances,
-    //         camera,
-    //         texture_size,
-    //         clear_color,
-    //         compute,
-    //     );
-    // }
+    pub fn create_computed_target<'caller, F>(
+        &self,
+        defaults: &GpuDefaults,
+        instances: &InstanceBuffer,
+        camera: &CameraBuffer,
+        texture_size: Vector<u32>,
+        clear_color: Option<Color>,
+        compute: F,
+    ) -> RenderTarget
+    where
+        F: for<'any> Fn(&mut Renderer<'any>, Instances, [Where!('caller >= 'any); 0]),
+    {
+        return RenderTarget::computed(
+            self,
+            &defaults,
+            instances,
+            camera,
+            texture_size,
+            clear_color,
+            compute,
+        );
+    }
 }
 
 /// Base Wgpu objects needed to create any further graphics object.

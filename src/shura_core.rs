@@ -1,15 +1,14 @@
-use std::any::Any;
+use std::{any::Any};
 
 #[cfg(target_os = "android")]
 use winit::platform::android::activity::AndroidApp;
-
 #[cfg(feature = "gui")]
 use crate::gui::Gui;
 #[cfg(feature = "physics")]
 use crate::physics::{ActiveEvents, CollideType};
 use crate::{
-    Color, Context, FrameManager, Gpu, GpuDefaults, Input, PostproccessOperation, RenderOperation,
-    Renderer, Scene, SceneCreator, SceneManager, Sprite, Vector,
+    Context, FrameManager, Gpu, GpuDefaults, Input, RenderOperation, Renderer, Scene, SceneCreator,
+    SceneManager, Vector,
 };
 use log::{error, info};
 
@@ -452,17 +451,17 @@ impl Shura {
 
         let mut encoder = ctx.shura.gpu.encoder();
         // let mut saved_sprites = vec![];
-        let render_size = ctx.render_size();
+        // let render_size = ctx.render_size();
 
         {
             let mut renderer = Renderer::new(
-                &ctx.shura,
                 &mut encoder,
+                &ctx.shura.gpu,
+                &ctx.shura.defaults,
                 &ctx.shura.defaults.target,
+                &ctx.shura.defaults.world_camera,
                 ctx.clear_color(),
             );
-            // Enable World camera by default
-            renderer.use_camera(&ctx.shura.defaults.world_camera);
             for set in ctx
                 .scene
                 .component_manager
@@ -497,95 +496,6 @@ impl Shura {
                         _ => {}
                     }
                 }
-
-                // if let Some(sprite_name) = save_sprite.take() {
-                //     let mut sprite = Sprite::empty(&ctx.shura.gpu, render_size);
-                //     sprite.write_current_render(
-                //         &ctx.shura.gpu,
-                //         &ctx.shura.defaults,
-                //         &mut encoder,
-                //         &ctx.shura.defaults.relative_camera,
-                //     );
-                //     saved_sprites.push((sprite_name, sprite));
-                // }
-
-                // if config.postproccess != PostproccessOperation::Never {
-                //     let mut components = false;
-
-                //     for path in set.paths() {
-                //         let group = ctx.scene.component_manager.group(path.group_index).unwrap();
-                //         let component_type = group.type_ref(path.type_index).unwrap();
-                //         if component_type.len() > 0 {
-                //             components = true;
-                //             break;
-                //         }
-                //     }
-                //     if components {
-                //         let instances = 0..1;
-                //         match config.postproccess {
-                //             PostproccessOperation::SameLayer => {
-                //                 let mut copy =
-                //                     Sprite::empty(&ctx.shura.gpu, *ctx.shura.defaults.target.size());
-                //                 copy.write_current_render(
-                //                     &ctx.shura.gpu,
-                //                     &ctx.shura.defaults,
-                //                     &mut encoder,
-                //                     &ctx.shura.defaults.relative_camera,
-                //                 );
-                //                 let mut renderer = Renderer::new(
-                //                     &ctx.shura.gpu,
-                //                     &ctx.shura.defaults,
-                //                     &mut encoder,
-                //                     &ctx.shura.defaults.target_view,
-                //                     &ctx.shura.defaults.target_msaa,
-                //                 );
-                //                 renderer.use_uniform(ctx.shura.defaults.relative_camera.uniform(), 0);
-                //                 renderer
-                //                     .set_instance_buffer(&ctx.shura.defaults.single_centered_instance);
-                //                 (set.callbacks().call_postproccess)(
-                //                     &set.paths(),
-                //                     &ctx,
-                //                     &mut renderer,
-                //                     instances,
-                //                     ctx.shura.defaults.relative_camera.model(),
-                //                     &copy,
-                //                 );
-                //             }
-                //             PostproccessOperation::SeperateLayer => {
-                //                 let mut renderer = Renderer::new(
-                //                     &ctx.shura.gpu,
-                //                     &ctx.shura.defaults,
-                //                     &mut encoder,
-                //                     &ctx.shura.defaults.target_view,
-                //                     &ctx.shura.defaults.target_msaa,
-                //                 );
-                //                 renderer.use_uniform(ctx.shura.defaults.relative_camera.uniform(), 0);
-                //                 renderer
-                //                     .set_instance_buffer(&ctx.shura.defaults.single_centered_instance);
-                //                 (set.callbacks().call_postproccess)(
-                //                     &set.paths(),
-                //                     &ctx,
-                //                     &mut renderer,
-                //                     instances,
-                //                     ctx.shura.defaults.relative_camera.model(),
-                //                     &ctx.shura.defaults.layer,
-                //                 );
-                //             }
-                //             PostproccessOperation::Never => unreachable!(),
-                //         }
-                //     }
-
-                //     if let Some(sprite_name) = save_sprite.take() {
-                //         let mut sprite = Sprite::empty(&ctx.shura.gpu, render_size);
-                //         sprite.write_current_render(
-                //             &ctx.shura.gpu,
-                //             &ctx.shura.defaults,
-                //             &mut encoder,
-                //             &ctx.shura.defaults.relative_camera,
-                //         );
-                //         saved_sprites.push((sprite_name, sprite));
-                //     }
-                // }
             }
         }
         let output = ctx.shura.gpu.surface.get_current_texture()?;
@@ -594,7 +504,12 @@ impl Shura {
             .create_view(&wgpu::TextureViewDescriptor::default());
 
         {
-            let mut renderer = Renderer::output_renderer(&ctx.shura, &mut encoder, &output_view);
+            let mut renderer = Renderer::output_renderer(
+                &mut encoder,
+                &ctx.shura.gpu,
+                &ctx.shura.defaults,
+                &output_view,
+            );
             renderer.use_uniform(ctx.shura.defaults.relative_camera.uniform(), 0);
             renderer.set_instance_buffer(&ctx.shura.defaults.single_centered_instance);
             renderer.render_sprite(
@@ -603,6 +518,7 @@ impl Shura {
             );
             renderer.commit(0..1);
         }
+
         #[cfg(feature = "gui")]
         {
             ctx.shura

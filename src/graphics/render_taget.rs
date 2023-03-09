@@ -1,4 +1,14 @@
-use crate::{Gpu, Sprite, Vector};
+use crate::{
+    CameraBuffer, Color, Gpu, GpuDefaults, InstanceBuffer, Instances, Renderer, Sprite, Vector,
+};
+
+macro_rules! Where {
+    (
+    $a:lifetime >= $b:lifetime $(,)?
+) => {
+        &$b & $a()
+    };
+}
 
 pub struct RenderTarget {
     target_msaa: wgpu::TextureView,
@@ -9,8 +19,6 @@ pub struct RenderTarget {
 impl RenderTarget {
     pub fn new(gpu: &Gpu, size: Vector<u32>) -> Self {
         let target = Sprite::empty(gpu, size);
-        let sample_count = gpu.base.sample_count;
-        let format = gpu.config.format;
         let target_view = target
             .texture()
             .create_view(&wgpu::TextureViewDescriptor::default());
@@ -22,6 +30,23 @@ impl RenderTarget {
             target,
             target_view,
         };
+    }
+
+    pub fn computed<'caller, F>(
+        gpu: &Gpu,
+        defaults: &GpuDefaults,
+        instances: &InstanceBuffer,
+        camera: &CameraBuffer,
+        texture_size: Vector<u32>,
+        clear_color: Option<Color>,
+        compute: F,
+    ) -> Self
+    where
+        F: for<'any> Fn(&mut Renderer<'any>, Instances, [Where!('caller >= 'any); 0]),
+    {
+        let target = RenderTarget::new(gpu, texture_size);
+        target.draw(gpu, defaults, instances, camera, clear_color, compute);
+        return target;
     }
 
     pub fn create_msaa(
@@ -60,6 +85,28 @@ impl RenderTarget {
 
     pub fn target_msaa(&self) -> &wgpu::TextureView {
         &self.target_msaa
+    }
+
+    pub fn draw<'caller, F>(
+        &self,
+        gpu: &Gpu,
+        defaults: &GpuDefaults,
+        instance_buffer: &InstanceBuffer,
+        camera: &CameraBuffer,
+        clear_color: Option<Color>,
+        compute: F,
+    ) where
+        F: for<'any> Fn(&mut Renderer<'any>, Instances, [Where!('caller >= 'any); 0]),
+    {
+        let mut encoder = gpu.encoder();
+        {
+            let mut renderer =
+                Renderer::new(&mut encoder, gpu, defaults, self, camera, clear_color);
+            renderer.use_uniform(&camera.uniform(), 0);
+            renderer.set_instance_buffer(instance_buffer);
+            compute(&mut renderer, instance_buffer.instances(), []);
+        }
+        gpu.finish_encoder(encoder);
     }
 }
 
