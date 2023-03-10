@@ -6,7 +6,7 @@ pub mod gpu;
 pub mod gui;
 pub mod instance_buffer;
 pub mod model;
-pub mod render_config;
+pub mod screen_config;
 pub mod render_taget;
 pub mod renderer;
 pub mod shader;

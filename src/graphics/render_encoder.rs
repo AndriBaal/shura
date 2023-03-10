@@ -11,38 +11,37 @@ pub enum RenderInstances<'a> {
     Custom(&'a InstanceBuffer),
 }
 
-pub struct RenderEncoder<'a> {
-    pub(crate) target: &'a RenderTarget,
-    pub encoder: wgpu::CommandEncoder,
+pub struct RenderConfig<'a> {
+    pub camera: RenderCamera<'a>,
+    pub instances: RenderInstances<'a>,
+    pub target: &'a RenderTarget,
     pub gpu: &'a Gpu,
     pub defaults: &'a GpuDefaults,
 }
 
-impl<'a> RenderEncoder<'a> {
-    pub fn new(gpu: &Gpu, defaults: &GpuDefaults, target: &'a RenderTarget) -> Self {
+pub struct RenderEncoder {
+    pub encoder: wgpu::CommandEncoder
+}
+
+impl RenderEncoder {
+    pub fn new(gpu: &Gpu) -> Self {
         let encoder = gpu
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("render_encoder"),
             });
         Self {
-            encoder,
-            target,
-            gpu,
-            defaults,
+            encoder
         }
     }
+    
 
-    pub fn submit(self, encoder: wgpu::CommandEncoder) {
-        self.gpu.queue.submit(std::iter::once(encoder.finish()));
-    }
-
-    pub fn clear(&mut self, color: Color) {
+    pub fn clear(&mut self, target: &RenderTarget, color: Color) {
         self.encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("render_pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: self.target.target_msaa(),
-                resolve_target: Some(self.target.target_view()),
+                view: target.target_msaa(),
+                resolve_target: Some(target.target_view()),
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear(color.into()),
                     store: true,
@@ -53,12 +52,11 @@ impl<'a> RenderEncoder<'a> {
         });
     }
 
-    pub fn renderer(
+    pub fn renderer<'a>(
         &'a mut self,
-        camera: RenderCamera<'a>,
-        instances: RenderInstances<'a>,
+        temp: RenderConfig<'a>
     ) -> (Instances, Renderer<'a>) {
-        Renderer::new(self, camera, instances)
+        Renderer::new(self, temp)
     }
 
     // pub fn save_target(&self, into: &RenderTarget) {
@@ -78,8 +76,4 @@ impl<'a> RenderEncoder<'a> {
     //         renderer.commit(0..1);
     //     }
     // }
-
-    pub fn target(&self) -> &RenderTarget {
-        self.target
-    }
 }

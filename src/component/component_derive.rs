@@ -5,7 +5,7 @@ use crate::{
 };
 use crate::{
     BaseComponent, ComponentConfig, ComponentControllerCaller, ComponentPath, Context, Instances,
-    Model, Renderer, Sprite, DEFAULT_CONFIG,
+    Model, Renderer, Sprite, DEFAULT_CONFIG, RenderEncoder, InstanceBuffer, RenderInstances, RenderConfig,
 };
 use downcast_rs::*;
 
@@ -67,8 +67,8 @@ where
     fn render<'a>(
         active: ComponentPath<Self>,
         ctx: &'a Context<'a>,
-        renderer: &mut Renderer<'a>,
-        all_instances: Instances,
+        config: RenderConfig<'a>,
+        encoder: &mut RenderEncoder,
     ) {
     }
 

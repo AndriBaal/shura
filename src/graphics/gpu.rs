@@ -2,7 +2,7 @@
 use crate::text::{CreateFont, CreateText, Font, TextDescriptor};
 use crate::{
     Camera, CameraBuffer, Color, InstanceBuffer, Instances, Matrix, Model, ModelBuilder,
-    RenderTarget, Renderer, Shader, ShaderField, ShaderLang, Sprite, SpriteSheet, Uniform, Vector,
+    RenderTarget, Renderer, Shader, ShaderField, ShaderLang, Sprite, SpriteSheet, Uniform, Vector, RenderConfig, RenderEncoder, RenderInstances, RenderCamera,
 };
 use log::info;
 use std::borrow::Cow;
@@ -210,28 +210,26 @@ impl Gpu {
         Shader::new_custom(self, shader_lang, descriptor)
     }
 
-    // pub fn create_computed_target<'caller, F>(
-    //     &self,
-    //     defaults: &GpuDefaults,
-    //     instances: &InstanceBuffer,
-    //     camera: &CameraBuffer,
-    //     texture_size: Vector<u32>,
-    //     clear_color: Option<Color>,
-    //     compute: F,
-    // ) -> RenderTarget
-    // where
-    //     F: for<'any> Fn(&mut Renderer<'any>, Instances, [Where!('caller >= 'any); 0]),
-    // {
-    //     return RenderTarget::computed(
-    //         self,
-    //         &defaults,
-    //         instances,
-    //         camera,
-    //         texture_size,
-    //         clear_color,
-    //         compute,
-    //     );
-    // }
+    pub fn create_computed_target(
+        &self,
+        defaults: &GpuDefaults,
+        instances: RenderInstances,
+        camera: RenderCamera,
+        texture_size: Vector<u32>,
+        clear_color: Option<Color>,
+        compute: impl Fn(&mut RenderEncoder, RenderConfig),
+    ) -> RenderTarget
+    {
+        return RenderTarget::computed(
+            self,
+            &defaults,
+            instances,
+            camera,
+            texture_size,
+            clear_color,
+            compute,
+        );
+    }
 }
 
 /// Base Wgpu objects needed to create any further graphics object.

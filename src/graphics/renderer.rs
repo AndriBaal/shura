@@ -3,7 +3,7 @@ use wgpu::CommandEncoder;
 
 use crate::{
     CameraBuffer, Color, Gpu, GpuDefaults, InstanceBuffer, Model, RenderCamera, RenderEncoder,
-    RenderTarget, Shader, Sprite, Uniform, RenderInstances,
+    RenderTarget, Shader, Sprite, Uniform, RenderInstances, RenderConfig,
 };
 
 /// Single index of an instance inside a [InstanceBuffer](crate::InstanceBuffer).
@@ -23,17 +23,16 @@ pub struct Renderer<'a> {
 
 impl<'a> Renderer<'a> {
     pub(crate) fn new(
-        render_encoder: &'a RenderEncoder,
-        camera: RenderCamera<'a>,
-        instances: RenderInstances<'a>,
+        render_encoder: &'a mut RenderEncoder,
+        config: RenderConfig<'a>
     ) -> (Instances, Renderer<'a>) {
-        let camera = match camera {
-            RenderCamera::WorldCamera => &render_encoder.defaults.world_camera,
-            RenderCamera::RelativeCamera => &render_encoder.defaults.relative_camera,
+        let camera = match config.camera {
+            RenderCamera::WorldCamera => &config.defaults.world_camera,
+            RenderCamera::RelativeCamera => &config.defaults.relative_camera,
             RenderCamera::Custom(c) => c,
         }; 
-        let instances = match instances {
-            RenderInstances::SingleInstance => &render_encoder.defaults.single_centered_instance,
+        let instances = match config.instances {
+            RenderInstances::SingleInstance => &config.defaults.single_centered_instance,
             RenderInstances::Custom(c) => c,
         };
         let render_pass = render_encoder
@@ -41,8 +40,8 @@ impl<'a> Renderer<'a> {
             .begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("render_pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: render_encoder.target.target_msaa(),
-                    resolve_target: Some(render_encoder.target.target_view()),
+                    view: config.target.target_msaa(),
+                    resolve_target: Some(config.target.target_view()),
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Load,
                         store: true,
@@ -54,8 +53,8 @@ impl<'a> Renderer<'a> {
 
         let mut result = Self {
             render_pass,
-            gpu: render_encoder.gpu,
-            defaults: render_encoder.defaults,
+            gpu: config.gpu,
+            defaults: config.defaults,
             indices: 0,
             camera: &camera,
         };

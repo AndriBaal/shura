@@ -99,7 +99,7 @@ impl ComponentType {
     }
 
     pub fn buffer(&self) -> &InstanceBuffer {
-        self.buffer.as_ref().unwrap()
+        self.buffer.as_ref().expect("Cannot render a component type that does not have buffer!")
     }
 
     #[cfg(feature = "serde")]

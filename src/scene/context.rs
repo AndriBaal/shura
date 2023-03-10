@@ -4,7 +4,7 @@ use crate::{
     ComponentSetRender, DynamicComponent, GroupFilter, InputEvent, InputTrigger, InstanceBuffer,
     Instances, Isometry, Key, Matrix, Model, ModelBuilder, Modifier, RenderTarget, Renderer,
     Rotation, Scene, SceneCreator, Shader, ShaderField, ShaderLang, Shura, Sprite, SpriteSheet,
-    Touch, Uniform, Vector,
+    Touch, Uniform, Vector, RenderEncoder, RenderConfig, RenderInstances, RenderCamera,
 };
 
 #[cfg(feature = "serde")]
@@ -228,26 +228,24 @@ impl<'a> Context<'a> {
         self.shura.gpu.create_custom_shader(shader_lang, descriptor)
     }
 
-    // pub fn create_computed_target<'caller, F>(
-    //     &self,
-    //     instances: &InstanceBuffer,
-    //     camera: &CameraBuffer,
-    //     texture_size: Vector<u32>,
-    //     clear_color: Option<Color>,
-    //     compute: F,
-    // ) -> RenderTarget
-    // where
-    //     F: for<'any> Fn(&mut Renderer<'any>, Instances, [Where!('caller >= 'any); 0]),
-    // {
-    //     self.shura.gpu.create_computed_target(
-    //         &self.shura.defaults,
-    //         instances,
-    //         camera,
-    //         texture_size,
-    //         clear_color,
-    //         compute,
-    //     )
-    // }
+    pub fn create_computed_target(
+        &self,
+        instances: RenderInstances,
+        camera: RenderCamera,
+        texture_size: Vector<u32>,
+        clear_color: Option<Color>,
+        compute: impl Fn(&mut RenderEncoder, RenderConfig),
+    ) -> RenderTarget
+    {
+        self.shura.gpu.create_computed_target(
+            &self.shura.defaults,
+            instances,
+            camera,
+            texture_size,
+            clear_color,
+            compute,
+        )
+    }
 
     #[cfg(feature = "audio")]
     pub fn create_sound(&self, sound: &'static [u8]) -> Sound {
@@ -999,32 +997,6 @@ impl<'a> Context<'a> {
             .world_mut()
             .set_physics_priority(step);
     }
-
-    //
-    // #[cfg(feature = "gamepad")]
-    // pub fn set_gamepad_mapping(
-    //     &mut self,
-    //     gamepad_id: GamepadId,
-    //     mapping: &Mapping,
-    //     name: Option<&str>,
-    // ) -> Result<String, MappingError> {
-    //     self.shura
-    //         .input
-    //         .set_gamepad_mapping(gamepad_id, mapping, name)
-    // }
-
-    //
-    // #[cfg(feature = "gamepad")]
-    // pub fn set_gamepad_mapping_strict(
-    //     &mut self,
-    //     gamepad_id: GamepadId,
-    //     mapping: &Mapping,
-    //     name: Option<&str>,
-    // ) -> Result<String, MappingError> {
-    //     self.shura
-    //         .input
-    //         .set_gamepad_mapping_strict(gamepad_id, mapping, name)
-    // }
 
     pub fn set_max_fps(&mut self, max_fps: Option<u32>) {
         self.scene.render_config.set_max_fps(max_fps);

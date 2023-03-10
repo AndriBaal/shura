@@ -4,13 +4,13 @@ use crate::{Color, Shura};
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Clone, Debug)]
-pub struct RenderConfig {
+pub struct ScreenConfig {
     clear_color: Option<Color>,
     render_scale: f32,
     max_fps: Option<u32>,
 }
 
-impl Default for RenderConfig {
+impl Default for ScreenConfig {
     fn default() -> Self {
         Self {
             clear_color: Some(Color::new(0.0, 0.0, 0.0, 1.0)),
@@ -20,7 +20,7 @@ impl Default for RenderConfig {
     }
 }
 
-impl RenderConfig {
+impl ScreenConfig {
     pub(crate) fn new() -> Self {
         Default::default()
     }

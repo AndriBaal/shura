@@ -6,7 +6,7 @@ use crate::gui::Gui;
 use crate::physics::{ActiveEvents, CollideType};
 use crate::{
     Context, FrameManager, Gpu, GpuDefaults, Input, RenderEncoder, RenderOperation, Renderer,
-    Scene, SceneCreator, SceneManager, Vector,
+    Scene, SceneCreator, SceneManager, Vector, RenderConfig, RenderCamera, RenderInstances,
 };
 use log::{error, info};
 #[cfg(target_os = "android")]
@@ -450,12 +450,10 @@ impl Shura {
         );
 
         let mut encoder = RenderEncoder::new(
-            &ctx.shura.gpu,
-            &ctx.shura.defaults,
-            &ctx.shura.defaults.target,
+            &ctx.shura.gpu
         );
         if let Some(clear_color) = ctx.clear_color() {
-            encoder.clear(clear_color);
+            encoder.clear(&ctx.shura.defaults.target, clear_color);
         }
 
         {
@@ -476,14 +474,19 @@ impl Shura {
                                 let group =
                                     ctx.scene.component_manager.group(path.group_index).unwrap();
                                 let component_type = group.type_ref(path.type_index).unwrap();
-                                let len = component_type.len();
-                                let buffer = component_type.buffer();
-                                let instances = 0..len as u32;
+                                let config = RenderConfig {
+                                    camera: RenderCamera::WorldCamera,
+                                    instances: RenderInstances::Custom(component_type.buffer()),
+                                    target: &ctx.shura.defaults.target,
+                                    gpu: &ctx.shura.gpu,
+                                    defaults: &ctx.shura.defaults,
+                                };
                                 if component_type.len() > 0 {
                                     (set.callbacks().call_render)(
                                         &[*path],
                                         &ctx,
-                                        &mut renderer,
+                                        config,
+                                        &mut encoder,
                                     );
                                 }
                             }
@@ -500,13 +503,13 @@ impl Shura {
 
         {
             let mut renderer = Renderer::output_renderer(
-                &mut encoder,
+                &mut encoder.encoder,
                 &ctx.shura.gpu,
                 &ctx.shura.defaults,
                 &output_view,
             );
             renderer.use_uniform(ctx.shura.defaults.relative_camera.uniform(), 0);
-            renderer.set_instance_buffer(&ctx.shura.defaults.single_centered_instance);
+            renderer.use_instance_buffer(&ctx.shura.defaults.single_centered_instance);
             renderer.render_sprite(
                 ctx.shura.defaults.relative_camera.model(),
                 ctx.shura.defaults.target.target(),
@@ -514,13 +517,16 @@ impl Shura {
             renderer.commit(0..1);
         }
 
+        let mut encoder = encoder.encoder;
+
         #[cfg(feature = "gui")]
         {
             ctx.shura
                 .gui
                 .render(&ctx.shura.gpu, &mut encoder, &output_view);
         }
-        ctx.shura.gpu.finish_encoder(encoder);
+        ctx.shura.gpu.queue.submit(std::iter::once(encoder.finish()));
+        // encoder.submit();
         output.present();
 
         Ok(())

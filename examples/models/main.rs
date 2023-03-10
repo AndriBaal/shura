@@ -128,9 +128,10 @@ impl ComponentController for ModelTest {
     fn render<'a>(
         active: ComponentPath<Self>,
         ctx: &'a Context<'a>,
-        renderer: &mut Renderer<'a>,
-        _all_instances: Instances,
+        config: RenderConfig<'a>,
+        encoder: &mut RenderEncoder,
     ) {
+        let (_, mut renderer) = encoder.renderer(config);
         for (i, c) in &ctx.path_render(&active) {
             renderer.render_color(&c.model, &c.color);
             renderer.commit(i);

@@ -152,9 +152,10 @@ impl ComponentController for Bunny {
     fn render<'a>(
         _active: ComponentPath<Self>,
         ctx: &'a Context<'a>,
-        renderer: &mut Renderer<'a>,
-        instances: Instances,
+        config: RenderConfig<'a>,
+        encoder: &mut RenderEncoder,
     ) {
+        let (instances, mut renderer) = encoder.renderer(config);
         let state = ctx.global_state::<BunnyRessources>().unwrap();
         renderer.render_sprite(&state.bunny_model, &state.bunny_sprite);
         renderer.commit(instances);

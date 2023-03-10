@@ -203,9 +203,10 @@ impl ComponentController for Player {
     fn render<'a>(
         active: ComponentPath<Self>,
         ctx: &'a Context<'a>,
-        renderer: &mut Renderer<'a>,
-        _instances: Instances,
+        config: RenderConfig<'a>,
+        encoder: &mut RenderEncoder,
     ) {
+        let (_, mut renderer) = encoder.renderer(config);
         for (instances, player) in &ctx.path_render(&active) {
             renderer.render_sprite(&player.model, &player.sprite);
             renderer.commit(instances);
@@ -265,11 +266,12 @@ impl ComponentController for Floor {
     fn render<'a>(
         active: ComponentPath<Self>,
         ctx: &'a Context<'a>,
-        renderer: &mut Renderer<'a>,
-        _all_instances: Instances,
+        config: RenderConfig<'a>,
+        encoder: &mut RenderEncoder,
     ) {
-        let test = ctx.path_render(&active);
-        for (instance, floor) in &test {
+        let floors = ctx.path_render(&active);
+        let (_, mut renderer) = encoder.renderer(config);
+        for (instance, floor) in &floors {
             renderer.render_color(&floor.model, &floor.color);
             renderer.commit(instance);
         }
@@ -303,9 +305,10 @@ impl ComponentController for PhysicsBox {
     fn render<'a>(
         active: ComponentPath<Self>,
         ctx: &'a Context<'a>,
-        renderer: &mut Renderer<'a>,
-        _instances: Instances,
+        config: RenderConfig<'a>,
+        encoder: &mut RenderEncoder,
     ) {
+        let (_, mut renderer) = encoder.renderer(config);
         let manager = ctx
             .components::<BoxManager>(GroupFilter::All)
             .iter()

@@ -1,7 +1,7 @@
 use rustc_hash::FxHashMap;
 
 use crate::{
-    Camera, ComponentManager, Context, CursorManager, Isometry, RenderConfig, Shura, Sprite, Vector,
+    Camera, ComponentManager, Context, CursorManager, Isometry, ScreenConfig, Shura, Sprite, Vector,
 };
 
 pub trait SceneCreator {
@@ -59,7 +59,7 @@ pub struct Scene {
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
     pub cursor: CursorManager,
-    pub render_config: RenderConfig,
+    pub render_config: ScreenConfig,
     pub camera: Camera,
     pub component_manager: ComponentManager,
 }
@@ -78,7 +78,7 @@ impl Scene {
             camera: Camera::new(Isometry::default(), fov),
             cursor: CursorManager::new(),
             component_manager: ComponentManager::new(),
-            render_config: RenderConfig::new(),
+            render_config: ScreenConfig::new(),
             saved_sprites: Default::default(),
         }
     }

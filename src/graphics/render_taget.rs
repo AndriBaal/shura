@@ -1,5 +1,5 @@
 use crate::{
-    CameraBuffer, Color, Gpu, GpuDefaults, InstanceBuffer, Instances, Renderer, Sprite, Vector, RenderEncoder,
+    CameraBuffer, Color, Gpu, GpuDefaults, InstanceBuffer, Instances, Renderer, Sprite, Vector, RenderEncoder, RenderConfig, RenderInstances, RenderCamera,
 };
 
 macro_rules! Where {
@@ -32,22 +32,20 @@ impl RenderTarget {
         };
     }
 
-    // pub fn computed<'caller, F>(
-    //     gpu: &Gpu,
-    //     defaults: &GpuDefaults,
-    //     instances: &InstanceBuffer,
-    //     camera: &CameraBuffer,
-    //     texture_size: Vector<u32>,
-    //     clear_color: Option<Color>,
-    //     compute: F,
-    // ) -> Self
-    // where
-    //     F: for<'any> Fn(&mut Renderer<'any>, Instances, [Where!('caller >= 'any); 0]),
-    // {
-    //     let target = RenderTarget::new(gpu, texture_size);
-    //     target.draw(gpu, defaults, instances, camera, clear_color, compute);
-    //     return target;
-    // }
+    pub fn computed(
+        gpu: &Gpu,
+        defaults: &GpuDefaults,
+        instances: RenderInstances,
+        camera: RenderCamera,
+        texture_size: Vector<u32>,
+        clear_color: Option<Color>,
+        compute: impl Fn(&mut RenderEncoder, RenderConfig),
+    ) -> Self
+    {
+        let target = RenderTarget::new(gpu, texture_size);
+        target.draw(gpu, defaults, instances, camera, clear_color, compute);
+        return target;
+    }
 
     pub fn create_msaa(
         device: &wgpu::Device,
@@ -87,27 +85,30 @@ impl RenderTarget {
         &self.target_msaa
     }
 
-    // pub fn draw<'caller, F>(
-    //     &self,
-    //     gpu: &Gpu,
-    //     defaults: &GpuDefaults,
-    //     instance_buffer: &InstanceBuffer,
-    //     camera: &CameraBuffer,
-    //     clear_color: Option<Color>,
-    //     compute: F,
-    // ) where
-    //     F: for<'any> Fn(&mut RenderEncoder<'any>, Instances, [Where!('caller >= 'any); 0]),
-    // {
-    //     let mut encoder = gpu.encoder();
-    //     {
-    //         let mut renderer =
-    //             Renderer::new(&mut encoder, gpu, defaults, self, camera, clear_color);
-    //         renderer.use_uniform(&camera.uniform(), 0);
-    //         renderer.set_instance_buffer(instance_buffer);
-    //         compute(&mut renderer, instance_buffer.instances(), []);
-    //     }
-    //     gpu.finish_encoder(encoder);
-    // }
+    pub fn draw(
+        &self,
+        gpu: &Gpu,
+        defaults: &GpuDefaults,
+        instances: RenderInstances,
+        camera: RenderCamera,
+        clear_color: Option<Color>,
+        compute: impl Fn(&mut RenderEncoder, RenderConfig),
+    )
+    {
+        let mut encoder = RenderEncoder::new(gpu);
+        if let Some(color) = clear_color {
+            encoder.clear(self, color);
+        }
+        let config = RenderConfig {
+            camera,
+            instances,
+            target: &self,
+            gpu: &gpu,
+            defaults: &defaults,
+        };
+        compute(&mut encoder, config);
+        gpu.queue.submit(std::iter::once(encoder.encoder.finish()));
+    }
 }
 
 impl Into<Sprite> for RenderTarget {
