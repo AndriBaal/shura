@@ -5,7 +5,7 @@ use crate::{
 };
 use crate::{
     BaseComponent, ComponentConfig, ComponentControllerCaller, ComponentPath, Context, Instances,
-    Model, Renderer, Sprite, DEFAULT_CONFIG, RenderEncoder, InstanceBuffer, RenderInstances, RenderConfig,
+    Model, RenderConfig, RenderEncoder, Renderer, Sprite, DEFAULT_CONFIG,
 };
 use downcast_rs::*;
 

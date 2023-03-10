@@ -1,14 +1,7 @@
 use crate::{
-    CameraBuffer, Color, Gpu, GpuDefaults, InstanceBuffer, Instances, Renderer, Sprite, Vector, RenderEncoder, RenderConfig, RenderInstances, RenderCamera,
+    Color, Gpu, GpuDefaults, RenderCamera, RenderConfig, RenderEncoder, RenderInstances, Sprite,
+    Vector,
 };
-
-macro_rules! Where {
-    (
-    $a:lifetime >= $b:lifetime $(,)?
-) => {
-        &$b & $a()
-    };
-}
 
 pub struct RenderTarget {
     target_msaa: wgpu::TextureView,
@@ -40,8 +33,7 @@ impl RenderTarget {
         texture_size: Vector<u32>,
         clear_color: Option<Color>,
         compute: impl Fn(&mut RenderEncoder, RenderConfig),
-    ) -> Self
-    {
+    ) -> Self {
         let target = RenderTarget::new(gpu, texture_size);
         target.draw(gpu, defaults, instances, camera, clear_color, compute);
         return target;
@@ -93,8 +85,7 @@ impl RenderTarget {
         camera: RenderCamera,
         clear_color: Option<Color>,
         compute: impl Fn(&mut RenderEncoder, RenderConfig),
-    )
-    {
+    ) {
         let mut encoder = RenderEncoder::new(gpu);
         if let Some(color) = clear_color {
             encoder.clear(self, color);

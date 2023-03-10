@@ -1,9 +1,6 @@
-use downcast_rs::Downcast;
-use wgpu::CommandEncoder;
-
 use crate::{
-    CameraBuffer, Color, Gpu, GpuDefaults, InstanceBuffer, Model, RenderCamera, RenderEncoder,
-    RenderTarget, Shader, Sprite, Uniform, RenderInstances, RenderConfig,
+    CameraBuffer, Color, Gpu, GpuDefaults, InstanceBuffer, Model, RenderCamera, RenderConfig,
+    RenderEncoder, RenderInstances, Shader, Sprite, Uniform,
 };
 
 /// Single index of an instance inside a [InstanceBuffer](crate::InstanceBuffer).
@@ -24,13 +21,13 @@ pub struct Renderer<'a> {
 impl<'a> Renderer<'a> {
     pub(crate) fn new(
         render_encoder: &'a mut RenderEncoder,
-        config: RenderConfig<'a>
+        config: RenderConfig<'a>,
     ) -> (Instances, Renderer<'a>) {
         let camera = match config.camera {
             RenderCamera::WorldCamera => &config.defaults.world_camera,
             RenderCamera::RelativeCamera => &config.defaults.relative_camera,
             RenderCamera::Custom(c) => c,
-        }; 
+        };
         let instances = match config.instances {
             RenderInstances::SingleInstance => &config.defaults.single_centered_instance,
             RenderInstances::Custom(c) => c,

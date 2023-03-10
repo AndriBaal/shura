@@ -5,8 +5,8 @@ use crate::gui::Gui;
 #[cfg(feature = "physics")]
 use crate::physics::{ActiveEvents, CollideType};
 use crate::{
-    Context, FrameManager, Gpu, GpuDefaults, Input, RenderEncoder, RenderOperation, Renderer,
-    Scene, SceneCreator, SceneManager, Vector, RenderConfig, RenderCamera, RenderInstances,
+    Context, FrameManager, Gpu, GpuDefaults, Input, RenderCamera, RenderConfig, RenderEncoder,
+    RenderInstances, RenderOperation, Renderer, Scene, SceneCreator, SceneManager, Vector,
 };
 use log::{error, info};
 #[cfg(target_os = "android")]
@@ -449,9 +449,7 @@ impl Shura {
             ctx.shura.frame_manager.frame_time(),
         );
 
-        let mut encoder = RenderEncoder::new(
-            &ctx.shura.gpu
-        );
+        let mut encoder = RenderEncoder::new(&ctx.shura.gpu);
         if let Some(clear_color) = ctx.clear_color() {
             encoder.clear(&ctx.shura.defaults.target, clear_color);
         }
@@ -525,7 +523,10 @@ impl Shura {
                 .gui
                 .render(&ctx.shura.gpu, &mut encoder, &output_view);
         }
-        ctx.shura.gpu.queue.submit(std::iter::once(encoder.finish()));
+        ctx.shura
+            .gpu
+            .queue
+            .submit(std::iter::once(encoder.finish()));
         // encoder.submit();
         output.present();
 

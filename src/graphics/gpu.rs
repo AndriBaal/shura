@@ -1,20 +1,13 @@
 #[cfg(feature = "text")]
 use crate::text::{CreateFont, CreateText, Font, TextDescriptor};
 use crate::{
-    Camera, CameraBuffer, Color, InstanceBuffer, Instances, Matrix, Model, ModelBuilder,
-    RenderTarget, Renderer, Shader, ShaderField, ShaderLang, Sprite, SpriteSheet, Uniform, Vector, RenderConfig, RenderEncoder, RenderInstances, RenderCamera,
+    Camera, CameraBuffer, Color, InstanceBuffer, Matrix, Model, ModelBuilder, RenderCamera,
+    RenderConfig, RenderEncoder, RenderInstances, RenderTarget, Shader, ShaderField, ShaderLang,
+    Sprite, SpriteSheet, Uniform, Vector,
 };
 use log::info;
 use std::borrow::Cow;
 pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 1.0;
-
-macro_rules! Where {
-    (
-    $a:lifetime >= $b:lifetime $(,)?
-) => {
-        &$b & $a()
-    };
-}
 
 /// Holds the connection to the GPU using wgpu. Also has some default buffers, layouts etc.
 pub struct Gpu {
@@ -218,8 +211,7 @@ impl Gpu {
         texture_size: Vector<u32>,
         clear_color: Option<Color>,
         compute: impl Fn(&mut RenderEncoder, RenderConfig),
-    ) -> RenderTarget
-    {
+    ) -> RenderTarget {
         return RenderTarget::computed(
             self,
             &defaults,

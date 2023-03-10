@@ -1,4 +1,6 @@
-use crate::{CameraBuffer, Color, Gpu, GpuDefaults, InstanceBuffer, RenderTarget, Renderer, Instances};
+use crate::{
+    CameraBuffer, Color, Gpu, GpuDefaults, InstanceBuffer, Instances, RenderTarget, Renderer,
+};
 
 pub enum RenderCamera<'a> {
     WorldCamera,
@@ -20,7 +22,7 @@ pub struct RenderConfig<'a> {
 }
 
 pub struct RenderEncoder {
-    pub encoder: wgpu::CommandEncoder
+    pub encoder: wgpu::CommandEncoder,
 }
 
 impl RenderEncoder {
@@ -30,11 +32,8 @@ impl RenderEncoder {
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("render_encoder"),
             });
-        Self {
-            encoder
-        }
+        Self { encoder }
     }
-    
 
     pub fn clear(&mut self, target: &RenderTarget, color: Color) {
         self.encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -52,10 +51,7 @@ impl RenderEncoder {
         });
     }
 
-    pub fn renderer<'a>(
-        &'a mut self,
-        temp: RenderConfig<'a>
-    ) -> (Instances, Renderer<'a>) {
+    pub fn renderer<'a>(&'a mut self, temp: RenderConfig<'a>) -> (Instances, Renderer<'a>) {
         Renderer::new(self, temp)
     }
 

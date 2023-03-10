@@ -3,7 +3,7 @@ use crate::{
     physics::{CollideType, ColliderHandle},
     ComponentHandle,
 };
-use crate::{ArenaPath, ComponentController, ComponentPath, Context, Instances, Renderer, InstanceBuffer, RenderEncoder, RenderInstances, RenderConfig};
+use crate::{ArenaPath, ComponentController, ComponentPath, Context, RenderConfig, RenderEncoder};
 
 /// Grants access to the static members of the component type. This should never be overwritten,
 /// since it is automatically implemented with generics.

@@ -2,9 +2,9 @@ use crate::{
     Camera, CameraBuffer, Color, ComponentController, ComponentGroup, ComponentGroupDescriptor,
     ComponentHandle, ComponentIdentifier, ComponentPath, ComponentSet, ComponentSetMut,
     ComponentSetRender, DynamicComponent, GroupFilter, InputEvent, InputTrigger, InstanceBuffer,
-    Instances, Isometry, Key, Matrix, Model, ModelBuilder, Modifier, RenderTarget, Renderer,
-    Rotation, Scene, SceneCreator, Shader, ShaderField, ShaderLang, Shura, Sprite, SpriteSheet,
-    Touch, Uniform, Vector, RenderEncoder, RenderConfig, RenderInstances, RenderCamera,
+    Isometry, Key, Matrix, Model, ModelBuilder, Modifier, RenderCamera, RenderConfig,
+    RenderEncoder, RenderInstances, RenderTarget, Rotation, Scene, SceneCreator, Shader,
+    ShaderField, ShaderLang, Shura, Sprite, SpriteSheet, Touch, Uniform, Vector,
 };
 
 #[cfg(feature = "serde")]
@@ -34,14 +34,6 @@ use crate::gamepad::*;
 
 use instant::{Duration, Instant};
 use rustc_hash::FxHashMap;
-
-macro_rules! Where {
-    (
-    $a:lifetime >= $b:lifetime $(,)?
-) => {
-        &$b & $a()
-    };
-}
 
 /// Context to communicate with the game engine to access components, scenes, camera, physics and many more.
 pub struct Context<'a> {
@@ -235,8 +227,7 @@ impl<'a> Context<'a> {
         texture_size: Vector<u32>,
         clear_color: Option<Color>,
         compute: impl Fn(&mut RenderEncoder, RenderConfig),
-    ) -> RenderTarget
-    {
+    ) -> RenderTarget {
         self.shura.gpu.create_computed_target(
             &self.shura.defaults,
             instances,
