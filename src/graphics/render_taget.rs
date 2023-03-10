@@ -1,6 +1,5 @@
 use crate::{
-    Color, Gpu, GpuDefaults, RenderCamera, RenderConfig, RenderEncoder, RenderInstances, Sprite,
-    Vector,
+    Gpu, GpuDefaults, RenderCamera, RenderConfig, RenderEncoder, RenderInstances, Sprite, Vector,
 };
 
 pub struct RenderTarget {
@@ -31,11 +30,10 @@ impl RenderTarget {
         instances: RenderInstances,
         camera: RenderCamera,
         texture_size: Vector<u32>,
-        clear_color: Option<Color>,
         compute: impl Fn(&mut RenderEncoder, RenderConfig),
     ) -> Self {
         let target = RenderTarget::new(gpu, texture_size);
-        target.draw(gpu, defaults, instances, camera, clear_color, compute);
+        target.draw(gpu, defaults, instances, camera, compute);
         return target;
     }
 
@@ -83,13 +81,9 @@ impl RenderTarget {
         defaults: &GpuDefaults,
         instances: RenderInstances,
         camera: RenderCamera,
-        clear_color: Option<Color>,
         compute: impl Fn(&mut RenderEncoder, RenderConfig),
     ) {
         let mut encoder = RenderEncoder::new(gpu);
-        if let Some(color) = clear_color {
-            encoder.clear(self, color);
-        }
         let config = RenderConfig {
             camera,
             instances,

@@ -209,7 +209,6 @@ impl Gpu {
         instances: RenderInstances,
         camera: RenderCamera,
         texture_size: Vector<u32>,
-        clear_color: Option<Color>,
         compute: impl Fn(&mut RenderEncoder, RenderConfig),
     ) -> RenderTarget {
         return RenderTarget::computed(
@@ -218,7 +217,6 @@ impl Gpu {
             instances,
             camera,
             texture_size,
-            clear_color,
             compute,
         );
     }

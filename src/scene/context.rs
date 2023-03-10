@@ -225,7 +225,6 @@ impl<'a> Context<'a> {
         instances: RenderInstances,
         camera: RenderCamera,
         texture_size: Vector<u32>,
-        clear_color: Option<Color>,
         compute: impl Fn(&mut RenderEncoder, RenderConfig),
     ) -> RenderTarget {
         self.shura.gpu.create_computed_target(
@@ -233,7 +232,6 @@ impl<'a> Context<'a> {
             instances,
             camera,
             texture_size,
-            clear_color,
             compute,
         )
     }

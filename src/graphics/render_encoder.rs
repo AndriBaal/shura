@@ -26,7 +26,7 @@ pub struct RenderEncoder {
 }
 
 impl RenderEncoder {
-    pub fn new(gpu: &Gpu) -> Self {
+    pub(crate) fn new(gpu: &Gpu) -> Self {
         let encoder = gpu
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -55,21 +55,4 @@ impl RenderEncoder {
         Renderer::new(self, temp)
     }
 
-    // pub fn save_target(&self, into: &RenderTarget) {
-    //     let gpu = self.gpu;
-    //     let defaults = self.defaults;
-    //     let relative_camera = &defaults.relative_camera;
-
-    //     {
-    //         let mut renderer =
-    //             Renderer::new(&mut encoder, gpu, defaults, &target, relative_camera, None);
-    //         renderer.use_uniform(relative_camera.uniform(), 0);
-    //         renderer.set_instance_buffer(&defaults.single_centered_instance);
-    //         renderer.render_sprite(
-    //             relative_camera.model(),
-    //             self.target.as_ref().unwrap().target(),
-    //         );
-    //         renderer.commit(0..1);
-    //     }
-    // }
 }
