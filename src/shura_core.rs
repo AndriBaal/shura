@@ -1,16 +1,16 @@
-use std::{any::Any};
+use std::any::Any;
 
-#[cfg(target_os = "android")]
-use winit::platform::android::activity::AndroidApp;
 #[cfg(feature = "gui")]
 use crate::gui::Gui;
 #[cfg(feature = "physics")]
 use crate::physics::{ActiveEvents, CollideType};
 use crate::{
-    Context, FrameManager, Gpu, GpuDefaults, Input, RenderOperation, Renderer, Scene, SceneCreator,
-    SceneManager, Vector,
+    Context, FrameManager, Gpu, GpuDefaults, Input, RenderEncoder, RenderOperation, Renderer,
+    Scene, SceneCreator, SceneManager, Vector,
 };
 use log::{error, info};
+#[cfg(target_os = "android")]
+use winit::platform::android::activity::AndroidApp;
 
 const INITIAL_WIDTH: u32 = 800;
 const INITIAL_HEIGHT: u32 = 600;
@@ -449,19 +449,16 @@ impl Shura {
             ctx.shura.frame_manager.frame_time(),
         );
 
-        let mut encoder = ctx.shura.gpu.encoder();
-        // let mut saved_sprites = vec![];
-        // let render_size = ctx.render_size();
+        let mut encoder = RenderEncoder::new(
+            &ctx.shura.gpu,
+            &ctx.shura.defaults,
+            &ctx.shura.defaults.target,
+        );
+        if let Some(clear_color) = ctx.clear_color() {
+            encoder.clear(clear_color);
+        }
 
         {
-            let mut renderer = Renderer::new(
-                &mut encoder,
-                &ctx.shura.gpu,
-                &ctx.shura.defaults,
-                &ctx.shura.defaults.target,
-                &ctx.shura.defaults.world_camera,
-                ctx.clear_color(),
-            );
             for set in ctx
                 .scene
                 .component_manager
@@ -481,14 +478,12 @@ impl Shura {
                                 let component_type = group.type_ref(path.type_index).unwrap();
                                 let len = component_type.len();
                                 let buffer = component_type.buffer();
-                                renderer.set_instance_buffer(buffer);
                                 let instances = 0..len as u32;
                                 if component_type.len() > 0 {
                                     (set.callbacks().call_render)(
                                         &[*path],
                                         &ctx,
                                         &mut renderer,
-                                        instances,
                                     );
                                 }
                             }

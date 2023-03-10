@@ -110,17 +110,6 @@ impl Gpu {
         self.base.resize(&self.device, self.config.format, size);
     }
 
-    pub(crate) fn encoder(&self) -> wgpu::CommandEncoder {
-        self.device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("render_encoder"),
-            })
-    }
-
-    pub(crate) fn finish_encoder(&self, encoder: wgpu::CommandEncoder) {
-        self.queue.submit(std::iter::once(encoder.finish()));
-    }
-
     #[cfg(target_os = "android")]
     pub(crate) fn resume(&mut self, window: &winit::window::Window) {
         self.surface = unsafe { self.instance.create_surface(window).unwrap() };
@@ -221,28 +210,28 @@ impl Gpu {
         Shader::new_custom(self, shader_lang, descriptor)
     }
 
-    pub fn create_computed_target<'caller, F>(
-        &self,
-        defaults: &GpuDefaults,
-        instances: &InstanceBuffer,
-        camera: &CameraBuffer,
-        texture_size: Vector<u32>,
-        clear_color: Option<Color>,
-        compute: F,
-    ) -> RenderTarget
-    where
-        F: for<'any> Fn(&mut Renderer<'any>, Instances, [Where!('caller >= 'any); 0]),
-    {
-        return RenderTarget::computed(
-            self,
-            &defaults,
-            instances,
-            camera,
-            texture_size,
-            clear_color,
-            compute,
-        );
-    }
+    // pub fn create_computed_target<'caller, F>(
+    //     &self,
+    //     defaults: &GpuDefaults,
+    //     instances: &InstanceBuffer,
+    //     camera: &CameraBuffer,
+    //     texture_size: Vector<u32>,
+    //     clear_color: Option<Color>,
+    //     compute: F,
+    // ) -> RenderTarget
+    // where
+    //     F: for<'any> Fn(&mut Renderer<'any>, Instances, [Where!('caller >= 'any); 0]),
+    // {
+    //     return RenderTarget::computed(
+    //         self,
+    //         &defaults,
+    //         instances,
+    //         camera,
+    //         texture_size,
+    //         clear_color,
+    //         compute,
+    //     );
+    // }
 }
 
 /// Base Wgpu objects needed to create any further graphics object.

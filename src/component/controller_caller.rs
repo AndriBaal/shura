@@ -3,7 +3,7 @@ use crate::{
     physics::{CollideType, ColliderHandle},
     ComponentHandle,
 };
-use crate::{ArenaPath, ComponentController, ComponentPath, Context, Instances, Renderer};
+use crate::{ArenaPath, ComponentController, ComponentPath, Context, Instances, Renderer, InstanceBuffer};
 
 /// Grants access to the static members of the component type. This should never be overwritten,
 /// since it is automatically implemented with generics.
@@ -85,7 +85,7 @@ pub(crate) struct ComponentCallbacks {
         paths: &[ArenaPath],
         ctx: &'a Context<'a>,
         renderer: &mut Renderer<'a>,
-        all_instances: Instances,
+        instances: &'a InstanceBuffer
     ),
 }
 

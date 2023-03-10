@@ -228,26 +228,26 @@ impl<'a> Context<'a> {
         self.shura.gpu.create_custom_shader(shader_lang, descriptor)
     }
 
-    pub fn create_computed_target<'caller, F>(
-        &self,
-        instances: &InstanceBuffer,
-        camera: &CameraBuffer,
-        texture_size: Vector<u32>,
-        clear_color: Option<Color>,
-        compute: F,
-    ) -> RenderTarget
-    where
-        F: for<'any> Fn(&mut Renderer<'any>, Instances, [Where!('caller >= 'any); 0]),
-    {
-        self.shura.gpu.create_computed_target(
-            &self.shura.defaults,
-            instances,
-            camera,
-            texture_size,
-            clear_color,
-            compute,
-        )
-    }
+    // pub fn create_computed_target<'caller, F>(
+    //     &self,
+    //     instances: &InstanceBuffer,
+    //     camera: &CameraBuffer,
+    //     texture_size: Vector<u32>,
+    //     clear_color: Option<Color>,
+    //     compute: F,
+    // ) -> RenderTarget
+    // where
+    //     F: for<'any> Fn(&mut Renderer<'any>, Instances, [Where!('caller >= 'any); 0]),
+    // {
+    //     self.shura.gpu.create_computed_target(
+    //         &self.shura.defaults,
+    //         instances,
+    //         camera,
+    //         texture_size,
+    //         clear_color,
+    //         compute,
+    //     )
+    // }
 
     #[cfg(feature = "audio")]
     pub fn create_sound(&self, sound: &'static [u8]) -> Sound {

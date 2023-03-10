@@ -2,8 +2,8 @@ use downcast_rs::Downcast;
 use wgpu::CommandEncoder;
 
 use crate::{
-    CameraBuffer, Color, Gpu, GpuDefaults, InstanceBuffer, Model, RenderTarget, Shader, Sprite,
-    Uniform,
+    CameraBuffer, Color, Gpu, GpuDefaults, InstanceBuffer, Model, RenderCamera, RenderEncoder,
+    RenderTarget, Shader, Sprite, Uniform, RenderInstances,
 };
 
 /// Single index of an instance inside a [InstanceBuffer](crate::InstanceBuffer).
@@ -14,8 +14,6 @@ pub type Instances = std::ops::Range<Instance>;
 /// Render grpahics to the screen or a sprite. The renderer can be extended with custom graphcis throught
 /// the [RenderPass](wgpu::RenderPass) or the provided methods for shura's shader system.
 pub struct Renderer<'a> {
-    encoder: *mut wgpu::CommandEncoder,
-    target: Option<&'a RenderTarget>,
     camera: &'a CameraBuffer,
     pub render_pass: wgpu::RenderPass<'a>,
     pub gpu: &'a Gpu,
@@ -25,46 +23,45 @@ pub struct Renderer<'a> {
 
 impl<'a> Renderer<'a> {
     pub(crate) fn new(
-        encoder: &'a mut wgpu::CommandEncoder,
-        gpu: &'a Gpu,
-        defaults: &'a GpuDefaults,
-        target: &'a RenderTarget,
-        camera: &'a CameraBuffer,
-        clear_color: Option<Color>,
-    ) -> Renderer<'a> {
-        let ptr = encoder as *mut _;
-        let render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("render_pass"),
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: target.target_msaa(),
-                resolve_target: Some(target.target_view()),
-                ops: if let Some(color) = clear_color {
-                    wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(color.into()),
-                        store: true,
-                    }
-                } else {
-                    wgpu::Operations {
+        render_encoder: &'a RenderEncoder,
+        camera: RenderCamera<'a>,
+        instances: RenderInstances<'a>,
+    ) -> (Instances, Renderer<'a>) {
+        let camera = match camera {
+            RenderCamera::WorldCamera => &render_encoder.defaults.world_camera,
+            RenderCamera::RelativeCamera => &render_encoder.defaults.relative_camera,
+            RenderCamera::Custom(c) => c,
+        }; 
+        let instances = match instances {
+            RenderInstances::SingleInstance => &render_encoder.defaults.single_centered_instance,
+            RenderInstances::Custom(c) => c,
+        };
+        let render_pass = render_encoder
+            .encoder
+            .begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("render_pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: render_encoder.target.target_msaa(),
+                    resolve_target: Some(render_encoder.target.target_view()),
+                    ops: wgpu::Operations {
                         load: wgpu::LoadOp::Load,
                         store: true,
-                    }
-                },
-            })],
+                    },
+                })],
 
-            depth_stencil_attachment: None,
-        });
+                depth_stencil_attachment: None,
+            });
 
         let mut result = Self {
-            encoder: ptr,
             render_pass,
-            gpu,
-            target: Some(target),
-            defaults,
+            gpu: render_encoder.gpu,
+            defaults: render_encoder.defaults,
             indices: 0,
-            camera: &defaults.world_camera,
+            camera: &camera,
         };
         result.use_camera(&camera);
-        return result;
+        result.use_instance_buffer(&instances);
+        return (instances.instances(), result);
     }
 
     pub(crate) fn output_renderer(
@@ -73,7 +70,6 @@ impl<'a> Renderer<'a> {
         defaults: &'a GpuDefaults,
         output: &'a wgpu::TextureView,
     ) -> Renderer<'a> {
-        let ptr = encoder as *mut _;
         let render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("render_pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -89,8 +85,6 @@ impl<'a> Renderer<'a> {
         });
 
         let mut result = Self {
-            encoder: ptr,
-            target: None,
             render_pass,
             gpu,
             defaults,
@@ -101,31 +95,8 @@ impl<'a> Renderer<'a> {
         return result;
     }
 
-    fn screenshot(&mut self, target: &RenderTarget) {
-        *self = self._screenshot(target);
-    }
-
-    fn _screenshot(self, target: &RenderTarget) -> Renderer<'a> {
-        drop(self.render_pass);
-        let gpu = self.gpu;
-        let defaults = self.defaults;
-        let current_target = self.target.unwrap();
-        let current_camera = self.camera;
-        let relative_camera = &defaults.relative_camera;
-        let encoder: &'a mut CommandEncoder = unsafe { &mut *self.encoder };
-        {
-            let mut renderer =
-                Renderer::new(encoder, gpu, defaults, &target, relative_camera, None);
-            renderer.use_uniform(relative_camera.uniform(), 0);
-            renderer.set_instance_buffer(&defaults.single_centered_instance);
-            renderer.render_sprite(relative_camera.model(), current_target.target());
-            renderer.commit(0..1);
-        }
-        return Renderer::new(encoder, gpu, defaults, current_target, current_camera, None);
-    }
-
     /// Sets the instance buffer at the position 1
-    pub fn set_instance_buffer(&mut self, buffer: &'a InstanceBuffer) {
+    pub fn use_instance_buffer(&mut self, buffer: &'a InstanceBuffer) {
         self.render_pass.set_vertex_buffer(1, buffer.slice());
     }
 
@@ -240,10 +211,6 @@ impl<'a> Renderer<'a> {
 
     pub const fn camera(&self) -> &CameraBuffer {
         &self.camera
-    }
-
-    pub fn target(&self) -> &RenderTarget {
-        self.target.as_ref().unwrap()
     }
 
     pub fn render_pass(&mut self) -> &mut wgpu::RenderPass<'a> {
