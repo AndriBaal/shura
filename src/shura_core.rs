@@ -16,7 +16,7 @@ const INITIAL_WIDTH: u32 = 800;
 const INITIAL_HEIGHT: u32 = 600;
 
 pub struct Shura {
-    pub(crate) end: bool,
+    pub end: bool,
     pub frame_manager: FrameManager,
     pub scene_manager: SceneManager,
     pub window: winit::window::Window,
@@ -148,7 +148,7 @@ impl Shura {
                         if window_id == shura_window_id && !shura.end =>
                     {
                         let mut scene = shura.scene_manager.borrow_active_scene();
-                        if let Some(max_frame_time) = scene.render_config.max_frame_time() {
+                        if let Some(max_frame_time) = scene.screen_config.max_frame_time() {
                             let now = shura.frame_manager.now();
                             let update_time = shura.frame_manager.update_time();
                             if now < update_time + max_frame_time {
@@ -204,10 +204,12 @@ impl Shura {
     fn new<C: SceneCreator>(
         window: winit::window::Window,
         _event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
-        mut creator: C,
+        creator: C,
     ) -> Self {
         let gpu = pollster::block_on(Gpu::new(&window));
-        let defaults = GpuDefaults::new(&gpu);
+        let mint: mint::Vector2<u32> = (window.inner_size()).into();
+        let window_size: Vector<u32> = mint.into();
+        let defaults = GpuDefaults::new(&gpu, window_size);
         #[cfg(feature = "audio")]
         let (audio, audio_handle) = rodio::OutputStream::try_default().unwrap();
         let mut shura = Self {
@@ -232,8 +234,6 @@ impl Shura {
     }
 
     fn end(&mut self, cf: &mut winit::event_loop::ControlFlow) {
-        self.end = true;
-        *cf = winit::event_loop::ControlFlow::Exit;
         for (_, scene) in self.scene_manager.end_scenes() {
             let mut ctx = Context {
                 scene: &mut scene.unwrap(),
@@ -248,6 +248,8 @@ impl Shura {
                 }
             }
         }
+        self.end = true;
+        *cf = winit::event_loop::ControlFlow::Exit;
     }
 
     fn resize(&mut self, new_size: Vector<u32>) {
@@ -256,7 +258,7 @@ impl Shura {
             let active = self.scene_manager.resize();
             self.gpu.resize(new_size);
             self.defaults
-                .apply_render_scale(&self.gpu, active.render_config.render_scale());
+                .resize(&self.gpu, new_size, &active.screen_config);
             #[cfg(feature = "gui")]
             self.gui.resize(&new_size);
         }
@@ -368,19 +370,19 @@ impl Shura {
 
         if ctx.scene.resized {
             ctx.scene
-                .camera
+                .world_camera
                 .resize(window_size.x as f32 / window_size.y as f32);
         }
 
         if ctx.scene.switched {
             ctx.shura
                 .defaults
-                .apply_render_scale(&ctx.shura.gpu, ctx.scene.render_config.render_scale());
+                .apply_render_scale(&ctx.shura.gpu, ctx.scene.screen_config.render_scale());
         }
 
         ctx.scene
             .cursor
-            .compute(&ctx.scene.camera, &window_size, &ctx.shura.input);
+            .compute(&ctx.scene.world_camera, &window_size, &ctx.shura.input);
 
         #[cfg(feature = "physics")]
         let (mut done_step, physics_priority) = {
@@ -432,8 +434,12 @@ impl Shura {
         }
 
         ctx.shura.input.update();
-        ctx.scene.camera.apply_target(&ctx.scene.component_manager);
-        ctx.scene.component_manager.update_sets(&ctx.scene.camera);
+        ctx.scene
+            .world_camera
+            .apply_target(&ctx.scene.component_manager);
+        ctx.scene
+            .component_manager
+            .update_sets(&ctx.scene.world_camera);
         ctx.scene.resized = false;
         ctx.scene.switched = false;
 
@@ -443,7 +449,7 @@ impl Shura {
 
         ctx.scene.component_manager.buffer_sets(&ctx.shura.gpu);
         ctx.shura.defaults.buffer(
-            &ctx.scene.camera,
+            &ctx.scene.world_camera,
             &ctx.shura.gpu,
             ctx.shura.frame_manager.total_time(),
             ctx.shura.frame_manager.frame_time(),

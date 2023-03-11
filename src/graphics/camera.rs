@@ -180,9 +180,13 @@ pub struct CameraBuffer {
 }
 
 impl CameraBuffer {
-    pub fn new(gpu: &Gpu, camera: &Camera) -> CameraBuffer {
+    pub fn new(gpu: &Gpu, camera: &Camera, position: bool) -> CameraBuffer {
         let fov = camera.fov() / 2.0;
-        let view = camera.view();
+        let view = if position {
+            camera.view()
+        } else {
+            Matrix::view(Default::default())
+        };
         let proj = camera.proj();
         Self {
             model: Model::new(gpu, ModelBuilder::cuboid(fov)),
@@ -191,9 +195,13 @@ impl CameraBuffer {
         }
     }
 
-    pub fn write(&mut self, gpu: &Gpu, camera: &Camera) {
+    pub fn write(&mut self, gpu: &Gpu, camera: &Camera, position: bool) {
         let fov = camera.fov() / 2.0;
-        let view = camera.view();
+        let view = if position {
+            camera.view()
+        } else {
+            Matrix::view(Default::default())
+        };
         let proj = camera.proj();
         let vertices = [
             Vertex::new(Vector::new(-fov.x, fov.y), Vector::new(0.0, 0.0)),

@@ -1,12 +1,10 @@
-use rustc_hash::FxHashMap;
-
 use crate::{
-    Camera, ComponentManager, Context, CursorManager, Isometry, ScreenConfig, Shura, Sprite, Vector,
+    Camera, ComponentManager, Context, CursorManager, Isometry, ScreenConfig, Shura, Vector,
 };
 
 pub trait SceneCreator {
     fn id(&self) -> u32;
-    fn create(&mut self, shura: &mut Shura) -> Scene;
+    fn create(self, shura: &mut Shura) -> Scene;
 }
 
 pub struct NewScene<N: 'static + FnMut(&mut Context)> {
@@ -25,17 +23,45 @@ impl<N: 'static + FnMut(&mut Context)> SceneCreator for NewScene<N> {
         self.id
     }
 
-    fn create(&mut self, shura: &mut Shura) -> Scene {
+    fn create(mut self, shura: &mut Shura) -> Scene {
         let mint: mint::Vector2<u32> = shura.window.inner_size().into();
         let window_size: Vector<u32> = mint.into();
         let window_ratio = window_size.x as f32 / window_size.y as f32;
         let mut scene = Scene::new(window_ratio, self.id);
-        let mut ctx = Context {
-            shura,
-            scene: &mut scene,
-        };
+        let mut ctx = Context::new(shura, &mut scene);
         (self.init)(&mut ctx);
         return scene;
+    }
+}
+
+pub struct RecycleScene<N: 'static + FnMut(&mut Context)> {
+    pub id: u32,
+    pub scene: Scene,
+    pub init: N,
+}
+
+impl<N: 'static + FnMut(&mut Context)> RecycleScene<N> {
+    pub fn new(id: u32, scene: Scene, init: N) -> RecycleScene<N> {
+        Self { id, scene, init }
+    }
+}
+
+impl<N: 'static + FnMut(&mut Context)> SceneCreator for RecycleScene<N> {
+    fn id(&self) -> u32 {
+        self.id
+    }
+
+    fn create(mut self, shura: &mut Shura) -> Scene {
+        let mint: mint::Vector2<u32> = shura.window.inner_size().into();
+        let window_size: Vector<u32> = mint.into();
+        let window_ratio = window_size.x as f32 / window_size.y as f32;
+        self.scene.world_camera.resize(window_ratio);
+        self.scene
+            .cursor
+            .compute(&self.scene.world_camera, &window_size, &shura.input);
+        let mut ctx = Context::new(shura, &mut self.scene);
+        (self.init)(&mut ctx);
+        return self.scene;
     }
 }
 
@@ -55,12 +81,9 @@ pub struct Scene {
     pub(crate) switched: bool,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
-    pub saved_sprites: FxHashMap<String, Sprite>,
-    #[cfg_attr(feature = "serde", serde(skip))]
-    #[cfg_attr(feature = "serde", serde(default))]
     pub cursor: CursorManager,
-    pub render_config: ScreenConfig,
-    pub camera: Camera,
+    pub screen_config: ScreenConfig,
+    pub world_camera: Camera,
     pub component_manager: ComponentManager,
 }
 
@@ -75,11 +98,10 @@ impl Scene {
             id: id,
             switched: true,
             resized: true,
-            camera: Camera::new(Isometry::default(), fov),
+            world_camera: Camera::new(Isometry::default(), fov),
             cursor: CursorManager::new(),
             component_manager: ComponentManager::new(),
-            render_config: ScreenConfig::new(),
-            saved_sprites: Default::default(),
+            screen_config: ScreenConfig::new(),
         }
     }
 

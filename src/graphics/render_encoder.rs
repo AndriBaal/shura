@@ -6,6 +6,10 @@ use crate::{
 pub enum RenderCamera<'a> {
     WorldCamera,
     RelativeCamera,
+    RelativeCameraScaleX,
+    RelativeCameraScaleY,
+    RelativeCameraSmallerScale,
+    RelativeCameraBiggerScale,
     Custom(&'a CameraBuffer),
 }
 
@@ -54,8 +58,8 @@ impl RenderEncoder {
         });
     }
 
-    pub fn renderer<'a>(&'a mut self, temp: RenderConfig<'a>) -> (Instances, Renderer<'a>) {
-        Renderer::new(self, temp)
+    pub fn renderer<'a>(&'a mut self, config: RenderConfig<'a>) -> (Instances, Renderer<'a>) {
+        Renderer::new(self, config)
     }
 
     pub fn copy_target(&mut self, config: RenderConfig, into: &RenderTarget) {

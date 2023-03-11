@@ -1,5 +1,4 @@
-use crate::{Gpu, Vector};
-use egui::Context;
+use crate::{gui::GuiContext, Gpu, Vector};
 use egui_wgpu::renderer::{Renderer, ScreenDescriptor};
 use egui_winit::State;
 use instant::Duration;
@@ -8,7 +7,7 @@ use winit::window::Window;
 pub struct Gui {
     pub state: State,
     // TODO: Maybe move to scene
-    context: Context,
+    context: GuiContext,
     renderer: Renderer,
     screen_descriptor: ScreenDescriptor,
 }
@@ -22,7 +21,7 @@ impl Gui {
         let device = &gpu.device;
         let renderer = Renderer::new(device, config.format, None, 1);
         let state = State::new(event_loop);
-        let context = Context::default();
+        let context = GuiContext::default();
         let screen_descriptor = ScreenDescriptor {
             size_in_pixels: [config.width, config.height],
             pixels_per_point: 1.0,
@@ -52,7 +51,7 @@ impl Gui {
         self.context.begin_frame(egui_input);
     }
 
-    pub fn context(&self) -> Context {
+    pub fn context(&self) -> GuiContext {
         self.context.clone()
     }
 

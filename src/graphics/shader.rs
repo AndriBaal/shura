@@ -1,6 +1,16 @@
 use crate::{Gpu, Vertex};
 use std::borrow::Cow;
 
+pub use wgpu::{BlendState, ColorWrites};
+
+pub struct ShaderConfig<'a> {
+    pub fragment_source: &'a str,
+    pub shader_lang: ShaderLang,
+    pub shader_fields: &'a [ShaderField],
+    pub blend: BlendState,
+    pub color_write: ColorWrites,
+}
+
 /// Field that is present in the shader.
 pub enum ShaderField {
     /// Looks the following inside wgsl:
@@ -76,14 +86,9 @@ pub struct Shader {
 }
 
 impl Shader {
-    pub fn new(
-        gpu: &Gpu,
-        fragment_source: &str,
-        shader_lang: ShaderLang,
-        shader_fields: &[ShaderField],
-    ) -> Self {
+    pub fn new(gpu: &Gpu, config: ShaderConfig) -> Self {
         let mut layouts: Vec<&wgpu::BindGroupLayout> = vec![&gpu.base.vertex_uniform];
-        for link in shader_fields.iter() {
+        for link in config.shader_fields.iter() {
             match link {
                 ShaderField::Uniform => {
                     layouts.push(&gpu.base.fragment_uniform);
@@ -94,17 +99,17 @@ impl Shader {
             }
         }
 
-        let vertex_shader = match shader_lang {
+        let vertex_shader = match config.shader_lang {
             ShaderLang::GLSL => &gpu.base.vertex_glsl,
             ShaderLang::WGSL => &gpu.base.vertex_wgsl,
         };
-        let fragment_shader = match shader_lang {
+        let fragment_shader = match config.shader_lang {
             ShaderLang::GLSL => gpu
                 .device
                 .create_shader_module(wgpu::ShaderModuleDescriptor {
                     label: None,
                     source: wgpu::ShaderSource::Glsl {
-                        shader: Cow::Borrowed(fragment_source),
+                        shader: Cow::Borrowed(config.fragment_source),
                         stage: naga::ShaderStage::Fragment,
                         defines: Default::default(),
                     },
@@ -113,7 +118,7 @@ impl Shader {
                 .device
                 .create_shader_module(wgpu::ShaderModuleDescriptor {
                     label: None,
-                    source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(fragment_source)),
+                    source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(config.fragment_source)),
                 }),
         };
 
@@ -143,8 +148,8 @@ impl Shader {
                     entry_point: "main",
                     targets: &[Some(wgpu::ColorTargetState {
                         format: gpu.config.format,
-                        blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-                        write_mask: wgpu::ColorWrites::ALL,
+                        blend: Some(config.blend),
+                        write_mask: config.color_write,
                     })],
                 }),
                 primitive: wgpu::PrimitiveState {
@@ -163,7 +168,7 @@ impl Shader {
 
         Shader {
             pipeline,
-            lang: shader_lang,
+            lang: config.shader_lang,
         }
     }
 

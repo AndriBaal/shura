@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use crate::{
     Gpu, GpuDefaults, RenderCamera, RenderConfig, RenderEncoder, RenderInstances, Sprite, Vector,
 };
@@ -99,5 +101,13 @@ impl RenderTarget {
 impl Into<Sprite> for RenderTarget {
     fn into(self) -> Sprite {
         return self.target;
+    }
+}
+
+impl Deref for RenderTarget {
+    type Target = Sprite;
+
+    fn deref(&self) -> &Sprite {
+        self.sprite()
     }
 }

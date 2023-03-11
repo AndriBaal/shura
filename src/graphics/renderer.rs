@@ -27,6 +27,24 @@ impl<'a> Renderer<'a> {
             RenderCamera::WorldCamera => &config.defaults.world_camera,
             RenderCamera::RelativeCamera => &config.defaults.relative_camera,
             RenderCamera::Custom(c) => c,
+            RenderCamera::RelativeCameraScaleX => &config.defaults.relative_camera_scale_x,
+            RenderCamera::RelativeCameraScaleY => &config.defaults.relative_camera_scale_y,
+            RenderCamera::RelativeCameraSmallerScale => {
+                let fov = config.defaults.world_camera.fov();
+                if fov.x > fov.y {
+                    &config.defaults.relative_camera_scale_x
+                } else {
+                    &config.defaults.relative_camera_scale_y
+                }
+            }
+            RenderCamera::RelativeCameraBiggerScale => {
+                let fov = config.defaults.world_camera.fov();
+                if fov.x < fov.y {
+                    &config.defaults.relative_camera_scale_x
+                } else {
+                    &config.defaults.relative_camera_scale_y
+                }
+            }
         };
         let instances = match config.instances {
             RenderInstances::SingleInstance => &config.defaults.single_centered_instance,

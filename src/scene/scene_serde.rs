@@ -110,7 +110,7 @@ impl<N: 'static + FnMut(&mut Context, &mut ComponentDeserializer)> SceneCreator
         self.id
     }
 
-    fn create(&mut self, shura: &mut Shura) -> Scene {
+    fn create(mut self, shura: &mut Shura) -> Scene {
         let (mut scene, components): (
             Scene,
             FxHashMap<ComponentTypeId, Vec<(u32, Vec<Option<(u32, Vec<u8>)>>)>>,
@@ -118,10 +118,7 @@ impl<N: 'static + FnMut(&mut Context, &mut ComponentDeserializer)> SceneCreator
         let mut de = ComponentDeserializer::new(components);
         scene.before_deserialize(self.id, shura);
 
-        let mut ctx = Context {
-            shura,
-            scene: &mut scene,
-        };
+        let mut ctx = Context::new(shura, &mut scene);
         (self.init)(&mut ctx, &mut de);
         de.finish();
         return scene;
@@ -269,9 +266,9 @@ impl Scene {
         let mint: mint::Vector2<u32> = shura.window.inner_size().into();
         let window_size: Vector<u32> = mint.into();
         let window_ratio = window_size.x as f32 / window_size.y as f32;
-        self.id = id;
-        self.camera.resize(window_ratio);
+        self.world_camera.resize(window_ratio);
         self.cursor
-            .compute(&self.camera, &window_size, &shura.input);
+            .compute(&self.world_camera, &window_size, &shura.input);
+        self.id = id;
     }
 }

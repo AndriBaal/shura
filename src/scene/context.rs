@@ -4,7 +4,7 @@ use crate::{
     ComponentSetRender, DynamicComponent, GroupFilter, InputEvent, InputTrigger, InstanceBuffer,
     Isometry, Key, Matrix, Model, ModelBuilder, Modifier, RenderCamera, RenderConfig,
     RenderEncoder, RenderInstances, RenderTarget, Rotation, Scene, SceneCreator, Shader,
-    ShaderField, ShaderLang, Shura, Sprite, SpriteSheet, Touch, Uniform, Vector,
+    ShaderConfig, ShaderLang, Shura, Sprite, SpriteSheet, Touch, Uniform, Vector,
 };
 
 #[cfg(feature = "serde")]
@@ -35,15 +35,44 @@ use crate::gamepad::*;
 use instant::{Duration, Instant};
 use rustc_hash::FxHashMap;
 
+// // Scene
+// pub scene_id: &'a u32,
+// pub resized: &'a bool,
+// pub switched: &'a bool,
+// pub cursor: &'a CursorManager,
+// pub screen_config&'a mut ScreenConfig,
+// pub world_camera: &'a mut Camera,
+// pub component_manager: &'a mut ComponentManager,
+
+// // Shura
+// pub frame_manager: &'a FrameManager,
+// pub defaults: &'a GpuDefaults,
+// pub input: &'a Input,
+// pub end: &'a mut bool,
+// pub scene_manager: &'a mut SceneManager,
+// pub window: &'a mut winit::window::Window,
+// pub gpu: &'a mut Gpu,
+// pub global_state: &'a mut Box<dyn Any>,
+// #[cfg(feature = "gui")]
+// pub gui: &'a mut Gui,
+// #[cfg(feature = "audio")]
+// pub audio: &'a mut rodio::OutputStream,
+// #[cfg(feature = "audio")]
+// pub audio_handle: &'a mut rodio::OutputStreamHandle
+
 /// Context to communicate with the game engine to access components, scenes, camera, physics and many more.
 pub struct Context<'a> {
-    // Scene
-    pub scene: &'a mut Scene,
     // Core
     pub shura: &'a mut Shura,
+    // Scene
+    pub scene: &'a mut Scene,
 }
 
 impl<'a> Context<'a> {
+    pub(crate) fn new(shura: &'a mut Shura, scene: &'a mut Scene) -> Context<'a> {
+        Self { scene, shura }
+    }
+
     #[cfg(feature = "physics")]
     pub fn component_from_collider(
         &self,
@@ -156,8 +185,8 @@ impl<'a> Context<'a> {
         self.shura.gpu.create_model(builder)
     }
 
-    pub fn create_camera_buffer(&self, camera: &Camera) -> CameraBuffer {
-        self.shura.gpu.create_camera_buffer(camera)
+    pub fn create_camera_buffer(&self, camera: &Camera, position: bool) -> CameraBuffer {
+        self.shura.gpu.create_camera_buffer(camera, position)
     }
 
     pub fn create_sprite(&self, bytes: &[u8]) -> Sprite {
@@ -201,15 +230,8 @@ impl<'a> Context<'a> {
         self.shura.gpu.create_uniform(data)
     }
 
-    pub fn create_shader(
-        &self,
-        code: &str,
-        shader_type: ShaderLang,
-        shader_fields: &[ShaderField],
-    ) -> Shader {
-        self.shura
-            .gpu
-            .create_shader(code, shader_type, shader_fields)
+    pub fn create_shader(&self, config: ShaderConfig) -> Shader {
+        self.shura.gpu.create_shader(config)
     }
 
     pub fn create_custom_shader(
@@ -284,7 +306,7 @@ impl<'a> Context<'a> {
             .create_component_with_group(group, component)
     }
 
-    pub fn create_scene(&mut self, mut scene: impl SceneCreator) {
+    pub fn create_scene(&mut self, scene: impl SceneCreator) {
         let scene = scene.create(self.shura);
         self.shura.scene_manager.add(scene);
     }
@@ -338,24 +360,8 @@ impl<'a> Context<'a> {
         &self.shura.defaults.world_camera
     }
 
-    pub fn saved_sprite(&self, name: String) -> Option<&Sprite> {
-        self.scene.saved_sprites.get(&name)
-    }
-
-    pub fn saved_sprite_mut(&mut self, name: String) -> Option<&mut Sprite> {
-        self.scene.saved_sprites.get_mut(&name)
-    }
-
-    pub fn take_saved_sprite(&mut self, name: String) -> Option<Sprite> {
-        self.scene.saved_sprites.remove(&name)
-    }
-
-    pub fn clear_saved_sprites(&mut self) -> impl Iterator<Item = (String, Sprite)> {
-        return std::mem::replace(&mut self.scene.saved_sprites, Default::default()).into_iter();
-    }
-
     pub fn render_scale(&self) -> f32 {
-        self.scene.render_config.render_scale()
+        self.scene.screen_config.render_scale()
     }
 
     #[cfg(feature = "gui")]
@@ -502,27 +508,27 @@ impl<'a> Context<'a> {
     /// Returns a dimension with the distance from the center of the camera to the right and from the
     /// center to the top.
     pub fn camera_fov(&self) -> Vector<f32> {
-        self.scene.camera.fov()
+        self.scene.world_camera.fov()
     }
 
     pub fn camera_translation(&self) -> &Vector<f32> {
-        self.scene.camera.translation()
+        self.scene.world_camera.translation()
     }
 
     pub fn camera_rotation(&self) -> &Rotation<f32> {
-        self.scene.camera.rotation()
+        self.scene.world_camera.rotation()
     }
 
     pub fn camera_position(&self) -> &Isometry<f32> {
-        self.scene.camera.position()
+        self.scene.world_camera.position()
     }
 
     pub fn camera_target(&self) -> Option<ComponentHandle> {
-        self.scene.camera.target()
+        self.scene.world_camera.target()
     }
 
     pub fn clear_color(&self) -> Option<Color> {
-        self.scene.render_config.clear_color()
+        self.scene.screen_config.clear_color()
     }
 
     pub fn cursor_world(&self) -> &Vector<f32> {
@@ -711,11 +717,11 @@ impl<'a> Context<'a> {
     }
 
     pub fn max_fps(&self) -> Option<u32> {
-        self.scene.render_config.max_fps()
+        self.scene.screen_config.max_fps()
     }
 
     pub fn max_frame_time(&self) -> Option<Duration> {
-        self.scene.render_config.max_frame_time()
+        self.scene.screen_config.max_frame_time()
     }
 
     pub fn window(&self) -> &winit::window::Window {
@@ -875,7 +881,7 @@ impl<'a> Context<'a> {
     }
 
     pub fn set_render_scale(&mut self, scale: f32) {
-        self.scene.render_config.set_render_scale(self.shura, scale);
+        self.scene.screen_config.set_render_scale(self.shura, scale);
     }
 
     pub fn set_active_scene(&mut self, active_scene: u32) {
@@ -889,19 +895,19 @@ impl<'a> Context<'a> {
     }
 
     pub fn set_camera_position(&mut self, pos: Isometry<f32>) {
-        self.scene.camera.set_position(pos);
+        self.scene.world_camera.set_position(pos);
     }
 
     pub fn set_camera_translation(&mut self, translation: Vector<f32>) {
-        self.scene.camera.set_translation(translation);
+        self.scene.world_camera.set_translation(translation);
     }
 
     pub fn set_camera_rotation(&mut self, rotation: Rotation<f32>) {
-        self.scene.camera.set_rotation(rotation);
+        self.scene.world_camera.set_rotation(rotation);
     }
 
     pub fn set_camera_target(&mut self, target: Option<ComponentHandle>) {
-        self.scene.camera.set_target(target);
+        self.scene.world_camera.set_target(target);
     }
 
     /// Tries to enable or disable vSync. The default is always vSync to be on.
@@ -917,7 +923,7 @@ impl<'a> Context<'a> {
     /// Set the distance between the center of the camera to the top in world coordinates.
     pub fn set_camera_vertical_fov(&mut self, fov: f32) {
         let window_size = self.window_size();
-        self.scene.camera.set_vertical_fov(
+        self.scene.world_camera.set_vertical_fov(
             &mut self.scene.cursor,
             &self.shura.input,
             window_size,
@@ -928,7 +934,7 @@ impl<'a> Context<'a> {
     /// Set the distance between the center of the camera to the right in world coordinates.
     pub fn set_camera_horizontal_fov(&mut self, fov: f32) {
         let window_size = self.window_size();
-        self.scene.camera.set_horizontal_fov(
+        self.scene.world_camera.set_horizontal_fov(
             &mut self.scene.cursor,
             &self.shura.input,
             window_size,
@@ -952,7 +958,7 @@ impl<'a> Context<'a> {
     }
 
     pub fn set_clear_color(&mut self, color: Option<Color>) {
-        self.scene.render_config.set_clear_color(color);
+        self.scene.screen_config.set_clear_color(color);
     }
 
     pub fn set_window_resizable(&mut self, resizable: bool) {
@@ -988,6 +994,6 @@ impl<'a> Context<'a> {
     }
 
     pub fn set_max_fps(&mut self, max_fps: Option<u32>) {
-        self.scene.render_config.set_max_fps(max_fps);
+        self.scene.screen_config.set_max_fps(max_fps);
     }
 }

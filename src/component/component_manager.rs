@@ -725,6 +725,12 @@ impl ComponentManager {
         self.world.borrow_mut()
     }
 
+    // pub fn instance_buffer<T: ComponentIdentifier>(&self, group_id: u32) -> Option<InstanceBuffer> {
+    //     if let Some(group_index) = self.group_map.get(&group_id) {
+    //         // let group = self.groups.get(index).unwrap();
+    //     }
+    // }
+
     #[cfg(feature = "physics")]
     pub fn collision_event(
         &mut self,

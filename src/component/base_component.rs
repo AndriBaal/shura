@@ -30,26 +30,6 @@ impl PositionBuilder {
         Self::default()
     }
 
-    /// Used for scaling with the relative camera since the relative camera does not adjust its
-    /// FOV, the bottom left is always (-1.0, -1.0). The components X axis of its render_scale value
-    /// automatically gets stretched so the aspect ratio of the rendered model remains the
-    /// same.
-    pub fn render_scale_relative_width(mut self, window_size: Vector<u32>) -> Self {
-        self.render_scale.y = 1.0;
-        self.render_scale.x = window_size.y as f32 / window_size.x as f32;
-        self
-    }
-
-    /// Used for scaling with the relative camera, since the relative camera does not adjust its
-    /// FOV, the bottom left is always (-1.0, -1.0). The components Y axis of its render_scale value
-    /// automatically gets stretched so the aspect ratio of the rendered model remains the
-    /// same.
-    pub fn render_scale_relative_height(mut self, window_size: Vector<u32>) -> Self {
-        self.render_scale.x = 1.0;
-        self.render_scale.y = window_size.x as f32 / window_size.y as f32;
-        self
-    }
-
     pub fn render_scale(mut self, render_scale: Vector<f32>) -> Self {
         self.render_scale = render_scale;
         self
@@ -278,36 +258,6 @@ impl BaseComponent {
             #[cfg(feature = "physics")]
             BodyStatus::RigidBodyPending { body, .. } => *body.position(),
         };
-    }
-
-    /// Used for scaling with the relative camera since the relative camera does not adjust its
-    /// FOV, the bottom left is always (-1.0, -1.0). The components X axis of its render_scale value
-    /// automatically gets stretched so the aspect ratio of the rendered model remains the
-    /// same.
-    pub fn scale_relative_width(&mut self, window_size: Vector<u32>) {
-        self.render_scale.y = 1.0;
-        self.render_scale.x = window_size.y as f32 / window_size.x as f32;
-        match &mut self.body {
-            BodyStatus::Position { position, matrix } => {
-                matrix.rotate(self.render_scale, position.rotation);
-            }
-            _ => {}
-        }
-    }
-
-    /// Used for scaling with the relative camera, since the relative camera does not adjust its
-    /// FOV, the bottom left is always (-1.0, -1.0). The components Y axis of its render_scale value
-    /// automatically gets stretched so the aspect ratio of the rendered model remains the
-    /// same.
-    pub fn scale_relative_height(&mut self, window_size: Vector<u32>) {
-        self.render_scale.x = 1.0;
-        self.render_scale.y = window_size.x as f32 / window_size.y as f32;
-        match &mut self.body {
-            BodyStatus::Position { position, matrix } => {
-                matrix.rotate(self.render_scale, position.rotation);
-            }
-            _ => (),
-        }
     }
 
     pub const fn render_scale(&self) -> &Vector<f32> {

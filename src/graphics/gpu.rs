@@ -1,12 +1,13 @@
 #[cfg(feature = "text")]
 use crate::text::{CreateFont, CreateText, Font, TextDescriptor};
 use crate::{
-    Camera, CameraBuffer, Color, InstanceBuffer, Matrix, Model, ModelBuilder, RenderCamera,
-    RenderConfig, RenderEncoder, RenderInstances, RenderTarget, Shader, ShaderField, ShaderLang,
-    Sprite, SpriteSheet, Uniform, Vector,
+    Camera, CameraBuffer, InstanceBuffer, Matrix, Model, ModelBuilder, RenderCamera, RenderConfig,
+    RenderEncoder, RenderInstances, RenderTarget, ScreenConfig, Shader, ShaderConfig, ShaderField,
+    ShaderLang, Sprite, SpriteSheet, Uniform, Vector,
 };
 use log::info;
 use std::borrow::Cow;
+use wgpu::BlendState;
 pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 1.0;
 
 /// Holds the connection to the GPU using wgpu. Also has some default buffers, layouts etc.
@@ -135,8 +136,8 @@ impl Gpu {
         self.surface.configure(&self.device, &self.config);
     }
 
-    pub fn create_camera_buffer(&self, camera: &Camera) -> CameraBuffer {
-        CameraBuffer::new(self, camera)
+    pub fn create_camera_buffer(&self, camera: &Camera, position: bool) -> CameraBuffer {
+        CameraBuffer::new(self, camera, position)
     }
 
     pub fn create_render_target(&self, size: Vector<u32>) -> RenderTarget {
@@ -186,13 +187,8 @@ impl Gpu {
         Uniform::new(self, data)
     }
 
-    pub fn create_shader(
-        &self,
-        code: &str,
-        shader_type: ShaderLang,
-        shader_fields: &[ShaderField],
-    ) -> Shader {
-        Shader::new(self, code, shader_type, shader_fields)
+    pub fn create_shader(&self, config: ShaderConfig) -> Shader {
+        Shader::new(self, config)
     }
 
     pub fn create_custom_shader(
@@ -353,6 +349,8 @@ pub struct GpuDefaults {
     /// some devices need.
     pub times: Uniform<[f32; 2]>,
     pub relative_camera: CameraBuffer,
+    pub relative_camera_scale_x: CameraBuffer,
+    pub relative_camera_scale_y: CameraBuffer,
     pub world_camera: CameraBuffer,
     pub single_centered_instance: InstanceBuffer,
     pub empty_instance: InstanceBuffer,
@@ -360,48 +358,62 @@ pub struct GpuDefaults {
 }
 
 impl GpuDefaults {
-    pub(crate) fn new(gpu: &Gpu) -> Self {
-        let sprite = gpu.create_shader(
-            include_str!("../../res/shader/sprite.wgsl"),
-            ShaderLang::WGSL,
-            &[ShaderField::Sprite],
-        );
+    pub(crate) fn new(gpu: &Gpu, window_size: Vector<u32>) -> Self {
+        let sprite = gpu.create_shader(ShaderConfig {
+            fragment_source: include_str!("../../res/shader/sprite.wgsl"),
+            shader_lang: ShaderLang::WGSL,
+            shader_fields: &[ShaderField::Sprite],
+            blend: BlendState::ALPHA_BLENDING,
+            color_write: Default::default(),
+        });
 
-        let rainbow = gpu.create_shader(
-            include_str!("../../res/shader/rainbow.wgsl"),
-            ShaderLang::WGSL,
-            &[ShaderField::Uniform],
-        );
+        let rainbow = gpu.create_shader(ShaderConfig {
+            fragment_source: include_str!("../../res/shader/rainbow.wgsl"),
+            shader_lang: ShaderLang::WGSL,
+            shader_fields: &[ShaderField::Uniform],
+            blend: BlendState::ALPHA_BLENDING,
+            color_write: Default::default(),
+        });
 
-        let color = gpu.create_shader(
-            include_str!("../../res/shader/color.wgsl"),
-            ShaderLang::WGSL,
-            &[ShaderField::Uniform],
-        );
+        let color = gpu.create_shader(ShaderConfig {
+            fragment_source: include_str!("../../res/shader/color.wgsl"),
+            shader_lang: ShaderLang::WGSL,
+            shader_fields: &[ShaderField::Uniform],
+            blend: BlendState::ALPHA_BLENDING,
+            color_write: Default::default(),
+        });
 
-        let colored_sprite = gpu.create_shader(
-            include_str!("../../res/shader/colored_sprite.glsl"),
-            ShaderLang::GLSL,
-            &[ShaderField::Sprite, ShaderField::Uniform],
-        );
+        let colored_sprite = gpu.create_shader(ShaderConfig {
+            fragment_source: include_str!("../../res/shader/colored_sprite.glsl"),
+            shader_lang: ShaderLang::GLSL,
+            shader_fields: &[ShaderField::Sprite, ShaderField::Uniform],
+            blend: BlendState::ALPHA_BLENDING,
+            color_write: Default::default(),
+        });
 
-        let grey = gpu.create_shader(
-            include_str!("../../res/shader/grey.wgsl"),
-            ShaderLang::WGSL,
-            &[ShaderField::Sprite],
-        );
+        let grey = gpu.create_shader(ShaderConfig {
+            fragment_source: include_str!("../../res/shader/grey.wgsl"),
+            shader_lang: ShaderLang::WGSL,
+            shader_fields: &[ShaderField::Sprite],
+            blend: BlendState::ALPHA_BLENDING,
+            color_write: Default::default(),
+        });
 
-        let blurr = gpu.create_shader(
-            include_str!("../../res/shader/blurr.wgsl"),
-            ShaderLang::WGSL,
-            &[ShaderField::Sprite],
-        );
+        let blurr = gpu.create_shader(ShaderConfig {
+            fragment_source: include_str!("../../res/shader/blurr.wgsl"),
+            shader_lang: ShaderLang::WGSL,
+            shader_fields: &[ShaderField::Sprite],
+            blend: BlendState::ALPHA_BLENDING,
+            color_write: Default::default(),
+        });
 
-        let transparent = gpu.create_shader(
-            include_str!("../../res/shader/transparent_sprite.wgsl"),
-            ShaderLang::WGSL,
-            &[ShaderField::Sprite, ShaderField::Uniform],
-        );
+        let transparent = gpu.create_shader(ShaderConfig {
+            fragment_source: include_str!("../../res/shader/transparent_sprite.wgsl"),
+            shader_lang: ShaderLang::WGSL,
+            shader_fields: &[ShaderField::Sprite, ShaderField::Uniform],
+            blend: BlendState::ALPHA_BLENDING,
+            color_write: Default::default(),
+        });
 
         let size = gpu.render_size(1.0);
         let target = gpu.create_render_target(size);
@@ -410,12 +422,18 @@ impl GpuDefaults {
             gpu.create_instance_buffer(&[Matrix::new(Default::default())]);
         let empty_instance = gpu.create_instance_buffer(&[]);
 
+        let yx = window_size.y as f32 / window_size.x as f32;
+        let relative_camera_scale_x =
+            gpu.create_camera_buffer(&Camera::new(Default::default(), Vector::new(yx, 1.0)), true);
+        let xy = window_size.x as f32 / window_size.y as f32;
+        let relative_camera_scale_y =
+            gpu.create_camera_buffer(&Camera::new(Default::default(), Vector::new(1.0, xy)), true);
         let relative_and_default_camera = &Camera::new(
             Default::default(),
             Vector::new(RELATIVE_CAMERA_SIZE, RELATIVE_CAMERA_SIZE),
         );
-        let relative_camera = gpu.create_camera_buffer(&relative_and_default_camera);
-        let world_camera = gpu.create_camera_buffer(&relative_and_default_camera);
+        let relative_camera = gpu.create_camera_buffer(&relative_and_default_camera, true);
+        let world_camera = gpu.create_camera_buffer(&relative_and_default_camera, true);
 
         Self {
             sprite,
@@ -429,9 +447,32 @@ impl GpuDefaults {
             single_centered_instance,
             empty_instance,
             relative_camera,
+            relative_camera_scale_x,
+            relative_camera_scale_y,
             world_camera,
             target,
         }
+    }
+
+    pub(crate) fn resize(
+        &mut self,
+        gpu: &Gpu,
+        window_size: Vector<u32>,
+        screen_config: &ScreenConfig,
+    ) {
+        self.apply_render_scale(&gpu, screen_config.render_scale());
+        let yx = window_size.y as f32 / window_size.x as f32;
+        self.relative_camera_scale_x.write(
+            gpu,
+            &Camera::new(Default::default(), Vector::new(yx, 1.0)),
+            true,
+        );
+        let xy = window_size.x as f32 / window_size.y as f32;
+        self.relative_camera_scale_y.write(
+            gpu,
+            &Camera::new(Default::default(), Vector::new(1.0, xy)),
+            true,
+        );
     }
 
     pub(crate) fn buffer(
@@ -441,7 +482,7 @@ impl GpuDefaults {
         total_time: f32,
         frame_time: f32,
     ) {
-        self.world_camera.write(&gpu, active_scene_camera);
+        self.world_camera.write(&gpu, active_scene_camera, true);
         self.times.write(&gpu, [total_time, frame_time]);
     }
 

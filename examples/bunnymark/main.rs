@@ -32,7 +32,7 @@ impl BunnyRessources {
 struct BunnyManager {
     #[component]
     component: BaseComponent,
-    screenshot: Option<RenderTarget>
+    screenshot: Option<RenderTarget>,
 }
 
 impl BunnyManager {
@@ -53,7 +53,7 @@ impl BunnyManager {
 
 impl ComponentController for BunnyManager {
     const CONFIG: ComponentConfig = ComponentConfig {
-        priority: 1,
+        priority: 1000,
         buffer: BufferOperation::Never,
         ..DEFAULT_CONFIG
     };
@@ -96,12 +96,13 @@ impl ComponentController for BunnyManager {
             }
         }
 
-        let s = ctx.is_held(Key::S);
-        for bunny in ctx.path_mut(&path).iter() {
+        let window_size = ctx.window_size();
+        for bunny in ctx.scene.component_manager.path_mut(&path).iter() {
             if let Some(screenshot) = bunny.screenshot.take() {
-                // screenshot.sprite().save(, file_name)
-            } else if s {
-
+                shura::log::info!("Taking Screenshot!");
+                screenshot.sprite().save(&ctx.shura.gpu, "test.png").ok();
+            } else if ctx.shura.input.is_pressed(Key::S) {
+                bunny.screenshot = Some(ctx.shura.gpu.create_render_target(window_size));
             }
         }
     }
@@ -112,7 +113,11 @@ impl ComponentController for BunnyManager {
         config: RenderConfig<'a>,
         encoder: &mut RenderEncoder,
     ) {
-        for bunny in &ctx.path(&active) {}
+        for bunny in &ctx.path(&active) {
+            if let Some(screenshot) = &bunny.screenshot {
+                encoder.copy_target(config, &screenshot);
+            }
+        }
     }
 }
 
