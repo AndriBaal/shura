@@ -93,6 +93,10 @@ impl<'a, C: ComponentController> ComponentPath<'a, C> {
     pub(crate) fn paths(&self) -> &[ArenaPath] {
         self.paths
     }
+
+    pub fn amount_of_groups(&self) -> usize {
+        self.paths.len()
+    }
 }
 
 /// A set of components that includes all components of a specific type from a variety of

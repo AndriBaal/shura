@@ -472,9 +472,12 @@ impl Shura {
                                 let group =
                                     ctx.scene.component_manager.group(path.group_index).unwrap();
                                 let component_type = group.type_ref(path.type_index).unwrap();
+                                let buffer = component_type
+                                    .buffer()
+                                    .unwrap_or(&ctx.shura.defaults.empty_instance);
                                 let config = RenderConfig {
                                     camera: RenderCamera::WorldCamera,
-                                    instances: RenderInstances::Custom(component_type.buffer()),
+                                    instances: RenderInstances::Custom(buffer),
                                     target: &ctx.shura.defaults.target,
                                     gpu: &ctx.shura.gpu,
                                     defaults: &ctx.shura.defaults,
@@ -510,7 +513,7 @@ impl Shura {
             renderer.use_instance_buffer(&ctx.shura.defaults.single_centered_instance);
             renderer.render_sprite(
                 ctx.shura.defaults.relative_camera.model(),
-                ctx.shura.defaults.target.target(),
+                ctx.shura.defaults.target.sprite(),
             );
             renderer.commit(0..1);
         }

@@ -37,8 +37,8 @@ impl<'a> Renderer<'a> {
             .begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("render_pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: config.target.target_msaa(),
-                    resolve_target: Some(config.target.target_view()),
+                    view: config.target.msaa(),
+                    resolve_target: Some(config.target.view()),
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Load,
                         store: true,

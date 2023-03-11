@@ -211,14 +211,7 @@ impl Gpu {
         texture_size: Vector<u32>,
         compute: impl Fn(&mut RenderEncoder, RenderConfig),
     ) -> RenderTarget {
-        return RenderTarget::computed(
-            self,
-            &defaults,
-            instances,
-            camera,
-            texture_size,
-            compute,
-        );
+        return RenderTarget::computed(self, &defaults, instances, camera, texture_size, compute);
     }
 }
 
@@ -362,6 +355,7 @@ pub struct GpuDefaults {
     pub relative_camera: CameraBuffer,
     pub world_camera: CameraBuffer,
     pub single_centered_instance: InstanceBuffer,
+    pub empty_instance: InstanceBuffer,
     pub target: RenderTarget,
 }
 
@@ -414,6 +408,7 @@ impl GpuDefaults {
         let times = Uniform::new(gpu, [0.0, 0.0]);
         let single_centered_instance =
             gpu.create_instance_buffer(&[Matrix::new(Default::default())]);
+        let empty_instance = gpu.create_instance_buffer(&[]);
 
         let relative_and_default_camera = &Camera::new(
             Default::default(),
@@ -432,6 +427,7 @@ impl GpuDefaults {
             blurr,
             times,
             single_centered_instance,
+            empty_instance,
             relative_camera,
             world_camera,
             target,

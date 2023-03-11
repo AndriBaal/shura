@@ -30,6 +30,8 @@ pub enum BufferOperation {
     Manual,
     /// Automatically buffer all positions every time before rendering.
     EveryFrame,
+    /// No Buffer is created for this component. When rendering an empty [InstanceBuffer](crate::InstanceBuffer) is passed to the [RenderConfig](crate::RenderConfig).
+    Never,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]

@@ -1,7 +1,7 @@
 use crate::{
     data::arena::{ArenaIter, ArenaIterMut},
     Arena, ArenaIndex, BufferOperation, ComponentConfig, ComponentController, ComponentHandle,
-    DynamicComponent, Gpu, InstanceBuffer, Matrix, RenderOperation,
+    DynamicComponent, Gpu, InstanceBuffer, Matrix,
 };
 
 #[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
@@ -55,7 +55,7 @@ impl ComponentType {
     }
 
     pub fn buffer_data(&mut self, gpu: &Gpu) {
-        if self.config.render == RenderOperation::Never {
+        if self.config.buffer == BufferOperation::Never {
             return;
         }
 
@@ -98,10 +98,8 @@ impl ComponentType {
         self.components.remove(handle.component_index())
     }
 
-    pub fn buffer(&self) -> &InstanceBuffer {
-        self.buffer
-            .as_ref()
-            .expect("Cannot render a component type that does not have buffer!")
+    pub fn buffer(&self) -> Option<&InstanceBuffer> {
+        self.buffer.as_ref()
     }
 
     #[cfg(feature = "serde")]

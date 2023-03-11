@@ -32,6 +32,7 @@ impl BunnyRessources {
 struct BunnyManager {
     #[component]
     component: BaseComponent,
+    screenshot: Option<RenderTarget>
 }
 
 impl BunnyManager {
@@ -45,6 +46,7 @@ impl BunnyManager {
         ctx.set_render_scale(0.667);
         BunnyManager {
             component: Default::default(),
+            screenshot: None,
         }
     }
 }
@@ -52,10 +54,10 @@ impl BunnyManager {
 impl ComponentController for BunnyManager {
     const CONFIG: ComponentConfig = ComponentConfig {
         priority: 1,
-        render: RenderOperation::Never,
+        buffer: BufferOperation::Never,
         ..DEFAULT_CONFIG
     };
-    fn update(_path: ComponentPath<Self>, ctx: &mut Context) {
+    fn update(path: ComponentPath<Self>, ctx: &mut Context) {
         const MODIFY_STEP: usize = 1500;
         gui::Window::new("bunnymark")
             .anchor(gui::Align2::LEFT_TOP, gui::Vec2::default())
@@ -93,6 +95,24 @@ impl ComponentController for BunnyManager {
                 ctx.remove_component(&handle);
             }
         }
+
+        let s = ctx.is_held(Key::S);
+        for bunny in ctx.path_mut(&path).iter() {
+            if let Some(screenshot) = bunny.screenshot.take() {
+                // screenshot.sprite().save(, file_name)
+            } else if s {
+
+            }
+        }
+    }
+
+    fn render<'a>(
+        active: ComponentPath<Self>,
+        ctx: &'a Context<'a>,
+        config: RenderConfig<'a>,
+        encoder: &mut RenderEncoder,
+    ) {
+        for bunny in &ctx.path(&active) {}
     }
 }
 

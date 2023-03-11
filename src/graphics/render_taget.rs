@@ -63,15 +63,15 @@ impl RenderTarget {
             .create_view(&wgpu::TextureViewDescriptor::default())
     }
 
-    pub fn target(&self) -> &Sprite {
+    pub fn sprite(&self) -> &Sprite {
         &self.target
     }
 
-    pub fn target_view(&self) -> &wgpu::TextureView {
+    pub fn view(&self) -> &wgpu::TextureView {
         &self.target_view
     }
 
-    pub fn target_msaa(&self) -> &wgpu::TextureView {
+    pub fn msaa(&self) -> &wgpu::TextureView {
         &self.target_msaa
     }
 

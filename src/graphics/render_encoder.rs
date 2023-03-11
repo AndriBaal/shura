@@ -2,17 +2,20 @@ use crate::{
     CameraBuffer, Color, Gpu, GpuDefaults, InstanceBuffer, Instances, RenderTarget, Renderer,
 };
 
+#[derive(Copy, Clone)]
 pub enum RenderCamera<'a> {
     WorldCamera,
     RelativeCamera,
     Custom(&'a CameraBuffer),
 }
 
+#[derive(Copy, Clone)]
 pub enum RenderInstances<'a> {
     SingleInstance,
     Custom(&'a InstanceBuffer),
 }
 
+#[derive(Copy, Clone)]
 pub struct RenderConfig<'a> {
     pub camera: RenderCamera<'a>,
     pub instances: RenderInstances<'a>,
@@ -39,8 +42,8 @@ impl RenderEncoder {
         self.encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("render_pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: target.target_msaa(),
-                resolve_target: Some(target.target_view()),
+                view: target.msaa(),
+                resolve_target: Some(target.view()),
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear(color.into()),
                     store: true,
@@ -55,4 +58,20 @@ impl RenderEncoder {
         Renderer::new(self, temp)
     }
 
+    pub fn copy_target(&mut self, config: RenderConfig, into: &RenderTarget) {
+        let target_conf = RenderConfig {
+            camera: RenderCamera::Custom(&config.defaults.relative_camera),
+            instances: RenderInstances::SingleInstance,
+            target: into,
+            gpu: config.gpu,
+            defaults: config.defaults,
+        };
+
+        let (instances, mut renderer) = Renderer::new(self, target_conf);
+        renderer.render_sprite(
+            &config.defaults.relative_camera.model(),
+            config.defaults.target.sprite(),
+        );
+        renderer.commit(instances);
+    }
 }
