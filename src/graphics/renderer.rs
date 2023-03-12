@@ -1,12 +1,8 @@
 use crate::{
     CameraBuffer, Color, Gpu, GpuDefaults, InstanceBuffer, Model, RenderCamera, RenderConfig,
-    RenderEncoder, RenderInstances, Shader, Sprite, Uniform,
+    RenderEncoder, RenderInstances, Shader, Sprite, Uniform, InstanceIndices,
 };
 
-/// Single index of an instance inside a [InstanceBuffer](crate::InstanceBuffer).
-pub type Instance = u32;
-/// Range of [instances](crate::Instance).
-pub type Instances = std::ops::Range<Instance>;
 
 /// Render grpahics to the screen or a sprite. The renderer can be extended with custom graphcis throught
 /// the [RenderPass](wgpu::RenderPass) or the provided methods for shura's shader system.
@@ -23,7 +19,7 @@ impl<'a> Renderer<'a> {
     pub(crate) fn new(
         render_encoder: &'a mut RenderEncoder,
         config: RenderConfig<'a>,
-    ) -> (Instances, Renderer<'a>) {
+    ) -> (InstanceIndices, Renderer<'a>) {
         let camera = match config.camera {
             RenderCamera::WorldCamera => &config.defaults.world_camera,
             RenderCamera::RelativeCamera => &config.defaults.relative_camera,
@@ -223,13 +219,8 @@ impl<'a> Renderer<'a> {
         self.use_uniform(&self.defaults.times, 1);
     }
 
-    pub fn commit(&mut self, instances: Instances) {
-        self.render_pass.draw_indexed(0..self.indices, 0, instances);
-    }
-
-    pub fn commit_one(&mut self, instance: Instance) {
-        self.render_pass
-            .draw_indexed(0..self.indices, 0, instance..instance + 1);
+    pub fn commit(&mut self, instances: impl Into<InstanceIndices>) {
+        self.render_pass.draw_indexed(0..self.indices, 0, instances.into().range);
     }
 
     pub const fn gpu(&self) -> &Gpu {

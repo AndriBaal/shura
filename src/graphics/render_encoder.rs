@@ -1,5 +1,5 @@
 use crate::{
-    CameraBuffer, Color, Gpu, GpuDefaults, InstanceBuffer, Instances, RenderTarget, Renderer,
+    CameraBuffer, Color, Gpu, GpuDefaults, InstanceBuffer, RenderTarget, Renderer, InstanceIndices,
 };
 
 #[derive(Copy, Clone)]
@@ -59,7 +59,7 @@ impl RenderEncoder {
         });
     }
 
-    pub fn renderer<'a>(&'a mut self, config: RenderConfig<'a>) -> (Instances, Renderer<'a>) {
+    pub fn renderer<'a>(&'a mut self, config: RenderConfig<'a>) -> (InstanceIndices, Renderer<'a>) {
         Renderer::new(self, config)
     }
 

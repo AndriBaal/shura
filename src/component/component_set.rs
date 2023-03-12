@@ -2,7 +2,7 @@ use instant::Instant;
 
 use crate::{
     ArenaIter, ArenaIterMut, ArenaPath, ComponentCallbacks, ComponentConfig, ComponentController,
-    ComponentType, DynamicComponent, Instances,
+    ComponentType, DynamicComponent, InstanceIndex,
 };
 use std::{iter::Enumerate, marker::PhantomData};
 
@@ -379,7 +379,7 @@ impl<'a, C> IntoIterator for &ComponentSetRender<'a, C>
 where
     C: ComponentController,
 {
-    type Item = (Instances, &'a C);
+    type Item = (InstanceIndex, &'a C);
     type IntoIter = ComponentIterRender<'a, C>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -428,12 +428,15 @@ impl<'a, C> Iterator for ComponentIterRender<'a, C>
 where
     C: ComponentController,
 {
-    type Item = (Instances, &'a C);
+    type Item = (InstanceIndex, &'a C);
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(iter) = self.iters.get_mut(self.iter_index) {
             if let Some((i, entry)) = iter.next() {
                 let i = i as u32;
-                return Some((i..i + 1, entry.1.downcast_ref::<C>().unwrap()));
+                return Some((
+                    InstanceIndex { index: i },
+                    entry.1.downcast_ref::<C>().unwrap(),
+                ));
             }
             return None;
         }
@@ -450,7 +453,10 @@ where
         if let Some(iter) = self.iters.get_mut(len - 1 - self.iter_index) {
             if let Some((i, entry)) = iter.next_back() {
                 let i = i as u32;
-                return Some((i - 1..i, entry.1.downcast_ref::<C>().unwrap()));
+                return Some((
+                    InstanceIndex { index: i - 1 },
+                    entry.1.downcast_ref::<C>().unwrap(),
+                ));
             }
             return None;
         }

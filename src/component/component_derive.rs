@@ -4,8 +4,8 @@ use crate::{
     ComponentHandle,
 };
 use crate::{
-    BaseComponent, ComponentConfig, ComponentControllerCaller, ComponentPath, Context, Instances,
-    Model, RenderConfig, RenderEncoder, Renderer, Sprite, DEFAULT_CONFIG,
+    BaseComponent, ComponentConfig, ComponentControllerCaller, ComponentPath, Context,
+    RenderConfig, RenderEncoder, DEFAULT_CONFIG,
 };
 use downcast_rs::*;
 
@@ -69,18 +69,6 @@ where
         ctx: &'a Context<'a>,
         config: RenderConfig<'a>,
         encoder: &mut RenderEncoder,
-    ) {
-    }
-
-    /// Apply postprocessing after rendering all components of this Component. During rendering
-    /// the relative camera is bound.
-    fn postproccess<'a>(
-        active: ComponentPath<Self>,
-        ctx: &'a Context,
-        renderer: &mut Renderer<'a>,
-        instance: Instances,
-        screen_model: &'a Model,
-        current_render: &'a Sprite,
     ) {
     }
 

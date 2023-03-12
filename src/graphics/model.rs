@@ -388,7 +388,7 @@ impl ModelBuilder {
         };
     }
 
-    fn tessellate(vertices: &Vec<Vertex>) -> Vec<Index> {
+    pub fn tessellate(vertices: &Vec<Vertex>) -> Vec<Index> {
         use delaunator::{triangulate, Point};
 
         let points: Vec<Point> = vertices

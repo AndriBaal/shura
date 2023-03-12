@@ -6,7 +6,7 @@ use crate::gui::Gui;
 use crate::physics::{ActiveEvents, CollideType};
 use crate::{
     Context, FrameManager, Gpu, GpuDefaults, Input, RenderCamera, RenderConfig, RenderEncoder,
-    RenderInstances, RenderOperation, Renderer, Scene, SceneCreator, SceneManager, Vector,
+    RenderInstances, RenderOperation, Renderer, Scene, SceneCreator, SceneManager, Vector, InstanceIndex,
 };
 use log::{error, info};
 #[cfg(target_os = "android")]
@@ -522,7 +522,7 @@ impl Shura {
                 ctx.shura.defaults.relative_camera.model(),
                 ctx.shura.defaults.target.sprite(),
             );
-            renderer.commit(0..1);
+            renderer.commit(InstanceIndex {index: 0});
         }
 
         let mut encoder = encoder.encoder;
