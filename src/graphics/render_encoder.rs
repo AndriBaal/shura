@@ -26,6 +26,7 @@ pub struct RenderConfig<'a> {
     pub target: &'a RenderTarget,
     pub gpu: &'a Gpu,
     pub defaults: &'a GpuDefaults,
+    pub smaa: bool
 }
 
 pub struct RenderEncoder {
@@ -69,6 +70,7 @@ impl RenderEncoder {
             target: into,
             gpu: config.gpu,
             defaults: config.defaults,
+            smaa: true
         };
 
         let (instances, mut renderer) = Renderer::new(self, target_conf);

@@ -7,8 +7,16 @@ use crate::{
 };
 use log::info;
 use std::borrow::Cow;
-use wgpu::BlendState;
 pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 1.0;
+
+macro_rules! Where {
+    (
+    $a:lifetime >= $b:lifetime $(,)?
+) => {
+        &$b & $a()
+    };
+}
+
 
 /// Holds the connection to the GPU using wgpu. Also has some default buffers, layouts etc.
 pub struct Gpu {
@@ -48,7 +56,7 @@ impl Gpu {
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
-                    features: wgpu::Features::empty(),
+                    features: wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES,
                     label: None,
                     limits,
                 },
@@ -61,19 +69,18 @@ impl Gpu {
             .get_default_config(&adapter, window_size.x, window_size.y)
             .expect("Surface unsupported by adapter");
 
-        let sample_count = 4;
-        // let sample_flags = adapter.get_texture_format_features(config.format).flags;
-        // let sample_count = {
-        //     if sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X8) {
-        //         8
-        //     } else if sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X4) {
-        //         4
-        //     } else if sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X2) {
-        //         2
-        //     } else {
-        //         1
-        //     }
-        // };
+        let sample_flags = adapter.get_texture_format_features(config.format).flags;
+        let sample_count = {
+            if sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X8) {
+                8
+            } else if sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X4) {
+                4
+            } else if sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X2) {
+                2
+            } else {
+                1
+            }
+        };
 
         let base = WgpuBase::new(&device, config.format, sample_count, window_size);
 
@@ -82,6 +89,7 @@ impl Gpu {
 
         info!("Using GPU: {}", adapter_info.name);
         info!("Using WGPU backend: {:?}", adapter_info.backend);
+        info!("Using Multisample X{sample_count}");
         info!("Using TextureFormat: {:?}", config.format);
 
         let gpu = Self {
@@ -191,23 +199,13 @@ impl Gpu {
         Shader::new(self, config)
     }
 
-    pub fn create_custom_shader(
-        &self,
-        shader_lang: ShaderLang,
-        descriptor: &wgpu::RenderPipelineDescriptor,
-    ) -> Shader {
-        Shader::new_custom(self, shader_lang, descriptor)
-    }
-
-    pub fn create_computed_target(
+    pub fn create_computed_target<'caller>(
         &self,
         defaults: &GpuDefaults,
-        instances: RenderInstances,
-        camera: RenderCamera,
         texture_size: Vector<u32>,
-        compute: impl Fn(&mut RenderEncoder, RenderConfig),
+        compute: impl for<'any> Fn(&mut RenderEncoder, RenderConfig<'any>, [Where!('caller >= 'any); 0]),
     ) -> RenderTarget {
-        return RenderTarget::computed(self, &defaults, instances, camera, texture_size, compute);
+        return RenderTarget::computed(self, &defaults, texture_size, compute);
     }
 }
 
@@ -215,6 +213,7 @@ impl Gpu {
 pub struct WgpuBase {
     pub sample_count: u32,
     pub multisample_state: wgpu::MultisampleState,
+    pub no_multisample_state: wgpu::MultisampleState,
     pub sprite_uniform: wgpu::BindGroupLayout,
     pub vertex_uniform: wgpu::BindGroupLayout,
     pub fragment_uniform: wgpu::BindGroupLayout,
@@ -307,12 +306,18 @@ impl WgpuBase {
             mask: !0,
             alpha_to_coverage_enabled: false,
         };
+        let no_multisample_state = wgpu::MultisampleState {
+            count: 1,
+            mask: !0,
+            alpha_to_coverage_enabled: false,
+        };
 
         let output_msaa = RenderTarget::create_msaa(device, format, sample_count, size);
 
         Self {
             sample_count: sample_count,
             multisample_state,
+            no_multisample_state,
             sprite_uniform,
             vertex_uniform,
             fragment_uniform,
@@ -363,56 +368,56 @@ impl GpuDefaults {
             fragment_source: include_str!("../../res/shader/sprite.wgsl"),
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Sprite],
-            blend: BlendState::ALPHA_BLENDING,
-            color_write: Default::default(),
+            blend: true,
+            smaa: true
         });
 
         let rainbow = gpu.create_shader(ShaderConfig {
             fragment_source: include_str!("../../res/shader/rainbow.wgsl"),
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Uniform],
-            blend: BlendState::ALPHA_BLENDING,
-            color_write: Default::default(),
+            blend: true,
+            smaa: true
         });
 
         let color = gpu.create_shader(ShaderConfig {
             fragment_source: include_str!("../../res/shader/color.wgsl"),
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Uniform],
-            blend: BlendState::ALPHA_BLENDING,
-            color_write: Default::default(),
+            blend: true,
+            smaa: true
         });
 
         let colored_sprite = gpu.create_shader(ShaderConfig {
             fragment_source: include_str!("../../res/shader/colored_sprite.glsl"),
             shader_lang: ShaderLang::GLSL,
             shader_fields: &[ShaderField::Sprite, ShaderField::Uniform],
-            blend: BlendState::ALPHA_BLENDING,
-            color_write: Default::default(),
+            blend: true,
+            smaa: true
         });
 
         let grey = gpu.create_shader(ShaderConfig {
             fragment_source: include_str!("../../res/shader/grey.wgsl"),
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Sprite],
-            blend: BlendState::ALPHA_BLENDING,
-            color_write: Default::default(),
+            blend: true,
+            smaa: true
         });
 
         let blurr = gpu.create_shader(ShaderConfig {
             fragment_source: include_str!("../../res/shader/blurr.wgsl"),
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Sprite],
-            blend: BlendState::ALPHA_BLENDING,
-            color_write: Default::default(),
+            blend: true,
+            smaa: true
         });
 
         let transparent = gpu.create_shader(ShaderConfig {
             fragment_source: include_str!("../../res/shader/transparent_sprite.wgsl"),
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Sprite, ShaderField::Uniform],
-            blend: BlendState::ALPHA_BLENDING,
-            color_write: Default::default(),
+            blend: true,
+            smaa: true
         });
 
         let size = gpu.render_size(1.0);

@@ -3,6 +3,13 @@ use std::ops::Deref;
 use crate::{
     Gpu, GpuDefaults, RenderCamera, RenderConfig, RenderEncoder, RenderInstances, Sprite, Vector,
 };
+macro_rules! Where {
+    (
+    $a:lifetime >= $b:lifetime $(,)?
+) => {
+        &$b & $a()
+    };
+}
 
 pub struct RenderTarget {
     target_msaa: wgpu::TextureView,
@@ -26,16 +33,14 @@ impl RenderTarget {
         };
     }
 
-    pub fn computed(
+    pub fn computed<'caller>(
         gpu: &Gpu,
         defaults: &GpuDefaults,
-        instances: RenderInstances,
-        camera: RenderCamera,
         texture_size: Vector<u32>,
-        compute: impl Fn(&mut RenderEncoder, RenderConfig),
+        compute: impl for<'any> Fn(&mut RenderEncoder, RenderConfig<'any>, [Where!('caller >= 'any); 0]),
     ) -> Self {
         let target = RenderTarget::new(gpu, texture_size);
-        target.draw(gpu, defaults, instances, camera, compute);
+        target.draw(gpu, defaults, compute);
         return target;
     }
 
@@ -77,23 +82,60 @@ impl RenderTarget {
         &self.target_msaa
     }
 
-    pub fn draw(
+    // pub fn draw(
+    //     &self,
+    //     gpu: &Gpu,
+    //     defaults: &GpuDefaults,
+    //     compute: impl Fn(&mut RenderEncoder, RenderConfig),
+    // ) {
+    //     let mut encoder = RenderEncoder::new(gpu);
+    //     let config = RenderConfig {
+    //         camera: RenderCamera::RelativeCamera,
+    //         instances: RenderInstances::SingleInstance,
+    //         target: &self,
+    //         gpu: &gpu,
+    //         defaults: &defaults,
+    //         smaa: true
+    //     };
+    //     compute(&mut encoder, config);
+    //     gpu.queue.submit(std::iter::once(encoder.encoder.finish()));
+    // }
+
+    // pub fn draw1<'test>(
+    //     &'test self,
+    //     gpu: &'test Gpu,
+    //     defaults: &'test GpuDefaults,
+    //     compute: impl Fn(&'test mut RenderEncoder, RenderConfig<'test>),
+    // ) {
+    //     let mut encoder = RenderEncoder::new(gpu);
+    //     let config = RenderConfig {
+    //         camera: RenderCamera::RelativeCamera,
+    //         instances: RenderInstances::SingleInstance,
+    //         target: &self,
+    //         gpu: &gpu,
+    //         defaults: &defaults,
+    //         smaa: true
+    //     };
+    //     compute(&mut encoder, config);
+    //     gpu.queue.submit(std::iter::once(encoder.encoder.finish()));
+    // }
+
+    pub fn draw<'caller>(
         &self,
         gpu: &Gpu,
         defaults: &GpuDefaults,
-        instances: RenderInstances,
-        camera: RenderCamera,
-        compute: impl Fn(&mut RenderEncoder, RenderConfig),
+        compute: impl for<'any> Fn(&mut RenderEncoder, RenderConfig<'any>, [Where!('caller >= 'any); 0]),
     ) {
         let mut encoder = RenderEncoder::new(gpu);
         let config = RenderConfig {
-            camera,
-            instances,
+            camera: RenderCamera::RelativeCamera,
+            instances: RenderInstances::SingleInstance,
             target: &self,
             gpu: &gpu,
             defaults: &defaults,
+            smaa: true
         };
-        compute(&mut encoder, config);
+        compute(&mut encoder, config, []);
         gpu.queue.submit(std::iter::once(encoder.encoder.finish()));
     }
 }

@@ -487,6 +487,7 @@ impl Shura {
                                     target: &ctx.shura.defaults.target,
                                     gpu: &ctx.shura.gpu,
                                     defaults: &ctx.shura.defaults,
+                                    smaa: true,
                                 };
                                 if component_type.len() > 0 {
                                     (set.callbacks().call_render)(

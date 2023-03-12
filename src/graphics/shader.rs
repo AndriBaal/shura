@@ -1,14 +1,12 @@
 use crate::{Gpu, Vertex};
 use std::borrow::Cow;
 
-pub use wgpu::{BlendState, ColorWrites};
-
 pub struct ShaderConfig<'a> {
     pub fragment_source: &'a str,
     pub shader_lang: ShaderLang,
     pub shader_fields: &'a [ShaderField],
-    pub blend: BlendState,
-    pub color_write: ColorWrites,
+    pub blend: bool,
+    pub smaa: bool
 }
 
 /// Field that is present in the shader.
@@ -83,6 +81,7 @@ pub enum ShaderLang {
 pub struct Shader {
     pipeline: wgpu::RenderPipeline,
     lang: ShaderLang,
+    smaa: bool
 }
 
 impl Shader {
@@ -148,8 +147,12 @@ impl Shader {
                     entry_point: "main",
                     targets: &[Some(wgpu::ColorTargetState {
                         format: gpu.config.format,
-                        blend: Some(config.blend),
-                        write_mask: config.color_write,
+                        blend: if config.blend == true {
+                            Some(wgpu::BlendState::ALPHA_BLENDING)
+                        } else {
+                            None
+                        },
+                        write_mask: wgpu::ColorWrites::ALL,
                     })],
                 }),
                 primitive: wgpu::PrimitiveState {
@@ -162,24 +165,25 @@ impl Shader {
                     conservative: false,
                 },
                 depth_stencil: None,
-                multisample: gpu.base.multisample_state,
+                multisample: if config.smaa { gpu.base.multisample_state } else {gpu.base.no_multisample_state},
                 multiview: None,
             });
 
         Shader {
             pipeline,
             lang: config.shader_lang,
+            smaa: config.smaa
         }
     }
 
-    pub fn new_custom(
-        gpu: &Gpu,
-        lang: ShaderLang,
-        descriptor: &wgpu::RenderPipelineDescriptor,
-    ) -> Self {
-        let pipeline = gpu.device.create_render_pipeline(descriptor);
-        Shader { pipeline, lang }
-    }
+    // pub fn new_custom(
+    //     gpu: &Gpu,
+    //     lang: ShaderLang,
+    //     descriptor: &wgpu::RenderPipelineDescriptor,
+    // ) -> Self {
+    //     let pipeline = gpu.device.create_render_pipeline(descriptor);
+    //     Shader { pipeline, lang }
+    // }
 
     // Getter
     pub fn pipeline(&self) -> &wgpu::RenderPipeline {
@@ -188,5 +192,9 @@ impl Shader {
 
     pub fn lang(&self) -> ShaderLang {
         self.lang
+    }
+
+    pub fn smaa(&self) -> bool {
+        self.smaa
     }
 }

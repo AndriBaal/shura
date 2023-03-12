@@ -4,8 +4,17 @@ use crate::{
     ComponentSetRender, DynamicComponent, GroupFilter, InputEvent, InputTrigger, InstanceBuffer,
     Isometry, Key, Matrix, Model, ModelBuilder, Modifier, RenderCamera, RenderConfig,
     RenderEncoder, RenderInstances, RenderTarget, Rotation, Scene, SceneCreator, Shader,
-    ShaderConfig, ShaderLang, Shura, Sprite, SpriteSheet, Touch, Uniform, Vector,
+    ShaderConfig, Shura, Sprite, SpriteSheet, Touch, Uniform, Vector,
 };
+
+macro_rules! Where {
+    (
+    $a:lifetime >= $b:lifetime $(,)?
+) => {
+        &$b & $a()
+    };
+}
+
 
 #[cfg(feature = "serde")]
 use crate::ComponentSerializer;
@@ -234,25 +243,13 @@ impl<'a> Context<'a> {
         self.shura.gpu.create_shader(config)
     }
 
-    pub fn create_custom_shader(
+    pub fn create_computed_target<'caller>(
         &self,
-        shader_lang: ShaderLang,
-        descriptor: &wgpu::RenderPipelineDescriptor,
-    ) -> Shader {
-        self.shura.gpu.create_custom_shader(shader_lang, descriptor)
-    }
-
-    pub fn create_computed_target(
-        &self,
-        instances: RenderInstances,
-        camera: RenderCamera,
         texture_size: Vector<u32>,
-        compute: impl Fn(&mut RenderEncoder, RenderConfig),
+        compute: impl for<'any> Fn(&mut RenderEncoder, RenderConfig<'any>, [Where!('caller >= 'any); 0]),
     ) -> RenderTarget {
         self.shura.gpu.create_computed_target(
             &self.shura.defaults,
-            instances,
-            camera,
             texture_size,
             compute,
         )

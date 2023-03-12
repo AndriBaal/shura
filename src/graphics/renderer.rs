@@ -16,6 +16,7 @@ pub struct Renderer<'a> {
     pub gpu: &'a Gpu,
     pub defaults: &'a GpuDefaults,
     pub indices: u32,
+    pub smaa: bool
 }
 
 impl<'a> Renderer<'a> {
@@ -55,8 +56,16 @@ impl<'a> Renderer<'a> {
             .begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("render_pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: config.target.msaa(),
-                    resolve_target: Some(config.target.view()),
+                    view: if config.smaa {
+                        config.target.msaa()
+                    } else {
+                        config.target.view()
+                    },
+                    resolve_target: if config.smaa {
+                        Some(config.target.view())
+                    } else {
+                        None
+                    },
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Load,
                         store: true,
@@ -72,11 +81,13 @@ impl<'a> Renderer<'a> {
             defaults: config.defaults,
             indices: 0,
             camera: &camera,
+            smaa: config.smaa
         };
         result.use_camera(&camera);
         result.use_instance_buffer(&instances);
         return (instances.instances(), result);
     }
+
 
     pub(crate) fn output_renderer(
         encoder: &'a mut wgpu::CommandEncoder,
@@ -104,6 +115,7 @@ impl<'a> Renderer<'a> {
             defaults,
             indices: 0,
             camera: &defaults.world_camera,
+            smaa: true
         };
         result.use_camera(&defaults.world_camera);
         return result;
@@ -120,6 +132,7 @@ impl<'a> Renderer<'a> {
     }
 
     pub fn use_shader(&mut self, shader: &'a Shader) {
+        assert_eq!(shader.smaa(), self.smaa, "The Renderer and the Shader both need to have smaa enabled / disabled!");
         self.render_pass.set_pipeline(shader.pipeline());
     }
 
@@ -225,6 +238,10 @@ impl<'a> Renderer<'a> {
 
     pub const fn camera(&self) -> &CameraBuffer {
         &self.camera
+    }
+
+    pub const fn smaa(&self) -> bool {
+        self.smaa
     }
 
     pub fn render_pass(&mut self) -> &mut wgpu::RenderPass<'a> {
