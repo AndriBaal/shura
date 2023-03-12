@@ -1,8 +1,8 @@
 #[cfg(feature = "text")]
 use crate::text::{CreateFont, CreateText, Font, TextDescriptor};
 use crate::{
-    Camera, CameraBuffer, InstanceBuffer, Matrix, Model, ModelBuilder, RenderCamera, RenderConfig,
-    RenderEncoder, RenderInstances, RenderTarget, ScreenConfig, Shader, ShaderConfig, ShaderField,
+    Camera, CameraBuffer, InstanceBuffer, Matrix, Model, ModelBuilder, RenderConfig,
+    RenderEncoder, RenderTarget, ScreenConfig, Shader, ShaderConfig, ShaderField,
     ShaderLang, Sprite, SpriteSheet, Uniform, Vector,
 };
 use log::info;

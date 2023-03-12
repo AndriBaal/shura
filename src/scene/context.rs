@@ -2,8 +2,8 @@ use crate::{
     Camera, CameraBuffer, Color, ComponentController, ComponentGroup, ComponentGroupDescriptor,
     ComponentHandle, ComponentIdentifier, ComponentPath, ComponentSet, ComponentSetMut,
     ComponentSetRender, DynamicComponent, GroupFilter, InputEvent, InputTrigger, InstanceBuffer,
-    Isometry, Key, Matrix, Model, ModelBuilder, Modifier, RenderCamera, RenderConfig,
-    RenderEncoder, RenderInstances, RenderTarget, Rotation, Scene, SceneCreator, Shader,
+    Isometry, Key, Matrix, Model, ModelBuilder, Modifier, RenderConfig,
+    RenderEncoder, RenderTarget, Rotation, Scene, SceneCreator, Shader,
     ShaderConfig, Shura, Sprite, SpriteSheet, Touch, Uniform, Vector,
 };
 
