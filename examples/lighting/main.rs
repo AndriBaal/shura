@@ -1,3 +1,4 @@
+use nalgebra::distance;
 use shura::{physics::*, *};
 
 fn main() {
@@ -5,46 +6,104 @@ fn main() {
         id: 1,
         init: |ctx| {
             ctx.set_camera_vertical_fov(20.0);
-            ctx.create_component(Box::new(
+            ctx.set_global_state(GameState {
+                shadow_color: ctx.create_uniform(Color::BLACK),
+                inner_color: ctx.create_uniform(Color::new(1.0, 1.0, 0.0, 1.0)),
+                inner_model: ctx.create_model(ModelBuilder::ball(1.0, 24)),
+                shadow_shader: ctx.create_shader(ShaderConfig {
+                    fragment_source: include_str!("./shader.glsl"),
+                    shader_lang: ShaderLang::GLSL,
+                    shader_fields: &[ShaderField::Uniform],
+                    blend: true,
+                    smaa: true,
+                }),
+            });
+            ctx.create_component(Obstacle::new(
                 ctx,
-                Vector::new(2.0, 2.0),
-                Vector::new(0.5, 0.5),
+                Vector::new(3.0, 3.0),
+                ColliderBuilder::cuboid(1.0, 1.0),
                 Color::GREEN,
             ));
-            // ctx.create_component(Box::new(
+
+            ctx.create_component(Obstacle::new(
+                ctx,
+                Vector::new(-3.0, 2.5),
+                ColliderBuilder::triangle(
+                    Point::new(-1.5, 1.0),
+                    Point::new(1.0, 1.5),
+                    Point::new(1.5, 1.0),
+                ),
+                Color::RED,
+            ));
+            ctx.create_component(Obstacle::new(
+                ctx,
+                Vector::new(-3.0, -3.0),
+                ColliderBuilder::cuboid(0.5, 1.5),
+                Color::BLUE,
+            ));
+            ctx.create_component(Obstacle::new(
+                ctx,
+                Vector::new(3.0, -3.0),
+                ColliderBuilder::round_cuboid(0.5, 1.5, 0.4),
+                Color::BLUE,
+            ));
+            ctx.create_component(Light::new(
+                ctx,
+                Vector::new(0.0, 0.0),
+                12.0,
+                Color::WHITE,
+                true,
+            ));
+
+            // ctx.create_component(Light::new(
             //     ctx,
-            //     Vector::new(-2.0, -2.0),
-            //     Vector::new(0.5, 0.5),
-            //     Color::BLUE,
+            //     Vector::new(1.5, 0.0),
+            //     2.0,
+            //     Color::WHITE,
+            //     false,
             // ));
-            ctx.create_component(Light::new(ctx, Vector::new(2.0, 2.0), 4.0, Color::WHITE));
         },
     });
 }
 
+struct GameState {
+    shadow_shader: Shader,
+    shadow_color: Uniform<Color>,
+    inner_model: Model,
+    inner_color: Uniform<Color>,
+}
 
 #[derive(Component)]
-struct Box {
+struct Obstacle {
     #[component]
     component: BaseComponent,
     model: Model,
     color: Uniform<Color>,
 }
 
-impl Box {
-    pub fn new(ctx: &Context, position: Vector<f32>, size: Vector<f32>, color: Color) -> Self {
+impl Obstacle {
+    pub fn new(
+        ctx: &Context,
+        position: Vector<f32>,
+        collider: ColliderBuilder,
+        color: Color,
+    ) -> Self {
         Self {
+            model: ctx.create_model(ModelBuilder::from_collider_shape(
+                collider.shape.as_ref(),
+                24,
+                2.0,
+            )),
             component: BaseComponent::new_rigid_body(
                 RigidBodyBuilder::fixed().translation(position),
-                vec![ColliderBuilder::cuboid(size.x, size.y)],
+                vec![collider],
             ),
-            model: ctx.create_model(ModelBuilder::cuboid(size)),
             color: ctx.create_uniform(color),
         }
     }
 }
 
-impl ComponentController for Box {
+impl ComponentController for Obstacle {
     const CONFIG: ComponentConfig = ComponentConfig {
         priority: 2,
         update: UpdateOperation::Never,
@@ -70,21 +129,37 @@ struct Light {
     #[component]
     component: BaseComponent,
     radius: f32,
-    model: Model,
-    color: Uniform<Color>,
+    vertices: Vec<Vertex>,
+    shadows: Vec<Model>,
+    light_color: Uniform<Color>,
+    light_model: Model,
+    follow_mouse: bool,
 }
 
 impl Light {
     const RESOLUTION: u32 = 64;
-    pub fn new(ctx: &Context, position: Vector<f32>, radius: f32, color: Color) -> Self {
+    const IS_LIGHT_COLLIDER: u128 = 1000;
+    pub fn new(
+        ctx: &Context,
+        position: Vector<f32>,
+        radius: f32,
+        color: Color,
+        follow_cursor: bool,
+    ) -> Self {
+        let model_builder = ModelBuilder::ball(radius, Self::RESOLUTION);
         Self {
             radius,
+            follow_mouse: follow_cursor,
+            shadows: vec![],
+            vertices: model_builder.vertices.clone(),
             component: BaseComponent::new_rigid_body(
                 RigidBodyBuilder::dynamic().translation(position),
-                vec![ColliderBuilder::ball(radius).sensor(true)],
+                vec![ColliderBuilder::ball(radius)
+                    .sensor(true)
+                    .user_data(Self::IS_LIGHT_COLLIDER)],
             ),
-            model: ctx.create_model(ModelBuilder::ball(radius, Self::RESOLUTION)),
-            color: ctx.create_uniform(color)
+            light_model: ctx.create_model(model_builder),
+            light_color: ctx.create_uniform(color),
         }
     }
 }
@@ -96,33 +171,49 @@ impl ComponentController for Light {
     };
 
     fn update(active: ComponentPath<Self>, ctx: &mut Context) {
-        let cursor_pos = *ctx.cursor_world();
-        for light in ctx.path_mut(&active).iter() {
-            light.component.set_translation(cursor_pos);
+        fn rotate_point_around_origin(
+            origin: Vector<f32>,
+            delta: Vector<f32>,
+            rot: Rotation<f32>,
+        ) -> Vector<f32> {
+            let sin = rot.sin_angle();
+            let cos = rot.cos_angle();
+            return Vector::new(
+                origin.x + (delta.x) * cos - (delta.y) * sin,
+                origin.y + (delta.x) * sin + (delta.y) * cos,
+            );
         }
 
+        fn det(v1: Vector<f32>, v2: Vector<f32>) -> f32 {
+            return v1.x * v2.y - v1.y * v2.x;
+        }
+
+        let cursor_pos = *ctx.cursor_world();
+        for light in ctx.path_mut(&active).iter() {
+            if light.follow_mouse {
+                light.component.set_translation(cursor_pos);
+            }
+        }
+
+        let mut all_shadows = vec![];
         for light in ctx.path(&active).iter() {
+            let mut shadows = vec![];
             let light_collider_handle = light.component.collider_handles().unwrap()[0];
             let light_collider = light.component.collider(light_collider_handle).unwrap();
-            let light_translation = *light_collider.translation();
+            let light_translation = light.component.translation();
 
             ctx.intersections_with_shape(
                 light_collider.position(),
                 light_collider.shape(),
                 QueryFilter::new(),
                 |_component, collider_handle| {
-                    if collider_handle != light_collider_handle {
-                        let box_collider = ctx.collider(collider_handle).unwrap();
-                        let box_shape = box_collider.shape().downcast_ref::<Cuboid>().unwrap();
-
-                        let mut model = ModelBuilder::cuboid(box_shape.half_extents)
-                            .vertex_position(*box_collider.position());
+                    let obstacle_collider = ctx.collider(collider_handle).unwrap();
+                    if obstacle_collider.user_data != Self::IS_LIGHT_COLLIDER {
+                        let obstacle_shape = obstacle_collider.shape();
+                        let mut model = ModelBuilder::from_collider_shape(obstacle_shape, 24, 2.0)
+                            .vertex_position(*obstacle_collider.position());
                         model.apply_modifiers();
                         let vertices = model.vertices;
-
-                        fn det(v1: Vector<f32>, v2: Vector<f32>) -> f32 {
-                            return v1.x * v2.y - v1.y * v2.x;
-                        }
 
                         let mut leftmost = vertices[0].pos;
                         let mut rightmost = vertices[0].pos;
@@ -141,13 +232,100 @@ impl ComponentController for Light {
                             }
                         }
 
-                        let leftback = light_translation + leftmost_ray.normalize() * light.radius;
-                        let rightback = light_translation + rightmost_ray.normalize() * light.radius;
+                        let leftback = if light_collider
+                            .shape()
+                            .contains_point(light_collider.position(), &leftmost.into())
+                        {
+                            light_translation + leftmost_ray.normalize() * light.radius
+                        } else {
+                            leftmost
+                        };
 
+                        let rightback = if light_collider
+                            .shape()
+                            .contains_point(light_collider.position(), &rightmost.into())
+                        {
+                            light_translation + rightmost_ray.normalize() * light.radius
+                        } else {
+                            rightmost
+                        };
+
+                        struct EdgeData {
+                            index: usize,
+                            distance: f32,
+                        }
+
+                        // let mut closest_circle_left = (0, f32::MAX);
+                        // let mut closest_circle_right = (0, f32::MAX);
+
+                        // let delta = leftback - light_translation;
+                        // let angle = delta.y.atan2(delta.x);
+                        // println!("{}", angle.to_degrees());
+                        // let rot = Rotation::new(-angle);
+                        // let leftback_rotated =
+                        //     rotate_point_around_origin(light_translation, delta, rot);
+                        // for (i, v) in light.vertices.iter().enumerate() {
+                        //     let rotated_vertex =
+                        //         rotate_point_around_origin(light_translation, v.pos, rot);
+                        //     if rotated_vertex.y < leftback_rotated.y {
+                        //         let distance = distance(
+                        //             &(v.pos + light_translation).into(),
+                        //             &leftback.into(),
+                        //         );
+                        //         if distance < closest_circle_left.1 {
+                        //             closest_circle_left = (i, distance);
+                        //         }
+                        //     }
+
+                        //     // if t1 -
+                        //     // let distance_left = distance(&(v.pos + light_translation).into(), &leftback.into());
+                        //     // let distance_right = distance(&(v.pos + light_translation).into(), &rightback.into());
+                        //     // if distance_left < closest_circle_left.1 {
+                        //     //     closest_circle_left = (i, distance_left);
+                        //     // }
+
+                        //     // if distance_right < closest_circle_left.1 {
+                        //     //     closest_circle_right = (i, distance_right);
+                        //     // }
+                        // }
+
+                        let mut vertices = vec![leftmost];
+                        if light_collider
+                            .shape()
+                            .contains_point(light_collider.position(), &leftmost.into())
+                        {
+                            vertices.push(leftback);
+                        }
+
+                        // vertices.push(light.vertices[closest_circle_left.0].pos);
+                        // vertices.push(light.vertices[closest_circle_right.0].pos);
+                        // for i in closest_circle_right.0..closest_circle_left.0 {
+                        //     vertices.push(light.vertices[i].pos + light_translation);
+                        // }
+
+                        if light_collider
+                            .shape()
+                            .contains_point(light_collider.position(), &rightmost.into())
+                        {
+                            vertices.push(rightback);
+                        }
+                        vertices.push(rightmost);
+
+                        shadows.push(
+                            ctx.create_model(
+                                ModelBuilder::convex_polygon(vertices)
+                                    .vertex_translation(-light_translation),
+                            ),
+                        );
                     }
                     true
                 },
-            )
+            );
+            all_shadows.push(shadows);
+        }
+
+        for (light, shadows) in ctx.path_mut(&active).iter().zip(all_shadows.into_iter()) {
+            light.shadows = shadows;
         }
     }
 
@@ -158,18 +336,20 @@ impl ComponentController for Light {
         encoder: &mut RenderEncoder,
     ) {
         let (_, mut renderer) = encoder.renderer(config);
+        let state = ctx.global_state::<GameState>().unwrap();
         for (i, l) in ctx.path_render(&active).iter() {
-            renderer.render_color(&l.model, &l.color);
+            renderer.use_shader(&state.shadow_shader);
+            renderer.use_model(&l.light_model);
+            renderer.use_uniform(&l.light_color, 1);
+            renderer.commit(i);
+
+            for shadow in &l.shadows {
+                renderer.render_color(shadow, &state.shadow_color);
+                renderer.commit(i);
+            }
+
+            renderer.render_color(&state.inner_model, &state.inner_color);
             renderer.commit(i);
         }
     }
 }
-
-// #[derive(Component)]
-// struct LightMap {
-//     #[component]
-//     component: BaseComponent,
-//     map: RenderTarget,
-// }
-
-// impl ComponentController for LightMap {}

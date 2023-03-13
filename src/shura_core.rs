@@ -525,14 +525,15 @@ impl Shura {
             renderer.commit(InstanceIndex {index: 0});
         }
 
-        let mut encoder = encoder.encoder;
 
         #[cfg(feature = "gui")]
         {
             ctx.shura
                 .gui
-                .render(&ctx.shura.gpu, &mut encoder, &output_view);
+                .render(&ctx.shura.gpu, &mut encoder.encoder, &output_view);
         }
+
+        let encoder = encoder.encoder;
         ctx.shura
             .gpu
             .queue

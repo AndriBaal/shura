@@ -70,7 +70,7 @@ impl ModelBuilder {
                 ),
             });
         }
-        let indices = Self::tessellate(&vertices);
+        let indices = Self::triangulate(&vertices);
         Self {
             vertices,
             indices,
@@ -131,7 +131,7 @@ impl ModelBuilder {
             Vector::new(b.x - da.x, b.y + da.y),
         ];
         let vertices = Self::create_tex_coords(vertices);
-        let indices = Self::tessellate(&vertices);
+        let indices = Self::triangulate(&vertices);
         Self {
             vertices,
             indices,
@@ -140,7 +140,7 @@ impl ModelBuilder {
     }
     pub fn convex_polygon(vertices: Vec<Vector<f32>>) -> Self {
         let vertices = Self::create_tex_coords(vertices);
-        let indices = Self::tessellate(&vertices);
+        let indices = Self::triangulate(&vertices);
         Self {
             vertices,
             indices,
@@ -242,7 +242,7 @@ impl ModelBuilder {
 
         let vertices = v_new.into_iter().map(|v| v.unwrap()).collect();
         let vertices = Self::create_tex_coords(vertices);
-        let indices = Self::tessellate(&vertices);
+        let indices = Self::triangulate(&vertices);
         Self {
             vertices,
             indices,
@@ -388,7 +388,8 @@ impl ModelBuilder {
         };
     }
 
-    pub fn tessellate(vertices: &Vec<Vertex>) -> Vec<Index> {
+    /// Triangulation of vertices
+    pub fn triangulate(vertices: &Vec<Vertex>) -> Vec<Index> {
         use delaunator::{triangulate, Point};
 
         let points: Vec<Point> = vertices
@@ -411,7 +412,8 @@ impl ModelBuilder {
         return indices;
     }
 
-    fn create_tex_coords(vertices: Vec<Vector<f32>>) -> Vec<Vertex> {
+    /// Generates the texture coordinates
+    pub fn create_tex_coords(vertices: Vec<Vector<f32>>) -> Vec<Vertex> {
         use std::cmp::Ordering::Equal;
 
         let max_x = vertices
@@ -442,6 +444,7 @@ impl ModelBuilder {
             let delta_y = max_y - v.y;
             let ratio_y = delta_y / size.y;
             let tex_coords = Vector::new(ratio_x, ratio_y);
+            println!("{tex_coords}");
             result.push(Vertex::new(v, tex_coords));
         }
         return result;
