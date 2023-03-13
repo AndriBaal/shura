@@ -1,9 +1,9 @@
 #[cfg(feature = "text")]
 use crate::text::{CreateFont, CreateText, Font, TextDescriptor};
 use crate::{
-    Camera, CameraBuffer, InstanceBuffer, Matrix, Model, ModelBuilder, RenderConfig,
-    RenderEncoder, RenderTarget, ScreenConfig, Shader, ShaderConfig, ShaderField,
-    ShaderLang, Sprite, SpriteSheet, Uniform, Vector,ColorWrites
+    Camera, CameraBuffer, ColorWrites, InstanceBuffer, Matrix, Model, ModelBuilder, RenderConfig,
+    RenderEncoder, RenderTarget, ScreenConfig, Shader, ShaderConfig, ShaderField, ShaderLang,
+    Sprite, SpriteSheet, Uniform, Vector, Isometry
 };
 use log::info;
 use std::borrow::Cow;
@@ -16,7 +16,6 @@ macro_rules! Where {
         &$b & $a()
     };
 }
-
 
 /// Holds the connection to the GPU using wgpu. Also has some default buffers, layouts etc.
 pub struct Gpu {
@@ -354,8 +353,11 @@ pub struct GpuDefaults {
     /// some devices need.
     pub times: Uniform<[f32; 2]>,
     pub relative_camera: CameraBuffer,
-    pub relative_camera_scale_x: CameraBuffer,
-    pub relative_camera_scale_y: CameraBuffer,
+    pub relative_camera_bottom_left: CameraBuffer,
+    pub relative_camera_bottom_right: CameraBuffer,
+    pub relative_camera_top_left: CameraBuffer,
+    pub relative_camera_top_right: CameraBuffer,
+
     pub world_camera: CameraBuffer,
     pub single_centered_instance: InstanceBuffer,
     pub empty_instance: InstanceBuffer,
@@ -370,7 +372,7 @@ impl GpuDefaults {
             shader_fields: &[ShaderField::Sprite],
             blend: true,
             smaa: true,
-            write_mask: ColorWrites::ALL
+            write_mask: ColorWrites::ALL,
         });
 
         let rainbow = gpu.create_shader(ShaderConfig {
@@ -379,7 +381,7 @@ impl GpuDefaults {
             shader_fields: &[ShaderField::Uniform],
             blend: true,
             smaa: true,
-            write_mask: ColorWrites::ALL
+            write_mask: ColorWrites::ALL,
         });
 
         let color = gpu.create_shader(ShaderConfig {
@@ -388,7 +390,7 @@ impl GpuDefaults {
             shader_fields: &[ShaderField::Uniform],
             blend: true,
             smaa: true,
-            write_mask: ColorWrites::ALL
+            write_mask: ColorWrites::ALL,
         });
 
         let colored_sprite = gpu.create_shader(ShaderConfig {
@@ -397,7 +399,7 @@ impl GpuDefaults {
             shader_fields: &[ShaderField::Sprite, ShaderField::Uniform],
             blend: true,
             smaa: true,
-            write_mask: ColorWrites::ALL
+            write_mask: ColorWrites::ALL,
         });
 
         let grey = gpu.create_shader(ShaderConfig {
@@ -406,7 +408,7 @@ impl GpuDefaults {
             shader_fields: &[ShaderField::Sprite],
             blend: true,
             smaa: true,
-            write_mask: ColorWrites::ALL
+            write_mask: ColorWrites::ALL,
         });
 
         let blurr = gpu.create_shader(ShaderConfig {
@@ -415,7 +417,7 @@ impl GpuDefaults {
             shader_fields: &[ShaderField::Sprite],
             blend: true,
             smaa: true,
-            write_mask: ColorWrites::ALL
+            write_mask: ColorWrites::ALL,
         });
 
         let transparent = gpu.create_shader(ShaderConfig {
@@ -424,7 +426,7 @@ impl GpuDefaults {
             shader_fields: &[ShaderField::Sprite, ShaderField::Uniform],
             blend: true,
             smaa: true,
-            write_mask: ColorWrites::ALL
+            write_mask: ColorWrites::ALL,
         });
 
         let size = gpu.render_size(1.0);
@@ -435,11 +437,31 @@ impl GpuDefaults {
         let empty_instance = gpu.create_instance_buffer(&[]);
 
         let yx = window_size.y as f32 / window_size.x as f32;
-        let relative_camera_scale_x =
-            gpu.create_camera_buffer(&Camera::new(Default::default(), Vector::new(yx, 1.0)), true);
         let xy = window_size.x as f32 / window_size.y as f32;
-        let relative_camera_scale_y =
-            gpu.create_camera_buffer(&Camera::new(Default::default(), Vector::new(1.0, xy)), true);
+        let scale = yx.max(xy);
+        let fov = if window_size.x > window_size.y {
+            Vector::new(scale, 1.0)
+        } else {
+            Vector::new(1.0, scale)
+        };
+        let half_fov = fov / 2.0;
+        let relative_camera_bottom_left = gpu.create_camera_buffer(
+            &Camera::new(Isometry::new(half_fov, 0.0), fov),
+            true,
+        );
+        let relative_camera_bottom_right = gpu.create_camera_buffer(
+            &Camera::new(Isometry::new(Vector::new(-half_fov.x, half_fov.y), 0.0), fov),
+            true,
+        );
+        let relative_camera_top_right = gpu.create_camera_buffer(
+            &Camera::new(Isometry::new(-half_fov, 0.0), fov),
+            true,
+        );
+        let relative_camera_top_left = gpu.create_camera_buffer(
+            &Camera::new(Isometry::new(Vector::new(half_fov.x, -half_fov.y), 0.0), fov),
+            true,
+        );
+
         let relative_and_default_camera = &Camera::new(
             Default::default(),
             Vector::new(RELATIVE_CAMERA_SIZE, RELATIVE_CAMERA_SIZE),
@@ -459,8 +481,10 @@ impl GpuDefaults {
             single_centered_instance,
             empty_instance,
             relative_camera,
-            relative_camera_scale_x,
-            relative_camera_scale_y,
+            relative_camera_bottom_left,
+            relative_camera_bottom_right,
+            relative_camera_top_left,
+            relative_camera_top_right,
             world_camera,
             target,
         }
@@ -474,15 +498,32 @@ impl GpuDefaults {
     ) {
         self.apply_render_scale(&gpu, screen_config.render_scale());
         let yx = window_size.y as f32 / window_size.x as f32;
-        self.relative_camera_scale_x.write(
+        let xy = window_size.x as f32 / window_size.y as f32;
+        let scale = yx.max(xy);
+        let fov = if window_size.x > window_size.y {
+            Vector::new(scale, 1.0)
+        } else {
+            Vector::new(1.0, scale)
+        };
+        let half_fov = fov / 2.0;
+        self.relative_camera_bottom_left.write(
             gpu,
-            &Camera::new(Default::default(), Vector::new(yx, 1.0)),
+            &Camera::new(Isometry::new(half_fov, 0.0), fov),
             true,
         );
-        let xy = window_size.x as f32 / window_size.y as f32;
-        self.relative_camera_scale_y.write(
+        self.relative_camera_bottom_right.write(
             gpu,
-            &Camera::new(Default::default(), Vector::new(1.0, xy)),
+            &Camera::new(Isometry::new(Vector::new(-half_fov.x, half_fov.y), 0.0), fov),
+            true,
+        );
+        self.relative_camera_top_right.write(
+            gpu,
+            &Camera::new(Isometry::new(-half_fov, 0.0), fov),
+            true,
+        );
+        self.relative_camera_top_left.write(
+            gpu,
+            &Camera::new(Isometry::new(Vector::new(half_fov.x, -half_fov.y), 0.0), fov),
             true,
         );
     }

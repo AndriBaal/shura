@@ -6,10 +6,10 @@ use crate::{
 pub enum RenderCamera<'a> {
     WorldCamera,
     RelativeCamera,
-    RelativeCameraScaleX,
-    RelativeCameraScaleY,
-    RelativeCameraSmallerScale,
-    RelativeCameraBiggerScale,
+    RelativeCameraBottomLeft,
+    RelativeCameraBottomRight,
+    RelativeCameraTopLeft,
+    RelativeCameraTopRight,
     Custom(&'a CameraBuffer),
 }
 
