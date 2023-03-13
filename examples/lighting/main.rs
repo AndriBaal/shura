@@ -50,8 +50,8 @@ fn main() {
             ctx.create_component(Light::new(
                 ctx,
                 Vector::new(0.0, 0.0),
-                12.0,
-                Color::WHITE,
+                15.0,
+                Color::RED,
                 true,
             ));
 

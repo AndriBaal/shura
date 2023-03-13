@@ -444,7 +444,6 @@ impl ModelBuilder {
             let delta_y = max_y - v.y;
             let ratio_y = delta_y / size.y;
             let tex_coords = Vector::new(ratio_x, ratio_y);
-            println!("{tex_coords}");
             result.push(Vertex::new(v, tex_coords));
         }
         return result;
