@@ -554,7 +554,7 @@ impl ModelBuilder {
         if angle != Self::DEFAULT_ROTATION {
             for v in vertices.iter_mut() {
                 v.tex_coords = rotate_point_around_origin(
-                    Vector::new(0.0, 0.0),
+                    Vector::new(0.5, 0.5), // Center of Metal Texture
                     v.tex_coords,
                     tex_coord_offset.rotation,
                 );

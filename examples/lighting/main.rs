@@ -8,14 +8,22 @@ fn main() {
             ctx.set_camera_vertical_fov(20.0);
             ctx.set_global_state(GameState {
                 shadow_color: ctx.create_uniform(Color::BLACK),
-                inner_color: ctx.create_uniform(Color::new(1.0, 1.0, 0.0, 1.0)),
-                inner_model: ctx.create_model(ModelBuilder::ball(1.0, 24)),
-                shadow_shader: ctx.create_shader(ShaderConfig {
+                inner_model: ctx.create_model(ModelBuilder::ball(0.5, 24)),
+                light_shader: ctx.create_shader(ShaderConfig {
                     fragment_source: include_str!("./shader.glsl"),
                     shader_lang: ShaderLang::GLSL,
                     shader_fields: &[ShaderField::Uniform],
                     blend: true,
                     smaa: true,
+                    write_mask: ColorWrites::ALL
+                }),
+                test_shader: ctx.create_shader(ShaderConfig {
+                    fragment_source: include_str!("./test.glsl"),
+                    shader_lang: ShaderLang::GLSL,
+                    shader_fields: &[ShaderField::Uniform],
+                    blend: true,
+                    smaa: true,
+                    write_mask: ColorWrites::ALL
                 }),
             });
             ctx.create_component(Obstacle::new(
@@ -54,6 +62,13 @@ fn main() {
                 Color::RED,
                 true,
             ));
+            ctx.create_component(Light::new(
+                ctx,
+                Vector::new(0.0, 1.0),
+                10.0,
+                Color::GREEN,
+                false,
+            ));
 
             // ctx.create_component(Light::new(
             //     ctx,
@@ -67,10 +82,10 @@ fn main() {
 }
 
 struct GameState {
-    shadow_shader: Shader,
+    light_shader: Shader,
+    test_shader: Shader,
     shadow_color: Uniform<Color>,
     inner_model: Model,
-    inner_color: Uniform<Color>,
 }
 
 #[derive(Component)]
@@ -314,7 +329,7 @@ impl ComponentController for Light {
                         shadows.push(
                             ctx.create_model(
                                 ModelBuilder::convex_polygon(vertices)
-                                    .vertex_translation(-light_translation),
+                                    .vertex_translation(-light_translation)
                             ),
                         );
                     }
@@ -337,18 +352,22 @@ impl ComponentController for Light {
     ) {
         let (_, mut renderer) = encoder.renderer(config);
         let state = ctx.global_state::<GameState>().unwrap();
+        renderer.use_shader(&state.light_shader);
         for (i, l) in ctx.path_render(&active).iter() {
-            renderer.use_shader(&state.shadow_shader);
             renderer.use_model(&l.light_model);
             renderer.use_uniform(&l.light_color, 1);
             renderer.commit(i);
+        }
 
+        for (i, l) in ctx.path_render(&active).iter() {
+            renderer.use_shader(&renderer.defaults.color);
             for shadow in &l.shadows {
-                renderer.render_color(shadow, &state.shadow_color);
+                renderer.use_model(shadow);
+                renderer.use_uniform(&state.shadow_color, 1);
                 renderer.commit(i);
             }
 
-            renderer.render_color(&state.inner_model, &state.inner_color);
+            renderer.render_color(&state.inner_model, &l.light_color);
             renderer.commit(i);
         }
     }

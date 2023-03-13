@@ -3,7 +3,7 @@ use crate::text::{CreateFont, CreateText, Font, TextDescriptor};
 use crate::{
     Camera, CameraBuffer, InstanceBuffer, Matrix, Model, ModelBuilder, RenderConfig,
     RenderEncoder, RenderTarget, ScreenConfig, Shader, ShaderConfig, ShaderField,
-    ShaderLang, Sprite, SpriteSheet, Uniform, Vector,
+    ShaderLang, Sprite, SpriteSheet, Uniform, Vector,ColorWrites
 };
 use log::info;
 use std::borrow::Cow;
@@ -369,7 +369,8 @@ impl GpuDefaults {
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Sprite],
             blend: true,
-            smaa: true
+            smaa: true,
+            write_mask: ColorWrites::ALL
         });
 
         let rainbow = gpu.create_shader(ShaderConfig {
@@ -377,7 +378,8 @@ impl GpuDefaults {
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Uniform],
             blend: true,
-            smaa: true
+            smaa: true,
+            write_mask: ColorWrites::ALL
         });
 
         let color = gpu.create_shader(ShaderConfig {
@@ -385,7 +387,8 @@ impl GpuDefaults {
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Uniform],
             blend: true,
-            smaa: true
+            smaa: true,
+            write_mask: ColorWrites::ALL
         });
 
         let colored_sprite = gpu.create_shader(ShaderConfig {
@@ -393,7 +396,8 @@ impl GpuDefaults {
             shader_lang: ShaderLang::GLSL,
             shader_fields: &[ShaderField::Sprite, ShaderField::Uniform],
             blend: true,
-            smaa: true
+            smaa: true,
+            write_mask: ColorWrites::ALL
         });
 
         let grey = gpu.create_shader(ShaderConfig {
@@ -401,7 +405,8 @@ impl GpuDefaults {
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Sprite],
             blend: true,
-            smaa: true
+            smaa: true,
+            write_mask: ColorWrites::ALL
         });
 
         let blurr = gpu.create_shader(ShaderConfig {
@@ -409,7 +414,8 @@ impl GpuDefaults {
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Sprite],
             blend: true,
-            smaa: true
+            smaa: true,
+            write_mask: ColorWrites::ALL
         });
 
         let transparent = gpu.create_shader(ShaderConfig {
@@ -417,7 +423,8 @@ impl GpuDefaults {
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Sprite, ShaderField::Uniform],
             blend: true,
-            smaa: true
+            smaa: true,
+            write_mask: ColorWrites::ALL
         });
 
         let size = gpu.render_size(1.0);

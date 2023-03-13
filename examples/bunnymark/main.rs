@@ -157,7 +157,7 @@ impl ComponentController for Bunny {
             if translation.x >= fov.x {
                 linvel.x = -linvel.x;
                 translation.x = fov.x;
-            } else if translation.x <= -fov.x {
+            } else if translation.x <= -fov.x {<
                 linvel.x = -linvel.x;
                 translation.x = -fov.x;
             }

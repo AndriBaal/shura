@@ -1,12 +1,15 @@
 use crate::{Gpu, Vertex};
 use std::borrow::Cow;
 
+pub use wgpu::ColorWrites;
+
 pub struct ShaderConfig<'a> {
     pub fragment_source: &'a str,
     pub shader_lang: ShaderLang,
     pub shader_fields: &'a [ShaderField],
     pub blend: bool,
-    pub smaa: bool
+    pub smaa: bool,
+    pub write_mask: ColorWrites,
 }
 
 /// Field that is present in the shader.
@@ -152,7 +155,7 @@ impl Shader {
                         } else {
                             None
                         },
-                        write_mask: wgpu::ColorWrites::ALL,
+                        write_mask: config.write_mask,
                     })],
                 }),
                 primitive: wgpu::PrimitiveState {
