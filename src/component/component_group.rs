@@ -1,5 +1,5 @@
 use crate::data::arena::{Arena, ArenaIndex, ArenaIterMut};
-use crate::{ComponentController, ComponentIdentifier, ComponentType, ComponentTypeId, Vector};
+use crate::{ComponentController, ComponentType, ComponentTypeId, Vector};
 use rustc_hash::FxHashMap;
 
 /// Helper to create a [ComponentGroup](crate::ComponentGroup).
@@ -112,7 +112,7 @@ impl ComponentGroup {
         self.types.iter_mut()
     }
 
-    pub(crate) fn add_component_type<C: ComponentController + ComponentIdentifier>(
+    pub(crate) fn add_component_type<C: ComponentController>(
         &mut self,
         component: C,
     ) -> (ArenaIndex, ArenaIndex) {

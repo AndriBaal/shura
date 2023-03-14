@@ -7,7 +7,6 @@ use crate::{
 
 const MINIMAL_FOV: f32 = 0.0000001;
 
-
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone)]
 pub struct Camera {
@@ -192,7 +191,7 @@ impl WorldCamera {
             new_fov = MINIMAL_FOV;
         }
         self.vertical_fov = new_fov;
-        self.reset_camera_projection();
+        self.compute_fov();
     }
 
     pub fn set_horizontal_fov(&mut self, mut new_fov: f32) {
@@ -200,13 +199,17 @@ impl WorldCamera {
             new_fov = MINIMAL_FOV;
         }
         self.vertical_fov = new_fov / self.horizontal_scale;
-        self.reset_camera_projection();
+        self.compute_fov();
+    }
+
+    pub(crate) fn compute_fov(&mut self) {
+        let fov = Vector::new(self.vertical_fov * self.horizontal_scale, self.vertical_fov);
+        self.set_fov(fov);
     }
 
     pub(crate) fn resize(&mut self, horizontal_scale: f32) {
         self.horizontal_scale = horizontal_scale;
-        self.fov = Vector::new(self.vertical_fov * self.horizontal_scale, self.vertical_fov);
-        self.reset_camera_projection();
+        self.compute_fov();
     }
 
     pub fn vertical_fov(&self) -> f32 {
@@ -249,7 +252,7 @@ impl CameraBuffer {
 
 pub struct BufferedCamera {
     camera: Camera,
-    buffer: CameraBuffer
+    buffer: CameraBuffer,
 }
 
 impl Deref for BufferedCamera {
@@ -262,7 +265,10 @@ impl Deref for BufferedCamera {
 
 impl BufferedCamera {
     pub fn new(gpu: &Gpu, camera: Camera) -> BufferedCamera {
-        BufferedCamera { buffer: camera.create_buffer(gpu), camera }
+        BufferedCamera {
+            buffer: camera.create_buffer(gpu),
+            camera,
+        }
     }
 
     pub fn write(&mut self, gpu: &Gpu, camera: Camera) {

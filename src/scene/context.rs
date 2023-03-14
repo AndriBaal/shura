@@ -1,8 +1,8 @@
 use crate::{
     Camera, Color, ComponentController, ComponentGroup, ComponentGroupDescriptor, ComponentHandle,
-    ComponentIdentifier, ComponentPath, ComponentSet, ComponentSetMut, ComponentSetRender,
-    DynamicComponent, GroupFilter, InputEvent, InputTrigger, InstanceBuffer, Isometry, Key, Matrix,
-    Model, ModelBuilder, Modifier, RenderConfig, RenderEncoder, RenderTarget, Rotation, Scene,
+    ComponentPath, ComponentSet, ComponentSetMut, ComponentSetRender, DynamicComponent,
+    GroupFilter, InputEvent, InputTrigger, InstanceBuffer, Isometry, Key, Matrix, Model,
+    ModelBuilder, Modifier, RenderConfig, RenderEncoder, RenderTarget, Rotation, Scene,
     SceneCreator, Shader, ShaderConfig, Shura, Sprite, SpriteSheet, Uniform, Vector,
 };
 
@@ -252,7 +252,7 @@ impl<'a> Context<'a> {
     }
 
     #[cfg(feature = "physics")]
-    pub fn create_collider<C: ComponentController + ComponentIdentifier>(
+    pub fn create_collider<C: ComponentController>(
         &mut self,
         component: &C,
         collider: impl Into<Collider>,
@@ -277,14 +277,14 @@ impl<'a> Context<'a> {
         self.scene.component_manager.create_group(descriptor);
     }
 
-    pub fn create_component<C: ComponentController + ComponentIdentifier>(
+    pub fn create_component<C: ComponentController>(
         &mut self,
         component: C,
     ) -> (&mut C, ComponentHandle) {
         return self.scene.component_manager.create_component(component);
     }
 
-    pub fn create_component_with_group<C: ComponentController + ComponentIdentifier>(
+    pub fn create_component_with_group<C: ComponentController>(
         &mut self,
         group: Option<u32>,
         component: C,
@@ -312,10 +312,7 @@ impl<'a> Context<'a> {
         return self.scene.component_manager.remove_component(handle);
     }
 
-    pub fn remove_components<C: ComponentController + ComponentIdentifier>(
-        &mut self,
-        filter: GroupFilter,
-    ) {
+    pub fn remove_components<C: ComponentController>(&mut self, filter: GroupFilter) {
         self.scene.component_manager.remove_components::<C>(filter);
     }
 
@@ -773,10 +770,7 @@ impl<'a> Context<'a> {
         self.scene.component_manager.component_mut::<C>(handle)
     }
 
-    pub fn force_buffer<C: ComponentController + ComponentIdentifier>(
-        &mut self,
-        filter: GroupFilter,
-    ) {
+    pub fn force_buffer<C: ComponentController>(&mut self, filter: GroupFilter) {
         self.scene.component_manager.force_buffer::<C>(filter)
     }
 
@@ -795,52 +789,40 @@ impl<'a> Context<'a> {
         self.scene.component_manager.world().physics_priority()
     }
 
-    pub fn path_render<C: ComponentController + ComponentIdentifier>(
+    pub fn path_render<C: ComponentController>(
         &self,
         path: &ComponentPath<C>,
     ) -> ComponentSetRender<C> {
         return self.scene.component_manager.path_render(path);
     }
 
-    pub fn path<C: ComponentController + ComponentIdentifier>(
-        &self,
-        path: &ComponentPath<C>,
-    ) -> ComponentSet<C> {
+    pub fn path<C: ComponentController>(&self, path: &ComponentPath<C>) -> ComponentSet<C> {
         return self.scene.component_manager.path(path);
     }
 
-    pub fn path_mut<C: ComponentController + ComponentIdentifier>(
+    pub fn path_mut<C: ComponentController>(
         &mut self,
         path: &ComponentPath<C>,
     ) -> ComponentSetMut<C> {
         return self.scene.component_manager.path_mut(path);
     }
 
-    pub fn components_mut<C: ComponentController + ComponentIdentifier>(
+    pub fn components_mut<C: ComponentController>(
         &mut self,
         filter: GroupFilter,
     ) -> ComponentSetMut<C> {
         self.scene.component_manager.components_mut::<C>(filter)
     }
 
-    pub fn components<C: ComponentController + ComponentIdentifier>(
-        &self,
-        filter: GroupFilter,
-    ) -> ComponentSet<C> {
+    pub fn components<C: ComponentController>(&self, filter: GroupFilter) -> ComponentSet<C> {
         self.scene.component_manager.components::<C>(filter)
     }
 
-    pub fn first<C: ComponentController + ComponentIdentifier>(
-        &self,
-        filter: GroupFilter,
-    ) -> Option<&C> {
+    pub fn first<C: ComponentController>(&self, filter: GroupFilter) -> Option<&C> {
         self.scene.component_manager.first::<C>(filter)
     }
 
-    pub fn first_mut<C: ComponentController + ComponentIdentifier>(
-        &mut self,
-        filter: GroupFilter,
-    ) -> Option<&mut C> {
+    pub fn first_mut<C: ComponentController>(&mut self, filter: GroupFilter) -> Option<&mut C> {
         self.scene.component_manager.first_mut::<C>(filter)
     }
 

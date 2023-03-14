@@ -12,8 +12,8 @@ use serde::{de::Visitor, Deserializer};
 use std::{cmp, marker::PhantomData};
 
 use crate::{
-    Arena, ArenaEntry, ComponentController, ComponentIdentifier, ComponentManager, ComponentTypeId,
-    Context, DynamicComponent, GroupFilter, Scene, SceneCreator, Shura, Vector,
+    Arena, ArenaEntry, ComponentController, ComponentManager, ComponentTypeId, Context,
+    DynamicComponent, GroupFilter, Scene, SceneCreator, Shura, Vector,
 };
 
 pub struct ComponentSerializer<'a> {
@@ -43,7 +43,7 @@ impl<'a> ComponentSerializer<'a> {
         (self.organized_components, self.body_handles)
     }
 
-    fn add_group<C: ComponentController + ComponentIdentifier + serde::Serialize>(
+    fn add_group<C: ComponentController + serde::Serialize>(
         &mut self,
         target: &mut Vec<(u32, Vec<Option<(u32, Vec<u8>)>>)>,
         group_id: &u32,
@@ -64,7 +64,7 @@ impl<'a> ComponentSerializer<'a> {
         }
     }
 
-    pub fn serialize_components<C: ComponentController + ComponentIdentifier + serde::Serialize>(
+    pub fn serialize_components<C: ComponentController + serde::Serialize>(
         &mut self,
         groups: GroupFilter,
     ) {
@@ -144,9 +144,7 @@ impl ComponentDeserializer {
         );
     }
 
-    pub fn deserialize_components<
-        C: serde::de::DeserializeOwned + ComponentController + ComponentIdentifier,
-    >(
+    pub fn deserialize_components<C: serde::de::DeserializeOwned + ComponentController>(
         &mut self,
         ctx: &mut Context,
     ) {
@@ -190,7 +188,7 @@ impl ComponentDeserializer {
         }
     }
 
-    pub fn deserialize_components_with<C: ComponentController + ComponentIdentifier>(
+    pub fn deserialize_components_with<C: ComponentController>(
         &mut self,
         ctx: &mut Context,
         mut de: impl for<'de> FnMut(DeserializeWrapper<'de, C>, &'de Context<'de>) -> C,
@@ -257,7 +255,7 @@ impl<'de, C: ComponentController> DeserializeWrapper<'de, C> {
     }
 
     pub fn deserialize(&mut self, visitor: impl Visitor<'de, Value = C>) -> C {
-        self.de.deserialize_struct("", &[""], visitor).unwrap()
+        self.de.deserialize_struct("", C::FIELDS, visitor).unwrap()
     }
 }
 

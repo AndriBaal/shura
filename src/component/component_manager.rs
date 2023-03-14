@@ -2,9 +2,9 @@
 use crate::physics::World;
 use crate::{
     Arena, ArenaEntry, ArenaIndex, ArenaPath, Camera, ComponentCallbacks, ComponentCluster,
-    ComponentController, ComponentGroup, ComponentGroupDescriptor, ComponentHandle,
-    ComponentIdentifier, ComponentPath, ComponentSet, ComponentSetMut, ComponentSetRender,
-    ComponentTypeId, DynamicComponent, EndOperation, Gpu, GroupActivation, DEFAULT_GROUP_ID,
+    ComponentController, ComponentGroup, ComponentGroupDescriptor, ComponentHandle, ComponentPath,
+    ComponentSet, ComponentSetMut, ComponentSetRender, ComponentTypeId, DynamicComponent,
+    EndOperation, Gpu, GroupActivation, DEFAULT_GROUP_ID,
 };
 use instant::Instant;
 use log::info;
@@ -181,10 +181,7 @@ impl ComponentManager {
         return result;
     }
 
-    pub fn force_buffer<C: ComponentController + ComponentIdentifier>(
-        &mut self,
-        filter: GroupFilter,
-    ) {
+    pub fn force_buffer<C: ComponentController>(&mut self, filter: GroupFilter) {
         let type_id = C::IDENTIFIER;
         match filter {
             GroupFilter::All => {
@@ -219,14 +216,14 @@ impl ComponentManager {
         }
     }
 
-    pub fn create_component<C: ComponentController + ComponentIdentifier>(
+    pub fn create_component<C: ComponentController>(
         &mut self,
         component: C,
     ) -> (&mut C, ComponentHandle) {
         return self.create_component_with_group(None, component);
     }
 
-    pub fn create_component_with_group<C: ComponentController + ComponentIdentifier>(
+    pub fn create_component_with_group<C: ComponentController>(
         &mut self,
         group_id: Option<u32>,
         component: C,
@@ -292,10 +289,7 @@ impl ComponentManager {
         return None;
     }
 
-    pub fn remove_components<C: ComponentController + ComponentIdentifier>(
-        &mut self,
-        filter: GroupFilter,
-    ) {
+    pub fn remove_components<C: ComponentController>(&mut self, filter: GroupFilter) {
         let type_id = C::IDENTIFIER;
 
         fn remove(group: &mut ComponentGroup, type_id: ComponentTypeId) {
@@ -427,10 +421,7 @@ impl ComponentManager {
         return ComponentSetMut::new(types, len);
     }
 
-    pub fn first<'a, C: ComponentController + ComponentIdentifier>(
-        &'a self,
-        filter: GroupFilter,
-    ) -> Option<&'a C> {
+    pub fn first<'a, C: ComponentController>(&'a self, filter: GroupFilter) -> Option<&'a C> {
         let type_id = C::IDENTIFIER;
         match filter {
             GroupFilter::All => {
@@ -469,7 +460,7 @@ impl ComponentManager {
         return None;
     }
 
-    pub fn first_mut<'a, C: ComponentController + ComponentIdentifier>(
+    pub fn first_mut<'a, C: ComponentController>(
         &'a mut self,
         filter: GroupFilter,
     ) -> Option<&'a mut C> {
@@ -513,7 +504,7 @@ impl ComponentManager {
         };
     }
 
-    pub fn components<'a, C: ComponentController + ComponentIdentifier>(
+    pub fn components<'a, C: ComponentController>(
         &'a self,
         filter: GroupFilter,
     ) -> ComponentSet<'a, C> {
@@ -561,7 +552,7 @@ impl ComponentManager {
         return ComponentSet::new(types, len);
     }
 
-    pub fn components_mut<C: ComponentController + ComponentIdentifier>(
+    pub fn components_mut<C: ComponentController>(
         &mut self,
         filter: GroupFilter,
     ) -> ComponentSetMut<C> {
@@ -700,7 +691,7 @@ impl ComponentManager {
     }
 
     #[cfg(feature = "serde")]
-    pub(crate) fn register_callbacks<C: ComponentController + ComponentIdentifier>(&mut self) {
+    pub(crate) fn register_callbacks<C: ComponentController>(&mut self) {
         self.component_callbacks
             .insert(C::IDENTIFIER, ComponentCallbacks::new::<C>());
     }

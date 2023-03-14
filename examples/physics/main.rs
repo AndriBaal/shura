@@ -110,7 +110,7 @@ impl ComponentController for BoxManager {
         }
 
         if ctx.is_held(MouseButton::Right) {
-            let cursor = *ctx.cursor_world();
+            let cursor = ctx.cursor_camera(&ctx.scene.world_camera);
             let cursor_pos = Isometry::new(cursor, 0.0);
             if ctx
                 .intersection_with_shape(
@@ -330,7 +330,7 @@ impl ComponentController for PhysicsBox {
     }
 
     fn update(active: ComponentPath<Self>, ctx: &mut Context) {
-        let cursor_world: Point<f32> = (*ctx.cursor_world()).into();
+        let cursor_world: Point<f32> = (ctx.cursor_camera(&ctx.scene.world_camera)).into();
         let mut to_remove = vec![];
         let remove = ctx.is_held(MouseButton::Left) || ctx.is_pressed(ScreenTouch);
         for physics_box in &mut ctx.path_mut(&active) {

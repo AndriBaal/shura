@@ -38,7 +38,7 @@ pub(crate) struct ComponentType {
 }
 
 impl ComponentType {
-    pub fn new<C: ComponentController + ComponentIdentifier>(component: C) -> (ArenaIndex, Self) {
+    pub fn new<C: ComponentController>(component: C) -> (ArenaIndex, Self) {
         let mut components: Arena<DynamicComponent> = Arena::new();
         let component_index = components.insert(Box::new(component));
         (

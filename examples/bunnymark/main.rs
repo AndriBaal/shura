@@ -129,7 +129,7 @@ struct Bunny {
 }
 impl Bunny {
     pub fn new(ctx: &Context) -> Bunny {
-        let component = PositionBuilder::new().translation(ctx.cursor_world()).into();
+        let component = PositionBuilder::new().translation(ctx.cursor_camera(&ctx.scene.world_camera)).into();
         let linvel = Vector::new(
             thread_rng().gen_range(-2.5..2.5),
             thread_rng().gen_range(-7.5..7.5),
@@ -156,7 +156,7 @@ impl ComponentController for Bunny {
             if translation.x >= fov.x {
                 linvel.x = -linvel.x;
                 translation.x = fov.x;
-            } else if translation.x <= -fov.x {<
+            } else if translation.x <= -fov.x {
                 linvel.x = -linvel.x;
                 translation.x = -fov.x;
             }
