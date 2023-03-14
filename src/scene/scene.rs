@@ -1,39 +1,110 @@
-#[cfg(feature = "physics")]
-use crate::physics::World;
-use crate::{Camera, Color, ComponentManager, CursorManager, Gpu, Isometry, Sprite};
+use crate::{ComponentManager, Context, ScreenConfig, Shura, Vector, WorldCamera};
 
-pub(crate) struct Scene {
-    pub(super) resized: bool,
-    pub(super) switched: bool,
-    pub(super) name: &'static str,
-    pub(super) saved_sprites: Vec<(String, Sprite)>,
-    pub(super) camera: Camera,
-    pub(super) cursor: CursorManager,
-    pub(super) component_manager: ComponentManager,
-    pub(super) clear_color: Option<Color>,
-    #[cfg(feature = "physics")]
-    pub(super) world: World,
+pub trait SceneCreator {
+    fn id(&self) -> u32;
+    fn create(self, shura: &mut Shura) -> Scene;
+}
+
+pub struct NewScene<N: 'static + FnMut(&mut Context)> {
+    pub id: u32,
+    pub init: N,
+}
+
+impl<N: 'static + FnMut(&mut Context)> NewScene<N> {
+    pub fn new(id: u32, init: N) -> NewScene<N> {
+        Self { id, init }
+    }
+}
+
+impl<N: 'static + FnMut(&mut Context)> SceneCreator for NewScene<N> {
+    fn id(&self) -> u32 {
+        self.id
+    }
+
+    fn create(mut self, shura: &mut Shura) -> Scene {
+        let mint: mint::Vector2<u32> = shura.window.inner_size().into();
+        let window_size: Vector<u32> = mint.into();
+        let window_ratio = window_size.x as f32 / window_size.y as f32;
+        let mut scene = Scene::new(window_ratio, self.id);
+        let mut ctx = Context::new(shura, &mut scene);
+        (self.init)(&mut ctx);
+        return scene;
+    }
+}
+
+pub struct RecycleScene<N: 'static + FnMut(&mut Context)> {
+    pub id: u32,
+    pub scene: Scene,
+    pub init: N,
+}
+
+impl<N: 'static + FnMut(&mut Context)> RecycleScene<N> {
+    pub fn new(id: u32, scene: Scene, init: N) -> RecycleScene<N> {
+        Self { id, scene, init }
+    }
+}
+
+impl<N: 'static + FnMut(&mut Context)> SceneCreator for RecycleScene<N> {
+    fn id(&self) -> u32 {
+        self.id
+    }
+
+    fn create(mut self, shura: &mut Shura) -> Scene {
+        let mint: mint::Vector2<u32> = shura.window.inner_size().into();
+        let window_size: Vector<u32> = mint.into();
+        let window_ratio = window_size.x as f32 / window_size.y as f32;
+        self.scene.world_camera.resize(window_ratio);
+        let mut ctx = Context::new(shura, &mut self.scene);
+        (self.init)(&mut ctx);
+        return self.scene;
+    }
+}
+
+#[cfg(feature = "serde")]
+fn bool_true() -> bool {
+    return true;
+}
+
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+pub struct Scene {
+    pub(crate) id: u32,
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[cfg_attr(feature = "serde", serde(default = "bool_true"))]
+    pub(crate) resized: bool,
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[cfg_attr(feature = "serde", serde(default = "bool_true"))]
+    pub(crate) switched: bool,
+    pub screen_config: ScreenConfig,
+    pub world_camera: WorldCamera,
+    pub component_manager: ComponentManager,
 }
 
 impl Scene {
-    pub fn new(gpu: &Gpu, window_ratio: f32, name: &'static str) -> Self {
-        const DEFAULT_VERTICAL_CAMERA_FOV: f32 = 5.0;
+    pub const DEFAULT_VERTICAL_CAMERA_FOV: f32 = 5.0;
+    pub(crate) fn new(ratio: f32, id: u32) -> Self {
         Self {
-            name,
-            switched: false,
+            id: id,
+            switched: true,
             resized: true,
-            camera: Camera::new(
-                gpu,
-                Isometry::default(),
-                window_ratio,
-                DEFAULT_VERTICAL_CAMERA_FOV,
+            world_camera: WorldCamera::new(
+                Default::default(),
+                Self::DEFAULT_VERTICAL_CAMERA_FOV,
+                ratio,
             ),
-            cursor: CursorManager::new(),
             component_manager: ComponentManager::new(),
-            clear_color: Some(Color::new(0.0, 0.0, 0.0, 1.0)),
-            #[cfg(feature = "physics")]
-            world: World::new(),
-            saved_sprites: vec![]
+            screen_config: ScreenConfig::new(),
         }
+    }
+
+    pub fn resized(&self) -> bool {
+        self.resized
+    }
+
+    pub fn switched(&self) -> bool {
+        self.switched
+    }
+
+    pub fn id(&self) -> u32 {
+        self.id
     }
 }

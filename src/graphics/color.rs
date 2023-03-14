@@ -1,5 +1,6 @@
 #[repr(C)]
-#[derive(Copy, Clone, Default, bytemuck::Pod, bytemuck::Zeroable)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Copy, Clone, Debug, PartialEq, Default, bytemuck::Pod, bytemuck::Zeroable)]
 /// RGBA color represented by 4 floats between 0 and 1.
 pub struct Color {
     pub r: f32,
@@ -45,7 +46,7 @@ impl Color {
         b: 1.0,
         a: 1.0,
     };
-    
+
     pub const fn new(r: f32, g: f32, b: f32, a: f32) -> Self {
         return Self { r, g, b, a };
     }

@@ -1,23 +1,14 @@
+use crate::{Gpu, Vector};
 use image::GenericImageView;
-use crate::{
-    Color, Dimension, Gpu, InstanceBuffer, Instances, Isometry, Matrix, Renderer, Uniform,
-};
 use std::num::NonZeroU32;
 
-macro_rules! Where {
-    (
-    $a:lifetime >= $b:lifetime $(,)?
-) => {
-        &$b & $a()
-    };
-}
-
 /// 2D Sprite used for rendering
+#[derive(Debug)]
 pub struct Sprite {
     texture: wgpu::Texture,
     bind_group: wgpu::BindGroup,
     format: wgpu::TextureFormat,
-    size: Dimension<u32>,
+    size: Vector<u32>,
 }
 
 impl Sprite {
@@ -32,36 +23,10 @@ impl Sprite {
         Self::from_image(gpu, img)
     }
 
-    /// Procedural rendered Sprite
-    pub fn computed<'caller, F>(
-        gpu: &Gpu,
-        instances: &InstanceBuffer,
-        fov: Dimension<f32>,
-        camera: Isometry<f32>,
-        texture_size: Dimension<u32>,
-        clear_color: Option<Color>,
-        compute: F,
-    ) -> Self
-    where
-        F: for<'any> Fn(&mut Renderer<'any>, Instances, [Where!('caller >= 'any); 0]),
-    {
-        let target = Sprite::empty(gpu, texture_size);
-        target.draw(
-            gpu,
-            instances,
-            fov,
-            camera,
-            texture_size,
-            clear_color,
-            compute,
-        );
-        return target;
-    }
-
-    pub fn empty(gpu: &Gpu, size: Dimension<u32>) -> Self {
-        assert!(size.width != 0 && size.height != 0);
+    pub fn empty(gpu: &Gpu, size: Vector<u32>) -> Self {
+        assert!(size.x != 0 && size.y != 0);
         let (format, texture) = Self::create_texture(gpu, size);
-        let bind_group = Self::create_group(gpu, &texture);
+        let bind_group = Self::create_bind_group(gpu, &texture);
         Self {
             size,
             format,
@@ -72,7 +37,7 @@ impl Sprite {
 
     pub fn from_image(gpu: &Gpu, image: image::DynamicImage) -> Self {
         use wgpu::TextureFormat;
-        let size = Dimension::new(image.width(), image.height());
+        let size = Vector::new(image.width(), image.height());
         let (format, texture) = Self::create_texture(gpu, size);
         match gpu.config.format {
             TextureFormat::Bgra8Unorm | TextureFormat::Bgra8UnormSrgb => {
@@ -85,7 +50,11 @@ impl Sprite {
                         bytes_per_row: NonZeroU32::new(4 * image.width()),
                         rows_per_image: NonZeroU32::new(image.height()),
                     },
-                    size.into(),
+                    wgpu::Extent3d {
+                        width: size.x,
+                        height: size.y,
+                        depth_or_array_layers: 1,
+                    },
                 );
             }
             _ => {
@@ -98,12 +67,16 @@ impl Sprite {
                         bytes_per_row: NonZeroU32::new(4 * image.width()),
                         rows_per_image: NonZeroU32::new(image.height()),
                     },
-                    size.into(),
+                    wgpu::Extent3d {
+                        width: size.x,
+                        height: size.y,
+                        depth_or_array_layers: 1,
+                    },
                 );
             }
         };
 
-        let bind_group = Self::create_group(gpu, &texture);
+        let bind_group = Self::create_bind_group(gpu, &texture);
         Self {
             bind_group,
             format,
@@ -112,91 +85,14 @@ impl Sprite {
         }
     }
 
-    pub fn draw<'caller, F>(
-        &self,
-        gpu: &Gpu,
-        instances: &InstanceBuffer,
-        fov: Dimension<f32>,
-        camera: Isometry<f32>,
-        texture_size: Dimension<u32>,
-        clear_color: Option<Color>,
-        compute: F,
-    ) where
-        F: for<'any> Fn(&mut Renderer<'any>, Instances, [Where!('caller >= 'any); 0]),
-    {
-        let mut encoder = gpu.encoder();
-        let proj = Matrix::projection(fov);
-        let view = Matrix::view(camera);
-        let camera = Uniform::new_wgpu(
-            &gpu.device,
-            &gpu.queue,
-            &gpu.defaults.vertex_uniform,
-            view * proj,
-        );
-        let target_view = self.texture.create_view(&Default::default());
-
-        let multisampled_frame_descriptor = &wgpu::TextureDescriptor {
-            size: texture_size.into(),
-            mip_level_count: 1,
-            sample_count: gpu.defaults.sample_count,
-            dimension: wgpu::TextureDimension::D2,
-            format: gpu.config.format,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            label: None,
-        };
-
-        let msaa = gpu
-            .device
-            .create_texture(multisampled_frame_descriptor)
-            .create_view(&wgpu::TextureViewDescriptor::default());
-        if let Some(color) = clear_color {
-            Renderer::clear(&mut encoder, &target_view, &msaa, color);
-        }
-        {
-            let mut renderer =
-                Renderer::new_compute(&mut encoder, gpu, &target_view, &msaa, instances, &camera);
-            compute(&mut renderer, 0..instances.instances(), []);
-        }
-        gpu.finish_enocder(encoder);
-    }
-
-    pub(crate) fn write_current_render(&mut self, encoder: &mut wgpu::CommandEncoder, gpu: &Gpu) {
-        let defaults = &gpu.defaults;
-        let target_view = self.texture.create_view(&Default::default());
-        let relative_camera = &gpu.defaults.relative_camera;
-        let mut renderer = Renderer::new_compute(
-            encoder,
-            gpu,
-            &target_view,
-            &gpu.defaults.target_msaa,
-            &defaults.single_centered_instance,
-            relative_camera.uniform(),
-        );
-        renderer.render_sprite(relative_camera.model(), &defaults.target);
-        renderer.commit(&(0..1));
-    }
-
-    pub fn from_wgpu(
-        size: Dimension<u32>,
-        texture: wgpu::Texture,
-        bind_group: wgpu::BindGroup,
-        format: wgpu::TextureFormat,
-    ) -> Self {
-        Self {
-            texture,
-            format,
-            size,
-            bind_group,
-        }
-    }
-
-    pub(crate) fn create_texture(
-        gpu: &Gpu,
-        size: Dimension<u32>,
-    ) -> (wgpu::TextureFormat, wgpu::Texture) {
+    fn create_texture(gpu: &Gpu, size: Vector<u32>) -> (wgpu::TextureFormat, wgpu::Texture) {
         let texture = gpu.device.create_texture(&wgpu::TextureDescriptor {
             label: None,
-            size: size.into(),
+            size: wgpu::Extent3d {
+                width: size.x,
+                height: size.y,
+                depth_or_array_layers: 1,
+            },
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
@@ -205,15 +101,16 @@ impl Sprite {
                 | wgpu::TextureUsages::COPY_DST
                 | wgpu::TextureUsages::COPY_SRC
                 | wgpu::TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
         });
 
         return (gpu.config.format, texture);
     }
 
-    pub(crate) fn create_group(gpu: &Gpu, texture: &wgpu::Texture) -> wgpu::BindGroup {
+    fn create_bind_group(gpu: &Gpu, texture: &wgpu::Texture) -> wgpu::BindGroup {
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
         let bind_group = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &gpu.defaults.sprite_uniform,
+            layout: &gpu.base.sprite_uniform,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
@@ -221,7 +118,7 @@ impl Sprite {
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&gpu.defaults.texture_sampler),
+                    resource: wgpu::BindingResource::Sampler(&gpu.base.texture_sampler),
                 },
             ],
             label: Some("texture_bind_group"),
@@ -231,16 +128,20 @@ impl Sprite {
     }
 
     /// Overwrite with an image of the same dimension
-    pub fn write(&mut self, gpu: &Gpu, rgba: &image::RgbaImage) {
+    pub fn write(&self, gpu: &Gpu, rgba: &image::RgbaImage) {
         gpu.queue.write_texture(
             self.texture.as_image_copy(),
             rgba,
             wgpu::ImageDataLayout {
                 offset: 0,
-                bytes_per_row: NonZeroU32::new(4 * self.size.width),
-                rows_per_image: NonZeroU32::new(self.size.height),
+                bytes_per_row: NonZeroU32::new(4 * self.size.x),
+                rows_per_image: NonZeroU32::new(self.size.y),
             },
-            self.size.into(),
+            wgpu::Extent3d {
+                width: self.size.x,
+                height: self.size.y,
+                depth_or_array_layers: 1,
+            },
         );
     }
 
@@ -252,9 +153,9 @@ impl Sprite {
     }
 
     pub fn to_image(&self, gpu: &Gpu) -> image::DynamicImage {
-        let o_texture_width = self.size.width;
+        let o_texture_width = self.size.x;
         let texture_width = (o_texture_width as f64 / 64.0).ceil() as u32 * 64;
-        let texture_height = self.size.height;
+        let texture_height = self.size.y;
         let output_buffer_size = (4 * texture_width * texture_height) as wgpu::BufferAddress;
         let output_buffer_desc = wgpu::BufferDescriptor {
             size: output_buffer_size,
@@ -284,7 +185,11 @@ impl Sprite {
                     rows_per_image: NonZeroU32::new(texture_height),
                 },
             },
-            self.size.into(),
+            wgpu::Extent3d {
+                width: self.size.x,
+                height: self.size.y,
+                depth_or_array_layers: 1,
+            },
         );
         gpu.queue.submit(Some(encoder.finish()));
 
@@ -317,24 +222,19 @@ impl Sprite {
         output_buffer.unmap();
         return image;
     }
-    // Getters
 
-    #[inline]
-    pub const fn size(&self) -> &Dimension<u32> {
+    pub const fn size(&self) -> &Vector<u32> {
         &self.size
     }
 
-    #[inline]
     pub const fn bind_group(&self) -> &wgpu::BindGroup {
         &self.bind_group
     }
 
-    #[inline]
     pub const fn format(&self) -> &wgpu::TextureFormat {
         &self.format
     }
 
-    #[inline]
     pub const fn texture(&self) -> &wgpu::Texture {
         &self.texture
     }

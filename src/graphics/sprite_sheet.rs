@@ -1,38 +1,36 @@
-use crate::{Gpu, Sprite, Dimension};
+use crate::{Gpu, Sprite, Vector};
 use std::ops::{Index, IndexMut};
 
 /// Collection of [Sprites](crate::Sprite) that will be loaded from the same image where all sprites have the same size.
 pub struct SpriteSheet {
     sprites: Vec<Sprite>,
-    sprite_size: Dimension<u32>
+    sprite_size: Vector<u32>,
 }
 
 impl SpriteSheet {
     pub fn new(
         gpu: &Gpu,
         bytes: &[u8],
-        sprites: Dimension<u32>,
-        sprite_size: Dimension<u32>,
+        sprites: Vector<u32>,
+        sprite_size: Vector<u32>,
     ) -> SpriteSheet {
         let mut img = image::load_from_memory(bytes).unwrap();
-        let amount = sprites.width * sprites.height;
+        let amount = sprites.x * sprites.y;
 
         let mut sheet = SpriteSheet {
             sprites: Vec::with_capacity(amount as usize),
-            sprite_size
+            sprite_size,
         };
 
-        for i in 0..sprites.height {
-            for j in 0..sprites.width {
+        for i in 0..sprites.y {
+            for j in 0..sprites.x {
                 let sprite = img.crop(
-                    j * sprite_size.width,
-                    i * sprite_size.height,
-                    sprite_size.width,
-                    sprite_size.height,
+                    j * sprite_size.x,
+                    i * sprite_size.y,
+                    sprite_size.x,
+                    sprite_size.y,
                 );
-                sheet
-                    .sprites
-                    .push(Sprite::from_image(gpu, sprite));
+                sheet.sprites.push(Sprite::from_image(gpu, sprite));
             }
         }
 
@@ -47,8 +45,7 @@ impl SpriteSheet {
         self.sprites
     }
 
-    // Getters
-    pub fn sprite_size(&self) -> &Dimension<u32> {
+    pub fn sprite_size(&self) -> &Vector<u32> {
         &self.sprite_size
     }
 

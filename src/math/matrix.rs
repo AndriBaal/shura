@@ -1,11 +1,11 @@
-use crate::Dimension;
-use crate::{Isometry, Vector};
+use crate::{Isometry, Rotation, Vector};
 use nalgebra::Vector4;
 use std::mem;
 use std::ops::*;
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// Matrix optimized for 2D rendering in shura.
 pub struct Matrix {
     pub x: Vector4<f32>,
@@ -13,7 +13,6 @@ pub struct Matrix {
     pub z: Vector4<f32>,
     pub w: Vector4<f32>,
 }
-
 
 impl Matrix {
     // Matrix::from_look(Vec3::new(0.0, 0.0,-3.0), Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 1.0, 0.0));
@@ -24,19 +23,14 @@ impl Matrix {
         Vector4::new(0.0, 0.0, -3.0, 1.0),
     );
 
-    pub const fn raw(
-        x: Vector4<f32>,
-        y: Vector4<f32>,
-        z: Vector4<f32>,
-        w: Vector4<f32>,
-    ) -> Matrix {
+    pub const fn raw(x: Vector4<f32>, y: Vector4<f32>, z: Vector4<f32>, w: Vector4<f32>) -> Matrix {
         Self { x, y, z, w }
     }
 
     pub fn new(pos: Isometry<f32>) -> Self {
         let mut matrix = Matrix::default();
         matrix.translate(pos.translation.vector);
-        matrix.rotate(Vector::new(1.0, 1.0), pos.rotation.angle());
+        matrix.rotate(Vector::new(1.0, 1.0), pos.rotation);
         return matrix;
     }
 
@@ -45,9 +39,9 @@ impl Matrix {
         self[13] = pos.y;
     }
 
-    pub fn rotate(&mut self, scale: Vector<f32>, rot: f32) {
-        let s = rot.sin();
-        let c = rot.cos();
+    pub fn rotate(&mut self, scale: Vector<f32>, rotation: Rotation<f32>) {
+        let s = rotation.sin_angle();
+        let c = rotation.cos_angle();
         self[0] = c * scale.x;
         self[1] = s * scale.x;
         self[4] = -s * scale.y;
@@ -55,16 +49,14 @@ impl Matrix {
     }
 
     /// Frustum
-    pub fn projection(
-        mut fov: Dimension<f32>
-    ) -> Matrix {
+    pub fn projection(mut fov: Vector<f32>) -> Matrix {
         const NEAR: f32 = 3.0;
         const FAR: f32 = 7.0;
         fov /= 2.0;
-        let left = -fov.width;
-        let right = fov.width;
-        let bottom = -fov.height;
-        let top = fov.height;
+        let left = -fov.x;
+        let right = fov.x;
+        let bottom = -fov.y;
+        let top = fov.y;
         let r_width = 1.0 / (left - right);
         let r_height = 1.0 / (top - bottom);
         let r_depth = 1.0 / (NEAR - FAR);
@@ -115,14 +107,12 @@ impl Default for Matrix {
 }
 
 impl AsRef<[f32; 16]> for Matrix {
-    #[inline(always)]
     fn as_ref(&self) -> &[f32; 16] {
         unsafe { mem::transmute(self) }
     }
 }
 
 impl AsMut<[f32; 16]> for Matrix {
-    #[inline(always)]
     fn as_mut(&mut self) -> &mut [f32; 16] {
         unsafe { mem::transmute(self) }
     }
@@ -131,7 +121,6 @@ impl AsMut<[f32; 16]> for Matrix {
 impl Index<usize> for Matrix {
     type Output = f32;
 
-    #[inline]
     fn index<'a>(&'a self, i: usize) -> &'a f32 {
         let v: &[f32; 16] = self.as_ref();
         &v[i]
@@ -139,7 +128,6 @@ impl Index<usize> for Matrix {
 }
 
 impl IndexMut<usize> for Matrix {
-    #[inline]
     fn index_mut<'a>(&'a mut self, i: usize) -> &'a mut f32 {
         let v: &mut [f32; 16] = self.as_mut();
         &mut v[i]

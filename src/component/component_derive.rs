@@ -1,0 +1,86 @@
+#[cfg(feature = "physics")]
+use crate::{
+    physics::{CollideType, ColliderHandle},
+    ComponentHandle,
+};
+use crate::{
+    BaseComponent, ComponentConfig, ComponentControllerCaller, ComponentPath, Context,
+    RenderConfig, RenderEncoder, DEFAULT_CONFIG,
+};
+use downcast_rs::*;
+
+/// Dynamic component, that can be downcasted to any [ComponentDerive](crate::ComponentDerive)
+/// using downcast_ref or downcast_mut.
+pub type DynamicComponent = Box<dyn ComponentDerive>;
+
+/// All components need to implement from this trait. This is not done manually, but with the derive macro [Component](crate::Component).
+///
+/// # Example
+/// ```
+/// #[derive(Component)]
+/// struct Bunny {
+///     #[component] component: BaseComponent,
+///     linvel: Vector<f32>,
+/// }
+/// ```
+pub trait ComponentDerive: Downcast {
+    fn base(&self) -> &BaseComponent;
+    fn base_mut(&mut self) -> &mut BaseComponent;
+}
+
+impl_downcast!(ComponentDerive);
+
+#[allow(unused_variables)]
+/// A controller is used to define the behaviour of a component, by the given config and callbacks. The
+/// currently relevant components get passed through the [ComponentPath](crate::ComponentPath).
+pub trait ComponentController: ComponentControllerCaller + ComponentDerive
+where
+    Self: Sized,
+{
+    const CONFIG: ComponentConfig = DEFAULT_CONFIG;
+    /// This component gets updated if the component's [group](crate::ComponentGroup) is active and enabled.
+    /// Through the [context](crate::Context) you have access to all other scenes, groups,
+    /// components with the matching controller and all data from the engine.
+    fn update(active: ComponentPath<Self>, ctx: &mut Context) {}
+
+    #[cfg(feature = "physics")]
+    /// Collision Event between 2 components. It requires that
+    /// this component has the [ActiveEvents::COLLISION_EVENTS](crate::physics::ActiveEvents::COLLISION_EVENTS)
+    /// flag set on its [RigidBody](crate::physics::RigidBody). Collisions still get processed even if
+    /// the [ComponentGroup](crate::ComponentGroup) is inactive or disabled.
+    fn collision(
+        ctx: &mut Context,
+        self_handle: ComponentHandle,
+        other_handle: ComponentHandle,
+        self_collider: ColliderHandle,
+        other_collider: ColliderHandle,
+        collision_type: CollideType,
+    ) {
+    }
+
+    /// This method gets called once for every group inwhich components of this type exist.
+    /// This has massive performance advantes since many components
+    /// can be rendered with the same operation, therefore it is mainly used for rendering
+    /// components that have the exact same [model](crate::Model), [uniforms](crate::Uniform) or [sprites](crate::Sprite).
+    /// For this method to work the render operation of this component must be set to
+    /// [RenderOperation::EveryFrame](crate::RenderOperation::EveryFrame) in the [ComponentConfig](crate::ComponentConfig).
+    fn render<'a>(
+        active: ComponentPath<Self>,
+        ctx: &'a Context<'a>,
+        config: RenderConfig<'a>,
+        encoder: &mut RenderEncoder,
+    ) {
+    }
+
+    fn end(all: ComponentPath<Self>, ctx: &mut Context) {}
+}
+
+impl<C: ComponentController + ?Sized> ComponentDerive for Box<C> {
+    fn base(&self) -> &BaseComponent {
+        (**self).base()
+    }
+
+    fn base_mut(&mut self) -> &mut BaseComponent {
+        (**self).base_mut()
+    }
+}

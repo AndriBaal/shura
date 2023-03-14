@@ -1,3 +1,4 @@
+use crate::Camera;
 use crate::Vector;
 #[cfg(feature = "gamepad")]
 use gilrs::*;
@@ -44,7 +45,7 @@ impl From<ScreenTouch> for InputTrigger {
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
-/// Trigger of a key-like event. Gamepad inputs can be get with the (gamepad)[crate::Context::gamepad] method.
+/// Trigger of a key-like event
 pub enum InputTrigger {
     Key(Key),
     MouseButton(MouseButton),
@@ -86,12 +87,12 @@ impl InputEvent {
 
 /// Manage input from touch devices, keyboards, mice and gamepads.
 pub struct Input {
-    cursor_raw: Vector<f32>,
-    touches: FxHashMap<u64, Vector<f32>>,
+    cursor_raw: Vector<u32>,
+    touches: FxHashMap<u64, Vector<u32>>,
     triggers: FxHashMap<InputTrigger, InputEvent>,
-    modifiers: Option<Modifier>,
+    modifiers: Modifier,
     wheel_delta: f32,
-    staged_key: Option<Key>,
+    staged_keys: Vec<Key>,
     #[cfg(feature = "gamepad")]
     game_pad_manager: Option<Gilrs>,
 }
@@ -99,11 +100,11 @@ pub struct Input {
 impl Input {
     pub(crate) fn new() -> Self {
         Self {
-            cursor_raw: Vector::new(0.0, 0.0),
+            cursor_raw: Vector::new(0, 0),
             touches: Default::default(),
             triggers: Default::default(),
-            modifiers: None,
-            staged_key: None,
+            modifiers: Default::default(),
+            staged_keys: vec![],
             wheel_delta: 0.0,
             #[cfg(feature = "gamepad")]
             game_pad_manager: Gilrs::new().ok(),
@@ -113,10 +114,10 @@ impl Input {
     pub(crate) fn event(&mut self, event: &WindowEvent) {
         match event {
             WindowEvent::CursorMoved { position, .. } => {
-                self.cursor_raw = Vector::new(position.x as f32, position.y as f32);
+                self.cursor_raw = Vector::new(position.x as u32, position.y as u32);
             }
             WindowEvent::Touch(touch) => {
-                let pos = Vector::new(touch.location.x as f32, touch.location.y as f32);
+                let pos = Vector::new(touch.location.x as u32, touch.location.y as u32);
                 self.cursor_raw = pos;
                 match touch.phase {
                     TouchPhase::Started => {
@@ -139,6 +140,7 @@ impl Input {
             WindowEvent::KeyboardInput { input, .. } => match input.virtual_keycode {
                 Some(key) => {
                     let trigger = key.into();
+                    self.staged_keys.push(key);
                     match input.state {
                         ElementState::Pressed => {
                             if !self.triggers.contains_key(&trigger) {
@@ -179,7 +181,7 @@ impl Input {
                 }
             },
             WindowEvent::ModifiersChanged(state) => {
-                self.modifiers = Some(*state);
+                self.modifiers = *state;
             }
             _ => {}
         }
@@ -187,15 +189,13 @@ impl Input {
 
     pub(crate) fn update(&mut self) {
         self.wheel_delta = 0.0;
-        self.modifiers = None;
-        self.staged_key = None;
+        self.staged_keys.clear();
 
         for trigger in self.triggers.values_mut() {
             trigger.normalize();
         }
     }
 
-    #[inline]
     pub fn is_pressed(&self, trigger: impl Into<InputTrigger>) -> bool {
         match self.triggers.get(&trigger.into()) {
             Some(i) => return i.is_pressed(),
@@ -203,12 +203,10 @@ impl Input {
         }
     }
 
-    #[inline]
     pub fn is_held(&self, trigger: impl Into<InputTrigger>) -> bool {
         return self.triggers.contains_key(&trigger.into());
     }
 
-    #[inline]
     pub fn held_time(&self, trigger: impl Into<InputTrigger>) -> f32 {
         match self.triggers.get(&trigger.into()) {
             Some(i) => return i.held_time().as_secs_f32(),
@@ -216,7 +214,6 @@ impl Input {
         }
     }
 
-    #[inline]
     pub fn held_time_duration(&self, trigger: impl Into<InputTrigger>) -> Option<Duration> {
         match self.triggers.get(&trigger.into()) {
             Some(i) => return Some(i.held_time()),
@@ -224,9 +221,6 @@ impl Input {
         }
     }
 
-    // Getters
-
-    #[inline]
     #[cfg(feature = "gamepad")]
     pub fn gamepads(&self) -> Option<ConnectedGamepadsIterator> {
         if let Some(game_pad_manager) = &self.game_pad_manager {
@@ -235,7 +229,6 @@ impl Input {
         return None;
     }
 
-    #[inline]
     #[cfg(feature = "gamepad")]
     pub fn gamepad(&self, gamepad_id: GamepadId) -> Option<Gamepad> {
         if let Some(game_pad_manager) = &self.game_pad_manager {
@@ -244,63 +237,94 @@ impl Input {
         return None;
     }
 
-    #[inline]
-    pub const fn touches(&self) -> &FxHashMap<u64, Vector<f32>> {
-        &self.touches
+    pub fn staged_keys(&self) -> &[Key] {
+        &self.staged_keys
     }
 
-    #[inline]
-    pub const fn staged_key(&self) -> Option<Key> {
-        self.staged_key
-    }
-
-    #[inline]
     pub const fn triggers(&self) -> &FxHashMap<InputTrigger, InputEvent> {
         &self.triggers
     }
 
-    #[inline]
-    pub const fn modifiers(&self) -> Option<Modifier> {
+    pub const fn modifiers(&self) -> Modifier {
         self.modifiers
     }
 
-    #[inline]
     pub const fn wheel_delta(&self) -> f32 {
         self.wheel_delta
     }
 
-    #[inline]
-    pub const fn cursor_raw(&self) -> &Vector<f32> {
+    pub const fn cursor_raw(&self) -> &Vector<u32> {
         &self.cursor_raw
+    }
+
+    pub fn touches_raw(&self) -> impl Iterator<Item = (&u64, &Vector<u32>)> {
+        self.touches.iter()
+    }
+
+    pub fn compute_cursor(
+        &self,
+        window_size: Vector<u32>,
+        cursor: Vector<u32>,
+        camera: &Camera,
+    ) -> Vector<f32> {
+        let fov = camera.fov();
+        let camera_translation = camera.translation();
+        let window_size = Vector::new(window_size.x as f32, window_size.y as f32);
+        let cursor: Vector<f32> = Vector::new(cursor.x as f32, cursor.y as f32);
+        camera_translation
+            + Vector::new(
+                cursor.x / window_size.x * fov.x - fov.x / 2.0,
+                cursor.y / window_size.y * -fov.y + fov.y / 2.0,
+            )
+    }
+
+    pub fn cursor_camera(
+        &self,
+        window_size: Vector<u32>,
+        camera: &Camera,
+    ) -> Vector<f32> {
+        self.compute_cursor(window_size, self.cursor_raw, camera)
+    }
+
+    pub fn touches_camera(
+        &self,
+        window_size: Vector<u32>,
+        camera: &Camera,
+    ) -> Vec<(u64, Vector<f32>)> {
+        let mut touches = vec![];
+        for (id, raw) in &self.touches {
+            touches.push((*id, self.compute_cursor(window_size, *raw, camera)));
+        }
+        return touches;
     }
 
     // Setters
 
-    #[inline]
-    #[cfg(feature = "gamepad")]
-    pub fn set_mapping(
-        &mut self,
-        gamepad_id: GamepadId,
-        mapping: &Mapping,
-        name: Option<&str>,
-    ) -> Result<String, MappingError> {
-        if let Some(game_pad_manager) = &mut self.game_pad_manager {
-            return game_pad_manager.set_mapping(gamepad_id.into(), mapping, name);
-        }
-        return Err(MappingError::NotConnected);
-    }
+    //
+    // #[cfg(feature = "gamepad")]
+    // pub fn set_gamepad_mapping(
+    //     &mut self,
+    //     gamepad_id: GamepadId,
+    //     mapping: &Mapping,
+    //     name: Option<&str>,
+    // ) -> Result<String, MappingError> {
+    //     if let Some(game_pad_manager) = &mut self.game_pad_manager {
+    //         return game_pad_manager.set_mapping(gamepad_id.into(), mapping, name);
+    //     }
+    //     return Err(MappingError::NotConnected);
+    // }
 
-    #[inline]
-    #[cfg(feature = "gamepad")]
-    pub fn set_mapping_strict(
-        &mut self,
-        gamepad_id: GamepadId,
-        mapping: &Mapping,
-        name: Option<&str>,
-    ) -> Result<String, MappingError> {
-        if let Some(game_pad_manager) = &mut self.game_pad_manager {
-            return game_pad_manager.set_mapping_strict(gamepad_id.into(), mapping, name);
-        }
-        return Err(MappingError::NotConnected);
-    }
+    //
+    // #[cfg(feature = "gamepad")]
+    // pub fn set_gamepad_mapping_strict(
+    //     &mut self,
+    //     gamepad_id: GamepadId,
+    //     mapping: &Mapping,
+    //     name: Option<&str>,
+    // ) -> Result<String, MappingError> {
+    //     if let Some(game_pad_manager) = &mut self.game_pad_manager {
+    //         return game_pad_manager.set_mapping_strict(gamepad_id.into(), mapping, name);
+    //     }
+    //     return Err(MappingError::NotConnected);
+    // }
 }

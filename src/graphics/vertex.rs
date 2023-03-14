@@ -4,13 +4,14 @@ use std::mem;
 /// Single vertex of a model. Which hold the coordniate of the vertex and the texture coordinates.
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Vertex {
     pub pos: Vector<f32>,
     pub tex_coords: Vector<f32>,
 }
 
 impl Vertex {
-    pub fn new(pos: Vector<f32>, tex_coords: Vector<f32>) -> Self {
+    pub const fn new(pos: Vector<f32>, tex_coords: Vector<f32>) -> Self {
         Vertex { pos, tex_coords }
     }
 
@@ -65,15 +66,16 @@ impl Vertex {
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// Represents the order in which (Vertices)[Vertex] are draw in a triangle.
 pub struct Index {
-    pub a: u16,
-    pub b: u16,
-    pub c: u16,
+    pub a: u32,
+    pub b: u32,
+    pub c: u32,
 }
 
 impl Index {
-    pub fn new(a: u16, b: u16, c: u16) -> Self {
+    pub fn new(a: u32, b: u32, c: u32) -> Self {
         Self { a, b, c }
     }
 }

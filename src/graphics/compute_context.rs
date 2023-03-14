@@ -14,7 +14,7 @@ impl<'a> ComputeContext<'a> {
         render_pass.set_vertex_buffer(0, assets.compute_model.vertex_buffer().slice(..));
         render_pass.set_index_buffer(
             gpu.base.model_index_buffer.slice(..),
-            wgpu::IndexFormat::Uint16,
+            wgpu::IndexFormat::Uint32,
         );
 
         Self {
@@ -33,7 +33,7 @@ impl<'a> ComputeContext<'a> {
     /// ```
     /// struct Times {
     ///     total_time: f32,
-    ///     delta_time: f32
+    ///     frame_time: f32
     /// }
     ///
     /// @group(1) @binding(0)
@@ -52,7 +52,7 @@ impl<'a> ComputeContext<'a> {
     /// ```
     /// struct Times {
     ///     total_time: f32,
-    ///     delta_time: f32
+    ///     frame_time: f32
     /// }
     ///
     /// @group(1) @binding(0)
@@ -130,23 +130,23 @@ impl<'a> ComputeContext<'a> {
         self.use_sprite(source);
     }
 
-    // Getters
-    #[inline]
+
+    
     pub const fn assets(&self) -> &'a Assets {
         &self.assets
     }
 
-    #[inline]
+    
     pub const fn gpu(&self) -> &Gpu {
         &self.gpu
     }
 
-    #[inline]
+    
     pub fn current_shader(&self) -> &'a ComputeShader {
         self.current_shader.as_ref().unwrap()
     }
 
-    #[inline]
+    
     pub fn render_pass(&mut self) -> &mut wgpu::RenderPass<'a> {
         &mut self.render_pass
     }

@@ -1,162 +1,152 @@
-#[cfg(feature = "physics")]
-use crate::physics::World;
 use crate::{
-    data::arena::{ArenaEntry, ArenaIter, ArenaIterMut},
-    Arena, ArenaIndex, ComponentConfig, ComponentHandle, DynamicComponent, Gpu, InstanceBuffer,
-    Matrix, RenderOperation,
+    data::arena::{ArenaIter, ArenaIterMut},
+    Arena, ArenaIndex, BufferOperation, ComponentConfig, ComponentController, ComponentHandle,
+    DynamicComponent, Gpu, InstanceBuffer, Matrix,
 };
-use std::any::TypeId;
 
+#[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct ComponentTypeId {
+    id: u32,
+}
+
+impl ComponentTypeId {
+    pub const fn new(id: u32) -> Self {
+        Self { id }
+    }
+}
+
+pub trait ComponentIdentifier {
+    const TYPE_NAME: &'static str;
+    const FIELDS: &'static [&'static str];
+    const IDENTIFIER: ComponentTypeId;
+}
+
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct ComponentType {
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[cfg_attr(feature = "serde", serde(default))]
     components: Arena<DynamicComponent>,
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[cfg_attr(feature = "serde", serde(default))]
     buffer: Option<InstanceBuffer>,
-    last_len: usize,
-    force_rewrite_buffer: bool,
 
-    config: &'static ComponentConfig,
-    type_id: TypeId,
+    type_id: ComponentTypeId,
+    last_len: usize,
+    force_buffer: bool,
+    config: ComponentConfig,
 }
 
 impl ComponentType {
-    pub fn new(type_id: TypeId, config: &'static ComponentConfig) -> Self {
-        Self {
-            components: Arena::new(),
-            buffer: None,
-            force_rewrite_buffer: true,
-            last_len: usize::MAX, // Max value to force a rewrite on the first cycle when the buffer is uninitialized
-            config: config,
-            type_id: type_id,
-        }
+    pub fn new<C: ComponentController + ComponentIdentifier>(component: C) -> (ArenaIndex, Self) {
+        let mut components: Arena<DynamicComponent> = Arena::new();
+        let component_index = components.insert(Box::new(component));
+        (
+            component_index,
+            Self {
+                components,
+                buffer: None,
+                force_buffer: false,
+                last_len: 0,
+                config: C::CONFIG,
+                type_id: C::IDENTIFIER,
+            },
+        )
     }
 
-    // #[inline(always)]
-    // pub fn scale(&mut self, window_size: Dimension<u32>) {
-    //     if self.config.does_move && self.config.relative_position != RelativeScale::None {
-    //         for (_, component) in &mut self.components {
-    //             component.scale_relative(self.config.relative_position, window_size);
-    //         }
-    //     }
-    // }
-
-    #[inline(always)]
-    pub fn buffer_data(&mut self, gpu: &Gpu, #[cfg(feature = "physics")] world: &World) {
-        match self.config.render {
-            RenderOperation::None => return,
-            _ => {}
+    pub fn buffer_data(&mut self, gpu: &Gpu) {
+        if self.config.buffer == BufferOperation::Never {
+            return;
         }
 
         let new_len = self.components.len();
         if new_len != self.last_len {
             // We have to resize the buffer
-            let data = self.data(
-                #[cfg(feature = "physics")]
-                world,
-            );
+            let data = self.data();
             self.last_len = new_len;
             self.buffer = Some(InstanceBuffer::new(gpu, &data[..]));
-        } else if self.config.does_move || self.force_rewrite_buffer {
-            let data = self.data(
-                #[cfg(feature = "physics")]
-                world,
-            );
-            self.force_rewrite_buffer = false;
-            self.buffer.as_mut().unwrap().write(gpu, &data[..]);
+        } else if self.config.buffer == BufferOperation::EveryFrame || self.force_buffer {
+            let data = self.data();
+            self.force_buffer = false;
+            if let Some(buffer) = &mut self.buffer {
+                buffer.write(gpu, &data[..]);
+            } else {
+                self.buffer = Some(InstanceBuffer::new(gpu, &data));
+            }
         }
     }
 
-    #[inline(always)]
-    fn data(&mut self, #[cfg(feature = "physics")] world: &World) -> Vec<Matrix> {
+    fn data(&mut self) -> Vec<Matrix> {
         self.components
             .iter_mut()
-            .map(|(_, controller)| {
-                controller.inner().matrix(
-                    #[cfg(feature = "physics")]
-                    world,
-                )
-            })
+            .map(|(_, component)| component.base().matrix())
             .collect::<Vec<Matrix>>()
     }
 
-    #[inline(always)]
-    pub fn add(&mut self, component: DynamicComponent) -> ArenaIndex {
-        return self.components.insert(component);
+    pub fn add<C: ComponentController>(&mut self, component: C) -> ArenaIndex {
+        return self.components.insert(Box::new(component));
     }
 
-    #[inline(always)]
+    #[cfg(feature = "serde")]
+    pub fn serialize_components<C: ComponentController + serde::Serialize>(
+        &self,
+    ) -> Vec<Option<(u32, Vec<u8>)>> {
+        return self.components.serialize_components::<C>();
+    }
+
     pub fn remove(&mut self, handle: &ComponentHandle) -> Option<DynamicComponent> {
         self.components.remove(handle.component_index())
     }
 
-    pub fn buffer(&self) -> &InstanceBuffer {
-        self.buffer.as_ref().unwrap()
+    pub fn buffer(&self) -> Option<&InstanceBuffer> {
+        self.buffer.as_ref()
     }
 
-    // Getters
-
-    #[inline]
-    pub const fn config(&self) -> &'static ComponentConfig {
-        self.config
+    #[cfg(feature = "serde")]
+    pub fn deserialize_components(&mut self, components: Arena<DynamicComponent>) {
+        self.components = components;
     }
 
-    #[inline]
-    pub const fn type_id(&self) -> &TypeId {
-        &self.type_id
+    pub const fn config(&self) -> &ComponentConfig {
+        &self.config
     }
 
-    #[inline]
+    pub const fn type_id(&self) -> ComponentTypeId {
+        self.type_id
+    }
+
     pub fn is_empty(&self) -> bool {
         self.components.is_empty()
     }
 
-    #[inline]
     pub fn clear(&mut self) {
         self.components = Arena::new();
     }
 
-    #[inline]
     pub fn component(&self, index: ArenaIndex) -> Option<&DynamicComponent> {
         self.components.get(index)
     }
 
-    #[inline]
     pub fn component_mut(&mut self, index: ArenaIndex) -> Option<&mut DynamicComponent> {
         self.components.get_mut(index)
     }
 
-    #[inline]
     pub fn iter(&self) -> ArenaIter<DynamicComponent> {
         return self.components.iter();
     }
 
-    #[inline]
     pub fn iter_mut(&mut self) -> ArenaIterMut<DynamicComponent> {
         return self.components.iter_mut();
     }
 
-    #[inline]
     pub fn len(&self) -> usize {
         self.components.len()
     }
 
-    #[inline]
-    pub fn borrow_component(&mut self, index: usize) -> Option<ArenaEntry<DynamicComponent>> {
-        return self.components.borrow_value(index);
-    }
-
-    #[inline]
-    pub fn return_component(&mut self, index: usize, component: ArenaEntry<DynamicComponent>) {
-        self.components.return_value(index, component);
-    }
-
-    #[inline]
-    pub fn not_return_component(&mut self, index: usize) {
-        self.components.not_return_value(index);
-    }
-
     // Setters
-    #[inline]
-    pub fn set_force_rewrite_buffer(&mut self, force_rewrite_buffer: bool) {
-        self.force_rewrite_buffer = force_rewrite_buffer;
+
+    pub fn set_force_buffer(&mut self, force_buffer: bool) {
+        self.force_buffer = force_buffer;
     }
 }
 

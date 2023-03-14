@@ -51,7 +51,7 @@ A good way to learn shura is through the provided examples or through reading th
 
 - Create models from rapier2d colliders / bodies
 
-- Serialization
+- Serialization of the Components
 
 - ComponentGroup always active (before you would just add a huge dimension to it) 
 
