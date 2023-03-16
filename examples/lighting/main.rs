@@ -62,19 +62,11 @@ fn main() {
                 Color::RED,
                 true,
             ));
-            ctx.add_component(Light::new(
-                ctx,
-                Vector::new(0.0, 1.0),
-                10.0,
-                Color::GREEN,
-                false,
-            ));
-
             // ctx.add_component(Light::new(
             //     ctx,
-            //     Vector::new(1.5, 0.0),
-            //     2.0,
-            //     Color::WHITE,
+            //     Vector::new(0.0, 1.0),
+            //     10.0,
+            //     Color::GREEN,
             //     false,
             // ));
         },
@@ -326,10 +318,16 @@ impl ComponentController for Light {
                         }
                         vertices.push(rightmost);
 
+                        
+                        let mid = (leftmost + rightmost) / 2.0;
+                        let delta = mid - light_translation;
+                        let angle = delta.y.atan2(delta.x) - 90.0_f32.to_radians();
+                        let rotation = Rotation::new(angle);
                         shadows.push(
                             ctx.create_model(
                                 ModelBuilder::convex_polygon(vertices)
-                                    .vertex_translation(-light_translation),
+                                    .vertex_translation(-light_translation)
+                                    .tex_coord_rotation(rotation),
                             ),
                         );
                     }
@@ -360,7 +358,7 @@ impl ComponentController for Light {
         }
 
         for (i, l) in ctx.path_render(&active).iter() {
-            renderer.use_shader(&renderer.defaults.color);
+            renderer.use_shader(&state.test_shader);
             for shadow in &l.shadows {
                 renderer.use_model(shadow);
                 renderer.use_uniform(&state.shadow_color, 1);

@@ -33,7 +33,6 @@
 #![crate_type = "lib"]
 #![crate_name = "shura"]
 
-mod animation;
 mod component;
 mod data;
 mod graphics;
@@ -48,7 +47,6 @@ pub use shura_proc::*;
 pub(crate) use {component::controller_caller::*, data::arena::*, data::arena_path::*, scene::context::ShuraFields};
 
 pub use crate::{
-    animation::animation::*,
     component::{
         base_component::*, component_config::*, component_derive::*, component_group::*,
         component_handle::*, component_manager::*, component_set::*, component_type::*,
@@ -103,7 +101,7 @@ pub mod physics {
         ImpulseJointHandle, InteractionGroups, LockedAxes, MassProperties, MotorModel,
         PrismaticJoint, QueryFilter, QueryFilterFlags, Ray, RayIntersection, RevoluteJoint,
         RevoluteJointBuilder, RigidBody, RigidBodyActivation, RigidBodyBuilder, RigidBodyHandle,
-        RigidBodyType, Shape, ShapeType, SharedShape, SpacialVector, TypedShape, TOI,
+        RigidBodyType, Shape, ShapeType, SharedShape, SpacialVector, TypedShape, TOI
     };
 }
 
