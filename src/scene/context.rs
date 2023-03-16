@@ -4,7 +4,7 @@ use crate::{
     DynamicComponent, FrameManager, Gpu, GpuDefaults, GroupFilter, Input, InputEvent, InputTrigger,
     InstanceBuffer, Isometry, Key, Matrix, Model, ModelBuilder, Modifier, RenderConfig,
     RenderEncoder, RenderTarget, Rotation, Scene,  SceneManager, ScreenConfig, Shader,
-    ShaderConfig, Shura, Sprite, SpriteSheet, Uniform, Vector, WorldCamera, SceneCreator,
+    ShaderConfig, Shura, Sprite, SpriteSheet, Uniform, Vector, WorldCamera, SceneCreator, CameraBuffer,
 };
 
 macro_rules! Where {
@@ -311,6 +311,10 @@ impl<'a> Context<'a> {
         self.gpu.create_sprite(bytes)
     }
 
+    pub fn create_camera_buffer(&self, camera: &Camera) -> CameraBuffer {
+        self.gpu.create_camera_buffer(camera)
+    }
+
     pub fn create_render_target(&self, size: Vector<u32>) -> RenderTarget {
         self.gpu.create_render_target(size)
     }
@@ -386,27 +390,27 @@ impl<'a> Context<'a> {
         )
     }
 
-    pub fn create_group(&mut self, descriptor: &ComponentGroupDescriptor) {
-        self.component_manager.create_group(descriptor);
+    pub fn add_group(&mut self, descriptor: &ComponentGroupDescriptor) {
+        self.component_manager.add_group(descriptor);
     }
 
-    pub fn create_component<C: ComponentController>(
+    pub fn add_component<C: ComponentController>(
         &mut self,
         component: C,
     ) -> (&mut C, ComponentHandle) {
-        return self.component_manager.create_component(component);
+        return self.component_manager.add_component(component);
     }
 
-    pub fn create_component_with_group<C: ComponentController>(
+    pub fn add_component_with_group<C: ComponentController>(
         &mut self,
         group: Option<u32>,
         component: C,
     ) -> (&mut C, ComponentHandle) {
         self.component_manager
-            .create_component_with_group(group, component)
+            .add_component_with_group(group, component)
     }
 
-    pub fn create_scene(&mut self, scene: impl SceneCreator) {
+    pub fn add_scene(&mut self, scene: impl SceneCreator) {
         let scene = scene.create(ShuraFields::from_ctx(self));
         self.scene_manager.add(scene);
     }
@@ -613,6 +617,30 @@ impl<'a> Context<'a> {
     pub fn cursor_camera(&self, camera: &Camera) -> Vector<f32> {
         let window_size = self.window_size();
         self.input.cursor_camera(window_size, camera)
+    }
+
+    pub fn cursor_world(&self) -> Vector<f32> {
+        self.cursor_camera(&self.world_camera)
+    }
+
+    pub fn cursor_relative(&self) -> Vector<f32> {
+        self.cursor_camera(self.defaults.relative_camera.camera())
+    }
+
+    pub fn cursor_relative_bottom_left(&self) -> Vector<f32> {
+        self.cursor_camera(self.defaults.relative_bottom_left_camera.camera())
+    }
+
+    pub fn cursor_relative_bottom_right(&self) -> Vector<f32> {
+        self.cursor_camera(self.defaults.relative_bottom_right_camera.camera())
+    }
+
+    pub fn cursor_relative_top_left(&self) -> Vector<f32> {
+        self.cursor_camera(self.defaults.relative_top_left_camera.camera())
+    }
+
+    pub fn cursor_relative_top_right(&self) -> Vector<f32> {
+        self.cursor_camera(self.defaults.relative_top_right_camera.camera())
     }
 
     // pub fn cursor_world(&self) -> Vector<f32> {

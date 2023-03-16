@@ -7,7 +7,7 @@ fn main() {
         init: |ctx| {
             let manager = BunnyManager::new(ctx);
             ctx.set_global_state(BunnyRessources::new(ctx));
-            ctx.create_component(manager);
+            ctx.add_component(manager);
         },
     });
 }
@@ -40,7 +40,7 @@ impl BunnyManager {
         ctx.set_clear_color(Some(Color::new_rgba(220, 220, 220, 255)));
         ctx.set_window_size(Vector::new(800, 600));
         ctx.set_camera_vertical_fov(6.0);
-        ctx.create_component(Bunny::new(&ctx));
+        ctx.add_component(Bunny::new(&ctx));
 
         #[cfg(target_os = "android")]
         ctx.set_render_scale(0.667);
@@ -76,7 +76,7 @@ impl ComponentController for BunnyManager {
 
         if ctx.is_held(MouseButton::Left) || ctx.is_held(ScreenTouch) {
             for _ in 0..MODIFY_STEP {
-                ctx.create_component(Bunny::new(&ctx));
+                ctx.add_component(Bunny::new(&ctx));
             }
         }
         if ctx.is_held(MouseButton::Right) {

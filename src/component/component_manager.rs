@@ -216,14 +216,14 @@ impl ComponentManager {
         }
     }
 
-    pub fn create_component<C: ComponentController>(
+    pub fn add_component<C: ComponentController>(
         &mut self,
         component: C,
     ) -> (&mut C, ComponentHandle) {
-        return self.create_component_with_group(None, component);
+        return self.add_component_with_group(None, component);
     }
 
-    pub fn create_component_with_group<C: ComponentController>(
+    pub fn add_component_with_group<C: ComponentController>(
         &mut self,
         group_id: Option<u32>,
         component: C,
@@ -272,7 +272,7 @@ impl ComponentManager {
         return (c.downcast_mut().unwrap(), handle);
     }
 
-    pub fn create_group(&mut self, descriptor: &ComponentGroupDescriptor) {
+    pub fn add_group(&mut self, descriptor: &ComponentGroupDescriptor) {
         let group = ComponentGroup::new(descriptor);
         let index = self.groups.insert(group);
         self.group_map.insert(descriptor.id, index);

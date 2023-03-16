@@ -32,17 +32,17 @@ fn main() {
 
                 for x in -PYRAMID_ELEMENTS..PYRAMID_ELEMENTS {
                     for y in 0..(PYRAMID_ELEMENTS - x.abs()) {
-                        ctx.create_component(PhysicsBox::new(Vector::new(
+                        ctx.add_component(PhysicsBox::new(Vector::new(
                             x as f32 * (BoxManager::HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING),
                             y as f32 * (BoxManager::HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING * 2.0),
                         )));
                     }
                 }
 
-                let (_, player_handle) = ctx.create_component(Player::new(ctx));
+                let (_, player_handle) = ctx.add_component(Player::new(ctx));
                 ctx.set_camera_target(Some(player_handle));
-                ctx.create_component(Floor::new(ctx));
-                ctx.create_component(BoxManager::new(ctx));
+                ctx.add_component(Floor::new(ctx));
+                ctx.add_component(BoxManager::new(ctx));
             },
         })
     };
@@ -123,7 +123,7 @@ impl ComponentController for BoxManager {
                 )
                 .is_none()
             {
-                ctx.create_component(PhysicsBox::new(cursor));
+                ctx.add_component(PhysicsBox::new(cursor));
             }
         }
 

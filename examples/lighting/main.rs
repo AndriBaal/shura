@@ -26,14 +26,14 @@ fn main() {
                     write_mask: ColorWrites::ALL,
                 }),
             });
-            ctx.create_component(Obstacle::new(
+            ctx.add_component(Obstacle::new(
                 ctx,
                 Vector::new(3.0, 3.0),
                 ColliderBuilder::cuboid(1.0, 1.0),
                 Color::GREEN,
             ));
 
-            ctx.create_component(Obstacle::new(
+            ctx.add_component(Obstacle::new(
                 ctx,
                 Vector::new(-3.0, 2.5),
                 ColliderBuilder::triangle(
@@ -43,26 +43,26 @@ fn main() {
                 ),
                 Color::RED,
             ));
-            ctx.create_component(Obstacle::new(
+            ctx.add_component(Obstacle::new(
                 ctx,
                 Vector::new(-3.0, -3.0),
                 ColliderBuilder::cuboid(0.5, 1.5),
                 Color::BLUE,
             ));
-            ctx.create_component(Obstacle::new(
+            ctx.add_component(Obstacle::new(
                 ctx,
                 Vector::new(3.0, -3.0),
                 ColliderBuilder::round_cuboid(0.5, 1.5, 0.4),
                 Color::BLUE,
             ));
-            ctx.create_component(Light::new(
+            ctx.add_component(Light::new(
                 ctx,
                 Vector::new(0.0, 0.0),
                 15.0,
                 Color::RED,
                 true,
             ));
-            ctx.create_component(Light::new(
+            ctx.add_component(Light::new(
                 ctx,
                 Vector::new(0.0, 1.0),
                 10.0,
@@ -70,7 +70,7 @@ fn main() {
                 false,
             ));
 
-            // ctx.create_component(Light::new(
+            // ctx.add_component(Light::new(
             //     ctx,
             //     Vector::new(1.5, 0.0),
             //     2.0,
