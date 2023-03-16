@@ -34,6 +34,7 @@ impl<'a> ComponentSerializer<'a> {
         }
     }
 
+    #[cfg(feature = "physics")]
     pub(crate) fn finish(
         self,
     ) -> (
@@ -42,6 +43,14 @@ impl<'a> ComponentSerializer<'a> {
     ) {
         (self.organized_components, self.body_handles)
     }
+
+    #[cfg(not(feature = "physics"))]
+    pub(crate) fn finish(
+        self,
+    ) -> 
+        FxHashMap<ComponentTypeId, Vec<(u32, Vec<Option<(u32, Vec<u8>)>>)>>
+     {
+        self.organized_components    }
 
     fn add_group<C: ComponentController + serde::Serialize>(
         &mut self,
@@ -164,13 +173,17 @@ impl ComponentDeserializer {
                 let item = match component {
                     Some((gen, data)) => {
                         generation = cmp::max(generation, gen);
+                        #[allow(unused_mut)]
                         let mut component: DynamicComponent =
                             Box::new(bincode::deserialize::<C>(&data).unwrap());
-                        #[cfg(feature = "physics")]
-                        if component.base().is_rigid_body() {
-                            component
-                                .base_mut()
-                                .init_rigid_body(ctx.component_manager.world.clone());
+                        
+                        #[cfg(feature = "physics")] {
+
+                            if component.base().is_rigid_body() {
+                                component
+                                    .base_mut()
+                                    .init_rigid_body(ctx.component_manager.world.clone());
+                            }
                         }
                         ArenaEntry::Occupied {
                             generation: gen,
@@ -210,6 +223,7 @@ impl ComponentDeserializer {
                     Some((gen, data)) => {
                         generation = cmp::max(generation, gen);
                         let wrapper = DeserializeWrapper::new(&data);
+                        #[allow(unused_mut)]
                         let mut component: DynamicComponent = Box::new((de)(wrapper, ctx));
                         #[cfg(feature = "physics")]
                         if component.base().is_rigid_body() {

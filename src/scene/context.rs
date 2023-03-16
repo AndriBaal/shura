@@ -4,7 +4,7 @@ use crate::{
     DynamicComponent, FrameManager, Gpu, GpuDefaults, GroupFilter, Input, InputEvent, InputTrigger,
     InstanceBuffer, Isometry, Key, Matrix, Model, ModelBuilder, Modifier, RenderConfig,
     RenderEncoder, RenderTarget, Rotation, Scene,  SceneManager, ScreenConfig, Shader,
-    ShaderConfig, Shura, Sprite, SpriteSheet, Uniform, Vector, WorldCamera, SceneCreator, CameraBuffer,
+    ShaderConfig, Shura, Sprite, SpriteSheet, Uniform, Vector, WorldCamera, SceneCreator, CameraBuffer, ComponentTypeId
 };
 
 macro_rules! Where {
@@ -22,7 +22,7 @@ use crate::ComponentSerializer;
 use crate::audio::{Sink, Sound};
 
 #[cfg(feature = "physics")]
-use crate::{physics::*, BaseComponent, ComponentTypeId, Point};
+use crate::{physics::*, BaseComponent, Point};
 
 use std::any::Any;
 #[cfg(feature = "physics")]
@@ -205,6 +205,16 @@ impl<'a> Context<'a> {
         let mut serializer = ComponentSerializer::new(component_manager);
         (serialize)(&mut serializer);
 
+        #[derive(serde::Serialize)]
+        struct Scene<'a> {
+            id: u32,
+            resized: bool,
+            switched: bool,
+            screen_config: &'a ScreenConfig,
+            world_camera: &'a WorldCamera,
+            component_manager: &'a mut ComponentManager,
+        }
+
         #[cfg(feature = "physics")]
         {
             use std::mem;
@@ -226,15 +236,6 @@ impl<'a> Context<'a> {
 
             drop(world);
 
-            #[derive(serde::Serialize)]
-            struct Scene<'a> {
-                id: u32,
-                resized: bool,
-                switched: bool,
-                screen_config: &'a ScreenConfig,
-                world_camera: &'a WorldCamera,
-                component_manager: &'a mut ComponentManager,
-            }
             let scene = Scene {
                 id: *self.scene_id,
                 resized: true,
@@ -256,11 +257,20 @@ impl<'a> Context<'a> {
 
         #[cfg(not(feature = "physics"))]
         {
+            let components = serializer.finish();
+            let scene = Scene {
+                id: *self.scene_id,
+                resized: true,
+                switched: true,
+                screen_config: self.screen_config,
+                world_camera: self.world_camera,
+                component_manager: self.component_manager,
+            };
             let scene: (
                 &Scene,
                 FxHashMap<ComponentTypeId, Vec<(u32, Vec<Option<(u32, Vec<u8>)>>)>>,
-            ) = (&*self, components);
-            let result = bincode::serialize(&scene).ok();
+            ) = (&scene, components);
+            let result = bincode::serialize(&scene);
             return result;
         }
     }

@@ -1,4 +1,4 @@
-use crate::{ComponentHandle, ComponentTypeId, Isometry, Matrix, Rotation, Vector};
+use crate::{ComponentHandle, Isometry, Matrix, Rotation, Vector};
 #[cfg(feature = "physics")]
 use std::{
     cell::{Ref, RefCell, RefMut},
@@ -7,7 +7,7 @@ use std::{
 };
 
 #[cfg(feature = "physics")]
-use crate::physics::{Collider, ColliderHandle, RigidBody, RigidBodyHandle, World};
+use crate::{physics::{Collider, ColliderHandle, RigidBody, RigidBodyHandle, World}, ComponentTypeId};
 
 /// Easily create a [BaseComponent] with a position and render_scale.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -460,6 +460,7 @@ impl BaseComponent {
     }
 
     /// Check if this component has a [RigidBody].
+    #[cfg(feature = "physics")]
     pub fn is_rigid_body(&self) -> bool {
         return match &self.body {
             BodyStatus::RigidBody { .. } => true,
@@ -533,6 +534,7 @@ impl Drop for BaseComponent {
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg(feature = "physics")]
 struct WorldWrapper {
     #[cfg(feature = "serde")]
     #[cfg_attr(feature = "serde", serde(skip))]
@@ -542,6 +544,7 @@ struct WorldWrapper {
     world: Rc<RefCell<World>>,
 }
 
+#[cfg(feature = "physics")]
 impl WorldWrapper {
     pub fn new(rc: Rc<RefCell<World>>) -> Self {
         Self {
@@ -553,7 +556,7 @@ impl WorldWrapper {
     }
 }
 
-#[cfg(feature = "serde")]
+#[cfg(all(feature = "physics", feature = "serde"))]
 impl WorldWrapper {
     pub fn world(&self) -> Ref<World> {
         return self

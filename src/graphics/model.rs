@@ -1,7 +1,6 @@
 #[cfg(feature = "physics")]
-use crate::physics::TypedShape;
+use crate::physics::{Shape, TypedShape};
 use crate::{na::Matrix2, Gpu, Index, Isometry, Rotation, Vector, Vertex};
-use rapier2d::prelude::Shape;
 use std::f32::consts::{FRAC_PI_2, PI};
 use wgpu::util::DeviceExt;
 
@@ -311,6 +310,7 @@ impl ModelBuilder {
         }
     }
 
+    #[cfg(feature = "physics")]
     pub fn from_collider_shape(shape: &dyn Shape, resolution: u32, half_thickness: f32) -> Self {
         match shape.as_typed_shape() {
             TypedShape::Ball(ball) => {

@@ -10,10 +10,10 @@ use instant::Instant;
 use log::info;
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::collections::{BTreeMap, BTreeSet};
+use std::rc::Rc;
 #[cfg(feature = "physics")]
 use std::{
     cell::{Ref, RefCell, RefMut},
-    rc::Rc,
 };
 
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Ord, Eq)]
@@ -266,6 +266,7 @@ impl ComponentManager {
             .component_mut(handle.component_index())
             .unwrap();
         c.base_mut().init(handle);
+        #[cfg(feature = "physics")]
         if c.base().is_rigid_body() {
             c.base_mut().add_to_world(C::IDENTIFIER, self.world.clone())
         }
@@ -685,7 +686,6 @@ impl ComponentManager {
         self.render_components
     }
 
-    #[cfg(feature = "physics")]
     pub(crate) fn component_callbacks(&self, type_id: &ComponentTypeId) -> &ComponentCallbacks {
         return self.component_callbacks.get(&type_id).unwrap();
     }
