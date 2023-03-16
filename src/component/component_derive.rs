@@ -4,8 +4,8 @@ use crate::{
     ComponentHandle,
 };
 use crate::{
-    BaseComponent, ComponentConfig, ComponentControllerCaller, ComponentPath, Context,
-    RenderConfig, RenderEncoder, DEFAULT_CONFIG, ComponentIdentifier,
+    BaseComponent, ComponentConfig, ComponentControllerCaller, ComponentIdentifier, ComponentPath,
+    Context, RenderConfig, RenderEncoder, DEFAULT_CONFIG,
 };
 use downcast_rs::*;
 
@@ -33,7 +33,8 @@ impl_downcast!(ComponentDerive);
 #[allow(unused_variables)]
 /// A controller is used to define the behaviour of a component, by the given config and callbacks. The
 /// currently relevant components get passed through the [ComponentPath](crate::ComponentPath).
-pub trait ComponentController: ComponentControllerCaller + ComponentDerive + ComponentIdentifier
+pub trait ComponentController:
+    ComponentControllerCaller + ComponentDerive + ComponentIdentifier
 where
     Self: Sized,
 {

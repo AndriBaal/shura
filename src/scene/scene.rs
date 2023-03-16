@@ -1,8 +1,9 @@
-use crate::{ComponentManager, Context, ScreenConfig, Shura, Vector, WorldCamera};
+use crate::{ComponentManager, Context, ScreenConfig, Vector, WorldCamera, ShuraFields};
+
 
 pub trait SceneCreator {
     fn id(&self) -> u32;
-    fn create(self, shura: &mut Shura) -> Scene;
+    fn create(self, shura: ShuraFields) -> Scene;
 }
 
 pub struct NewScene<N: 'static + FnMut(&mut Context)> {
@@ -21,12 +22,12 @@ impl<N: 'static + FnMut(&mut Context)> SceneCreator for NewScene<N> {
         self.id
     }
 
-    fn create(mut self, shura: &mut Shura) -> Scene {
+    fn create(mut self, shura: ShuraFields) -> Scene {
         let mint: mint::Vector2<u32> = shura.window.inner_size().into();
         let window_size: Vector<u32> = mint.into();
         let window_ratio = window_size.x as f32 / window_size.y as f32;
         let mut scene = Scene::new(window_ratio, self.id);
-        let mut ctx = Context::new(shura, &mut scene);
+        let mut ctx = Context::from_fields(shura, &mut scene);
         (self.init)(&mut ctx);
         return scene;
     }
@@ -49,30 +50,21 @@ impl<N: 'static + FnMut(&mut Context)> SceneCreator for RecycleScene<N> {
         self.id
     }
 
-    fn create(mut self, shura: &mut Shura) -> Scene {
+    fn create(mut self, shura: ShuraFields) -> Scene {
         let mint: mint::Vector2<u32> = shura.window.inner_size().into();
         let window_size: Vector<u32> = mint.into();
         let window_ratio = window_size.x as f32 / window_size.y as f32;
         self.scene.world_camera.resize(window_ratio);
-        let mut ctx = Context::new(shura, &mut self.scene);
+        let mut ctx = Context::from_fields(shura, &mut self.scene);
         (self.init)(&mut ctx);
         return self.scene;
     }
 }
 
-#[cfg(feature = "serde")]
-fn bool_true() -> bool {
-    return true;
-}
-
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub struct Scene {
     pub(crate) id: u32,
-    #[cfg_attr(feature = "serde", serde(skip))]
-    #[cfg_attr(feature = "serde", serde(default = "bool_true"))]
     pub(crate) resized: bool,
-    #[cfg_attr(feature = "serde", serde(skip))]
-    #[cfg_attr(feature = "serde", serde(default = "bool_true"))]
     pub(crate) switched: bool,
     pub screen_config: ScreenConfig,
     pub world_camera: WorldCamera,

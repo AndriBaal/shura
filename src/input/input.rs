@@ -278,11 +278,7 @@ impl Input {
             )
     }
 
-    pub fn cursor_camera(
-        &self,
-        window_size: Vector<u32>,
-        camera: &Camera,
-    ) -> Vector<f32> {
+    pub fn cursor_camera(&self, window_size: Vector<u32>, camera: &Camera) -> Vector<f32> {
         self.compute_cursor(window_size, self.cursor_raw, camera)
     }
 

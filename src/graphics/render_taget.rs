@@ -1,8 +1,6 @@
 use std::ops::Deref;
 
-use crate::{
-    Gpu, GpuDefaults, RenderConfig, RenderEncoder, Sprite, Vector,
-};
+use crate::{Gpu, GpuDefaults, RenderConfig, RenderEncoder, Sprite, Vector};
 macro_rules! Where {
     (
     $a:lifetime >= $b:lifetime $(,)?
@@ -133,7 +131,7 @@ impl RenderTarget {
             target: &self,
             gpu: &gpu,
             defaults: &defaults,
-            smaa: true
+            smaa: true,
         };
         compute(&mut encoder, config, []);
         gpu.queue.submit(std::iter::once(encoder.encoder.finish()));

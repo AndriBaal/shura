@@ -1,4 +1,1 @@
-
-pub struct Animation {
-    
-}
+pub struct Animation {}

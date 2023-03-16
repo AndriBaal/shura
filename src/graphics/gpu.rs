@@ -1,9 +1,9 @@
 #[cfg(feature = "text")]
 use crate::text::{CreateFont, CreateText, Font, TextDescriptor};
 use crate::{
-    Camera, CameraBuffer, ColorWrites, InstanceBuffer, Matrix, Model, ModelBuilder, RenderConfig,
-    RenderEncoder, RenderTarget, ScreenConfig, Shader, ShaderConfig, ShaderField, ShaderLang,
-    Sprite, SpriteSheet, Uniform, Vector, Isometry, BufferedCamera
+    BufferedCamera, Camera, CameraBuffer, ColorWrites, InstanceBuffer, Isometry, Matrix, Model,
+    ModelBuilder, RenderConfig, RenderEncoder, RenderTarget, ScreenConfig, Shader, ShaderConfig,
+    ShaderField, ShaderLang, Sprite, SpriteSheet, Uniform, Vector,
 };
 use log::info;
 use std::borrow::Cow;
@@ -117,8 +117,16 @@ impl Gpu {
         self.surface.configure(&self.device, &self.config);
     }
 
-    pub fn is_vsync(&self) -> bool {
-        self.config.present_mode == wgpu::PresentMode::AutoVsync
+    pub(crate) fn apply_vsync(&self, vsync: bool) {
+        let new_mode = if vsync {
+            wgpu::PresentMode::AutoVsync
+        } else {
+            wgpu::PresentMode::AutoNoVsync
+        };
+
+        if new_mode != self.config.present_mode {
+            self.surface.configure(&self.device, &self.config);
+        }
     }
 
     pub fn render_size(&self, scale: f32) -> Vector<u32> {
@@ -130,17 +138,6 @@ impl Gpu {
 
     pub fn render_size_no_scale(&self) -> Vector<u32> {
         Vector::new(self.config.width, self.config.height)
-    }
-
-    /// Tries to enable or disable vSync. The default is always vSync to be on.
-    /// So every device supports vSync but not every device supports no vSync.
-    pub fn set_vsync(&mut self, vsync: bool) {
-        if vsync {
-            self.config.present_mode = wgpu::PresentMode::AutoVsync;
-        } else {
-            self.config.present_mode = wgpu::PresentMode::AutoNoVsync;
-        }
-        self.surface.configure(&self.device, &self.config);
     }
 
     pub fn create_render_target(&self, size: Vector<u32>) -> RenderTarget {
@@ -182,7 +179,7 @@ impl Gpu {
     }
 
     #[cfg(feature = "text")]
-    pub fn create_text(&mut self, descriptor: TextDescriptor) -> Sprite {
+    pub fn create_text(&self, descriptor: TextDescriptor) -> Sprite {
         Sprite::new_text(self, descriptor)
     }
 
@@ -441,11 +438,24 @@ impl GpuDefaults {
         };
         let half_fov = fov / 2.0;
 
-
-        let relative_camera_bottom_left = BufferedCamera::new(gpu, Camera::new(Isometry::new(half_fov, 0.0), fov));
-        let relative_camera_bottom_right = BufferedCamera::new(gpu, Camera::new(Isometry::new(Vector::new(-half_fov.x, half_fov.y), 0.0), fov));
-        let relative_camera_top_right = BufferedCamera::new(gpu, Camera::new(Isometry::new(-half_fov, 0.0), fov));
-        let relative_camera_top_left = BufferedCamera::new(gpu, Camera::new(Isometry::new(Vector::new(half_fov.x, -half_fov.y), 0.0), fov));
+        let relative_camera_bottom_left =
+            BufferedCamera::new(gpu, Camera::new(Isometry::new(half_fov, 0.0), fov));
+        let relative_camera_bottom_right = BufferedCamera::new(
+            gpu,
+            Camera::new(
+                Isometry::new(Vector::new(-half_fov.x, half_fov.y), 0.0),
+                fov,
+            ),
+        );
+        let relative_camera_top_right =
+            BufferedCamera::new(gpu, Camera::new(Isometry::new(-half_fov, 0.0), fov));
+        let relative_camera_top_left = BufferedCamera::new(
+            gpu,
+            Camera::new(
+                Isometry::new(Vector::new(half_fov.x, -half_fov.y), 0.0),
+                fov,
+            ),
+        );
 
         let cam = Camera::new(
             Default::default(),
@@ -491,14 +501,28 @@ impl GpuDefaults {
             Vector::new(1.0, scale)
         };
         let half_fov = fov / 2.0;
-        self.relative_camera_bottom_left.write(gpu, Camera::new(Isometry::new(half_fov, 0.0), fov));
-        self.relative_camera_bottom_right.write(gpu, Camera::new(Isometry::new(Vector::new(-half_fov.x, half_fov.y), 0.0), fov));
-        self.relative_camera_top_right.write(gpu, Camera::new(Isometry::new(-half_fov, 0.0), fov));
-        self.relative_camera_top_left.write(gpu, Camera::new(Isometry::new(Vector::new(half_fov.x, -half_fov.y), 0.0), fov));
+        self.relative_camera_bottom_left
+            .write(gpu, Camera::new(Isometry::new(half_fov, 0.0), fov));
+        self.relative_camera_bottom_right.write(
+            gpu,
+            Camera::new(
+                Isometry::new(Vector::new(-half_fov.x, half_fov.y), 0.0),
+                fov,
+            ),
+        );
+        self.relative_camera_top_right
+            .write(gpu, Camera::new(Isometry::new(-half_fov, 0.0), fov));
+        self.relative_camera_top_left.write(
+            gpu,
+            Camera::new(
+                Isometry::new(Vector::new(half_fov.x, -half_fov.y), 0.0),
+                fov,
+            ),
+        );
     }
 
     pub(crate) fn buffer(
-        &mut self,
+        &self,
         active_scene_camera: &Camera,
         gpu: &Gpu,
         total_time: f32,
@@ -510,6 +534,8 @@ impl GpuDefaults {
 
     pub(crate) fn apply_render_scale(&mut self, gpu: &Gpu, scale: f32) {
         let size = gpu.render_size(scale);
-        self.target = gpu.create_render_target(size);
+        if *self.target.size() != size {
+            self.target = gpu.create_render_target(size);
+        }
     }
 }

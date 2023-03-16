@@ -13,7 +13,7 @@ use std::{cmp, marker::PhantomData};
 
 use crate::{
     Arena, ArenaEntry, ComponentController, ComponentManager, ComponentTypeId, Context,
-    DynamicComponent, GroupFilter, Scene, SceneCreator, Shura, Vector,
+    DynamicComponent, GroupFilter, Scene, SceneCreator, Vector, ShuraFields
 };
 
 pub struct ComponentSerializer<'a> {
@@ -110,15 +110,19 @@ impl<N: 'static + FnMut(&mut Context, &mut ComponentDeserializer)> SceneCreator
         self.id
     }
 
-    fn create(mut self, shura: &mut Shura) -> Scene {
+    fn create(mut self, shura: ShuraFields) -> Scene {
         let (mut scene, components): (
             Scene,
             FxHashMap<ComponentTypeId, Vec<(u32, Vec<Option<(u32, Vec<u8>)>>)>>,
         ) = bincode::deserialize(&self.scene).unwrap();
         let mut de = ComponentDeserializer::new(components);
-        scene.before_deserialize(self.id, shura);
+        let mint: mint::Vector2<u32> = shura.window.inner_size().into();
+        let window_size: Vector<u32> = mint.into();
+        let window_ratio = window_size.x as f32 / window_size.y as f32;
+        scene.world_camera.resize(window_ratio);
+        scene.id = self.id;
 
-        let mut ctx = Context::new(shura, &mut scene);
+        let mut ctx = Context::from_fields(shura, &mut scene);
         (self.init)(&mut ctx, &mut de);
         de.finish();
         return scene;
@@ -150,7 +154,7 @@ impl ComponentDeserializer {
     ) {
         let type_id = C::IDENTIFIER;
         let components = self.components.remove(&type_id).unwrap();
-        ctx.scene.component_manager.register_callbacks::<C>();
+        ctx.component_manager.register_callbacks::<C>();
 
         for (group_id, components) in components {
             let mut items: Vec<ArenaEntry<DynamicComponent>> =
@@ -166,7 +170,7 @@ impl ComponentDeserializer {
                         if component.base().is_rigid_body() {
                             component
                                 .base_mut()
-                                .init_rigid_body(ctx.scene.component_manager.world.clone());
+                                .init_rigid_body(ctx.component_manager.world.clone());
                         }
                         ArenaEntry::Occupied {
                             generation: gen,
@@ -195,7 +199,7 @@ impl ComponentDeserializer {
     ) {
         let type_id = C::IDENTIFIER;
         let components = self.components.remove(&type_id).unwrap();
-        ctx.scene.component_manager.register_callbacks::<C>();
+        ctx.component_manager.register_callbacks::<C>();
 
         for (group_id, components) in components {
             let mut items: Vec<ArenaEntry<DynamicComponent>> =
@@ -211,7 +215,7 @@ impl ComponentDeserializer {
                         if component.base().is_rigid_body() {
                             component
                                 .base_mut()
-                                .init_rigid_body(ctx.scene.component_manager.world.clone());
+                                .init_rigid_body(ctx.component_manager.world.clone());
                         }
                         ArenaEntry::Occupied {
                             generation: gen,
@@ -256,15 +260,5 @@ impl<'de, C: ComponentController> DeserializeWrapper<'de, C> {
 
     pub fn deserialize(&mut self, visitor: impl Visitor<'de, Value = C>) -> C {
         self.de.deserialize_struct("", C::FIELDS, visitor).unwrap()
-    }
-}
-
-impl Scene {
-    pub(crate) fn before_deserialize(&mut self, id: u32, shura: &Shura) {
-        let mint: mint::Vector2<u32> = shura.window.inner_size().into();
-        let window_size: Vector<u32> = mint.into();
-        let window_ratio = window_size.x as f32 / window_size.y as f32;
-        self.world_camera.resize(window_ratio);
-        self.id = id;
     }
 }

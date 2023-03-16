@@ -63,7 +63,7 @@ impl ComponentController for BunnyManager {
             .anchor(gui::Align2::LEFT_TOP, gui::Vec2::default())
             .resizable(false)
             .collapsible(false)
-            .show(&ctx.gui(), |ui| {
+            .show(&ctx.gui.clone(), |ui| {
                 ui.label(&format!("FPS: {}", ctx.fps()));
                 ui.label(format!(
                     "Bunnies: {}",
@@ -97,12 +97,12 @@ impl ComponentController for BunnyManager {
         }
 
         let window_size = ctx.window_size();
-        for bunny in ctx.scene.component_manager.path_mut(&path).iter() {
+        for bunny in ctx.component_manager.path_mut(&path).iter() {
             if let Some(screenshot) = bunny.screenshot.take() {
                 shura::log::info!("Taking Screenshot!");
-                screenshot.sprite().save(&ctx.shura.gpu, "test.png").ok();
-            } else if ctx.shura.input.is_pressed(Key::S) {
-                bunny.screenshot = Some(ctx.shura.gpu.create_render_target(window_size));
+                screenshot.sprite().save(&ctx.gpu, "test.png").ok();
+            } else if ctx.input.is_pressed(Key::S) {
+                bunny.screenshot = Some(ctx.gpu.create_render_target(window_size));
             }
         }
     }
@@ -129,7 +129,9 @@ struct Bunny {
 }
 impl Bunny {
     pub fn new(ctx: &Context) -> Bunny {
-        let component = PositionBuilder::new().translation(ctx.cursor_camera(&ctx.scene.world_camera)).into();
+        let component = PositionBuilder::new()
+            .translation(ctx.cursor_camera(&ctx.world_camera))
+            .into();
         let linvel = Vector::new(
             thread_rng().gen_range(-2.5..2.5),
             thread_rng().gen_range(-7.5..7.5),

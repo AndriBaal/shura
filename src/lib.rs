@@ -33,9 +33,9 @@
 #![crate_type = "lib"]
 #![crate_name = "shura"]
 
+mod animation;
 mod component;
 mod data;
-mod animation;
 mod graphics;
 mod input;
 mod math;
@@ -45,7 +45,7 @@ mod shura_core;
 pub use instant::Duration;
 pub use shura_proc::*;
 
-pub(crate) use {component::controller_caller::*, data::arena::*, data::arena_path::*};
+pub(crate) use {component::controller_caller::*, data::arena::*, data::arena_path::*, scene::context::ShuraFields};
 
 pub use crate::{
     animation::animation::*,
@@ -59,9 +59,9 @@ pub use crate::{
         renderer::*, screen_config::*, shader::*, sprite::*, sprite_sheet::*, uniform::*,
         vertex::*,
     },
-    input::{input::*},
+    input::input::*,
     math::{math::*, matrix::*},
-    scene::{context::*, scene::*, scene_manager::*},
+    scene::{context::Context, scene::*, scene_manager::*},
     shura_core::*,
 };
 

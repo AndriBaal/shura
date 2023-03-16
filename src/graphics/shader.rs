@@ -84,7 +84,7 @@ pub enum ShaderLang {
 pub struct Shader {
     pipeline: wgpu::RenderPipeline,
     lang: ShaderLang,
-    smaa: bool
+    smaa: bool,
 }
 
 impl Shader {
@@ -168,14 +168,18 @@ impl Shader {
                     conservative: false,
                 },
                 depth_stencil: None,
-                multisample: if config.smaa { gpu.base.multisample_state } else {gpu.base.no_multisample_state},
+                multisample: if config.smaa {
+                    gpu.base.multisample_state
+                } else {
+                    gpu.base.no_multisample_state
+                },
                 multiview: None,
             });
 
         Shader {
             pipeline,
             lang: config.shader_lang,
-            smaa: config.smaa
+            smaa: config.smaa,
         }
     }
 

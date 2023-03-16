@@ -15,7 +15,7 @@ fn main() {
                     shader_fields: &[ShaderField::Uniform],
                     blend: true,
                     smaa: true,
-                    write_mask: ColorWrites::ALL
+                    write_mask: ColorWrites::ALL,
                 }),
                 test_shader: ctx.create_shader(ShaderConfig {
                     fragment_source: include_str!("./test.glsl"),
@@ -23,7 +23,7 @@ fn main() {
                     shader_fields: &[ShaderField::Uniform],
                     blend: true,
                     smaa: true,
-                    write_mask: ColorWrites::ALL
+                    write_mask: ColorWrites::ALL,
                 }),
             });
             ctx.create_component(Obstacle::new(
@@ -203,7 +203,7 @@ impl ComponentController for Light {
             return v1.x * v2.y - v1.y * v2.x;
         }
 
-        let cursor_pos = *ctx.cursor_world();
+        let cursor_pos = ctx.cursor_camera(&ctx.world_camera);
         for light in ctx.path_mut(&active).iter() {
             if light.follow_mouse {
                 light.component.set_translation(cursor_pos);
@@ -329,7 +329,7 @@ impl ComponentController for Light {
                         shadows.push(
                             ctx.create_model(
                                 ModelBuilder::convex_polygon(vertices)
-                                    .vertex_translation(-light_translation)
+                                    .vertex_translation(-light_translation),
                             ),
                         );
                     }

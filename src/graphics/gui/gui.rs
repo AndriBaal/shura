@@ -4,8 +4,8 @@ use egui_winit::State;
 use instant::Duration;
 use winit::window::Window;
 
-pub struct Gui {
-    pub state: State,
+pub(crate) struct Gui {
+    state: State,
     // TODO: Maybe move to scene
     context: GuiContext,
     renderer: Renderer,
@@ -51,7 +51,7 @@ impl Gui {
         self.context.begin_frame(egui_input);
     }
 
-    pub fn context(&self) -> GuiContext {
+    pub(crate) fn context(&self) -> GuiContext {
         self.context.clone()
     }
 
