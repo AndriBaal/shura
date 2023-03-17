@@ -1,5 +1,4 @@
 use std::ops::Deref;
-
 use crate::{Gpu, GpuDefaults, RenderConfig, RenderEncoder, Sprite, Vector};
 macro_rules! Where {
     (
@@ -17,6 +16,7 @@ pub struct RenderTarget {
 
 impl RenderTarget {
     pub fn new(gpu: &Gpu, size: Vector<u32>) -> Self {
+        // let size = Self::validate_webgl_size(size);
         let target = Sprite::empty(gpu, size);
         let target_view = target
             .texture()
@@ -48,6 +48,7 @@ impl RenderTarget {
         sample_count: u32,
         size: Vector<u32>,
     ) -> wgpu::TextureView {
+        // let size = Self::validate_webgl_size(size);
         let multisampled_frame_descriptor = &wgpu::TextureDescriptor {
             size: wgpu::Extent3d {
                 width: size.x,
@@ -80,44 +81,6 @@ impl RenderTarget {
         &self.target_msaa
     }
 
-    // pub fn draw(
-    //     &self,
-    //     gpu: &Gpu,
-    //     defaults: &GpuDefaults,
-    //     compute: impl Fn(&mut RenderEncoder, RenderConfig),
-    // ) {
-    //     let mut encoder = RenderEncoder::new(gpu);
-    //     let config = RenderConfig {
-    //         camera: RenderCamera::RelativeCamera,
-    //         instances: RenderInstances::SingleInstance,
-    //         target: &self,
-    //         gpu: &gpu,
-    //         defaults: &defaults,
-    //         smaa: true
-    //     };
-    //     compute(&mut encoder, config);
-    //     gpu.queue.submit(std::iter::once(encoder.encoder.finish()));
-    // }
-
-    // pub fn draw1<'test>(
-    //     &'test self,
-    //     gpu: &'test Gpu,
-    //     defaults: &'test GpuDefaults,
-    //     compute: impl Fn(&'test mut RenderEncoder, RenderConfig<'test>),
-    // ) {
-    //     let mut encoder = RenderEncoder::new(gpu);
-    //     let config = RenderConfig {
-    //         camera: RenderCamera::RelativeCamera,
-    //         instances: RenderInstances::SingleInstance,
-    //         target: &self,
-    //         gpu: &gpu,
-    //         defaults: &defaults,
-    //         smaa: true
-    //     };
-    //     compute(&mut encoder, config);
-    //     gpu.queue.submit(std::iter::once(encoder.encoder.finish()));
-    // }
-
     pub fn draw<'caller>(
         &self,
         gpu: &Gpu,
@@ -136,6 +99,20 @@ impl RenderTarget {
         compute(&mut encoder, config, []);
         gpu.queue.submit(std::iter::once(encoder.encoder.finish()));
     }
+
+    // pub fn validate_webgl_size(mut size: Vector<u32>) -> Vector<u32> {
+    //     use log::warn;
+    //     const MAX_WEBGL_TEXTURE_SIZE: u32 = 2048;
+    //     if size.x > MAX_WEBGL_TEXTURE_SIZE {
+    //         size.x = MAX_WEBGL_TEXTURE_SIZE;
+    //         warn!("Auto scaling down to x {MAX_WEBGL_TEXTURE_SIZE} because the maximum WebGL texturesize has been surpassed!");
+    //     }
+    //     if size.x > MAX_WEBGL_TEXTURE_SIZE {
+    //         size.x = MAX_WEBGL_TEXTURE_SIZE;
+    //         warn!("Auto scaling down to x {MAX_WEBGL_TEXTURE_SIZE} because the maximum WebGL texturesize has been surpassed!");
+    //     }
+    //     return size;
+    // }
 }
 
 impl Into<Sprite> for RenderTarget {

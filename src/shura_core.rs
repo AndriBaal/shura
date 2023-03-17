@@ -326,20 +326,12 @@ impl Shura {
     fn update(&mut self, scene: &mut Scene) -> Result<(), wgpu::SurfaceError> {
         #[cfg(target_arch = "wasm32")]
         {
-            use crate::log::warn;
-            const MAX_WEBGL_TEXTURE_SIZE: u32 = 2048;
             let browser_window = web_sys::window().unwrap();
             let width: u32 = browser_window.inner_width().unwrap().as_f64().unwrap() as u32;
             let height: u32 = browser_window.inner_height().unwrap().as_f64().unwrap() as u32;
             let size = winit::dpi::PhysicalSize::new(width, height);
-            if size.width > MAX_WEBGL_TEXTURE_SIZE || size.height > MAX_WEBGL_TEXTURE_SIZE {
-                let max = size.width.max(size.height);
-                let scale = MAX_WEBGL_TEXTURE_SIZE as f32 / max as f32;
-                warn!("Auto scaling down to {} because the maximum WebGL texturesize has been surpassed!", scale);
-                ctx.set_render_scale(scale);
-            }
-            if size != ctx.window.inner_size().into() {
-                ctx.window.set_inner_size(size);
+            if size != self.window.inner_size().into() {
+                self.window.set_inner_size(size);
                 info!(
                     "{:?}",
                     browser_window
