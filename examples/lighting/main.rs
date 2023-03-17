@@ -1,5 +1,8 @@
 use nalgebra::distance;
 use shura::{physics::*, *};
+use std::f32::consts::PI;
+
+const TWO_PI_INV: f32 = 1.0 / (2.0 * PI);
 
 fn main() {
     Shura::init(NewScene {
@@ -13,7 +16,7 @@ fn main() {
                     fragment_source: include_str!("./light.glsl"),
                     shader_lang: ShaderLang::GLSL,
                     shader_fields: &[ShaderField::Uniform],
-                    blend: true,
+                    blend: BlendState::ALPHA_BLENDING,
                     smaa: true,
                     write_mask: ColorWrites::ALL,
                 }),
@@ -21,7 +24,15 @@ fn main() {
                     fragment_source: include_str!("./shadow.glsl"),
                     shader_lang: ShaderLang::GLSL,
                     shader_fields: &[ShaderField::Uniform],
-                    blend: true,
+                    blend: BlendState::ALPHA_BLENDING,
+                    // blend: BlendState { 
+                    //     color: BlendComponent {
+                    //         src_factor: BlendFactor::SrcAlpha,
+                    //         dst_factor: BlendFactor::OneMinusSrcAlpha,
+                    //         operation: BlendOperation::Subtract,
+                    //     },
+                    //     alpha: BlendComponent::OVER,
+                    // },
                     smaa: true,
                     write_mask: ColorWrites::ALL,
                 }),
@@ -41,7 +52,7 @@ fn main() {
                     Point::new(1.0, 1.5),
                     Point::new(1.5, 1.0),
                 ),
-                Color::RED,
+                Color::BLUE,
             ));
             ctx.add_component(Obstacle::new(
                 ctx,
@@ -58,7 +69,7 @@ fn main() {
             ctx.add_component(Light::new(
                 ctx,
                 Vector::new(0.0, 0.0),
-                15.0,
+                12.0,
                 Color::RED,
                 true,
             ));
@@ -123,7 +134,7 @@ impl ComponentController for Obstacle {
         config: RenderConfig<'a>,
         encoder: &mut RenderEncoder,
     ) {
-        let (_, mut renderer) = encoder.renderer(config);
+        let (_, mut renderer) = encoder.renderer(&config);
         for (i, b) in ctx.path_render(&active).iter() {
             renderer.render_color(&b.model, &b.color);
             renderer.commit(i);
@@ -239,84 +250,66 @@ impl ComponentController for Light {
                             }
                         }
 
-                        let leftback = if light_collider
-                            .shape()
-                            .contains_point(light_collider.position(), &leftmost.into())
-                        {
-                            light_translation + leftmost_ray.normalize() * light.radius
-                        } else {
-                            leftmost
-                        };
+                        let mut leftback =
+                            light_translation + leftmost_ray.normalize() * light.radius;
 
-                        let rightback = if light_collider
-                            .shape()
-                            .contains_point(light_collider.position(), &rightmost.into())
-                        {
-                            light_translation + rightmost_ray.normalize() * light.radius
-                        } else {
-                            rightmost
-                        };
+                        let mut rightback =
+                            light_translation + rightmost_ray.normalize() * light.radius;
 
-                        struct EdgeData {
-                            index: usize,
-                            distance: f32,
+                        let mut ray_angle: f32 = rightmost_ray.y.atan2(rightmost_ray.x);
+                        if ray_angle < 0.0 {
+                            ray_angle += 2.0 * PI;
                         }
+                        let right_index =
+                            (ray_angle * TWO_PI_INV * Self::RESOLUTION as f32) as usize;
+                        let v0 = light.vertices[right_index].pos;
+                        let v0_to_v1 =
+                            light.vertices[(right_index + 1) % Self::RESOLUTION as usize].pos - v0;
+                        let alpha = rightmost_ray.angle(&(-v0_to_v1));
+                        let v0_to_rightback = rightback - (light_translation + v0);
+                        let beta = v0_to_rightback.angle(&v0_to_v1);
+                        let gamma = PI - alpha - beta;
+                        let c = gamma.sin() / alpha.sin() * v0_to_rightback.norm();
+                        rightback = light_translation + v0 + c * v0_to_v1.normalize();
 
-                        // let mut closest_circle_left = (0, f32::MAX);
-                        // let mut closest_circle_right = (0, f32::MAX);
-
-                        // let delta = leftback - light_translation;
-                        // let angle = delta.y.atan2(delta.x);
-                        // println!("{}", angle.to_degrees());
-                        // let rot = Rotation::new(-angle);
-                        // let leftback_rotated =
-                        //     rotate_point_around_origin(light_translation, delta, rot);
-                        // for (i, v) in light.vertices.iter().enumerate() {
-                        //     let rotated_vertex =
-                        //         rotate_point_around_origin(light_translation, v.pos, rot);
-                        //     if rotated_vertex.y < leftback_rotated.y {
-                        //         let distance = distance(
-                        //             &(v.pos + light_translation).into(),
-                        //             &leftback.into(),
-                        //         );
-                        //         if distance < closest_circle_left.1 {
-                        //             closest_circle_left = (i, distance);
-                        //         }
-                        //     }
-
-                        //     // if t1 -
-                        //     // let distance_left = distance(&(v.pos + light_translation).into(), &leftback.into());
-                        //     // let distance_right = distance(&(v.pos + light_translation).into(), &rightback.into());
-                        //     // if distance_left < closest_circle_left.1 {
-                        //     //     closest_circle_left = (i, distance_left);
-                        //     // }
-
-                        //     // if distance_right < closest_circle_left.1 {
-                        //     //     closest_circle_right = (i, distance_right);
-                        //     // }
-                        // }
-
-                        let mut vertices = vec![leftmost];
-                        if light_collider
-                            .shape()
-                            .contains_point(light_collider.position(), &leftmost.into())
-                        {
-                            vertices.push(leftback);
+                        let mut ray_angle: f32 = leftmost_ray.y.atan2(leftmost_ray.x);
+                        if ray_angle < 0.0 {
+                            ray_angle += 2.0 * PI;
                         }
+                        let left_index =
+                            (ray_angle * TWO_PI_INV * Self::RESOLUTION as f32) as usize;
+                        let v0 = light.vertices[left_index].pos;
+                        let v0_to_v1 =
+                            light.vertices[(left_index + 1) % Self::RESOLUTION as usize].pos - v0;
+                        let alpha = leftmost_ray.angle(&(-v0_to_v1));
+                        let v0_to_leftback = leftback - (light_translation + v0);
+                        let beta = v0_to_leftback.angle(&v0_to_v1);
+                        let gamma = PI - alpha - beta;
+                        let c = gamma.sin() / alpha.sin() * v0_to_leftback.norm();
+                        leftback = light_translation + v0 + c * v0_to_v1.normalize();
 
-                        // vertices.push(light.vertices[closest_circle_left.0].pos);
-                        // vertices.push(light.vertices[closest_circle_right.0].pos);
-                        // for i in closest_circle_right.0..closest_circle_left.0 {
-                        //     vertices.push(light.vertices[i].pos + light_translation);
-                        // }
-
+                        let mut vertices = vec![];
                         if light_collider
                             .shape()
                             .contains_point(light_collider.position(), &rightmost.into())
                         {
-                            vertices.push(rightback);
+                            vertices.push(rightmost);
                         }
-                        vertices.push(rightmost);
+                        vertices.push(rightback);
+                        let end = (left_index + 1) % (Self::RESOLUTION as usize);
+                        let mut i = (right_index + 1) % (Self::RESOLUTION as usize);
+                        while i != end {
+                            vertices.push(light_translation + light.vertices[i].pos);
+                            i = (i + 1) % (Self::RESOLUTION as usize);
+                        }
+
+                        vertices.push(leftback);
+                        if light_collider
+                            .shape()
+                            .contains_point(light_collider.position(), &leftmost.into())
+                        {
+                            vertices.push(leftmost);
+                        }
 
                         let mid = (leftmost + rightmost) / 2.0;
                         let delta = mid - light_translation;
@@ -347,7 +340,7 @@ impl ComponentController for Light {
         config: RenderConfig<'a>,
         encoder: &mut RenderEncoder,
     ) {
-        let (_, mut renderer) = encoder.renderer(config);
+        let (_, mut renderer) = encoder.renderer(&config);
         let state = ctx.global_state::<GameState>().unwrap();
         renderer.use_shader(&state.light_shader);
         for (i, l) in ctx.path_render(&active).iter() {

@@ -206,7 +206,7 @@ impl ComponentController for Player {
         config: RenderConfig<'a>,
         encoder: &mut RenderEncoder,
     ) {
-        let (_, mut renderer) = encoder.renderer(config);
+        let (_, mut renderer) = encoder.renderer(&config);
         for (instances, player) in &ctx.path_render(&active) {
             renderer.render_sprite(&player.model, &player.sprite);
             renderer.commit(instances);
@@ -270,7 +270,7 @@ impl ComponentController for Floor {
         encoder: &mut RenderEncoder,
     ) {
         let floors = ctx.path_render(&active);
-        let (_, mut renderer) = encoder.renderer(config);
+        let (_, mut renderer) = encoder.renderer(&config);
         for (instance, floor) in &floors {
             renderer.render_color(&floor.model, &floor.color);
             renderer.commit(instance);
@@ -308,7 +308,7 @@ impl ComponentController for PhysicsBox {
         config: RenderConfig<'a>,
         encoder: &mut RenderEncoder,
     ) {
-        let (_, mut renderer) = encoder.renderer(config);
+        let (_, mut renderer) = encoder.renderer(&config);
         let manager = ctx
             .components::<BoxManager>(GroupFilter::All)
             .iter()

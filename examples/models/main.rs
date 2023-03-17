@@ -131,7 +131,7 @@ impl ComponentController for ModelTest {
         config: RenderConfig<'a>,
         encoder: &mut RenderEncoder,
     ) {
-        let (_, mut renderer) = encoder.renderer(config);
+        let (_, mut renderer) = encoder.renderer(&config);
         for (i, c) in &ctx.path_render(&active) {
             renderer.render_color(&c.model, &c.color);
             renderer.commit(i);

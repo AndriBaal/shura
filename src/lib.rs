@@ -1,12 +1,3 @@
-#![deny(
-    warnings,
-    trivial_casts,
-    trivial_numeric_casts,
-    unstable_features,
-    unused_import_braces,
-    unused_qualifications,
-)]
-
 //! shura - A safe 2D game engine to easily create manageable games
 //!
 //! shura is a safe, fast and cross-platform 2D component-based game framework written in rust. shura helps you to manage big games with a component system, scene managing and its group system.

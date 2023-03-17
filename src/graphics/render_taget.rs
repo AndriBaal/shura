@@ -1,5 +1,6 @@
-use std::ops::Deref;
 use crate::{Gpu, GpuDefaults, RenderConfig, RenderEncoder, Sprite, Vector};
+use std::ops::Deref;
+
 macro_rules! Where {
     (
     $a:lifetime >= $b:lifetime $(,)?
@@ -97,7 +98,7 @@ impl RenderTarget {
             smaa: true,
         };
         compute(&mut encoder, config, []);
-        gpu.queue.submit(std::iter::once(encoder.encoder.finish()));
+        encoder.submit(gpu);
     }
 
     // pub fn validate_webgl_size(mut size: Vector<u32>) -> Vector<u32> {

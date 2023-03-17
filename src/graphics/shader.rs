@@ -1,14 +1,14 @@
 use crate::{Gpu, Vertex};
 use std::borrow::Cow;
 
-pub use wgpu::ColorWrites;
+pub use wgpu::{ColorWrites, BlendState, BlendComponent, BlendFactor, BlendOperation};
 
 pub struct ShaderConfig<'a> {
     pub fragment_source: &'a str,
     pub shader_lang: ShaderLang,
     pub shader_fields: &'a [ShaderField],
-    pub blend: bool,
     pub smaa: bool,
+    pub blend: BlendState,
     pub write_mask: ColorWrites,
 }
 
@@ -150,11 +150,7 @@ impl Shader {
                     entry_point: "main",
                     targets: &[Some(wgpu::ColorTargetState {
                         format: gpu.config.format,
-                        blend: if config.blend == true {
-                            Some(wgpu::BlendState::ALPHA_BLENDING)
-                        } else {
-                            None
-                        },
+                        blend: Some(config.blend),
                         write_mask: config.write_mask,
                     })],
                 }),

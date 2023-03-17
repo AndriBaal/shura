@@ -1,3 +1,5 @@
+#[cfg(feature = "text")]
+use crate::text::TextDescriptor;
 use crate::{
     CameraBuffer, Color, Gpu, GpuDefaults, InstanceBuffer, InstanceIndices, RenderTarget, Renderer,
 };
@@ -13,21 +15,25 @@ pub struct RenderConfig<'a> {
 }
 
 pub struct RenderEncoder {
-    pub encoder: wgpu::CommandEncoder,
+    pub inner: wgpu::CommandEncoder,
 }
 
 impl RenderEncoder {
     pub(crate) fn new(gpu: &Gpu) -> Self {
-        let encoder = gpu
+        let inner = gpu
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("render_encoder"),
             });
-        Self { encoder }
+        Self { inner }
     }
 
-    pub fn clear(&mut self, target: &RenderTarget, color: Color) {
-        self.encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+    pub fn clear(&mut self, config: &RenderConfig, color: Color) {
+        self.clear_target(config.target, color)
+    }
+
+    pub fn clear_target(&mut self, target: &RenderTarget, color: Color) {
+        self.inner.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("render_pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 view: target.msaa(),
@@ -42,11 +48,45 @@ impl RenderEncoder {
         });
     }
 
-    pub fn renderer<'a>(&'a mut self, config: RenderConfig<'a>) -> (InstanceIndices, Renderer<'a>) {
+    pub fn renderer<'a>(&'a mut self, config: &RenderConfig<'a>) -> (InstanceIndices, Renderer<'a>) {
         Renderer::new(self, config)
     }
 
-    pub fn copy_target(&mut self, config: RenderConfig, into: &RenderTarget) {
+    #[cfg(feature = "text")]
+    pub fn render_text(
+        &mut self,
+        config: &RenderConfig,
+        descriptor: TextDescriptor,
+    ) {
+        let gpu = config.gpu;
+        let target = config.target;
+        let target_size = target.size();
+        let mut staging_belt = wgpu::util::StagingBelt::new(1024);
+        if let Some(color) = descriptor.clear_color {
+            self.clear_target(target, color);
+        }
+        
+        for section in descriptor.sections {
+            descriptor.font.brush.queue(section.to_glyph_section());
+        }
+
+        descriptor
+            .font
+            .brush
+            .draw_queued(
+                &gpu.device,
+                &mut staging_belt,
+                &mut self.inner,
+                target.view(),
+                target_size.x,
+                target_size.y,
+            )
+            .expect("Draw queued");
+
+        staging_belt.finish();
+    }
+
+    pub fn copy_target(&mut self, config: &RenderConfig, into: &RenderTarget) {
         let target_conf = RenderConfig {
             camera: &config.defaults.relative_camera,
             instances: &config.defaults.single_centered_instance,
@@ -56,11 +96,15 @@ impl RenderEncoder {
             smaa: true,
         };
 
-        let (instances, mut renderer) = Renderer::new(self, target_conf);
+        let (instances, mut renderer) = Renderer::new(self, &target_conf);
         renderer.render_sprite(
             config.defaults.relative_camera.model(),
             config.defaults.target.sprite(),
         );
         renderer.commit(instances);
+    }
+
+    pub fn submit(self, gpu: &Gpu) {
+        gpu.queue.submit(Some(self.inner.finish()));
     }
 }

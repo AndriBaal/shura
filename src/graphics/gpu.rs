@@ -1,5 +1,5 @@
 #[cfg(feature = "text")]
-use crate::text::{CreateFont, CreateText, Font, TextDescriptor};
+use crate::text::{FontBrush, TextDescriptor};
 use crate::{
     BufferedCamera, Camera, CameraBuffer, ColorWrites, InstanceBuffer, Isometry, Matrix, Model,
     ModelBuilder, RenderConfig, RenderEncoder, RenderTarget, ScreenConfig, Shader, ShaderConfig,
@@ -7,7 +7,8 @@ use crate::{
 };
 use log::info;
 use std::borrow::Cow;
-pub(crate) const RELATIVE_SIZE_CAMERA: f32 = 1.0;
+use wgpu::BlendState;
+pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 1.0;
 
 macro_rules! Where {
     (
@@ -178,13 +179,30 @@ impl Gpu {
     }
 
     #[cfg(feature = "text")]
-    pub fn create_font(&self, bytes: &'static [u8]) -> Font {
-        Font::new_simple(self, bytes)
+    pub fn create_font(&self, bytes: &'static [u8]) -> FontBrush {
+        FontBrush::new(self, bytes)
     }
 
     #[cfg(feature = "text")]
-    pub fn create_text(&self, descriptor: TextDescriptor) -> Sprite {
-        Sprite::new_text(self, descriptor)
+    pub fn create_text(
+        &self,
+        defaults: &GpuDefaults,
+        texture_size: Vector<u32>,
+        descriptor: TextDescriptor,
+    ) -> RenderTarget {
+        let target = self.create_render_target(texture_size);
+        let mut encoder = RenderEncoder::new(self);
+        let config = RenderConfig {
+            camera: &defaults.relative_camera,
+            instances: &defaults.single_centered_instance,
+            target: &target,
+            gpu: self,
+            defaults: &defaults,
+            smaa: true,
+        };
+        encoder.render_text(&config, descriptor);
+        encoder.submit(self);
+        return target;
     }
 
     pub fn create_uniform<T: bytemuck::Pod>(&self, data: T) -> Uniform<T> {
@@ -366,8 +384,8 @@ impl GpuDefaults {
             fragment_source: include_str!("../../res/shader/sprite.wgsl"),
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Sprite],
-            blend: true,
             smaa: true,
+            blend: BlendState::ALPHA_BLENDING,
             write_mask: ColorWrites::ALL,
         });
 
@@ -375,8 +393,8 @@ impl GpuDefaults {
             fragment_source: include_str!("../../res/shader/rainbow.wgsl"),
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Uniform],
-            blend: true,
             smaa: true,
+            blend: BlendState::ALPHA_BLENDING,
             write_mask: ColorWrites::ALL,
         });
 
@@ -384,8 +402,8 @@ impl GpuDefaults {
             fragment_source: include_str!("../../res/shader/color.wgsl"),
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Uniform],
-            blend: true,
             smaa: true,
+            blend: BlendState::ALPHA_BLENDING,
             write_mask: ColorWrites::ALL,
         });
 
@@ -393,8 +411,8 @@ impl GpuDefaults {
             fragment_source: include_str!("../../res/shader/colored_sprite.glsl"),
             shader_lang: ShaderLang::GLSL,
             shader_fields: &[ShaderField::Sprite, ShaderField::Uniform],
-            blend: true,
             smaa: true,
+            blend: BlendState::ALPHA_BLENDING,
             write_mask: ColorWrites::ALL,
         });
 
@@ -402,8 +420,8 @@ impl GpuDefaults {
             fragment_source: include_str!("../../res/shader/grey.wgsl"),
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Sprite],
-            blend: true,
             smaa: true,
+            blend: BlendState::ALPHA_BLENDING,
             write_mask: ColorWrites::ALL,
         });
 
@@ -411,8 +429,8 @@ impl GpuDefaults {
             fragment_source: include_str!("../../res/shader/blurr.wgsl"),
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Sprite],
-            blend: true,
             smaa: true,
+            blend: BlendState::ALPHA_BLENDING,
             write_mask: ColorWrites::ALL,
         });
 
@@ -420,8 +438,8 @@ impl GpuDefaults {
             fragment_source: include_str!("../../res/shader/transparent_sprite.wgsl"),
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Sprite, ShaderField::Uniform],
-            blend: true,
             smaa: true,
+            blend: BlendState::ALPHA_BLENDING,
             write_mask: ColorWrites::ALL,
         });
 
@@ -436,9 +454,9 @@ impl GpuDefaults {
         let xy = window_size.x as f32 / window_size.y as f32;
         let scale = yx.max(xy);
         let fov = if window_size.x > window_size.y {
-            Vector::new(scale, 1.0)
+            Vector::new(scale, RELATIVE_CAMERA_SIZE)
         } else {
-            Vector::new(1.0, scale)
+            Vector::new(RELATIVE_CAMERA_SIZE, scale)
         };
         let half_fov = fov / 2.0;
 
@@ -461,12 +479,9 @@ impl GpuDefaults {
             ),
         );
 
-        let cam = Camera::new(
-            Default::default(),
-            Vector::new(RELATIVE_SIZE_CAMERA, RELATIVE_SIZE_CAMERA),
-        );
-        let world_camera = cam.create_buffer(gpu);
-        let relative_camera = BufferedCamera::new(gpu, cam);
+        let relative_cam = Camera::new(Default::default(), fov);
+        let world_camera = relative_cam.create_buffer(gpu);
+        let relative_camera = BufferedCamera::new(gpu, relative_cam);
 
         Self {
             sprite,
@@ -500,9 +515,9 @@ impl GpuDefaults {
         let xy = window_size.x as f32 / window_size.y as f32;
         let scale = yx.max(xy);
         let fov = if window_size.x > window_size.y {
-            Vector::new(scale, 1.0)
+            Vector::new(scale, RELATIVE_CAMERA_SIZE)
         } else {
-            Vector::new(1.0, scale)
+            Vector::new(RELATIVE_CAMERA_SIZE, scale)
         };
         let half_fov = fov / 2.0;
         self.relative_bottom_left_camera
@@ -523,6 +538,9 @@ impl GpuDefaults {
                 fov,
             ),
         );
+        println!("{fov}");
+        self.relative_camera
+            .write(gpu, Camera::new(Isometry::default(), fov));
     }
 
     pub(crate) fn buffer(

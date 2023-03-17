@@ -78,7 +78,7 @@ impl ComponentController for StartButton {
         config: RenderConfig<'a>,
         encoder: &mut RenderEncoder,
     ) {
-        let (_, mut renderer) = encoder.renderer(config);
+        let (_, mut renderer) = encoder.renderer(&config);
         for (instance, button) in ctx.path_render(&active).iter() {
             renderer.render_sprite(&button.model, &button.text);
             renderer.commit(instance);

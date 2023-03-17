@@ -1,20 +1,26 @@
 use crate::Gpu;
 
 /// Font that can be rendered onto a [sprite](crate::Sprite).
-pub type Font = wgpu_glyph::GlyphBrush<()>;
 pub use wgpu_glyph::BuiltInLineBreaker as DefaultLineBreaker;
 pub use wgpu_glyph::Layout as LineBreaker;
 pub use wgpu_glyph::Text;
+pub use wgpu_glyph::FontId;
+use wgpu_glyph::{ab_glyph, GlyphBrushBuilder, GlyphBrush};
 
-pub trait CreateFont {
-    fn new_simple(gpu: &Gpu, bytes: &'static [u8]) -> Font {
-        use wgpu_glyph::{ab_glyph, GlyphBrushBuilder};
-        let inconsolata = ab_glyph::FontArc::try_from_slice(bytes).unwrap();
-
-        GlyphBrushBuilder::using_font(inconsolata)
-            // .multisample_state(gpu.base.multisample_state)
-            .build(&gpu.device, gpu.config.format)
-    }
+pub struct FontBrush {
+    pub brush: GlyphBrush<()>
 }
 
-impl CreateFont for Font {}
+impl FontBrush {
+    pub fn new(gpu: &Gpu, bytes: &'static [u8]) -> FontBrush {
+        let font = ab_glyph::FontArc::try_from_slice(bytes).unwrap();
+        let brush = GlyphBrushBuilder::using_font(font)
+            .build(&gpu.device, gpu.config.format);
+        Self {brush}
+    }
+
+    pub fn add_font(&mut self, bytes: &'static [u8]) -> FontId {
+        let font = ab_glyph::FontArc::try_from_slice(bytes).unwrap();
+        self.brush.add_font(font)
+    }
+}

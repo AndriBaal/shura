@@ -434,7 +434,7 @@ impl Shura {
 
         let mut encoder = RenderEncoder::new(&self.gpu);
         if let Some(clear_color) = scene.screen_config.clear_color {
-            encoder.clear(&self.defaults.target, clear_color);
+            encoder.clear_target(&self.defaults.target, clear_color);
         }
 
         {
@@ -483,7 +483,7 @@ impl Shura {
 
         {
             let mut renderer = Renderer::output_renderer(
-                &mut encoder.encoder,
+                &mut encoder.inner,
                 &self.gpu,
                 &self.defaults,
                 &output_view,
@@ -498,12 +498,10 @@ impl Shura {
         #[cfg(feature = "gui")]
         {
             self.gui
-                .render(&self.gpu, &mut encoder.encoder, &output_view);
+                .render(&self.gpu, &mut encoder.inner, &output_view);
         }
 
-        let encoder = encoder.encoder;
-        self.gpu.queue.submit(std::iter::once(encoder.finish()));
-        // encoder.submit();
+        encoder.submit(&self.gpu);
         output.present();
 
         scene.resized = false;

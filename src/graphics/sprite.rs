@@ -23,7 +23,7 @@ impl Sprite {
         Self::from_image(gpu, img)
     }
 
-    pub fn empty(gpu: &Gpu, size: Vector<u32>) -> Self {
+    pub(crate) fn empty(gpu: &Gpu, size: Vector<u32>) -> Self {
         assert!(size.x != 0 && size.y != 0);
         let (format, texture) = Self::create_texture(gpu, size);
         let bind_group = Self::create_bind_group(gpu, &texture);

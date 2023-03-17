@@ -36,7 +36,7 @@ use std::{
 use crate::gui::GuiContext;
 
 #[cfg(feature = "text")]
-use crate::text::{Font, TextDescriptor};
+use crate::text::{FontBrush, TextDescriptor};
 
 #[cfg(feature = "gamepad")]
 use crate::gamepad::*;
@@ -348,13 +348,13 @@ impl<'a> Context<'a> {
     }
 
     #[cfg(feature = "text")]
-    pub fn create_font(&self, bytes: &'static [u8]) -> Font {
+    pub fn create_font(&self, bytes: &'static [u8]) -> FontBrush {
         self.gpu.create_font(bytes)
     }
 
     #[cfg(feature = "text")]
-    pub fn create_text(&mut self, descriptor: TextDescriptor) -> Sprite {
-        self.gpu.create_text(descriptor)
+    pub fn create_text(&mut self, target_size: Vector<u32>, descriptor: TextDescriptor) -> RenderTarget {
+        self.gpu.create_text(self.defaults, target_size, descriptor)
     }
 
     pub fn create_uniform<T: bytemuck::Pod>(&self, data: T) -> Uniform<T> {

@@ -115,7 +115,7 @@ impl ComponentController for BunnyManager {
     ) {
         for bunny in &ctx.path(&active) {
             if let Some(screenshot) = &bunny.screenshot {
-                encoder.copy_target(config, &screenshot);
+                encoder.copy_target(&config, &screenshot);
             }
         }
     }
@@ -181,7 +181,7 @@ impl ComponentController for Bunny {
         config: RenderConfig<'a>,
         encoder: &mut RenderEncoder,
     ) {
-        let (instances, mut renderer) = encoder.renderer(config);
+        let (instances, mut renderer) = encoder.renderer(&config);
         let state = ctx.global_state::<BunnyRessources>().unwrap();
         renderer.render_sprite(&state.bunny_model, &state.bunny_sprite);
         renderer.commit(instances);

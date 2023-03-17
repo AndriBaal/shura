@@ -16,10 +16,10 @@ pub struct Renderer<'a> {
 impl<'a> Renderer<'a> {
     pub(crate) fn new(
         render_encoder: &'a mut RenderEncoder,
-        config: RenderConfig<'a>,
+        config: &RenderConfig<'a>,
     ) -> (InstanceIndices, Renderer<'a>) {
         let render_pass = render_encoder
-            .encoder
+            .inner
             .begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("render_pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -91,7 +91,7 @@ impl<'a> Renderer<'a> {
         self.render_pass.set_vertex_buffer(1, buffer.slice());
     }
 
-    pub(crate) fn use_camera(&mut self, camera: &'a CameraBuffer) {
+    pub fn use_camera(&mut self, camera: &'a CameraBuffer) {
         self.render_pass
             .set_bind_group(0, camera.uniform().bind_group(), &[]);
     }
