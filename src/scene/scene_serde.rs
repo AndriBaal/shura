@@ -13,7 +13,7 @@ use std::{cmp, marker::PhantomData};
 
 use crate::{
     Arena, ArenaEntry, ComponentController, ComponentManager, ComponentTypeId, Context,
-    DynamicComponent, GroupFilter, Scene, SceneCreator, Vector, ShuraFields
+    DynamicComponent, GroupFilter, Scene, SceneCreator, ShuraFields, Vector,
 };
 
 pub struct ComponentSerializer<'a> {
@@ -47,10 +47,9 @@ impl<'a> ComponentSerializer<'a> {
     #[cfg(not(feature = "physics"))]
     pub(crate) fn finish(
         self,
-    ) -> 
-        FxHashMap<ComponentTypeId, Vec<(u32, Vec<Option<(u32, Vec<u8>)>>)>>
-     {
-        self.organized_components    }
+    ) -> FxHashMap<ComponentTypeId, Vec<(u32, Vec<Option<(u32, Vec<u8>)>>)>> {
+        self.organized_components
+    }
 
     fn add_group<C: ComponentController + serde::Serialize>(
         &mut self,
@@ -176,9 +175,9 @@ impl ComponentDeserializer {
                         #[allow(unused_mut)]
                         let mut component: DynamicComponent =
                             Box::new(bincode::deserialize::<C>(&data).unwrap());
-                        
-                        #[cfg(feature = "physics")] {
 
+                        #[cfg(feature = "physics")]
+                        {
                             if component.base().is_rigid_body() {
                                 component
                                     .base_mut()

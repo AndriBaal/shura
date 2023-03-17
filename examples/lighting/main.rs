@@ -10,15 +10,15 @@ fn main() {
                 shadow_color: ctx.create_uniform(Color::BLACK),
                 inner_model: ctx.create_model(ModelBuilder::ball(0.5, 24)),
                 light_shader: ctx.create_shader(ShaderConfig {
-                    fragment_source: include_str!("./shader.glsl"),
+                    fragment_source: include_str!("./light.glsl"),
                     shader_lang: ShaderLang::GLSL,
                     shader_fields: &[ShaderField::Uniform],
                     blend: true,
                     smaa: true,
                     write_mask: ColorWrites::ALL,
                 }),
-                test_shader: ctx.create_shader(ShaderConfig {
-                    fragment_source: include_str!("./test.glsl"),
+                shadow_shader: ctx.create_shader(ShaderConfig {
+                    fragment_source: include_str!("./shadow.glsl"),
                     shader_lang: ShaderLang::GLSL,
                     shader_fields: &[ShaderField::Uniform],
                     blend: true,
@@ -75,7 +75,7 @@ fn main() {
 
 struct GameState {
     light_shader: Shader,
-    test_shader: Shader,
+    shadow_shader: Shader,
     shadow_color: Uniform<Color>,
     inner_model: Model,
 }
@@ -318,7 +318,6 @@ impl ComponentController for Light {
                         }
                         vertices.push(rightmost);
 
-                        
                         let mid = (leftmost + rightmost) / 2.0;
                         let delta = mid - light_translation;
                         let angle = delta.y.atan2(delta.x) - 90.0_f32.to_radians();
@@ -358,7 +357,7 @@ impl ComponentController for Light {
         }
 
         for (i, l) in ctx.path_render(&active).iter() {
-            renderer.use_shader(&state.test_shader);
+            renderer.use_shader(&state.shadow_shader);
             for shadow in &l.shadows {
                 renderer.use_model(shadow);
                 renderer.use_uniform(&state.shadow_color, 1);

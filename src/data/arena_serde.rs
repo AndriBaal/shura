@@ -5,8 +5,9 @@ use core::cmp;
 use core::fmt;
 use core::iter;
 use core::marker::PhantomData;
+use serde::Serialize;
 use serde::de::{Deserialize, Deserializer, SeqAccess, Visitor};
-use serde::ser::{Serialize, Serializer};
+use serde::ser::Serializer;
 
 impl Serialize for ArenaIndex {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -45,7 +46,7 @@ where
 }
 
 impl Arena<DynamicComponent> {
-    pub fn serialize_components<C: ComponentController + serde::Serialize>(
+    pub fn serialize_components<C: ComponentController + Serialize>(
         &self,
     ) -> Vec<Option<(u32, Vec<u8>)>> {
         let e = self

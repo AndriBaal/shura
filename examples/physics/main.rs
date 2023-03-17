@@ -155,7 +155,7 @@ impl Player {
     };
     pub fn new(ctx: &Context) -> Self {
         let collider =
-            ColliderBuilder::ball(Self::RADIUS).active_events(ActiveEvents::COLLISION_EVENTS);
+            ColliderBuilder::new(SharedShape::new(Self::SHAPE)).active_events(ActiveEvents::COLLISION_EVENTS);
         Self {
             sprite: ctx.create_sprite(include_bytes!("./img/burger.png")),
             model: ctx.create_model(ModelBuilder::from_collider_shape(

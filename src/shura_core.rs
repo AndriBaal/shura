@@ -5,8 +5,9 @@ use crate::gui::Gui;
 #[cfg(feature = "physics")]
 use crate::physics::{ActiveEvents, CollideType};
 use crate::{
-    Context, FrameManager, Gpu, GpuDefaults, Input, InstanceIndex, RenderConfig, RenderEncoder,
-    RenderOperation, Renderer, Scene, SceneCreator, SceneManager, Vector, scene::context::ShuraFields,
+    scene::context::ShuraFields, Context, FrameManager, Gpu, GpuDefaults, Input, InstanceIndex,
+    RenderConfig, RenderEncoder, RenderOperation, Renderer, Scene, SceneCreator, SceneManager,
+    Vector,
 };
 use log::{error, info};
 #[cfg(target_os = "android")]
@@ -158,7 +159,7 @@ impl Shura {
                                         let window_size: Vector<u32> = mint.into();
                                         shura.resize(window_size);
                                     }
-                                    _ => shura.input.event(event),
+                                    _ => shura.input.on_event(event),
                                 }
                             }
                         }

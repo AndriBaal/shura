@@ -18,6 +18,7 @@ categories = [
 exclude = ["arch_android_setup.sh", "docs"]
 
 [features]
+animation = []
 gamepad = ["dep:gilrs"]
 text = ["dep:wgpu_glyph"]
 audio = ["dep:rodio"]
@@ -34,7 +35,7 @@ serde = [
     "nalgebra/serde-serialize",
     "rapier2d?/serde-serialize",
 ]
-default = ["gamepad", "text", "audio", "physics", "gui", "serde"]
+default = ["animation", "gamepad", "text", "audio", "physics", "gui", "serde"]
 
 [lib]
 crate-type = ["lib", "cdylib"]

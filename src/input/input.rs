@@ -57,6 +57,7 @@ pub struct InputEvent {
     trigger: InputTrigger,
     pressed: bool,
     start: Instant,
+    cycles: u32
 }
 
 impl InputEvent {
@@ -65,11 +66,17 @@ impl InputEvent {
             trigger,
             pressed: true,
             start: Instant::now(),
+            cycles: 1
         }
     }
 
-    pub fn normalize(&mut self) {
+    pub fn update(&mut self) {
         self.pressed = false;
+        self.cycles += 1;
+    }
+
+    pub fn cycles(&self) -> u32 {
+        self.cycles
     }
 
     pub fn held_time(&self) -> Duration {
@@ -89,10 +96,9 @@ impl InputEvent {
 pub struct Input {
     cursor_raw: Vector<u32>,
     touches: FxHashMap<u64, Vector<u32>>,
-    triggers: FxHashMap<InputTrigger, InputEvent>,
+    events: FxHashMap<InputTrigger, InputEvent>,
     modifiers: Modifier,
     wheel_delta: f32,
-    staged_keys: Vec<Key>,
     #[cfg(feature = "gamepad")]
     game_pad_manager: Option<Gilrs>,
 }
@@ -102,16 +108,15 @@ impl Input {
         Self {
             cursor_raw: Vector::new(0, 0),
             touches: Default::default(),
-            triggers: Default::default(),
+            events: Default::default(),
             modifiers: Default::default(),
-            staged_keys: vec![],
             wheel_delta: 0.0,
             #[cfg(feature = "gamepad")]
             game_pad_manager: Gilrs::new().ok(),
         }
     }
 
-    pub(crate) fn event(&mut self, event: &WindowEvent) {
+    pub(crate) fn on_event(&mut self, event: &WindowEvent) {
         match event {
             WindowEvent::CursorMoved { position, .. } => {
                 self.cursor_raw = Vector::new(position.x as u32, position.y as u32);
@@ -123,12 +128,12 @@ impl Input {
                     TouchPhase::Started => {
                         let trigger = ScreenTouch.into();
                         self.touches.insert(touch.id, pos);
-                        self.triggers.insert(trigger, InputEvent::new(trigger));
+                        self.events.insert(trigger, InputEvent::new(trigger));
                     }
                     TouchPhase::Ended | TouchPhase::Cancelled => {
                         let trigger = ScreenTouch.into();
                         self.touches.remove(&touch.id);
-                        self.triggers.remove(&trigger);
+                        self.events.remove(&trigger);
                     }
                     TouchPhase::Moved => {
                         if let Some(touch) = self.touches.get_mut(&touch.id) {
@@ -140,15 +145,14 @@ impl Input {
             WindowEvent::KeyboardInput { input, .. } => match input.virtual_keycode {
                 Some(key) => {
                     let trigger = key.into();
-                    self.staged_keys.push(key);
                     match input.state {
                         ElementState::Pressed => {
-                            if !self.triggers.contains_key(&trigger) {
-                                self.triggers.insert(trigger, InputEvent::new(trigger));
+                            if !self.events.contains_key(&trigger) {
+                                self.events.insert(trigger, InputEvent::new(trigger));
                             }
                         }
                         ElementState::Released => {
-                            self.triggers.remove(&trigger);
+                            self.events.remove(&trigger);
                         }
                     }
                 }
@@ -158,10 +162,10 @@ impl Input {
                 let trigger = (*button).into();
                 match state {
                     ElementState::Pressed => {
-                        self.triggers.insert(trigger, InputEvent::new(trigger));
+                        self.events.insert(trigger, InputEvent::new(trigger));
                     }
                     ElementState::Released => {
-                        self.triggers.remove(&trigger);
+                        self.events.remove(&trigger);
                     }
                 }
             }
@@ -170,10 +174,10 @@ impl Input {
                     self.wheel_delta = *y;
                     // if *y > 0.0 {
                     //     let trigger =
-                    //     self.triggers.insert(trigger, InputEvent::new(trigger));
+                    //     self.events.insert(trigger, InputEvent::new(trigger));
                     // } else if *y < 0.0 {
                     //     let trigger = key.into();
-                    //     self.triggers.insert(trigger, InputEvent::new(trigger));
+                    //     self.events.insert(trigger, InputEvent::new(trigger));
                     // }
                 }
                 MouseScrollDelta::PixelDelta(delta) => {
@@ -189,33 +193,32 @@ impl Input {
 
     pub(crate) fn update(&mut self) {
         self.wheel_delta = 0.0;
-        self.staged_keys.clear();
 
-        for trigger in self.triggers.values_mut() {
-            trigger.normalize();
+        for trigger in self.events.values_mut() {
+            trigger.update();
         }
     }
 
     pub fn is_pressed(&self, trigger: impl Into<InputTrigger>) -> bool {
-        match self.triggers.get(&trigger.into()) {
+        match self.events.get(&trigger.into()) {
             Some(i) => return i.is_pressed(),
             None => false,
         }
     }
 
     pub fn is_held(&self, trigger: impl Into<InputTrigger>) -> bool {
-        return self.triggers.contains_key(&trigger.into());
+        return self.events.contains_key(&trigger.into());
     }
 
     pub fn held_time(&self, trigger: impl Into<InputTrigger>) -> f32 {
-        match self.triggers.get(&trigger.into()) {
+        match self.events.get(&trigger.into()) {
             Some(i) => return i.held_time().as_secs_f32(),
             None => 0.0,
         }
     }
 
     pub fn held_time_duration(&self, trigger: impl Into<InputTrigger>) -> Option<Duration> {
-        match self.triggers.get(&trigger.into()) {
+        match self.events.get(&trigger.into()) {
             Some(i) => return Some(i.held_time()),
             None => None,
         }
@@ -235,14 +238,6 @@ impl Input {
             return game_pad_manager.connected_gamepad(gamepad_id);
         }
         return None;
-    }
-
-    pub fn staged_keys(&self) -> &[Key] {
-        &self.staged_keys
-    }
-
-    pub const fn triggers(&self) -> &FxHashMap<InputTrigger, InputEvent> {
-        &self.triggers
     }
 
     pub const fn modifiers(&self) -> Modifier {
@@ -292,6 +287,14 @@ impl Input {
             touches.push((*id, self.compute_cursor(window_size, *raw, camera)));
         }
         return touches;
+    }
+    
+    pub fn events(&self) -> impl Iterator<Item=(&InputTrigger, &InputEvent)> {
+        self.events.iter()
+    }
+
+    pub fn event(&self, trigger: impl Into<InputTrigger>) -> Option<&InputEvent> {
+        self.events.get(&trigger.into())
     }
 
     // Setters

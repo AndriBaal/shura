@@ -7,7 +7,10 @@ use std::{
 };
 
 #[cfg(feature = "physics")]
-use crate::{physics::{Collider, ColliderHandle, RigidBody, RigidBodyHandle, World}, ComponentTypeId};
+use crate::{
+    physics::{Collider, ColliderHandle, RigidBody, RigidBodyHandle, World},
+    ComponentTypeId,
+};
 
 /// Easily create a [BaseComponent] with a position and render_scale.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

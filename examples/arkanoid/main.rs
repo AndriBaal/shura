@@ -5,10 +5,17 @@ pub const GAME_SCENE_ID: u32 = 2;
 
 fn main() {
     Shura::init(NewScene::new(MENU_SCENE_ID, |ctx| {
+        ctx.set_global_state(Arkanoid {
+            font: ctx.create_font(include_bytes!("./font/open_sans_bold.ttf")),
+        });
         let button = StartButton::new(ctx);
         ctx.set_vsync(true);
-        ctx.create_component(button);
+        ctx.add_component(button);
     }));
+}
+
+pub struct Arkanoid {
+    font: Font
 }
 
 #[derive(Component)]
@@ -25,8 +32,8 @@ impl StartButton {
         ctx.set_window_title("Arkanoid");
         ctx.set_camera_horizontal_fov(5.0);
         ctx.set_physics_priority(None);
-        let text = ctx.create_text(TextDescriptor {
-            font: ctx.create_font(include_bytes!("")),
+        let text = ctx.gpu.create_text(TextDescriptor {
+            font: &mut ctx.global_state_mut::<Arkanoid>().unwrap().font,
             size: Vector::new(600, 200),
             clear_color: Some(Color::new_rgba(0, 0, 0, 255)),
             sections: vec![TextSection {
@@ -68,9 +75,10 @@ impl ComponentController for StartButton {
     fn render<'a>(
         active: ComponentPath<Self>,
         ctx: &'a Context<'a>,
-        renderer: &mut Renderer<'a>,
-        _all_instances: Instances,
+        config: RenderConfig<'a>,
+        encoder: &mut RenderEncoder,
     ) {
+        let (_, mut renderer) = encoder.renderer(config);
         for (instance, button) in ctx.path_render(&active).iter() {
             renderer.render_sprite(&button.model, &button.text);
             renderer.commit(instance);

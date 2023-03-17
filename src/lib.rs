@@ -1,3 +1,12 @@
+#![deny(
+    warnings,
+    trivial_casts,
+    trivial_numeric_casts,
+    unstable_features,
+    unused_import_braces,
+    unused_qualifications,
+)]
+
 //! shura - A safe 2D game engine to easily create manageable games
 //!
 //! shura is a safe, fast and cross-platform 2D component-based game framework written in rust. shura helps you to manage big games with a component system, scene managing and its group system.
@@ -44,7 +53,10 @@ mod shura_core;
 pub use instant::Duration;
 pub use shura_proc::*;
 
-pub(crate) use {component::controller_caller::*, data::arena::*, data::arena_path::*, scene::context::ShuraFields};
+pub(crate) use {
+    component::controller_caller::*, data::arena::*, data::arena_path::*,
+    scene::context::ShuraFields,
+};
 
 pub use crate::{
     component::{
@@ -101,7 +113,7 @@ pub mod physics {
         ImpulseJointHandle, InteractionGroups, LockedAxes, MassProperties, MotorModel,
         PrismaticJoint, QueryFilter, QueryFilterFlags, Ray, RayIntersection, RevoluteJoint,
         RevoluteJointBuilder, RigidBody, RigidBodyActivation, RigidBodyBuilder, RigidBodyHandle,
-        RigidBodyType, Shape, ShapeType, SharedShape, SpacialVector, TypedShape, TOI
+        RigidBodyType, Shape, ShapeType, SharedShape, SpacialVector, TypedShape, TOI,
     };
 }
 
@@ -135,6 +147,14 @@ pub mod gamepad {
 // serde
 #[cfg(feature = "serde")]
 pub use crate::scene::scene_serde::*;
+
+// animation
+#[cfg(feature = "animation")]
+mod tween;
+#[cfg(feature = "animation")]
+pub mod animation {
+    pub use crate::tween::{ease::*, tween::*};
+}
 
 pub mod na {
     pub use nalgebra::*;

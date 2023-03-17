@@ -13,6 +13,8 @@ impl Default for ModelBuilder {
             vertex_scale: Self::DEFAULT_SCALE,
             tex_coord_offset: Isometry::new(Self::DEFAULT_OFFSET, Self::DEFAULT_ROTATION),
             tex_coord_scale: Self::DEFAULT_SCALE,
+            vertex_rotation_axis: Vector::new(0.0, 0.0),
+            tex_coord_rotation_axis: Vector::new(0.5, 0.5),
         }
     }
 }
@@ -27,6 +29,8 @@ pub struct ModelBuilder {
     pub tex_coord_offset: Isometry<f32>,
     pub vertex_scale: Vector<f32>,
     pub tex_coord_scale: Vector<f32>,
+    pub vertex_rotation_axis: Vector<f32>,
+    pub tex_coord_rotation_axis: Vector<f32>,
 }
 
 impl ModelBuilder {
@@ -469,6 +473,11 @@ impl ModelBuilder {
         self
     }
 
+    pub fn vertex_rotation_axis(mut self, rotation_axis: Vector<f32>) -> Self {
+        self.vertex_rotation_axis = rotation_axis;
+        self
+    }
+
     pub fn tex_coord_scale(mut self, scale: Vector<f32>) -> Self {
         self.tex_coord_scale = scale;
         self
@@ -489,6 +498,11 @@ impl ModelBuilder {
         self
     }
 
+    pub fn tex_coord_rotation_axis(mut self, rotation_axis: Vector<f32>) -> Self {
+        self.tex_coord_rotation_axis = rotation_axis;
+        self
+    }
+
     pub fn apply_modifiers(&mut self) {
         Self::compute_modifed_vertices(
             &mut self.vertices,
@@ -496,6 +510,8 @@ impl ModelBuilder {
             self.tex_coord_offset,
             self.vertex_scale,
             self.tex_coord_scale,
+            self.vertex_rotation_axis,
+            self.tex_coord_rotation_axis
         )
     }
 
@@ -505,6 +521,8 @@ impl ModelBuilder {
         tex_coord_offset: Isometry<f32>,
         vertex_scale: Vector<f32>,
         tex_coord_scale: Vector<f32>,
+        vertex_rotation_axis: Vector<f32>,
+        tex_coord_rotation_axis: Vector<f32>,
     ) {
         fn rotate_point_around_origin(
             origin: Vector<f32>,
@@ -530,7 +548,7 @@ impl ModelBuilder {
         if angle != Self::DEFAULT_ROTATION {
             for v in vertices.iter_mut() {
                 v.pos = rotate_point_around_origin(
-                    Vector::new(0.0, 0.0),
+                    vertex_rotation_axis,
                     v.pos,
                     vertex_offset.rotation,
                 );
@@ -554,7 +572,7 @@ impl ModelBuilder {
         if angle != Self::DEFAULT_ROTATION {
             for v in vertices.iter_mut() {
                 v.tex_coords = rotate_point_around_origin(
-                    Vector::new(0.5, 0.5), // Center of Metal Texture
+                    tex_coord_rotation_axis, // Center of Metal Texture
                     v.tex_coords,
                     tex_coord_offset.rotation,
                 );
@@ -576,6 +594,8 @@ impl ModelBuilder {
             self.tex_coord_offset,
             self.vertex_scale,
             self.tex_coord_scale,
+            self.vertex_rotation_axis,
+            self.tex_coord_rotation_axis
         );
 
         let vertex_buffer = gpu

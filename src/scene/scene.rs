@@ -1,5 +1,4 @@
-use crate::{ComponentManager, Context, ScreenConfig, Vector, WorldCamera, ShuraFields};
-
+use crate::{ComponentManager, Context, ScreenConfig, ShuraFields, Vector, WorldCamera};
 
 pub trait SceneCreator {
     fn id(&self) -> u32;

@@ -1,10 +1,11 @@
 use crate::{
-    Camera, Color, ComponentController, ComponentGroup, ComponentGroupDescriptor, ComponentHandle,
-    ComponentManager, ComponentPath, ComponentSet, ComponentSetMut, ComponentSetRender,
-    DynamicComponent, FrameManager, Gpu, GpuDefaults, GroupFilter, Input, InputEvent, InputTrigger,
-    InstanceBuffer, Isometry, Key, Matrix, Model, ModelBuilder, Modifier, RenderConfig,
-    RenderEncoder, RenderTarget, Rotation, Scene,  SceneManager, ScreenConfig, Shader,
-    ShaderConfig, Shura, Sprite, SpriteSheet, Uniform, Vector, WorldCamera, SceneCreator, CameraBuffer, ComponentTypeId
+    Camera, CameraBuffer, Color, ComponentController, ComponentGroup, ComponentGroupDescriptor,
+    ComponentHandle, ComponentManager, ComponentPath, ComponentSet, ComponentSetMut,
+    ComponentSetRender, ComponentTypeId, DynamicComponent, FrameManager, Gpu, GpuDefaults,
+    GroupFilter, Input, InputEvent, InputTrigger, InstanceBuffer, Isometry, Matrix, Model,
+    ModelBuilder, Modifier, RenderConfig, RenderEncoder, RenderTarget, Rotation, Scene,
+    SceneCreator, SceneManager, ScreenConfig, Shader, ShaderConfig, Shura, Sprite, SpriteSheet,
+    Uniform, Vector, WorldCamera,
 };
 
 macro_rules! Where {
@@ -41,7 +42,6 @@ use crate::text::{Font, TextDescriptor};
 use crate::gamepad::*;
 
 use instant::{Duration, Instant};
-use rustc_hash::FxHashMap;
 
 pub struct ShuraFields<'a> {
     pub frame_manager: &'a FrameManager,
@@ -218,6 +218,7 @@ impl<'a> Context<'a> {
         #[cfg(feature = "physics")]
         {
             use std::mem;
+            use rustc_hash::FxHashMap;
             let (components, body_handles) = serializer.finish();
             let mut world = self.component_manager.world.borrow_mut();
             let mut world_cpy = world.clone();
@@ -558,12 +559,12 @@ impl<'a> Context<'a> {
         self.input.held_time_duration(trigger)
     }
 
-    pub fn triggers(&self) -> &FxHashMap<InputTrigger, InputEvent> {
-        self.input.triggers()
+    pub fn events(&self) -> impl Iterator<Item = (&InputTrigger, &InputEvent)> {
+        self.input.events()
     }
 
-    pub fn staged_keys(&self) -> &[Key] {
-        self.input.staged_keys()
+    pub fn event(&self, trigger: impl Into<InputTrigger>) -> Option<&InputEvent> {
+        self.input.event(trigger)
     }
 
     pub const fn modifiers(&self) -> Modifier {

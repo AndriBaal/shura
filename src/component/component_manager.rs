@@ -9,12 +9,10 @@ use crate::{
 use instant::Instant;
 use log::info;
 use rustc_hash::{FxHashMap, FxHashSet};
+#[cfg(feature = "physics")]
+use std::cell::{Ref, RefCell, RefMut};
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
-#[cfg(feature = "physics")]
-use std::{
-    cell::{Ref, RefCell, RefMut},
-};
 
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Ord, Eq)]
 pub enum GroupFilter<'a> {
