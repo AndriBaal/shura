@@ -1,13 +1,11 @@
-use std::any::Any;
-
 #[cfg(feature = "gui")]
 use crate::gui::Gui;
 #[cfg(feature = "physics")]
 use crate::physics::{ActiveEvents, CollideType};
 use crate::{
-    scene::context::ShuraFields, Context, FrameManager, Gpu, GpuDefaults, Input, InstanceIndex,
-    RenderConfig, RenderEncoder, RenderOperation, Renderer, Scene, SceneCreator, SceneManager,
-    Vector,
+    scene::context::ShuraFields, Context, FrameManager, GlobalState, Gpu, GpuDefaults, Input,
+    InstanceIndex, RenderConfig, RenderEncoder, RenderOperation, Renderer, Scene, SceneCreator,
+    SceneManager, Vector,
 };
 use log::{error, info};
 #[cfg(target_os = "android")]
@@ -20,14 +18,9 @@ impl Drop for Shura {
     fn drop(&mut self) {
         for (_, scene) in self.scene_manager.end_scenes() {
             let scene = &mut scene.unwrap();
+            let end = scene.state.end;
             let mut ctx = Context::new(self, scene);
-            for (_, type_id) in ctx.component_manager.end_callbacks() {
-                let paths = ctx.component_manager.all_paths(type_id);
-                if paths.len() > 0 {
-                    let callbacks = ctx.component_manager.component_callbacks(&type_id);
-                    (callbacks.call_end)(&paths, &mut ctx);
-                }
-            }
+            end(&mut ctx);
         }
     }
 }
@@ -39,7 +32,7 @@ pub struct Shura {
     pub(crate) window: winit::window::Window,
     pub(crate) input: Input,
     pub(crate) gpu: Gpu,
-    pub(crate) global_state: Box<dyn Any>,
+    pub(crate) global_state: GlobalState,
     pub(crate) defaults: GpuDefaults,
     #[cfg(feature = "gui")]
     pub(crate) gui: Gui,
@@ -135,6 +128,7 @@ impl Shura {
         events.run(move |event, _target, control_flow| {
             use winit::event::{Event, WindowEvent};
             if let Some(shura) = &mut shura {
+                shura.global_state.inner.winit_event(&event);
                 if !shura.end {
                     match event {
                         Event::WindowEvent {
@@ -234,7 +228,7 @@ impl Shura {
             scene_manager: SceneManager::new(creator.id()),
             frame_manager: FrameManager::new(),
             input: Input::new(),
-            global_state: Box::new(()),
+            global_state: GlobalState::new(()),
             #[cfg(feature = "audio")]
             audio,
             #[cfg(feature = "audio")]
@@ -358,6 +352,7 @@ impl Shura {
         }
 
         {
+            let state_update = scene.state.update;
             let mut ctx = Context::new(self, scene);
             #[cfg(feature = "physics")]
             let (mut done_step, physics_priority) = {
@@ -370,6 +365,7 @@ impl Shura {
             let now = ctx.update_time();
             {
                 let sets = ctx.component_manager.copy_active_components();
+                state_update(&mut ctx);
                 for set in sets.values() {
                     if set.paths().len() == 0 {
                         continue;
@@ -419,7 +415,7 @@ impl Shura {
             return Ok(());
         }
 
-        if scene.resized || scene.screen_config.vsync_changed {
+        if scene.switched || scene.resized || scene.screen_config.vsync_changed {
             scene.screen_config.vsync_changed = false;
             self.gpu.apply_vsync(scene.screen_config.vsync());
         }
@@ -497,8 +493,7 @@ impl Shura {
 
         #[cfg(feature = "gui")]
         {
-            self.gui
-                .render(&self.gpu, &mut encoder.inner, &output_view);
+            self.gui.render(&self.gpu, &mut encoder.inner, &output_view);
         }
 
         encoder.submit(&self.gpu);

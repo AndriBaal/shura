@@ -8,29 +8,42 @@ use bincode::{
 use rustc_hash::FxHashMap;
 #[cfg(feature = "physics")]
 use rustc_hash::FxHashSet;
-use serde::{de::Visitor, Deserializer};
+use serde::{de::Visitor, Deserializer, Serialize};
 use std::{cmp, marker::PhantomData};
 
 use crate::{
     Arena, ArenaEntry, ComponentController, ComponentManager, ComponentTypeId, Context,
-    DynamicComponent, GroupFilter, Scene, SceneCreator, ShuraFields, Vector,
+    DynamicComponent, GlobalState, GroupFilter, Scene, SceneCreator, SceneState, ShuraFields,
+    Vector, GlobalStateController, SceneStateController
 };
 
-pub struct ComponentSerializer<'a> {
+pub struct SceneSerializer<'a> {
     component_manager: &'a ComponentManager,
+    global_state: &'a GlobalState,
+    scene_state: &'a SceneState,
     organized_components:
         FxHashMap<ComponentTypeId, Vec<(u32 /* Group id */, Vec<Option<(u32, Vec<u8>)>>)>>,
     #[cfg(feature = "physics")]
     body_handles: FxHashSet<RigidBodyHandle>,
+    ser_scene_state: Option<Vec<u8>>,
+    ser_global_state: Option<Vec<u8>>,
 }
 
-impl<'a> ComponentSerializer<'a> {
-    pub(crate) fn new(component_manager: &'a ComponentManager) -> Self {
+impl<'a> SceneSerializer<'a> {
+    pub(crate) fn new(
+        component_manager: &'a ComponentManager,
+        global_state: &'a GlobalState,
+        scene_state: &'a SceneState,
+    ) -> Self {
         Self {
             component_manager,
             #[cfg(feature = "physics")]
             body_handles: Default::default(),
             organized_components: Default::default(),
+            global_state,
+            scene_state,
+            ser_scene_state: None,
+            ser_global_state: None,
         }
     }
 
@@ -40,8 +53,15 @@ impl<'a> ComponentSerializer<'a> {
     ) -> (
         FxHashMap<ComponentTypeId, Vec<(u32, Vec<Option<(u32, Vec<u8>)>>)>>,
         FxHashSet<RigidBodyHandle>,
+        Option<Vec<u8>>,
+        Option<Vec<u8>>,
     ) {
-        (self.organized_components, self.body_handles)
+        (
+            self.organized_components,
+            self.body_handles,
+            self.ser_scene_state,
+            self.ser_global_state,
+        )
     }
 
     #[cfg(not(feature = "physics"))]
@@ -97,33 +117,43 @@ impl<'a> ComponentSerializer<'a> {
         }
         self.organized_components.insert(type_id, target);
     }
+
+    pub fn serialize_global_state<G: GlobalStateController + Serialize>(&mut self) {
+        self.ser_global_state =
+            bincode::serialize(self.global_state.get::<G>().unwrap()).ok();
+    }
+
+    pub fn serialize_scene_state<S: SceneStateController + Serialize>(&mut self) {
+        self.ser_scene_state =
+            bincode::serialize(self.scene_state.get::<S>().unwrap()).ok();
+    }
 }
 
-pub struct SerializedScene<N: 'static + FnMut(&mut Context, &mut ComponentDeserializer)> {
+pub struct SerializedScene<N: 'static + FnMut(&mut Context, &mut SceneDeserializer)> {
     pub id: u32,
     pub scene: Vec<u8>,
     pub init: N,
 }
 
-impl<N: 'static + FnMut(&mut Context, &mut ComponentDeserializer)> SerializedScene<N> {
+impl<N: 'static + FnMut(&mut Context, &mut SceneDeserializer)> SerializedScene<N> {
     pub fn new(id: u32, scene: Vec<u8>, init: N) -> SerializedScene<N> {
         Self { id, scene, init }
     }
 }
 
-impl<N: 'static + FnMut(&mut Context, &mut ComponentDeserializer)> SceneCreator
-    for SerializedScene<N>
-{
+impl<N: 'static + FnMut(&mut Context, &mut SceneDeserializer)> SceneCreator for SerializedScene<N> {
     fn id(&self) -> u32 {
         self.id
     }
 
     fn create(mut self, shura: ShuraFields) -> Scene {
-        let (mut scene, components): (
+        let (mut scene, components, scene_state, global_state): (
             Scene,
             FxHashMap<ComponentTypeId, Vec<(u32, Vec<Option<(u32, Vec<u8>)>>)>>,
+            Option<Vec<u8>>,
+            Option<Vec<u8>>,
         ) = bincode::deserialize(&self.scene).unwrap();
-        let mut de = ComponentDeserializer::new(components);
+        let mut de = SceneDeserializer::new(components, scene_state, global_state);
         let mint: mint::Vector2<u32> = shura.window.inner_size().into();
         let window_size: Vector<u32> = mint.into();
         let window_ratio = window_size.x as f32 / window_size.y as f32;
@@ -138,15 +168,23 @@ impl<N: 'static + FnMut(&mut Context, &mut ComponentDeserializer)> SceneCreator
 }
 
 #[derive(serde::Deserialize)]
-pub struct ComponentDeserializer {
+pub struct SceneDeserializer {
     components: FxHashMap<ComponentTypeId, Vec<(u32, Vec<Option<(u32, Vec<u8>)>>)>>,
+    scene_state: Option<Vec<u8>>,
+    global_state: Option<Vec<u8>>,
 }
 
-impl ComponentDeserializer {
+impl SceneDeserializer {
     pub(crate) fn new(
         components: FxHashMap<ComponentTypeId, Vec<(u32, Vec<Option<(u32, Vec<u8>)>>)>>,
+        scene_state: Option<Vec<u8>>,
+        global_state: Option<Vec<u8>>,
     ) -> Self {
-        Self { components }
+        Self {
+            components,
+            scene_state,
+            global_state,
+        }
     }
 
     pub(crate) fn finish(&self) {
@@ -207,7 +245,7 @@ impl ComponentDeserializer {
     pub fn deserialize_components_with<C: ComponentController>(
         &mut self,
         ctx: &mut Context,
-        mut de: impl for<'de> FnMut(DeserializeWrapper<'de, C>, &'de Context<'de>) -> C,
+        mut de: impl for<'de> FnMut(ComponentDeserializer<'de, C>, &'de Context<'de>) -> C,
     ) {
         let type_id = C::IDENTIFIER;
         let components = self.components.remove(&type_id).unwrap();
@@ -221,7 +259,7 @@ impl ComponentDeserializer {
                 let item = match component {
                     Some((gen, data)) => {
                         generation = cmp::max(generation, gen);
-                        let wrapper = DeserializeWrapper::new(&data);
+                        let wrapper = ComponentDeserializer::new(&data);
                         #[allow(unused_mut)]
                         let mut component: DynamicComponent = Box::new((de)(wrapper, ctx));
                         #[cfg(feature = "physics")]
@@ -249,9 +287,33 @@ impl ComponentDeserializer {
                 .deserialize_components(components);
         }
     }
+
+    pub fn deserialize_global_state<G: GlobalStateController + serde::de::DeserializeOwned>(
+        &mut self,
+        ctx: &mut Context,
+    ) {
+        if let Some(global_state) = self.global_state.take() {
+            let de: G = bincode::deserialize(&global_state).unwrap();
+            ctx.set_global_state(de);
+        }
+    }
+
+    pub fn deserialize_scene_state<S: SceneStateController + serde::de::DeserializeOwned>(
+        &mut self,
+        ctx: &mut Context,
+    ) {
+        if let Some(scene_state) = self.scene_state.take() {
+            let de: S = bincode::deserialize(&scene_state).unwrap();
+            ctx.set_scene_state(de);
+        }
+    }
+
+    pub fn deserialize_global_state_with(&mut self) {}
+
+    pub fn deserialize_scene_state_with(&mut self) {}
 }
 
-pub struct DeserializeWrapper<'de, C: ComponentController> {
+pub struct ComponentDeserializer<'de, C: ComponentController> {
     de: bincode::Deserializer<
         SliceReader<'de>,
         WithOtherTrailing<WithOtherIntEncoding<DefaultOptions, FixintEncoding>, AllowTrailing>,
@@ -259,7 +321,7 @@ pub struct DeserializeWrapper<'de, C: ComponentController> {
     _marker: PhantomData<C>,
 }
 
-impl<'de, C: ComponentController> DeserializeWrapper<'de, C> {
+impl<'de, C: ComponentController> ComponentDeserializer<'de, C> {
     pub(crate) fn new(data: &'de [u8]) -> Self {
         let options = bincode::DefaultOptions::new()
             .with_fixint_encoding()
@@ -271,7 +333,8 @@ impl<'de, C: ComponentController> DeserializeWrapper<'de, C> {
         }
     }
 
-    pub fn deserialize(&mut self, visitor: impl Visitor<'de, Value = C>) -> C {
+    pub fn deserialize(mut self, visitor: impl Visitor<'de, Value = C>) -> C {
         self.de.deserialize_struct("", C::FIELDS, visitor).unwrap()
     }
 }
+

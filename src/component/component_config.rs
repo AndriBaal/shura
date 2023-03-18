@@ -12,17 +12,6 @@ pub enum RenderOperation {
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-/// Describes if the end method of the [ComponentController](crate::ComponentController) should be called
-/// when the [Scene](crate::Scene) is destroyed, by either deleting it or the window closing.
-pub enum EndOperation {
-    /// No operation will be called.
-    None,
-    /// end method gets called of the [ComponentController](crate::ComponentController) with all components of this type in the [ComponentPath](crate::ComponentPath).
-    AllComponents,
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// Describes when the [Matrix](crate::RenderMatrix) of the components should be bufferd.
 pub enum BufferOperation {
     /// Manual buffering by calling [force_buffer](`crate::Context::force_buffer()`). This is used when you have component that dont
@@ -75,21 +64,15 @@ pub enum PostproccessOperation {
 pub struct ComponentConfig {
     /// Describes the order in which components are processed
     pub priority: i16,
-    // pub camera: CameraUse,
-    // pub postproccess: PostproccessOperation,
     pub update: UpdateOperation,
     pub render: RenderOperation,
     pub buffer: BufferOperation,
-    pub end: EndOperation,
 }
 
 pub const DEFAULT_CONFIG: ComponentConfig = ComponentConfig {
     buffer: BufferOperation::EveryFrame,
     update: UpdateOperation::EveryFrame,
     render: RenderOperation::EveryFrame,
-    end: EndOperation::None,
-    // camera: CameraUse::World,
-    // postproccess: PostproccessOperation::Never,
     priority: 16,
 };
 

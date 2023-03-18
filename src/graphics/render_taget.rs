@@ -86,7 +86,7 @@ impl RenderTarget {
         &self,
         gpu: &Gpu,
         defaults: &GpuDefaults,
-        compute: impl for<'any> Fn(&mut RenderEncoder, RenderConfig<'any>, [Where!('caller >= 'any); 0]),
+        mut compute: impl for<'any> FnMut(&mut RenderEncoder, RenderConfig<'any>, [Where!('caller >= 'any); 0]),
     ) {
         let mut encoder = RenderEncoder::new(gpu);
         let config = RenderConfig {

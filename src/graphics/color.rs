@@ -34,7 +34,7 @@ impl Color {
         b: 0.0,
         a: 1.0,
     };
-    pub const GREEN: Self = Self {
+    pub const LIME: Self = Self {
         r: 0.0,
         g: 1.0,
         b: 0.0,
@@ -43,6 +43,60 @@ impl Color {
     pub const BLUE: Self = Self {
         r: 0.0,
         g: 0.0,
+        b: 1.0,
+        a: 1.0,
+    };
+    pub const SILVER: Self = Self {
+        r: 0.75,
+        g: 0.75,
+        b: 0.75,
+        a: 1.0,
+    };
+    pub const GRAY: Self = Self {
+        r: 0.5,
+        g: 0.5,
+        b: 0.5,
+        a: 1.0,
+    };
+    pub const BROWN: Self = Self {
+        r: 0.55,
+        g: 0.27,
+        b: 0.07,
+        a: 1.0,
+    };
+    pub const PURPLE: Self = Self {
+        r: 0.5,
+        g: 0.0,
+        b: 0.5,
+        a: 1.0,
+    };
+    pub const PINK: Self = Self {
+        r: 1.0,
+        g: 0.0,
+        b: 1.0,
+        a: 1.0,
+    };
+    pub const GREEN: Self = Self {
+        r: 0.0,
+        g: 0.5,
+        b: 0.0,
+        a: 1.0,
+    };
+    pub const YELLOW: Self = Self {
+        r: 1.0,
+        g: 1.0,
+        b: 0.0,
+        a: 1.0,
+    };
+    pub const NAVY: Self = Self {
+        r: 0.0,
+        g: 0.0,
+        b: 0.5,
+        a: 1.0,
+    };
+    pub const CYAN: Self = Self {
+        r: 0.0,
+        g: 1.0,
         b: 1.0,
         a: 1.0,
     };

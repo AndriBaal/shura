@@ -39,7 +39,7 @@ mod graphics;
 mod input;
 mod math;
 mod scene;
-mod shura_core;
+mod shura;
 
 pub use instant::Duration;
 pub use shura_proc::*;
@@ -62,8 +62,8 @@ pub use crate::{
     },
     input::input::*,
     math::{math::*, matrix::*},
-    scene::{context::Context, scene::*, scene_manager::*},
-    shura_core::*,
+    scene::{context::Context, scene::*, scene_manager::*, state::*},
+    shura::*,
 };
 
 /// Access to [wgpu](https://github.com/gfx-rs/wgpu) for creating custom graphics.

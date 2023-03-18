@@ -15,6 +15,7 @@ impl FontBrush {
     pub fn new(gpu: &Gpu, bytes: &'static [u8]) -> FontBrush {
         let font = ab_glyph::FontArc::try_from_slice(bytes).unwrap();
         let brush = GlyphBrushBuilder::using_font(font)
+            // .multisample_state(gpu.base.multisample_state)
             .build(&gpu.device, gpu.config.format);
         Self {brush}
     }

@@ -72,8 +72,6 @@ where
         encoder: &mut RenderEncoder,
     ) {
     }
-
-    fn end(all: ComponentPath<Self>, ctx: &mut Context) {}
 }
 
 impl<C: ComponentController + ?Sized> ComponentDerive for Box<C> {

@@ -3,15 +3,15 @@ use crate::physics::World;
 use crate::{
     Arena, ArenaEntry, ArenaIndex, ArenaPath, Camera, ComponentCallbacks, ComponentCluster,
     ComponentController, ComponentGroup, ComponentGroupDescriptor, ComponentHandle, ComponentPath,
-    ComponentSet, ComponentSetMut, ComponentSetRender, ComponentTypeId, DynamicComponent,
-    EndOperation, Gpu, GroupActivation, DEFAULT_GROUP_ID,
+    ComponentSet, ComponentSetMut, ComponentSetRender, ComponentTypeId, DynamicComponent, Gpu,
+    GroupActivation, DEFAULT_GROUP_ID,
 };
 use instant::Instant;
 use log::info;
 use rustc_hash::{FxHashMap, FxHashSet};
 #[cfg(feature = "physics")]
 use std::cell::{Ref, RefCell, RefMut};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::rc::Rc;
 
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Ord, Eq)]
@@ -31,7 +31,6 @@ impl<'a> Default for GroupFilter<'a> {
 /// Access to the component system.
 pub struct ComponentManager {
     render_components: bool,
-    end_callbacks: BTreeSet<(i16, ComponentTypeId)>,
     id_counter: u32,
     force_update_sets: bool,
     group_map: FxHashMap<u32, ArenaIndex>,
@@ -79,7 +78,6 @@ impl ComponentManager {
             force_update_sets: false,
             active_components: Default::default(),
             component_callbacks: Default::default(),
-            end_callbacks: Default::default(),
 
             #[cfg(feature = "physics")]
             world: Rc::new(RefCell::new(World::new())),
@@ -162,23 +160,6 @@ impl ComponentManager {
         }
     }
 
-    pub(crate) fn end_callbacks(&mut self) -> impl Iterator<Item = (i16, ComponentTypeId)> {
-        self.end_callbacks.clone().into_iter()
-    }
-
-    pub(crate) fn all_paths(&self, type_id: ComponentTypeId) -> Vec<ArenaPath> {
-        let mut result = vec![];
-        for (group_index, group) in &self.groups {
-            if let Some(type_index) = group.type_index(type_id) {
-                result.push(ArenaPath {
-                    group_index,
-                    type_index: *type_index,
-                })
-            }
-        }
-        return result;
-    }
-
     pub fn force_buffer<C: ComponentController>(&mut self, filter: GroupFilter) {
         let type_id = C::IDENTIFIER;
         match filter {
@@ -228,7 +209,6 @@ impl ComponentManager {
     ) -> (&mut C, ComponentHandle) {
         let group_id = group_id.unwrap_or(DEFAULT_GROUP_ID);
         let type_id = C::IDENTIFIER;
-        let config = C::CONFIG;
         let group_index = self
             .group_map
             .get(&group_id)
@@ -237,9 +217,6 @@ impl ComponentManager {
 
         self.component_callbacks
             .insert(type_id, ComponentCallbacks::new::<C>());
-        if config.end == EndOperation::AllComponents {
-            self.end_callbacks.insert((config.priority, type_id));
-        }
 
         let handle;
         if let Some(type_index) = group.type_index(type_id).cloned() {

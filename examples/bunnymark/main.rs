@@ -5,59 +5,35 @@ fn main() {
     Shura::init(NewScene {
         id: 1,
         init: |ctx| {
-            let manager = BunnyManager::new(ctx);
-            ctx.set_global_state(BunnyRessources::new(ctx));
-            ctx.add_component(manager);
+            ctx.set_scene_state(BunnyState::new(ctx));
+            ctx.set_clear_color(Some(Color::new_rgba(220, 220, 220, 255)));
+            ctx.set_window_size(Vector::new(800, 600));
+            ctx.set_camera_vertical_fov(6.0);
+            ctx.add_component(Bunny::new(&ctx));
         },
     });
 }
 
-struct BunnyRessources {
+struct BunnyState {
+    screenshot: Option<RenderTarget>,
     bunny_model: Model,
     bunny_sprite: Sprite,
 }
 
-impl BunnyRessources {
+impl BunnyState {
     pub fn new(ctx: &Context) -> Self {
         let bunny_model = ctx.create_model(ModelBuilder::cuboid(Vector::new(0.06, 0.09)));
         let bunny_sprite = ctx.create_sprite(include_bytes!("./img/wabbit.png"));
-        BunnyRessources {
+        BunnyState {
+            screenshot: None,
             bunny_model,
             bunny_sprite,
         }
     }
 }
 
-#[derive(Component)]
-struct BunnyManager {
-    #[component]
-    component: BaseComponent,
-    screenshot: Option<RenderTarget>,
-}
-
-impl BunnyManager {
-    pub fn new(ctx: &mut Context) -> BunnyManager {
-        ctx.set_clear_color(Some(Color::new_rgba(220, 220, 220, 255)));
-        ctx.set_window_size(Vector::new(800, 600));
-        ctx.set_camera_vertical_fov(6.0);
-        ctx.add_component(Bunny::new(&ctx));
-
-        #[cfg(target_os = "android")]
-        ctx.set_render_scale(0.667);
-        BunnyManager {
-            component: Default::default(),
-            screenshot: None,
-        }
-    }
-}
-
-impl ComponentController for BunnyManager {
-    const CONFIG: ComponentConfig = ComponentConfig {
-        priority: 1000,
-        buffer: BufferOperation::Never,
-        ..DEFAULT_CONFIG
-    };
-    fn update(path: ComponentPath<Self>, ctx: &mut Context) {
+impl SceneStateController for BunnyState {
+    fn update(ctx: &mut Context) {
         const MODIFY_STEP: usize = 1500;
         gui::Window::new("bunnymark")
             .anchor(gui::Align2::LEFT_TOP, gui::Vec2::default())
@@ -97,29 +73,16 @@ impl ComponentController for BunnyManager {
         }
 
         let window_size = ctx.window_size();
-        for bunny in ctx.component_manager.path_mut(&path).iter() {
-            if let Some(screenshot) = bunny.screenshot.take() {
-                shura::log::info!("Taking Screenshot!");
-                screenshot.sprite().save(&ctx.gpu, "test.png").ok();
-            } else if ctx.input.is_pressed(Key::S) {
-                bunny.screenshot = Some(ctx.gpu.create_render_target(window_size));
-            }
-        }
-    }
-
-    fn render<'a>(
-        active: ComponentPath<Self>,
-        ctx: &'a Context<'a>,
-        config: RenderConfig<'a>,
-        encoder: &mut RenderEncoder,
-    ) {
-        for bunny in &ctx.path(&active) {
-            if let Some(screenshot) = &bunny.screenshot {
-                encoder.copy_target(&config, &screenshot);
-            }
+        let bunny_state = ctx.scene_state.get_mut::<Self>().unwrap();
+        if let Some(screenshot) = bunny_state.screenshot.take() {
+            shura::log::info!("Taking Screenshot!");
+            screenshot.sprite().save(&ctx.gpu, "test.png").ok();
+        } else if ctx.input.is_pressed(Key::S) {
+            bunny_state.screenshot = Some(ctx.gpu.create_render_target(window_size));
         }
     }
 }
+
 
 #[derive(Component)]
 struct Bunny {
@@ -181,9 +144,16 @@ impl ComponentController for Bunny {
         config: RenderConfig<'a>,
         encoder: &mut RenderEncoder,
     ) {
-        let (instances, mut renderer) = encoder.renderer(&config);
-        let state = ctx.global_state::<BunnyRessources>().unwrap();
-        renderer.render_sprite(&state.bunny_model, &state.bunny_sprite);
-        renderer.commit(instances);
+
+        let bunny_state = ctx.scene_state::<BunnyState>().unwrap();
+        {
+            let (instances, mut renderer) = encoder.renderer(&config);
+            renderer.render_sprite(&bunny_state.bunny_model, &bunny_state.bunny_sprite);
+            renderer.commit(instances);
+        }
+
+        if let Some(screenshot) = &bunny_state.screenshot {
+            encoder.copy_target(&config, &screenshot);
+        }
     }
 }

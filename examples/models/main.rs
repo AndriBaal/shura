@@ -16,7 +16,7 @@ fn main() {
                 0.25,
                 10,
             )),
-            ctx.create_uniform(Color::BLUE),
+            ctx.create_uniform(Color::CYAN),
         ));
 
         ctx.add_component(ModelTest::new(
@@ -26,7 +26,7 @@ fn main() {
                 Vector::new(-0.5, -0.5),
                 Vector::new(0.5, -0.5),
             )),
-            ctx.create_uniform(Color::BLUE),
+            ctx.create_uniform(Color::BROWN),
         ));
 
         ctx.add_component(ModelTest::new(
@@ -40,13 +40,13 @@ fn main() {
                 0.15,
                 10,
             )),
-            ctx.create_uniform(Color::BLUE),
+            ctx.create_uniform(Color::LIME),
         ));
 
         ctx.add_component(ModelTest::new(
             Vector::new(-3.0, 1.0),
             ctx.create_model(ModelBuilder::regular_polygon(0.5, 32)),
-            ctx.create_uniform(Color::BLUE),
+            ctx.create_uniform(Color::NAVY),
         ));
 
         ctx.add_component(ModelTest::new(
@@ -56,7 +56,7 @@ fn main() {
                 0.15,
                 5,
             )),
-            ctx.create_uniform(Color::BLUE),
+            ctx.create_uniform(Color::SILVER),
         ));
 
         ctx.add_component(ModelTest::new(
@@ -66,7 +66,7 @@ fn main() {
                 Vector::new(-0.5, -0.5),
                 0.2,
             )),
-            ctx.create_uniform(Color::BLUE),
+            ctx.create_uniform(Color::GRAY),
         ));
 
         ctx.add_component(ModelTest::new(
@@ -76,7 +76,7 @@ fn main() {
                 0.2,
                 5,
             )),
-            ctx.create_uniform(Color::BLUE),
+            ctx.create_uniform(Color::PURPLE),
         ));
 
         ctx.add_component(ModelTest::new(
@@ -89,13 +89,13 @@ fn main() {
                     5,
                 ),
             ])),
-            ctx.create_uniform(Color::BLUE),
+            ctx.create_uniform(Color::PINK),
         ));
 
         ctx.add_component(ModelTest::new(
             Vector::new(-1.0, -1.0),
             ctx.create_model(ModelBuilder::star(5, 0.2, 0.8)),
-            ctx.create_uniform(Color::BLUE),
+            ctx.create_uniform(Color::RED),
         ));
     }))
 }

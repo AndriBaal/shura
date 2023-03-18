@@ -27,7 +27,6 @@ where
         config: RenderConfig<'a>,
         encoder: &mut RenderEncoder,
     );
-    fn call_end(paths: &[ArenaPath], ctx: &mut Context);
 }
 
 impl<C: ComponentController> ComponentControllerCaller for C {
@@ -42,10 +41,6 @@ impl<C: ComponentController> ComponentControllerCaller for C {
 
     fn call_update(paths: &[ArenaPath], ctx: &mut Context) {
         C::update(ComponentPath::new(paths), ctx)
-    }
-
-    fn call_end(paths: &[ArenaPath], ctx: &mut Context) {
-        C::end(ComponentPath::new(paths), ctx)
     }
 
     #[cfg(feature = "physics")]
@@ -70,7 +65,6 @@ impl<C: ComponentController> ComponentControllerCaller for C {
 
 #[derive(Copy, Clone)]
 pub(crate) struct ComponentCallbacks {
-    pub call_end: fn(paths: &[ArenaPath], ctx: &mut Context),
     pub call_update: fn(paths: &[ArenaPath], ctx: &mut Context),
     #[cfg(feature = "physics")]
     pub call_collision: fn(
@@ -92,7 +86,6 @@ pub(crate) struct ComponentCallbacks {
 impl ComponentCallbacks {
     pub fn new<C: ComponentController>() -> Self {
         return Self {
-            call_end: C::call_end,
             call_update: C::call_update,
             #[cfg(feature = "physics")]
             call_collision: C::call_collision,
