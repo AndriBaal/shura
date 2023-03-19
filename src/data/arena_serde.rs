@@ -5,9 +5,9 @@ use core::cmp;
 use core::fmt;
 use core::iter;
 use core::marker::PhantomData;
-use serde::Serialize;
 use serde::de::{Deserialize, Deserializer, SeqAccess, Visitor};
 use serde::ser::Serializer;
+use serde::Serialize;
 
 impl Serialize for ArenaIndex {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>

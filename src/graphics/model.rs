@@ -511,7 +511,7 @@ impl ModelBuilder {
             self.vertex_scale,
             self.tex_coord_scale,
             self.vertex_rotation_axis,
-            self.tex_coord_rotation_axis
+            self.tex_coord_rotation_axis,
         )
     }
 
@@ -547,11 +547,8 @@ impl ModelBuilder {
         let angle = vertex_offset.rotation.angle();
         if angle != Self::DEFAULT_ROTATION {
             for v in vertices.iter_mut() {
-                v.pos = rotate_point_around_origin(
-                    vertex_rotation_axis,
-                    v.pos,
-                    vertex_offset.rotation,
-                );
+                v.pos =
+                    rotate_point_around_origin(vertex_rotation_axis, v.pos, vertex_offset.rotation);
             }
         }
 
@@ -595,7 +592,7 @@ impl ModelBuilder {
             self.vertex_scale,
             self.tex_coord_scale,
             self.vertex_rotation_axis,
-            self.tex_coord_rotation_axis
+            self.tex_coord_rotation_axis,
         );
 
         let vertex_buffer = gpu

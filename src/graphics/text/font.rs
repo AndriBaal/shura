@@ -2,13 +2,13 @@ use crate::Gpu;
 
 /// Font that can be rendered onto a [sprite](crate::Sprite).
 pub use wgpu_glyph::BuiltInLineBreaker as DefaultLineBreaker;
+pub use wgpu_glyph::FontId;
 pub use wgpu_glyph::Layout as LineBreaker;
 pub use wgpu_glyph::Text;
-pub use wgpu_glyph::FontId;
-use wgpu_glyph::{ab_glyph, GlyphBrushBuilder, GlyphBrush};
+use wgpu_glyph::{ab_glyph, GlyphBrush, GlyphBrushBuilder};
 
 pub struct FontBrush {
-    pub brush: GlyphBrush<()>
+    pub brush: GlyphBrush<()>,
 }
 
 impl FontBrush {
@@ -17,7 +17,7 @@ impl FontBrush {
         let brush = GlyphBrushBuilder::using_font(font)
             // .multisample_state(gpu.base.multisample_state)
             .build(&gpu.device, gpu.config.format);
-        Self {brush}
+        Self { brush }
     }
 
     pub fn add_font(&mut self, bytes: &'static [u8]) -> FontId {

@@ -15,7 +15,7 @@ fn main() {
 }
 
 pub struct Arkanoid {
-    font: Font
+    font: Font,
 }
 
 #[derive(Component)]

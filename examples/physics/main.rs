@@ -9,16 +9,12 @@ fn main() {
             id: 1,
             scene: save_game,
             init: |ctx, s| {
-                s.deserialize_components_with(ctx, |mut w, ctx| {
-                    w.deserialize(FloorVisitor { ctx })
-                });
-                s.deserialize_components_with(ctx, |mut w, ctx| {
-                    w.deserialize(PlayerVisitor { ctx })
-                });
-                s.deserialize_components_with(ctx, |mut w, ctx| {
-                    w.deserialize(BoxManagerVisitor { ctx })
-                });
+                s.deserialize_components_with(ctx, |w, ctx| w.deserialize(FloorVisitor { ctx }));
+                s.deserialize_components_with(ctx, |w, ctx| w.deserialize(PlayerVisitor { ctx }));
                 s.deserialize_components::<PhysicsBox>(ctx);
+                s.deserialize_scene_state_with(ctx, |w, ctx| {
+                    w.deserialize(PhysicsStateVisitor { ctx })
+                });
             },
         })
     } else {
@@ -29,12 +25,13 @@ fn main() {
                 const MINIMAL_SPACING: f32 = 0.1;
                 ctx.set_camera_horizontal_fov(10.0);
                 ctx.set_gravity(Vector::new(0.00, -9.81));
+                ctx.set_scene_state(PhysicsState::new(ctx));
 
                 for x in -PYRAMID_ELEMENTS..PYRAMID_ELEMENTS {
                     for y in 0..(PYRAMID_ELEMENTS - x.abs()) {
                         ctx.add_component(PhysicsBox::new(Vector::new(
-                            x as f32 * (BoxManager::HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING),
-                            y as f32 * (BoxManager::HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING * 2.0),
+                            x as f32 * (PhysicsBox::HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING),
+                            y as f32 * (PhysicsBox::HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING * 2.0),
                         )));
                     }
                 }
@@ -42,14 +39,13 @@ fn main() {
                 let (_, player_handle) = ctx.add_component(Player::new(ctx));
                 ctx.set_camera_target(Some(player_handle));
                 ctx.add_component(Floor::new(ctx));
-                ctx.add_component(BoxManager::new(ctx));
             },
         })
     };
 }
 
-#[derive(Component, serde::Serialize)]
-struct BoxManager {
+#[derive(State, serde::Serialize)]
+struct PhysicsState {
     #[serde(skip)]
     default_color: Uniform<Color>,
     #[serde(skip)]
@@ -62,18 +58,14 @@ struct BoxManager {
     component: BaseComponent,
 }
 
-impl BoxManager {
-    const HALF_BOX_SIZE: f32 = 0.3;
-    const BOX_SHAPE: Cuboid = Cuboid {
-        half_extents: Vector::new(BoxManager::HALF_BOX_SIZE, BoxManager::HALF_BOX_SIZE),
-    };
+impl PhysicsState {
     pub fn new(ctx: &Context) -> Self {
         Self {
             default_color: ctx.create_uniform(Color::new_rgba(0, 255, 0, 255)),
             collision_color: ctx.create_uniform(Color::new_rgba(255, 0, 0, 255)),
             hover_color: ctx.create_uniform(Color::new_rgba(0, 0, 255, 255)),
             box_model: ctx.create_model(ModelBuilder::from_collider_shape(
-                &Self::BOX_SHAPE,
+                &PhysicsBox::BOX_SHAPE,
                 0,
                 0.0,
             )),
@@ -85,9 +77,9 @@ impl BoxManager {
         info!("Serializing scene!");
         let ser = ctx
             .serialize(|s| {
+                s.serialize_scene_state::<Self>();
                 s.serialize_components::<Floor>(GroupFilter::All);
                 s.serialize_components::<Player>(GroupFilter::All);
-                s.serialize_components::<BoxManager>(GroupFilter::All);
                 s.serialize_components::<PhysicsBox>(GroupFilter::All);
             })
             .unwrap();
@@ -95,14 +87,8 @@ impl BoxManager {
     }
 }
 
-impl ComponentController for BoxManager {
-    const CONFIG: ComponentConfig = ComponentConfig {
-        priority: 1,
-        render: RenderOperation::Never,
-        end: EndOperation::AllComponents,
-        ..DEFAULT_CONFIG
-    };
-    fn update(_active: ComponentPath<Self>, ctx: &mut Context) {
+impl SceneState for PhysicsState {
+    fn update(ctx: &mut Context) {
         let scroll = ctx.wheel_delta();
         let fov = ctx.camera_fov();
         if scroll != 0.0 {
@@ -116,8 +102,8 @@ impl ComponentController for BoxManager {
                 .intersection_with_shape(
                     &cursor_pos,
                     &Cuboid::new(Vector::new(
-                        BoxManager::HALF_BOX_SIZE,
-                        BoxManager::HALF_BOX_SIZE,
+                        PhysicsBox::HALF_BOX_SIZE,
+                        PhysicsBox::HALF_BOX_SIZE,
                     )),
                     Default::default(),
                 )
@@ -132,7 +118,7 @@ impl ComponentController for BoxManager {
         }
     }
 
-    fn end(_all: ComponentPath<Self>, ctx: &mut Context) {
+    fn end(ctx: &mut Context) {
         Self::serialize_scene(ctx);
     }
 }
@@ -154,8 +140,8 @@ impl Player {
         radius: Self::RADIUS,
     };
     pub fn new(ctx: &Context) -> Self {
-        let collider =
-            ColliderBuilder::new(SharedShape::new(Self::SHAPE)).active_events(ActiveEvents::COLLISION_EVENTS);
+        let collider = ColliderBuilder::new(SharedShape::new(Self::SHAPE))
+            .active_events(ActiveEvents::COLLISION_EVENTS);
         Self {
             sprite: ctx.create_sprite(include_bytes!("./img/burger.png")),
             model: ctx.create_model(ModelBuilder::from_collider_shape(
@@ -287,6 +273,10 @@ struct PhysicsBox {
 }
 
 impl PhysicsBox {
+    const HALF_BOX_SIZE: f32 = 0.3;
+    const BOX_SHAPE: Cuboid = Cuboid {
+        half_extents: Vector::new(PhysicsBox::HALF_BOX_SIZE, PhysicsBox::HALF_BOX_SIZE),
+    };
     pub fn new(position: Vector<f32>) -> Self {
         Self {
             collided: false,
@@ -294,7 +284,7 @@ impl PhysicsBox {
             component: BaseComponent::new_rigid_body(
                 RigidBodyBuilder::dynamic().translation(position),
                 vec![ColliderBuilder::new(SharedShape::new(
-                    BoxManager::BOX_SHAPE,
+                    PhysicsBox::BOX_SHAPE,
                 ))],
             ),
         }
@@ -309,22 +299,17 @@ impl ComponentController for PhysicsBox {
         encoder: &mut RenderEncoder,
     ) {
         let (_, mut renderer) = encoder.renderer(&config);
-        let manager = ctx
-            .components::<BoxManager>(GroupFilter::All)
-            .iter()
-            .next()
-            .unwrap();
-
+        let state = ctx.scene_state::<PhysicsState>().unwrap();
         for (instance, physics_box) in &ctx.path_render(&active) {
             let color: &Uniform<Color>;
             if physics_box.collided {
-                color = &manager.collision_color;
+                color = &state.collision_color;
             } else if physics_box.hovered {
-                color = &manager.hover_color;
+                color = &state.hover_color;
             } else {
-                color = &manager.default_color;
+                color = &state.default_color;
             }
-            renderer.render_color(&manager.box_model, color);
+            renderer.render_color(&state.box_model, color);
             renderer.commit(instance);
         }
     }
@@ -415,30 +400,30 @@ impl<'de, 'a> serde::de::Visitor<'de> for PlayerVisitor<'a> {
     }
 }
 
-struct BoxManagerVisitor<'a> {
+struct PhysicsStateVisitor<'a> {
     ctx: &'a Context<'a>,
 }
 
-impl<'de, 'a> serde::de::Visitor<'de> for BoxManagerVisitor<'a> {
-    type Value = BoxManager;
+impl<'de, 'a> serde::de::Visitor<'de> for PhysicsStateVisitor<'a> {
+    type Value = PhysicsState;
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("A BoxManager")
+        formatter.write_str("A PhysicsState")
     }
 
-    fn visit_seq<V>(self, mut seq: V) -> Result<BoxManager, V::Error>
+    fn visit_seq<V>(self, mut seq: V) -> Result<PhysicsState, V::Error>
     where
         V: serde::de::SeqAccess<'de>,
     {
         let component: BaseComponent = seq
             .next_element()?
             .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
-        Ok(BoxManager {
+        Ok(PhysicsState {
             component,
             default_color: self.ctx.create_uniform(Color::new_rgba(0, 255, 0, 255)),
             collision_color: self.ctx.create_uniform(Color::new_rgba(255, 0, 0, 255)),
             hover_color: self.ctx.create_uniform(Color::new_rgba(0, 0, 255, 255)),
             box_model: self.ctx.create_model(ModelBuilder::from_collider_shape(
-                &BoxManager::BOX_SHAPE,
+                &PhysicsBox::BOX_SHAPE,
                 0,
                 0.0,
             )),

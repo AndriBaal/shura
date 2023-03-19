@@ -249,8 +249,10 @@ impl ComponentManager {
     }
 
     pub fn add_group(&mut self, descriptor: &ComponentGroupDescriptor) {
+        assert!(self.group_map.contains_key(&descriptor.id) == false);
         let group = ComponentGroup::new(descriptor);
         let index = self.groups.insert(group);
+        self.force_update_sets = true;
         self.group_map.insert(descriptor.id, index);
     }
 

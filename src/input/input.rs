@@ -57,7 +57,7 @@ pub struct InputEvent {
     trigger: InputTrigger,
     pressed: bool,
     start: Instant,
-    cycles: u32
+    cycles: u32,
 }
 
 impl InputEvent {
@@ -66,7 +66,7 @@ impl InputEvent {
             trigger,
             pressed: true,
             start: Instant::now(),
-            cycles: 1
+            cycles: 1,
         }
     }
 
@@ -288,8 +288,8 @@ impl Input {
         }
         return touches;
     }
-    
-    pub fn events(&self) -> impl Iterator<Item=(&InputTrigger, &InputEvent)> {
+
+    pub fn events(&self) -> impl Iterator<Item = (&InputTrigger, &InputEvent)> {
         self.events.iter()
     }
 

@@ -9,6 +9,10 @@ use crate::{
 };
 use downcast_rs::*;
 
+pub trait FieldNames {
+    const FIELDS: &'static [&'static str];
+}
+
 /// Dynamic component, that can be downcasted to any [ComponentDerive](crate::ComponentDerive)
 /// using downcast_ref or downcast_mut.
 pub type DynamicComponent = Box<dyn ComponentDerive>;

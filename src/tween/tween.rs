@@ -105,10 +105,7 @@ impl Tweenable for TweenSequence {
         self.elapsed
     }
 
-    fn tick(
-        &mut self,
-        mut delta: Duration
-    ) -> TweenState {
+    fn tick(&mut self, mut delta: Duration) -> TweenState {
         self.elapsed = self.elapsed.saturating_add(delta).min(self.duration);
         while self.index < self.tweens.len() {
             let tween = &mut self.tweens[self.index];
@@ -196,7 +193,6 @@ impl Tween {
         self.direction = direction;
         self
     }
-
 
     pub fn start(&self) -> Isometry<f32> {
         self.start

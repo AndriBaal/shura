@@ -62,7 +62,12 @@ pub use crate::{
     },
     input::input::*,
     math::{math::*, matrix::*},
-    scene::{context::Context, scene::*, scene_manager::*, state::*},
+    scene::{
+        context::Context,
+        scene::*,
+        scene_manager::*,
+        state::{GlobalState, SceneState},
+    },
     shura::*,
 };
 

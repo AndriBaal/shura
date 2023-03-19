@@ -32,7 +32,7 @@ impl BunnyState {
     }
 }
 
-impl SceneStateController for BunnyState {
+impl SceneState for BunnyState {
     fn update(ctx: &mut Context) {
         const MODIFY_STEP: usize = 1500;
         gui::Window::new("bunnymark")
@@ -73,7 +73,7 @@ impl SceneStateController for BunnyState {
         }
 
         let window_size = ctx.window_size();
-        let bunny_state = ctx.scene_state.get_mut::<Self>().unwrap();
+        let bunny_state = ctx.scene_state.downcast_mut::<Self>().unwrap();
         if let Some(screenshot) = bunny_state.screenshot.take() {
             shura::log::info!("Taking Screenshot!");
             screenshot.sprite().save(&ctx.gpu, "test.png").ok();
@@ -82,7 +82,6 @@ impl SceneStateController for BunnyState {
         }
     }
 }
-
 
 #[derive(Component)]
 struct Bunny {
@@ -144,7 +143,6 @@ impl ComponentController for Bunny {
         config: RenderConfig<'a>,
         encoder: &mut RenderEncoder,
     ) {
-
         let bunny_state = ctx.scene_state::<BunnyState>().unwrap();
         {
             let (instances, mut renderer) = encoder.renderer(&config);

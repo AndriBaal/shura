@@ -48,16 +48,15 @@ impl RenderEncoder {
         });
     }
 
-    pub fn renderer<'a>(&'a mut self, config: &RenderConfig<'a>) -> (InstanceIndices, Renderer<'a>) {
+    pub fn renderer<'a>(
+        &'a mut self,
+        config: &RenderConfig<'a>,
+    ) -> (InstanceIndices, Renderer<'a>) {
         Renderer::new(self, config)
     }
 
     #[cfg(feature = "text")]
-    pub fn render_text(
-        &mut self,
-        config: &RenderConfig,
-        descriptor: TextDescriptor,
-    ) {
+    pub fn render_text(&mut self, config: &RenderConfig, descriptor: TextDescriptor) {
         let gpu = config.gpu;
         let target = config.target;
         let target_size = target.size();
@@ -65,7 +64,7 @@ impl RenderEncoder {
         if let Some(color) = descriptor.clear_color {
             self.clear_target(target, color);
         }
-        
+
         for section in descriptor.sections {
             descriptor.font.brush.queue(section.to_glyph_section());
         }

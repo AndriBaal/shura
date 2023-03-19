@@ -18,7 +18,7 @@ impl Drop for Shura {
     fn drop(&mut self) {
         for (_, scene) in self.scene_manager.end_scenes() {
             let scene = &mut scene.unwrap();
-            let end = scene.state.end;
+            let end = scene.state.get_end();
             let mut ctx = Context::new(self, scene);
             end(&mut ctx);
         }
@@ -32,7 +32,7 @@ pub struct Shura {
     pub(crate) window: winit::window::Window,
     pub(crate) input: Input,
     pub(crate) gpu: Gpu,
-    pub(crate) global_state: GlobalState,
+    pub(crate) global_state: Box<dyn GlobalState>,
     pub(crate) defaults: GpuDefaults,
     #[cfg(feature = "gui")]
     pub(crate) gui: Gui,
@@ -128,7 +128,7 @@ impl Shura {
         events.run(move |event, _target, control_flow| {
             use winit::event::{Event, WindowEvent};
             if let Some(shura) = &mut shura {
-                shura.global_state.inner.winit_event(&event);
+                shura.global_state.winit_event(&event);
                 if !shura.end {
                     match event {
                         Event::WindowEvent {
@@ -228,7 +228,7 @@ impl Shura {
             scene_manager: SceneManager::new(creator.id()),
             frame_manager: FrameManager::new(),
             input: Input::new(),
-            global_state: GlobalState::new(()),
+            global_state: Box::new(()),
             #[cfg(feature = "audio")]
             audio,
             #[cfg(feature = "audio")]
@@ -352,7 +352,7 @@ impl Shura {
         }
 
         {
-            let state_update = scene.state.update;
+            let state_update = scene.state.get_update();
             let mut ctx = Context::new(self, scene);
             #[cfg(feature = "physics")]
             let (mut done_step, physics_priority) = {

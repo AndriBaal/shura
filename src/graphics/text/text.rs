@@ -17,7 +17,7 @@ pub struct TextDescriptor<'a> {
 }
 
 impl<'a> TextSection<'a> {
-   pub fn to_glyph_section(self) -> wgpu_glyph::Section<'a> {
+    pub fn to_glyph_section(self) -> wgpu_glyph::Section<'a> {
         wgpu_glyph::Section {
             screen_position: (self.position.x, self.position.y),
             bounds: (self.bounds.x, self.bounds.y),
@@ -37,4 +37,3 @@ impl<'a> Default for TextSection<'a> {
         }
     }
 }
-

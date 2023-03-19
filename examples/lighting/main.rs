@@ -1,4 +1,3 @@
-use nalgebra::distance;
 use shura::{physics::*, *};
 use std::f32::consts::PI;
 
@@ -9,7 +8,7 @@ fn main() {
         id: 1,
         init: |ctx| {
             ctx.set_camera_vertical_fov(20.0);
-            ctx.set_global_state(GameState {
+            ctx.set_global_state(LightingState {
                 shadow_color: ctx.create_uniform(Color::BLACK),
                 inner_model: ctx.create_model(ModelBuilder::ball(0.5, 24)),
                 light_shader: ctx.create_shader(ShaderConfig {
@@ -25,7 +24,7 @@ fn main() {
                     shader_lang: ShaderLang::GLSL,
                     shader_fields: &[ShaderField::Uniform],
                     blend: BlendState::ALPHA_BLENDING,
-                    // blend: BlendState { 
+                    // blend: BlendState {
                     //     color: BlendComponent {
                     //         src_factor: BlendFactor::SrcAlpha,
                     //         dst_factor: BlendFactor::OneMinusSrcAlpha,
@@ -84,7 +83,8 @@ fn main() {
     });
 }
 
-struct GameState {
+impl GlobalState for LightingState {}
+struct LightingState {
     light_shader: Shader,
     shadow_shader: Shader,
     shadow_color: Uniform<Color>,
@@ -189,19 +189,6 @@ impl ComponentController for Light {
     };
 
     fn update(active: ComponentPath<Self>, ctx: &mut Context) {
-        fn rotate_point_around_origin(
-            origin: Vector<f32>,
-            delta: Vector<f32>,
-            rot: Rotation<f32>,
-        ) -> Vector<f32> {
-            let sin = rot.sin_angle();
-            let cos = rot.cos_angle();
-            return Vector::new(
-                origin.x + (delta.x) * cos - (delta.y) * sin,
-                origin.y + (delta.x) * sin + (delta.y) * cos,
-            );
-        }
-
         fn det(v1: Vector<f32>, v2: Vector<f32>) -> f32 {
             return v1.x * v2.y - v1.y * v2.x;
         }
@@ -341,7 +328,7 @@ impl ComponentController for Light {
         encoder: &mut RenderEncoder,
     ) {
         let (_, mut renderer) = encoder.renderer(&config);
-        let state = ctx.global_state::<GameState>().unwrap();
+        let state = ctx.global_state::<LightingState>().unwrap();
         renderer.use_shader(&state.light_shader);
         for (i, l) in ctx.path_render(&active).iter() {
             renderer.use_model(&l.light_model);

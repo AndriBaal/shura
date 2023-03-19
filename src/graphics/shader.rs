@@ -1,7 +1,7 @@
 use crate::{Gpu, Vertex};
 use std::borrow::Cow;
 
-pub use wgpu::{ColorWrites, BlendState, BlendComponent, BlendFactor, BlendOperation};
+pub use wgpu::{BlendComponent, BlendFactor, BlendOperation, BlendState, ColorWrites};
 
 pub struct ShaderConfig<'a> {
     pub fragment_source: &'a str,

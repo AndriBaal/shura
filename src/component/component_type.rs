@@ -18,7 +18,6 @@ impl ComponentTypeId {
 
 pub trait ComponentIdentifier {
     const TYPE_NAME: &'static str;
-    const FIELDS: &'static [&'static str];
     const IDENTIFIER: ComponentTypeId;
 }
 

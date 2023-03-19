@@ -13,14 +13,14 @@ use std::{cmp, marker::PhantomData};
 
 use crate::{
     Arena, ArenaEntry, ComponentController, ComponentManager, ComponentTypeId, Context,
-    DynamicComponent, GlobalState, GroupFilter, Scene, SceneCreator, SceneState, ShuraFields,
-    Vector, GlobalStateController, SceneStateController
+    DynamicComponent, FieldNames, GlobalState, GroupFilter, Scene, SceneCreator, SceneState,
+    ShuraFields, Vector,
 };
 
 pub struct SceneSerializer<'a> {
     component_manager: &'a ComponentManager,
-    global_state: &'a GlobalState,
-    scene_state: &'a SceneState,
+    global_state: &'a Box<dyn GlobalState>,
+    scene_state: &'a Box<dyn SceneState>,
     organized_components:
         FxHashMap<ComponentTypeId, Vec<(u32 /* Group id */, Vec<Option<(u32, Vec<u8>)>>)>>,
     #[cfg(feature = "physics")]
@@ -32,8 +32,8 @@ pub struct SceneSerializer<'a> {
 impl<'a> SceneSerializer<'a> {
     pub(crate) fn new(
         component_manager: &'a ComponentManager,
-        global_state: &'a GlobalState,
-        scene_state: &'a SceneState,
+        global_state: &'a Box<dyn GlobalState>,
+        scene_state: &'a Box<dyn SceneState>,
     ) -> Self {
         Self {
             component_manager,
@@ -118,14 +118,14 @@ impl<'a> SceneSerializer<'a> {
         self.organized_components.insert(type_id, target);
     }
 
-    pub fn serialize_global_state<G: GlobalStateController + Serialize>(&mut self) {
+    pub fn serialize_global_state<G: GlobalState + Serialize>(&mut self) {
         self.ser_global_state =
-            bincode::serialize(self.global_state.get::<G>().unwrap()).ok();
+            bincode::serialize(self.global_state.downcast_ref::<G>().unwrap()).ok();
     }
 
-    pub fn serialize_scene_state<S: SceneStateController + Serialize>(&mut self) {
+    pub fn serialize_scene_state<S: SceneState + Serialize>(&mut self) {
         self.ser_scene_state =
-            bincode::serialize(self.scene_state.get::<S>().unwrap()).ok();
+            bincode::serialize(self.scene_state.downcast_ref::<S>().unwrap()).ok();
     }
 }
 
@@ -242,10 +242,10 @@ impl SceneDeserializer {
         }
     }
 
-    pub fn deserialize_components_with<C: ComponentController>(
+    pub fn deserialize_components_with<C: ComponentController + FieldNames>(
         &mut self,
         ctx: &mut Context,
-        mut de: impl for<'de> FnMut(ComponentDeserializer<'de, C>, &'de Context<'de>) -> C,
+        mut de: impl for<'de> FnMut(DeserializeWrapper<'de, C>, &'de Context<'de>) -> C,
     ) {
         let type_id = C::IDENTIFIER;
         let components = self.components.remove(&type_id).unwrap();
@@ -259,7 +259,7 @@ impl SceneDeserializer {
                 let item = match component {
                     Some((gen, data)) => {
                         generation = cmp::max(generation, gen);
-                        let wrapper = ComponentDeserializer::new(&data);
+                        let wrapper = DeserializeWrapper::new(&data);
                         #[allow(unused_mut)]
                         let mut component: DynamicComponent = Box::new((de)(wrapper, ctx));
                         #[cfg(feature = "physics")]
@@ -288,7 +288,7 @@ impl SceneDeserializer {
         }
     }
 
-    pub fn deserialize_global_state<G: GlobalStateController + serde::de::DeserializeOwned>(
+    pub fn deserialize_global_state<G: GlobalState + serde::de::DeserializeOwned>(
         &mut self,
         ctx: &mut Context,
     ) {
@@ -298,7 +298,7 @@ impl SceneDeserializer {
         }
     }
 
-    pub fn deserialize_scene_state<S: SceneStateController + serde::de::DeserializeOwned>(
+    pub fn deserialize_scene_state<S: SceneState + serde::de::DeserializeOwned>(
         &mut self,
         ctx: &mut Context,
     ) {
@@ -308,20 +308,39 @@ impl SceneDeserializer {
         }
     }
 
-    pub fn deserialize_global_state_with(&mut self) {}
-
-    pub fn deserialize_scene_state_with(&mut self) {}
+    pub fn deserialize_global_state_with<G: GlobalState + FieldNames>(
+        &mut self,
+        ctx: &mut Context,
+        mut de: impl for<'de> FnMut(DeserializeWrapper<'de, G>, &'de Context<'de>) -> G,
+    ) {
+        if let Some(data) = self.global_state.take() {
+            let wrapper = DeserializeWrapper::new(&data);
+            let state: G = (de)(wrapper, ctx);
+            ctx.set_global_state(state);
+        }
+    }
+    pub fn deserialize_scene_state_with<S: SceneState + FieldNames>(
+        &mut self,
+        ctx: &mut Context,
+        mut de: impl for<'de> FnMut(DeserializeWrapper<'de, S>, &'de Context<'de>) -> S,
+    ) {
+        if let Some(data) = self.scene_state.take() {
+            let wrapper = DeserializeWrapper::new(&data);
+            let state: S = (de)(wrapper, ctx);
+            ctx.set_scene_state(state);
+        }
+    }
 }
 
-pub struct ComponentDeserializer<'de, C: ComponentController> {
+pub struct DeserializeWrapper<'de, F: FieldNames> {
     de: bincode::Deserializer<
         SliceReader<'de>,
         WithOtherTrailing<WithOtherIntEncoding<DefaultOptions, FixintEncoding>, AllowTrailing>,
     >,
-    _marker: PhantomData<C>,
+    _marker: PhantomData<F>,
 }
 
-impl<'de, C: ComponentController> ComponentDeserializer<'de, C> {
+impl<'de, F: FieldNames> DeserializeWrapper<'de, F> {
     pub(crate) fn new(data: &'de [u8]) -> Self {
         let options = bincode::DefaultOptions::new()
             .with_fixint_encoding()
@@ -329,12 +348,11 @@ impl<'de, C: ComponentController> ComponentDeserializer<'de, C> {
         let de = bincode::Deserializer::from_slice(&data, options);
         Self {
             de,
-            _marker: PhantomData::<C>,
+            _marker: PhantomData::<F>,
         }
     }
 
-    pub fn deserialize(mut self, visitor: impl Visitor<'de, Value = C>) -> C {
-        self.de.deserialize_struct("", C::FIELDS, visitor).unwrap()
+    pub fn deserialize(mut self, visitor: impl Visitor<'de, Value = F>) -> F {
+        self.de.deserialize_struct("", F::FIELDS, visitor).unwrap()
     }
 }
-

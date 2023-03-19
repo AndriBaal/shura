@@ -8,7 +8,7 @@ pub enum EaseMethod {
     Linear,
     /// Discrete interpolation, eased value will jump from start to end when
     /// stepping over the discrete limit.
-    Discrete(f32)
+    Discrete(f32),
 }
 
 impl EaseMethod {
