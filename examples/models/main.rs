@@ -2,7 +2,7 @@ use shura::*;
 
 fn main() {
     Shura::init(NewScene::new(1, |ctx| {
-        ctx.set_camera_vertical_fov(10.0);
+        ctx.set_camera_vertical_fov(5.0);
         ctx.add_component(ModelTest::new(
             Vector::new(-3.0, 3.0),
             ctx.create_model(ModelBuilder::cuboid(Vector::new(0.5, 0.5))),

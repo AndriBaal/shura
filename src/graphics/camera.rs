@@ -47,7 +47,7 @@ impl Camera {
 
         let translation = *self.translation();
         let rotation = *self.rotation();
-        let fov: Vector<f32> = (self.fov() / 2.0).into();
+        let fov = self.fov();
 
         let top_right = rotate_point_around_origin(translation, translation + fov, rotation);
         let bottom_left = rotate_point_around_origin(translation, translation - fov, rotation);
@@ -123,7 +123,7 @@ impl Camera {
     }
 
     pub fn create_buffer(&self, gpu: &Gpu) -> CameraBuffer {
-        let fov = self.fov() / 2.0;
+        let fov = self.fov();
         let view = self.view();
         let proj = self.proj();
         CameraBuffer {
@@ -133,7 +133,7 @@ impl Camera {
     }
 
     pub fn write_buffer(&self, gpu: &Gpu, buffer: &CameraBuffer) {
-        let fov = self.fov() / 2.0;
+        let fov = self.fov();
         let view = self.view();
         let proj = self.proj();
         let vertices = [

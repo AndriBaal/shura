@@ -106,10 +106,7 @@ impl Shura {
             use env_logger::Builder;
             use log::LevelFilter;
             Builder::new()
-                .filter_level(LevelFilter::Info)
-                .filter_module("wgpu", LevelFilter::Warn)
-                .filter_module("winit", LevelFilter::Warn)
-                .filter_module("symphonia_core", LevelFilter::Warn)
+                .filter(Some("shura"), LevelFilter::Info)
                 .init();
         }
 

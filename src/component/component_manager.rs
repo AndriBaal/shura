@@ -61,6 +61,7 @@ impl ComponentManager {
             id: DEFAULT_GROUP_ID,
             activation: GroupActivation::Always,
             enabled: true,
+            user_data: 0
         });
         let mut groups = Arena::default();
         let mut group_map = FxHashMap::default();
@@ -657,6 +658,28 @@ impl ComponentManager {
 
     pub fn group_ids(&self) -> impl Iterator<Item = &u32> {
         self.group_map.keys()
+    }
+
+    pub fn groups(&self) -> impl Iterator<Item=&ComponentGroup> {
+        self.groups.iter().map(|(_, group)| group)
+    }
+
+    pub fn groups_mut(&mut self) -> impl Iterator<Item=&mut ComponentGroup> {
+        self.groups.iter_mut().map(|(_, group)| group)
+    }
+
+    pub fn group_by_id(&self, id: u32) -> Option<&ComponentGroup> {
+        if let Some(group_index) = self.group_index(&id) {
+            return self.group(*group_index);
+        }
+        return None;
+    }
+
+    pub fn group_by_id_mut(&mut self, id: u32) -> Option<&mut ComponentGroup> {
+        if let Some(group_index) = self.group_index(&id) {
+            return self.group_mut(*group_index);
+        }
+        return None;
     }
 
     pub const fn render_components(&self) -> bool {

@@ -7,7 +7,7 @@ fn main() {
     Shura::init(NewScene {
         id: 1,
         init: |ctx| {
-            ctx.set_camera_vertical_fov(20.0);
+            ctx.set_camera_vertical_fov(10.0);
             ctx.set_global_state(LightingState {
                 shadow_color: ctx.create_uniform(Color::BLACK),
                 inner_model: ctx.create_model(ModelBuilder::ball(0.5, 24)),

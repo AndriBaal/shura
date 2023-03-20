@@ -1,4 +1,4 @@
-use crate::{Gpu, GpuDefaults, RenderConfig, RenderEncoder, Sprite, Vector};
+use crate::{Camera, Gpu, GpuDefaults, RenderConfig, RenderEncoder, Sprite, Vector};
 use std::ops::Deref;
 
 macro_rules! Where {
@@ -103,6 +103,15 @@ impl RenderTarget {
         };
         compute(&mut encoder, config, []);
         encoder.submit(gpu);
+    }
+
+    pub fn compute_target_size(half_extents: Vector<f32>, camera: &Camera, window_size: Vector<u32>) -> Vector<u32> {
+        let camera_fov = camera.fov() * 2.0;
+        let size = half_extents * 2.0;
+        return Vector::new(
+            (size.x / camera_fov.x * window_size.x as f32) as u32,
+            (size.y / camera_fov.y * window_size.y as f32) as u32,
+        );
     }
 
     // pub fn validate_webgl_size(mut size: Vector<u32>) -> Vector<u32> {

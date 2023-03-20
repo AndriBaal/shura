@@ -696,6 +696,7 @@ impl<'a> Context<'a> {
         return mint.into();
     }
 
+
     #[cfg(feature = "physics")]
     pub fn intersects_ray(&self, collider_handle: ColliderHandle, ray: Ray, max_toi: f32) -> bool {
         self.component_manager
@@ -856,10 +857,7 @@ impl<'a> Context<'a> {
     }
 
     pub fn group_mut(&mut self, id: u32) -> Option<&mut ComponentGroup> {
-        if let Some(group_index) = self.component_manager.group_index(&id) {
-            return self.component_manager.group_mut(*group_index);
-        }
-        return None;
+        self.component_manager.group_by_id_mut(id)
     }
 
     pub fn group(&self, id: u32) -> Option<&ComponentGroup> {
@@ -867,6 +865,14 @@ impl<'a> Context<'a> {
             return self.component_manager.group(*group_index);
         }
         return None;
+    }
+
+    pub fn groups(&self) -> impl Iterator<Item=&ComponentGroup> {
+        self.component_manager.groups()
+    }
+
+    pub fn groups_mut(&mut self) -> impl Iterator<Item=&mut ComponentGroup> {
+        self.component_manager.groups_mut()
     }
 
     pub fn active_scene(&self) -> u32 {

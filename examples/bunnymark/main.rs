@@ -8,7 +8,7 @@ fn main() {
             ctx.set_scene_state(BunnyState::new(ctx));
             ctx.set_clear_color(Some(Color::new_rgba(220, 220, 220, 255)));
             ctx.set_window_size(Vector::new(800, 600));
-            ctx.set_camera_vertical_fov(6.0);
+            ctx.set_camera_vertical_fov(3.0);
             ctx.add_component(Bunny::new(&ctx));
         },
     });
@@ -108,10 +108,10 @@ impl ComponentController for Bunny {
         ..DEFAULT_CONFIG
     };
     fn update(active: ComponentPath<Self>, ctx: &mut Context) {
-        let fov = ctx.camera_fov() / 2.0;
+        const GRAVITY: f32 = -2.5;
         let frame = ctx.frame_time();
+        let fov = ctx.camera_fov();
         for bunny in &mut ctx.path_mut(&active) {
-            const GRAVITY: f32 = -2.5;
             let mut linvel = bunny.linvel;
             let mut translation = bunny.translation();
 

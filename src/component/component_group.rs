@@ -10,6 +10,7 @@ pub struct ComponentGroupDescriptor {
     pub activation: GroupActivation,
     /// Describes if the group is enabled from the start.
     pub enabled: bool,
+    pub user_data: u64
 }
 
 /// Id of the default [ComponentGroup](crate::ComponentGroup). Components within this group are
@@ -21,7 +22,7 @@ pub const DEFAULT_GROUP_ID: u32 = u32::MAX / 2;
 pub enum GroupActivation {
     Position {
         position: Vector<f32>,
-        size: Vector<f32>,
+        half_extents: Vector<f32>,
     },
     Always,
 }
@@ -39,9 +40,10 @@ pub struct ComponentGroup {
     type_map: FxHashMap<ComponentTypeId, ArenaIndex>,
     types: Arena<ComponentType>,
     id: u32,
-    activation: GroupActivation,
     enabled: bool,
     active: bool,
+    pub activation: GroupActivation,
+    pub user_data: u64
 }
 
 impl ComponentGroup {
@@ -53,6 +55,7 @@ impl ComponentGroup {
             type_map: Default::default(),
             types: Default::default(),
             active: false,
+            user_data: descriptor.user_data
         }
     }
 
@@ -62,10 +65,9 @@ impl ComponentGroup {
         cam_top_right: Vector<f32>,
     ) -> bool {
         match &self.activation {
-            GroupActivation::Position { position, size } => {
-                let half_size = *size / 2.0;
-                let self_bl = Vector::new(position.x - half_size.x, position.y - half_size.y);
-                let self_tr = Vector::new(position.x + half_size.x, position.y + half_size.y);
+            GroupActivation::Position { position, half_extents } => {
+                let self_bl = Vector::new(position.x - half_extents.x, position.y - half_extents.y);
+                let self_tr = Vector::new(position.x + half_extents.x, position.y + half_extents.y);
                 return (cam_bottom_left.x < self_tr.x)
                     && (self_bl.x < cam_top_right.x)
                     && (cam_bottom_left.y < self_tr.y)
@@ -94,6 +96,10 @@ impl ComponentGroup {
     /// Set the activation of this group.
     pub fn set_activation(&mut self, activation: GroupActivation) {
         self.activation = activation;
+    }
+
+    pub fn set_user_data(&mut self, user_data: u64) {
+        self.user_data = user_data;
     }
 
     pub(crate) fn type_index(&self, type_id: ComponentTypeId) -> Option<&ArenaIndex> {
@@ -140,5 +146,9 @@ impl ComponentGroup {
     /// See if this group is active in the current cycle.
     pub const fn active(&self) -> bool {
         self.active
+    }
+
+    pub const fn user_data(&self) -> u64 {
+        self.user_data
     }
 }

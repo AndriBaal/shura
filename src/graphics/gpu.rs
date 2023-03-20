@@ -8,7 +8,7 @@ use crate::{
 use log::info;
 use std::borrow::Cow;
 use wgpu::BlendState;
-pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 1.0;
+pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 0.5;
 
 macro_rules! Where {
     (
@@ -118,16 +118,14 @@ impl Gpu {
         self.surface.configure(&self.device, &self.config);
     }
 
-    pub(crate) fn apply_vsync(&self, vsync: bool) {
+    pub(crate) fn apply_vsync(&mut self, vsync: bool) {
         let new_mode = if vsync {
             wgpu::PresentMode::AutoVsync
         } else {
             wgpu::PresentMode::AutoNoVsync
         };
-
-        if new_mode != self.config.present_mode {
-            self.surface.configure(&self.device, &self.config);
-        }
+        self.config.present_mode = new_mode;
+        self.surface.configure(&self.device, &self.config);
     }
 
     pub fn render_size(&self, scale: f32) -> Vector<u32> {
@@ -452,29 +450,28 @@ impl GpuDefaults {
 
         let yx = window_size.y as f32 / window_size.x as f32;
         let xy = window_size.x as f32 / window_size.y as f32;
-        let scale = yx.max(xy);
+        let scale = yx.max(xy) / 2.0;
         let fov = if window_size.x > window_size.y {
             Vector::new(scale, RELATIVE_CAMERA_SIZE)
         } else {
             Vector::new(RELATIVE_CAMERA_SIZE, scale)
         };
-        let half_fov = fov / 2.0;
 
         let relative_bottom_left_camera =
-            BufferedCamera::new(gpu, Camera::new(Isometry::new(half_fov, 0.0), fov));
+            BufferedCamera::new(gpu, Camera::new(Isometry::new(fov, 0.0), fov));
         let relative_bottom_right_camera = BufferedCamera::new(
             gpu,
             Camera::new(
-                Isometry::new(Vector::new(-half_fov.x, half_fov.y), 0.0),
+                Isometry::new(Vector::new(-fov.x, fov.y), 0.0),
                 fov,
             ),
         );
         let relative_top_right_camera =
-            BufferedCamera::new(gpu, Camera::new(Isometry::new(-half_fov, 0.0), fov));
+            BufferedCamera::new(gpu, Camera::new(Isometry::new(-fov, 0.0), fov));
         let relative_top_left_camera = BufferedCamera::new(
             gpu,
             Camera::new(
-                Isometry::new(Vector::new(half_fov.x, -half_fov.y), 0.0),
+                Isometry::new(Vector::new(fov.x, -fov.y), 0.0),
                 fov,
             ),
         );
@@ -513,32 +510,30 @@ impl GpuDefaults {
         self.apply_render_scale(&gpu, screen_config.render_scale());
         let yx = window_size.y as f32 / window_size.x as f32;
         let xy = window_size.x as f32 / window_size.y as f32;
-        let scale = yx.max(xy);
+        let scale = yx.max(xy) / 2.0;
         let fov = if window_size.x > window_size.y {
             Vector::new(scale, RELATIVE_CAMERA_SIZE)
         } else {
             Vector::new(RELATIVE_CAMERA_SIZE, scale)
         };
-        let half_fov = fov / 2.0;
         self.relative_bottom_left_camera
-            .write(gpu, Camera::new(Isometry::new(half_fov, 0.0), fov));
+            .write(gpu, Camera::new(Isometry::new(fov, 0.0), fov));
         self.relative_bottom_right_camera.write(
             gpu,
             Camera::new(
-                Isometry::new(Vector::new(-half_fov.x, half_fov.y), 0.0),
+                Isometry::new(Vector::new(-fov.x, fov.y), 0.0),
                 fov,
             ),
         );
         self.relative_top_right_camera
-            .write(gpu, Camera::new(Isometry::new(-half_fov, 0.0), fov));
+            .write(gpu, Camera::new(Isometry::new(-fov, 0.0), fov));
         self.relative_top_left_camera.write(
             gpu,
             Camera::new(
-                Isometry::new(Vector::new(half_fov.x, -half_fov.y), 0.0),
+                Isometry::new(Vector::new(fov.x, -fov.y), 0.0),
                 fov,
             ),
         );
-        println!("{fov}");
         self.relative_camera
             .write(gpu, Camera::new(Isometry::default(), fov));
     }

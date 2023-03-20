@@ -262,7 +262,7 @@ impl Input {
         cursor: Vector<u32>,
         camera: &Camera,
     ) -> Vector<f32> {
-        let fov = camera.fov();
+        let fov = camera.fov() * 2.0;
         let camera_translation = camera.translation();
         let window_size = Vector::new(window_size.x as f32, window_size.y as f32);
         let cursor: Vector<f32> = Vector::new(cursor.x as f32, cursor.y as f32);

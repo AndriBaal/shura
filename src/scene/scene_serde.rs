@@ -163,6 +163,7 @@ impl<N: 'static + FnMut(&mut Context, &mut SceneDeserializer)> SceneCreator for 
         let mut ctx = Context::from_fields(shura, &mut scene);
         (self.init)(&mut ctx, &mut de);
         de.finish();
+        scene.component_manager.update_sets(&scene.world_camera);
         return scene;
     }
 }
