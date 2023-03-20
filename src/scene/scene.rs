@@ -59,7 +59,9 @@ impl<N: 'static + FnMut(&mut Context)> SceneCreator for RecycleScene<N> {
         self.scene.world_camera.resize(window_ratio);
         let mut ctx = Context::from_fields(shura, &mut self.scene);
         (self.init)(&mut ctx);
-        self.scene.component_manager.update_sets(&self.scene.world_camera);
+        self.scene
+            .component_manager
+            .update_sets(&self.scene.world_camera);
         return self.scene;
     }
 }

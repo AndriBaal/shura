@@ -10,7 +10,7 @@ pub struct ComponentGroupDescriptor {
     pub activation: GroupActivation,
     /// Describes if the group is enabled from the start.
     pub enabled: bool,
-    pub user_data: u64
+    pub user_data: u64,
 }
 
 /// Id of the default [ComponentGroup](crate::ComponentGroup). Components within this group are
@@ -43,7 +43,7 @@ pub struct ComponentGroup {
     enabled: bool,
     active: bool,
     pub activation: GroupActivation,
-    pub user_data: u64
+    pub user_data: u64,
 }
 
 impl ComponentGroup {
@@ -55,7 +55,7 @@ impl ComponentGroup {
             type_map: Default::default(),
             types: Default::default(),
             active: false,
-            user_data: descriptor.user_data
+            user_data: descriptor.user_data,
         }
     }
 
@@ -65,7 +65,10 @@ impl ComponentGroup {
         cam_top_right: Vector<f32>,
     ) -> bool {
         match &self.activation {
-            GroupActivation::Position { position, half_extents } => {
+            GroupActivation::Position {
+                position,
+                half_extents,
+            } => {
                 let self_bl = Vector::new(position.x - half_extents.x, position.y - half_extents.y);
                 let self_tr = Vector::new(position.x + half_extents.x, position.y + half_extents.y);
                 return (cam_bottom_left.x < self_tr.x)

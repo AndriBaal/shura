@@ -77,9 +77,7 @@ impl Into<InstanceIndices> for u32 {
 
 impl Into<InstanceIndices> for Range<u32> {
     fn into(self) -> InstanceIndices {
-        InstanceIndices {
-            range: self
-        }
+        InstanceIndices { range: self }
     }
 }
 

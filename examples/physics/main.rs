@@ -53,7 +53,7 @@ struct PhysicsState {
     #[serde(skip)]
     hover_color: Uniform<Color>,
     #[serde(skip)]
-    box_model: Model
+    box_model: Model,
 }
 
 impl PhysicsState {
@@ -66,7 +66,7 @@ impl PhysicsState {
                 &PhysicsBox::BOX_SHAPE,
                 0,
                 0.0,
-            ))
+            )),
         }
     }
 

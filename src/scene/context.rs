@@ -1,11 +1,11 @@
 use crate::{
-    Camera, CameraBuffer, Color, ComponentController, ComponentGroup, ComponentGroupDescriptor,
-    ComponentHandle, ComponentManager, ComponentPath, ComponentSet, ComponentSetMut,
-    ComponentSetRender, ComponentTypeId, DynamicComponent, FrameManager, GlobalState, Gpu,
-    GpuDefaults, GroupFilter, Input, InputEvent, InputTrigger, InstanceBuffer, Isometry, Matrix,
-    Model, ModelBuilder, Modifier, RenderConfig, RenderEncoder, RenderTarget, Rotation, Scene,
-    SceneCreator, SceneManager, SceneState, ScreenConfig, Shader, ShaderConfig, Shura, Sprite,
-    SpriteSheet, Uniform, Vector, WorldCamera, ComponentDerive,
+    Camera, CameraBuffer, Color, ComponentController, ComponentDerive, ComponentGroup,
+    ComponentGroupDescriptor, ComponentHandle, ComponentManager, ComponentPath, ComponentSet,
+    ComponentSetMut, ComponentSetRender, ComponentTypeId, DynamicComponent, FrameManager,
+    GlobalState, Gpu, GpuDefaults, GroupFilter, Input, InputEvent, InputTrigger, InstanceBuffer,
+    Isometry, Matrix, Model, ModelBuilder, Modifier, RenderConfig, RenderEncoder, RenderTarget,
+    Rotation, Scene, SceneCreator, SceneManager, SceneState, ScreenConfig, Shader, ShaderConfig,
+    Shura, Sprite, SpriteSheet, Uniform, Vector, WorldCamera,
 };
 
 macro_rules! Where {
@@ -39,6 +39,9 @@ use crate::text::{FontBrush, TextDescriptor};
 
 #[cfg(feature = "gamepad")]
 use crate::gamepad::*;
+
+#[cfg(feature = "animation")]
+use crate::animation::{EaseMethod, Tween, TweenSequence};
 
 use instant::{Duration, Instant};
 
@@ -375,6 +378,22 @@ impl<'a> Context<'a> {
         return Sound::new(sound);
     }
 
+    #[cfg(feature = "animation")]
+    pub fn create_tween(
+        &self,
+        ease_function: impl Into<EaseMethod>,
+        duration: Duration,
+        start: Isometry<f32>,
+        end: Isometry<f32>,
+    ) -> Tween {
+        return Tween::new(ease_function, duration, start, end);
+    }
+
+    #[cfg(feature = "animation")]
+    pub fn create_tween_sequence(&self, items: impl IntoIterator<Item = Tween>) -> TweenSequence {
+        return TweenSequence::new(items);
+    }
+
     #[cfg(feature = "physics")]
     pub fn create_collider<C: ComponentController>(
         &mut self,
@@ -696,7 +715,6 @@ impl<'a> Context<'a> {
         return mint.into();
     }
 
-
     #[cfg(feature = "physics")]
     pub fn intersects_ray(&self, collider_handle: ColliderHandle, ray: Ray, max_toi: f32) -> bool {
         self.component_manager
@@ -867,11 +885,11 @@ impl<'a> Context<'a> {
         return None;
     }
 
-    pub fn groups(&self) -> impl Iterator<Item=&ComponentGroup> {
+    pub fn groups(&self) -> impl Iterator<Item = &ComponentGroup> {
         self.component_manager.groups()
     }
 
-    pub fn groups_mut(&mut self) -> impl Iterator<Item=&mut ComponentGroup> {
+    pub fn groups_mut(&mut self) -> impl Iterator<Item = &mut ComponentGroup> {
         self.component_manager.groups_mut()
     }
 
@@ -899,10 +917,7 @@ impl<'a> Context<'a> {
         self.component_manager.component::<C>(handle)
     }
 
-    pub fn component_mut<C: ComponentDerive>(
-        &mut self,
-        handle: ComponentHandle,
-    ) -> Option<&mut C> {
+    pub fn component_mut<C: ComponentDerive>(&mut self, handle: ComponentHandle) -> Option<&mut C> {
         self.component_manager.component_mut::<C>(handle)
     }
 
@@ -936,10 +951,7 @@ impl<'a> Context<'a> {
         return self.component_manager.path(path);
     }
 
-    pub fn path_mut<C: ComponentDerive>(
-        &mut self,
-        path: &ComponentPath<C>,
-    ) -> ComponentSetMut<C> {
+    pub fn path_mut<C: ComponentDerive>(&mut self, path: &ComponentPath<C>) -> ComponentSetMut<C> {
         return self.component_manager.path_mut(path);
     }
 
@@ -952,6 +964,13 @@ impl<'a> Context<'a> {
 
     pub fn components<C: ComponentController>(&self, filter: GroupFilter) -> ComponentSet<C> {
         self.component_manager.components::<C>(filter)
+    }
+
+    pub fn instance_buffer<C: ComponentController>(
+        &self,
+        group_id: u32,
+    ) -> Option<&InstanceBuffer> {
+        self.component_manager.instance_buffer::<C>(group_id)
     }
 
     #[cfg(feature = "gamepad")]

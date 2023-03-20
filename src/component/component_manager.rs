@@ -2,9 +2,9 @@
 use crate::physics::World;
 use crate::{
     Arena, ArenaEntry, ArenaIndex, ArenaPath, Camera, ComponentCallbacks, ComponentCluster,
-    ComponentController, ComponentGroup, ComponentGroupDescriptor, ComponentHandle, ComponentPath,
-    ComponentSet, ComponentSetMut, ComponentSetRender, ComponentTypeId, DynamicComponent, Gpu,
-    GroupActivation, DEFAULT_GROUP_ID, ComponentDerive, InstanceBuffer,
+    ComponentController, ComponentDerive, ComponentGroup, ComponentGroupDescriptor,
+    ComponentHandle, ComponentPath, ComponentSet, ComponentSetMut, ComponentSetRender,
+    ComponentTypeId, DynamicComponent, Gpu, GroupActivation, InstanceBuffer, DEFAULT_GROUP_ID,
 };
 use instant::Instant;
 use log::info;
@@ -61,7 +61,7 @@ impl ComponentManager {
             id: DEFAULT_GROUP_ID,
             activation: GroupActivation::Always,
             enabled: true,
-            user_data: 0
+            user_data: 0,
         });
         let mut groups = Arena::default();
         let mut group_map = FxHashMap::default();
@@ -348,10 +348,7 @@ impl ComponentManager {
         return ComponentSetRender::new(types, len);
     }
 
-    pub fn path<'a, C: ComponentDerive>(
-        &'a self,
-        path: &ComponentPath<C>,
-    ) -> ComponentSet<'a, C> {
+    pub fn path<'a, C: ComponentDerive>(&'a self, path: &ComponentPath<C>) -> ComponentSet<'a, C> {
         let mut types = vec![];
         let mut len = 0;
 
@@ -539,10 +536,7 @@ impl ComponentManager {
         return None;
     }
 
-    pub fn component_mut<C: ComponentDerive>(
-        &mut self,
-        handle: ComponentHandle,
-    ) -> Option<&mut C> {
+    pub fn component_mut<C: ComponentDerive>(&mut self, handle: ComponentHandle) -> Option<&mut C> {
         if let Some(group) = self.groups.get_mut(handle.group_index()) {
             if let Some(component_type) = group.type_mut(handle.type_index()) {
                 if let Some(component) = component_type.component_mut(handle.component_index()) {
@@ -577,11 +571,11 @@ impl ComponentManager {
         self.group_map.keys()
     }
 
-    pub fn groups(&self) -> impl Iterator<Item=&ComponentGroup> {
+    pub fn groups(&self) -> impl Iterator<Item = &ComponentGroup> {
         self.groups.iter().map(|(_, group)| group)
     }
 
-    pub fn groups_mut(&mut self) -> impl Iterator<Item=&mut ComponentGroup> {
+    pub fn groups_mut(&mut self) -> impl Iterator<Item = &mut ComponentGroup> {
         self.groups.iter_mut().map(|(_, group)| group)
     }
 
@@ -633,7 +627,10 @@ impl ComponentManager {
         self.world.borrow_mut()
     }
 
-    pub fn instance_buffer<C: ComponentController>(&self, group_id: u32) -> Option<&InstanceBuffer> {
+    pub fn instance_buffer<C: ComponentController>(
+        &self,
+        group_id: u32,
+    ) -> Option<&InstanceBuffer> {
         if let Some(group_index) = self.group_map.get(&group_id) {
             let group = self.groups.get(*group_index).unwrap();
             if let Some(component_type_index) = group.type_index(C::IDENTIFIER) {

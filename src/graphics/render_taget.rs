@@ -105,7 +105,11 @@ impl RenderTarget {
         encoder.submit(gpu);
     }
 
-    pub fn compute_target_size(half_extents: Vector<f32>, camera: &Camera, window_size: Vector<u32>) -> Vector<u32> {
+    pub fn compute_target_size(
+        half_extents: Vector<f32>,
+        camera: &Camera,
+        window_size: Vector<u32>,
+    ) -> Vector<u32> {
         let camera_fov = camera.fov() * 2.0;
         let size = half_extents * 2.0;
         return Vector::new(

@@ -234,10 +234,7 @@ pub struct WgpuBase {
 }
 
 impl WgpuBase {
-    pub fn new(
-        device: &wgpu::Device,
-        sample_count: u32,
-    ) -> Self {
+    pub fn new(device: &wgpu::Device, sample_count: u32) -> Self {
         let sprite_uniform = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[
                 wgpu::BindGroupLayoutEntry {
@@ -401,7 +398,6 @@ impl GpuDefaults {
             write_mask: ColorWrites::ALL,
         });
 
-
         let color_no_msaa = gpu.create_shader(ShaderConfig {
             fragment_source: include_str!("../../res/shader/color.wgsl"),
             shader_lang: ShaderLang::WGSL,
@@ -467,19 +463,13 @@ impl GpuDefaults {
             BufferedCamera::new(gpu, Camera::new(Isometry::new(fov, 0.0), fov));
         let relative_bottom_right_camera = BufferedCamera::new(
             gpu,
-            Camera::new(
-                Isometry::new(Vector::new(-fov.x, fov.y), 0.0),
-                fov,
-            ),
+            Camera::new(Isometry::new(Vector::new(-fov.x, fov.y), 0.0), fov),
         );
         let relative_top_right_camera =
             BufferedCamera::new(gpu, Camera::new(Isometry::new(-fov, 0.0), fov));
         let relative_top_left_camera = BufferedCamera::new(
             gpu,
-            Camera::new(
-                Isometry::new(Vector::new(fov.x, -fov.y), 0.0),
-                fov,
-            ),
+            Camera::new(Isometry::new(Vector::new(fov.x, -fov.y), 0.0), fov),
         );
 
         let relative_cam = Camera::new(Default::default(), fov);
@@ -528,19 +518,13 @@ impl GpuDefaults {
             .write(gpu, Camera::new(Isometry::new(fov, 0.0), fov));
         self.relative_bottom_right_camera.write(
             gpu,
-            Camera::new(
-                Isometry::new(Vector::new(-fov.x, fov.y), 0.0),
-                fov,
-            ),
+            Camera::new(Isometry::new(Vector::new(-fov.x, fov.y), 0.0), fov),
         );
         self.relative_top_right_camera
             .write(gpu, Camera::new(Isometry::new(-fov, 0.0), fov));
         self.relative_top_left_camera.write(
             gpu,
-            Camera::new(
-                Isometry::new(Vector::new(fov.x, -fov.y), 0.0),
-                fov,
-            ),
+            Camera::new(Isometry::new(Vector::new(fov.x, -fov.y), 0.0), fov),
         );
         self.relative_camera
             .write(gpu, Camera::new(Isometry::default(), fov));

@@ -87,4 +87,3 @@ impl<C: ComponentDerive + ?Sized> ComponentDerive for Box<C> {
         (**self).base_mut()
     }
 }
-

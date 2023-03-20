@@ -1,7 +1,7 @@
 use crate::{
     data::arena::{ArenaIter, ArenaIterMut},
-    Arena, ArenaIndex, BufferOperation, ComponentConfig, ComponentController, ComponentHandle,
-    DynamicComponent, Gpu, InstanceBuffer, Matrix, ComponentDerive,
+    Arena, ArenaIndex, BufferOperation, ComponentConfig, ComponentController, ComponentDerive,
+    ComponentHandle, DynamicComponent, Gpu, InstanceBuffer, Matrix,
 };
 
 #[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]

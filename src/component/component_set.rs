@@ -1,8 +1,8 @@
 use instant::Instant;
 
 use crate::{
-    ArenaIter, ArenaIterMut, ArenaPath, ComponentCallbacks, ComponentConfig,
-    ComponentType, DynamicComponent, InstanceIndex, ComponentDerive,
+    ArenaIter, ArenaIterMut, ArenaPath, ComponentCallbacks, ComponentConfig, ComponentDerive,
+    ComponentType, DynamicComponent, InstanceIndex,
 };
 use std::{iter::Enumerate, marker::PhantomData};
 
