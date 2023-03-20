@@ -14,7 +14,7 @@ use std::{cmp, marker::PhantomData};
 use crate::{
     Arena, ArenaEntry, ComponentController, ComponentManager, ComponentTypeId, Context,
     DynamicComponent, FieldNames, GlobalState, GroupFilter, Scene, SceneCreator, SceneState,
-    ShuraFields, Vector,
+    ShuraFields, Vector, ComponentDerive,
 };
 
 pub struct SceneSerializer<'a> {

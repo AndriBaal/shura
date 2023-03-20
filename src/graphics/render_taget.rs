@@ -99,7 +99,7 @@ impl RenderTarget {
             target: &self,
             gpu: &gpu,
             defaults: &defaults,
-            smaa: true,
+            msaa: true,
         };
         compute(&mut encoder, config, []);
         encoder.submit(gpu);
@@ -109,8 +109,8 @@ impl RenderTarget {
         let camera_fov = camera.fov() * 2.0;
         let size = half_extents * 2.0;
         return Vector::new(
-            (size.x / camera_fov.x * window_size.x as f32) as u32,
-            (size.y / camera_fov.y * window_size.y as f32) as u32,
+            (size.x / camera_fov.x * window_size.x as f32).ceil() as u32,
+            (size.y / camera_fov.y * window_size.y as f32).ceil() as u32,
         );
     }
 

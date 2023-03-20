@@ -1,5 +1,5 @@
 use super::arena::{Arena, ArenaEntry, ArenaIndex, DEFAULT_CAPACITY};
-use crate::ComponentController;
+use crate::ComponentDerive;
 use crate::DynamicComponent;
 use core::cmp;
 use core::fmt;
@@ -46,7 +46,7 @@ where
 }
 
 impl Arena<DynamicComponent> {
-    pub fn serialize_components<C: ComponentController + Serialize>(
+    pub fn serialize_components<C: ComponentDerive + Serialize>(
         &self,
     ) -> Vec<Option<(u32, Vec<u8>)>> {
         let e = self

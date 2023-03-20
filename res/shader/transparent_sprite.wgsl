@@ -18,8 +18,5 @@ var<uniform> t: Transperancy;
 @fragment
 fn main(in: VertexOutput) -> @location(0) vec4<f32> {
     let color = textureSample(t_diffuse, s_diffuse, in.tex_coords);
-    if color.a == 0.0 {
-        return color;
-    }
-    return vec4<f32>(color.rgb, t.transparency);
+    return vec4<f32>(color.rgb, color.a - t.transparency);
 }

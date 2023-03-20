@@ -4,7 +4,7 @@ use crate::{
     Arena, ArenaEntry, ArenaIndex, ArenaPath, Camera, ComponentCallbacks, ComponentCluster,
     ComponentController, ComponentGroup, ComponentGroupDescriptor, ComponentHandle, ComponentPath,
     ComponentSet, ComponentSetMut, ComponentSetRender, ComponentTypeId, DynamicComponent, Gpu,
-    GroupActivation, DEFAULT_GROUP_ID,
+    GroupActivation, DEFAULT_GROUP_ID, ComponentDerive, InstanceBuffer,
 };
 use instant::Instant;
 use log::info;
@@ -257,7 +257,7 @@ impl ComponentManager {
         self.group_map.insert(descriptor.id, index);
     }
 
-    pub fn remove_component(&mut self, handle: &ComponentHandle) -> Option<DynamicComponent> {
+    pub fn remove_component(&mut self, handle: ComponentHandle) -> Option<DynamicComponent> {
         if let Some(group) = self.groups.get_mut(handle.group_index()) {
             if let Some(component_type) = group.type_mut(handle.type_index()) {
                 if let Some(mut to_remove) = component_type.remove(handle) {
@@ -326,7 +326,7 @@ impl ComponentManager {
         }
     }
 
-    pub fn path_render<'a, C: ComponentController>(
+    pub fn path_render<'a, C: ComponentDerive>(
         &'a self,
         path: &ComponentPath<C>,
     ) -> ComponentSetRender<'a, C> {
@@ -348,7 +348,7 @@ impl ComponentManager {
         return ComponentSetRender::new(types, len);
     }
 
-    pub fn path<'a, C: ComponentController>(
+    pub fn path<'a, C: ComponentDerive>(
         &'a self,
         path: &ComponentPath<C>,
     ) -> ComponentSet<'a, C> {
@@ -370,7 +370,7 @@ impl ComponentManager {
         return ComponentSet::new(types, len);
     }
 
-    pub fn path_mut<'a, C: ComponentController>(
+    pub fn path_mut<'a, C: ComponentDerive>(
         &'a mut self,
         path: &ComponentPath<C>,
     ) -> ComponentSetMut<'a, C> {
@@ -398,89 +398,6 @@ impl ComponentManager {
         }
 
         return ComponentSetMut::new(types, len);
-    }
-
-    pub fn first<'a, C: ComponentController>(&'a self, filter: GroupFilter) -> Option<&'a C> {
-        let type_id = C::IDENTIFIER;
-        match filter {
-            GroupFilter::All => {
-                for (_, group) in &self.groups {
-                    if let Some(type_index) = group.type_index(type_id) {
-                        for (_, component) in group.type_ref(*type_index).unwrap().iter() {
-                            return component.downcast_ref::<C>();
-                        }
-                    }
-                }
-            }
-            GroupFilter::Active => {
-                for group_handle in &self.active_groups {
-                    if let Some(group) = self.groups.get(*group_handle) {
-                        if let Some(type_index) = group.type_index(type_id) {
-                            for (_, component) in group.type_ref(*type_index).unwrap().iter() {
-                                return component.downcast_ref::<C>();
-                            }
-                        }
-                    }
-                }
-            }
-            GroupFilter::Specific(group_ids) => {
-                for group_id in group_ids {
-                    if let Some(group_handle) = self.group_map.get(group_id) {
-                        let group = self.groups.get(*group_handle).unwrap();
-                        if let Some(type_index) = group.type_index(type_id) {
-                            for (_, component) in group.type_ref(*type_index).unwrap().iter() {
-                                return component.downcast_ref::<C>();
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        return None;
-    }
-
-    pub fn first_mut<'a, C: ComponentController>(
-        &'a mut self,
-        filter: GroupFilter,
-    ) -> Option<&'a mut C> {
-        let type_id = C::IDENTIFIER;
-        return match filter {
-            GroupFilter::All => {
-                for (_, group) in &mut self.groups {
-                    if let Some(type_index) = group.type_index(type_id) {
-                        for (_, component) in group.type_mut(*type_index).unwrap().iter_mut() {
-                            component.downcast_mut::<C>();
-                        }
-                    }
-                }
-                None
-            }
-            GroupFilter::Active => {
-                for group_handle in &self.active_groups {
-                    if let Some(group) = self.groups.get_mut(*group_handle) {
-                        if let Some(type_index) = group.type_index(type_id) {
-                            for (_, component) in group.type_mut(*type_index).unwrap().iter_mut() {
-                                component.downcast_mut::<C>();
-                            }
-                        }
-                    }
-                }
-                None
-            }
-            GroupFilter::Specific(group_ids) => {
-                for group_id in group_ids {
-                    if let Some(group_handle) = self.group_map.get(group_id) {
-                        let group = self.groups.get_mut(*group_handle).unwrap();
-                        if let Some(type_index) = group.type_index(type_id) {
-                            for (_, component) in group.type_mut(*type_index).unwrap().iter_mut() {
-                                component.downcast_mut::<C>();
-                            }
-                        }
-                    }
-                }
-                None
-            }
-        };
     }
 
     pub fn components<'a, C: ComponentController>(
@@ -590,7 +507,7 @@ impl ComponentManager {
         return ComponentSetMut::new(types, len);
     }
 
-    pub fn component_dynamic(&self, handle: &ComponentHandle) -> Option<&DynamicComponent> {
+    pub fn component_dynamic(&self, handle: ComponentHandle) -> Option<&DynamicComponent> {
         if let Some(group) = self.groups.get(handle.group_index()) {
             if let Some(component_type) = group.type_ref(handle.type_index()) {
                 return component_type.component(handle.component_index());
@@ -601,7 +518,7 @@ impl ComponentManager {
 
     pub fn component_dynamic_mut(
         &mut self,
-        handle: &ComponentHandle,
+        handle: ComponentHandle,
     ) -> Option<&mut DynamicComponent> {
         if let Some(group) = self.groups.get_mut(handle.group_index()) {
             if let Some(component_type) = group.type_mut(handle.type_index()) {
@@ -611,7 +528,7 @@ impl ComponentManager {
         return None;
     }
 
-    pub fn component<C: ComponentController>(&self, handle: &ComponentHandle) -> Option<&C> {
+    pub fn component<C: ComponentDerive>(&self, handle: ComponentHandle) -> Option<&C> {
         if let Some(group) = self.groups.get(handle.group_index()) {
             if let Some(component_type) = group.type_ref(handle.type_index()) {
                 if let Some(component) = component_type.component(handle.component_index()) {
@@ -622,9 +539,9 @@ impl ComponentManager {
         return None;
     }
 
-    pub fn component_mut<C: ComponentController>(
+    pub fn component_mut<C: ComponentDerive>(
         &mut self,
-        handle: &ComponentHandle,
+        handle: ComponentHandle,
     ) -> Option<&mut C> {
         if let Some(group) = self.groups.get_mut(handle.group_index()) {
             if let Some(component_type) = group.type_mut(handle.type_index()) {
@@ -716,11 +633,16 @@ impl ComponentManager {
         self.world.borrow_mut()
     }
 
-    // pub fn instance_buffer<T: ComponentIdentifier>(&self, group_id: u32) -> Option<InstanceBuffer> {
-    //     if let Some(group_index) = self.group_map.get(&group_id) {
-    //         // let group = self.groups.get(index).unwrap();
-    //     }
-    // }
+    pub fn instance_buffer<C: ComponentController>(&self, group_id: u32) -> Option<&InstanceBuffer> {
+        if let Some(group_index) = self.group_map.get(&group_id) {
+            let group = self.groups.get(*group_index).unwrap();
+            if let Some(component_type_index) = group.type_index(C::IDENTIFIER) {
+                let component_type = group.type_ref(*component_type_index).unwrap();
+                return component_type.buffer();
+            }
+        }
+        return None;
+    }
 
     #[cfg(feature = "physics")]
     pub fn collision_event(

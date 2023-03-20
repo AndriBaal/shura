@@ -141,8 +141,8 @@ impl BaseComponent {
         };
     }
 
-    pub fn handle(&self) -> Option<&ComponentHandle> {
-        return self.handle.as_ref();
+    pub fn handle(&self) -> Option<ComponentHandle> {
+        return self.handle;
     }
 
     pub fn set_rotation(&mut self, rotation: Rotation<f32>) {
@@ -483,7 +483,7 @@ impl BaseComponent {
         );
         match temp {
             BodyStatus::RigidBodyPending { body, colliders } => {
-                let component_handle = self.handle().copied().unwrap();
+                let component_handle = self.handle().unwrap();
                 let body_handle = world.borrow_mut().create_body(*body);
                 let mut world_mut = world.borrow_mut();
                 for collider in colliders {

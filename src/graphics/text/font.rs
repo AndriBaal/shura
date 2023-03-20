@@ -16,6 +16,7 @@ impl FontBrush {
         let font = ab_glyph::FontArc::try_from_slice(bytes).unwrap();
         let brush = GlyphBrushBuilder::using_font(font)
             // .multisample_state(gpu.base.multisample_state)
+            .texture_filter_method(wgpu::FilterMode::Nearest)
             .build(&gpu.device, gpu.config.format);
         Self { brush }
     }

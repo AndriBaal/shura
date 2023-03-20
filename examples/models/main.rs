@@ -104,8 +104,8 @@ fn main() {
 struct ModelTest {
     model: Model,
     color: Uniform<Color>,
-    #[component]
-    c: BaseComponent,
+    #[base]
+    base: BaseComponent,
 }
 
 impl ModelTest {
@@ -113,7 +113,7 @@ impl ModelTest {
         Self {
             model,
             color,
-            c: BaseComponent::new(PositionBuilder::new().translation(translation)),
+            base: BaseComponent::new(PositionBuilder::new().translation(translation)),
         }
     }
 }
@@ -133,8 +133,7 @@ impl ComponentController for ModelTest {
     ) {
         let (_, mut renderer) = encoder.renderer(&config);
         for (i, c) in &ctx.path_render(&active) {
-            renderer.render_color(&c.model, &c.color);
-            renderer.commit(i);
+            renderer.render_color(i, &c.model, &c.color);
         }
     }
 }

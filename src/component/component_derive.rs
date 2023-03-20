@@ -78,7 +78,7 @@ where
     }
 }
 
-impl<C: ComponentController + ?Sized> ComponentDerive for Box<C> {
+impl<C: ComponentDerive + ?Sized> ComponentDerive for Box<C> {
     fn base(&self) -> &BaseComponent {
         (**self).base()
     }
@@ -87,3 +87,4 @@ impl<C: ComponentController + ?Sized> ComponentDerive for Box<C> {
         (**self).base_mut()
     }
 }
+

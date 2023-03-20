@@ -106,7 +106,10 @@ impl Shura {
             use env_logger::Builder;
             use log::LevelFilter;
             Builder::new()
-                .filter(Some("shura"), LevelFilter::Info)
+                .filter_level(LevelFilter::Info)
+                .filter_module("wgpu", LevelFilter::Warn)
+                .filter_module("winit", LevelFilter::Warn)
+                .filter_module("symphonia_core", LevelFilter::Warn)
                 .init();
         }
 
@@ -452,7 +455,7 @@ impl Shura {
                                     target: &ctx.defaults.target,
                                     gpu: &ctx.gpu,
                                     defaults: &ctx.defaults,
-                                    smaa: true,
+                                    msaa: true,
                                 };
                                 if component_type.len() > 0 {
                                     (set.callbacks().call_render)(
@@ -481,11 +484,11 @@ impl Shura {
                 &self.defaults,
                 &output_view,
             );
-            renderer.render_sprite(
+            renderer.render_sprite_no_msaa(
+                InstanceIndex::new(0),
                 self.defaults.relative_camera.buffer().model(),
                 self.defaults.target.sprite(),
             );
-            renderer.commit(InstanceIndex { index: 0 });
         }
 
         #[cfg(feature = "gui")]

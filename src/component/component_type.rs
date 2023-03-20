@@ -1,7 +1,7 @@
 use crate::{
     data::arena::{ArenaIter, ArenaIterMut},
     Arena, ArenaIndex, BufferOperation, ComponentConfig, ComponentController, ComponentHandle,
-    DynamicComponent, Gpu, InstanceBuffer, Matrix,
+    DynamicComponent, Gpu, InstanceBuffer, Matrix, ComponentDerive,
 };
 
 #[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
@@ -82,18 +82,18 @@ impl ComponentType {
             .collect::<Vec<Matrix>>()
     }
 
-    pub fn add<C: ComponentController>(&mut self, component: C) -> ArenaIndex {
+    pub fn add<C: ComponentDerive>(&mut self, component: C) -> ArenaIndex {
         return self.components.insert(Box::new(component));
     }
 
     #[cfg(feature = "serde")]
-    pub fn serialize_components<C: ComponentController + serde::Serialize>(
+    pub fn serialize_components<C: ComponentDerive + serde::Serialize>(
         &self,
     ) -> Vec<Option<(u32, Vec<u8>)>> {
         return self.components.serialize_components::<C>();
     }
 
-    pub fn remove(&mut self, handle: &ComponentHandle) -> Option<DynamicComponent> {
+    pub fn remove(&mut self, handle: ComponentHandle) -> Option<DynamicComponent> {
         self.components.remove(handle.component_index())
     }
 

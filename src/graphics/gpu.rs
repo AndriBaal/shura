@@ -82,7 +82,7 @@ impl Gpu {
             }
         };
 
-        let base = WgpuBase::new(&device, config.format, sample_count, window_size);
+        let base = WgpuBase::new(&device, sample_count);
 
         surface.configure(&device, &config);
         let adapter_info = adapter.get_info();
@@ -109,7 +109,6 @@ impl Gpu {
         self.config.width = size.x;
         self.config.height = size.y;
         self.surface.configure(&self.device, &self.config);
-        self.base.resize(&self.device, self.config.format, size);
     }
 
     #[cfg(target_os = "android")]
@@ -196,7 +195,7 @@ impl Gpu {
             target: &target,
             gpu: self,
             defaults: &defaults,
-            smaa: true,
+            msaa: true,
         };
         encoder.render_text(&config, descriptor);
         encoder.submit(self);
@@ -232,15 +231,12 @@ pub struct WgpuBase {
     pub vertex_wgsl: wgpu::ShaderModule,
     pub vertex_glsl: wgpu::ShaderModule,
     pub texture_sampler: wgpu::Sampler,
-    pub output_msaa: wgpu::TextureView,
 }
 
 impl WgpuBase {
     pub fn new(
         device: &wgpu::Device,
-        format: wgpu::TextureFormat,
         sample_count: u32,
-        size: Vector<u32>,
     ) -> Self {
         let sprite_uniform = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[
@@ -324,8 +320,6 @@ impl WgpuBase {
             alpha_to_coverage_enabled: false,
         };
 
-        let output_msaa = RenderTarget::create_msaa(device, format, sample_count, size);
-
         Self {
             sample_count: sample_count,
             multisample_state,
@@ -336,17 +330,7 @@ impl WgpuBase {
             vertex_wgsl,
             vertex_glsl,
             texture_sampler,
-            output_msaa,
         }
-    }
-
-    pub fn resize(
-        &mut self,
-        device: &wgpu::Device,
-        format: wgpu::TextureFormat,
-        size: Vector<u32>,
-    ) {
-        self.output_msaa = RenderTarget::create_msaa(device, format, self.sample_count, size);
     }
 }
 
@@ -359,6 +343,9 @@ pub struct GpuDefaults {
     pub transparent: Shader,
     pub grey: Shader,
     pub blurr: Shader,
+
+    pub color_no_msaa: Shader,
+    pub sprite_no_msaa: Shader,
 
     /// This field holds both total time and the frame time. Both are stored as f32 in the buffer.
     /// The first f32 is the `total_time` and the second f32 is the `frame_time`. In the shader
@@ -382,7 +369,16 @@ impl GpuDefaults {
             fragment_source: include_str!("../../res/shader/sprite.wgsl"),
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Sprite],
-            smaa: true,
+            msaa: true,
+            blend: BlendState::ALPHA_BLENDING,
+            write_mask: ColorWrites::ALL,
+        });
+
+        let sprite_no_msaa = gpu.create_shader(ShaderConfig {
+            fragment_source: include_str!("../../res/shader/sprite.wgsl"),
+            shader_lang: ShaderLang::WGSL,
+            shader_fields: &[ShaderField::Sprite],
+            msaa: false,
             blend: BlendState::ALPHA_BLENDING,
             write_mask: ColorWrites::ALL,
         });
@@ -391,7 +387,7 @@ impl GpuDefaults {
             fragment_source: include_str!("../../res/shader/rainbow.wgsl"),
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Uniform],
-            smaa: true,
+            msaa: true,
             blend: BlendState::ALPHA_BLENDING,
             write_mask: ColorWrites::ALL,
         });
@@ -400,7 +396,17 @@ impl GpuDefaults {
             fragment_source: include_str!("../../res/shader/color.wgsl"),
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Uniform],
-            smaa: true,
+            msaa: true,
+            blend: BlendState::ALPHA_BLENDING,
+            write_mask: ColorWrites::ALL,
+        });
+
+
+        let color_no_msaa = gpu.create_shader(ShaderConfig {
+            fragment_source: include_str!("../../res/shader/color.wgsl"),
+            shader_lang: ShaderLang::WGSL,
+            shader_fields: &[ShaderField::Uniform],
+            msaa: false,
             blend: BlendState::ALPHA_BLENDING,
             write_mask: ColorWrites::ALL,
         });
@@ -409,7 +415,7 @@ impl GpuDefaults {
             fragment_source: include_str!("../../res/shader/colored_sprite.glsl"),
             shader_lang: ShaderLang::GLSL,
             shader_fields: &[ShaderField::Sprite, ShaderField::Uniform],
-            smaa: true,
+            msaa: true,
             blend: BlendState::ALPHA_BLENDING,
             write_mask: ColorWrites::ALL,
         });
@@ -418,7 +424,7 @@ impl GpuDefaults {
             fragment_source: include_str!("../../res/shader/grey.wgsl"),
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Sprite],
-            smaa: true,
+            msaa: true,
             blend: BlendState::ALPHA_BLENDING,
             write_mask: ColorWrites::ALL,
         });
@@ -427,7 +433,7 @@ impl GpuDefaults {
             fragment_source: include_str!("../../res/shader/blurr.wgsl"),
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Sprite],
-            smaa: true,
+            msaa: true,
             blend: BlendState::ALPHA_BLENDING,
             write_mask: ColorWrites::ALL,
         });
@@ -436,7 +442,7 @@ impl GpuDefaults {
             fragment_source: include_str!("../../res/shader/transparent_sprite.wgsl"),
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Sprite, ShaderField::Uniform],
-            smaa: true,
+            msaa: true,
             blend: BlendState::ALPHA_BLENDING,
             write_mask: ColorWrites::ALL,
         });
@@ -484,6 +490,8 @@ impl GpuDefaults {
             sprite,
             rainbow,
             color,
+            color_no_msaa,
+            sprite_no_msaa,
             colored_sprite,
             transparent,
             grey,

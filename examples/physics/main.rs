@@ -53,9 +53,7 @@ struct PhysicsState {
     #[serde(skip)]
     hover_color: Uniform<Color>,
     #[serde(skip)]
-    box_model: Model,
-    #[component]
-    component: BaseComponent,
+    box_model: Model
 }
 
 impl PhysicsState {
@@ -68,8 +66,7 @@ impl PhysicsState {
                 &PhysicsBox::BOX_SHAPE,
                 0,
                 0.0,
-            )),
-            component: Default::default(),
+            ))
         }
     }
 
@@ -129,8 +126,8 @@ struct Player {
     sprite: Sprite,
     #[serde(skip)]
     model: Model,
-    #[component]
-    component: BaseComponent,
+    #[base]
+    base: BaseComponent,
 }
 
 impl Player {
@@ -149,7 +146,7 @@ impl Player {
                 Self::RESOLUTION,
                 0.0,
             )),
-            component: BaseComponent::new_rigid_body(
+            base: BaseComponent::new_rigid_body(
                 RigidBodyBuilder::dynamic().translation(Vector::new(5.0, 4.0)),
                 vec![collider],
             ),
@@ -163,7 +160,7 @@ impl ComponentController for Player {
         let input = &mut ctx.input;
 
         for player in &mut ctx.component_manager.path_mut(&active) {
-            let mut body = player.rigid_body_mut().unwrap();
+            let mut body = player.base.rigid_body_mut().unwrap();
             let mut linvel = *body.linvel();
 
             if input.is_held(Key::D) {
@@ -194,8 +191,7 @@ impl ComponentController for Player {
     ) {
         let (_, mut renderer) = encoder.renderer(&config);
         for (instances, player) in &ctx.path_render(&active) {
-            renderer.render_sprite(&player.model, &player.sprite);
-            renderer.commit(instances);
+            renderer.render_sprite(instances, &player.model, &player.sprite);
         }
     }
 
@@ -207,7 +203,7 @@ impl ComponentController for Player {
         _other_collider: ColliderHandle,
         collision_type: CollideType,
     ) {
-        if let Some(b) = ctx.component_mut::<PhysicsBox>(&other_handle) {
+        if let Some(b) = ctx.component_mut::<PhysicsBox>(other_handle) {
             b.collided = collision_type == CollideType::Started;
         }
     }
@@ -219,8 +215,8 @@ struct Floor {
     color: Uniform<Color>,
     #[serde(skip)]
     model: Model,
-    #[component]
-    component: BaseComponent,
+    #[base]
+    base: BaseComponent,
 }
 
 impl Floor {
@@ -240,7 +236,7 @@ impl Floor {
                 Self::FLOOR_RESOLUTION,
                 0.0,
             )),
-            component: BaseComponent::new_rigid_body(
+            base: BaseComponent::new_rigid_body(
                 RigidBodyBuilder::fixed().translation(Vector::new(0.0, -1.0)),
                 vec![collider],
             ),
@@ -258,8 +254,7 @@ impl ComponentController for Floor {
         let floors = ctx.path_render(&active);
         let (_, mut renderer) = encoder.renderer(&config);
         for (instance, floor) in &floors {
-            renderer.render_color(&floor.model, &floor.color);
-            renderer.commit(instance);
+            renderer.render_color(instance, &floor.model, &floor.color);
         }
     }
 }
@@ -268,8 +263,8 @@ impl ComponentController for Floor {
 struct PhysicsBox {
     collided: bool,
     hovered: bool,
-    #[component]
-    component: BaseComponent,
+    #[base]
+    base: BaseComponent,
 }
 
 impl PhysicsBox {
@@ -281,7 +276,7 @@ impl PhysicsBox {
         Self {
             collided: false,
             hovered: false,
-            component: BaseComponent::new_rigid_body(
+            base: BaseComponent::new_rigid_body(
                 RigidBodyBuilder::dynamic().translation(position),
                 vec![ColliderBuilder::new(SharedShape::new(
                     PhysicsBox::BOX_SHAPE,
@@ -309,8 +304,7 @@ impl ComponentController for PhysicsBox {
             } else {
                 color = &state.default_color;
             }
-            renderer.render_color(&state.box_model, color);
-            renderer.commit(instance);
+            renderer.render_color(instance, &state.box_model, color);
         }
     }
 
@@ -319,8 +313,8 @@ impl ComponentController for PhysicsBox {
         let mut to_remove = vec![];
         let remove = ctx.is_held(MouseButton::Left) || ctx.is_pressed(ScreenTouch);
         for physics_box in &mut ctx.path_mut(&active) {
-            let collider_handle = physics_box.collider_handles().unwrap()[0];
-            let collider = physics_box.collider(collider_handle).unwrap();
+            let collider_handle = physics_box.base.collider_handles().unwrap()[0];
+            let collider = physics_box.base.collider(collider_handle).unwrap();
             if collider
                 .shape()
                 .contains_point(collider.position(), &cursor_world)
@@ -328,7 +322,7 @@ impl ComponentController for PhysicsBox {
                 drop(collider);
                 physics_box.hovered = true;
                 if remove {
-                    to_remove.push(*physics_box.component.handle().unwrap());
+                    to_remove.push(physics_box.base.handle().unwrap());
                 }
             } else {
                 drop(collider);
@@ -337,7 +331,7 @@ impl ComponentController for PhysicsBox {
         }
 
         for handle in to_remove {
-            ctx.remove_component(&handle);
+            ctx.remove_component(handle);
         }
     }
 }
@@ -356,11 +350,11 @@ impl<'de, 'a> serde::de::Visitor<'de> for FloorVisitor<'a> {
     where
         V: serde::de::SeqAccess<'de>,
     {
-        let component: BaseComponent = seq
+        let base: BaseComponent = seq
             .next_element()?
             .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
         Ok(Floor {
-            component,
+            base,
             color: self.ctx.create_uniform(Color::new_rgba(0, 0, 255, 255)),
             model: self.ctx.create_model(ModelBuilder::from_collider_shape(
                 &Floor::FLOOR_SHAPE,
@@ -385,11 +379,11 @@ impl<'de, 'a> serde::de::Visitor<'de> for PlayerVisitor<'a> {
     where
         V: serde::de::SeqAccess<'de>,
     {
-        let component: BaseComponent = seq
+        let base: BaseComponent = seq
             .next_element()?
             .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
         Ok(Player {
-            component,
+            base,
             sprite: self.ctx.create_sprite(include_bytes!("./img/burger.png")),
             model: self.ctx.create_model(ModelBuilder::from_collider_shape(
                 &Player::SHAPE,
@@ -410,15 +404,11 @@ impl<'de, 'a> serde::de::Visitor<'de> for PhysicsStateVisitor<'a> {
         formatter.write_str("A PhysicsState")
     }
 
-    fn visit_seq<V>(self, mut seq: V) -> Result<PhysicsState, V::Error>
+    fn visit_seq<V>(self, _seq: V) -> Result<PhysicsState, V::Error>
     where
         V: serde::de::SeqAccess<'de>,
     {
-        let component: BaseComponent = seq
-            .next_element()?
-            .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
         Ok(PhysicsState {
-            component,
             default_color: self.ctx.create_uniform(Color::new_rgba(0, 255, 0, 255)),
             collision_color: self.ctx.create_uniform(Color::new_rgba(255, 0, 0, 255)),
             hover_color: self.ctx.create_uniform(Color::new_rgba(0, 0, 255, 255)),

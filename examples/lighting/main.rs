@@ -16,7 +16,7 @@ fn main() {
                     shader_lang: ShaderLang::GLSL,
                     shader_fields: &[ShaderField::Uniform],
                     blend: BlendState::ALPHA_BLENDING,
-                    smaa: true,
+                    msaa: true,
                     write_mask: ColorWrites::ALL,
                 }),
                 shadow_shader: ctx.create_shader(ShaderConfig {
@@ -32,7 +32,7 @@ fn main() {
                     //     },
                     //     alpha: BlendComponent::OVER,
                     // },
-                    smaa: true,
+                    msaa: true,
                     write_mask: ColorWrites::ALL,
                 }),
             });
@@ -93,8 +93,8 @@ struct LightingState {
 
 #[derive(Component)]
 struct Obstacle {
-    #[component]
-    component: BaseComponent,
+    #[base]
+    base: BaseComponent,
     model: Model,
     color: Uniform<Color>,
 }
@@ -112,7 +112,7 @@ impl Obstacle {
                 24,
                 2.0,
             )),
-            component: BaseComponent::new_rigid_body(
+            base: BaseComponent::new_rigid_body(
                 RigidBodyBuilder::fixed().translation(position),
                 vec![collider],
             ),
@@ -136,16 +136,15 @@ impl ComponentController for Obstacle {
     ) {
         let (_, mut renderer) = encoder.renderer(&config);
         for (i, b) in ctx.path_render(&active).iter() {
-            renderer.render_color(&b.model, &b.color);
-            renderer.commit(i);
+            renderer.render_color(i, &b.model, &b.color);
         }
     }
 }
 
 #[derive(Component)]
 struct Light {
-    #[component]
-    component: BaseComponent,
+    #[base]
+    base: BaseComponent,
     radius: f32,
     vertices: Vec<Vertex>,
     shadows: Vec<Model>,
@@ -170,7 +169,7 @@ impl Light {
             follow_mouse: follow_cursor,
             shadows: vec![],
             vertices: model_builder.vertices.clone(),
-            component: BaseComponent::new_rigid_body(
+            base: BaseComponent::new_rigid_body(
                 RigidBodyBuilder::dynamic().translation(position),
                 vec![ColliderBuilder::ball(radius)
                     .sensor(true)
@@ -196,16 +195,16 @@ impl ComponentController for Light {
         let cursor_pos = ctx.cursor_camera(&ctx.world_camera);
         for light in ctx.path_mut(&active).iter() {
             if light.follow_mouse {
-                light.component.set_translation(cursor_pos);
+                light.base.set_translation(cursor_pos);
             }
         }
 
         let mut all_shadows = vec![];
         for light in ctx.path(&active).iter() {
             let mut shadows = vec![];
-            let light_collider_handle = light.component.collider_handles().unwrap()[0];
-            let light_collider = light.component.collider(light_collider_handle).unwrap();
-            let light_translation = light.component.translation();
+            let light_collider_handle = light.base.collider_handles().unwrap()[0];
+            let light_collider = light.base.collider(light_collider_handle).unwrap();
+            let light_translation = light.base.translation();
 
             ctx.intersections_with_shape(
                 light_collider.position(),
@@ -344,8 +343,7 @@ impl ComponentController for Light {
                 renderer.commit(i);
             }
 
-            renderer.render_color(&state.inner_model, &l.light_color);
-            renderer.commit(i);
+            renderer.render_color(i, &state.inner_model, &l.light_color);
         }
     }
 }

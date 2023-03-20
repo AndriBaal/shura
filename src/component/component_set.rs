@@ -1,8 +1,8 @@
 use instant::Instant;
 
 use crate::{
-    ArenaIter, ArenaIterMut, ArenaPath, ComponentCallbacks, ComponentConfig, ComponentController,
-    ComponentType, DynamicComponent, InstanceIndex,
+    ArenaIter, ArenaIterMut, ArenaPath, ComponentCallbacks, ComponentConfig,
+    ComponentType, DynamicComponent, InstanceIndex, ComponentDerive,
 };
 use std::{iter::Enumerate, marker::PhantomData};
 
@@ -77,12 +77,12 @@ impl ComponentCluster {
     }
 }
 
-pub struct ComponentPath<'a, C: ComponentController> {
+pub struct ComponentPath<'a, C: ComponentDerive> {
     paths: &'a [ArenaPath],
     marker: PhantomData<C>,
 }
 
-impl<'a, C: ComponentController> ComponentPath<'a, C> {
+impl<'a, C: ComponentDerive> ComponentPath<'a, C> {
     pub(crate) fn new(paths: &'a [ArenaPath]) -> Self {
         Self {
             paths,
@@ -103,13 +103,13 @@ impl<'a, C: ComponentController> ComponentPath<'a, C> {
 /// [ComponentGroups](crate::ComponentGroup).
 /// A [ComponentSet] can be retrieved from the [Context](crate::Context) with
 /// [components](crate::Context::components) or [components_mut](crate::Context::components_mut).
-pub struct ComponentSet<'a, C: ComponentController> {
+pub struct ComponentSet<'a, C: ComponentDerive> {
     pub(crate) types: Vec<&'a ComponentType>,
     pub(crate) len: usize,
     marker: PhantomData<C>,
 }
 
-impl<'a, C: ComponentController> ComponentSet<'a, C> {
+impl<'a, C: ComponentDerive> ComponentSet<'a, C> {
     pub(crate) fn new(types: Vec<&'a ComponentType>, len: usize) -> Self {
         Self {
             types,
@@ -136,7 +136,7 @@ impl<'a, C: ComponentController> ComponentSet<'a, C> {
 
 impl<'a, C> IntoIterator for &ComponentSet<'a, C>
 where
-    C: ComponentController,
+    C: ComponentDerive,
 {
     type Item = &'a C;
     type IntoIter = ComponentIter<'a, C>;
@@ -149,7 +149,7 @@ where
 /// Iterator over a [ComponentSet], which holds components from multiple [ComponentGroups](crate::ComponentGroup).
 pub struct ComponentIter<'a, C>
 where
-    C: ComponentController,
+    C: ComponentDerive,
 {
     iters: Vec<ArenaIter<'a, DynamicComponent>>,
     iter_index: usize,
@@ -159,7 +159,7 @@ where
 
 impl<'a, C> ComponentIter<'a, C>
 where
-    C: ComponentController,
+    C: ComponentDerive,
 {
     pub(crate) fn new(types: &Vec<&'a ComponentType>, len: usize) -> ComponentIter<'a, C> {
         let mut iters = Vec::with_capacity(types.len());
@@ -177,7 +177,7 @@ where
 
 impl<'a, C> ExactSizeIterator for ComponentIter<'a, C>
 where
-    C: ComponentController,
+    C: ComponentDerive,
 {
     fn len(&self) -> usize {
         self.len
@@ -186,7 +186,7 @@ where
 
 impl<'a, C> Iterator for ComponentIter<'a, C>
 where
-    C: ComponentController,
+    C: ComponentDerive,
 {
     type Item = &'a C;
     fn next(&mut self) -> Option<Self::Item> {
@@ -204,7 +204,7 @@ where
 
 impl<'a, C> DoubleEndedIterator for ComponentIter<'a, C>
 where
-    C: ComponentController,
+    C: ComponentDerive,
 {
     fn next_back(&mut self) -> Option<&'a C> {
         let len = self.iters.len();
@@ -224,13 +224,13 @@ where
 /// [ComponentGroups](crate::ComponentGroup).
 /// A [ComponentSet] can be retrieved from the [Context](crate::Context) with
 /// [components](crate::Context::components) or [components_mut](crate::Context::components_mut).
-pub struct ComponentSetMut<'a, C: ComponentController> {
+pub struct ComponentSetMut<'a, C: ComponentDerive> {
     pub(crate) types: Vec<&'a mut ComponentType>,
     pub(crate) len: usize,
     marker: PhantomData<C>,
 }
 
-impl<'a, C: ComponentController> ComponentSetMut<'a, C> {
+impl<'a, C: ComponentDerive> ComponentSetMut<'a, C> {
     pub(crate) fn new(types: Vec<&'a mut ComponentType>, len: usize) -> Self {
         Self {
             types,
@@ -257,7 +257,7 @@ impl<'a, C: ComponentController> ComponentSetMut<'a, C> {
 
 impl<'a, C> IntoIterator for &'a mut ComponentSetMut<'a, C>
 where
-    C: ComponentController,
+    C: ComponentDerive,
 {
     type Item = &'a mut C;
     type IntoIter = ComponentIterMut<'a, C>;
@@ -270,7 +270,7 @@ where
 /// Iterator over a [ComponentSetMut], which holds components from multiple [ComponentGroups](crate::ComponentGroup).
 pub struct ComponentIterMut<'a, C>
 where
-    C: ComponentController,
+    C: ComponentDerive,
 {
     iters: Vec<ArenaIterMut<'a, DynamicComponent>>,
     iter_index: usize,
@@ -280,7 +280,7 @@ where
 
 impl<'a, C> ComponentIterMut<'a, C>
 where
-    C: ComponentController,
+    C: ComponentDerive,
 {
     pub(crate) fn new(
         types: &'a mut Vec<&'a mut ComponentType>,
@@ -301,7 +301,7 @@ where
 
 impl<'a, C> ExactSizeIterator for ComponentIterMut<'a, C>
 where
-    C: ComponentController,
+    C: ComponentDerive,
 {
     fn len(&self) -> usize {
         self.len
@@ -310,7 +310,7 @@ where
 
 impl<'a, C> Iterator for ComponentIterMut<'a, C>
 where
-    C: ComponentController,
+    C: ComponentDerive,
 {
     type Item = &'a mut C;
     fn next(&mut self) -> Option<Self::Item> {
@@ -328,7 +328,7 @@ where
 
 impl<'a, C> DoubleEndedIterator for ComponentIterMut<'a, C>
 where
-    C: ComponentController,
+    C: ComponentDerive,
 {
     fn next_back(&mut self) -> Option<&'a mut C> {
         let len = self.iters.len();
@@ -344,13 +344,13 @@ where
     }
 }
 
-pub struct ComponentSetRender<'a, C: ComponentController> {
+pub struct ComponentSetRender<'a, C: ComponentDerive> {
     pub(crate) types: Vec<&'a ComponentType>,
     pub(crate) len: usize,
     marker: PhantomData<C>,
 }
 
-impl<'a, C: ComponentController> ComponentSetRender<'a, C> {
+impl<'a, C: ComponentDerive> ComponentSetRender<'a, C> {
     pub(crate) fn new(types: Vec<&'a ComponentType>, len: usize) -> Self {
         Self {
             types,
@@ -377,7 +377,7 @@ impl<'a, C: ComponentController> ComponentSetRender<'a, C> {
 
 impl<'a, C> IntoIterator for &ComponentSetRender<'a, C>
 where
-    C: ComponentController,
+    C: ComponentDerive,
 {
     type Item = (InstanceIndex, &'a C);
     type IntoIter = ComponentIterRender<'a, C>;
@@ -389,7 +389,7 @@ where
 
 pub struct ComponentIterRender<'a, C>
 where
-    C: ComponentController,
+    C: ComponentDerive,
 {
     iters: Vec<Enumerate<ArenaIter<'a, DynamicComponent>>>,
     iter_index: usize,
@@ -399,7 +399,7 @@ where
 
 impl<'a, C> ComponentIterRender<'a, C>
 where
-    C: ComponentController,
+    C: ComponentDerive,
 {
     pub(crate) fn new(types: &Vec<&'a ComponentType>, len: usize) -> ComponentIterRender<'a, C> {
         let mut iters = Vec::with_capacity(types.len());
@@ -417,7 +417,7 @@ where
 
 impl<'a, C> ExactSizeIterator for ComponentIterRender<'a, C>
 where
-    C: ComponentController,
+    C: ComponentDerive,
 {
     fn len(&self) -> usize {
         self.len
@@ -426,7 +426,7 @@ where
 
 impl<'a, C> Iterator for ComponentIterRender<'a, C>
 where
-    C: ComponentController,
+    C: ComponentDerive,
 {
     type Item = (InstanceIndex, &'a C);
     fn next(&mut self) -> Option<Self::Item> {
@@ -446,7 +446,7 @@ where
 
 impl<'a, C> DoubleEndedIterator for ComponentIterRender<'a, C>
 where
-    C: ComponentController,
+    C: ComponentDerive,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
         let len = self.iters.len();

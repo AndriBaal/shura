@@ -25,7 +25,7 @@ pub struct StartButton {
     start: Sound,
     sink: Sink,
     #[component]
-    component: BaseComponent,
+    base: BaseComponent,
 }
 impl StartButton {
     pub fn new(ctx: &mut Context) -> Self {
@@ -51,7 +51,7 @@ impl StartButton {
             text,
             sink,
             start,
-            component: BaseComponent::default(),
+            base: BaseComponent::default(),
         }
     }
 }

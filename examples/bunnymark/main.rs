@@ -65,10 +65,10 @@ impl SceneState for BunnyState {
                 if dead.len() == MODIFY_STEP {
                     break;
                 }
-                dead.push(*bunny.base().handle().unwrap());
+                dead.push(bunny.base().handle().unwrap());
             }
             for handle in dead {
-                ctx.remove_component(&handle);
+                ctx.remove_component(handle);
             }
         }
 
@@ -85,20 +85,20 @@ impl SceneState for BunnyState {
 
 #[derive(Component)]
 struct Bunny {
-    #[component]
-    component: BaseComponent,
+    #[base]
+    base: BaseComponent,
     linvel: Vector<f32>,
 }
 impl Bunny {
     pub fn new(ctx: &Context) -> Bunny {
-        let component = PositionBuilder::new()
+        let base = PositionBuilder::new()
             .translation(ctx.cursor_camera(&ctx.world_camera))
             .into();
         let linvel = Vector::new(
             thread_rng().gen_range(-2.5..2.5),
             thread_rng().gen_range(-7.5..7.5),
         );
-        Bunny { component, linvel }
+        Bunny { base, linvel }
     }
 }
 
@@ -113,7 +113,7 @@ impl ComponentController for Bunny {
         let fov = ctx.camera_fov();
         for bunny in &mut ctx.path_mut(&active) {
             let mut linvel = bunny.linvel;
-            let mut translation = bunny.translation();
+            let mut translation = bunny.base.translation();
 
             linvel.y += GRAVITY * frame;
             translation += linvel * frame;
@@ -133,7 +133,7 @@ impl ComponentController for Bunny {
                 translation.y = fov.y;
             }
             bunny.linvel = linvel;
-            bunny.component.set_translation(translation);
+            bunny.base.set_translation(translation);
         }
     }
 
@@ -146,8 +146,11 @@ impl ComponentController for Bunny {
         let bunny_state = ctx.scene_state::<BunnyState>().unwrap();
         {
             let (instances, mut renderer) = encoder.renderer(&config);
-            renderer.render_sprite(&bunny_state.bunny_model, &bunny_state.bunny_sprite);
-            renderer.commit(instances);
+            renderer.render_sprite(
+                instances,
+                &bunny_state.bunny_model,
+                &bunny_state.bunny_sprite,
+            );
         }
 
         if let Some(screenshot) = &bunny_state.screenshot {

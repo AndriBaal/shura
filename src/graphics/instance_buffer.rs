@@ -67,6 +67,22 @@ impl Into<InstanceIndices> for InstanceIndex {
     }
 }
 
+impl Into<InstanceIndices> for u32 {
+    fn into(self) -> InstanceIndices {
+        InstanceIndices {
+            range: self..self + 1,
+        }
+    }
+}
+
+impl Into<InstanceIndices> for Range<u32> {
+    fn into(self) -> InstanceIndices {
+        InstanceIndices {
+            range: self
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct InstanceIndices {
     pub range: Range<u32>,

@@ -10,7 +10,7 @@ pub struct Renderer<'a> {
     pub gpu: &'a Gpu,
     pub defaults: &'a GpuDefaults,
     pub indices: u32,
-    pub smaa: bool,
+    pub msaa: bool,
 }
 
 impl<'a> Renderer<'a> {
@@ -23,12 +23,12 @@ impl<'a> Renderer<'a> {
             .begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("render_pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: if config.smaa {
+                    view: if config.msaa {
                         config.target.msaa()
                     } else {
                         config.target.view()
                     },
-                    resolve_target: if config.smaa {
+                    resolve_target: if config.msaa {
                         Some(config.target.view())
                     } else {
                         None
@@ -47,7 +47,7 @@ impl<'a> Renderer<'a> {
             gpu: config.gpu,
             defaults: config.defaults,
             indices: 0,
-            smaa: config.smaa,
+            msaa: config.msaa,
         };
         result.use_camera(config.camera);
         result.use_instance_buffer(config.instances);
@@ -63,8 +63,8 @@ impl<'a> Renderer<'a> {
         let render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("render_pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: &gpu.base.output_msaa,
-                resolve_target: Some(output),
+                view: &output,
+                resolve_target: None,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Load,
                     store: true,
@@ -79,7 +79,7 @@ impl<'a> Renderer<'a> {
             gpu,
             defaults,
             indices: 0,
-            smaa: true,
+            msaa: false,
         };
         renderer.use_uniform(defaults.relative_camera.buffer().uniform(), 0);
         renderer.use_instance_buffer(&defaults.single_centered_instance);
@@ -98,9 +98,9 @@ impl<'a> Renderer<'a> {
 
     pub fn use_shader(&mut self, shader: &'a Shader) {
         assert_eq!(
-            shader.smaa(),
-            self.smaa,
-            "The Renderer and the Shader both need to have smaa enabled / disabled!"
+            shader.msaa(),
+            self.msaa,
+            "The Renderer and the Shader both need to have msaa enabled / disabled!"
         );
         self.render_pass.set_pipeline(shader.pipeline());
     }
@@ -138,26 +138,45 @@ impl<'a> Renderer<'a> {
             .set_bind_group(slot, self.defaults.times.bind_group(), &[]);
     }
 
-    pub fn render_sprite(&mut self, model: &'a Model, sprite: &'a Sprite) {
+    pub fn render_sprite(
+        &mut self,
+        instances: impl Into<InstanceIndices>,
+        model: &'a Model,
+        sprite: &'a Sprite,
+    ) {
         self.use_shader(&self.defaults.sprite);
         self.use_model(model);
         self.use_sprite(sprite, 1);
+        self.commit(instances);
     }
 
-    pub fn render_grey(&mut self, model: &'a Model, sprite: &'a Sprite) {
+    pub fn render_grey(
+        &mut self,
+        instances: impl Into<InstanceIndices>,
+        model: &'a Model,
+        sprite: &'a Sprite,
+    ) {
         self.use_shader(&self.defaults.grey);
         self.use_model(model);
         self.use_sprite(sprite, 1);
+        self.commit(instances);
     }
 
-    pub fn render_blurred(&mut self, model: &'a Model, sprite: &'a Sprite) {
+    pub fn render_blurred(
+        &mut self,
+        instances: impl Into<InstanceIndices>,
+        model: &'a Model,
+        sprite: &'a Sprite,
+    ) {
         self.use_shader(&self.defaults.blurr);
         self.use_model(model);
         self.use_sprite(sprite, 1);
+        self.commit(instances);
     }
 
     pub fn render_colored_sprite(
         &mut self,
+        instances: impl Into<InstanceIndices>,
         model: &'a Model,
         sprite: &'a Sprite,
         color: &'a Uniform<Color>,
@@ -166,10 +185,12 @@ impl<'a> Renderer<'a> {
         self.use_model(model);
         self.use_sprite(sprite, 1);
         self.use_uniform(color, 2);
+        self.commit(instances);
     }
 
     pub fn render_transparent_sprite(
         &mut self,
+        instances: impl Into<InstanceIndices>,
         model: &'a Model,
         sprite: &'a Sprite,
         transparency: &'a Uniform<f32>,
@@ -177,19 +198,51 @@ impl<'a> Renderer<'a> {
         self.use_shader(&self.defaults.transparent);
         self.use_model(model);
         self.use_sprite(sprite, 1);
-        self.use_uniform(transparency, 2)
+        self.use_uniform(transparency, 2);
+        self.commit(instances);
     }
 
-    pub fn render_color(&mut self, model: &'a Model, color: &'a Uniform<Color>) {
+    pub fn render_color(
+        &mut self,
+        instances: impl Into<InstanceIndices>,
+        model: &'a Model,
+        color: &'a Uniform<Color>,
+    ) {
         self.use_shader(&self.defaults.color);
         self.use_model(model);
         self.use_uniform(color, 1);
+        self.commit(instances);
     }
 
-    pub fn render_rainbow(&mut self, model: &'a Model) {
+    pub fn render_color_no_msaa(
+        &mut self,
+        instances: impl Into<InstanceIndices>,
+        model: &'a Model,
+        color: &'a Uniform<Color>,
+    ) {
+        self.use_shader(&self.defaults.color_no_msaa);
+        self.use_model(model);
+        self.use_uniform(color, 1);
+        self.commit(instances);
+    }
+
+    pub fn render_sprite_no_msaa(
+        &mut self,
+        instances: impl Into<InstanceIndices>,
+        model: &'a Model,
+        sprite: &'a Sprite,
+    ) {
+        self.use_shader(&self.defaults.sprite_no_msaa);
+        self.use_model(model);
+        self.use_sprite(sprite, 1);
+        self.commit(instances);
+    }
+
+    pub fn render_rainbow(&mut self, instances: impl Into<InstanceIndices>, model: &'a Model) {
         self.use_shader(&self.defaults.rainbow);
         self.use_model(model);
         self.use_uniform(&self.defaults.times, 1);
+        self.commit(instances);
     }
 
     pub fn commit(&mut self, instances: impl Into<InstanceIndices>) {
@@ -201,8 +254,8 @@ impl<'a> Renderer<'a> {
         &self.gpu
     }
 
-    pub const fn smaa(&self) -> bool {
-        self.smaa
+    pub const fn msaa(&self) -> bool {
+        self.msaa
     }
 
     pub fn render_pass(&mut self) -> &mut wgpu::RenderPass<'a> {

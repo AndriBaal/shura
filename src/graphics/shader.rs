@@ -7,7 +7,7 @@ pub struct ShaderConfig<'a> {
     pub fragment_source: &'a str,
     pub shader_lang: ShaderLang,
     pub shader_fields: &'a [ShaderField],
-    pub smaa: bool,
+    pub msaa: bool,
     pub blend: BlendState,
     pub write_mask: ColorWrites,
 }
@@ -84,7 +84,7 @@ pub enum ShaderLang {
 pub struct Shader {
     pipeline: wgpu::RenderPipeline,
     lang: ShaderLang,
-    smaa: bool,
+    msaa: bool,
 }
 
 impl Shader {
@@ -164,7 +164,7 @@ impl Shader {
                     conservative: false,
                 },
                 depth_stencil: None,
-                multisample: if config.smaa {
+                multisample: if config.msaa {
                     gpu.base.multisample_state
                 } else {
                     gpu.base.no_multisample_state
@@ -175,7 +175,7 @@ impl Shader {
         Shader {
             pipeline,
             lang: config.shader_lang,
-            smaa: config.smaa,
+            msaa: config.msaa,
         }
     }
 
@@ -197,7 +197,7 @@ impl Shader {
         self.lang
     }
 
-    pub fn smaa(&self) -> bool {
-        self.smaa
+    pub fn msaa(&self) -> bool {
+        self.msaa
     }
 }

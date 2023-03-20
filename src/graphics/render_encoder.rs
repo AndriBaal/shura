@@ -11,7 +11,7 @@ pub struct RenderConfig<'a> {
     pub target: &'a RenderTarget,
     pub gpu: &'a Gpu,
     pub defaults: &'a GpuDefaults,
-    pub smaa: bool,
+    pub msaa: bool,
 }
 
 pub struct RenderEncoder {
@@ -77,8 +77,8 @@ impl RenderEncoder {
                 &mut staging_belt,
                 &mut self.inner,
                 target.view(),
-                target_size.x,
-                target_size.y,
+                2 * target_size.x,
+                2 * target_size.y,
             )
             .expect("Draw queued");
 
@@ -92,15 +92,15 @@ impl RenderEncoder {
             target: into,
             gpu: config.gpu,
             defaults: config.defaults,
-            smaa: true,
+            msaa: true,
         };
 
         let (instances, mut renderer) = Renderer::new(self, &target_conf);
         renderer.render_sprite(
+            instances,
             config.defaults.relative_camera.model(),
             config.defaults.target.sprite(),
         );
-        renderer.commit(instances);
     }
 
     pub fn submit(self, gpu: &Gpu) {

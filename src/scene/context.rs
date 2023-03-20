@@ -5,7 +5,7 @@ use crate::{
     GpuDefaults, GroupFilter, Input, InputEvent, InputTrigger, InstanceBuffer, Isometry, Matrix,
     Model, ModelBuilder, Modifier, RenderConfig, RenderEncoder, RenderTarget, Rotation, Scene,
     SceneCreator, SceneManager, SceneState, ScreenConfig, Shader, ShaderConfig, Shura, Sprite,
-    SpriteSheet, Uniform, Vector, WorldCamera,
+    SpriteSheet, Uniform, Vector, WorldCamera, ComponentDerive,
 };
 
 macro_rules! Where {
@@ -385,7 +385,7 @@ impl<'a> Context<'a> {
             .base()
             .rigid_body_handle()
             .expect("Cannot add a collider to a component with no RigidBody!");
-        let component_handle = *component
+        let component_handle = component
             .base()
             .handle()
             .expect("Initialize the component before adding additional colliders!");
@@ -433,7 +433,7 @@ impl<'a> Context<'a> {
         return None;
     }
 
-    pub fn remove_component(&mut self, handle: &ComponentHandle) -> Option<DynamicComponent> {
+    pub fn remove_component(&mut self, handle: ComponentHandle) -> Option<DynamicComponent> {
         return self.component_manager.remove_component(handle);
     }
 
@@ -895,24 +895,13 @@ impl<'a> Context<'a> {
         self.component_manager.group_ids()
     }
 
-    pub fn component_dynamic(&self, handle: &ComponentHandle) -> Option<&DynamicComponent> {
-        self.component_manager.component_dynamic(handle)
-    }
-
-    pub fn component_dynamic_mut(
-        &mut self,
-        handle: &ComponentHandle,
-    ) -> Option<&mut DynamicComponent> {
-        self.component_manager.component_dynamic_mut(handle)
-    }
-
-    pub fn component<C: ComponentController>(&self, handle: &ComponentHandle) -> Option<&C> {
+    pub fn component<C: ComponentDerive>(&self, handle: ComponentHandle) -> Option<&C> {
         self.component_manager.component::<C>(handle)
     }
 
-    pub fn component_mut<C: ComponentController>(
+    pub fn component_mut<C: ComponentDerive>(
         &mut self,
-        handle: &ComponentHandle,
+        handle: ComponentHandle,
     ) -> Option<&mut C> {
         self.component_manager.component_mut::<C>(handle)
     }
@@ -936,18 +925,18 @@ impl<'a> Context<'a> {
         self.component_manager.world().physics_priority()
     }
 
-    pub fn path_render<C: ComponentController>(
+    pub fn path_render<C: ComponentDerive>(
         &self,
         path: &ComponentPath<C>,
     ) -> ComponentSetRender<C> {
         return self.component_manager.path_render(path);
     }
 
-    pub fn path<C: ComponentController>(&self, path: &ComponentPath<C>) -> ComponentSet<C> {
+    pub fn path<C: ComponentDerive>(&self, path: &ComponentPath<C>) -> ComponentSet<C> {
         return self.component_manager.path(path);
     }
 
-    pub fn path_mut<C: ComponentController>(
+    pub fn path_mut<C: ComponentDerive>(
         &mut self,
         path: &ComponentPath<C>,
     ) -> ComponentSetMut<C> {
@@ -963,14 +952,6 @@ impl<'a> Context<'a> {
 
     pub fn components<C: ComponentController>(&self, filter: GroupFilter) -> ComponentSet<C> {
         self.component_manager.components::<C>(filter)
-    }
-
-    pub fn first<C: ComponentController>(&self, filter: GroupFilter) -> Option<&C> {
-        self.component_manager.first::<C>(filter)
-    }
-
-    pub fn first_mut<C: ComponentController>(&mut self, filter: GroupFilter) -> Option<&mut C> {
-        self.component_manager.first_mut::<C>(filter)
     }
 
     #[cfg(feature = "gamepad")]

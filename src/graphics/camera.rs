@@ -169,7 +169,7 @@ impl WorldCamera {
 
     pub fn apply_target(&mut self, man: &ComponentManager) {
         if let Some(target) = self.target() {
-            if let Some(component) = man.component_dynamic(&target) {
+            if let Some(component) = man.component_dynamic(target) {
                 let translation = component.base().translation();
                 self.set_translation(translation);
             } else {
