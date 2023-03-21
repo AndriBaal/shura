@@ -2,7 +2,7 @@
 use crate::text::{FontBrush, TextDescriptor};
 use crate::{
     BufferedCamera, Camera, CameraBuffer, ColorWrites, InstanceBuffer, Isometry, Matrix, Model,
-    ModelBuilder, RenderConfig, RenderEncoder, RenderTarget, ScreenConfig, Shader, ShaderConfig,
+    ModelBuilder,  RenderEncoder, RenderTarget, ScreenConfig, Shader, ShaderConfig,
     ShaderField, ShaderLang, Sprite, SpriteSheet, Uniform, Vector,
 };
 use log::info;
@@ -188,16 +188,8 @@ impl Gpu {
         descriptor: TextDescriptor,
     ) -> RenderTarget {
         let target = self.create_render_target(texture_size);
-        let mut encoder = RenderEncoder::new(self);
-        let config = RenderConfig {
-            camera: &defaults.relative_camera,
-            instances: &defaults.single_centered_instance,
-            target: &target,
-            gpu: self,
-            defaults: &defaults,
-            msaa: true,
-        };
-        encoder.render_text(&config, descriptor);
+        let mut encoder = RenderEncoder::new(self,defaults, &target);
+        encoder.render_text(descriptor);
         encoder.submit(self);
         return target;
     }
@@ -214,7 +206,7 @@ impl Gpu {
         &self,
         defaults: &GpuDefaults,
         texture_size: Vector<u32>,
-        compute: impl for<'any> Fn(&mut RenderEncoder, RenderConfig<'any>, [Where!('caller >= 'any); 0]),
+        compute: impl for<'any> Fn(&mut RenderEncoder),
     ) -> RenderTarget {
         return RenderTarget::computed(self, &defaults, texture_size, compute);
     }

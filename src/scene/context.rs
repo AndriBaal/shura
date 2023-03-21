@@ -3,7 +3,7 @@ use crate::{
     ComponentGroupDescriptor, ComponentHandle, ComponentManager, ComponentPath, ComponentSet,
     ComponentSetMut, ComponentSetRender, ComponentTypeId, DynamicComponent, FrameManager,
     GlobalState, Gpu, GpuDefaults, GroupFilter, Input, InputEvent, InputTrigger, InstanceBuffer,
-    Isometry, Matrix, Model, ModelBuilder, Modifier, RenderConfig, RenderEncoder, RenderTarget,
+    Isometry, Matrix, Model, ModelBuilder, Modifier, RenderEncoder, RenderTarget,
     Rotation, Scene, SceneCreator, SceneManager, SceneState, ScreenConfig, Shader, ShaderConfig,
     Shura, Sprite, SpriteSheet, Uniform, Vector, WorldCamera,
 };
@@ -367,7 +367,7 @@ impl<'a> Context<'a> {
     pub fn create_computed_target<'caller>(
         &self,
         texture_size: Vector<u32>,
-        compute: impl for<'any> Fn(&mut RenderEncoder, RenderConfig<'any>, [Where!('caller >= 'any); 0]),
+        compute: impl for<'any> Fn(&mut RenderEncoder),
     ) -> RenderTarget {
         self.gpu
             .create_computed_target(&self.defaults, texture_size, compute)

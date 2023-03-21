@@ -4,7 +4,7 @@ use crate::gui::Gui;
 use crate::physics::{ActiveEvents, CollideType};
 use crate::{
     scene::context::ShuraFields, Context, FrameManager, GlobalState, Gpu, GpuDefaults, Input,
-    InstanceIndex, RenderConfig, RenderEncoder, RenderOperation, Renderer, Scene, SceneCreator,
+    InstanceIndex, RenderEncoder, RenderOperation, Renderer, Scene, SceneCreator,
     SceneManager, Vector,
 };
 use log::{error, info};
@@ -428,9 +428,9 @@ impl Shura {
             self.frame_manager.frame_time(),
         );
 
-        let mut encoder = RenderEncoder::new(&self.gpu);
+        let mut encoder = RenderEncoder::new(&self.gpu, &self.defaults, &self.defaults.target);
         if let Some(clear_color) = scene.screen_config.clear_color {
-            encoder.clear_target(&self.defaults.target, clear_color);
+            encoder.clear(clear_color);
         }
 
         {
@@ -443,29 +443,30 @@ impl Shura {
                 if config.render != RenderOperation::Never {
                     match config.render {
                         RenderOperation::EveryFrame => {
-                            for path in set.paths() {
-                                let group = ctx.component_manager.group(path.group_index).unwrap();
-                                let component_type = group.type_ref(path.type_index).unwrap();
-                                let buffer = component_type
-                                    .buffer()
-                                    .unwrap_or(&ctx.defaults.empty_instance);
-                                let config = RenderConfig {
-                                    camera: &ctx.defaults.world_camera,
-                                    instances: buffer,
-                                    target: &ctx.defaults.target,
-                                    gpu: &ctx.gpu,
-                                    defaults: &ctx.defaults,
-                                    msaa: true,
-                                };
-                                if component_type.len() > 0 {
-                                    (set.callbacks().call_render)(
-                                        &[*path],
-                                        &ctx,
-                                        config,
-                                        &mut encoder,
-                                    );
-                                }
-                            }
+                            asdf
+                            // for path in set.paths() {
+                            //     let group = ctx.component_manager.group(path.group_index).unwrap();
+                            //     let component_type = group.type_ref(path.type_index).unwrap();
+                            //     let buffer = component_type
+                            //         .buffer()
+                            //         .unwrap_or(&ctx.defaults.empty_instance);
+                            //     let config = RenderConfig {
+                            //         camera: &ctx.defaults.world_camera,
+                            //         instances: buffer,
+                            //         target: &ctx.defaults.target,
+                            //         gpu: &ctx.gpu,
+                            //         defaults: &ctx.defaults,
+                            //         msaa: true,
+                            //     };
+                            //     if component_type.len() > 0 {
+                            //         (set.callbacks().call_render)(
+                            //             &[*path],
+                            //             &ctx,
+                            //             config,
+                            //             &mut encoder,
+                            //         );
+                            //     }
+                            // }
                         }
                         _ => {}
                     }

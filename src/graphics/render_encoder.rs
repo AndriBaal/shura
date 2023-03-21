@@ -1,43 +1,33 @@
 #[cfg(feature = "text")]
 use crate::text::TextDescriptor;
 use crate::{
-    CameraBuffer, Color, Gpu, GpuDefaults, InstanceBuffer, InstanceIndices, RenderTarget, Renderer,
+    Color, Gpu, GpuDefaults, RenderTarget, Renderer,
 };
 
-#[derive(Copy, Clone)]
-pub struct RenderConfig<'a> {
-    pub camera: &'a CameraBuffer,
-    pub instances: &'a InstanceBuffer,
-    pub target: &'a RenderTarget,
+pub struct RenderEncoder<'a> {
+    pub inner: wgpu::CommandEncoder,
     pub gpu: &'a Gpu,
     pub defaults: &'a GpuDefaults,
+    pub target: &'a RenderTarget,
     pub msaa: bool,
 }
 
-pub struct RenderEncoder {
-    pub inner: wgpu::CommandEncoder,
-}
-
-impl RenderEncoder {
-    pub(crate) fn new(gpu: &Gpu) -> Self {
+impl <'a>RenderEncoder<'a> {
+    pub(crate) fn new(gpu: &'a Gpu, defaults: &'a GpuDefaults, target: &'a RenderTarget) -> Self {
         let inner = gpu
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("render_encoder"),
             });
-        Self { inner }
+        Self { inner, defaults, gpu, target, msaa: true }
     }
 
-    pub fn clear(&mut self, config: &RenderConfig, color: Color) {
-        self.clear_target(config.target, color)
-    }
-
-    pub fn clear_target(&mut self, target: &RenderTarget, color: Color) {
+    pub fn clear(&mut self, color: Color) {
         self.inner.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("render_pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: target.msaa(),
-                resolve_target: Some(target.view()),
+                view: self.target.msaa(),
+                resolve_target: Some(self.target.view()),
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear(color.into()),
                     store: true,
@@ -48,21 +38,18 @@ impl RenderEncoder {
         });
     }
 
-    pub fn renderer<'a>(
+    pub fn renderer(
         &'a mut self,
-        config: &RenderConfig<'a>,
-    ) -> (InstanceIndices, Renderer<'a>) {
-        Renderer::new(self, config)
+    ) -> Renderer<'a> {
+        Renderer::new(self)
     }
 
     #[cfg(feature = "text")]
-    pub fn render_text(&mut self, config: &RenderConfig, descriptor: TextDescriptor) {
-        let gpu = config.gpu;
-        let target = config.target;
-        let target_size = target.size();
+    pub fn render_text(&mut self,  descriptor: TextDescriptor) {
+        let target_size = self.target.size();
         let mut staging_belt = wgpu::util::StagingBelt::new(1024);
         if let Some(color) = descriptor.clear_color {
-            self.clear_target(target, color);
+            self.clear(color);
         }
 
         for section in descriptor.sections {
@@ -73,10 +60,10 @@ impl RenderEncoder {
             .font
             .brush
             .draw_queued(
-                &gpu.device,
+                &self.gpu.device,
                 &mut staging_belt,
                 &mut self.inner,
-                target.view(),
+                self.target.view(),
                 2 * target_size.x,
                 2 * target_size.y,
             )
@@ -85,22 +72,18 @@ impl RenderEncoder {
         staging_belt.finish();
     }
 
-    pub fn copy_target(&mut self, config: &RenderConfig, into: &RenderTarget) {
-        let target_conf = RenderConfig {
-            camera: &config.defaults.relative_camera,
-            instances: &config.defaults.single_centered_instance,
-            target: into,
-            gpu: config.gpu,
-            defaults: config.defaults,
-            msaa: true,
-        };
-
-        let (instances, mut renderer) = Renderer::new(self, &target_conf);
+    pub fn copy_target(&mut self, into: &RenderTarget) {
+        let prev_target = self.target;
+        let defaults = self.defaults;
+        let mut renderer = Renderer::new(self);
+        renderer.use_camera(&defaults.relative_camera);
+        renderer.use_instances(&defaults.single_centered_instance);
         renderer.render_sprite(
-            instances,
-            config.defaults.relative_camera.model(),
-            config.defaults.target.sprite(),
+            0,
+            defaults.relative_camera.model(),
+            defaults.target.sprite(),
         );
+        self.target = prev_target;
     }
 
     pub fn submit(self, gpu: &Gpu) {

@@ -1,4 +1,4 @@
-use crate::{Camera, Gpu, GpuDefaults, RenderConfig, RenderEncoder, Sprite, Vector};
+use crate::{Camera, Gpu, GpuDefaults, RenderEncoder, Sprite, Vector};
 use std::ops::Deref;
 
 macro_rules! Where {
@@ -36,7 +36,7 @@ impl RenderTarget {
         gpu: &Gpu,
         defaults: &GpuDefaults,
         texture_size: Vector<u32>,
-        compute: impl for<'any> Fn(&mut RenderEncoder, RenderConfig<'any>, [Where!('caller >= 'any); 0]),
+        compute: impl for<'any> Fn(&mut RenderEncoder),
     ) -> Self {
         let target = RenderTarget::new(gpu, texture_size);
         target.draw(gpu, defaults, compute);
@@ -87,21 +87,11 @@ impl RenderTarget {
         gpu: &Gpu,
         defaults: &GpuDefaults,
         mut compute: impl for<'any> FnMut(
-            &mut RenderEncoder,
-            RenderConfig<'any>,
-            [Where!('caller >= 'any); 0],
+            &mut RenderEncoder
         ),
     ) {
-        let mut encoder = RenderEncoder::new(gpu);
-        let config = RenderConfig {
-            camera: &defaults.relative_camera,
-            instances: &defaults.single_centered_instance,
-            target: &self,
-            gpu: &gpu,
-            defaults: &defaults,
-            msaa: true,
-        };
-        compute(&mut encoder, config, []);
+        let mut encoder = RenderEncoder::new(gpu,defaults, self);
+        compute(&mut encoder);
         encoder.submit(gpu);
     }
 

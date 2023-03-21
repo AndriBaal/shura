@@ -2,7 +2,7 @@ use instant::Instant;
 
 use crate::{
     ArenaIter, ArenaIterMut, ArenaPath, ComponentCallbacks, ComponentConfig, ComponentDerive,
-    ComponentType, DynamicComponent, InstanceIndex,
+    ComponentType, DynamicComponent, InstanceIndex, InstanceBuffer,
 };
 use std::{iter::Enumerate, marker::PhantomData};
 
@@ -344,6 +344,11 @@ where
     }
 }
 
+
+
+
+
+
 pub struct ComponentSetRender<'a, C: ComponentDerive> {
     pub(crate) types: Vec<&'a ComponentType>,
     pub(crate) len: usize,
@@ -370,30 +375,105 @@ impl<'a, C: ComponentDerive> ComponentSetRender<'a, C> {
     }
 
     /// Iterate over this set
-    pub fn iter(&self) -> ComponentIterRender<'a, C> {
-        return ComponentIterRender::<'a, C>::new(&self.types, self.len);
+    pub fn iter(&self) -> ComponentGroupIterRender<'a, C> {
+        return ComponentGroupIterRender::<'a, C>::new(&self.types, self.len);
     }
 }
+
+
+
 
 impl<'a, C> IntoIterator for &ComponentSetRender<'a, C>
 where
     C: ComponentDerive,
 {
-    type Item = (InstanceIndex, &'a C);
-    type IntoIter = ComponentIterRender<'a, C>;
+    type Item = (&'a InstanceBuffer, ComponentIterRender<'a, C>);
+    type IntoIter = ComponentGroupIterRender<'a, C>;
 
     fn into_iter(self) -> Self::IntoIter {
         return self.iter();
     }
 }
 
+pub struct ComponentGroupIterRender<'a, C>
+where
+    C: ComponentDerive,
+{
+    iters: Vec<(&'a InstanceBuffer, ComponentIterRender<'a, C>)>,
+    iter_index: usize,
+    len: usize,
+    marker: PhantomData<C>,
+}
+
+impl<'a, C> ComponentGroupIterRender<'a, C>
+where
+    C: ComponentDerive,
+{
+    pub(crate) fn new(types: &Vec<&'a ComponentType>, len: usize) -> ComponentGroupIterRender<'a, C> {
+        let mut iters = Vec::with_capacity(types.len());
+        for t in types {
+            iters.push((t.buffer().unwrap(), ComponentIterRender::new(t.iter().enumerate())));
+        }
+        ComponentGroupIterRender {
+            iters,
+            iter_index: 0,
+            len,
+            marker: PhantomData::<C>,
+        }
+    }
+}
+
+impl<'a, C> ExactSizeIterator for ComponentGroupIterRender<'a, C>
+where
+    C: ComponentDerive,
+{
+    fn len(&self) -> usize {
+        self.len
+    }
+}
+
+impl<'a, C> Iterator for ComponentGroupIterRender<'a, C>
+where
+    C: ComponentDerive,
+{
+    type Item = (&'a InstanceBuffer, ComponentIterRender<'a, C>);
+    fn next(&mut self) -> Option<Self::Item> {
+        
+    }
+}
+
+impl<'a, C> DoubleEndedIterator for ComponentGroupIterRender<'a, C>
+where
+    C: ComponentDerive,
+{
+    fn next_back(&mut self) -> Option<Self::Item> {
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 pub struct ComponentIterRender<'a, C>
 where
     C: ComponentDerive,
 {
-    iters: Vec<Enumerate<ArenaIter<'a, DynamicComponent>>>,
-    iter_index: usize,
-    len: usize,
+    iter: Enumerate<ArenaIter<'a, DynamicComponent>>,
     marker: PhantomData<C>,
 }
 
@@ -401,15 +481,9 @@ impl<'a, C> ComponentIterRender<'a, C>
 where
     C: ComponentDerive,
 {
-    pub(crate) fn new(types: &Vec<&'a ComponentType>, len: usize) -> ComponentIterRender<'a, C> {
-        let mut iters = Vec::with_capacity(types.len());
-        for t in types {
-            iters.push(t.iter().enumerate());
-        }
+    pub(crate) fn new(iter: Enumerate<ArenaIter<'a, DynamicComponent>>) -> ComponentIterRender<'a, C> {
         ComponentIterRender {
-            iters,
-            iter_index: 0,
-            len,
+            iter,
             marker: PhantomData::<C>,
         }
     }
@@ -420,7 +494,7 @@ where
     C: ComponentDerive,
 {
     fn len(&self) -> usize {
-        self.len
+        self.iter.len()
     }
 }
 
@@ -430,8 +504,7 @@ where
 {
     type Item = (InstanceIndex, &'a C);
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(iter) = self.iters.get_mut(self.iter_index) {
-            if let Some((i, entry)) = iter.next() {
+            if let Some((i, entry)) = self.iter.next() {
                 let i = i as u32;
                 return Some((
                     InstanceIndex { index: i },
@@ -439,8 +512,6 @@ where
                 ));
             }
             return None;
-        }
-        return None;
     }
 }
 
@@ -449,9 +520,7 @@ where
     C: ComponentDerive,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
-        let len = self.iters.len();
-        if let Some(iter) = self.iters.get_mut(len - 1 - self.iter_index) {
-            if let Some((i, entry)) = iter.next_back() {
+            if let Some((i, entry)) = self.iter.next_back() {
                 let i = i as u32;
                 return Some((
                     InstanceIndex { index: i - 1 },
@@ -459,7 +528,5 @@ where
                 ));
             }
             return None;
-        }
-        return None;
     }
 }

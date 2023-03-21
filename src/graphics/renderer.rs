@@ -1,6 +1,6 @@
 use crate::{
-    CameraBuffer, Color, Gpu, GpuDefaults, InstanceBuffer, InstanceIndices, Model, RenderConfig,
-    RenderEncoder, Shader, Sprite, Uniform,
+    CameraBuffer, Color, Gpu, GpuDefaults, InstanceBuffer, InstanceIndices, Model,
+    RenderEncoder, Shader, Sprite, Uniform, 
 };
 
 /// Render grpahics to the screen or a sprite. The renderer can be extended with custom graphcis throught
@@ -16,20 +16,19 @@ pub struct Renderer<'a> {
 impl<'a> Renderer<'a> {
     pub(crate) fn new(
         render_encoder: &'a mut RenderEncoder,
-        config: &RenderConfig<'a>,
-    ) -> (InstanceIndices, Renderer<'a>) {
+    ) -> Renderer<'a> {
         let render_pass = render_encoder
             .inner
             .begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("render_pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: if config.msaa {
-                        config.target.msaa()
+                    view: if render_encoder.msaa {
+                        render_encoder.target.msaa()
                     } else {
-                        config.target.view()
+                        render_encoder.target.view()
                     },
-                    resolve_target: if config.msaa {
-                        Some(config.target.view())
+                    resolve_target: if render_encoder.msaa {
+                        Some(render_encoder.target.view())
                     } else {
                         None
                     },
@@ -44,14 +43,12 @@ impl<'a> Renderer<'a> {
 
         let mut result = Self {
             render_pass,
-            gpu: config.gpu,
-            defaults: config.defaults,
+            gpu: render_encoder.gpu,
+            defaults: render_encoder.defaults,
             indices: 0,
-            msaa: config.msaa,
+            msaa: render_encoder.msaa,
         };
-        result.use_camera(config.camera);
-        result.use_instance_buffer(config.instances);
-        return (config.instances.instances(), result);
+        return result;
     }
 
     pub(crate) fn output_renderer(
@@ -82,13 +79,14 @@ impl<'a> Renderer<'a> {
             msaa: false,
         };
         renderer.use_uniform(defaults.relative_camera.buffer().uniform(), 0);
-        renderer.use_instance_buffer(&defaults.single_centered_instance);
+        renderer.use_instances(&defaults.single_centered_instance);
         return renderer;
     }
 
     /// Sets the instance buffer at the position 1
-    pub fn use_instance_buffer(&mut self, buffer: &'a InstanceBuffer) {
+    pub fn use_instances(&mut self, buffer: &'a InstanceBuffer) -> InstanceIndices {
         self.render_pass.set_vertex_buffer(1, buffer.slice());
+        return buffer.instances();
     }
 
     pub fn use_camera(&mut self, camera: &'a CameraBuffer) {
