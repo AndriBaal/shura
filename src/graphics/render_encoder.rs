@@ -1,33 +1,28 @@
 #[cfg(feature = "text")]
 use crate::text::TextDescriptor;
-use crate::{
-    Color, Gpu, GpuDefaults, RenderTarget, Renderer,
-};
+use crate::{Color, Gpu, GpuDefaults, RenderTarget, Renderer, Sprite};
 
-pub struct RenderEncoder<'a> {
+pub struct RenderEncoder {
     pub inner: wgpu::CommandEncoder,
-    pub gpu: &'a Gpu,
-    pub defaults: &'a GpuDefaults,
-    pub target: &'a RenderTarget,
     pub msaa: bool,
 }
 
-impl <'a>RenderEncoder<'a> {
-    pub(crate) fn new(gpu: &'a Gpu, defaults: &'a GpuDefaults, target: &'a RenderTarget) -> Self {
+impl RenderEncoder {
+    pub(crate) fn new(gpu: &Gpu) -> Self {
         let inner = gpu
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("render_encoder"),
             });
-        Self { inner, defaults, gpu, target, msaa: true }
+        Self { inner, msaa: true }
     }
 
-    pub fn clear(&mut self, color: Color) {
+    pub fn clear(&mut self, target: &RenderTarget, color: Color) {
         self.inner.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("render_pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: self.target.msaa(),
-                resolve_target: Some(self.target.view()),
+                view: target.msaa(),
+                resolve_target: Some(target.view()),
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear(color.into()),
                     store: true,
@@ -38,52 +33,49 @@ impl <'a>RenderEncoder<'a> {
         });
     }
 
-    pub fn renderer(
-        &'a mut self,
-    ) -> Renderer<'a> {
-        Renderer::new(self)
+    pub fn renderer<'a>(&'a mut self, target: &'a RenderTarget) -> Renderer<'a> {
+        Renderer::new(target, self)
     }
 
     #[cfg(feature = "text")]
-    pub fn render_text(&mut self,  descriptor: TextDescriptor) {
-        let target_size = self.target.size();
+    pub fn render_text(&mut self, target: &RenderTarget, gpu: &Gpu, descriptor: TextDescriptor) {
+        let target_size = target.size();
         let mut staging_belt = wgpu::util::StagingBelt::new(1024);
         if let Some(color) = descriptor.clear_color {
-            self.clear(color);
+            self.clear(target, color);
         }
 
         for section in descriptor.sections {
-            descriptor.font.brush.queue(section.to_glyph_section());
+            descriptor
+                .font
+                .brush
+                .queue(section.to_glyph_section(descriptor.resolution));
         }
 
         descriptor
             .font
             .brush
             .draw_queued(
-                &self.gpu.device,
+                &gpu.device,
                 &mut staging_belt,
                 &mut self.inner,
-                self.target.view(),
-                2 * target_size.x,
-                2 * target_size.y,
+                target.view(),
+                (descriptor.resolution * target_size.x as f32) as u32,
+                (descriptor.resolution * target_size.y as f32) as u32,
             )
             .expect("Draw queued");
 
         staging_belt.finish();
     }
 
-    pub fn copy_target(&mut self, into: &RenderTarget) {
-        let prev_target = self.target;
-        let defaults = self.defaults;
-        let mut renderer = Renderer::new(self);
+    pub fn copy_to_target(&mut self, defaults: &GpuDefaults, src: &Sprite, target: &RenderTarget) {
+        let mut renderer = Renderer::new(target, self);
         renderer.use_camera(&defaults.relative_camera);
         renderer.use_instances(&defaults.single_centered_instance);
-        renderer.render_sprite(
-            0,
-            defaults.relative_camera.model(),
-            defaults.target.sprite(),
-        );
-        self.target = prev_target;
+        renderer.use_shader(&defaults.sprite);
+        renderer.use_model(defaults.relative_camera.model());
+        renderer.use_sprite(src, 1);
+        renderer.draw(0);
     }
 
     pub fn submit(self, gpu: &Gpu) {

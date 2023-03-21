@@ -332,7 +332,7 @@ impl ComponentController for Light {
         for (i, l) in ctx.path_render(&active).iter() {
             renderer.use_model(&l.light_model);
             renderer.use_uniform(&l.light_color, 1);
-            renderer.commit(i);
+            renderer.draw(i);
         }
 
         for (i, l) in ctx.path_render(&active).iter() {
@@ -340,7 +340,7 @@ impl ComponentController for Light {
             for shadow in &l.shadows {
                 renderer.use_model(shadow);
                 renderer.use_uniform(&state.shadow_color, 1);
-                renderer.commit(i);
+                renderer.draw(i);
             }
 
             renderer.render_color(i, &state.inner_model, &l.light_color);

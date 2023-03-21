@@ -10,14 +10,6 @@ use std::borrow::Cow;
 use wgpu::BlendState;
 pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 0.5;
 
-macro_rules! Where {
-    (
-    $a:lifetime >= $b:lifetime $(,)?
-) => {
-        &$b & $a()
-    };
-}
-
 /// Holds the connection to the GPU using wgpu. Also has some default buffers, layouts etc.
 pub struct Gpu {
     pub instance: wgpu::Instance,
@@ -183,13 +175,12 @@ impl Gpu {
     #[cfg(feature = "text")]
     pub fn create_text(
         &self,
-        defaults: &GpuDefaults,
         texture_size: Vector<u32>,
         descriptor: TextDescriptor,
     ) -> RenderTarget {
         let target = self.create_render_target(texture_size);
-        let mut encoder = RenderEncoder::new(self,defaults, &target);
-        encoder.render_text(descriptor);
+        let mut encoder = RenderEncoder::new(self);
+        encoder.render_text(&target, self, descriptor);
         encoder.submit(self);
         return target;
     }
@@ -204,11 +195,10 @@ impl Gpu {
 
     pub fn create_computed_target<'caller>(
         &self,
-        defaults: &GpuDefaults,
         texture_size: Vector<u32>,
         compute: impl for<'any> Fn(&mut RenderEncoder),
     ) -> RenderTarget {
-        return RenderTarget::computed(self, &defaults, texture_size, compute);
+        return RenderTarget::computed(self, texture_size, compute);
     }
 }
 

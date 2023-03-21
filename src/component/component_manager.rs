@@ -3,8 +3,9 @@ use crate::physics::World;
 use crate::{
     Arena, ArenaEntry, ArenaIndex, ArenaPath, Camera, ComponentCallbacks, ComponentCluster,
     ComponentController, ComponentDerive, ComponentGroup, ComponentGroupDescriptor,
-    ComponentHandle, ComponentPath, ComponentSet, ComponentSetMut, ComponentSetRender,
-    ComponentTypeId, DynamicComponent, Gpu, GroupActivation, InstanceBuffer, DEFAULT_GROUP_ID,
+    ComponentHandle, ComponentIterRender, ComponentPath, ComponentSet, ComponentSetMut,
+    ComponentSetRender, ComponentTypeId, DynamicComponent, Gpu, GroupActivation, InstanceBuffer,
+    DEFAULT_GROUP_ID, GpuDefaults,
 };
 use instant::Instant;
 use log::info;
@@ -329,8 +330,9 @@ impl ComponentManager {
     pub fn path_render<'a, C: ComponentDerive>(
         &'a self,
         path: &ComponentPath<C>,
+        defaults: &'a GpuDefaults
     ) -> ComponentSetRender<'a, C> {
-        let mut types = vec![];
+        let mut iters = vec![];
         let mut len = 0;
 
         for path in path.paths() {
@@ -339,17 +341,20 @@ impl ComponentManager {
                     let type_len = component_type.len();
                     if type_len > 0 {
                         len += type_len;
-                        types.push(component_type);
+                        iters.push((
+                            component_type.buffer().unwrap_or(&defaults.empty_instance),
+                            ComponentIterRender::new(component_type.iter().enumerate()),
+                        ));
                     }
                 }
             }
         }
 
-        return ComponentSetRender::new(types, len);
+        return ComponentSetRender::new(iters, len);
     }
 
     pub fn path<'a, C: ComponentDerive>(&'a self, path: &ComponentPath<C>) -> ComponentSet<'a, C> {
-        let mut types = vec![];
+        let mut iters = vec![];
         let mut len = 0;
 
         for path in path.paths() {
@@ -358,20 +363,20 @@ impl ComponentManager {
                     let type_len = component_type.len();
                     if type_len > 0 {
                         len += type_len;
-                        types.push(component_type);
+                        iters.push(component_type.iter());
                     }
                 }
             }
         }
 
-        return ComponentSet::new(types, len);
+        return ComponentSet::new(iters, len);
     }
 
     pub fn path_mut<'a, C: ComponentDerive>(
         &'a mut self,
         path: &ComponentPath<C>,
     ) -> ComponentSetMut<'a, C> {
-        let mut types = vec![];
+        let mut iters = vec![];
         let mut len = 0;
 
         let mut head: &mut [ArenaEntry<_>] = self.groups.as_slice();
@@ -386,7 +391,7 @@ impl ComponentManager {
                         let type_len = component_type.len();
                         if type_len > 0 {
                             len += type_len;
-                            types.push(component_type);
+                            iters.push(component_type.iter_mut());
                         }
                     }
                 }
@@ -394,7 +399,7 @@ impl ComponentManager {
             };
         }
 
-        return ComponentSetMut::new(types, len);
+        return ComponentSetMut::new(iters, len);
     }
 
     pub fn components<'a, C: ComponentController>(
@@ -402,7 +407,7 @@ impl ComponentManager {
         filter: GroupFilter,
     ) -> ComponentSet<'a, C> {
         let type_id = C::IDENTIFIER;
-        let mut types = vec![];
+        let mut iters = vec![];
         let mut len = 0;
 
         match filter {
@@ -413,7 +418,7 @@ impl ComponentManager {
                         let type_len = component_type.len();
                         if type_len > 0 {
                             len += type_len;
-                            types.push(component_type);
+                            iters.push(component_type.iter());
                         }
                     }
                 }
@@ -434,7 +439,7 @@ impl ComponentManager {
                             let type_len = component_type.len();
                             if type_len > 0 {
                                 len += type_len;
-                                types.push(component_type);
+                                iters.push(component_type.iter());
                             }
                         };
                     }
@@ -442,7 +447,7 @@ impl ComponentManager {
             }
         };
 
-        return ComponentSet::new(types, len);
+        return ComponentSet::new(iters, len);
     }
 
     pub fn components_mut<C: ComponentController>(
@@ -450,7 +455,7 @@ impl ComponentManager {
         filter: GroupFilter,
     ) -> ComponentSetMut<C> {
         let type_id = C::IDENTIFIER;
-        let mut types = vec![];
+        let mut iters = vec![];
         let mut len = 0;
 
         match filter {
@@ -461,7 +466,7 @@ impl ComponentManager {
                         let type_len = component_type.len();
                         if type_len > 0 {
                             len += type_len;
-                            types.push(component_type);
+                            iters.push(component_type.iter_mut());
                         }
                     }
                 }
@@ -491,7 +496,7 @@ impl ComponentManager {
                                 let type_len = component_type.len();
                                 if type_len > 0 {
                                     len += type_len;
-                                    types.push(component_type);
+                                    iters.push(component_type.iter_mut());
                                 }
                             }
                         }
@@ -501,7 +506,7 @@ impl ComponentManager {
             }
         };
 
-        return ComponentSetMut::new(types, len);
+        return ComponentSetMut::new(iters, len);
     }
 
     pub fn component_dynamic(&self, handle: ComponentHandle) -> Option<&DynamicComponent> {

@@ -3,18 +3,10 @@ use crate::{
     ComponentGroupDescriptor, ComponentHandle, ComponentManager, ComponentPath, ComponentSet,
     ComponentSetMut, ComponentSetRender, ComponentTypeId, DynamicComponent, FrameManager,
     GlobalState, Gpu, GpuDefaults, GroupFilter, Input, InputEvent, InputTrigger, InstanceBuffer,
-    Isometry, Matrix, Model, ModelBuilder, Modifier, RenderEncoder, RenderTarget,
-    Rotation, Scene, SceneCreator, SceneManager, SceneState, ScreenConfig, Shader, ShaderConfig,
-    Shura, Sprite, SpriteSheet, Uniform, Vector, WorldCamera,
+    Isometry, Matrix, Model, ModelBuilder, Modifier, RenderEncoder, RenderTarget, Rotation, Scene,
+    SceneCreator, SceneManager, SceneState, ScreenConfig, Shader, ShaderConfig, Shura, Sprite,
+    SpriteSheet, Uniform, Vector, WorldCamera,
 };
-
-macro_rules! Where {
-    (
-    $a:lifetime >= $b:lifetime $(,)?
-) => {
-        &$b & $a()
-    };
-}
 
 #[cfg(feature = "serde")]
 use crate::SceneSerializer;
@@ -32,7 +24,7 @@ use std::{
 };
 
 #[cfg(feature = "gui")]
-use crate::gui::GuiContext;
+use crate::gui::Gui;
 
 #[cfg(feature = "text")]
 use crate::text::{FontBrush, TextDescriptor};
@@ -55,7 +47,7 @@ pub struct ShuraFields<'a> {
     pub window: &'a mut winit::window::Window,
     pub global_state: &'a mut Box<dyn GlobalState>,
     #[cfg(feature = "gui")]
-    pub gui: GuiContext,
+    pub gui: &'a mut Gui,
     #[cfg(feature = "audio")]
     pub audio: &'a mut rodio::OutputStream,
     #[cfg(feature = "audio")]
@@ -74,7 +66,7 @@ impl<'a> ShuraFields<'a> {
             window: &mut shura.window,
             global_state: &mut shura.global_state,
             #[cfg(feature = "gui")]
-            gui: shura.gui.context(),
+            gui: &mut shura.gui,
             #[cfg(feature = "audio")]
             audio: &mut shura.audio,
             #[cfg(feature = "audio")]
@@ -93,7 +85,7 @@ impl<'a> ShuraFields<'a> {
             window: ctx.window,
             global_state: ctx.global_state,
             #[cfg(feature = "gui")]
-            gui: ctx.gui.clone(),
+            gui: ctx.gui,
             #[cfg(feature = "audio")]
             audio: ctx.audio,
             #[cfg(feature = "audio")]
@@ -122,7 +114,7 @@ pub struct Context<'a> {
     pub window: &'a mut winit::window::Window,
     pub global_state: &'a mut Box<dyn GlobalState>,
     #[cfg(feature = "gui")]
-    pub gui: GuiContext,
+    pub gui: &'a mut Gui,
     #[cfg(feature = "audio")]
     pub audio: &'a mut rodio::OutputStream,
     #[cfg(feature = "audio")]
@@ -150,7 +142,7 @@ impl<'a> Context<'a> {
             window: &mut shura.window,
             global_state: &mut shura.global_state,
             #[cfg(feature = "gui")]
-            gui: shura.gui.context(),
+            gui: &mut shura.gui,
             #[cfg(feature = "audio")]
             audio: &mut shura.audio,
             #[cfg(feature = "audio")]
@@ -353,7 +345,7 @@ impl<'a> Context<'a> {
         target_size: Vector<u32>,
         descriptor: TextDescriptor,
     ) -> RenderTarget {
-        self.gpu.create_text(self.defaults, target_size, descriptor)
+        self.gpu.create_text(target_size, descriptor)
     }
 
     pub fn create_uniform<T: bytemuck::Pod>(&self, data: T) -> Uniform<T> {
@@ -367,10 +359,9 @@ impl<'a> Context<'a> {
     pub fn create_computed_target<'caller>(
         &self,
         texture_size: Vector<u32>,
-        compute: impl for<'any> Fn(&mut RenderEncoder),
+        compute: impl Fn(&mut RenderEncoder),
     ) -> RenderTarget {
-        self.gpu
-            .create_computed_target(&self.defaults, texture_size, compute)
+        self.gpu.create_computed_target(texture_size, compute)
     }
 
     #[cfg(feature = "audio")]
@@ -944,7 +935,7 @@ impl<'a> Context<'a> {
         &self,
         path: &ComponentPath<C>,
     ) -> ComponentSetRender<C> {
-        return self.component_manager.path_render(path);
+        return self.component_manager.path_render(path, self.defaults);
     }
 
     pub fn path<C: ComponentDerive>(&self, path: &ComponentPath<C>) -> ComponentSet<C> {

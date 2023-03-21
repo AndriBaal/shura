@@ -4,8 +4,8 @@ use crate::gui::Gui;
 use crate::physics::{ActiveEvents, CollideType};
 use crate::{
     scene::context::ShuraFields, Context, FrameManager, GlobalState, Gpu, GpuDefaults, Input,
-    InstanceIndex, RenderEncoder, RenderOperation, Renderer, Scene, SceneCreator,
-    SceneManager, Vector,
+    RenderEncoder, RenderOperation, Renderer, Scene, SceneCreator, SceneManager,
+    Vector,
 };
 use log::{error, info};
 #[cfg(target_os = "android")]
@@ -428,13 +428,13 @@ impl Shura {
             self.frame_manager.frame_time(),
         );
 
-        let mut encoder = RenderEncoder::new(&self.gpu, &self.defaults, &self.defaults.target);
-        if let Some(clear_color) = scene.screen_config.clear_color {
-            encoder.clear(clear_color);
+        let ctx = Context::new(self, scene);
+        let mut encoder = RenderEncoder::new(&ctx.gpu);
+        if let Some(clear_color) = ctx.screen_config.clear_color {
+            encoder.clear(&ctx.defaults.target, clear_color);
         }
 
         {
-            let ctx = Context::new(self, scene);
             for set in ctx.component_manager.copy_active_components().values() {
                 if set.is_empty() {
                     continue;
@@ -443,37 +443,14 @@ impl Shura {
                 if config.render != RenderOperation::Never {
                     match config.render {
                         RenderOperation::EveryFrame => {
-                            asdf
-                            // for path in set.paths() {
-                            //     let group = ctx.component_manager.group(path.group_index).unwrap();
-                            //     let component_type = group.type_ref(path.type_index).unwrap();
-                            //     let buffer = component_type
-                            //         .buffer()
-                            //         .unwrap_or(&ctx.defaults.empty_instance);
-                            //     let config = RenderConfig {
-                            //         camera: &ctx.defaults.world_camera,
-                            //         instances: buffer,
-                            //         target: &ctx.defaults.target,
-                            //         gpu: &ctx.gpu,
-                            //         defaults: &ctx.defaults,
-                            //         msaa: true,
-                            //     };
-                            //     if component_type.len() > 0 {
-                            //         (set.callbacks().call_render)(
-                            //             &[*path],
-                            //             &ctx,
-                            //             config,
-                            //             &mut encoder,
-                            //         );
-                            //     }
-                            // }
+                            (set.callbacks().call_render)(&set.paths(), &ctx, &mut encoder);
                         }
                         _ => {}
                     }
                 }
             }
         }
-        let output = self.gpu.surface.get_current_texture()?;
+        let output = ctx.gpu.surface.get_current_texture()?;
         let output_view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
@@ -481,23 +458,22 @@ impl Shura {
         {
             let mut renderer = Renderer::output_renderer(
                 &mut encoder.inner,
-                &self.gpu,
-                &self.defaults,
+                &ctx.defaults,
                 &output_view,
             );
-            renderer.render_sprite_no_msaa(
-                InstanceIndex::new(0),
-                self.defaults.relative_camera.buffer().model(),
-                self.defaults.target.sprite(),
-            );
+            renderer.use_camera(&ctx.defaults.relative_camera);
+            renderer.use_instances(&ctx.defaults.single_centered_instance);
+            renderer.use_shader(&ctx.defaults.sprite_no_msaa);
+            renderer.use_model(ctx.defaults.relative_camera.model());
+            renderer.use_sprite(ctx.defaults.target.sprite(), 1);
+            renderer.draw(0);
+            
         }
 
         #[cfg(feature = "gui")]
-        {
-            self.gui.render(&self.gpu, &mut encoder.inner, &output_view);
-        }
+        ctx.gui.render(&ctx.gpu, &mut encoder.inner, &output_view);
 
-        encoder.submit(&self.gpu);
+        encoder.submit(&ctx.gpu);
         output.present();
 
         scene.resized = false;

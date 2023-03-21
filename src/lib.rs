@@ -56,7 +56,7 @@ pub use crate::{
     },
     graphics::{camera::*, frame_manager::*},
     graphics::{
-        color::*, gpu::*, instance_buffer::*, model::*, render_encoder::*, render_taget::*,
+        color::*, gpu::*, instance_buffer::*, model::*, render_encoder::*, render_target::*,
         renderer::*, screen_config::*, shader::*, sprite::*, sprite_sheet::*, uniform::*,
         vertex::*,
     },

@@ -61,7 +61,7 @@ impl SceneState for BunnyState {
             if bunnies.len() == 1 {
                 return;
             }
-            for bunny in bunnies.iter().rev() {
+            for bunny in bunnies.rev() {
                 if dead.len() == MODIFY_STEP {
                     break;
                 }
@@ -111,7 +111,7 @@ impl ComponentController for Bunny {
         const GRAVITY: f32 = -2.5;
         let frame = ctx.frame_time();
         let fov = ctx.camera_fov();
-        for bunny in &mut ctx.path_mut(&active) {
+        for bunny in ctx.path_mut(&active) {
             let mut linvel = bunny.linvel;
             let mut translation = bunny.base.translation();
 
@@ -137,24 +137,21 @@ impl ComponentController for Bunny {
         }
     }
 
-    fn render<'a>(
-        _active: ComponentPath<Self>,
-        ctx: &'a Context<'a>,
-        config: RenderConfig<'a>,
-        encoder: &mut RenderEncoder,
-    ) {
+    fn render(active: ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
+        let mut renderer = encoder.renderer(&ctx.defaults.target);
         let bunny_state = ctx.scene_state::<BunnyState>().unwrap();
-        {
-            let (instances, mut renderer) = encoder.renderer(&config);
-            renderer.render_sprite(
-                instances,
-                &bunny_state.bunny_model,
-                &bunny_state.bunny_sprite,
-            );
+        renderer.use_camera(&ctx.defaults.world_camera);
+        for (buffer, _group) in ctx.path_render(&active) {
+            let instances = renderer.use_instances(&buffer);
+            renderer.use_camera(&ctx.defaults.world_camera);
+            renderer.use_shader(&ctx.defaults.sprite);
+            renderer.use_model(&bunny_state.bunny_model);
+            renderer.use_sprite(&bunny_state.bunny_sprite, 1);
+            renderer.draw(instances);
         }
-
+        drop(renderer);
         if let Some(screenshot) = &bunny_state.screenshot {
-            encoder.copy_target(&config, &screenshot);
+            encoder.copy_to_target(&ctx.defaults, &ctx.defaults.target, &screenshot);
         }
     }
 }

@@ -1,13 +1,5 @@
-use crate::{Camera, Gpu, GpuDefaults, RenderEncoder, Sprite, Vector};
+use crate::{Camera, Gpu, RenderEncoder, Sprite, Vector};
 use std::ops::Deref;
-
-macro_rules! Where {
-    (
-    $a:lifetime >= $b:lifetime $(,)?
-) => {
-        &$b & $a()
-    };
-}
 
 pub struct RenderTarget {
     target_msaa: wgpu::TextureView,
@@ -34,12 +26,11 @@ impl RenderTarget {
 
     pub fn computed<'caller>(
         gpu: &Gpu,
-        defaults: &GpuDefaults,
         texture_size: Vector<u32>,
-        compute: impl for<'any> Fn(&mut RenderEncoder),
+        compute: impl Fn(&mut RenderEncoder),
     ) -> Self {
         let target = RenderTarget::new(gpu, texture_size);
-        target.draw(gpu, defaults, compute);
+        target.draw(gpu, compute);
         return target;
     }
 
@@ -82,15 +73,8 @@ impl RenderTarget {
         &self.target_msaa
     }
 
-    pub fn draw<'caller>(
-        &self,
-        gpu: &Gpu,
-        defaults: &GpuDefaults,
-        mut compute: impl for<'any> FnMut(
-            &mut RenderEncoder
-        ),
-    ) {
-        let mut encoder = RenderEncoder::new(gpu,defaults, self);
+    pub fn draw<'caller>(&self, gpu: &Gpu, mut compute: impl FnMut(&mut RenderEncoder)) {
+        let mut encoder = RenderEncoder::new(gpu);
         compute(&mut encoder);
         encoder.submit(gpu);
     }

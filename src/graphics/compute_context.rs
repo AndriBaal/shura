@@ -25,7 +25,7 @@ impl<'a> ComputeContext<'a> {
         }
     }
 
-    pub fn commit(&mut self) {
+    pub fn draw(&mut self) {
         self.render_pass.draw_indexed(0..6, 0, 0..1);
     }
 

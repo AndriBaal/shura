@@ -1,10 +1,12 @@
+use std::ops::{Deref, DerefMut};
+
 use crate::{gui::GuiContext, Gpu, Vector};
 use egui_wgpu::renderer::{Renderer, ScreenDescriptor};
 use egui_winit::State;
 use instant::Duration;
 use winit::window::Window;
 
-pub(crate) struct Gui {
+pub struct Gui {
     state: State,
     // TODO: Maybe move to scene
     context: GuiContext,
@@ -51,10 +53,6 @@ impl Gui {
         self.context.begin_frame(egui_input);
     }
 
-    pub(crate) fn context(&self) -> GuiContext {
-        self.context.clone()
-    }
-
     pub(crate) fn render(
         &mut self,
         gpu: &Gpu,
@@ -98,5 +96,19 @@ impl Gui {
         for free in &output.textures_delta.free {
             self.renderer.free_texture(free);
         }
+    }
+}
+
+impl Deref for Gui {
+    type Target = GuiContext;
+
+    fn deref(&self) -> &Self::Target {
+        &self.context
+    }
+}
+
+impl DerefMut for Gui {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.context
     }
 }

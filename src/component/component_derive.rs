@@ -69,9 +69,9 @@ where
     /// components that have the exact same [model](crate::Model), [uniforms](crate::Uniform) or [sprites](crate::Sprite).
     /// For this method to work the render operation of this component must be set to
     /// [RenderOperation::EveryFrame](crate::RenderOperation::EveryFrame) in the [ComponentConfig](crate::ComponentConfig).
-    fn render<'a>(
+    fn render(
         active: ComponentPath<Self>,
-        ctx: &'a Context<'a>,
+        ctx: &Context,
         encoder: &mut RenderEncoder,
     ) {
     }

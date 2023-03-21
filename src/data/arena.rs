@@ -230,6 +230,16 @@ pub(crate) struct ArenaIter<'a, T> {
     base: iter::Enumerate<slice::Iter<'a, ArenaEntry<T>>>,
 }
 
+impl<T> Clone for ArenaIter<'_, T> {
+    #[inline]
+    fn clone(&self) -> Self {
+        Self {
+            len: self.len,
+            base: self.base.clone(),
+        }
+    }
+}
+
 impl<'a, T> Iterator for ArenaIter<'a, T> {
     type Item = (ArenaIndex, &'a T);
 
