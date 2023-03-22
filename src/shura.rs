@@ -4,8 +4,7 @@ use crate::gui::Gui;
 use crate::physics::{ActiveEvents, CollideType};
 use crate::{
     scene::context::ShuraFields, Context, FrameManager, GlobalState, Gpu, GpuDefaults, Input,
-    RenderEncoder, RenderOperation, Renderer, Scene, SceneCreator, SceneManager,
-    Vector,
+    RenderEncoder, RenderOperation, Renderer, Scene, SceneCreator, SceneManager, Vector,
 };
 use log::{error, info};
 #[cfg(target_os = "android")]
@@ -456,18 +455,14 @@ impl Shura {
             .create_view(&wgpu::TextureViewDescriptor::default());
 
         {
-            let mut renderer = Renderer::output_renderer(
-                &mut encoder.inner,
-                &ctx.defaults,
-                &output_view,
-            );
+            let mut renderer =
+                Renderer::output_renderer(&mut encoder.inner, &ctx.defaults, &output_view);
             renderer.use_camera(&ctx.defaults.relative_camera);
             renderer.use_instances(&ctx.defaults.single_centered_instance);
             renderer.use_shader(&ctx.defaults.sprite_no_msaa);
             renderer.use_model(ctx.defaults.relative_camera.model());
             renderer.use_sprite(ctx.defaults.target.sprite(), 1);
             renderer.draw(0);
-            
         }
 
         #[cfg(feature = "gui")]

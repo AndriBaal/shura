@@ -21,19 +21,11 @@ where
         other_collider: ColliderHandle,
         collision_type: CollideType,
     );
-    fn call_render(
-        paths: &[ArenaPath],
-        ctx: &Context,
-        encoder: &mut RenderEncoder,
-    );
+    fn call_render(paths: &[ArenaPath], ctx: &Context, encoder: &mut RenderEncoder);
 }
 
 impl<C: ComponentController> ComponentControllerCaller for C {
-    fn call_render(
-        paths: &[ArenaPath],
-        ctx: &Context,
-        encoder: &mut RenderEncoder,
-    ) {
+    fn call_render(paths: &[ArenaPath], ctx: &Context, encoder: &mut RenderEncoder) {
         C::render(ComponentPath::new(paths), ctx, encoder);
     }
 
@@ -73,11 +65,7 @@ pub(crate) struct ComponentCallbacks {
         other_collider: ColliderHandle,
         collision_type: CollideType,
     ),
-    pub call_render: fn(
-        paths: &[ArenaPath],
-        ctx: &Context,
-        encoder: &mut RenderEncoder,
-    ),
+    pub call_render: fn(paths: &[ArenaPath], ctx: &Context, encoder: &mut RenderEncoder),
 }
 
 impl ComponentCallbacks {

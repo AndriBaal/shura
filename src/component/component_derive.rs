@@ -69,12 +69,7 @@ where
     /// components that have the exact same [model](crate::Model), [uniforms](crate::Uniform) or [sprites](crate::Sprite).
     /// For this method to work the render operation of this component must be set to
     /// [RenderOperation::EveryFrame](crate::RenderOperation::EveryFrame) in the [ComponentConfig](crate::ComponentConfig).
-    fn render(
-        active: ComponentPath<Self>,
-        ctx: &Context,
-        encoder: &mut RenderEncoder,
-    ) {
-    }
+    fn render(active: ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {}
 }
 
 impl<C: ComponentDerive + ?Sized> ComponentDerive for Box<C> {

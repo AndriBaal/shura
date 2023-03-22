@@ -183,15 +183,18 @@ impl ComponentController for Player {
         }
     }
 
-    fn render<'a>(
-        active: ComponentPath<Self>,
-        ctx: &'a Context<'a>,
-        config: RenderConfig<'a>,
-        encoder: &mut RenderEncoder,
-    ) {
-        let (_, mut renderer) = encoder.renderer(&config);
-        for (instances, player) in &ctx.path_render(&active) {
-            renderer.render_sprite(instances, &player.model, &player.sprite);
+    fn render(active: ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
+        let mut renderer = encoder.world_renderer(ctx.defaults);
+        for (buffer, players) in ctx.path_render(&active) {
+            for (instance, player) in players {
+                renderer.render_sprite(
+                    ctx.defaults,
+                    buffer,
+                    instance,
+                    &player.model,
+                    &player.sprite,
+                );
+            }
         }
     }
 
@@ -245,16 +248,12 @@ impl Floor {
 }
 
 impl ComponentController for Floor {
-    fn render<'a>(
-        active: ComponentPath<Self>,
-        ctx: &'a Context<'a>,
-        config: RenderConfig<'a>,
-        encoder: &mut RenderEncoder,
-    ) {
-        let floors = ctx.path_render(&active);
-        let (_, mut renderer) = encoder.renderer(&config);
-        for (instance, floor) in &floors {
-            renderer.render_color(instance, &floor.model, &floor.color);
+    fn render(active: ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
+        let mut renderer = encoder.world_renderer(ctx.defaults);
+        for (instance, floors) in ctx.path_render(&active) {
+            for (index, floor) in floors {
+                renderer.render_color(ctx.defaults, instance, index, &floor.model, &floor.color);
+            }
         }
     }
 }
@@ -287,24 +286,27 @@ impl PhysicsBox {
 }
 
 impl ComponentController for PhysicsBox {
-    fn render<'a>(
-        active: ComponentPath<Self>,
-        ctx: &'a Context<'a>,
-        config: RenderConfig<'a>,
-        encoder: &mut RenderEncoder,
-    ) {
-        let (_, mut renderer) = encoder.renderer(&config);
+    fn render(active: ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
+        let mut renderer = encoder.world_renderer(ctx.defaults);
         let state = ctx.scene_state::<PhysicsState>().unwrap();
-        for (instance, physics_box) in &ctx.path_render(&active) {
-            let color: &Uniform<Color>;
-            if physics_box.collided {
-                color = &state.collision_color;
-            } else if physics_box.hovered {
-                color = &state.hover_color;
-            } else {
-                color = &state.default_color;
+        for (buffer, boxes) in ctx.path_render(&active) {
+            let mut ranges = vec![];
+            let mut last = 0;
+            for (i, b) in boxes.clone() {
+                if b.collided {
+                    ranges.push((&state.default_color, last..i.index));
+                    ranges.push((&state.collision_color, i.index..i.index + 1));
+                    last = i.index + 1;
+                } else if b.hovered {
+                    ranges.push((&state.default_color, last..i.index));
+                    ranges.push((&state.hover_color, i.index..i.index + 1));
+                    last = i.index + 1;
+                }
             }
-            renderer.render_color(instance, &state.box_model, color);
+            ranges.push((&state.default_color, last..buffer.len()));
+            for (color, r) in ranges {
+                renderer.render_color(&ctx.defaults, buffer, r, &state.box_model, color)
+            }
         }
     }
 

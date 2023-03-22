@@ -1,11 +1,11 @@
 use crate::{
     Camera, CameraBuffer, Color, ComponentController, ComponentDerive, ComponentGroup,
-    ComponentGroupDescriptor, ComponentHandle, ComponentManager, ComponentPath, ComponentSet,
-    ComponentSetMut, ComponentSetRender, ComponentTypeId, DynamicComponent, FrameManager,
-    GlobalState, Gpu, GpuDefaults, GroupFilter, Input, InputEvent, InputTrigger, InstanceBuffer,
-    Isometry, Matrix, Model, ModelBuilder, Modifier, RenderEncoder, RenderTarget, Rotation, Scene,
-    SceneCreator, SceneManager, SceneState, ScreenConfig, Shader, ShaderConfig, Shura, Sprite,
-    SpriteSheet, Uniform, Vector, WorldCamera,
+    ComponentGroupDescriptor, ComponentHandle, ComponentManager, ComponentPath,
+    ComponentRenderGroup, ComponentSet, ComponentSetMut, ComponentTypeId, DynamicComponent,
+    FrameManager, GlobalState, Gpu, GpuDefaults, GroupFilter, Input, InputEvent, InputTrigger,
+    InstanceBuffer, Isometry, Matrix, Model, ModelBuilder, Modifier, RenderEncoder, RenderTarget,
+    Rotation, Scene, SceneCreator, SceneManager, SceneState, ScreenConfig, Shader, ShaderConfig,
+    Shura, Sprite, SpriteSheet, Uniform, Vector, WorldCamera,
 };
 
 #[cfg(feature = "serde")]
@@ -359,7 +359,7 @@ impl<'a> Context<'a> {
     pub fn create_computed_target<'caller>(
         &self,
         texture_size: Vector<u32>,
-        compute: impl Fn(&mut RenderEncoder),
+        compute: impl Fn(&RenderTarget, &mut RenderEncoder),
     ) -> RenderTarget {
         self.gpu.create_computed_target(texture_size, compute)
     }
@@ -934,7 +934,7 @@ impl<'a> Context<'a> {
     pub fn path_render<C: ComponentDerive>(
         &self,
         path: &ComponentPath<C>,
-    ) -> ComponentSetRender<C> {
+    ) -> ComponentRenderGroup<C> {
         return self.component_manager.path_render(path, self.defaults);
     }
 

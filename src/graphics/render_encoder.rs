@@ -1,6 +1,6 @@
 #[cfg(feature = "text")]
 use crate::text::TextDescriptor;
-use crate::{Color, Gpu, GpuDefaults, RenderTarget, Renderer, Sprite};
+use crate::{CameraBuffer, Color, Gpu, GpuDefaults, RenderTarget, Renderer, Sprite};
 
 pub struct RenderEncoder {
     pub inner: wgpu::CommandEncoder,
@@ -33,8 +33,18 @@ impl RenderEncoder {
         });
     }
 
-    pub fn renderer<'a>(&'a mut self, target: &'a RenderTarget) -> Renderer<'a> {
-        Renderer::new(target, self)
+    pub fn renderer<'a>(
+        &'a mut self,
+        target: &'a RenderTarget,
+        camera: &'a CameraBuffer,
+    ) -> Renderer<'a> {
+        let mut renderer = Renderer::new(target, self);
+        renderer.use_camera(&camera);
+        return renderer;
+    }
+
+    pub fn world_renderer<'a>(&'a mut self, defaults: &'a GpuDefaults) -> Renderer<'a> {
+        return self.renderer(&defaults.target, &defaults.world_camera);
     }
 
     #[cfg(feature = "text")]

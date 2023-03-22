@@ -14,7 +14,7 @@ pub struct TextDescriptor<'a> {
     pub clear_color: Option<Color>,
     pub sections: Vec<TextSection<'a>>,
     pub font: &'a mut FontBrush,
-    pub resolution: f32
+    pub resolution: f32,
 }
 
 impl<'a> TextSection<'a> {

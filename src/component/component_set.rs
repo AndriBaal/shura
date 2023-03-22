@@ -263,7 +263,7 @@ where
     }
 }
 
-pub struct ComponentSetRender<'a, C>
+pub struct ComponentRenderGroup<'a, C>
 where
     C: ComponentDerive,
 {
@@ -273,7 +273,7 @@ where
     marker: PhantomData<C>,
 }
 
-impl<C: ComponentDerive> Clone for ComponentSetRender<'_, C> {
+impl<C: ComponentDerive> Clone for ComponentRenderGroup<'_, C> {
     #[inline]
     fn clone(&self) -> Self {
         Self {
@@ -285,15 +285,15 @@ impl<C: ComponentDerive> Clone for ComponentSetRender<'_, C> {
     }
 }
 
-impl<'a, C> ComponentSetRender<'a, C>
+impl<'a, C> ComponentRenderGroup<'a, C>
 where
     C: ComponentDerive,
 {
     pub(crate) fn new(
         iters: Vec<(&'a InstanceBuffer, ComponentIterRender<'a, C>)>,
         len: usize,
-    ) -> ComponentSetRender<'a, C> {
-        ComponentSetRender {
+    ) -> ComponentRenderGroup<'a, C> {
+        ComponentRenderGroup {
             iters,
             iter_index: 0,
             len,
@@ -302,7 +302,7 @@ where
     }
 }
 
-impl<'a, C> ExactSizeIterator for ComponentSetRender<'a, C>
+impl<'a, C> ExactSizeIterator for ComponentRenderGroup<'a, C>
 where
     C: ComponentDerive,
 {
@@ -311,7 +311,7 @@ where
     }
 }
 
-impl<'a, C> Iterator for ComponentSetRender<'a, C>
+impl<'a, C> Iterator for ComponentRenderGroup<'a, C>
 where
     C: ComponentDerive,
 {
@@ -325,7 +325,7 @@ where
     }
 }
 
-impl<'a, C> DoubleEndedIterator for ComponentSetRender<'a, C>
+impl<'a, C> DoubleEndedIterator for ComponentRenderGroup<'a, C>
 where
     C: ComponentDerive,
 {

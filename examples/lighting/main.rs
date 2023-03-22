@@ -128,15 +128,12 @@ impl ComponentController for Obstacle {
         ..DEFAULT_CONFIG
     };
 
-    fn render<'a>(
-        active: ComponentPath<Self>,
-        ctx: &'a Context<'a>,
-        config: RenderConfig<'a>,
-        encoder: &mut RenderEncoder,
-    ) {
-        let (_, mut renderer) = encoder.renderer(&config);
-        for (i, b) in ctx.path_render(&active).iter() {
-            renderer.render_color(i, &b.model, &b.color);
+    fn render(active: ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
+        let mut renderer = encoder.world_renderer(ctx.defaults);
+        for (buffer, obstacles) in ctx.path_render(&active) {
+            for (i, b) in obstacles {
+                renderer.render_color(&ctx.defaults, buffer, i, &b.model, &b.color)
+            }
         }
     }
 }
@@ -193,14 +190,14 @@ impl ComponentController for Light {
         }
 
         let cursor_pos = ctx.cursor_camera(&ctx.world_camera);
-        for light in ctx.path_mut(&active).iter() {
+        for light in ctx.path_mut(&active) {
             if light.follow_mouse {
                 light.base.set_translation(cursor_pos);
             }
         }
 
         let mut all_shadows = vec![];
-        for light in ctx.path(&active).iter() {
+        for light in ctx.path(&active) {
             let mut shadows = vec![];
             let light_collider_handle = light.base.collider_handles().unwrap()[0];
             let light_collider = light.base.collider(light_collider_handle).unwrap();
@@ -315,35 +312,35 @@ impl ComponentController for Light {
             all_shadows.push(shadows);
         }
 
-        for (light, shadows) in ctx.path_mut(&active).iter().zip(all_shadows.into_iter()) {
+        for (light, shadows) in ctx.path_mut(&active).zip(all_shadows.into_iter()) {
             light.shadows = shadows;
         }
     }
 
-    fn render<'a>(
-        active: ComponentPath<Self>,
-        ctx: &'a Context<'a>,
-        config: RenderConfig<'a>,
-        encoder: &mut RenderEncoder,
-    ) {
-        let (_, mut renderer) = encoder.renderer(&config);
+    fn render(active: ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
+        let mut renderer = encoder.world_renderer(&ctx.defaults);
         let state = ctx.global_state::<LightingState>().unwrap();
-        renderer.use_shader(&state.light_shader);
-        for (i, l) in ctx.path_render(&active).iter() {
-            renderer.use_model(&l.light_model);
-            renderer.use_uniform(&l.light_color, 1);
-            renderer.draw(i);
-        }
+        let iter = ctx.path_render(&active);
+        for (buffer, lights) in iter.clone() {
+            renderer.use_instances(&buffer);
+            for (i, light) in lights {
+                renderer.use_shader(&state.light_shader);
+                renderer.use_model(&light.light_model);
+                renderer.use_uniform(&light.light_color, 1);
+                renderer.draw(i);
 
-        for (i, l) in ctx.path_render(&active).iter() {
-            renderer.use_shader(&state.shadow_shader);
-            for shadow in &l.shadows {
-                renderer.use_model(shadow);
-                renderer.use_uniform(&state.shadow_color, 1);
+                for shadow in &light.shadows {
+                    renderer.use_model(shadow);
+                    renderer.use_shader(&state.shadow_shader);
+                    renderer.use_uniform(&state.shadow_color, 1);
+                    renderer.draw(i);
+                }
+
+                renderer.use_shader(&ctx.defaults.color);
+                renderer.use_model(&state.inner_model);
+                renderer.use_uniform(&light.light_color, 1);
                 renderer.draw(i);
             }
-
-            renderer.render_color(i, &state.inner_model, &l.light_color);
         }
     }
 }

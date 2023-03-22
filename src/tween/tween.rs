@@ -177,6 +177,11 @@ impl Tween {
     }
 
     #[must_use]
+    pub fn repeat_strategy(&self) -> RepeatStrategy {
+        self.strategy
+    }
+
+    #[must_use]
     pub fn with_repeat_count(mut self, count: impl Into<RepeatCount>) -> Self {
         self.total_duration = compute_total_duration(self.duration, count.into());
         self
@@ -192,6 +197,21 @@ impl Tween {
     pub fn with_direction(mut self, direction: TweeningDirection) -> Self {
         self.direction = direction;
         self
+    }
+
+    #[must_use]
+    pub fn set_repeat_count(&mut self, count: impl Into<RepeatCount>) {
+        self.total_duration = compute_total_duration(self.duration, count.into());
+    }
+
+    #[must_use]
+    pub fn set_repeat_strategy(&mut self, strategy: RepeatStrategy) {
+        self.strategy = strategy;
+    }
+
+    #[must_use]
+    pub fn set_direction(&mut self, direction: TweeningDirection) {
+        self.direction = direction;
     }
 
     pub fn start(&self) -> Isometry<f32> {

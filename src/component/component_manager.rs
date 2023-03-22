@@ -3,9 +3,9 @@ use crate::physics::World;
 use crate::{
     Arena, ArenaEntry, ArenaIndex, ArenaPath, Camera, ComponentCallbacks, ComponentCluster,
     ComponentController, ComponentDerive, ComponentGroup, ComponentGroupDescriptor,
-    ComponentHandle, ComponentIterRender, ComponentPath, ComponentSet, ComponentSetMut,
-    ComponentSetRender, ComponentTypeId, DynamicComponent, Gpu, GroupActivation, InstanceBuffer,
-    DEFAULT_GROUP_ID, GpuDefaults,
+    ComponentHandle, ComponentIterRender, ComponentPath, ComponentRenderGroup, ComponentSet,
+    ComponentSetMut, ComponentTypeId, DynamicComponent, Gpu, GpuDefaults, GroupActivation,
+    InstanceBuffer, DEFAULT_GROUP_ID,
 };
 use instant::Instant;
 use log::info;
@@ -330,8 +330,8 @@ impl ComponentManager {
     pub fn path_render<'a, C: ComponentDerive>(
         &'a self,
         path: &ComponentPath<C>,
-        defaults: &'a GpuDefaults
-    ) -> ComponentSetRender<'a, C> {
+        defaults: &'a GpuDefaults,
+    ) -> ComponentRenderGroup<'a, C> {
         let mut iters = vec![];
         let mut len = 0;
 
@@ -350,7 +350,7 @@ impl ComponentManager {
             }
         }
 
-        return ComponentSetRender::new(iters, len);
+        return ComponentRenderGroup::new(iters, len);
     }
 
     pub fn path<'a, C: ComponentDerive>(&'a self, path: &ComponentPath<C>) -> ComponentSet<'a, C> {

@@ -2,8 +2,8 @@
 use crate::text::{FontBrush, TextDescriptor};
 use crate::{
     BufferedCamera, Camera, CameraBuffer, ColorWrites, InstanceBuffer, Isometry, Matrix, Model,
-    ModelBuilder,  RenderEncoder, RenderTarget, ScreenConfig, Shader, ShaderConfig,
-    ShaderField, ShaderLang, Sprite, SpriteSheet, Uniform, Vector,
+    ModelBuilder, RenderEncoder, RenderTarget, ScreenConfig, Shader, ShaderConfig, ShaderField,
+    ShaderLang, Sprite, SpriteSheet, Uniform, Vector,
 };
 use log::info;
 use std::borrow::Cow;
@@ -196,7 +196,7 @@ impl Gpu {
     pub fn create_computed_target<'caller>(
         &self,
         texture_size: Vector<u32>,
-        compute: impl for<'any> Fn(&mut RenderEncoder),
+        compute: impl Fn(&RenderTarget, &mut RenderEncoder),
     ) -> RenderTarget {
         return RenderTarget::computed(self, texture_size, compute);
     }
