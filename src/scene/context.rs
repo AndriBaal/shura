@@ -342,10 +342,11 @@ impl<'a> Context<'a> {
     #[cfg(feature = "text")]
     pub fn create_text(
         &mut self,
+        defaults: &GpuDefaults,
         target_size: Vector<u32>,
         descriptor: TextDescriptor,
     ) -> RenderTarget {
-        self.gpu.create_text(target_size, descriptor)
+        self.gpu.create_text(defaults, target_size, descriptor)
     }
 
     pub fn create_uniform<T: bytemuck::Pod>(&self, data: T) -> Uniform<T> {
@@ -358,10 +359,11 @@ impl<'a> Context<'a> {
 
     pub fn create_computed_target<'caller>(
         &self,
+        defaults: &GpuDefaults,
         texture_size: Vector<u32>,
         compute: impl Fn(&RenderTarget, &mut RenderEncoder),
     ) -> RenderTarget {
-        self.gpu.create_computed_target(texture_size, compute)
+        self.gpu.create_computed_target(defaults, texture_size, compute)
     }
 
     #[cfg(feature = "audio")]

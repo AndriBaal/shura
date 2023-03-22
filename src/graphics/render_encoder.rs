@@ -2,19 +2,20 @@
 use crate::text::TextDescriptor;
 use crate::{CameraBuffer, Color, Gpu, GpuDefaults, RenderTarget, Renderer, Sprite};
 
-pub struct RenderEncoder {
+pub struct RenderEncoder<'a> {
     pub inner: wgpu::CommandEncoder,
     pub msaa: bool,
+    pub defaults: &'a GpuDefaults
 }
 
-impl RenderEncoder {
-    pub(crate) fn new(gpu: &Gpu) -> Self {
+impl <'a>RenderEncoder<'a> {
+    pub(crate) fn new(gpu: &Gpu,defaults: &'a GpuDefaults) -> Self {
         let inner = gpu
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("render_encoder"),
             });
-        Self { inner, msaa: true }
+        Self { inner, msaa: true, defaults }
     }
 
     pub fn clear(&mut self, target: &RenderTarget, color: Color) {
@@ -33,18 +34,29 @@ impl RenderEncoder {
         });
     }
 
-    pub fn renderer<'a>(
-        &'a mut self,
-        target: &'a RenderTarget,
-        camera: &'a CameraBuffer,
-    ) -> Renderer<'a> {
-        let mut renderer = Renderer::new(target, self);
+    pub fn renderer<'b>(
+        &'b mut self,
+        target: &'b RenderTarget
+    ) -> Renderer<'b> {
+        Renderer::new(target, self)
+    }
+
+    pub fn renderer_with_camera<'b>(
+        &'b mut self,
+        target: &'b RenderTarget,
+        camera: &'b CameraBuffer,
+    ) -> Renderer<'b> {
+        let mut renderer = self.renderer(target);
         renderer.use_camera(&camera);
         return renderer;
     }
 
-    pub fn world_renderer<'a>(&'a mut self, defaults: &'a GpuDefaults) -> Renderer<'a> {
-        return self.renderer(&defaults.target, &defaults.world_camera);
+    pub fn world_renderer_with_camera<'b>(&'b mut self, camera: &'b CameraBuffer) -> Renderer<'b> {
+        return self.renderer_with_camera(&self.defaults.target, camera);
+    }
+
+    pub fn world_renderer<'b>(&'b mut self) -> Renderer<'b> {
+        return self.world_renderer_with_camera(&self.defaults.world_camera);
     }
 
     #[cfg(feature = "text")]

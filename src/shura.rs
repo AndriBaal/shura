@@ -428,7 +428,7 @@ impl Shura {
         );
 
         let ctx = Context::new(self, scene);
-        let mut encoder = RenderEncoder::new(&ctx.gpu);
+        let mut encoder = RenderEncoder::new(&ctx.gpu, &ctx.defaults);
         if let Some(clear_color) = ctx.screen_config.clear_color {
             encoder.clear(&ctx.defaults.target, clear_color);
         }
@@ -456,7 +456,7 @@ impl Shura {
 
         {
             let mut renderer =
-                Renderer::output_renderer(&mut encoder.inner, &ctx.defaults, &output_view);
+                Renderer::output_renderer(&mut encoder.inner, &output_view, &ctx.defaults);
             renderer.use_camera(&ctx.defaults.relative_camera);
             renderer.use_instances(&ctx.defaults.single_centered_instance);
             renderer.use_shader(&ctx.defaults.sprite_no_msaa);

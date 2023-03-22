@@ -129,10 +129,10 @@ impl ComponentController for Obstacle {
     };
 
     fn render(active: ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
-        let mut renderer = encoder.world_renderer(ctx.defaults);
+        let mut renderer = encoder.world_renderer();
         for (buffer, obstacles) in ctx.path_render(&active) {
             for (i, b) in obstacles {
-                renderer.render_color(&ctx.defaults, buffer, i, &b.model, &b.color)
+                renderer.render_color(buffer, i, &b.model, &b.color)
             }
         }
     }
@@ -318,7 +318,7 @@ impl ComponentController for Light {
     }
 
     fn render(active: ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
-        let mut renderer = encoder.world_renderer(&ctx.defaults);
+        let mut renderer = encoder.world_renderer();
         let state = ctx.global_state::<LightingState>().unwrap();
         let iter = ctx.path_render(&active);
         for (buffer, lights) in iter.clone() {

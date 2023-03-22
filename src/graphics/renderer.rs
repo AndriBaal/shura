@@ -30,6 +30,7 @@ pub struct Renderer<'a> {
     pub render_pass: wgpu::RenderPass<'a>,
     pub indices: u32,
     pub msaa: bool,
+    pub defaults: &'a GpuDefaults,
     cache: RenderCache,
 }
 
@@ -67,13 +68,14 @@ impl<'a> Renderer<'a> {
             indices: 0,
             msaa: render_encoder.msaa,
             cache: Default::default(),
+            defaults: render_encoder.defaults
         }
     }
 
     pub(crate) fn output_renderer(
         encoder: &'a mut wgpu::CommandEncoder,
-        defaults: &'a GpuDefaults,
         output: &'a wgpu::TextureView,
+        defaults: &'a GpuDefaults
     ) -> Renderer<'a> {
         let render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("render_pass"),
@@ -94,6 +96,7 @@ impl<'a> Renderer<'a> {
             indices: 0,
             msaa: false,
             cache: Default::default(),
+            defaults
         };
         renderer.use_uniform(defaults.relative_camera.buffer().uniform(), 0);
         renderer.use_instances(&defaults.single_centered_instance);
@@ -179,14 +182,13 @@ impl<'a> Renderer<'a> {
 
     pub fn render_sprite(
         &mut self,
-        defaults: &'a GpuDefaults,
         instance_buffer: &'a InstanceBuffer,
         instances: impl Into<InstanceIndices>,
         model: &'a Model,
         sprite: &'a Sprite,
     ) {
         self.use_instances(instance_buffer);
-        self.use_shader(&defaults.sprite);
+        self.use_shader(&self.defaults.sprite);
         self.use_model(model);
         self.use_sprite(sprite, 1);
         self.draw(instances);
@@ -194,14 +196,13 @@ impl<'a> Renderer<'a> {
 
     pub fn render_grey(
         &mut self,
-        defaults: &'a GpuDefaults,
         instance_buffer: &'a InstanceBuffer,
         instances: impl Into<InstanceIndices>,
         model: &'a Model,
         sprite: &'a Sprite,
     ) {
         self.use_instances(instance_buffer);
-        self.use_shader(&defaults.grey);
+        self.use_shader(&self.defaults.grey);
         self.use_model(model);
         self.use_sprite(sprite, 1);
         self.draw(instances);
@@ -209,14 +210,13 @@ impl<'a> Renderer<'a> {
 
     pub fn render_blurred(
         &mut self,
-        defaults: &'a GpuDefaults,
         instance_buffer: &'a InstanceBuffer,
         instances: impl Into<InstanceIndices>,
         model: &'a Model,
         sprite: &'a Sprite,
     ) {
         self.use_instances(instance_buffer);
-        self.use_shader(&defaults.blurr);
+        self.use_shader(&self.defaults.blurr);
         self.use_model(model);
         self.use_sprite(sprite, 1);
         self.draw(instances);
@@ -224,7 +224,6 @@ impl<'a> Renderer<'a> {
 
     pub fn render_colored_sprite(
         &mut self,
-        defaults: &'a GpuDefaults,
         instance_buffer: &'a InstanceBuffer,
         instances: impl Into<InstanceIndices>,
         model: &'a Model,
@@ -232,7 +231,7 @@ impl<'a> Renderer<'a> {
         color: &'a Uniform<Color>,
     ) {
         self.use_instances(instance_buffer);
-        self.use_shader(&defaults.colored_sprite);
+        self.use_shader(&self.defaults.colored_sprite);
         self.use_model(model);
         self.use_sprite(sprite, 1);
         self.use_uniform(color, 2);
@@ -241,7 +240,6 @@ impl<'a> Renderer<'a> {
 
     pub fn render_transparent_sprite(
         &mut self,
-        defaults: &'a GpuDefaults,
         instance_buffer: &'a InstanceBuffer,
         instances: impl Into<InstanceIndices>,
         model: &'a Model,
@@ -249,7 +247,7 @@ impl<'a> Renderer<'a> {
         transparency: &'a Uniform<f32>,
     ) {
         self.use_instances(instance_buffer);
-        self.use_shader(&defaults.transparent);
+        self.use_shader(&self.defaults.transparent);
         self.use_model(model);
         self.use_sprite(sprite, 1);
         self.use_uniform(transparency, 2);
@@ -258,14 +256,13 @@ impl<'a> Renderer<'a> {
 
     pub fn render_color(
         &mut self,
-        defaults: &'a GpuDefaults,
         instance_buffer: &'a InstanceBuffer,
         instances: impl Into<InstanceIndices>,
         model: &'a Model,
         color: &'a Uniform<Color>,
     ) {
         self.use_instances(instance_buffer);
-        self.use_shader(&defaults.color);
+        self.use_shader(&self.defaults.color);
         self.use_model(model);
         self.use_uniform(color, 1);
         self.draw(instances);
@@ -273,14 +270,13 @@ impl<'a> Renderer<'a> {
 
     pub fn render_color_no_msaa(
         &mut self,
-        defaults: &'a GpuDefaults,
         instance_buffer: &'a InstanceBuffer,
         instances: impl Into<InstanceIndices>,
         model: &'a Model,
         color: &'a Uniform<Color>,
     ) {
         self.use_instances(instance_buffer);
-        self.use_shader(&defaults.color_no_msaa);
+        self.use_shader(&self.defaults.color_no_msaa);
         self.use_model(model);
         self.use_uniform(color, 1);
         self.draw(instances);
@@ -288,14 +284,13 @@ impl<'a> Renderer<'a> {
 
     pub fn render_sprite_no_msaa(
         &mut self,
-        defaults: &'a GpuDefaults,
         instance_buffer: &'a InstanceBuffer,
         instances: impl Into<InstanceIndices>,
         model: &'a Model,
         sprite: &'a Sprite,
     ) {
         self.use_instances(instance_buffer);
-        self.use_shader(&defaults.sprite_no_msaa);
+        self.use_shader(&self.defaults.sprite_no_msaa);
         self.use_model(model);
         self.use_sprite(sprite, 1);
         self.draw(instances);
@@ -303,15 +298,14 @@ impl<'a> Renderer<'a> {
 
     pub fn render_rainbow(
         &mut self,
-        defaults: &'a GpuDefaults,
         instance_buffer: &'a InstanceBuffer,
         instances: impl Into<InstanceIndices>,
         model: &'a Model,
     ) {
         self.use_instances(instance_buffer);
-        self.use_shader(&defaults.rainbow);
+        self.use_shader(&self.defaults.rainbow);
         self.use_model(model);
-        self.use_uniform(&defaults.times, 1);
+        self.use_uniform(&self.defaults.times, 1);
         self.draw(instances);
     }
 }

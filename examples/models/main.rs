@@ -126,10 +126,10 @@ impl ComponentController for ModelTest {
         ..DEFAULT_CONFIG
     };
     fn render(active: ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
-        let mut renderer = encoder.world_renderer(ctx.defaults);
+        let mut renderer = encoder.world_renderer();
         for (buffer, models) in ctx.path_render(&active) {
             for (index, model) in models {
-                renderer.render_color(ctx.defaults, buffer, index, &model.model, &model.color);
+                renderer.render_color(buffer, index, &model.model, &model.color);
             }
         }
     }

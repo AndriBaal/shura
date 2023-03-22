@@ -184,11 +184,10 @@ impl ComponentController for Player {
     }
 
     fn render(active: ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
-        let mut renderer = encoder.world_renderer(ctx.defaults);
+        let mut renderer = encoder.world_renderer();
         for (buffer, players) in ctx.path_render(&active) {
             for (instance, player) in players {
                 renderer.render_sprite(
-                    ctx.defaults,
                     buffer,
                     instance,
                     &player.model,
@@ -249,10 +248,10 @@ impl Floor {
 
 impl ComponentController for Floor {
     fn render(active: ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
-        let mut renderer = encoder.world_renderer(ctx.defaults);
+        let mut renderer = encoder.world_renderer();
         for (instance, floors) in ctx.path_render(&active) {
             for (index, floor) in floors {
-                renderer.render_color(ctx.defaults, instance, index, &floor.model, &floor.color);
+                renderer.render_color(instance, index, &floor.model, &floor.color);
             }
         }
     }
@@ -287,7 +286,7 @@ impl PhysicsBox {
 
 impl ComponentController for PhysicsBox {
     fn render(active: ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
-        let mut renderer = encoder.world_renderer(ctx.defaults);
+        let mut renderer = encoder.world_renderer();
         let state = ctx.scene_state::<PhysicsState>().unwrap();
         for (buffer, boxes) in ctx.path_render(&active) {
             let mut ranges = vec![];
@@ -305,7 +304,7 @@ impl ComponentController for PhysicsBox {
             }
             ranges.push((&state.default_color, last..buffer.len()));
             for (color, r) in ranges {
-                renderer.render_color(&ctx.defaults, buffer, r, &state.box_model, color)
+                renderer.render_color(buffer, r, &state.box_model, color)
             }
         }
     }

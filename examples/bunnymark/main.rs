@@ -138,11 +138,10 @@ impl ComponentController for Bunny {
     }
 
     fn render(active: ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
-        let mut renderer = encoder.world_renderer(ctx.defaults);
+        let mut renderer = encoder.world_renderer();
         let scene = ctx.scene_state::<BunnyState>().unwrap();
         for (instances, _group) in ctx.path_render(&active) {
             renderer.render_sprite(
-                &ctx.defaults,
                 instances,
                 instances.all_instances(),
                 &scene.bunny_model,

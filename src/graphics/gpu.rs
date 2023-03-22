@@ -175,11 +175,12 @@ impl Gpu {
     #[cfg(feature = "text")]
     pub fn create_text(
         &self,
+        defaults: &GpuDefaults,
         texture_size: Vector<u32>,
         descriptor: TextDescriptor,
     ) -> RenderTarget {
         let target = self.create_render_target(texture_size);
-        let mut encoder = RenderEncoder::new(self);
+        let mut encoder = RenderEncoder::new(self, defaults);
         encoder.render_text(&target, self, descriptor);
         encoder.submit(self);
         return target;
@@ -195,10 +196,11 @@ impl Gpu {
 
     pub fn create_computed_target<'caller>(
         &self,
+        defaults: &GpuDefaults,
         texture_size: Vector<u32>,
         compute: impl Fn(&RenderTarget, &mut RenderEncoder),
     ) -> RenderTarget {
-        return RenderTarget::computed(self, texture_size, compute);
+        return RenderTarget::computed(self, defaults, texture_size, compute);
     }
 }
 
