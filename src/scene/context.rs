@@ -359,11 +359,10 @@ impl<'a> Context<'a> {
 
     pub fn create_computed_target<'caller>(
         &self,
-        defaults: &GpuDefaults,
         texture_size: Vector<u32>,
         compute: impl Fn(&RenderTarget, &mut RenderEncoder),
     ) -> RenderTarget {
-        self.gpu.create_computed_target(defaults, texture_size, compute)
+        self.gpu.create_computed_target(self.defaults, texture_size, compute)
     }
 
     #[cfg(feature = "audio")]

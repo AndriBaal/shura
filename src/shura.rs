@@ -15,11 +15,12 @@ const INITIAL_HEIGHT: u32 = 600;
 
 impl Drop for Shura {
     fn drop(&mut self) {
-        for (_, scene) in self.scene_manager.end_scenes() {
-            let scene = &mut scene.unwrap();
-            let end = scene.state.get_end();
-            let mut ctx = Context::new(self, scene);
-            end(&mut ctx);
+        for (_, mut scene) in self.scene_manager.end_scenes() {
+            if let Some(scene) = &mut scene {
+                let end = scene.state.get_end();
+                let mut ctx = Context::new(self, scene);
+                end(&mut ctx);
+            }
         }
     }
 }
