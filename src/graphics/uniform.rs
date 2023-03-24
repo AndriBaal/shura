@@ -51,7 +51,7 @@ impl<T: bytemuck::Pod> Uniform<T> {
         }
     }
 
-    pub fn write(&self, gpu: &Gpu, data: T) {
+    pub fn write(&mut self, gpu: &Gpu, data: T) {
         gpu.queue
             .write_buffer(&self.buffer, 0, bytemuck::cast_slice(&[data]));
     }

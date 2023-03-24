@@ -634,18 +634,18 @@ impl Model {
         builder.build(gpu)
     }
 
-    pub fn write(&self, gpu: &Gpu, vertices: &[Vertex], indices: &[Index]) {
+    pub fn write(&mut self, gpu: &Gpu, vertices: &[Vertex], indices: &[Index]) {
         self.write_indices(gpu, indices);
         self.write_vertices(gpu, vertices);
     }
 
-    pub fn write_vertices(&self, gpu: &Gpu, vertices: &[Vertex]) {
+    pub fn write_vertices(&mut self, gpu: &Gpu, vertices: &[Vertex]) {
         assert_eq!(vertices.len(), self.amount_of_vertices as usize);
         gpu.queue
             .write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&vertices[..]));
     }
 
-    pub fn write_indices(&self, gpu: &Gpu, indices: &[Index]) {
+    pub fn write_indices(&mut self, gpu: &Gpu, indices: &[Index]) {
         assert_eq!(indices.len(), self.amount_of_indices as usize);
         gpu.queue
             .write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&indices[..]));

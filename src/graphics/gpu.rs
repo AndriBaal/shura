@@ -515,13 +515,13 @@ impl GpuDefaults {
     }
 
     pub(crate) fn buffer(
-        &self,
+        &mut self,
         active_scene_camera: &Camera,
         gpu: &Gpu,
         total_time: f32,
         frame_time: f32,
     ) {
-        active_scene_camera.write_buffer(gpu, &self.world_camera);
+        active_scene_camera.write_buffer(gpu, &mut self.world_camera);
         self.times.write(&gpu, [total_time, frame_time]);
     }
 

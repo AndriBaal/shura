@@ -21,7 +21,7 @@ impl InstanceBuffer {
         return Self { buffer };
     }
 
-    pub fn write(&self, gpu: &Gpu, data: &[Matrix]) {
+    pub fn write(&mut self, gpu: &Gpu, data: &[Matrix]) {
         assert_eq!(data.len() as u32, self.len());
         gpu.queue
             .write_buffer(&self.buffer, 0, bytemuck::cast_slice(&data));

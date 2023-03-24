@@ -30,7 +30,7 @@ impl RenderTarget {
         texture_size: Vector<u32>,
         compute: impl Fn(&RenderTarget, &mut RenderEncoder),
     ) -> Self {
-        let target = RenderTarget::new(gpu, texture_size);
+        let mut target = RenderTarget::new(gpu, texture_size);
         target.draw(gpu, defaults, compute);
         return target;
     }
@@ -75,7 +75,7 @@ impl RenderTarget {
     }
 
     pub fn draw<'caller>(
-        &self,
+        &mut self,
         gpu: &Gpu,
         defaults: &GpuDefaults,
         mut compute: impl FnMut(&RenderTarget, &mut RenderEncoder),

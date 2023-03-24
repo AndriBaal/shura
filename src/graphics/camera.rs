@@ -132,7 +132,7 @@ impl Camera {
         }
     }
 
-    pub fn write_buffer(&self, gpu: &Gpu, buffer: &CameraBuffer) {
+    pub fn write_buffer(&self, gpu: &Gpu, buffer: &mut CameraBuffer) {
         let fov = self.fov();
         let view = self.view();
         let proj = self.proj();
@@ -273,7 +273,7 @@ impl BufferedCamera {
 
     pub fn write(&mut self, gpu: &Gpu, camera: Camera) {
         self.camera = camera;
-        self.camera.write_buffer(gpu, &self.buffer)
+        self.camera.write_buffer(gpu, &mut self.buffer)
     }
 
     pub fn camera(&self) -> &Camera {
