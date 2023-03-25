@@ -24,6 +24,7 @@ text = ["dep:wgpu_glyph"]
 audio = ["dep:rodio"]
 physics = ["dep:rapier2d"]
 gui = ["dep:egui", "dep:egui-wgpu", "dep:egui-winit"]
+log = ["dep:log"]
 serde = [
     "dep:serde",
     "dep:bincode",
@@ -35,12 +36,14 @@ serde = [
     "nalgebra/serde-serialize",
     "rapier2d?/serde-serialize",
 ]
-default = ["animation", "gamepad", "text", "audio", "physics", "gui", "serde"]
+default = ["animation", "gamepad", "text", "audio", "physics", "gui", "serde", "log"]
 
 [lib]
 crate-type = ["lib", "cdylib"]
 
+
 [dependencies]
+env_logger="0.10"
 delaunator = "1.0"
 mint = { version = "0.5.6" }
 nalgebra = { version = "0.32.1", features = ["convert-bytemuck", "mint"] }
@@ -57,7 +60,7 @@ egui = { version = "0.21", default-features = false, optional = true, features =
     "mint",
 ] }
 rapier2d = { version = "0.17", optional = true }
-log = "0.4.17"
+log = {version="0.4", optional=true, features=["std"]}
 downcast-rs = "1.2.0"
 rustc-hash = "1.1"
 futures-intrusive = "0.5.0"
@@ -75,7 +78,6 @@ bincode = { version = "1.3.3", optional = true }
 
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-env_logger = "0.10"
 wgpu = { version = "0.15", features = ["glsl"] }
 rodio = { version = "0.17", default-features = false, optional = true, features = [
     "symphonia-all",
@@ -83,21 +85,19 @@ rodio = { version = "0.17", default-features = false, optional = true, features 
 
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-getrandom = { version = "0.2", features = ["js"] }
 rodio = { version = "0.17", features = [
     "wasm-bindgen",
     "symphonia-all",
 ], default-features = false, optional = true }
 console_error_panic_hook = "0.1"
-wasm-logger = "0.2"
 wgpu = { version = "0.15", features = ["webgl", "glsl"] }
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
-web-sys = { version = "0.3", features = ["Document", "Window", "Element"] }
+web-sys = { version = "0.3", features = ["Document", "Window", "Element", "console"] }
 
 [dev-dependencies]
 rand = "0.8.5"
-
+getrandom = { version = "0.2", features = ["js"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
 winit = { version = "0.28", features = ["mint", "android-native-activity"] }

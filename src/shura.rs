@@ -6,9 +6,11 @@ use crate::{
     scene::context::ShuraFields, Context, FrameManager, GlobalState, Gpu, GpuDefaults, Input,
     RenderEncoder, RenderOperation, Renderer, Scene, SceneCreator, SceneManager, Vector,
 };
-use log::{error, info};
 #[cfg(target_os = "android")]
 use winit::platform::android::activity::AndroidApp;
+
+#[cfg(feature = "log")]
+use crate::log::{error, info, LoggerBuilder};
 
 const INITIAL_WIDTH: u32 = 800;
 const INITIAL_HEIGHT: u32 = 600;
@@ -43,18 +45,31 @@ pub struct Shura {
 }
 
 impl Shura {
-    /// Start a new game with the given callback to initialize the first [Scene](crate::Scene).
-    pub fn init<C: SceneCreator + 'static>(
+    #[cfg(feature = "log")]
+    pub fn with_logger<C: SceneCreator + 'static>(
+        logger: LoggerBuilder,
         #[cfg(target_os = "android")] app: AndroidApp,
         creator: C,
     ) {
+        logger.init().expect("Failed to initialize Logger!");
+        Self::init(
+            #[cfg(target_os = "android")]
+            app,
+            creator,
+        )
+    }
+
+    /// Start a new game with the given callback to initialize the first [Scene](crate::Scene).
+    pub fn init<C: SceneCreator + 'static>(#[cfg(target_os = "android")] app: AndroidApp, creator: C) {
         #[cfg(target_os = "android")]
         use winit::platform::android::EventLoopBuilderExtAndroid;
-        // #[cfg(target_os = "android")]
-        // android_logger::init_once(
-        //     android_logger::Config::default().with_min_level(log::Level::Info),
-        // );
 
+        #[cfg(feature = "log")] {
+            let logger = LoggerBuilder::default();
+            logger.init().ok();
+        }
+
+        #[cfg(feature = "log")]
         info!("Using shura version: {}", env!("CARGO_PKG_VERSION"));
         #[cfg(target_os = "android")]
         let events = winit::event_loop::EventLoopBuilder::new()
@@ -75,8 +90,6 @@ impl Shura {
             use winit::platform::web::WindowExtWebSys;
 
             std::panic::set_hook(Box::new(hook));
-            wasm_logger::init(wasm_logger::Config::default().module_prefix("shura"));
-
             let canvas = &web_sys::Element::from(window.canvas());
             canvas.set_attribute("tabindex", "0").unwrap();
             canvas
@@ -99,18 +112,6 @@ impl Shura {
             let document = browser_window.document().unwrap();
             let body = document.body().unwrap();
             body.append_child(canvas).ok();
-        }
-
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            use env_logger::Builder;
-            use log::LevelFilter;
-            Builder::new()
-                .filter_level(LevelFilter::Info)
-                .filter_module("wgpu", LevelFilter::Warn)
-                .filter_module("winit", LevelFilter::Warn)
-                .filter_module("symphonia_core", LevelFilter::Warn)
-                .init();
         }
 
         let mut init = Some(creator);
@@ -180,7 +181,10 @@ impl Shura {
                                 Err(wgpu::SurfaceError::OutOfMemory) => {
                                     *control_flow = winit::event_loop::ControlFlow::Exit
                                 }
-                                Err(e) => error!("{:?}", e),
+                                Err(e) => {
+                                    #[cfg(feature = "log")]
+                                    error!("{:?}", e)
+                                },
                             }
 
                             if shura.end {

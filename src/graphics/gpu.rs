@@ -5,7 +5,8 @@ use crate::{
     ModelBuilder, RenderEncoder, RenderTarget, ScreenConfig, Shader, ShaderConfig, ShaderField,
     ShaderLang, Sprite, SpriteSheet, Uniform, Vector,
 };
-use log::info;
+#[cfg(feature = "log")]
+use crate::log::info;
 use std::borrow::Cow;
 use wgpu::BlendState;
 pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 0.5;
@@ -79,10 +80,13 @@ impl Gpu {
         surface.configure(&device, &config);
         let adapter_info = adapter.get_info();
 
-        info!("Using GPU: {}", adapter_info.name);
-        info!("Using WGPU backend: {:?}", adapter_info.backend);
-        info!("Using Multisample X{sample_count}");
-        info!("Using TextureFormat: {:?}", config.format);
+        #[cfg(feature = "log")]
+        {
+            info!("Using GPU: {}", adapter_info.name);
+            info!("Using WGPU backend: {:?}", adapter_info.backend);
+            info!("Using Multisample X{sample_count}");
+            info!("Using TextureFormat: {:?}", config.format);
+        }
 
         let gpu = Self {
             instance,

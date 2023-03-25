@@ -1,4 +1,5 @@
 pub use instant::{Duration, Instant};
+#[cfg(feature = "log")]
 use log::info;
 
 /// Acces to various frame informations.
@@ -50,6 +51,7 @@ impl FrameManager {
             self.fps = self.fps_counter;
             self.fps_time = self.total_time;
             self.fps_counter = 0;
+            #[cfg(feature = "log")]
             info!("fps: {}\tdelta: {}", self.fps, self.frame_time());
         }
 

@@ -160,6 +160,14 @@ pub mod mint {
     pub use mint::*;
 }
 
+#[cfg(feature = "log")]
+mod logging;
+
+#[cfg(feature = "log")]
 pub mod log {
-    pub use log::{debug, error, info, trace, warn};
+    pub use crate::logging::logging::LoggerBuilder;
+    pub use log::{debug, error, info, trace, warn, LevelFilter, SetLoggerError, Level};
+    pub mod env_logger {
+        pub use env_logger::*;
+    }
 }

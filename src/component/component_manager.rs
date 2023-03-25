@@ -8,6 +8,7 @@ use crate::{
     InstanceBuffer, DEFAULT_GROUP_ID,
 };
 use instant::Instant;
+#[cfg(feature = "log")]
 use log::info;
 use rustc_hash::{FxHashMap, FxHashSet};
 #[cfg(feature = "physics")]
@@ -106,7 +107,8 @@ impl ComponentManager {
         }
 
         if self.force_update_sets || groups_changed {
-            info!("Rebuilding Active Components...");
+            #[cfg(feature = "log")]
+            info!("Rebuilding Active Components!");
             self.force_update_sets = false;
             for set in active_components.values_mut() {
                 set.clear();

@@ -5,7 +5,7 @@ use crate::{
     FrameManager, GlobalState, Gpu, GpuDefaults, GroupFilter, Input, InputEvent, InputTrigger,
     InstanceBuffer, Isometry, Matrix, Model, ModelBuilder, Modifier, RenderEncoder, RenderTarget,
     Rotation, Scene, SceneCreator, SceneManager, SceneState, ScreenConfig, Shader, ShaderConfig,
-    Shura, Sprite, SpriteSheet, Uniform, Vector, WorldCamera,
+    Shura, Sprite, SpriteSheet, Uniform, Vector, WorldCamera, Duration, Instant
 };
 
 #[cfg(feature = "serde")]
@@ -34,8 +34,6 @@ use crate::gamepad::*;
 
 #[cfg(feature = "animation")]
 use crate::animation::{EaseMethod, Tween, TweenSequence};
-
-use instant::{Duration, Instant};
 
 pub struct ShuraFields<'a> {
     pub frame_manager: &'a FrameManager,
