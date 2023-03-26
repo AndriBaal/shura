@@ -17,7 +17,7 @@ impl FontBrush {
         let brush = GlyphBrushBuilder::using_font(font)
             // .multisample_state(gpu.base.multisample_state)
             .initial_cache_size((512, 512))
-            .texture_filter_method(wgpu::FilterMode::Nearest)
+            .texture_filter_method(wgpu::FilterMode::Linear)
             .build(&gpu.device, gpu.config.format);
         Self { brush }
     }

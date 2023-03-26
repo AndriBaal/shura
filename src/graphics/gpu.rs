@@ -1,3 +1,5 @@
+#[cfg(feature = "log")]
+use crate::log::info;
 #[cfg(feature = "text")]
 use crate::text::{FontBrush, TextDescriptor};
 use crate::{
@@ -5,8 +7,6 @@ use crate::{
     ModelBuilder, RenderEncoder, RenderTarget, ScreenConfig, Shader, ShaderConfig, ShaderField,
     ShaderLang, Sprite, SpriteSheet, Uniform, Vector,
 };
-#[cfg(feature = "log")]
-use crate::log::info;
 use std::borrow::Cow;
 use wgpu::BlendState;
 pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 0.5;
@@ -162,13 +162,8 @@ impl Gpu {
         Sprite::empty(self, size)
     }
 
-    pub fn create_sprite_sheet(
-        &self,
-        bytes: &[u8],
-        sprites: Vector<u32>,
-        sprite_size: Vector<u32>,
-    ) -> SpriteSheet {
-        SpriteSheet::new(self, bytes, sprites, sprite_size)
+    pub fn create_sprite_sheet(&self, bytes: &[u8], sprites: Vector<u32>) -> SpriteSheet {
+        SpriteSheet::new(self, bytes, sprites)
     }
 
     #[cfg(feature = "text")]

@@ -60,11 +60,15 @@ impl Shura {
     }
 
     /// Start a new game with the given callback to initialize the first [Scene](crate::Scene).
-    pub fn init<C: SceneCreator + 'static>(#[cfg(target_os = "android")] app: AndroidApp, creator: C) {
+    pub fn init<C: SceneCreator + 'static>(
+        #[cfg(target_os = "android")] app: AndroidApp,
+        creator: C,
+    ) {
         #[cfg(target_os = "android")]
         use winit::platform::android::EventLoopBuilderExtAndroid;
 
-        #[cfg(feature = "log")] {
+        #[cfg(feature = "log")]
+        {
             let logger = LoggerBuilder::default();
             logger.init().ok();
         }
@@ -183,8 +187,8 @@ impl Shura {
                                 }
                                 Err(e) => {
                                     #[cfg(feature = "log")]
-                                    error!("{:?}", e)
-                                },
+                                    error!("SurfaceError: {:?}", e)
+                                }
                             }
 
                             if shura.end {
@@ -322,6 +326,12 @@ impl Shura {
     }
 
     fn update(&mut self, scene: &mut Scene) -> Result<(), wgpu::SurfaceError> {
+        if scene.switched || scene.resized || scene.screen_config.vsync_changed {
+            scene.screen_config.vsync_changed = false;
+            self.gpu.apply_vsync(scene.screen_config.vsync());
+        }
+        let output = self.gpu.surface.get_current_texture()?;
+
         #[cfg(target_arch = "wasm32")]
         {
             let browser_window = web_sys::window().unwrap();
@@ -419,11 +429,6 @@ impl Shura {
             return Ok(());
         }
 
-        if scene.switched || scene.resized || scene.screen_config.vsync_changed {
-            scene.screen_config.vsync_changed = false;
-            self.gpu.apply_vsync(scene.screen_config.vsync());
-        }
-
         scene.component_manager.buffer_sets(&self.gpu);
         self.defaults.buffer(
             &scene.world_camera,
@@ -454,7 +459,6 @@ impl Shura {
                 }
             }
         }
-        let output = ctx.gpu.surface.get_current_texture()?;
         let output_view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());

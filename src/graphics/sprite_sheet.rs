@@ -1,5 +1,5 @@
-use image::GenericImageView;
 use crate::{Gpu, Sprite, Vector};
+use image::GenericImageView;
 use std::ops::{Index, IndexMut};
 
 /// Collection of [Sprites](crate::Sprite) that will be loaded from the same image where all sprites have the same size.
@@ -9,16 +9,10 @@ pub struct SpriteSheet {
 }
 
 impl SpriteSheet {
-    pub fn new(
-        gpu: &Gpu,
-        bytes: &[u8],
-        sprites: Vector<u32>,
-        sprite_size: Vector<u32>,
-    ) -> SpriteSheet {
+    pub fn new(gpu: &Gpu, bytes: &[u8], sprites: Vector<u32>) -> SpriteSheet {
         let mut img = image::load_from_memory(bytes).unwrap();
-        let img_size = Vector::new(sprite_size.x * sprites.x, sprite_size.y * sprites.y);
-        assert!(img_size.x <= img.width(), "SpriteSheet has invalid width!");
-        assert!(img_size.y <= img.height(), "SpriteSheet has invalid height!");
+        let img_size = Vector::new(img.width(), img.height());
+        let sprite_size = Vector::new(img_size.x / sprites.x, img_size.y / sprites.y);
 
         let amount = sprites.x * sprites.y;
 

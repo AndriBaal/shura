@@ -68,14 +68,14 @@ impl<'a> Renderer<'a> {
             indices: 0,
             msaa: render_encoder.msaa,
             cache: Default::default(),
-            defaults: render_encoder.defaults
+            defaults: render_encoder.defaults,
         }
     }
 
     pub(crate) fn output_renderer(
         encoder: &'a mut wgpu::CommandEncoder,
         output: &'a wgpu::TextureView,
-        defaults: &'a GpuDefaults
+        defaults: &'a GpuDefaults,
     ) -> Renderer<'a> {
         let render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("render_pass"),
@@ -96,7 +96,7 @@ impl<'a> Renderer<'a> {
             indices: 0,
             msaa: false,
             cache: Default::default(),
-            defaults
+            defaults,
         };
         renderer.use_uniform(defaults.relative_camera.buffer().uniform(), 0);
         renderer.use_instances(&defaults.single_centered_instance);

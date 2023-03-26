@@ -1,11 +1,11 @@
 use crate::{
     Camera, CameraBuffer, Color, ComponentController, ComponentDerive, ComponentGroup,
     ComponentGroupDescriptor, ComponentHandle, ComponentManager, ComponentPath,
-    ComponentRenderGroup, ComponentSet, ComponentSetMut, ComponentTypeId, DynamicComponent,
-    FrameManager, GlobalState, Gpu, GpuDefaults, GroupFilter, Input, InputEvent, InputTrigger,
-    InstanceBuffer, Isometry, Matrix, Model, ModelBuilder, Modifier, RenderEncoder, RenderTarget,
-    Rotation, Scene, SceneCreator, SceneManager, SceneState, ScreenConfig, Shader, ShaderConfig,
-    Shura, Sprite, SpriteSheet, Uniform, Vector, WorldCamera, Duration, Instant
+    ComponentRenderGroup, ComponentSet, ComponentSetMut, ComponentTypeId, Duration,
+    DynamicComponent, FrameManager, GlobalState, Gpu, GpuDefaults, GroupFilter, Input, InputEvent,
+    InputTrigger, InstanceBuffer, Instant, Isometry, Matrix, Model, ModelBuilder, Modifier,
+    RenderEncoder, RenderTarget, Rotation, Scene, SceneCreator, SceneManager, SceneState,
+    ScreenConfig, Shader, ShaderConfig, Shura, Sprite, SpriteSheet, Uniform, Vector, WorldCamera,
 };
 
 #[cfg(feature = "serde")]
@@ -191,6 +191,16 @@ impl<'a> Context<'a> {
     }
 
     #[cfg(feature = "serde")]
+    pub fn serialize_group(&self, ) -> Result<Vec<u8>, Box<bincode::ErrorKind>>  {
+
+    }
+
+    #[cfg(feature = "serde")]
+    pub fn deserialize_group(&self, ) {
+
+    }
+
+    #[cfg(feature = "serde")]
     pub fn serialize(
         &mut self,
         mut serialize: impl FnMut(&mut SceneSerializer),
@@ -323,13 +333,8 @@ impl<'a> Context<'a> {
         self.gpu.create_empty_sprite(size)
     }
 
-    pub fn create_sprite_sheet(
-        &self,
-        bytes: &[u8],
-        sprites: Vector<u32>,
-        sprite_size: Vector<u32>,
-    ) -> SpriteSheet {
-        self.gpu.create_sprite_sheet(bytes, sprites, sprite_size)
+    pub fn create_sprite_sheet(&self, bytes: &[u8], sprites: Vector<u32>) -> SpriteSheet {
+        self.gpu.create_sprite_sheet(bytes, sprites)
     }
 
     #[cfg(feature = "text")]
@@ -360,7 +365,8 @@ impl<'a> Context<'a> {
         texture_size: Vector<u32>,
         compute: impl Fn(&RenderTarget, &mut RenderEncoder),
     ) -> RenderTarget {
-        self.gpu.create_computed_target(self.defaults, texture_size, compute)
+        self.gpu
+            .create_computed_target(self.defaults, texture_size, compute)
     }
 
     #[cfg(feature = "audio")]

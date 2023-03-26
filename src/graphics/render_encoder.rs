@@ -5,17 +5,21 @@ use crate::{CameraBuffer, Color, Gpu, GpuDefaults, RenderTarget, Renderer, Sprit
 pub struct RenderEncoder<'a> {
     pub inner: wgpu::CommandEncoder,
     pub msaa: bool,
-    pub defaults: &'a GpuDefaults
+    pub defaults: &'a GpuDefaults,
 }
 
-impl <'a>RenderEncoder<'a> {
-    pub(crate) fn new(gpu: &Gpu,defaults: &'a GpuDefaults) -> Self {
+impl<'a> RenderEncoder<'a> {
+    pub(crate) fn new(gpu: &Gpu, defaults: &'a GpuDefaults) -> Self {
         let inner = gpu
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("render_encoder"),
             });
-        Self { inner, msaa: true, defaults }
+        Self {
+            inner,
+            msaa: true,
+            defaults,
+        }
     }
 
     pub fn clear(&mut self, target: &RenderTarget, color: Color) {
@@ -34,10 +38,7 @@ impl <'a>RenderEncoder<'a> {
         });
     }
 
-    pub fn renderer<'b>(
-        &'b mut self,
-        target: &'b RenderTarget
-    ) -> Renderer<'b> {
+    pub fn renderer<'b>(&'b mut self, target: &'b RenderTarget) -> Renderer<'b> {
         Renderer::new(target, self)
     }
 

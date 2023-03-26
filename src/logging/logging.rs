@@ -1,6 +1,6 @@
 use env_logger::Builder as EnvLoggerBuilder;
 use env_logger::Logger as EnvLogger;
-use log::{SetLoggerError, Log, LevelFilter};
+use log::{LevelFilter, Log, SetLoggerError};
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::JsValue;
@@ -26,6 +26,7 @@ impl LoggerBuilder {
         let mut builder = EnvLoggerBuilder::new();
         builder
             .filter_level(level)
+            .filter_module("wgpu_hal", LevelFilter::Error)
             .filter_module("wgpu", LevelFilter::Warn)
             .filter_module("winit", LevelFilter::Warn)
             .filter_module("symphonia_core", LevelFilter::Warn);
@@ -36,14 +37,12 @@ impl LoggerBuilder {
         Self { env: builder }
     }
 
-
     pub fn init(mut self) -> Result<(), SetLoggerError> {
         let logger = Logger {
             env: self.env.build(),
             #[cfg(target_arch = "wasm32")]
-            wasm_style: Style::new()
+            wasm_style: Style::new(),
         };
-
 
         let max_level = logger.env.filter();
         let r = log::set_boxed_logger(Box::new(logger));
@@ -59,7 +58,7 @@ impl LoggerBuilder {
 struct Logger {
     env: EnvLogger,
     #[cfg(target_arch = "wasm32")]
-    wasm_style: Style
+    wasm_style: Style,
 }
 
 impl Log for Logger {
@@ -118,9 +117,8 @@ impl Log for Logger {
         }
     }
 
-    fn flush(&self) { }
+    fn flush(&self) {}
 }
-
 
 #[cfg(target_arch = "wasm32")]
 struct Style {
@@ -148,5 +146,3 @@ impl Style {
         }
     }
 }
-
-

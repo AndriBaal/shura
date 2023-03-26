@@ -1,4 +1,4 @@
-use crate::{Camera, Gpu, RenderEncoder, Sprite, Vector, GpuDefaults};
+use crate::{Camera, Gpu, GpuDefaults, RenderEncoder, Sprite, Vector};
 use std::ops::Deref;
 
 pub struct RenderTarget {
@@ -86,12 +86,12 @@ impl RenderTarget {
     }
 
     pub fn compute_target_size(
-        half_extents: Vector<f32>,
+        model_half_extents: Vector<f32>,
         camera: &Camera,
         window_size: Vector<u32>,
     ) -> Vector<u32> {
         let camera_fov = camera.fov() * 2.0;
-        let size = half_extents * 2.0;
+        let size = model_half_extents * 2.0;
         return Vector::new(
             (size.x / camera_fov.x * window_size.x as f32).ceil() as u32,
             (size.y / camera_fov.y * window_size.y as f32).ceil() as u32,

@@ -166,7 +166,7 @@ mod logging;
 #[cfg(feature = "log")]
 pub mod log {
     pub use crate::logging::logging::LoggerBuilder;
-    pub use log::{debug, error, info, trace, warn, LevelFilter, SetLoggerError, Level};
+    pub use log::{debug, error, info, trace, warn, Level, LevelFilter, SetLoggerError};
     pub mod env_logger {
         pub use env_logger::*;
     }

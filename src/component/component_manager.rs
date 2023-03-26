@@ -107,8 +107,10 @@ impl ComponentManager {
         }
 
         if self.force_update_sets || groups_changed {
-            #[cfg(feature = "log")]
-            info!("Rebuilding Active Components!");
+            #[cfg(feature = "log")] {
+                info!("Rebuilding Active Components!");
+                info!("Now processing {} groups!", self.active_groups.len());
+            }
             self.force_update_sets = false;
             for set in active_components.values_mut() {
                 set.clear();

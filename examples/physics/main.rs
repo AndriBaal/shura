@@ -187,12 +187,7 @@ impl ComponentController for Player {
         let mut renderer = encoder.world_renderer();
         for (buffer, players) in ctx.path_render(&active) {
             for (instance, player) in players {
-                renderer.render_sprite(
-                    buffer,
-                    instance,
-                    &player.model,
-                    &player.sprite,
-                );
+                renderer.render_sprite(buffer, instance, &player.model, &player.sprite);
             }
         }
     }

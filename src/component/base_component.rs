@@ -14,6 +14,7 @@ use crate::{
 
 /// Easily create a [BaseComponent] with a position and render_scale.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone)]
 pub struct PositionBuilder {
     pub render_scale: Vector<f32>,
     pub position: Isometry<f32>,
@@ -51,6 +52,10 @@ impl PositionBuilder {
     pub fn position(mut self, position: Isometry<f32>) -> Self {
         self.position = position;
         self
+    }
+
+    pub fn build(self) -> BaseComponent {
+        self.into()
     }
 }
 
