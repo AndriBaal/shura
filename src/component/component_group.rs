@@ -5,7 +5,7 @@ use rustc_hash::FxHashMap;
 /// Helper to create a [ComponentGroup](crate::ComponentGroup).
 pub struct ComponentGroupDescriptor {
     /// Id of the group.
-    pub id: u32,
+    pub id: u16,
     /// Describes when the ggroup is active.
     pub activation: GroupActivation,
     /// Describes if the group is enabled from the start.
@@ -15,7 +15,7 @@ pub struct ComponentGroupDescriptor {
 
 /// Id of the default [ComponentGroup](crate::ComponentGroup). Components within this group are
 /// always getting rendered and updated in every cycle.
-pub const DEFAULT_GROUP_ID: u32 = u32::MAX / 2;
+pub const DEFAULT_GROUP_ID: u16 = u16::MAX / 2;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Copy, Clone)]
@@ -39,7 +39,7 @@ pub enum GroupActivation {
 pub struct ComponentGroup {
     type_map: FxHashMap<ComponentTypeId, ArenaIndex>,
     types: Arena<ComponentType>,
-    id: u32,
+    id: u16,
     enabled: bool,
     active: bool,
     pub activation: GroupActivation,
@@ -122,7 +122,8 @@ impl ComponentGroup {
     }
 
     pub(crate) fn remove_type(&mut self, index: ArenaIndex) {
-        self.types.remove(index);
+        let removed = self.types.remove(index).unwrap();
+        self.type_map.remove(&removed.type_id());
     }
 
     pub(crate) fn add_component_type<C: ComponentController>(
@@ -141,7 +142,7 @@ impl ComponentGroup {
     }
 
     /// Get the id of the group.
-    pub const fn id(&self) -> u32 {
+    pub const fn id(&self) -> u16 {
         self.id
     }
 

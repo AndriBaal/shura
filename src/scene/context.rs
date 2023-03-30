@@ -1,11 +1,11 @@
 use crate::{
-    Camera, CameraBuffer, Color, ComponentController, ComponentDerive, ComponentGroup,
-    ComponentGroupDescriptor, ComponentHandle, ComponentManager, ComponentPath,
-    ComponentRenderGroup, ComponentSet, ComponentSetMut, ComponentTypeId, Duration,
-    BoxedComponent, FrameManager, GlobalState, Gpu, GpuDefaults, GroupFilter, Input, InputEvent,
-    InputTrigger, InstanceBuffer, Instant, Isometry, Matrix, Model, ModelBuilder, Modifier,
-    RenderEncoder, RenderTarget, Rotation, Scene, SceneCreator, SceneManager, SceneState,
-    ScreenConfig, Shader, ShaderConfig, Shura, Sprite, SpriteSheet, Uniform, Vector, WorldCamera,
+    BoxedComponent, Camera, CameraBuffer, Color, ComponentController, ComponentDerive,
+    ComponentGroup, ComponentGroupDescriptor, ComponentHandle, ComponentManager, ComponentPath,
+    ComponentRenderGroup, ComponentSet, ComponentSetMut, ComponentTypeId, Duration, FrameManager,
+    GlobalState, Gpu, GpuDefaults, GroupFilter, Input, InputEvent, InputTrigger, InstanceBuffer,
+    Instant, Isometry, Matrix, Model, ModelBuilder, Modifier, RenderEncoder, RenderTarget,
+    Rotation, Scene, SceneCreator, SceneManager, SceneState, ScreenConfig, Shader, ShaderConfig,
+    Shura, Sprite, SpriteSheet, Uniform, Vector, WorldCamera,
 };
 
 #[cfg(feature = "serde")]
@@ -186,7 +186,7 @@ impl<'a> Context<'a> {
             .component_from_collider(collider)
     }
 
-    pub fn does_group_exist(&self, group: u32) -> bool {
+    pub fn does_group_exist(&self, group: u16) -> bool {
         self.component_manager.does_group_exist(group)
     }
 
@@ -253,7 +253,7 @@ impl<'a> Context<'a> {
             };
             let scene: (
                 &Scene,
-                FxHashMap<ComponentTypeId, Vec<(u32, Vec<Option<(u32, Vec<u8>)>>)>>,
+                FxHashMap<ComponentTypeId, Vec<(u16, Vec<Option<(u32, Vec<u8>)>>)>>,
                 Option<Vec<u8>>,
                 Option<Vec<u8>>,
             ) = (&scene, components, scene_state, global_state);
@@ -425,7 +425,7 @@ impl<'a> Context<'a> {
 
     pub fn add_component_with_group<C: ComponentController>(
         &mut self,
-        group: Option<u32>,
+        group: Option<u16>,
         component: C,
     ) -> (&mut C, ComponentHandle) {
         self.component_manager
@@ -456,7 +456,7 @@ impl<'a> Context<'a> {
         self.component_manager.remove_components::<C>(filter);
     }
 
-    pub fn remove_group(&mut self, group_id: u32) -> Option<ComponentGroup> {
+    pub fn remove_group(&mut self, group_id: u16) -> Option<ComponentGroup> {
         self.component_manager.remove_group(group_id)
     }
 
@@ -870,15 +870,12 @@ impl<'a> Context<'a> {
         &mut self.window
     }
 
-    pub fn group_mut(&mut self, id: u32) -> Option<&mut ComponentGroup> {
+    pub fn group_mut(&mut self, id: u16) -> Option<&mut ComponentGroup> {
         self.component_manager.group_by_id_mut(id)
     }
 
-    pub fn group(&self, id: u32) -> Option<&ComponentGroup> {
-        if let Some(group_index) = self.component_manager.group_index(&id) {
-            return self.component_manager.group(*group_index);
-        }
-        return None;
+    pub fn group(&self, id: u16) -> Option<&ComponentGroup> {
+        self.component_manager.group_by_id(id)
     }
 
     pub fn groups(&self) -> impl Iterator<Item = &ComponentGroup> {
@@ -901,11 +898,11 @@ impl<'a> Context<'a> {
         self.scene_manager.does_scene_exist(name)
     }
 
-    pub fn active_group_ids(&self) -> &[u32] {
+    pub fn active_group_ids(&self) -> &[u16] {
         self.component_manager.active_group_ids()
     }
 
-    pub fn group_ids(&self) -> impl Iterator<Item = &u32> {
+    pub fn group_ids(&self) -> impl Iterator<Item = &u16> {
         self.component_manager.group_ids()
     }
 
@@ -921,10 +918,7 @@ impl<'a> Context<'a> {
         self.component_manager.boxed_component(handle)
     }
 
-    pub fn boxed_component_mut(
-        &mut self,
-        handle: ComponentHandle,
-    ) -> Option<&mut BoxedComponent> {
+    pub fn boxed_component_mut(&mut self, handle: ComponentHandle) -> Option<&mut BoxedComponent> {
         self.component_manager.boxed_component_mut(handle)
     }
 
@@ -975,7 +969,7 @@ impl<'a> Context<'a> {
 
     pub fn instance_buffer<C: ComponentController>(
         &self,
-        group_id: u32,
+        group_id: u16,
     ) -> Option<&InstanceBuffer> {
         self.component_manager.instance_buffer::<C>(group_id)
     }

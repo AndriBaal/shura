@@ -13,6 +13,7 @@ pub struct ComponentHandle {
     type_index: ArenaIndex,
     group_index: ArenaIndex,
     id: u32,
+    group_id: u16,
 }
 
 impl Hash for ComponentHandle {
@@ -35,12 +36,14 @@ impl ComponentHandle {
         type_index: ArenaIndex,
         group_index: ArenaIndex,
         id: u32,
+        group_id: u16,
     ) -> Self {
         Self {
             id,
             component_index,
             type_index,
             group_index,
+            group_id,
         }
     }
 
@@ -60,5 +63,9 @@ impl ComponentHandle {
 
     pub fn id(&self) -> u32 {
         self.id
+    }
+
+    pub fn group_id(&self) -> u16 {
+        self.group_id
     }
 }

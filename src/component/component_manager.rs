@@ -1,11 +1,11 @@
 #[cfg(feature = "physics")]
 use crate::physics::World;
 use crate::{
-    Arena, ArenaEntry, ArenaIndex, ArenaPath, Camera, ComponentCallbacks, ComponentCluster,
-    ComponentController, ComponentDerive, ComponentGroup, ComponentGroupDescriptor,
-    ComponentHandle, ComponentIterRender, ComponentPath, ComponentRenderGroup, ComponentSet,
-    ComponentSetMut, ComponentTypeId, BoxedComponent, Gpu, GpuDefaults, GroupActivation,
-    InstanceBuffer, DEFAULT_GROUP_ID,
+    Arena, ArenaEntry, ArenaIndex, ArenaPath, BoxedComponent, Camera, ComponentCallbacks,
+    ComponentCluster, ComponentController, ComponentDerive, ComponentGroup,
+    ComponentGroupDescriptor, ComponentHandle, ComponentIterRender, ComponentPath,
+    ComponentRenderGroup, ComponentSet, ComponentSetMut, ComponentTypeId, Gpu, GpuDefaults,
+    GroupActivation, InstanceBuffer, DEFAULT_GROUP_ID,
 };
 use instant::Instant;
 #[cfg(feature = "log")]
@@ -20,7 +20,7 @@ use std::rc::Rc;
 pub enum GroupFilter<'a> {
     All,
     Active,
-    Specific(&'a [u32]),
+    Specific(&'a [u16]),
 }
 
 impl<'a> Default for GroupFilter<'a> {
@@ -35,7 +35,7 @@ pub struct ComponentManager {
     render_components: bool,
     id_counter: u32,
     force_update_sets: bool,
-    group_map: FxHashMap<u32, ArenaIndex>,
+    group_map: FxHashMap<u16, ArenaIndex>,
     groups: Arena<ComponentGroup>,
 
     #[cfg_attr(feature = "serde", serde(skip))]
@@ -44,7 +44,7 @@ pub struct ComponentManager {
 
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
-    active_group_ids: Vec<u32>,
+    active_group_ids: Vec<u16>,
 
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
@@ -211,7 +211,7 @@ impl ComponentManager {
 
     pub fn add_component_with_group<C: ComponentController>(
         &mut self,
-        group_id: Option<u32>,
+        group_id: Option<u16>,
         component: C,
     ) -> (&mut C, ComponentHandle) {
         let group_id = group_id.unwrap_or(DEFAULT_GROUP_ID);
@@ -230,13 +230,15 @@ impl ComponentManager {
             self.id_counter += 1;
             let component_type = group.type_mut(type_index).unwrap();
             let index = component_type.add(component);
-            handle = ComponentHandle::new(index, type_index, *group_index, self.id_counter);
+            handle =
+                ComponentHandle::new(index, type_index, *group_index, self.id_counter, group_id);
         } else {
             // Create a new ComponentType
             self.id_counter += 1;
             self.force_update_sets = true;
             let (type_index, index) = group.add_component_type(component);
-            handle = ComponentHandle::new(index, type_index, *group_index, self.id_counter);
+            handle =
+                ComponentHandle::new(index, type_index, *group_index, self.id_counter, group_id);
         }
 
         let c = self
@@ -271,6 +273,7 @@ impl ComponentManager {
                 if let Some(mut to_remove) = component_type.remove(handle) {
                     to_remove.base_mut().deinit();
                     if component_type.len() == 0 {
+                        self.force_update_sets = false;
                         group.remove_type(type_index);
                     }
                     return Some(to_remove);
@@ -283,7 +286,7 @@ impl ComponentManager {
     pub fn remove_components<C: ComponentController>(&mut self, filter: GroupFilter) {
         let type_id = C::IDENTIFIER;
 
-        fn remove(group: &mut ComponentGroup, type_id: ComponentTypeId) {
+        fn remove(rewrite: &mut bool, group: &mut ComponentGroup, type_id: ComponentTypeId) {
             if let Some(type_index) = group.type_index(type_id).cloned() {
                 let component_type = group.type_mut(type_index).unwrap();
                 for (_, c) in component_type.iter_mut() {
@@ -291,6 +294,7 @@ impl ComponentManager {
                 }
                 if component_type.len() == 0 {
                     group.remove_type(type_index);
+                    *rewrite = true;
                 }
             }
         }
@@ -298,13 +302,13 @@ impl ComponentManager {
         match filter {
             GroupFilter::All => {
                 for (_index, group) in &mut self.groups {
-                    remove(group, type_id)
+                    remove(&mut self.force_update_sets, group, type_id)
                 }
             }
             GroupFilter::Active => {
                 for index in &self.active_groups {
                     if let Some(group) = self.groups.get_mut(*index) {
-                        remove(group, type_id)
+                        remove(&mut self.force_update_sets, group, type_id)
                     }
                 }
             }
@@ -312,14 +316,14 @@ impl ComponentManager {
                 for group_id in group_ids {
                     if let Some(index) = self.group_map.get(&group_id) {
                         let group = self.groups.get_mut(*index).unwrap();
-                        remove(group, type_id)
+                        remove(&mut self.force_update_sets, group, type_id)
                     }
                 }
             }
         }
     }
 
-    pub fn remove_group(&mut self, group_id: u32) -> Option<ComponentGroup> {
+    pub fn remove_group(&mut self, group_id: u16) -> Option<ComponentGroup> {
         if group_id == DEFAULT_GROUP_ID {
             return None;
         }
@@ -532,10 +536,7 @@ impl ComponentManager {
         return None;
     }
 
-    pub fn boxed_component_mut(
-        &mut self,
-        handle: ComponentHandle,
-    ) -> Option<&mut BoxedComponent> {
+    pub fn boxed_component_mut(&mut self, handle: ComponentHandle) -> Option<&mut BoxedComponent> {
         if let Some(group) = self.groups.get_mut(handle.group_index()) {
             if let Some(component_type) = group.type_mut(handle.type_index()) {
                 return component_type.component_mut(handle.component_index());
@@ -566,7 +567,7 @@ impl ComponentManager {
         return None;
     }
 
-    pub fn does_group_exist(&self, group: u32) -> bool {
+    pub fn does_group_exist(&self, group: u16) -> bool {
         self.group_map.contains_key(&group)
     }
 
@@ -578,15 +579,15 @@ impl ComponentManager {
         self.groups.get(index)
     }
 
-    pub(crate) fn group_index(&self, id: &u32) -> Option<&ArenaIndex> {
+    pub(crate) fn group_index(&self, id: &u16) -> Option<&ArenaIndex> {
         return self.group_map.get(id);
     }
 
-    pub fn active_group_ids(&self) -> &[u32] {
+    pub fn active_group_ids(&self) -> &[u16] {
         return &self.active_group_ids;
     }
 
-    pub fn group_ids(&self) -> impl Iterator<Item = &u32> {
+    pub fn group_ids(&self) -> impl Iterator<Item = &u16> {
         self.group_map.keys()
     }
 
@@ -598,14 +599,14 @@ impl ComponentManager {
         self.groups.iter_mut().map(|(_, group)| group)
     }
 
-    pub fn group_by_id(&self, id: u32) -> Option<&ComponentGroup> {
+    pub fn group_by_id(&self, id: u16) -> Option<&ComponentGroup> {
         if let Some(group_index) = self.group_index(&id) {
             return self.group(*group_index);
         }
         return None;
     }
 
-    pub fn group_by_id_mut(&mut self, id: u32) -> Option<&mut ComponentGroup> {
+    pub fn group_by_id_mut(&mut self, id: u16) -> Option<&mut ComponentGroup> {
         if let Some(group_index) = self.group_index(&id) {
             return self.group_mut(*group_index);
         }
@@ -648,7 +649,7 @@ impl ComponentManager {
 
     pub fn instance_buffer<C: ComponentController>(
         &self,
-        group_id: u32,
+        group_id: u16,
     ) -> Option<&InstanceBuffer> {
         if let Some(group_index) = self.group_map.get(&group_id) {
             let group = self.groups.get(*group_index).unwrap();

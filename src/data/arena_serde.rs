@@ -1,6 +1,6 @@
 use super::arena::{Arena, ArenaEntry, ArenaIndex, DEFAULT_CAPACITY};
-use crate::ComponentDerive;
 use crate::BoxedComponent;
+use crate::ComponentDerive;
 use core::cmp;
 use core::fmt;
 use core::iter;
