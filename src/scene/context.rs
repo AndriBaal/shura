@@ -2,7 +2,7 @@ use crate::{
     Camera, CameraBuffer, Color, ComponentController, ComponentDerive, ComponentGroup,
     ComponentGroupDescriptor, ComponentHandle, ComponentManager, ComponentPath,
     ComponentRenderGroup, ComponentSet, ComponentSetMut, ComponentTypeId, Duration,
-    DynamicComponent, FrameManager, GlobalState, Gpu, GpuDefaults, GroupFilter, Input, InputEvent,
+    BoxedComponent, FrameManager, GlobalState, Gpu, GpuDefaults, GroupFilter, Input, InputEvent,
     InputTrigger, InstanceBuffer, Instant, Isometry, Matrix, Model, ModelBuilder, Modifier,
     RenderEncoder, RenderTarget, Rotation, Scene, SceneCreator, SceneManager, SceneState,
     ScreenConfig, Shader, ShaderConfig, Shura, Sprite, SpriteSheet, Uniform, Vector, WorldCamera,
@@ -190,15 +190,15 @@ impl<'a> Context<'a> {
         self.component_manager.does_group_exist(group)
     }
 
-    #[cfg(feature = "serde")]
-    pub fn serialize_group(&self, ) -> Result<Vec<u8>, Box<bincode::ErrorKind>>  {
+    // #[cfg(feature = "serde")]
+    // pub fn serialize_group(&self, ) -> Result<Vec<u8>, Box<bincode::ErrorKind>>  {
 
-    }
+    // }
 
-    #[cfg(feature = "serde")]
-    pub fn deserialize_group(&self, ) {
+    // #[cfg(feature = "serde")]
+    // pub fn deserialize_group(&self, ) {
 
-    }
+    // }
 
     #[cfg(feature = "serde")]
     pub fn serialize(
@@ -412,8 +412,8 @@ impl<'a> Context<'a> {
         )
     }
 
-    pub fn add_group(&mut self, descriptor: &ComponentGroupDescriptor) {
-        self.component_manager.add_group(descriptor);
+    pub fn add_group(&mut self, group: &ComponentGroupDescriptor) {
+        self.component_manager.add_group(group);
     }
 
     pub fn add_component<C: ComponentController>(
@@ -448,7 +448,7 @@ impl<'a> Context<'a> {
         return None;
     }
 
-    pub fn remove_component(&mut self, handle: ComponentHandle) -> Option<DynamicComponent> {
+    pub fn remove_component(&mut self, handle: ComponentHandle) -> Option<BoxedComponent> {
         return self.component_manager.remove_component(handle);
     }
 
@@ -456,7 +456,7 @@ impl<'a> Context<'a> {
         self.component_manager.remove_components::<C>(filter);
     }
 
-    pub fn remove_group(&mut self, group_id: u32) {
+    pub fn remove_group(&mut self, group_id: u32) -> Option<ComponentGroup> {
         self.component_manager.remove_group(group_id)
     }
 
@@ -915,6 +915,17 @@ impl<'a> Context<'a> {
 
     pub fn component_mut<C: ComponentDerive>(&mut self, handle: ComponentHandle) -> Option<&mut C> {
         self.component_manager.component_mut::<C>(handle)
+    }
+
+    pub fn boxed_component(&self, handle: ComponentHandle) -> Option<&BoxedComponent> {
+        self.component_manager.boxed_component(handle)
+    }
+
+    pub fn boxed_component_mut(
+        &mut self,
+        handle: ComponentHandle,
+    ) -> Option<&mut BoxedComponent> {
+        self.component_manager.boxed_component_mut(handle)
     }
 
     pub fn force_buffer<C: ComponentController>(&mut self, filter: GroupFilter) {

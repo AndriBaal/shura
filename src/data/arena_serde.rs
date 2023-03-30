@@ -1,6 +1,6 @@
 use super::arena::{Arena, ArenaEntry, ArenaIndex, DEFAULT_CAPACITY};
 use crate::ComponentDerive;
-use crate::DynamicComponent;
+use crate::BoxedComponent;
 use core::cmp;
 use core::fmt;
 use core::iter;
@@ -45,7 +45,7 @@ where
     }
 }
 
-impl Arena<DynamicComponent> {
+impl Arena<BoxedComponent> {
     pub fn serialize_components<C: ComponentDerive + Serialize>(
         &self,
     ) -> Vec<Option<(u32, Vec<u8>)>> {

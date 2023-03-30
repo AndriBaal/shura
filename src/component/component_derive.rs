@@ -13,9 +13,9 @@ pub trait FieldNames {
     const FIELDS: &'static [&'static str];
 }
 
-/// Dynamic component, that can be downcasted to any [ComponentDerive](crate::ComponentDerive)
+/// Boxed component, that can be downcasted to any [ComponentDerive](crate::ComponentDerive)
 /// using downcast_ref or downcast_mut.
-pub type DynamicComponent = Box<dyn ComponentDerive>;
+pub type BoxedComponent = Box<dyn ComponentDerive>;
 
 /// All components need to implement from this trait. This is not done manually, but with the derive macro [Component](crate::Component).
 ///
@@ -31,7 +31,6 @@ pub trait ComponentDerive: Downcast {
     fn base(&self) -> &BaseComponent;
     fn base_mut(&mut self) -> &mut BaseComponent;
 }
-
 impl_downcast!(ComponentDerive);
 
 #[allow(unused_variables)]

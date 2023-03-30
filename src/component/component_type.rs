@@ -1,7 +1,7 @@
 use crate::{
     data::arena::{ArenaIter, ArenaIterMut},
     Arena, ArenaIndex, BufferOperation, ComponentConfig, ComponentController, ComponentDerive,
-    ComponentHandle, DynamicComponent, Gpu, InstanceBuffer, Matrix,
+    ComponentHandle, BoxedComponent, Gpu, InstanceBuffer, Matrix,
 };
 
 #[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
@@ -25,7 +25,7 @@ pub trait ComponentIdentifier {
 pub(crate) struct ComponentType {
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
-    components: Arena<DynamicComponent>,
+    components: Arena<BoxedComponent>,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
     buffer: Option<InstanceBuffer>,
@@ -38,7 +38,7 @@ pub(crate) struct ComponentType {
 
 impl ComponentType {
     pub fn new<C: ComponentController>(component: C) -> (ArenaIndex, Self) {
-        let mut components: Arena<DynamicComponent> = Arena::new();
+        let mut components: Arena<BoxedComponent> = Arena::new();
         let component_index = components.insert(Box::new(component));
         (
             component_index,
@@ -93,7 +93,7 @@ impl ComponentType {
         return self.components.serialize_components::<C>();
     }
 
-    pub fn remove(&mut self, handle: ComponentHandle) -> Option<DynamicComponent> {
+    pub fn remove(&mut self, handle: ComponentHandle) -> Option<BoxedComponent> {
         self.components.remove(handle.component_index())
     }
 
@@ -102,7 +102,7 @@ impl ComponentType {
     }
 
     #[cfg(feature = "serde")]
-    pub fn deserialize_components(&mut self, components: Arena<DynamicComponent>) {
+    pub fn deserialize_components(&mut self, components: Arena<BoxedComponent>) {
         self.components = components;
     }
 
@@ -118,23 +118,19 @@ impl ComponentType {
         self.components.is_empty()
     }
 
-    pub fn clear(&mut self) {
-        self.components = Arena::new();
-    }
-
-    pub fn component(&self, index: ArenaIndex) -> Option<&DynamicComponent> {
+    pub fn component(&self, index: ArenaIndex) -> Option<&BoxedComponent> {
         self.components.get(index)
     }
 
-    pub fn component_mut(&mut self, index: ArenaIndex) -> Option<&mut DynamicComponent> {
+    pub fn component_mut(&mut self, index: ArenaIndex) -> Option<&mut BoxedComponent> {
         self.components.get_mut(index)
     }
 
-    pub fn iter(&self) -> ArenaIter<DynamicComponent> {
+    pub fn iter(&self) -> ArenaIter<BoxedComponent> {
         return self.components.iter();
     }
 
-    pub fn iter_mut(&mut self) -> ArenaIterMut<DynamicComponent> {
+    pub fn iter_mut(&mut self) -> ArenaIterMut<BoxedComponent> {
         return self.components.iter_mut();
     }
 
@@ -150,16 +146,16 @@ impl ComponentType {
 }
 
 impl<'a> IntoIterator for &'a ComponentType {
-    type Item = (ArenaIndex, &'a DynamicComponent);
-    type IntoIter = ArenaIter<'a, DynamicComponent>;
+    type Item = (ArenaIndex, &'a BoxedComponent);
+    type IntoIter = ArenaIter<'a, BoxedComponent>;
     fn into_iter(self) -> Self::IntoIter {
         self.components.iter()
     }
 }
 
 impl<'a> IntoIterator for &'a mut ComponentType {
-    type Item = (ArenaIndex, &'a mut DynamicComponent);
-    type IntoIter = ArenaIterMut<'a, DynamicComponent>;
+    type Item = (ArenaIndex, &'a mut BoxedComponent);
+    type IntoIter = ArenaIterMut<'a, BoxedComponent>;
     fn into_iter(self) -> Self::IntoIter {
         self.components.iter_mut()
     }

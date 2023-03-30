@@ -13,7 +13,7 @@ use std::{cmp, marker::PhantomData};
 
 use crate::{
     Arena, ArenaEntry, ComponentController, ComponentDerive, ComponentManager, ComponentTypeId,
-    Context, DynamicComponent, FieldNames, GlobalState, GroupFilter, Scene, SceneCreator,
+    Context, BoxedComponent, FieldNames, GlobalState, GroupFilter, Scene, SceneCreator,
     SceneState, ShuraFields, Vector,
 };
 
@@ -204,7 +204,7 @@ impl SceneDeserializer {
         ctx.component_manager.register_callbacks::<C>();
 
         for (group_id, components) in components {
-            let mut items: Vec<ArenaEntry<DynamicComponent>> =
+            let mut items: Vec<ArenaEntry<BoxedComponent>> =
                 Vec::with_capacity(components.capacity());
             let mut generation = 0;
             for component in components {
@@ -212,7 +212,7 @@ impl SceneDeserializer {
                     Some((gen, data)) => {
                         generation = cmp::max(generation, gen);
                         #[allow(unused_mut)]
-                        let mut component: DynamicComponent =
+                        let mut component: BoxedComponent =
                             Box::new(bincode::deserialize::<C>(&data).unwrap());
 
                         #[cfg(feature = "physics")]
@@ -253,7 +253,7 @@ impl SceneDeserializer {
         ctx.component_manager.register_callbacks::<C>();
 
         for (group_id, components) in components {
-            let mut items: Vec<ArenaEntry<DynamicComponent>> =
+            let mut items: Vec<ArenaEntry<BoxedComponent>> =
                 Vec::with_capacity(components.capacity());
             let mut generation = 0;
             for component in components {
@@ -262,7 +262,7 @@ impl SceneDeserializer {
                         generation = cmp::max(generation, gen);
                         let wrapper = DeserializeWrapper::new(&data);
                         #[allow(unused_mut)]
-                        let mut component: DynamicComponent = Box::new((de)(wrapper, ctx));
+                        let mut component: BoxedComponent = Box::new((de)(wrapper, ctx));
                         #[cfg(feature = "physics")]
                         if component.base().is_rigid_body() {
                             component

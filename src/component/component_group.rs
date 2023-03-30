@@ -121,6 +121,10 @@ impl ComponentGroup {
         self.types.iter_mut()
     }
 
+    pub(crate) fn remove_type(&mut self, index: ArenaIndex) {
+        self.types.remove(index);
+    }
+
     pub(crate) fn add_component_type<C: ComponentController>(
         &mut self,
         component: C,
@@ -154,4 +158,36 @@ impl ComponentGroup {
     pub const fn user_data(&self) -> u64 {
         self.user_data
     }
+
+    // pub fn component<C: ComponentDerive>(&self, handle: ComponentHandle) -> Option<&C> {
+
+    // }
+
+    // pub fn component_mut<C: ComponentDerive>(&mut self, handle: ComponentHandle) -> Option<&mut C> {
+
+    // }
+
+    // pub fn components<C: ComponentIdentifier>(&self) -> ComponentSet<C> {
+
+    // }
+
+    // pub fn components_mut<C: ComponentIdentifier>(&mut self) -> ComponentSetMut<C> {
+
+    // }
+
+    // pub fn add_component<C: ComponentController>(
+    //     &mut self,
+    //     component: C,
+    // ) -> (&mut C, ComponentHandle) {
+    // }
+
+    // pub fn remove_component(&mut self, handle: ComponentHandle) -> Option<BoxedComponent> {
+    //     if let Some(component_type) = self.type_mut(handle.type_index()) {
+    //         if let Some(mut to_remove) = component_type.remove(handle) {
+    //             to_remove.base_mut().deinit()
+    //             return  Some(to_remove);
+    //         }
+    //     }
+    //     return None;
+    // }
 }

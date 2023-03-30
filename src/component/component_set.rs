@@ -2,7 +2,7 @@ use instant::Instant;
 
 use crate::{
     ArenaIter, ArenaIterMut, ArenaPath, ComponentCallbacks, ComponentConfig, ComponentDerive,
-    DynamicComponent, InstanceBuffer, InstanceIndex,
+    BoxedComponent, InstanceBuffer, InstanceIndex,
 };
 use std::{iter::Enumerate, marker::PhantomData};
 
@@ -107,7 +107,7 @@ pub struct ComponentSet<'a, C>
 where
     C: ComponentDerive,
 {
-    iters: Vec<ArenaIter<'a, DynamicComponent>>,
+    iters: Vec<ArenaIter<'a, BoxedComponent>>,
     iter_index: usize,
     len: usize,
     marker: PhantomData<C>,
@@ -130,7 +130,7 @@ where
     C: ComponentDerive,
 {
     pub(crate) fn new(
-        iters: Vec<ArenaIter<'a, DynamicComponent>>,
+        iters: Vec<ArenaIter<'a, BoxedComponent>>,
         len: usize,
     ) -> ComponentSet<'a, C> {
         ComponentSet {
@@ -195,7 +195,7 @@ pub struct ComponentSetMut<'a, C>
 where
     C: ComponentDerive,
 {
-    iters: Vec<ArenaIterMut<'a, DynamicComponent>>,
+    iters: Vec<ArenaIterMut<'a, BoxedComponent>>,
     iter_index: usize,
     len: usize,
     marker: PhantomData<C>,
@@ -206,7 +206,7 @@ where
     C: ComponentDerive,
 {
     pub(crate) fn new(
-        iters: Vec<ArenaIterMut<'a, DynamicComponent>>,
+        iters: Vec<ArenaIterMut<'a, BoxedComponent>>,
         len: usize,
     ) -> ComponentSetMut<'a, C> {
         ComponentSetMut {
@@ -343,7 +343,7 @@ pub struct ComponentIterRender<'a, C>
 where
     C: ComponentDerive,
 {
-    iter: Enumerate<ArenaIter<'a, DynamicComponent>>,
+    iter: Enumerate<ArenaIter<'a, BoxedComponent>>,
     marker: PhantomData<C>,
 }
 
@@ -362,7 +362,7 @@ where
     C: ComponentDerive,
 {
     pub(crate) fn new(
-        iter: Enumerate<ArenaIter<'a, DynamicComponent>>,
+        iter: Enumerate<ArenaIter<'a, BoxedComponent>>,
     ) -> ComponentIterRender<'a, C> {
         ComponentIterRender {
             iter,

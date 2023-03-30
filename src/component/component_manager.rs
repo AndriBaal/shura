@@ -4,7 +4,7 @@ use crate::{
     Arena, ArenaEntry, ArenaIndex, ArenaPath, Camera, ComponentCallbacks, ComponentCluster,
     ComponentController, ComponentDerive, ComponentGroup, ComponentGroupDescriptor,
     ComponentHandle, ComponentIterRender, ComponentPath, ComponentRenderGroup, ComponentSet,
-    ComponentSetMut, ComponentTypeId, DynamicComponent, Gpu, GpuDefaults, GroupActivation,
+    ComponentSetMut, ComponentTypeId, BoxedComponent, Gpu, GpuDefaults, GroupActivation,
     InstanceBuffer, DEFAULT_GROUP_ID,
 };
 use instant::Instant;
@@ -107,7 +107,8 @@ impl ComponentManager {
         }
 
         if self.force_update_sets || groups_changed {
-            #[cfg(feature = "log")] {
+            #[cfg(feature = "log")]
+            {
                 info!("Rebuilding Active Components!");
                 info!("Now processing {} groups!", self.active_groups.len());
             }
@@ -254,19 +255,25 @@ impl ComponentManager {
         return (c.downcast_mut().unwrap(), handle);
     }
 
-    pub fn add_group(&mut self, descriptor: &ComponentGroupDescriptor) {
-        assert!(self.group_map.contains_key(&descriptor.id) == false);
-        let group = ComponentGroup::new(descriptor);
+    pub fn add_group(&mut self, group: &ComponentGroupDescriptor) {
+        let group = ComponentGroup::new(group);
+        let group_id = group.id();
+        assert!(self.group_map.contains_key(&group_id) == false);
         let index = self.groups.insert(group);
         self.force_update_sets = true;
-        self.group_map.insert(descriptor.id, index);
+        self.group_map.insert(group_id, index);
     }
 
-    pub fn remove_component(&mut self, handle: ComponentHandle) -> Option<DynamicComponent> {
+    pub fn remove_component(&mut self, handle: ComponentHandle) -> Option<BoxedComponent> {
         if let Some(group) = self.groups.get_mut(handle.group_index()) {
-            if let Some(component_type) = group.type_mut(handle.type_index()) {
+            let type_index = handle.type_index();
+            if let Some(component_type) = group.type_mut(type_index) {
                 if let Some(mut to_remove) = component_type.remove(handle) {
-                    to_remove.base_mut().deinit()
+                    to_remove.base_mut().deinit();
+                    if component_type.len() == 0 {
+                        group.remove_type(type_index);
+                    }
+                    return Some(to_remove);
                 }
             }
         }
@@ -277,12 +284,14 @@ impl ComponentManager {
         let type_id = C::IDENTIFIER;
 
         fn remove(group: &mut ComponentGroup, type_id: ComponentTypeId) {
-            if let Some(type_index) = group.type_index(type_id) {
-                let component_type = group.type_mut(*type_index).unwrap();
+            if let Some(type_index) = group.type_index(type_id).cloned() {
+                let component_type = group.type_mut(type_index).unwrap();
                 for (_, c) in component_type.iter_mut() {
                     c.base_mut().deinit();
                 }
-                component_type.clear();
+                if component_type.len() == 0 {
+                    group.remove_type(type_index);
+                }
             }
         }
 
@@ -310,9 +319,9 @@ impl ComponentManager {
         }
     }
 
-    pub fn remove_group(&mut self, group_id: u32) {
+    pub fn remove_group(&mut self, group_id: u32) -> Option<ComponentGroup> {
         if group_id == DEFAULT_GROUP_ID {
-            panic!("Cannot the default group with ID {DEFAULT_GROUP_ID}!");
+            return None;
         }
 
         if let Some(index) = self.group_map.remove(&group_id) {
@@ -327,8 +336,9 @@ impl ComponentManager {
 
             self.force_update_sets = true;
             self.active_groups.remove(&index);
-            self.groups.remove(index);
+            return self.groups.remove(index);
         }
+        return None;
     }
 
     pub fn path_render<'a, C: ComponentDerive>(
@@ -513,7 +523,7 @@ impl ComponentManager {
         return ComponentSetMut::new(iters, len);
     }
 
-    pub fn component_dynamic(&self, handle: ComponentHandle) -> Option<&DynamicComponent> {
+    pub fn boxed_component(&self, handle: ComponentHandle) -> Option<&BoxedComponent> {
         if let Some(group) = self.groups.get(handle.group_index()) {
             if let Some(component_type) = group.type_ref(handle.type_index()) {
                 return component_type.component(handle.component_index());
@@ -522,10 +532,10 @@ impl ComponentManager {
         return None;
     }
 
-    pub fn component_dynamic_mut(
+    pub fn boxed_component_mut(
         &mut self,
         handle: ComponentHandle,
-    ) -> Option<&mut DynamicComponent> {
+    ) -> Option<&mut BoxedComponent> {
         if let Some(group) = self.groups.get_mut(handle.group_index()) {
             if let Some(component_type) = group.type_mut(handle.type_index()) {
                 return component_type.component_mut(handle.component_index());
