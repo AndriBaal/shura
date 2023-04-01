@@ -294,8 +294,8 @@ impl ModelBuilder {
         let mut vertices = vec![];
         let mut indices = vec![];
         let mut offset = 0;
-        for mut shape in shapes {
-            shape.apply_modifiers();
+        for shape in shapes {
+            let shape = shape.apply_modifiers();
             vertices.extend(shape.vertices);
             let len = shape.indices.len() as u32;
             for index in shape.indices {
@@ -503,7 +503,7 @@ impl ModelBuilder {
         self
     }
 
-    pub fn apply_modifiers(&mut self) {
+    pub fn apply_modifiers(mut self) -> Self {
         Self::compute_modifed_vertices(
             &mut self.vertices,
             self.vertex_offset,
@@ -512,7 +512,12 @@ impl ModelBuilder {
             self.tex_coord_scale,
             self.vertex_rotation_axis,
             self.tex_coord_rotation_axis,
-        )
+        );
+        Self {
+            vertices: self.vertices,
+            indices: self.indices,
+            ..Default::default()
+        }
     }
 
     pub fn compute_modifed_vertices(

@@ -53,6 +53,23 @@ fn main() {
                 ),
                 Color::BLUE,
             ));
+
+            for i in 0..4 {
+                ctx.add_component(Obstacle::new(
+                    ctx,
+                    Vector::new(-6.0, i as f32 * 1.0),
+                    ColliderBuilder::cuboid(0.04, 0.4),
+                    Color::BLUE,
+                ));
+            }
+
+            ctx.add_component(Obstacle::new(
+                ctx,
+                Vector::new(6.0, 0.0),
+                ColliderBuilder::ball(1.0),
+                Color::BLUE,
+            ));
+
             ctx.add_component(Obstacle::new(
                 ctx,
                 Vector::new(-3.0, -3.0),
@@ -211,18 +228,19 @@ impl ComponentController for Light {
                     let obstacle_collider = ctx.collider(collider_handle).unwrap();
                     if obstacle_collider.user_data != Self::IS_LIGHT_COLLIDER {
                         let obstacle_shape = obstacle_collider.shape();
-                        let mut model = ModelBuilder::from_collider_shape(obstacle_shape, 24, 2.0)
-                            .vertex_position(*obstacle_collider.position());
-                        model.apply_modifiers();
-                        let vertices = model.vertices;
+                        let collider_vertices =
+                            ModelBuilder::from_collider_shape(obstacle_shape, 24, 2.0)
+                                .vertex_position(*obstacle_collider.position())
+                                .apply_modifiers()
+                                .vertices;
 
-                        let mut leftmost = vertices[0].pos;
-                        let mut rightmost = vertices[0].pos;
+                        let mut leftmost = collider_vertices[0].pos;
+                        let mut rightmost = collider_vertices[0].pos;
                         let mut leftmost_ray = leftmost - light_translation;
                         let mut rightmost_ray = rightmost - light_translation;
 
                         let mut ray;
-                        for v in &vertices[1..] {
+                        for v in &collider_vertices[1..] {
                             ray = v.pos - light_translation;
                             if det(ray, leftmost_ray) < 0.0 {
                                 leftmost = v.pos;
@@ -243,8 +261,9 @@ impl ComponentController for Light {
                         if ray_angle < 0.0 {
                             ray_angle += 2.0 * PI;
                         }
-                        let right_index =
-                            (ray_angle * TWO_PI_INV * Self::RESOLUTION as f32) as usize;
+                        let right_index = (ray_angle * TWO_PI_INV * Self::RESOLUTION as f32)
+                            as usize
+                            % Self::RESOLUTION as usize;
                         let v0 = light.vertices[right_index].pos;
                         let v0_to_v1 =
                             light.vertices[(right_index + 1) % Self::RESOLUTION as usize].pos - v0;
@@ -259,8 +278,9 @@ impl ComponentController for Light {
                         if ray_angle < 0.0 {
                             ray_angle += 2.0 * PI;
                         }
-                        let left_index =
-                            (ray_angle * TWO_PI_INV * Self::RESOLUTION as f32) as usize;
+                        let left_index = (ray_angle * TWO_PI_INV * Self::RESOLUTION as f32) as usize
+                            as usize
+                            % Self::RESOLUTION as usize;
                         let v0 = light.vertices[left_index].pos;
                         let v0_to_v1 =
                             light.vertices[(left_index + 1) % Self::RESOLUTION as usize].pos - v0;
