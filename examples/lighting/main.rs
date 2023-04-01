@@ -89,13 +89,13 @@ fn main() {
                 Color::RED,
                 true,
             ));
-            // ctx.add_component(Light::new(
-            //     ctx,
-            //     Vector::new(0.0, 1.0),
-            //     10.0,
-            //     Color::GREEN,
-            //     false,
-            // ));
+            ctx.add_component(Light::new(
+                ctx,
+                Vector::new(0.0, 1.0),
+                10.0,
+                Color::GREEN,
+                false,
+            ));
         },
     });
 }
@@ -343,23 +343,25 @@ impl ComponentController for Light {
         let iter = ctx.path_render(&active);
         for (buffer, lights) in iter.clone() {
             renderer.use_instances(&buffer);
-            for (i, light) in lights {
+            for (i, light) in lights.clone() {
                 renderer.use_shader(&state.light_shader);
                 renderer.use_model(&light.light_model);
                 renderer.use_uniform(&light.light_color, 1);
                 renderer.draw(i);
 
+                renderer.use_shader(&ctx.defaults.color);
+                renderer.use_model(&state.inner_model);
+                renderer.use_uniform(&light.light_color, 1);
+                renderer.draw(i);
+            }
+
+            for (i, light) in lights {
                 for shadow in &light.shadows {
                     renderer.use_model(shadow);
                     renderer.use_shader(&state.shadow_shader);
                     renderer.use_uniform(&state.shadow_color, 1);
                     renderer.draw(i);
                 }
-
-                renderer.use_shader(&ctx.defaults.color);
-                renderer.use_model(&state.inner_model);
-                renderer.use_uniform(&light.light_color, 1);
-                renderer.draw(i);
             }
         }
     }
