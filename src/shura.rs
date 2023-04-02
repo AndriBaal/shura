@@ -4,7 +4,7 @@ use crate::gui::Gui;
 use crate::physics::{ActiveEvents, CollideType};
 use crate::{
     scene::context::ShuraFields, Context, FrameManager, GlobalState, Gpu, GpuDefaults, Input,
-    RenderEncoder, RenderOperation, Renderer, Scene, SceneCreator, SceneManager, Vector,
+    RenderEncoder, RenderOperation, Renderer, Scene, SceneCreator, SceneManager, Vector, RenderConfigTarget,
 };
 #[cfg(target_os = "android")]
 use winit::platform::android::activity::AndroidApp;
@@ -438,7 +438,7 @@ impl Shura {
         let ctx = Context::new(self, scene);
         let mut encoder = RenderEncoder::new(ctx.gpu, &ctx.defaults);
         if let Some(clear_color) = ctx.screen_config.clear_color {
-            encoder.clear(&ctx.defaults.world_target, clear_color);
+            encoder.clear(RenderConfigTarget::World, clear_color);
         }
 
         {

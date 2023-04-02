@@ -1035,7 +1035,7 @@ impl<'a> Context<'a> {
         self.window.set_cursor_visible(!hidden);
     }
 
-    pub fn set_world_camera_scale(&mut self, scale: WorldCameraScale) {
+    pub fn set_camera_scale(&mut self, scale: WorldCameraScale) {
         self.world_camera.set_fov_scale(scale, self.window_size())
     }
 

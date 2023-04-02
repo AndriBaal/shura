@@ -95,7 +95,11 @@ impl<'a> RenderEncoder<'a> {
         }
     }
 
-    pub fn clear(&mut self, target: &RenderTarget, color: Color) {
+    pub fn clear(&mut self, target: RenderConfigTarget, color: Color) {
+        let target = match target {
+            crate::RenderConfigTarget::World => &self.defaults.world_target,
+            crate::RenderConfigTarget::Custom(c) => c,
+        };
         self.inner.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("render_pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -122,16 +126,15 @@ impl<'a> RenderEncoder<'a> {
         gpu: &Gpu,
         descriptor: TextDescriptor,
     ) {
+        if let Some(color) = descriptor.clear_color {
+            self.clear(target, color);
+        }
         let target = match target {
             crate::RenderConfigTarget::World => &self.defaults.world_target,
             crate::RenderConfigTarget::Custom(c) => c,
         };
         let target_size = target.size();
         let mut staging_belt = wgpu::util::StagingBelt::new(1024);
-        if let Some(color) = descriptor.clear_color {
-            self.clear(target, color);
-        }
-
         for section in descriptor.sections {
             descriptor
                 .font

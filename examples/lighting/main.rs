@@ -402,35 +402,8 @@ fn main() {
         id: 1,
         init: |ctx| {
             ctx.set_clear_color(Some(Color::BLACK));
-            ctx.set_camera_vertical_fov(10.0);
-            ctx.set_global_state(LightingState {
-                shadow_color: ctx.create_uniform(Color::TRANSPARENT),
-                inner_model: ctx.create_model(ModelBuilder::ball(0.5, 24)),
-                light_shader: ctx.create_shader(ShaderConfig {
-                    fragment_source: include_str!("./light.glsl"),
-                    shader_lang: ShaderLang::GLSL,
-                    shader_fields: &[ShaderField::Uniform],
-                    blend: BlendState::ALPHA_BLENDING,
-                    msaa: true,
-                    write_mask: ColorWrites::ALL,
-                }),
-                shadow_shader: ctx.create_shader(ShaderConfig {
-                    fragment_source: include_str!("./shadow.glsl"),
-                    shader_lang: ShaderLang::GLSL,
-                    shader_fields: &[ShaderField::Uniform],
-                    blend: BlendState::REPLACE,
-                    // blend: BlendState {
-                    //     color: BlendComponent {
-                    //         src_factor: BlendFactor::SrcAlpha,
-                    //         dst_factor: BlendFactor::OneMinusSrcAlpha,
-                    //         operation: BlendOperation::Subtract,
-                    //     },
-                    //     alpha: BlendComponent::OVER,
-                    // },
-                    msaa: true,
-                    write_mask: ColorWrites::ALL,
-                }),
-            });
+            ctx.set_camera_scale(WorldCameraScale::Min(10.0));
+
             ctx.add_component(Obstacle::new(
                 ctx,
                 Vector::new(3.0, 3.0),
@@ -458,6 +431,7 @@ fn main() {
                 ));
             }
 
+            ctx.add_component(LightManager::new(ctx));
             ctx.add_component(Obstacle::new(
                 ctx,
                 Vector::new(6.0, 0.0),
@@ -542,24 +516,16 @@ impl ComponentController for Obstacle {
     }
 }
 
-impl GlobalState for LightingState {}
-struct LightingState {
-    light_shader: Shader,
-    shadow_shader: Shader,
-    shadow_color: Uniform<Color>,
-    inner_model: Model,
-}
-
-use shura::*;
-
 #[derive(Component)]
 pub struct LightManager {
     #[base]
     base: BaseComponent,
     shadow: Color,
-    shadow_uniform: Uniform<Color>,
     map: RenderTarget,
-    shader: Shader,
+    light_shader: Shader,
+    shadow_shader: Shader,
+    shadow_color: Uniform<Color>,
+    inner_model: Model,
 }
 
 impl LightManager {
@@ -567,14 +533,31 @@ impl LightManager {
         Self {
             base: Default::default(),
             shadow: Color::new(0.0, 0.0, 0.0, 0.9),
-            shadow_uniform: ctx.create_uniform(Color::new(0.0, 0.0, 0.0, 0.9)),
             map: ctx.create_render_target(ctx.window_size()),
-            shader: ctx.create_shader(ShaderConfig {
-                fragment_source: include_str!("../../res/shader/light.glsl"),
+            shadow_color: ctx.create_uniform(Color::TRANSPARENT),
+            inner_model: ctx.create_model(ModelBuilder::ball(0.5, 24)),
+            light_shader: ctx.create_shader(ShaderConfig {
+                fragment_source: include_str!("./light.glsl"),
                 shader_lang: ShaderLang::GLSL,
-                shader_fields: &[ShaderField::Uniform, ShaderField::Uniform],
+                shader_fields: &[ShaderField::Uniform],
+                blend: BlendState::ALPHA_BLENDING,
+                msaa: true,
+                write_mask: ColorWrites::ALL,
+            }),
+            shadow_shader: ctx.create_shader(ShaderConfig {
+                fragment_source: include_str!("./shadow.glsl"),
+                shader_lang: ShaderLang::GLSL,
+                shader_fields: &[ShaderField::Uniform],
                 blend: BlendState::REPLACE,
-                msaa: false,
+                // blend: BlendState {
+                //     color: BlendComponent {
+                //         src_factor: BlendFactor::SrcAlpha,
+                //         dst_factor: BlendFactor::OneMinusSrcAlpha,
+                //         operation: BlendOperation::Subtract,
+                //     },
+                //     alpha: BlendComponent::OVER,
+                // },
+                msaa: true,
                 write_mask: ColorWrites::ALL,
             }),
         }
@@ -583,7 +566,7 @@ impl LightManager {
 
 impl ComponentController for LightManager {
     const CONFIG: ComponentConfig = ComponentConfig {
-        priority: 1000,
+        priority: 3,
         ..DEFAULT_CONFIG
     };
 
@@ -601,5 +584,16 @@ impl ComponentController for LightManager {
         }
     }
 
-    fn update(active: ComponentPath<Self>, ctx: &mut Context) {}
+    fn update(active: ComponentPath<Self>, ctx: &mut Context) {
+        for man in ctx.component_manager.path_mut(&active) {
+            man.map.draw(
+                ctx.gpu,
+                ctx.defaults,
+                &ctx.defaults.relative_camera,
+                |config, encoder| {
+                    encoder.clear(config.target, man.shadow);
+                },
+            );
+        }
+    }
 }

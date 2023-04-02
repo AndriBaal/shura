@@ -23,7 +23,7 @@ fn main() {
             init: |ctx| {
                 const PYRAMID_ELEMENTS: i32 = 8;
                 const MINIMAL_SPACING: f32 = 0.1;
-                ctx.set_world_camera_scale(WorldCameraScale::Max(5.0));
+                ctx.set_camera_scale(WorldCameraScale::Max(5.0));
                 ctx.set_gravity(Vector::new(0.00, -9.81));
                 ctx.set_scene_state(PhysicsState::new(ctx));
 
@@ -89,7 +89,7 @@ impl SceneState for PhysicsState {
         let scroll = ctx.wheel_delta();
         let fov = ctx.camera_fov();
         if scroll != 0.0 {
-            ctx.set_world_camera_scale(WorldCameraScale::Max(fov.x + scroll / 5.0));
+            ctx.set_camera_scale(WorldCameraScale::Max(fov.x + scroll / 5.0));
         }
 
         if ctx.is_held(MouseButton::Right) {
