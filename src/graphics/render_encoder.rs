@@ -1,24 +1,83 @@
 #[cfg(feature = "text")]
 use crate::text::TextDescriptor;
-use crate::{CameraBuffer, Color, Gpu, GpuDefaults, RenderTarget, Renderer, Sprite};
+use crate::{
+    CameraBuffer, Color, Gpu, GpuDefaults, InstanceBuffer, RenderTarget, Renderer, Sprite,
+};
+
+#[derive(Clone, Copy)]
+pub struct RenderConfig<'a> {
+    pub target: RenderConfigTarget<'a>,
+    pub camera: RenderConfigCamera<'a>,
+    pub intances: Option<RenderConfigInstances<'a>>,
+    pub msaa: bool,
+    pub clear_color: Option<Color>,
+}
+
+impl<'a> Default for RenderConfig<'a> {
+    fn default() -> Self {
+        Self::WORLD
+    }
+}
+
+impl<'a> RenderConfig<'a> {
+    pub const WORLD: RenderConfig<'static> = RenderConfig {
+        target: RenderConfigTarget::World,
+        camera: RenderConfigCamera::WordCamera,
+        intances: None,
+        msaa: true,
+        clear_color: None,
+    };
+    pub const RELATIVE_WORLD: RenderConfig<'static> = RenderConfig {
+        target: RenderConfigTarget::World,
+        camera: RenderConfigCamera::RelativeCamera,
+        intances: None,
+        msaa: true,
+        clear_color: None,
+    };
+}
+
+#[derive(Clone, Copy)]
+pub enum RenderConfigCamera<'a> {
+    WordCamera,
+    RelativeCamera,
+    RelativeCameraBottomLeft,
+    RelativeCameraBottomRight,
+    RelativeCameraTopLeft,
+    RelativeCameraTopRight,
+    Custom(&'a CameraBuffer),
+}
+
+#[derive(Clone, Copy)]
+pub enum RenderConfigInstances<'a> {
+    Empty,
+    SingleCenteredInstance,
+    Custom(&'a InstanceBuffer),
+}
+
+#[derive(Clone, Copy)]
+pub enum RenderConfigTarget<'a> {
+    World,
+    Custom(&'a RenderTarget),
+}
 
 pub struct RenderEncoder<'a> {
     pub inner: wgpu::CommandEncoder,
-    pub msaa: bool,
     pub defaults: &'a GpuDefaults,
+    pub gpu: &'a Gpu
 }
 
+
 impl<'a> RenderEncoder<'a> {
-    pub(crate) fn new(gpu: &Gpu, defaults: &'a GpuDefaults) -> Self {
-        let inner = gpu
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("render_encoder"),
-            });
+    pub(crate) fn new(gpu: &'a Gpu, defaults: &'a GpuDefaults) -> Self {
+        let encoder = gpu.device
+        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("render_encoder"),
+        });
+
         Self {
-            inner,
-            msaa: true,
+            inner: encoder,
             defaults,
+            gpu
         }
     }
 
@@ -38,26 +97,9 @@ impl<'a> RenderEncoder<'a> {
         });
     }
 
-    pub fn renderer<'b>(&'b mut self, target: &'b RenderTarget) -> Renderer<'b> {
-        Renderer::new(target, self)
-    }
-
-    pub fn renderer_with_camera<'b>(
-        &'b mut self,
-        target: &'b RenderTarget,
-        camera: &'b CameraBuffer,
-    ) -> Renderer<'b> {
-        let mut renderer = self.renderer(target);
-        renderer.use_camera(&camera);
-        return renderer;
-    }
-
-    pub fn world_renderer_with_camera<'b>(&'b mut self, camera: &'b CameraBuffer) -> Renderer<'b> {
-        return self.renderer_with_camera(&self.defaults.target, camera);
-    }
-
-    pub fn world_renderer<'b>(&'b mut self) -> Renderer<'b> {
-        return self.world_renderer_with_camera(&self.defaults.world_camera);
+    pub fn renderer<'b>(&'b mut self, config: RenderConfig<'b>) -> Renderer<'b> {
+        Renderer::new(            &mut self.inner,
+            self.defaults, config)
     }
 
     #[cfg(feature = "text")]
@@ -91,17 +133,25 @@ impl<'a> RenderEncoder<'a> {
         staging_belt.finish();
     }
 
-    pub fn copy_to_target(&mut self, defaults: &GpuDefaults, src: &Sprite, target: &RenderTarget) {
-        let mut renderer = Renderer::new(target, self);
-        renderer.use_camera(&defaults.relative_camera);
-        renderer.use_instances(&defaults.single_centered_instance);
-        renderer.use_shader(&defaults.sprite);
-        renderer.use_model(defaults.relative_camera.model());
+    pub fn copy_to_target(&mut self, src: &Sprite, target: &RenderTarget) {
+        let mut renderer = Renderer::new(
+            &mut self.inner,
+            self.defaults,
+            RenderConfig {
+                target: RenderConfigTarget::Custom(target),
+                camera: RenderConfigCamera::RelativeCamera,
+                intances: Some(RenderConfigInstances::SingleCenteredInstance),
+                msaa: false,
+                clear_color: None,
+            },
+        );
+        renderer.use_shader(&self.defaults.sprite);
+        renderer.use_model(self.defaults.relative_camera.model());
         renderer.use_sprite(src, 1);
         renderer.draw(0);
     }
 
-    pub fn submit(self, gpu: &Gpu) {
-        gpu.queue.submit(Some(self.inner.finish()));
+    pub fn submit(self) {
+        self.gpu.queue.submit(Some(self.inner.finish()));
     }
 }

@@ -181,7 +181,7 @@ impl Gpu {
         let target = self.create_render_target(texture_size);
         let mut encoder = RenderEncoder::new(self, defaults);
         encoder.render_text(&target, self, descriptor);
-        encoder.submit(self);
+        encoder.submit();
         return target;
     }
 
@@ -340,7 +340,7 @@ pub struct GpuDefaults {
     pub world_camera: CameraBuffer,
     pub single_centered_instance: InstanceBuffer,
     pub empty_instance: InstanceBuffer,
-    pub target: RenderTarget,
+    pub world_target: RenderTarget,
 }
 
 impl GpuDefaults {
@@ -427,7 +427,7 @@ impl GpuDefaults {
         });
 
         let size = gpu.render_size(1.0);
-        let target = gpu.create_render_target(size);
+        let world_target = gpu.create_render_target(size);
         let times = Uniform::new(gpu, [0.0, 0.0]);
         let single_centered_instance =
             gpu.create_instance_buffer(&[Matrix::new(Default::default())]);
@@ -478,7 +478,7 @@ impl GpuDefaults {
             relative_top_left_camera,
             relative_top_right_camera,
             world_camera,
-            target,
+            world_target,
         }
     }
 
@@ -526,8 +526,8 @@ impl GpuDefaults {
 
     pub(crate) fn apply_render_scale(&mut self, gpu: &Gpu, scale: f32) {
         let size = gpu.render_size(scale);
-        if *self.target.size() != size {
-            self.target = gpu.create_render_target(size);
+        if *self.world_target.size() != size {
+            self.world_target = gpu.create_render_target(size);
         }
     }
 }

@@ -9,7 +9,7 @@ fn main() {
         init: |ctx| {
             ctx.set_camera_vertical_fov(10.0);
             ctx.set_global_state(LightingState {
-                shadow_color: ctx.create_uniform(Color::BLACK),
+                shadow_color: ctx.create_uniform(Color::TRANSPARENT),
                 inner_model: ctx.create_model(ModelBuilder::ball(0.5, 24)),
                 light_shader: ctx.create_shader(ShaderConfig {
                     fragment_source: include_str!("./light.glsl"),
@@ -23,11 +23,11 @@ fn main() {
                     fragment_source: include_str!("./shadow.glsl"),
                     shader_lang: ShaderLang::GLSL,
                     shader_fields: &[ShaderField::Uniform],
-                    blend: BlendState::ALPHA_BLENDING,
+                    blend: BlendState::REPLACE,
                     // blend: BlendState {
                     //     color: BlendComponent {
-                    //         src_factor: BlendFactor::SrcAlpha,
-                    //         dst_factor: BlendFactor::OneMinusSrcAlpha,
+                    //         src_factor: BlendFactor::Dst,
+                    //         dst_factor: BlendFactor::Src,
                     //         operation: BlendOperation::Subtract,
                     //     },
                     //     alpha: BlendComponent::OVER,
@@ -86,14 +86,14 @@ fn main() {
                 ctx,
                 Vector::new(0.0, 0.0),
                 12.0,
-                Color::RED,
+                Color::GREEN,
                 true,
             ));
             ctx.add_component(Light::new(
                 ctx,
                 Vector::new(0.0, 1.0),
                 10.0,
-                Color::GREEN,
+                Color::RED,
                 false,
             ));
         },
@@ -146,7 +146,7 @@ impl ComponentController for Obstacle {
     };
 
     fn render(active: ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
-        let mut renderer = encoder.world_renderer();
+        let mut renderer = encoder.renderer(RenderConfig::WORLD);
         for (buffer, obstacles) in ctx.path_render(&active) {
             for (i, b) in obstacles {
                 renderer.render_color(buffer, i, &b.model, &b.color)
@@ -314,17 +314,15 @@ impl ComponentController for Light {
                             vertices.push(leftmost);
                         }
 
-                        let mid = (leftmost + rightmost) / 2.0;
-                        let delta = mid - light_translation;
-                        let angle = delta.y.atan2(delta.x) - 90.0_f32.to_radians();
-                        let rotation = Rotation::new(angle);
-                        shadows.push(
-                            ctx.create_model(
-                                ModelBuilder::convex_polygon(vertices)
-                                    .vertex_translation(-light_translation)
-                                    .tex_coord_rotation(rotation),
-                            ),
-                        );
+                        let mut builder = ModelBuilder::convex_polygon(vertices)
+                            .vertex_translation(-light_translation);
+                        // let diameter = 2.0 * light.radius;
+                        // for vertex in &mut builder.vertices {
+                        //     let rel = vertex.pos - light_translation;
+                        //     vertex.tex_coords =
+                        //         Vector::new(rel.x / diameter + 0.5, rel.y / -diameter + 0.5);
+                        // }
+                        shadows.push(ctx.create_model(builder));
                     }
                     true
                 },
@@ -338,30 +336,33 @@ impl ComponentController for Light {
     }
 
     fn render(active: ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
-        let mut renderer = encoder.world_renderer();
+        let mut renderer = encoder.renderer(RenderConfig::WORLD);
         let state = ctx.global_state::<LightingState>().unwrap();
-        let iter = ctx.path_render(&active);
-        for (buffer, lights) in iter.clone() {
+        for (buffer, lights) in ctx.path_render(&active) {
             renderer.use_instances(&buffer);
-            for (i, light) in lights.clone() {
+
+            for (i, light) in lights {
+
                 renderer.use_shader(&state.light_shader);
                 renderer.use_model(&light.light_model);
                 renderer.use_uniform(&light.light_color, 1);
                 renderer.draw(i);
 
+
+                for shadow in &light.shadows {
+                    // renderer.render_color(&buffer, i, shadow, &state.shadow_color);
+                    
+                    renderer.use_shader(&state.shadow_shader);
+                    renderer.use_model(shadow);
+                    renderer.use_uniform(&state.shadow_color, 1);
+                    renderer.draw(i);
+                }
+
+
                 renderer.use_shader(&ctx.defaults.color);
                 renderer.use_model(&state.inner_model);
                 renderer.use_uniform(&light.light_color, 1);
                 renderer.draw(i);
-            }
-
-            for (i, light) in lights {
-                for shadow in &light.shadows {
-                    renderer.use_model(shadow);
-                    renderer.use_shader(&state.shadow_shader);
-                    renderer.use_uniform(&state.shadow_color, 1);
-                    renderer.draw(i);
-                }
             }
         }
     }

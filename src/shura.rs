@@ -326,12 +326,6 @@ impl Shura {
     }
 
     fn update(&mut self, scene: &mut Scene) -> Result<(), wgpu::SurfaceError> {
-        if scene.switched || scene.resized || scene.screen_config.vsync_changed {
-            scene.screen_config.vsync_changed = false;
-            self.gpu.apply_vsync(scene.screen_config.vsync());
-        }
-        let output = self.gpu.surface.get_current_texture()?;
-
         #[cfg(target_arch = "wasm32")]
         {
             let browser_window = web_sys::window().unwrap();
@@ -352,6 +346,12 @@ impl Shura {
                 info!("Adjusting canvas to browser window!");
             }
         }
+        if scene.switched || scene.resized || scene.screen_config.vsync_changed {
+            scene.screen_config.vsync_changed = false;
+            self.gpu.apply_vsync(scene.screen_config.vsync());
+        }
+        let output = self.gpu.surface.get_current_texture()?;
+
         let mint: mint::Vector2<u32> = self.window.inner_size().into();
         let window_size: Vector<u32> = mint.into();
         self.frame_manager.update();
@@ -438,9 +438,9 @@ impl Shura {
         );
 
         let ctx = Context::new(self, scene);
-        let mut encoder = RenderEncoder::new(&ctx.gpu, &ctx.defaults);
+        let mut encoder = RenderEncoder::new(ctx.gpu, &ctx.defaults);
         if let Some(clear_color) = ctx.screen_config.clear_color {
-            encoder.clear(&ctx.defaults.target, clear_color);
+            encoder.clear(&ctx.defaults.world_target, clear_color);
         }
 
         {
@@ -470,14 +470,14 @@ impl Shura {
             renderer.use_instances(&ctx.defaults.single_centered_instance);
             renderer.use_shader(&ctx.defaults.sprite_no_msaa);
             renderer.use_model(ctx.defaults.relative_camera.model());
-            renderer.use_sprite(ctx.defaults.target.sprite(), 1);
+            renderer.use_sprite(ctx.defaults.world_target.sprite(), 1);
             renderer.draw(0);
         }
 
         #[cfg(feature = "gui")]
         ctx.gui.render(&ctx.gpu, &mut encoder.inner, &output_view);
 
-        encoder.submit(&ctx.gpu);
+        encoder.submit();
         output.present();
 
         scene.resized = false;

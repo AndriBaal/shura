@@ -138,7 +138,7 @@ impl ComponentController for Bunny {
     }
 
     fn render(active: ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
-        let mut renderer = encoder.world_renderer();
+        let mut renderer = encoder.renderer(RenderConfig::WORLD);
         let scene = ctx.scene_state::<BunnyState>().unwrap();
         for (instances, _group) in ctx.path_render(&active) {
             renderer.render_sprite(
@@ -150,7 +150,7 @@ impl ComponentController for Bunny {
         }
         drop(renderer);
         if let Some(screenshot) = &scene.screenshot {
-            encoder.copy_to_target(&ctx.defaults, &ctx.defaults.target, &screenshot);
+            encoder.copy_to_target(&ctx.defaults.world_target, &screenshot);
         }
     }
 }

@@ -82,7 +82,7 @@ impl RenderTarget {
     ) {
         let mut encoder = RenderEncoder::new(gpu, defaults);
         compute(self, &mut encoder);
-        encoder.submit(gpu);
+        encoder.submit();
     }
 
     pub fn compute_target_size(

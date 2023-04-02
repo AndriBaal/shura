@@ -184,7 +184,7 @@ impl ComponentController for Player {
     }
 
     fn render(active: ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
-        let mut renderer = encoder.world_renderer();
+        let mut renderer = encoder.renderer(RenderConfig::WORLD);
         for (buffer, players) in ctx.path_render(&active) {
             for (instance, player) in players {
                 renderer.render_sprite(buffer, instance, &player.model, &player.sprite);
@@ -243,7 +243,7 @@ impl Floor {
 
 impl ComponentController for Floor {
     fn render(active: ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
-        let mut renderer = encoder.world_renderer();
+        let mut renderer = encoder.renderer(RenderConfig::WORLD);
         for (instance, floors) in ctx.path_render(&active) {
             for (index, floor) in floors {
                 renderer.render_color(instance, index, &floor.model, &floor.color);
@@ -281,7 +281,7 @@ impl PhysicsBox {
 
 impl ComponentController for PhysicsBox {
     fn render(active: ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
-        let mut renderer = encoder.world_renderer();
+        let mut renderer = encoder.renderer(RenderConfig::WORLD);
         let state = ctx.scene_state::<PhysicsState>().unwrap();
         for (buffer, boxes) in ctx.path_render(&active) {
             let mut ranges = vec![];

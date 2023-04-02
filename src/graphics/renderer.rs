@@ -1,6 +1,6 @@
 use crate::{
-    CameraBuffer, Color, GpuDefaults, InstanceBuffer, InstanceIndices, Model, RenderEncoder,
-    RenderTarget, Shader, Sprite, Uniform,
+    CameraBuffer, Color, GpuDefaults, InstanceBuffer, InstanceIndices, Model, RenderConfig,
+    RenderConfigCamera, Shader, Sprite, Uniform,
 };
 use std::ptr::null;
 
@@ -36,40 +36,72 @@ pub struct Renderer<'a> {
 
 impl<'a> Renderer<'a> {
     pub(crate) fn new(
-        render_target: &'a RenderTarget,
-        render_encoder: &'a mut RenderEncoder,
+        render_encoder: &'a mut wgpu::CommandEncoder,
+        defaults: &'a GpuDefaults,
+        config: RenderConfig<'a>,
     ) -> Renderer<'a> {
-        let render_pass = render_encoder
-            .inner
-            .begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("render_pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: if render_encoder.msaa {
-                        render_target.msaa()
-                    } else {
-                        render_target.view()
-                    },
-                    resolve_target: if render_encoder.msaa {
-                        Some(render_target.view())
-                    } else {
-                        None
-                    },
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Load,
-                        store: true,
-                    },
-                })],
+        let target = match config.target {
+            crate::RenderConfigTarget::World => &defaults.world_target,
+            crate::RenderConfigTarget::Custom(c) => c,
+        };
 
-                depth_stencil_attachment: None,
-            });
+        let render_pass = render_encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("render_pass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: if config.msaa {
+                    target.msaa()
+                } else {
+                    target.view()
+                },
+                resolve_target: if config.msaa {
+                    Some(target.view())
+                } else {
+                    None
+                },
+                ops: wgpu::Operations {
+                    load: if let Some(clear_color) = config.clear_color {
+                        wgpu::LoadOp::Clear(clear_color.into())
+                    } else {
+                        wgpu::LoadOp::Load
+                    },
+                    store: true,
+                },
+            })],
 
-        Self {
+            depth_stencil_attachment: None,
+        });
+
+        let mut renderer = Self {
             render_pass,
             indices: 0,
-            msaa: render_encoder.msaa,
+            msaa: config.msaa,
             cache: Default::default(),
-            defaults: render_encoder.defaults,
+            defaults: defaults,
+        };
+
+        let camera = match config.camera {
+            RenderConfigCamera::WordCamera => &defaults.world_camera,
+            RenderConfigCamera::RelativeCamera => &defaults.relative_camera,
+            RenderConfigCamera::RelativeCameraBottomLeft => &defaults.relative_bottom_left_camera,
+            RenderConfigCamera::RelativeCameraBottomRight => &defaults.relative_bottom_right_camera,
+            RenderConfigCamera::RelativeCameraTopLeft => &defaults.relative_top_left_camera,
+            RenderConfigCamera::RelativeCameraTopRight => &defaults.relative_bottom_right_camera,
+            RenderConfigCamera::Custom(c) => c,
+        };
+        renderer.use_camera(camera);
+
+        if let Some(instances) = config.intances {
+            let instances = match instances {
+                crate::RenderConfigInstances::Empty => &defaults.empty_instance,
+                crate::RenderConfigInstances::SingleCenteredInstance => {
+                    &defaults.single_centered_instance
+                }
+                crate::RenderConfigInstances::Custom(c) => c,
+            };
+            renderer.use_instances(instances);
         }
+
+        return renderer;
     }
 
     pub(crate) fn output_renderer(
