@@ -5,7 +5,7 @@ use crate::{
     GlobalState, Gpu, GpuDefaults, GroupFilter, Input, InputEvent, InputTrigger, InstanceBuffer,
     Instant, Isometry, Matrix, Model, ModelBuilder, Modifier, RenderConfig, RenderEncoder,
     RenderTarget, Rotation, Scene, SceneCreator, SceneManager, SceneState, ScreenConfig, Shader,
-    ShaderConfig, Shura, Sprite, SpriteSheet, Uniform, Vector, WorldCamera,
+    ShaderConfig, Shura, Sprite, SpriteSheet, Uniform, Vector, WorldCamera, WorldCameraScale,
 };
 
 #[cfg(feature = "serde")]
@@ -1035,14 +1035,8 @@ impl<'a> Context<'a> {
         self.window.set_cursor_visible(!hidden);
     }
 
-    /// Set the distance between the center of the camera to the top in world coordinates.
-    pub fn set_camera_vertical_fov(&mut self, fov: f32) {
-        self.world_camera.set_vertical_fov(fov);
-    }
-
-    /// Set the distance between the center of the camera to the right in world coordinates.
-    pub fn set_camera_horizontal_fov(&mut self, fov: f32) {
-        self.world_camera.set_horizontal_fov(fov);
+    pub fn set_world_camera_scale(&mut self, scale: WorldCameraScale) {
+        self.world_camera.set_fov_scale(scale, self.window_size())
     }
 
     pub fn set_window_size(&mut self, size: Vector<u32>) {

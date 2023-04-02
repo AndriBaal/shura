@@ -19,6 +19,7 @@ pub struct Gpu {
     pub surface: wgpu::Surface,
     pub config: wgpu::SurfaceConfiguration,
     pub adapter: wgpu::Adapter,
+    pub commands: Vec<wgpu::CommandBuffer>,
     pub(crate) base: WgpuBase,
 }
 
@@ -89,6 +90,7 @@ impl Gpu {
         }
 
         let gpu = Self {
+            commands: vec![],
             instance,
             queue,
             surface,
@@ -178,9 +180,11 @@ impl Gpu {
         texture_size: Vector<u32>,
         descriptor: TextDescriptor,
     ) -> RenderTarget {
+        use crate::RenderConfigTarget;
+
         let target = self.create_render_target(texture_size);
         let mut encoder = RenderEncoder::new(self, defaults);
-        encoder.render_text(&target, self, descriptor);
+        encoder.render_text(RenderConfigTarget::Custom(&target), self, descriptor);
         encoder.submit();
         return target;
     }
@@ -333,12 +337,14 @@ pub struct GpuDefaults {
     /// the struct also needs 2 additional floats which are empty to match the 16 byte alignment
     /// some devices need.
     pub times: Uniform<[f32; 2]>,
+    /// Camera where the smaller side is always 1.0 and the otherside is scaled to match the window aspect ratio.
     pub relative_camera: BufferedCamera,
     pub relative_bottom_left_camera: BufferedCamera,
     pub relative_bottom_right_camera: BufferedCamera,
     pub relative_top_left_camera: BufferedCamera,
     pub relative_top_right_camera: BufferedCamera,
     pub world_camera: CameraBuffer,
+    pub unit_camera: CameraBuffer,
     pub single_centered_instance: InstanceBuffer,
     pub empty_instance: InstanceBuffer,
     pub world_target: RenderTarget,
@@ -434,14 +440,7 @@ impl GpuDefaults {
             gpu.create_instance_buffer(&[Matrix::new(Default::default())]);
         let empty_instance = gpu.create_instance_buffer(&[]);
 
-        let yx = window_size.y as f32 / window_size.x as f32;
-        let xy = window_size.x as f32 / window_size.y as f32;
-        let scale = yx.max(xy) / 2.0;
-        let fov = if window_size.x > window_size.y {
-            Vector::new(scale, RELATIVE_CAMERA_SIZE)
-        } else {
-            Vector::new(RELATIVE_CAMERA_SIZE, scale)
-        };
+        let fov = Self::relative_fov(window_size);
 
         let relative_bottom_left_camera =
             BufferedCamera::new(gpu, Camera::new(Isometry::new(fov, 0.0), fov));
@@ -458,9 +457,11 @@ impl GpuDefaults {
 
         let relative_cam = Camera::new(Default::default(), fov);
         let world_camera = relative_cam.create_buffer(gpu);
+        let unit_camera = Camera::new(Default::default(), Vector::new(0.5, 0.5)).create_buffer(gpu);
         let relative_camera = BufferedCamera::new(gpu, relative_cam);
 
         Self {
+            unit_camera,
             sprite,
             rainbow,
             color,
@@ -490,14 +491,7 @@ impl GpuDefaults {
         screen_config: &ScreenConfig,
     ) {
         self.apply_render_scale(&gpu, screen_config.render_scale());
-        let yx = window_size.y as f32 / window_size.x as f32;
-        let xy = window_size.x as f32 / window_size.y as f32;
-        let scale = yx.max(xy) / 2.0;
-        let fov = if window_size.x > window_size.y {
-            Vector::new(scale, RELATIVE_CAMERA_SIZE)
-        } else {
-            Vector::new(RELATIVE_CAMERA_SIZE, scale)
-        };
+        let fov = Self::relative_fov(window_size);
         self.relative_bottom_left_camera
             .write(gpu, Camera::new(Isometry::new(fov, 0.0), fov));
         self.relative_bottom_right_camera.write(
@@ -530,5 +524,16 @@ impl GpuDefaults {
         if *self.world_target.size() != size {
             self.world_target = gpu.create_render_target(size);
         }
+    }
+
+    fn relative_fov(window_size: Vector<u32>) -> Vector<f32> {
+        let yx = window_size.y as f32 / window_size.x as f32;
+        let xy = window_size.x as f32 / window_size.y as f32;
+        let scale = yx.max(xy) / 2.0;
+        return if window_size.x > window_size.y {
+            Vector::new(scale, RELATIVE_CAMERA_SIZE)
+        } else {
+            Vector::new(RELATIVE_CAMERA_SIZE, scale)
+        };
     }
 }

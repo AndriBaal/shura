@@ -80,12 +80,13 @@ impl<'a> Renderer<'a> {
         };
 
         let camera = match config.camera {
+            RenderConfigCamera::UnitCamera => &defaults.unit_camera,
             RenderConfigCamera::WordCamera => &defaults.world_camera,
             RenderConfigCamera::RelativeCamera => &defaults.relative_camera,
             RenderConfigCamera::RelativeCameraBottomLeft => &defaults.relative_bottom_left_camera,
             RenderConfigCamera::RelativeCameraBottomRight => &defaults.relative_bottom_right_camera,
             RenderConfigCamera::RelativeCameraTopLeft => &defaults.relative_top_left_camera,
-            RenderConfigCamera::RelativeCameraTopRight => &defaults.relative_bottom_right_camera,
+            RenderConfigCamera::RelativeCameraTopRight => &defaults.relative_top_right_camera,
             RenderConfigCamera::Custom(c) => c,
         };
         renderer.use_camera(camera);

@@ -8,5 +8,5 @@ layout(set = 1, binding = 0) uniform vec4 input_color;
 void main() {
   float pct = 0.0;
   pct = distance(tex_coords, vec2(0.5)) * 2.0;
-  output_color = vec4(input_color.rgb, 1.0 - pow(pct, 0.03));
+  output_color = vec4(input_color.rgb, 1.0 - pow(pct, 0.1));
 }

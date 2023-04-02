@@ -1,4 +1,6 @@
-use crate::{ComponentManager, Context, ScreenConfig, ShuraFields, Vector, WorldCamera};
+use crate::{
+    ComponentManager, Context, ScreenConfig, ShuraFields, Vector, WorldCamera, WorldCameraScale,
+};
 
 use super::state::SceneState;
 
@@ -26,8 +28,7 @@ impl<N: 'static + FnMut(&mut Context)> SceneCreator for NewScene<N> {
     fn create(mut self, shura: ShuraFields) -> Scene {
         let mint: mint::Vector2<u32> = shura.window.inner_size().into();
         let window_size: Vector<u32> = mint.into();
-        let window_ratio = window_size.x as f32 / window_size.y as f32;
-        let mut scene = Scene::new(window_ratio, self.id);
+        let mut scene = Scene::new(window_size, self.id);
         let mut ctx = Context::from_fields(shura, &mut scene);
         (self.init)(&mut ctx);
         scene.component_manager.update_sets(&scene.world_camera);
@@ -55,8 +56,7 @@ impl<N: 'static + FnMut(&mut Context)> SceneCreator for RecycleScene<N> {
     fn create(mut self, shura: ShuraFields) -> Scene {
         let mint: mint::Vector2<u32> = shura.window.inner_size().into();
         let window_size: Vector<u32> = mint.into();
-        let window_ratio = window_size.x as f32 / window_size.y as f32;
-        self.scene.world_camera.resize(window_ratio);
+        self.scene.world_camera.resize(window_size);
         let mut ctx = Context::from_fields(shura, &mut self.scene);
         (self.init)(&mut ctx);
         self.scene
@@ -85,15 +85,15 @@ pub struct Scene {
 
 impl Scene {
     pub const DEFAULT_VERTICAL_CAMERA_FOV: f32 = 3.0;
-    pub(crate) fn new(ratio: f32, id: u32) -> Self {
+    pub(crate) fn new(window_size: Vector<u32>, id: u32) -> Self {
         Self {
             id: id,
             switched: true,
             resized: true,
             world_camera: WorldCamera::new(
                 Default::default(),
-                Self::DEFAULT_VERTICAL_CAMERA_FOV,
-                ratio,
+                WorldCameraScale::Min(Self::DEFAULT_VERTICAL_CAMERA_FOV),
+                window_size,
             ),
             component_manager: ComponentManager::new(),
             screen_config: ScreenConfig::new(),

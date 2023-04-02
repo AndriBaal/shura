@@ -28,17 +28,31 @@ impl<'a> RenderConfig<'a> {
         clear_color: None,
     };
     pub const RELATIVE_WORLD: RenderConfig<'static> = RenderConfig {
-        target: RenderConfigTarget::World,
         camera: RenderConfigCamera::RelativeCamera,
-        intances: None,
-        msaa: true,
-        clear_color: None,
+        ..Self::WORLD
+    };
+    pub const RELATIVE_BOTTOM_LEFT_WORLD: RenderConfig<'static> = RenderConfig {
+        camera: RenderConfigCamera::RelativeCameraBottomLeft,
+        ..Self::WORLD
+    };
+    pub const RELATIVE_BOTTOM_RIGHT_WORLD: RenderConfig<'static> = RenderConfig {
+        camera: RenderConfigCamera::RelativeCameraBottomRight,
+        ..Self::WORLD
+    };
+    pub const RELATIVE_TOP_LEFT_WORLD: RenderConfig<'static> = RenderConfig {
+        camera: RenderConfigCamera::RelativeCameraTopLeft,
+        ..Self::WORLD
+    };
+    pub const RELATIVE_TOP_RIGHT_WORLD: RenderConfig<'static> = RenderConfig {
+        camera: RenderConfigCamera::RelativeCameraTopRight,
+        ..Self::WORLD
     };
 }
 
 #[derive(Clone, Copy)]
 pub enum RenderConfigCamera<'a> {
     WordCamera,
+    UnitCamera,
     RelativeCamera,
     RelativeCameraBottomLeft,
     RelativeCameraBottomRight,
@@ -102,7 +116,16 @@ impl<'a> RenderEncoder<'a> {
     }
 
     #[cfg(feature = "text")]
-    pub fn render_text(&mut self, target: &RenderTarget, gpu: &Gpu, descriptor: TextDescriptor) {
+    pub fn render_text(
+        &mut self,
+        target: RenderConfigTarget,
+        gpu: &Gpu,
+        descriptor: TextDescriptor,
+    ) {
+        let target = match target {
+            crate::RenderConfigTarget::World => &self.defaults.world_target,
+            crate::RenderConfigTarget::Custom(c) => c,
+        };
         let target_size = target.size();
         let mut staging_belt = wgpu::util::StagingBelt::new(1024);
         if let Some(color) = descriptor.clear_color {

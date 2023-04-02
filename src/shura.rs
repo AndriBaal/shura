@@ -360,9 +360,7 @@ impl Shura {
             .begin(&self.frame_manager.total_time_duration(), &self.window);
 
         if scene.resized {
-            scene
-                .world_camera
-                .resize(window_size.x as f32 / window_size.y as f32);
+            scene.world_camera.resize(window_size);
         }
 
         {

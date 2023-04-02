@@ -156,8 +156,7 @@ impl<N: 'static + FnMut(&mut Context, &mut SceneDeserializer)> SceneCreator for 
         let mut de = SceneDeserializer::new(components, scene_state, global_state);
         let mint: mint::Vector2<u32> = shura.window.inner_size().into();
         let window_size: Vector<u32> = mint.into();
-        let window_ratio = window_size.x as f32 / window_size.y as f32;
-        scene.world_camera.resize(window_ratio);
+        scene.world_camera.resize(window_size);
         scene.id = self.id;
 
         let mut ctx = Context::from_fields(shura, &mut scene);
