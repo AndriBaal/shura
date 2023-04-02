@@ -63,21 +63,21 @@ pub enum RenderConfigTarget<'a> {
 pub struct RenderEncoder<'a> {
     pub inner: wgpu::CommandEncoder,
     pub defaults: &'a GpuDefaults,
-    pub gpu: &'a Gpu
+    pub gpu: &'a Gpu,
 }
-
 
 impl<'a> RenderEncoder<'a> {
     pub(crate) fn new(gpu: &'a Gpu, defaults: &'a GpuDefaults) -> Self {
-        let encoder = gpu.device
-        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("render_encoder"),
-        });
+        let encoder = gpu
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("render_encoder"),
+            });
 
         Self {
             inner: encoder,
             defaults,
-            gpu
+            gpu,
         }
     }
 
@@ -98,8 +98,7 @@ impl<'a> RenderEncoder<'a> {
     }
 
     pub fn renderer<'b>(&'b mut self, config: RenderConfig<'b>) -> Renderer<'b> {
-        Renderer::new(            &mut self.inner,
-            self.defaults, config)
+        Renderer::new(&mut self.inner, self.defaults, config)
     }
 
     #[cfg(feature = "text")]

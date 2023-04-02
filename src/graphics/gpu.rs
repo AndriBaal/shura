@@ -4,8 +4,8 @@ use crate::log::info;
 use crate::text::{FontBrush, TextDescriptor};
 use crate::{
     BufferedCamera, Camera, CameraBuffer, ColorWrites, InstanceBuffer, Isometry, Matrix, Model,
-    ModelBuilder, RenderEncoder, RenderTarget, ScreenConfig, Shader, ShaderConfig, ShaderField,
-    ShaderLang, Sprite, SpriteSheet, Uniform, Vector,
+    ModelBuilder, RenderConfig, RenderEncoder, RenderTarget, ScreenConfig, Shader, ShaderConfig,
+    ShaderField, ShaderLang, Sprite, SpriteSheet, Uniform, Vector,
 };
 use std::borrow::Cow;
 use wgpu::BlendState;
@@ -197,9 +197,10 @@ impl Gpu {
         &self,
         defaults: &GpuDefaults,
         texture_size: Vector<u32>,
-        compute: impl Fn(&RenderTarget, &mut RenderEncoder),
+        camera: &CameraBuffer,
+        compute: impl Fn(RenderConfig, &mut RenderEncoder),
     ) -> RenderTarget {
-        return RenderTarget::computed(self, defaults, texture_size, compute);
+        return RenderTarget::computed(self, defaults, texture_size, camera, compute);
     }
 }
 

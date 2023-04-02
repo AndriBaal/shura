@@ -3,9 +3,9 @@ use crate::{
     ComponentGroup, ComponentGroupDescriptor, ComponentHandle, ComponentManager, ComponentPath,
     ComponentRenderGroup, ComponentSet, ComponentSetMut, ComponentTypeId, Duration, FrameManager,
     GlobalState, Gpu, GpuDefaults, GroupFilter, Input, InputEvent, InputTrigger, InstanceBuffer,
-    Instant, Isometry, Matrix, Model, ModelBuilder, Modifier, RenderEncoder, RenderTarget,
-    Rotation, Scene, SceneCreator, SceneManager, SceneState, ScreenConfig, Shader, ShaderConfig,
-    Shura, Sprite, SpriteSheet, Uniform, Vector, WorldCamera,
+    Instant, Isometry, Matrix, Model, ModelBuilder, Modifier, RenderConfig, RenderEncoder,
+    RenderTarget, Rotation, Scene, SceneCreator, SceneManager, SceneState, ScreenConfig, Shader,
+    ShaderConfig, Shura, Sprite, SpriteSheet, Uniform, Vector, WorldCamera,
 };
 
 #[cfg(feature = "serde")]
@@ -363,10 +363,11 @@ impl<'a> Context<'a> {
     pub fn create_computed_target<'caller>(
         &self,
         texture_size: Vector<u32>,
-        compute: impl Fn(&RenderTarget, &mut RenderEncoder),
+        camera: &CameraBuffer,
+        compute: impl Fn(RenderConfig, &mut RenderEncoder),
     ) -> RenderTarget {
         self.gpu
-            .create_computed_target(self.defaults, texture_size, compute)
+            .create_computed_target(self.defaults, texture_size, camera, compute)
     }
 
     #[cfg(feature = "audio")]
