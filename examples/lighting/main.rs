@@ -402,7 +402,7 @@ fn main() {
         id: 1,
         init: |ctx| {
             ctx.set_clear_color(Some(Color::BLACK));
-            ctx.set_camera_scale(WorldCameraScale::Min(10.0));
+            ctx.set_camera_scale(WorldCameraScale::Max(10.0));
 
             ctx.add_component(Obstacle::new(
                 ctx,
@@ -432,6 +432,7 @@ fn main() {
             }
 
             ctx.add_component(LightManager::new(ctx));
+            ctx.add_component(Background::new(ctx));
             ctx.add_component(Obstacle::new(
                 ctx,
                 Vector::new(6.0, 0.0),
@@ -451,20 +452,6 @@ fn main() {
                 ColliderBuilder::round_cuboid(0.5, 1.5, 0.4),
                 Color::BLUE,
             ));
-            // ctx.add_component(Light::new(
-            //     ctx,
-            //     Vector::new(0.0, 0.0),
-            //     12.0,
-            //     Color::RED,
-            //     true,
-            // ));
-            // ctx.add_component(Light::new(
-            //     ctx,
-            //     Vector::new(0.0, 1.0),
-            //     10.0,
-            //     Color::GREEN,
-            //     false,
-            // ));
         },
     });
 }
@@ -516,12 +503,31 @@ impl ComponentController for Obstacle {
     }
 }
 
+struct Light {
+    position: Isometry<f32>,
+    model: Model,
+    color: Uniform<Color>,
+}
+
+impl Light {
+    pub fn new(ctx: &Context, translation: Vector<f32>, radius: f32, color: Color) -> Self {
+        Self {
+            position: translation.into(),
+            model: ctx.create_model(ModelBuilder::square(radius)),
+            color: ctx.create_uniform(color),
+        }
+    }
+}
+
 #[derive(Component)]
 pub struct LightManager {
     #[base]
     base: BaseComponent,
     shadow: Color,
+    shadow_uniform: Uniform<Color>,
     map: RenderTarget,
+    lights: Vec<Light>,
+
     light_shader: Shader,
     shadow_shader: Shader,
     shadow_color: Uniform<Color>,
@@ -530,18 +536,20 @@ pub struct LightManager {
 
 impl LightManager {
     pub fn new(ctx: &Context) -> Self {
+        let shadow = Color::new(0.0, 0.0, 0.0, 0.9);
         Self {
             base: Default::default(),
-            shadow: Color::new(0.0, 0.0, 0.0, 0.9),
+            shadow,
             map: ctx.create_render_target(ctx.window_size()),
             shadow_color: ctx.create_uniform(Color::TRANSPARENT),
             inner_model: ctx.create_model(ModelBuilder::ball(0.5, 24)),
+            lights: vec![Light::new(ctx, Vector::new(0.0, 1.0), 1.0, Color::ORANGE)],
             light_shader: ctx.create_shader(ShaderConfig {
                 fragment_source: include_str!("./light.glsl"),
                 shader_lang: ShaderLang::GLSL,
                 shader_fields: &[ShaderField::Uniform],
-                blend: BlendState::ALPHA_BLENDING,
-                msaa: true,
+                blend: BlendState::REPLACE,
+                msaa: false,
                 write_mask: ColorWrites::ALL,
             }),
             shadow_shader: ctx.create_shader(ShaderConfig {
@@ -557,9 +565,10 @@ impl LightManager {
                 //     },
                 //     alpha: BlendComponent::OVER,
                 // },
-                msaa: true,
+                msaa: false,
                 write_mask: ColorWrites::ALL,
             }),
+            shadow_uniform: ctx.create_uniform(shadow),
         }
     }
 }
@@ -585,15 +594,66 @@ impl ComponentController for LightManager {
     }
 
     fn update(active: ComponentPath<Self>, ctx: &mut Context) {
+        let window_size = ctx.window_size();
         for man in ctx.component_manager.path_mut(&active) {
+            if window_size != *man.map.sprite().size() {
+                man.map = ctx.gpu.create_render_target(window_size);
+            }
+
+            let test_model = ctx.gpu.create_model(ModelBuilder::ball(4.0, 64));
+            let test_color = ctx.gpu.create_uniform(Color::new(1.0, 0.43, 0.04, 0.3));
+            let test_camera = ctx.gpu.create_camera_buffer(&ctx.world_camera);
             man.map.draw(
-                ctx.gpu,
-                ctx.defaults,
-                &ctx.defaults.relative_camera,
-                |config, encoder| {
-                    encoder.clear(config.target, man.shadow);
+                &ctx.gpu,
+                &ctx.defaults,
+                &test_camera,
+                |mut config, encoder| {
+                    config.msaa = false;
+                    config.clear_color = Some(man.shadow);
+                    let mut renderer = encoder.renderer(config);
+                    renderer.use_instances(&ctx.defaults.single_centered_instance);
+                    renderer.use_shader(&man.light_shader);
+                    renderer.use_model(&test_model);
+                    renderer.use_uniform(&test_color, 1);
+                    renderer.use_uniform(&man.shadow_uniform, 2);
+                    renderer.draw(ctx.defaults.single_centered_instance.all_instances());
                 },
             );
+        }
+    }
+}
+
+#[derive(Component)]
+struct Background {
+    #[base]
+    base: BaseComponent,
+    model: Model,
+    sprite: Sprite,
+}
+
+impl Background {
+    pub fn new(ctx: &Context) -> Self {
+        Self {
+            model: ctx.create_model(ModelBuilder::square(10.0)),
+            base: BaseComponent::new(Default::default()),
+            sprite: ctx.create_sprite(include_bytes!("./img/background.png")),
+        }
+    }
+}
+
+impl ComponentController for Background {
+    const CONFIG: ComponentConfig = ComponentConfig {
+        priority: 1,
+        update: UpdateOperation::Never,
+        ..DEFAULT_CONFIG
+    };
+
+    fn render(active: ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
+        let mut renderer = encoder.renderer(RenderConfig::WORLD);
+        for (buffer, obstacles) in ctx.path_render(&active) {
+            for (i, b) in obstacles {
+                renderer.render_sprite(buffer, i, &b.model, &b.sprite)
+            }
         }
     }
 }

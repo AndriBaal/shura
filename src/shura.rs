@@ -4,7 +4,8 @@ use crate::gui::Gui;
 use crate::physics::{ActiveEvents, CollideType};
 use crate::{
     scene::context::ShuraFields, Context, FrameManager, GlobalState, Gpu, GpuDefaults, Input,
-    RenderEncoder, RenderOperation, Renderer, Scene, SceneCreator, SceneManager, Vector, RenderConfigTarget,
+    RenderConfigTarget, RenderEncoder, RenderOperation, Renderer, Scene, SceneCreator,
+    SceneManager, Vector,
 };
 #[cfg(target_os = "android")]
 use winit::platform::android::activity::AndroidApp;

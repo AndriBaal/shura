@@ -100,6 +100,12 @@ impl Color {
         b: 1.0,
         a: 1.0,
     };
+    pub const ORANGE: Self = Self {
+        r: 1.0,
+        g: 0.65,
+        b: 0.0,
+        a: 1.0,
+    };
 
     pub const fn new(r: f32, g: f32, b: f32, a: f32) -> Self {
         return Self { r, g, b, a };

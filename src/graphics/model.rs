@@ -80,6 +80,9 @@ impl ModelBuilder {
             ..Default::default()
         }
     }
+    pub fn square(length: f32) -> Self {
+        Self::cuboid(Vector::new(length, length))
+    }
     pub fn cuboid(half_extents: Vector<f32>) -> Self {
         let vertices = vec![
             Vertex::new(
