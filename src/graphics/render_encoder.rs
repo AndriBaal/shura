@@ -27,6 +27,10 @@ impl<'a> RenderConfig<'a> {
         msaa: true,
         clear_color: None,
     };
+    pub const UNIT_WORLD: RenderConfig<'static> = RenderConfig {
+        camera: RenderConfigCamera::UnitCamera,
+        ..Self::WORLD
+    };
     pub const RELATIVE_WORLD: RenderConfig<'static> = RenderConfig {
         camera: RenderConfigCamera::RelativeCamera,
         ..Self::WORLD

@@ -274,11 +274,16 @@ impl WgpuBase {
         });
 
         let vertex_wgsl =
-            device.create_shader_module(wgpu::include_wgsl!("../../res/shader/vertex.wgsl"));
+            device.create_shader_module(
+                wgpu::ShaderModuleDescriptor {
+                    label: Some("vertex_wgsl"),
+                    source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(Shader::VERTEX_WGSL)),
+                }
+            );
         let vertex_glsl = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("vertex_glsl"),
             source: wgpu::ShaderSource::Glsl {
-                shader: Cow::Borrowed(include_str!("../../res/shader/vertex.glsl")),
+                shader: Cow::Borrowed(Shader::VERTEX_GLSL),
                 stage: naga::ShaderStage::Vertex,
                 defines: Default::default(),
             },
@@ -353,7 +358,7 @@ pub struct GpuDefaults {
 impl GpuDefaults {
     pub(crate) fn new(gpu: &Gpu, window_size: Vector<u32>) -> Self {
         let sprite = gpu.create_shader(ShaderConfig {
-            fragment_source: include_str!("../../res/shader/sprite.wgsl"),
+            fragment_source: Shader::SPIRTE_WGSL,
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Sprite],
             msaa: true,
@@ -362,7 +367,7 @@ impl GpuDefaults {
         });
 
         let sprite_no_msaa = gpu.create_shader(ShaderConfig {
-            fragment_source: include_str!("../../res/shader/sprite.wgsl"),
+            fragment_source: Shader::SPIRTE_WGSL,
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Sprite],
             msaa: false,
@@ -371,7 +376,7 @@ impl GpuDefaults {
         });
 
         let rainbow = gpu.create_shader(ShaderConfig {
-            fragment_source: include_str!("../../res/shader/rainbow.wgsl"),
+            fragment_source: Shader::RAINBOW_WGSL,
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Uniform],
             msaa: true,
@@ -380,7 +385,7 @@ impl GpuDefaults {
         });
 
         let color = gpu.create_shader(ShaderConfig {
-            fragment_source: include_str!("../../res/shader/color.wgsl"),
+            fragment_source: Shader::COLOR_WGSL,
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Uniform],
             msaa: true,
@@ -389,7 +394,7 @@ impl GpuDefaults {
         });
 
         let color_no_msaa = gpu.create_shader(ShaderConfig {
-            fragment_source: include_str!("../../res/shader/color.wgsl"),
+            fragment_source: Shader::COLOR_WGSL,
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Uniform],
             msaa: false,
@@ -398,7 +403,7 @@ impl GpuDefaults {
         });
 
         let colored_sprite = gpu.create_shader(ShaderConfig {
-            fragment_source: include_str!("../../res/shader/colored_sprite.glsl"),
+            fragment_source: Shader::COLORED_SPRITE_GLSL,
             shader_lang: ShaderLang::GLSL,
             shader_fields: &[ShaderField::Sprite, ShaderField::Uniform],
             msaa: true,
@@ -407,7 +412,7 @@ impl GpuDefaults {
         });
 
         let grey = gpu.create_shader(ShaderConfig {
-            fragment_source: include_str!("../../res/shader/grey.wgsl"),
+            fragment_source: Shader::GREY_WGSL,
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Sprite],
             msaa: true,
@@ -416,7 +421,7 @@ impl GpuDefaults {
         });
 
         let blurr = gpu.create_shader(ShaderConfig {
-            fragment_source: include_str!("../../res/shader/blurr.wgsl"),
+            fragment_source: Shader::BLURR_WGSL,
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Sprite],
             msaa: true,
@@ -425,7 +430,7 @@ impl GpuDefaults {
         });
 
         let transparent = gpu.create_shader(ShaderConfig {
-            fragment_source: include_str!("../../res/shader/transparent_sprite.wgsl"),
+            fragment_source: Shader::TRANSPARENT_SPRITE_WGSL,
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Sprite, ShaderField::Uniform],
             msaa: true,

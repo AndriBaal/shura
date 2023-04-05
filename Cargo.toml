@@ -44,7 +44,7 @@ crate-type = ["lib", "cdylib"]
 
 [dependencies]
 env_logger="0.10"
-delaunator = "1.0"
+delaunator = "1"
 mint = { version = "0.5.6" }
 nalgebra = { version = "0.32.1", features = ["convert-bytemuck", "mint"] }
 wgpu_glyph = { version = "0.19.0", optional = true }

@@ -1,6 +1,6 @@
 use crate::{
     CameraBuffer, Color, GpuDefaults, InstanceBuffer, InstanceIndices, Model, RenderConfig,
-    RenderConfigCamera, Shader, Sprite, Uniform,
+    RenderConfigCamera, Shader, Sprite, Uniform, RenderConfigInstances,
 };
 use std::ptr::null;
 
@@ -93,11 +93,11 @@ impl<'a> Renderer<'a> {
 
         if let Some(instances) = config.intances {
             let instances = match instances {
-                crate::RenderConfigInstances::Empty => &defaults.empty_instance,
-                crate::RenderConfigInstances::SingleCenteredInstance => {
+                RenderConfigInstances::Empty => &defaults.empty_instance,
+                RenderConfigInstances::SingleCenteredInstance => {
                     &defaults.single_centered_instance
                 }
-                crate::RenderConfigInstances::Custom(c) => c,
+                RenderConfigInstances::Custom(c) => c,
             };
             renderer.use_instances(instances);
         }

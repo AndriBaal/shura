@@ -392,6 +392,7 @@
 //     }
 // }
 
+use shura::physics::parry::query::PointQuery;
 use shura::{physics::*, *};
 use std::f32::consts::PI;
 
@@ -507,14 +508,22 @@ struct Light {
     position: Isometry<f32>,
     model: Model,
     color: Uniform<Color>,
+    shape: Ball,
+    vertices: Vec<Vertex>,
 }
 
 impl Light {
+    pub const RESOLUTION: u32 = 64;
+    pub const IS_LIGHT_COLLIDER: u128 = 1000;
     pub fn new(ctx: &Context, translation: Vector<f32>, radius: f32, color: Color) -> Self {
+        let builder = ModelBuilder::ball(radius, Self::RESOLUTION);
+        let model = builder.clone().build(ctx.gpu);
         Self {
             position: translation.into(),
-            model: ctx.create_model(ModelBuilder::square(radius)),
+            model: model,
+            vertices: builder.vertices,
             color: ctx.create_uniform(color),
+            shape: Ball::new(radius),
         }
     }
 }
@@ -526,10 +535,12 @@ pub struct LightManager {
     shadow: Color,
     shadow_uniform: Uniform<Color>,
     map: RenderTarget,
+    light_layer: RenderTarget,
     lights: Vec<Light>,
 
     light_shader: Shader,
     shadow_shader: Shader,
+    insert_light_shader: Shader,
     shadow_color: Uniform<Color>,
     inner_model: Model,
 }
@@ -541,30 +552,39 @@ impl LightManager {
             base: Default::default(),
             shadow,
             map: ctx.create_render_target(ctx.window_size()),
-            shadow_color: ctx.create_uniform(Color::TRANSPARENT),
+            light_layer: ctx.create_render_target(ctx.window_size()),
+            shadow_color: ctx.create_uniform(shadow),
             inner_model: ctx.create_model(ModelBuilder::ball(0.5, 24)),
-            lights: vec![Light::new(ctx, Vector::new(0.0, 1.0), 1.0, Color::ORANGE)],
+            lights: vec![Light::new(
+                ctx,
+                Vector::new(0.0, 0.0),
+                5.0,
+                Color {
+                    a: 0.1,
+                    ..Color::RED
+                },
+            )],
             light_shader: ctx.create_shader(ShaderConfig {
                 fragment_source: include_str!("./light.glsl"),
                 shader_lang: ShaderLang::GLSL,
+                shader_fields: &[ShaderField::Uniform, ShaderField::Uniform],
+                blend: BlendState::ALPHA_BLENDING,
+                msaa: false,
+                write_mask: ColorWrites::ALL,
+            }),
+            shadow_shader: ctx.create_shader(ShaderConfig {
+                fragment_source: Shader::COLOR_WGSL,
+                shader_lang: ShaderLang::WGSL,
                 shader_fields: &[ShaderField::Uniform],
                 blend: BlendState::REPLACE,
                 msaa: false,
                 write_mask: ColorWrites::ALL,
             }),
-            shadow_shader: ctx.create_shader(ShaderConfig {
-                fragment_source: include_str!("./shadow.glsl"),
-                shader_lang: ShaderLang::GLSL,
-                shader_fields: &[ShaderField::Uniform],
+            insert_light_shader: ctx.create_shader(ShaderConfig {
+                fragment_source: Shader::SPIRTE_WGSL,
+                shader_lang: ShaderLang::WGSL,
+                shader_fields: &[ShaderField::Sprite],
                 blend: BlendState::REPLACE,
-                // blend: BlendState {
-                //     color: BlendComponent {
-                //         src_factor: BlendFactor::SrcAlpha,
-                //         dst_factor: BlendFactor::OneMinusSrcAlpha,
-                //         operation: BlendOperation::Subtract,
-                //     },
-                //     alpha: BlendComponent::OVER,
-                // },
                 msaa: false,
                 write_mask: ColorWrites::ALL,
             }),
@@ -595,30 +615,207 @@ impl ComponentController for LightManager {
 
     fn update(active: ComponentPath<Self>, ctx: &mut Context) {
         let window_size = ctx.window_size();
+        fn det(v1: Vector<f32>, v2: Vector<f32>) -> f32 {
+            return v1.x * v2.y - v1.y * v2.x;
+        }
         for man in ctx.component_manager.path_mut(&active) {
             if window_size != *man.map.sprite().size() {
                 man.map = ctx.gpu.create_render_target(window_size);
+                man.light_layer = ctx.gpu.create_render_target(window_size);
             }
+        }
 
-            let test_model = ctx.gpu.create_model(ModelBuilder::ball(4.0, 64));
-            let test_color = ctx.gpu.create_uniform(Color::new(1.0, 0.43, 0.04, 0.3));
-            let test_camera = ctx.gpu.create_camera_buffer(&ctx.world_camera);
-            man.map.draw(
-                &ctx.gpu,
-                &ctx.defaults,
-                &test_camera,
-                |mut config, encoder| {
-                    config.msaa = false;
-                    config.clear_color = Some(man.shadow);
-                    let mut renderer = encoder.renderer(config);
-                    renderer.use_instances(&ctx.defaults.single_centered_instance);
-                    renderer.use_shader(&man.light_shader);
-                    renderer.use_model(&test_model);
-                    renderer.use_uniform(&test_color, 1);
-                    renderer.use_uniform(&man.shadow_uniform, 2);
-                    renderer.draw(ctx.defaults.single_centered_instance.all_instances());
-                },
-            );
+        for man in ctx.component_manager.path(&active) {
+            for light in &man.lights {
+                let mut shadows = vec![];
+                let light_translation = light.position.translation.vector;
+
+                ctx.intersections_with_shape(
+                    &light.position,
+                    &light.shape,
+                    QueryFilter::new(),
+                    |_component, collider_handle| {
+                        let obstacle_collider = ctx.collider(collider_handle).unwrap();
+                        if obstacle_collider.user_data != Light::IS_LIGHT_COLLIDER {
+                            let obstacle_shape = obstacle_collider.shape();
+                            let collider_vertices =
+                                ModelBuilder::from_collider_shape(obstacle_shape, 24, 2.0)
+                                    .vertex_position(*obstacle_collider.position())
+                                    .apply_modifiers()
+                                    .vertices;
+
+                            let mut leftmost = collider_vertices[0].pos;
+                            let mut rightmost = collider_vertices[0].pos;
+                            let mut leftmost_ray = leftmost - light_translation;
+                            let mut rightmost_ray = rightmost - light_translation;
+
+                            let mut ray;
+                            for v in &collider_vertices[1..] {
+                                ray = v.pos - light_translation;
+                                if det(ray, leftmost_ray) < 0.0 {
+                                    leftmost = v.pos;
+                                    leftmost_ray = ray;
+                                } else if det(ray, rightmost_ray) > 0.0 {
+                                    rightmost = v.pos;
+                                    rightmost_ray = ray;
+                                }
+                            }
+
+                            let mut leftback =
+                                light_translation + leftmost_ray.normalize() * light.shape.radius;
+
+                            let mut rightback =
+                                light_translation + rightmost_ray.normalize() * light.shape.radius;
+
+                            let mut ray_angle: f32 = rightmost_ray.y.atan2(rightmost_ray.x);
+                            if ray_angle < 0.0 {
+                                ray_angle += 2.0 * PI;
+                            }
+                            let right_index = (ray_angle * TWO_PI_INV * Light::RESOLUTION as f32)
+                                as usize
+                                % Light::RESOLUTION as usize;
+                            let v0 = light.vertices[right_index].pos;
+                            let v0_to_v1 =
+                                light.vertices[(right_index + 1) % Light::RESOLUTION as usize].pos
+                                    - v0;
+                            let alpha = rightmost_ray.angle(&(-v0_to_v1));
+                            let v0_to_rightback = rightback - (light_translation + v0);
+                            let beta = v0_to_rightback.angle(&v0_to_v1);
+                            let gamma = PI - alpha - beta;
+                            let c = gamma.sin() / alpha.sin() * v0_to_rightback.norm();
+                            rightback = light_translation + v0 + c * v0_to_v1.normalize();
+
+                            let mut ray_angle: f32 = leftmost_ray.y.atan2(leftmost_ray.x);
+                            if ray_angle < 0.0 {
+                                ray_angle += 2.0 * PI;
+                            }
+                            let left_index = (ray_angle * TWO_PI_INV * Light::RESOLUTION as f32)
+                                as usize as usize
+                                % Light::RESOLUTION as usize;
+                            let v0 = light.vertices[left_index].pos;
+                            let v0_to_v1 =
+                                light.vertices[(left_index + 1) % Light::RESOLUTION as usize].pos
+                                    - v0;
+                            let alpha = leftmost_ray.angle(&(-v0_to_v1));
+                            let v0_to_leftback = leftback - (light_translation + v0);
+                            let beta = v0_to_leftback.angle(&v0_to_v1);
+                            let gamma = PI - alpha - beta;
+                            let c = gamma.sin() / alpha.sin() * v0_to_leftback.norm();
+                            leftback = light_translation + v0 + c * v0_to_v1.normalize();
+
+                            let mut vertices = vec![];
+                            if light
+                                .shape
+                                .contains_point(&light.position, &rightmost.into())
+                            {
+                                vertices.push(rightmost);
+                            }
+                            vertices.push(rightback);
+                            let end = (left_index + 1) % (Light::RESOLUTION as usize);
+                            let mut i = (right_index + 1) % (Light::RESOLUTION as usize);
+                            while i != end {
+                                vertices.push(light_translation + light.vertices[i].pos);
+                                i = (i + 1) % (Light::RESOLUTION as usize);
+                            }
+
+                            vertices.push(leftback);
+                            if light
+                                .shape
+                                .contains_point(&light.position, &leftmost.into())
+                            {
+                                vertices.push(leftmost);
+                            }
+
+                            let mut builder = ModelBuilder::convex_polygon(vertices)
+                                .vertex_translation(-light_translation);
+                            let diameter = 2.0 * light.shape.radius;
+                            for vertex in &mut builder.vertices {
+                                let rel = vertex.pos - light_translation;
+                                vertex.tex_coords =
+                                    Vector::new(rel.x / diameter + 0.5, rel.y / -diameter + 0.5);
+                            }
+                            shadows.push(ctx.create_model(builder));
+                        }
+                        true
+                    },
+                );
+
+                // let state = ctx.global_state::<LightingState>().unwrap();
+                // let test = ctx.create_computed_target(
+                //     size,
+                //     &ctx.defaults.unit_camera,
+                //     |mut config, encoder| {
+                //         // config.clear_color = Some(Color::BLACK);
+                //         let mut renderer = encoder.renderer(config);
+                //         renderer.use_instances(&ctx.defaults.single_centered_instance);
+                //         renderer.use_shader(&state.light_shader);
+                //         renderer.use_model(&ctx.defaults.unit_camera.model);
+                //         renderer.use_uniform(&light.light_color, 1);
+                //         renderer.draw(0);
+
+                //         for shadow in &shadows {
+                //             // renderer.render_color(&buffer, i, shadow, &state.shadow_color);
+
+                //             renderer.use_shader(&state.shadow_shader);
+                //             renderer.use_model(shadow);
+                //             renderer.use_uniform(&state.shadow_color, 1);
+                //             renderer.draw(0);
+                //         }
+                //     },
+                // );
+
+                let test_camera = ctx.gpu.create_camera_buffer(&Camera::new(
+                    Vector::default().into(),
+                    ctx.world_camera.fov(),
+                ));
+                man.light_layer.draw(
+                    &ctx.gpu,
+                    &ctx.defaults,
+                    &test_camera,
+                    |mut config, encoder| {
+                        config.msaa = false;
+                        config.clear_color = Some(Color::TRANSPARENT);
+                        let mut renderer = encoder.renderer(config);
+                        // TODO: Change to lights world pos
+                        let instances = &ctx.defaults.single_centered_instance;
+                        renderer.use_instances(instances);
+                        renderer.use_shader(&man.light_shader);
+                        renderer.use_model(&light.model);
+                        renderer.use_uniform(&light.color, 1);
+                        renderer.use_uniform(&man.shadow_uniform, 2);
+                        renderer.draw(instances.all_instances());
+
+                        for shadow in &shadows {
+                            renderer.use_shader(&man.shadow_shader);
+                            renderer.use_model(shadow);
+                            renderer.use_uniform(&man.shadow_color, 1);
+                            renderer.draw(0);
+                        }
+                    },
+                );
+
+                man.light_layer.save(ctx.gpu, "test.png");
+
+                // man.map.draw(
+                //     &ctx.gpu,
+                //     &ctx.defaults,
+                //     &test_camera,
+                //     |mut config, encoder| {
+                //         config.msaa = false;
+                //         config.clear_color = Some(man.shadow);
+                //         let mut renderer = encoder.renderer(config);
+                //         renderer.use_instances(&ctx.defaults.single_centered_instance);
+                //         renderer.use_shader(&man.insert_light_shader);
+                //         renderer.use_model();
+                //         renderer.use_sprite(&man.light_layer, 1);
+                //         renderer.draw(ctx.defaults.single_centered_instance.all_instances());
+
+                //         // renderer.use_shader(&man.shadow_shader);
+                //         // renderer.use_uniform(&test_color1, 1);
+                //         // renderer.draw(ctx.defaults.single_centered_instance.all_instances());
+                //     },
+                // );
+            }
         }
     }
 }

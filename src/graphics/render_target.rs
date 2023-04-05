@@ -34,7 +34,7 @@ impl RenderTarget {
         camera: &CameraBuffer,
         compute: impl Fn(RenderConfig, &mut RenderEncoder),
     ) -> Self {
-        let mut target = RenderTarget::new(gpu, texture_size);
+        let target = RenderTarget::new(gpu, texture_size);
         target.draw(gpu, defaults, camera, compute);
         return target;
     }
@@ -79,7 +79,7 @@ impl RenderTarget {
     }
 
     pub fn draw<'caller>(
-        &mut self,
+        &self,
         gpu: &Gpu,
         defaults: &GpuDefaults,
         camera: &CameraBuffer,
