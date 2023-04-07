@@ -429,7 +429,6 @@ impl World {
         self.physics_priority
     }
 
-    // Setters
     pub fn set_gravity(&mut self, gravity: Vector<f32>) {
         self.gravity = gravity;
     }

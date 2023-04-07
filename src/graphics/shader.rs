@@ -88,16 +88,17 @@ pub struct Shader {
 }
 
 impl Shader {
-
     pub const VERTEX_GLSL: &'static str = include_str!("../../res/shader/vertex.glsl");
     pub const VERTEX_WGSL: &'static str = include_str!("../../res/shader/vertex.wgsl");
     pub const SPIRTE_WGSL: &'static str = include_str!("../../res/shader/sprite.wgsl");
     pub const RAINBOW_WGSL: &'static str = include_str!("../../res/shader/rainbow.wgsl");
     pub const COLOR_WGSL: &'static str = include_str!("../../res/shader/color.wgsl");
-    pub const COLORED_SPRITE_GLSL: &'static str = include_str!("../../res/shader/colored_sprite.glsl");
+    pub const COLORED_SPRITE_GLSL: &'static str =
+        include_str!("../../res/shader/colored_sprite.glsl");
     pub const GREY_WGSL: &'static str = include_str!("../../res/shader/grey.wgsl");
     pub const BLURR_WGSL: &'static str = include_str!("../../res/shader/blurr.wgsl");
-    pub const TRANSPARENT_SPRITE_WGSL: &'static str = include_str!("../../res/shader/transparent_sprite.wgsl");
+    pub const TRANSPARENT_SPRITE_WGSL: &'static str =
+        include_str!("../../res/shader/transparent_sprite.wgsl");
     pub fn new(gpu: &Gpu, config: ShaderConfig) -> Self {
         let mut layouts: Vec<&wgpu::BindGroupLayout> = vec![&gpu.base.vertex_uniform];
         for link in config.shader_fields.iter() {
@@ -198,7 +199,6 @@ impl Shader {
     //     Shader { pipeline, lang }
     // }
 
-    // Getter
     pub fn pipeline(&self) -> &wgpu::RenderPipeline {
         &self.pipeline
     }

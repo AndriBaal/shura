@@ -9,7 +9,7 @@ fn main() {
         id: 1,
         init: |ctx| {
             ctx.set_camera_scale(WorldCameraScale::Max(10.0));
-            ctx.add_component(Background::new(ctx));
+            // ctx.add_component(Background::new(ctx));
             ctx.set_global_state(LightingState {
                 shadow_color: ctx.create_uniform(Color::BLACK),
                 inner_model: ctx.create_model(ModelBuilder::ball(0.5, 24)),

@@ -97,8 +97,6 @@ impl Camera {
         self.fov
     }
 
-    // Setters
-
     pub fn set_rotation(&mut self, rotation: Rotation<f32>) {
         self.position.rotation = rotation;
     }

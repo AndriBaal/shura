@@ -109,7 +109,7 @@ pub mod physics {
         ImpulseJointHandle, InteractionGroups, LockedAxes, MassProperties, MotorModel,
         PrismaticJoint, QueryFilter, QueryFilterFlags, Ray, RayIntersection, RevoluteJoint,
         RevoluteJointBuilder, RigidBody, RigidBodyActivation, RigidBodyBuilder, RigidBodyHandle,
-        RigidBodyType, Shape, ShapeType, SharedShape, SpacialVector, TypedShape, TOI
+        RigidBodyType, Shape, ShapeType, SharedShape, SpacialVector, TypedShape, TOI,
     };
 }
 

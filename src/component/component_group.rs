@@ -82,8 +82,6 @@ impl ComponentGroup {
         }
     }
 
-    // Setters
-
     pub(crate) fn set_active(&mut self, active: bool) {
         self.active = active;
     }

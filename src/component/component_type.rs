@@ -138,8 +138,6 @@ impl ComponentType {
         self.components.len()
     }
 
-    // Setters
-
     pub fn set_force_buffer(&mut self, force_buffer: bool) {
         self.force_buffer = force_buffer;
     }

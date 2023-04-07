@@ -647,6 +647,15 @@ impl ComponentManager {
         self.world.borrow_mut()
     }
 
+    
+    #[cfg(feature = "physics")]
+    pub fn world_rc(
+        & self,
+    ) -> Rc<RefCell<World>> {
+        self.world.clone()
+    }
+
+
     pub fn instance_buffer<C: ComponentController>(
         &self,
         group_id: u16,

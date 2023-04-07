@@ -273,13 +273,10 @@ impl WgpuBase {
             label: Some("matrix_bind_group_layout"),
         });
 
-        let vertex_wgsl =
-            device.create_shader_module(
-                wgpu::ShaderModuleDescriptor {
-                    label: Some("vertex_wgsl"),
-                    source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(Shader::VERTEX_WGSL)),
-                }
-            );
+        let vertex_wgsl = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("vertex_wgsl"),
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(Shader::VERTEX_WGSL)),
+        });
         let vertex_glsl = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("vertex_glsl"),
             source: wgpu::ShaderSource::Glsl {

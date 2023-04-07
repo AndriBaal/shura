@@ -297,8 +297,6 @@ impl Input {
         self.events.get(&trigger.into())
     }
 
-    // Setters
-
     //
     // #[cfg(feature = "gamepad")]
     // pub fn set_gamepad_mapping(

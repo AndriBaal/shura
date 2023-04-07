@@ -267,7 +267,7 @@ impl Shura {
     }
 
     #[cfg(feature = "physics")]
-    fn step(ctx: &mut Context) {
+    fn physics_step(ctx: &mut Context) {
         let delta = ctx.frame_time();
         ctx.component_manager.world_mut().step(delta);
         // while let Ok(contact_force_event) = ctx.component_manager.event_receivers.1.try_recv() {
@@ -366,6 +366,7 @@ impl Shura {
 
         {
             let state_update = scene.state.get_update();
+            let state_after_update = scene.state.get_after_update();
             let mut ctx = Context::new(self, scene);
             #[cfg(feature = "physics")]
             let (mut done_step, physics_priority) = {
@@ -388,7 +389,7 @@ impl Shura {
                     #[cfg(feature = "physics")]
                     if !done_step && config.priority > physics_priority {
                         done_step = true;
-                        Self::step(&mut ctx);
+                        Self::physics_step(&mut ctx);
                     }
 
                     match config.update {
@@ -412,9 +413,11 @@ impl Shura {
                 }
             }
 
+            state_after_update(&mut ctx);
+
             #[cfg(feature = "physics")]
             if !done_step && ctx.physics_priority().is_some() {
-                Self::step(&mut ctx);
+                Self::physics_step(&mut ctx);
             }
         }
 

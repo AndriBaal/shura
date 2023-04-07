@@ -272,8 +272,6 @@ impl BaseComponent {
         &self.render_scale
     }
 
-    // Setters
-
     pub fn set_scale(&mut self, render_scale: Vector<f32>) {
         self.render_scale = render_scale;
         match &mut self.body {

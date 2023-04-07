@@ -58,8 +58,6 @@ impl FrameManager {
         self.last_time = self.total_time;
     }
 
-    // Getter
-
     pub const fn start_time(&self) -> Instant {
         self.start_time
     }

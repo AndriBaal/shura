@@ -5,6 +5,7 @@ use crate::Context;
 pub trait SceneStateStaticAccess {
     fn get_update(&self) -> fn(&mut Context);
     fn get_end(&self) -> fn(&mut Context);
+    fn get_after_update(&self) -> fn(&mut Context);
 }
 
 impl<T: SceneState> SceneStateStaticAccess for T {
@@ -14,6 +15,10 @@ impl<T: SceneState> SceneStateStaticAccess for T {
 
     fn get_end(&self) -> fn(&mut Context) {
         T::end
+    }
+
+    fn get_after_update(&self) -> fn(&mut Context) {
+        T::after_update
     }
 }
 
@@ -25,6 +30,12 @@ pub trait SceneState: Downcast + SceneStateStaticAccess {
     {
     }
     fn end(ctx: &mut Context)
+    where
+        Self: Sized,
+    {
+    }
+
+    fn after_update(ctx: &mut Context)
     where
         Self: Sized,
     {
