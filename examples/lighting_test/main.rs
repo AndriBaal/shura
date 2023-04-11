@@ -211,7 +211,7 @@ impl ComponentController for Light {
             return v1.x * v2.y - v1.y * v2.x;
         }
         let cursor_pos = ctx.cursor_camera(&ctx.world_camera);
-        let rc =  ctx.component_manager.world_rc();
+        let rc = ctx.component_manager.world_rc();
         let world = rc.borrow_mut();
         for light in ctx.component_manager.path_mut(&active) {
             if light.follow_mouse {
@@ -327,10 +327,7 @@ impl ComponentController for Light {
                         vertex.tex_coords =
                             Vector::new(rel.x / diameter + 0.5, rel.y / -diameter + 0.5);
                     }
-                    light.shadows.push(
-                        ctx.gpu.create_model(builder
-                        ),
-                    );
+                    light.shadows.push(ctx.gpu.create_model(builder));
                     true
                 },
             );
@@ -339,25 +336,37 @@ impl ComponentController for Light {
 
     fn render(active: ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
         let state = ctx.global_state::<LightingState>().unwrap();
-        let mut renderer = encoder.renderer(RenderConfig::WORLD);
-        for (buffer, lights) in ctx.path_render(&active) {
-            renderer.use_instances(buffer);
-            for (i, light) in lights {
-                renderer.use_shader(&state.light_shader);
-                renderer.use_model(&light.light_model);
-                renderer.use_uniform(&light.light_color, 1);
-                renderer.draw(i);
+        let map = ctx.create_render_target(ctx.window_size());
 
-                for shadow in &light.shadows {
-                    // renderer.render_color(buffer, i, shadow, &state.shadow_color);
-
-                    renderer.use_shader(&state.shadow_shader);
-                    renderer.use_model(shadow);
-                    // renderer.use_uniform(&state.shadow_color, 1);
+        {
+            let mut renderer = encoder.renderer(RenderConfig::WORLD);
+            for (buffer, lights) in ctx.path_render(&active) {
+                renderer.use_instances(buffer);
+                for (i, light) in lights {
+                    renderer.use_shader(&state.light_shader);
+                    renderer.use_model(&light.light_model);
+                    renderer.use_uniform(&light.light_color, 1);
                     renderer.draw(i);
+
+                    for shadow in &light.shadows {
+                        // renderer.render_color(buffer, i, shadow, &state.shadow_color);
+
+                        renderer.use_shader(&state.shadow_shader);
+                        renderer.use_model(shadow);
+                        // renderer.use_uniform(&state.shadow_color, 1);
+                        renderer.draw(i);
+                    }
                 }
             }
         }
+        
+        let mut renderer = encoder.renderer(RenderConfig::RELATIVE_WORLD);
+        renderer.use_instances(&ctx.defaults.single_centered_instance);
+        renderer.use_shader(&ctx.defaults.sprite);
+        renderer.use_model(&ctx.defaults.relative_camera.model);
+        renderer.use_sprite(&map, 1);
+        renderer.use_uniform(&state.shadow_color, 2);
+        renderer.draw(0);
     }
 }
 

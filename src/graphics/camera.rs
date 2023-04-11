@@ -13,6 +13,7 @@ pub struct Camera {
     position: Isometry<f32>,
     fov: Vector<f32>,
     proj: Matrix,
+    aabb: (Vector<f32>, Vector<f32>)
 }
 
 impl Camera {
@@ -22,55 +23,12 @@ impl Camera {
             position,
             fov,
             proj,
+            aabb: (Vector::new(0.0, 0.0), Vector::new(0.0, 0.0))
         }
     }
 
     pub(crate) fn reset_camera_projection(&mut self) {
         self.proj = Matrix::projection(self.fov());
-    }
-
-    /// Returns the bottom left and top right corner of the camera. Computes AABB when the camera
-    /// is rotated.
-    pub fn rect(&self) -> (Vector<f32>, Vector<f32>) {
-        fn rotate_point_around_origin(
-            origin: Vector<f32>,
-            point: Vector<f32>,
-            rot: Rotation<f32>,
-        ) -> Vector<f32> {
-            let sin = rot.sin_angle();
-            let cos = rot.cos_angle();
-            return Vector::new(
-                origin.x + (point.x - origin.x) * cos - (point.y - origin.y) * sin,
-                origin.y + (point.x - origin.x) * sin + (point.y - origin.y) * cos,
-            );
-        }
-
-        let translation = *self.translation();
-        let rotation = *self.rotation();
-        let fov = self.fov();
-
-        let top_right = rotate_point_around_origin(translation, translation + fov, rotation);
-        let bottom_left = rotate_point_around_origin(translation, translation - fov, rotation);
-        let top_left = rotate_point_around_origin(
-            translation,
-            translation + Vector::new(-fov.x, fov.y),
-            rotation,
-        );
-        let bottom_right = rotate_point_around_origin(
-            translation,
-            translation + Vector::new(fov.x, -fov.y),
-            rotation,
-        );
-
-        let mut xs = [top_right.x, bottom_left.x, top_left.x, bottom_right.x];
-        xs.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        let mut ys = [top_right.y, bottom_left.y, top_left.y, bottom_right.y];
-        ys.sort_by(|a, b| a.partial_cmp(b).unwrap());
-
-        return (
-            Vector::new(*xs.first().unwrap(), *ys.first().unwrap()),
-            Vector::new(*xs.last().unwrap(), *ys.last().unwrap()),
-        );
     }
 
     pub const fn position(&self) -> &Isometry<f32> {
@@ -125,12 +83,12 @@ impl Camera {
         let view = self.view();
         let proj = self.proj();
         CameraBuffer {
-            model: Model::new(gpu, ModelBuilder::cuboid(fov)),
+            model: Model::new(gpu, ModelBuilder::cuboid(fov).vertex_position(self.position)),
             uniform: Uniform::new_vertex(gpu, view * proj),
         }
     }
 
-    pub fn write_buffer(&self, gpu: &Gpu, buffer: &mut CameraBuffer) {
+    pub fn write_buffer(&mut self, gpu: &Gpu, buffer: &mut CameraBuffer) {
         let fov = self.fov();
         let view = self.view();
         let proj = self.proj();

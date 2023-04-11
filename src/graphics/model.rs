@@ -1,6 +1,8 @@
 #[cfg(feature = "physics")]
 use crate::physics::{Shape, TypedShape};
+use crate::CameraBuffer;
 use crate::{na::Matrix2, Gpu, Index, Isometry, Rotation, Vector, Vertex};
+use std::cmp::Ordering::Equal;
 use std::f32::consts::{FRAC_PI_2, PI};
 use wgpu::util::DeviceExt;
 
@@ -16,6 +18,41 @@ impl Default for ModelBuilder {
             vertex_rotation_axis: Vector::new(0.0, 0.0),
             tex_coord_rotation_axis: Vector::new(0.5, 0.5),
         }
+    }
+}
+
+trait ComputeAABB {
+    fn aabb(&self) -> (Vector<f32>, Vector<f32>);
+}
+
+impl ComputeAABB for [Vertex] {
+    fn aabb(&self) -> (Vector<f32>, Vector<f32>) {
+        let max_x = self
+            .iter()
+            .max_by(|v1, v2| v1.pos.x.partial_cmp(&v2.pos.x).unwrap_or(Equal))
+            .unwrap()
+            .pos
+            .x;
+        let min_x = self
+            .iter()
+            .min_by(|v1, v2| v1.pos.x.partial_cmp(&v2.pos.x).unwrap_or(Equal))
+            .unwrap()
+            .pos
+            .x;
+        let max_y = self
+            .iter()
+            .max_by(|v1, v2| v1.pos.y.partial_cmp(&v2.pos.y).unwrap_or(Equal))
+            .unwrap()
+            .pos
+            .y;
+        let min_y = self
+            .iter()
+            .min_by(|v1, v2| v1.pos.y.partial_cmp(&v2.pos.y).unwrap_or(Equal))
+            .unwrap()
+            .pos
+            .y;
+
+        return (Vector::new(min_x, min_y), Vector::new(max_x, max_y));
     }
 }
 
@@ -421,8 +458,6 @@ impl ModelBuilder {
 
     /// Generates the texture coordinates
     pub fn create_tex_coords(vertices: Vec<Vector<f32>>) -> Vec<Vertex> {
-        use std::cmp::Ordering::Equal;
-
         let max_x = vertices
             .iter()
             .max_by(|v1, v2| v1.x.partial_cmp(&v2.x).unwrap_or(Equal))
@@ -593,6 +628,7 @@ impl ModelBuilder {
 
     pub fn build(self, gpu: &Gpu) -> Model {
         let mut vertices = self.vertices.clone();
+        assert!(vertices.len() >= 3);
         Self::compute_modifed_vertices(
             &mut vertices,
             self.vertex_offset,
@@ -624,6 +660,7 @@ impl ModelBuilder {
             amount_of_indices: self.indices.len() as u32,
             vertex_buffer,
             index_buffer,
+            aabb: vertices.aabb(),
         }
     }
 }
@@ -635,11 +672,21 @@ pub struct Model {
     amount_of_indices: u32,
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
+    aabb: (Vector<f32>, Vector<f32>),
 }
 
 impl Model {
     pub fn new(gpu: &Gpu, builder: ModelBuilder) -> Self {
         builder.build(gpu)
+    }
+
+    pub fn intersects_camera(&self, position: Isometry<f32>, camera: &CameraBuffer) -> bool {
+        // let camera_aabb = camera.model.aabb();
+        // let model_aabb = self.aabb;
+        // return (camera_aabb.0.x < model_aabb.1.x)
+        //     && (model_aabb.0.x < camera_aabb.1.x)
+        //     && (camera_aabb.0.y < model_aabb.1.y)
+        //     && (model_aabb.0.y < camera_aabb.1.y);
     }
 
     pub fn write(&mut self, gpu: &Gpu, vertices: &[Vertex], indices: &[Index]) {
@@ -649,6 +696,7 @@ impl Model {
 
     pub fn write_vertices(&mut self, gpu: &Gpu, vertices: &[Vertex]) {
         assert_eq!(vertices.len(), self.amount_of_vertices as usize);
+        self.aabb = vertices.aabb();
         gpu.queue
             .write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&vertices[..]));
     }
@@ -673,5 +721,9 @@ impl Model {
 
     pub fn amount_of_vertices(&self) -> u32 {
         self.amount_of_vertices
+    }
+
+    pub fn aabb(&self) -> (Vector<f32>, Vector<f32>) {
+        self.aabb
     }
 }

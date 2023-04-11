@@ -1,11 +1,11 @@
 #[cfg(feature = "physics")]
 use crate::physics::World;
 use crate::{
-    Arena, ArenaEntry, ArenaIndex, ArenaPath, BoxedComponent, Camera, ComponentCallbacks,
+    Arena, ArenaEntry, ArenaIndex, ArenaPath, BoxedComponent, ComponentCallbacks,
     ComponentCluster, ComponentController, ComponentDerive, ComponentGroup,
     ComponentGroupDescriptor, ComponentHandle, ComponentIterRender, ComponentPath,
     ComponentRenderGroup, ComponentSet, ComponentSetMut, ComponentTypeId, Gpu, GpuDefaults,
-    GroupActivation, InstanceBuffer, DEFAULT_GROUP_ID,
+    GroupActivation, InstanceBuffer, DEFAULT_GROUP_ID, CameraBuffer,
 };
 use instant::Instant;
 #[cfg(feature = "log")]
@@ -25,8 +25,12 @@ pub enum GroupFilter<'a> {
 
 impl<'a> Default for GroupFilter<'a> {
     fn default() -> Self {
-        return GroupFilter::Active;
+        return GroupFilter::DEFAULT_GROUP;
     }
+}
+
+impl GroupFilter<'static> {
+    pub const DEFAULT_GROUP: Self = GroupFilter::Specific(&[DEFAULT_GROUP_ID]);
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -87,13 +91,13 @@ impl ComponentManager {
         }
     }
 
-    pub(crate) fn update_sets(&mut self, camera: &Camera) {
-        let camera_rect = camera.rect();
+    pub(crate) fn update_sets(&mut self, camera: &CameraBuffer) {
+        let aabb = camera.model.aabb();
         let active_components = Rc::get_mut(&mut self.active_components).unwrap();
         let now = Instant::now();
         let mut groups_changed = false;
         for (index, group) in &mut self.groups {
-            if group.enabled() && group.intersects_camera(camera_rect.0, camera_rect.1) {
+            if group.enabled() && group.intersects_camera(aabb.0, aabb.1) {
                 group.set_active(true);
                 if self.active_groups.insert(index) {
                     groups_changed = true;
