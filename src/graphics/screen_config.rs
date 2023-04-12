@@ -9,7 +9,7 @@ pub struct ScreenConfig {
     pub render_scale: f32,
     pub max_fps: Option<u32>,
     pub vsync: bool,
-    pub(crate) vsync_changed: bool,
+    pub(crate) changed: bool,
 }
 
 impl Default for ScreenConfig {
@@ -19,7 +19,7 @@ impl Default for ScreenConfig {
             render_scale: 1.0,
             max_fps: None,
             vsync: false,
-            vsync_changed: true,
+            changed: true,
         }
     }
 }
@@ -46,11 +46,12 @@ impl ScreenConfig {
     }
 
     pub fn set_vsync(&mut self, vsync: bool) {
-        self.vsync_changed = true;
+        self.changed = true;
         self.vsync = vsync;
     }
 
     pub fn set_render_scale(&mut self, render_scale: f32) {
+        self.changed = true;
         self.render_scale = render_scale;
     }
 

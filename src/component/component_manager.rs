@@ -1,11 +1,11 @@
 #[cfg(feature = "physics")]
 use crate::physics::World;
 use crate::{
-    Arena, ArenaEntry, ArenaIndex, ArenaPath, BoxedComponent, ComponentCallbacks,
+    Arena, ArenaEntry, ArenaIndex, ArenaPath, BoxedComponent, CameraBuffer, ComponentCallbacks,
     ComponentCluster, ComponentController, ComponentDerive, ComponentGroup,
     ComponentGroupDescriptor, ComponentHandle, ComponentIterRender, ComponentPath,
     ComponentRenderGroup, ComponentSet, ComponentSetMut, ComponentTypeId, Gpu, GpuDefaults,
-    GroupActivation, InstanceBuffer, DEFAULT_GROUP_ID, CameraBuffer,
+    GroupActivation, InstanceBuffer, DEFAULT_GROUP_ID,
 };
 use instant::Instant;
 #[cfg(feature = "log")]
@@ -113,8 +113,8 @@ impl ComponentManager {
         if self.force_update_sets || groups_changed {
             #[cfg(feature = "log")]
             {
-                info!("Rebuilding Active Components!");
-                info!("Now processing {} groups!", self.active_groups.len());
+                info!("Rebuilding Active Components");
+                info!("Now processing {} group(s)", self.active_groups.len());
             }
             self.force_update_sets = false;
             for set in active_components.values_mut() {
@@ -651,14 +651,10 @@ impl ComponentManager {
         self.world.borrow_mut()
     }
 
-    
     #[cfg(feature = "physics")]
-    pub fn world_rc(
-        & self,
-    ) -> Rc<RefCell<World>> {
+    pub fn world_rc(&self) -> Rc<RefCell<World>> {
         self.world.clone()
     }
-
 
     pub fn instance_buffer<C: ComponentController>(
         &self,

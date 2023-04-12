@@ -14,7 +14,7 @@ use std::{cmp, marker::PhantomData};
 use crate::{
     Arena, ArenaEntry, BoxedComponent, ComponentController, ComponentDerive, ComponentManager,
     ComponentTypeId, Context, FieldNames, GlobalState, GroupFilter, Scene, SceneCreator,
-    SceneState, ShuraFields, Vector,
+    SceneState, ShuraFields,
 };
 
 pub struct SceneSerializer<'a> {
@@ -154,15 +154,9 @@ impl<N: 'static + FnMut(&mut Context, &mut SceneDeserializer)> SceneCreator for 
             Option<Vec<u8>>,
         ) = bincode::deserialize(&self.scene).unwrap();
         let mut de = SceneDeserializer::new(components, scene_state, global_state);
-        let mint: mint::Vector2<u32> = shura.window.inner_size().into();
-        let window_size: Vector<u32> = mint.into();
-        scene.world_camera.resize(window_size);
-        scene.id = self.id;
-
         let mut ctx = Context::from_fields(shura, &mut scene);
         (self.init)(&mut ctx, &mut de);
         de.finish();
-        scene.component_manager.update_sets(&scene.world_camera);
         return scene;
     }
 }

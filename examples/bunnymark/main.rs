@@ -7,7 +7,7 @@ fn main() {
         init: |ctx| {
             ctx.set_scene_state(BunnyState::new(ctx));
             ctx.set_clear_color(Some(Color::new_rgba(220, 220, 220, 255)));
-            ctx.set_window_size(Vector::new(800, 600));
+            // ctx.set_window_size(Vector::new(800, 600));
             ctx.set_camera_scale(WorldCameraScale::Min(3.0));
             ctx.add_component(Bunny::new(&ctx));
         },

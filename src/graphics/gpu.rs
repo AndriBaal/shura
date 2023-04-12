@@ -4,8 +4,8 @@ use crate::log::info;
 use crate::text::{FontBrush, TextDescriptor};
 use crate::{
     BufferedCamera, Camera, CameraBuffer, ColorWrites, InstanceBuffer, Isometry, Matrix, Model,
-    ModelBuilder, RenderConfig, RenderEncoder, RenderTarget, ScreenConfig, Shader, ShaderConfig,
-    ShaderField, ShaderLang, Sprite, SpriteSheet, Uniform, Vector,
+    ModelBuilder, RenderConfig, RenderEncoder, RenderTarget, Shader, ShaderConfig, ShaderField,
+    ShaderLang, Sprite, SpriteSheet, Uniform, Vector,
 };
 use std::borrow::Cow;
 use wgpu::BlendState;
@@ -103,15 +103,15 @@ impl Gpu {
         return gpu;
     }
 
-    pub(crate) fn resize(&mut self, size: Vector<u32>) {
-        self.config.width = size.x;
-        self.config.height = size.y;
-        self.surface.configure(&self.device, &self.config);
-    }
-
     #[cfg(target_os = "android")]
     pub(crate) fn resume(&mut self, window: &winit::window::Window) {
         self.surface = unsafe { self.instance.create_surface(window).unwrap() };
+        self.surface.configure(&self.device, &self.config);
+    }
+
+    pub(crate) fn resize(&mut self, window_size: Vector<u32>) {
+        self.config.width = window_size.x;
+        self.config.height = window_size.y;
         self.surface.configure(&self.device, &self.config);
     }
 
@@ -486,13 +486,7 @@ impl GpuDefaults {
         }
     }
 
-    pub(crate) fn resize(
-        &mut self,
-        gpu: &Gpu,
-        window_size: Vector<u32>,
-        screen_config: &ScreenConfig,
-    ) {
-        self.apply_render_scale(&gpu, screen_config.render_scale());
+    pub(crate) fn resize(&mut self, gpu: &Gpu, window_size: Vector<u32>) {
         let fov = Self::relative_fov(window_size);
         self.relative_bottom_left_camera
             .write(gpu, Camera::new(Isometry::new(fov, 0.0), fov));
@@ -512,7 +506,7 @@ impl GpuDefaults {
 
     pub(crate) fn buffer(
         &mut self,
-        active_scene_camera: &Camera,
+        active_scene_camera: &mut Camera,
         gpu: &Gpu,
         total_time: f32,
         frame_time: f32,

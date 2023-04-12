@@ -97,6 +97,7 @@ pub struct Context<'a> {
     pub scene_id: &'a u32,
     pub scene_resized: &'a bool,
     pub scene_switched: &'a bool,
+    pub scene_started: &'a bool,
     pub screen_config: &'a mut ScreenConfig,
     pub scene_state: &'a mut Box<dyn SceneState>,
     pub world_camera: &'a mut WorldCamera,
@@ -124,6 +125,7 @@ impl<'a> Context<'a> {
         Self {
             scene_id: &scene.id,
             scene_resized: &scene.resized,
+            scene_started: &scene.started,
             scene_switched: &scene.switched,
             screen_config: &mut scene.screen_config,
             world_camera: &mut scene.world_camera,
@@ -152,6 +154,7 @@ impl<'a> Context<'a> {
         Self {
             scene_id: &scene.id,
             scene_resized: &scene.resized,
+            scene_started: &scene.started,
             scene_switched: &scene.switched,
             screen_config: &mut scene.screen_config,
             world_camera: &mut scene.world_camera,
@@ -300,6 +303,18 @@ impl<'a> Context<'a> {
             .create_joint(component1, component2, joint)
     }
 
+    pub fn scene_resized(&self) -> bool {
+        *self.scene_resized
+    }
+
+    pub fn scene_switched(&self) -> bool {
+        *self.scene_switched
+    }
+
+    pub fn scene_started(&self) -> bool {
+        *self.scene_started
+    }
+
     #[cfg(feature = "audio")]
     pub fn create_sink(&self) -> Sink {
         Sink::try_new(&self.audio_handle).unwrap()
@@ -434,7 +449,7 @@ impl<'a> Context<'a> {
     }
 
     pub fn add_scene(&mut self, scene: impl SceneCreator) {
-        let scene = scene.create(ShuraFields::from_ctx(self));
+        let scene = scene.scene(ShuraFields::from_ctx(self));
         self.scene_manager.add(scene);
     }
 

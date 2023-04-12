@@ -13,7 +13,6 @@ pub struct Camera {
     position: Isometry<f32>,
     fov: Vector<f32>,
     proj: Matrix,
-    aabb: (Vector<f32>, Vector<f32>)
 }
 
 impl Camera {
@@ -23,7 +22,6 @@ impl Camera {
             position,
             fov,
             proj,
-            aabb: (Vector::new(0.0, 0.0), Vector::new(0.0, 0.0))
         }
     }
 
@@ -83,7 +81,10 @@ impl Camera {
         let view = self.view();
         let proj = self.proj();
         CameraBuffer {
-            model: Model::new(gpu, ModelBuilder::cuboid(fov).vertex_position(self.position)),
+            model: Model::new(
+                gpu,
+                ModelBuilder::cuboid(fov).vertex_position(self.position),
+            ),
             uniform: Uniform::new_vertex(gpu, view * proj),
         }
     }
@@ -106,7 +107,7 @@ impl Camera {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone)]
 pub struct WorldCamera {
-    camera: Camera,
+    pub(crate) camera: Camera,
     target: Option<ComponentHandle>,
     scale: WorldCameraScale,
 }

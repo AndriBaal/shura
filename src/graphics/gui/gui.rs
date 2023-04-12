@@ -21,9 +21,11 @@ impl Gui {
     ) -> Self {
         let config = &gpu.config;
         let device = &gpu.device;
+        // TODO: Implement msaa_samnples and render to the target and not the surface texture
         let renderer = Renderer::new(device, config.format, None, 1);
         let state = State::new(event_loop);
         let context = GuiContext::default();
+
         let screen_descriptor = ScreenDescriptor {
             size_in_pixels: [config.width, config.height],
             pixels_per_point: 1.0,

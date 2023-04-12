@@ -2,7 +2,6 @@
 use crate::physics::{Shape, TypedShape};
 use crate::CameraBuffer;
 use crate::{na::Matrix2, Gpu, Index, Isometry, Rotation, Vector, Vertex};
-use std::cmp::Ordering::Equal;
 use std::f32::consts::{FRAC_PI_2, PI};
 use wgpu::util::DeviceExt;
 
@@ -27,30 +26,26 @@ trait ComputeAABB {
 
 impl ComputeAABB for [Vertex] {
     fn aabb(&self) -> (Vector<f32>, Vector<f32>) {
-        let max_x = self
-            .iter()
-            .max_by(|v1, v2| v1.pos.x.partial_cmp(&v2.pos.x).unwrap_or(Equal))
-            .unwrap()
-            .pos
-            .x;
-        let min_x = self
-            .iter()
-            .min_by(|v1, v2| v1.pos.x.partial_cmp(&v2.pos.x).unwrap_or(Equal))
-            .unwrap()
-            .pos
-            .x;
-        let max_y = self
-            .iter()
-            .max_by(|v1, v2| v1.pos.y.partial_cmp(&v2.pos.y).unwrap_or(Equal))
-            .unwrap()
-            .pos
-            .y;
-        let min_y = self
-            .iter()
-            .min_by(|v1, v2| v1.pos.y.partial_cmp(&v2.pos.y).unwrap_or(Equal))
-            .unwrap()
-            .pos
-            .y;
+        let mut min_x = self[0].pos.x;
+        let mut max_x = self[0].pos.x;
+        let mut min_y = self[0].pos.y;
+        let mut max_y = self[0].pos.y;
+        for i in 1..self.len() {
+            let v = self[i];
+            if v.pos.x < min_x {
+                min_x = v.pos.x;
+            }
+            if v.pos.x > max_x {
+                max_x = v.pos.x;
+            }
+
+            if v.pos.y < min_y {
+                min_y = v.pos.y;
+            }
+            if v.pos.y > max_y {
+                max_y = v.pos.y;
+            }
+        }
 
         return (Vector::new(min_x, min_y), Vector::new(max_x, max_y));
     }
@@ -458,26 +453,26 @@ impl ModelBuilder {
 
     /// Generates the texture coordinates
     pub fn create_tex_coords(vertices: Vec<Vector<f32>>) -> Vec<Vertex> {
-        let max_x = vertices
-            .iter()
-            .max_by(|v1, v2| v1.x.partial_cmp(&v2.x).unwrap_or(Equal))
-            .unwrap()
-            .x;
-        let min_x = vertices
-            .iter()
-            .min_by(|v1, v2| v1.x.partial_cmp(&v2.x).unwrap_or(Equal))
-            .unwrap()
-            .x;
-        let max_y = vertices
-            .iter()
-            .max_by(|v1, v2| v1.y.partial_cmp(&v2.y).unwrap_or(Equal))
-            .unwrap()
-            .y;
-        let min_y = vertices
-            .iter()
-            .min_by(|v1, v2| v1.y.partial_cmp(&v2.y).unwrap_or(Equal))
-            .unwrap()
-            .y;
+        let mut min_x = vertices[0].x;
+        let mut max_x = vertices[0].x;
+        let mut min_y = vertices[0].y;
+        let mut max_y = vertices[0].y;
+        for i in 1..vertices.len() {
+            let v = vertices[i];
+            if v.x < min_x {
+                min_x = v.x;
+            }
+            if v.x > max_x {
+                max_x = v.x;
+            }
+
+            if v.y < min_y {
+                min_y = v.y;
+            }
+            if v.y > max_y {
+                max_y = v.y;
+            }
+        }
         let size = Vector::new(max_x - min_x, max_y - min_y);
         let mut result = vec![];
         for v in vertices {
@@ -567,18 +562,18 @@ impl ModelBuilder {
         vertex_rotation_axis: Vector<f32>,
         tex_coord_rotation_axis: Vector<f32>,
     ) {
-        fn rotate_point_around_origin(
-            origin: Vector<f32>,
-            point: Vector<f32>,
-            rot: Rotation<f32>,
-        ) -> Vector<f32> {
-            let sin = rot.sin_angle();
-            let cos = rot.cos_angle();
-            return Vector::new(
-                origin.x + (point.x - origin.x) * cos - (point.y - origin.y) * sin,
-                origin.y + (point.x - origin.x) * sin + (point.y - origin.y) * cos,
-            );
-        }
+        // fn rotate_point_around_origin(
+        //     origin: Vector<f32>,
+        //     point: Vector<f32>,
+        //     rot: Rotation<f32>,
+        // ) -> Vector<f32> {
+        //     let sin = rot.sin_angle();
+        //     let cos = rot.cos_angle();
+        //     return Vector::new(
+        //         origin.x + (point.x - origin.x) * cos - (point.y - origin.y) * sin,
+        //         origin.y + (point.x - origin.x) * sin + (point.y - origin.y) * cos,
+        //     );
+        // }
 
         if vertex_scale != Self::DEFAULT_SCALE {
             for v in vertices.iter_mut() {
@@ -589,9 +584,15 @@ impl ModelBuilder {
 
         let angle = vertex_offset.rotation.angle();
         if angle != Self::DEFAULT_ROTATION {
+            let sin = vertex_offset.rotation.sin_angle();
+            let cos = vertex_offset.rotation.cos_angle();
             for v in vertices.iter_mut() {
-                v.pos =
-                    rotate_point_around_origin(vertex_rotation_axis, v.pos, vertex_offset.rotation);
+                let delta = v.pos - vertex_rotation_axis;
+
+                v.pos = Vector::new(
+                    vertex_rotation_axis.x + (delta.x) * cos - (delta.y) * sin,
+                    vertex_rotation_axis.y + (delta.x) * sin + (delta.y) * cos,
+                );
             }
         }
 
@@ -610,11 +611,14 @@ impl ModelBuilder {
 
         let angle = tex_coord_offset.rotation.angle();
         if angle != Self::DEFAULT_ROTATION {
+            let sin = tex_coord_offset.rotation.sin_angle();
+            let cos = tex_coord_offset.rotation.cos_angle();
             for v in vertices.iter_mut() {
-                v.tex_coords = rotate_point_around_origin(
-                    tex_coord_rotation_axis, // Center of Metal Texture
-                    v.tex_coords,
-                    tex_coord_offset.rotation,
+                let delta = v.tex_coords - tex_coord_rotation_axis;
+
+                v.tex_coords = Vector::new(
+                    tex_coord_rotation_axis.x + (delta.x) * cos - (delta.y) * sin,
+                    tex_coord_rotation_axis.y + (delta.x) * sin + (delta.y) * cos,
                 );
             }
         }
@@ -681,12 +685,32 @@ impl Model {
     }
 
     pub fn intersects_camera(&self, position: Isometry<f32>, camera: &CameraBuffer) -> bool {
-        // let camera_aabb = camera.model.aabb();
-        // let model_aabb = self.aabb;
-        // return (camera_aabb.0.x < model_aabb.1.x)
-        //     && (model_aabb.0.x < camera_aabb.1.x)
-        //     && (camera_aabb.0.y < model_aabb.1.y)
-        //     && (model_aabb.0.y < camera_aabb.1.y);
+        let mut model_aabb = self.aabb;
+        model_aabb.0 += position.translation.vector;
+        model_aabb.1 += position.translation.vector;
+
+        if position.rotation.angle() != ModelBuilder::DEFAULT_ROTATION {
+            let sin = position.rotation.sin_angle();
+            let cos = position.rotation.cos_angle();
+            let delta = model_aabb.0 - position.translation.vector;
+            model_aabb.0 = Vector::new(
+                model_aabb.0.x + (delta.x) * cos - (delta.y) * sin,
+                model_aabb.0.y + (delta.x) * sin + (delta.y) * cos,
+            );
+
+            let sin = position.rotation.sin_angle();
+            let cos = position.rotation.cos_angle();
+            let delta = model_aabb.1 - position.translation.vector;
+            model_aabb.1 = Vector::new(
+                model_aabb.1.x + (delta.x) * cos - (delta.y) * sin,
+                model_aabb.1.y + (delta.x) * sin + (delta.y) * cos,
+            );
+        }
+        let camera_aabb = camera.model.aabb();
+        return (camera_aabb.0.x < model_aabb.1.x)
+            && (model_aabb.0.x < camera_aabb.1.x)
+            && (camera_aabb.0.y < model_aabb.1.y)
+            && (model_aabb.0.y < camera_aabb.1.y);
     }
 
     pub fn write(&mut self, gpu: &Gpu, vertices: &[Vertex], indices: &[Index]) {

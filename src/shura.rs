@@ -249,7 +249,7 @@ impl Shura {
             gpu: gpu,
             defaults,
         };
-        let scene = creator.create(ShuraFields::from_shura(&mut shura));
+        let scene = creator.scene(ShuraFields::from_shura(&mut shura));
         shura.scene_manager.init(scene);
         return shura;
     }
@@ -257,10 +257,9 @@ impl Shura {
     fn resize(&mut self, new_size: Vector<u32>) {
         let config_size = self.gpu.render_size_no_scale();
         if new_size.x > 0 && new_size.y > 0 && new_size != config_size {
-            let active = self.scene_manager.resize();
+            self.scene_manager.resize();
             self.gpu.resize(new_size);
-            self.defaults
-                .resize(&self.gpu, new_size, &active.screen_config);
+            self.defaults.resize(&self.gpu, new_size);
             #[cfg(feature = "gui")]
             self.gui.resize(&new_size);
         }
@@ -327,6 +326,9 @@ impl Shura {
     }
 
     fn update(&mut self, scene: &mut Scene) -> Result<(), wgpu::SurfaceError> {
+        self.frame_manager.update();
+        let mint: mint::Vector2<u32> = self.window.inner_size().into();
+        let window_size: Vector<u32> = mint.into();
         #[cfg(target_arch = "wasm32")]
         {
             let browser_window = web_sys::window().unwrap();
@@ -347,22 +349,33 @@ impl Shura {
                 info!("Adjusting canvas to browser window!");
             }
         }
-        if scene.switched || scene.resized || scene.screen_config.vsync_changed {
-            scene.screen_config.vsync_changed = false;
+        if scene.switched || scene.resized || scene.screen_config.changed {
+            scene.screen_config.changed = false;
+            scene.world_camera.resize(window_size);
+
             self.gpu.apply_vsync(scene.screen_config.vsync());
+            self.defaults
+                .apply_render_scale(&self.gpu, scene.screen_config.render_scale());
+        }
+        if scene.started {
+            self.input.update();
+            scene.world_camera.apply_target(&scene.component_manager);
+            self.defaults.buffer(
+                &mut scene.world_camera.camera,
+                &self.gpu,
+                self.frame_manager.total_time(),
+                self.frame_manager.frame_time(),
+            );
+            scene
+                .component_manager
+                .update_sets(&self.defaults.world_camera);
+            scene.component_manager.buffer_sets(&self.gpu);
         }
         let output = self.gpu.surface.get_current_texture()?;
 
-        let mint: mint::Vector2<u32> = self.window.inner_size().into();
-        let window_size: Vector<u32> = mint.into();
-        self.frame_manager.update();
         #[cfg(feature = "gui")]
         self.gui
             .begin(&self.frame_manager.total_time_duration(), &self.window);
-
-        if scene.resized {
-            scene.world_camera.resize(window_size);
-        }
 
         {
             let state_update = scene.state.get_update();
@@ -425,20 +438,24 @@ impl Shura {
         self.defaults
             .apply_render_scale(&self.gpu, scene.screen_config.render_scale());
         scene.world_camera.apply_target(&scene.component_manager);
-        scene.component_manager.update_sets(&scene.world_camera);
-
-        if !scene.component_manager.render_components() {
-            return Ok(());
-        }
-
-        scene.component_manager.buffer_sets(&self.gpu);
         self.defaults.buffer(
-            &scene.world_camera,
+            &mut scene.world_camera.camera,
             &self.gpu,
             self.frame_manager.total_time(),
             self.frame_manager.frame_time(),
         );
 
+        scene
+            .component_manager
+            .update_sets(&self.defaults.world_camera);
+        if !scene.component_manager.render_components() {
+            scene.resized = false;
+            scene.switched = false;
+            scene.started = false;
+            return Ok(());
+        }
+
+        scene.component_manager.buffer_sets(&self.gpu);
         let ctx = Context::new(self, scene);
         let mut encoder = RenderEncoder::new(ctx.gpu, &ctx.defaults);
         if let Some(clear_color) = ctx.screen_config.clear_color {
@@ -476,6 +493,7 @@ impl Shura {
             renderer.draw(0);
         }
 
+
         #[cfg(feature = "gui")]
         ctx.gui.render(&ctx.gpu, &mut encoder.inner, &output_view);
 
@@ -484,6 +502,7 @@ impl Shura {
 
         scene.resized = false;
         scene.switched = false;
+        scene.started = false;
         Ok(())
     }
 }

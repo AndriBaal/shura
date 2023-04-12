@@ -7,6 +7,18 @@ use super::state::SceneState;
 pub trait SceneCreator {
     fn id(&self) -> u32;
     fn create(self, shura: ShuraFields) -> Scene;
+    fn scene(self, shura: ShuraFields) -> Scene
+    where
+        Self: Sized,
+    {
+        let id = self.id();
+        let mut scene = self.create(shura);
+        scene.id = id;
+        scene.started = true;
+        scene.resized = true;
+        scene.switched = true;
+        return scene;
+    }
 }
 
 pub struct NewScene<N: 'static + FnMut(&mut Context)> {
@@ -31,7 +43,6 @@ impl<N: 'static + FnMut(&mut Context)> SceneCreator for NewScene<N> {
         let mut scene = Scene::new(window_size, self.id);
         let mut ctx = Context::from_fields(shura, &mut scene);
         (self.init)(&mut ctx);
-        scene.component_manager.update_sets(&scene.world_camera);
         return scene;
     }
 }
@@ -59,9 +70,6 @@ impl<N: 'static + FnMut(&mut Context)> SceneCreator for RecycleScene<N> {
         self.scene.world_camera.resize(window_size);
         let mut ctx = Context::from_fields(shura, &mut self.scene);
         (self.init)(&mut ctx);
-        self.scene
-            .component_manager
-            .update_sets(&self.scene.world_camera);
         return self.scene;
     }
 }
@@ -75,6 +83,7 @@ pub struct Scene {
     pub(crate) id: u32,
     pub(crate) resized: bool,
     pub(crate) switched: bool,
+    pub(crate) started: bool,
     pub screen_config: ScreenConfig,
     pub world_camera: WorldCamera,
     pub component_manager: ComponentManager,
@@ -90,6 +99,7 @@ impl Scene {
             id: id,
             switched: true,
             resized: true,
+            started: true,
             world_camera: WorldCamera::new(
                 Default::default(),
                 WorldCameraScale::Min(Self::DEFAULT_VERTICAL_CAMERA_FOV),
@@ -107,6 +117,10 @@ impl Scene {
 
     pub fn switched(&self) -> bool {
         self.switched
+    }
+
+    pub fn started(&self) -> bool {
+        self.started
     }
 
     pub fn id(&self) -> u32 {
