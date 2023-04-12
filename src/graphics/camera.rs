@@ -2,7 +2,7 @@ use std::ops::Deref;
 
 use crate::{
     ComponentHandle, ComponentManager, Gpu, Isometry, Matrix, Model, ModelBuilder, Rotation,
-    Uniform, Vector, Vertex,
+    Uniform, Vector,
 };
 
 const MINIMAL_FOV: f32 = 0.0000001;
@@ -93,13 +93,10 @@ impl Camera {
         let fov = self.fov();
         let view = self.view();
         let proj = self.proj();
-        let vertices = [
-            Vertex::new(Vector::new(-fov.x, fov.y), Vector::new(0.0, 0.0)),
-            Vertex::new(Vector::new(-fov.x, -fov.y), Vector::new(0.0, 1.0)),
-            Vertex::new(Vector::new(fov.x, -fov.y), Vector::new(1.0, 1.0)),
-            Vertex::new(Vector::new(fov.x, fov.y), Vector::new(1.0, 0.0)),
-        ];
-        buffer.model.write_vertices(gpu, &vertices);
+        buffer.model.write(
+            gpu,
+            ModelBuilder::cuboid(fov).vertex_position(self.position),
+        );
         buffer.uniform.write(gpu, view * proj);
     }
 }
@@ -227,8 +224,10 @@ impl Deref for WorldCamera {
 }
 
 pub struct CameraBuffer {
-    pub model: Model,
-    pub uniform: Uniform<Matrix>,
+    model: Model,
+    uniform: Uniform<Matrix>,
+    // instance: InstanceBuffer,
+    // position: Isometry<f32>
 }
 
 impl CameraBuffer {
@@ -239,39 +238,12 @@ impl CameraBuffer {
     pub fn model(&self) -> &Model {
         &self.model
     }
-}
 
-pub struct BufferedCamera {
-    camera: Camera,
-    buffer: CameraBuffer,
-}
+    // pub fn instance(&self) -> &InstanceBuffer {
+    //     &self.instance
+    // }
 
-impl Deref for BufferedCamera {
-    type Target = CameraBuffer;
-
-    fn deref(&self) -> &Self::Target {
-        &self.buffer
-    }
-}
-
-impl BufferedCamera {
-    pub fn new(gpu: &Gpu, camera: Camera) -> BufferedCamera {
-        BufferedCamera {
-            buffer: camera.create_buffer(gpu),
-            camera,
-        }
-    }
-
-    pub fn write(&mut self, gpu: &Gpu, camera: Camera) {
-        self.camera = camera;
-        self.camera.write_buffer(gpu, &mut self.buffer)
-    }
-
-    pub fn camera(&self) -> &Camera {
-        &self.camera
-    }
-
-    pub fn buffer(&self) -> &CameraBuffer {
-        &self.buffer
-    }
+    // pub fn position(&self) -> &Isometry<f32> {
+    //     &self.position
+    // }
 }

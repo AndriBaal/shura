@@ -3,9 +3,9 @@ use crate::log::info;
 #[cfg(feature = "text")]
 use crate::text::{FontBrush, TextDescriptor};
 use crate::{
-    BufferedCamera, Camera, CameraBuffer, ColorWrites, InstanceBuffer, Isometry, Matrix, Model,
-    ModelBuilder, RenderConfig, RenderEncoder, RenderTarget, Shader, ShaderConfig, ShaderField,
-    ShaderLang, Sprite, SpriteSheet, Uniform, Vector,
+    Camera, CameraBuffer, ColorWrites, InstanceBuffer, Isometry, Matrix, Model, ModelBuilder,
+    RenderConfig, RenderEncoder, RenderTarget, Shader, ShaderConfig, ShaderField, ShaderLang,
+    Sprite, SpriteSheet, Uniform, Vector,
 };
 use std::borrow::Cow;
 use wgpu::BlendState;
@@ -340,13 +340,13 @@ pub struct GpuDefaults {
     /// some devices need.
     pub times: Uniform<[f32; 2]>,
     /// Camera where the smaller side is always 1.0 and the otherside is scaled to match the window aspect ratio.
-    pub relative_camera: BufferedCamera,
-    pub relative_bottom_left_camera: BufferedCamera,
-    pub relative_bottom_right_camera: BufferedCamera,
-    pub relative_top_left_camera: BufferedCamera,
-    pub relative_top_right_camera: BufferedCamera,
+    pub relative_camera: (CameraBuffer, Camera),
+    pub relative_bottom_left_camera: (CameraBuffer, Camera),
+    pub relative_bottom_right_camera: (CameraBuffer, Camera),
+    pub relative_top_left_camera: (CameraBuffer, Camera),
+    pub relative_top_right_camera: (CameraBuffer, Camera),
+    pub unit_camera: (CameraBuffer, Camera),
     pub world_camera: CameraBuffer,
-    pub unit_camera: CameraBuffer,
     pub single_centered_instance: InstanceBuffer,
     pub empty_instance: InstanceBuffer,
     pub world_target: RenderTarget,
@@ -444,23 +444,24 @@ impl GpuDefaults {
 
         let fov = Self::relative_fov(window_size);
 
-        let relative_bottom_left_camera =
-            BufferedCamera::new(gpu, Camera::new(Isometry::new(fov, 0.0), fov));
-        let relative_bottom_right_camera = BufferedCamera::new(
-            gpu,
-            Camera::new(Isometry::new(Vector::new(-fov.x, fov.y), 0.0), fov),
-        );
-        let relative_top_right_camera =
-            BufferedCamera::new(gpu, Camera::new(Isometry::new(-fov, 0.0), fov));
-        let relative_top_left_camera = BufferedCamera::new(
-            gpu,
-            Camera::new(Isometry::new(Vector::new(fov.x, -fov.y), 0.0), fov),
-        );
+        let camera = Camera::new(Isometry::new(fov, 0.0), fov);
+        let relative_bottom_left_camera = (camera.create_buffer(gpu), camera);
 
-        let relative_cam = Camera::new(Default::default(), fov);
-        let world_camera = relative_cam.create_buffer(gpu);
-        let unit_camera = Camera::new(Default::default(), Vector::new(0.5, 0.5)).create_buffer(gpu);
-        let relative_camera = BufferedCamera::new(gpu, relative_cam);
+        let camera = Camera::new(Isometry::new(Vector::new(-fov.x, fov.y), 0.0), fov);
+        let relative_bottom_right_camera = (camera.create_buffer(gpu), camera);
+
+        let camera = Camera::new(Isometry::new(-fov, 0.0), fov);
+        let relative_top_right_camera = (camera.create_buffer(gpu), camera);
+
+        let camera = Camera::new(Isometry::new(Vector::new(fov.x, -fov.y), 0.0), fov);
+        let relative_top_left_camera = (camera.create_buffer(gpu), camera);
+
+        let camera = Camera::new(Default::default(), fov);
+        let world_camera = camera.create_buffer(gpu);
+        let relative_camera = (camera.create_buffer(gpu), camera);
+
+        let camera = Camera::new(Default::default(), Vector::new(0.5, 0.5));
+        let unit_camera = (camera.create_buffer(gpu), camera);
 
         Self {
             unit_camera,
@@ -488,20 +489,29 @@ impl GpuDefaults {
 
     pub(crate) fn resize(&mut self, gpu: &Gpu, window_size: Vector<u32>) {
         let fov = Self::relative_fov(window_size);
+        self.relative_bottom_left_camera.1 = Camera::new(Isometry::new(fov, 0.0), fov);
+        self.relative_bottom_right_camera.1 =
+            Camera::new(Isometry::new(Vector::new(-fov.x, fov.y), 0.0), fov);
+        self.relative_top_right_camera.1 = Camera::new(Isometry::new(-fov, 0.0), fov);
+        self.relative_top_left_camera.1 =
+            Camera::new(Isometry::new(Vector::new(fov.x, -fov.y), 0.0), fov);
+        self.relative_camera.1 = Camera::new(Isometry::default(), fov);
+
         self.relative_bottom_left_camera
-            .write(gpu, Camera::new(Isometry::new(fov, 0.0), fov));
-        self.relative_bottom_right_camera.write(
-            gpu,
-            Camera::new(Isometry::new(Vector::new(-fov.x, fov.y), 0.0), fov),
-        );
+            .1
+            .write_buffer(gpu, &mut self.relative_bottom_left_camera.0);
+        self.relative_bottom_right_camera
+            .1
+            .write_buffer(gpu, &mut self.relative_bottom_right_camera.0);
         self.relative_top_right_camera
-            .write(gpu, Camera::new(Isometry::new(-fov, 0.0), fov));
-        self.relative_top_left_camera.write(
-            gpu,
-            Camera::new(Isometry::new(Vector::new(fov.x, -fov.y), 0.0), fov),
-        );
+            .1
+            .write_buffer(gpu, &mut self.relative_top_right_camera.0);
+        self.relative_top_left_camera
+            .1
+            .write_buffer(gpu, &mut self.relative_top_left_camera.0);
         self.relative_camera
-            .write(gpu, Camera::new(Isometry::default(), fov));
+            .1
+            .write_buffer(gpu, &mut self.relative_camera.0);
     }
 
     pub(crate) fn buffer(

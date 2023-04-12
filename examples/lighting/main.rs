@@ -606,7 +606,7 @@ impl ComponentController for LightManager {
                 renderer.render_sprite(
                     instance,
                     index,
-                    ctx.defaults.relative_camera.model(),
+                    ctx.defaults.relative_camera.0.model(),
                     &map.map,
                 );
             }

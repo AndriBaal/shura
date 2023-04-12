@@ -219,6 +219,7 @@ impl<'a> Context<'a> {
             id: u32,
             resized: bool,
             switched: bool,
+            started: bool,
             screen_config: &'a ScreenConfig,
             world_camera: &'a WorldCamera,
             component_manager: &'a mut ComponentManager,
@@ -250,6 +251,7 @@ impl<'a> Context<'a> {
                 id: *self.scene_id,
                 resized: true,
                 switched: true,
+                started: true,
                 screen_config: self.screen_config,
                 world_camera: self.world_camera,
                 component_manager: self.component_manager,
@@ -691,23 +693,23 @@ impl<'a> Context<'a> {
     }
 
     pub fn cursor_relative(&self) -> Vector<f32> {
-        self.cursor_camera(self.defaults.relative_camera.camera())
+        self.cursor_camera(&self.defaults.relative_camera.1)
     }
 
     pub fn cursor_relative_bottom_left(&self) -> Vector<f32> {
-        self.cursor_camera(self.defaults.relative_bottom_left_camera.camera())
+        self.cursor_camera(&self.defaults.relative_bottom_left_camera.1)
     }
 
     pub fn cursor_relative_bottom_right(&self) -> Vector<f32> {
-        self.cursor_camera(self.defaults.relative_bottom_right_camera.camera())
+        self.cursor_camera(&self.defaults.relative_bottom_right_camera.1)
     }
 
     pub fn cursor_relative_top_left(&self) -> Vector<f32> {
-        self.cursor_camera(self.defaults.relative_top_left_camera.camera())
+        self.cursor_camera(&self.defaults.relative_top_left_camera.1)
     }
 
     pub fn cursor_relative_top_right(&self) -> Vector<f32> {
-        self.cursor_camera(self.defaults.relative_top_right_camera.camera())
+        self.cursor_camera(&self.defaults.relative_top_right_camera.1)
     }
 
     // pub fn cursor_world(&self) -> Vector<f32> {

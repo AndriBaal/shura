@@ -363,7 +363,7 @@ impl ComponentController for Light {
         let mut renderer = encoder.renderer(RenderConfig::RELATIVE_WORLD);
         renderer.use_instances(&ctx.defaults.single_centered_instance);
         renderer.use_shader(&ctx.defaults.sprite);
-        renderer.use_model(&ctx.defaults.relative_camera.model);
+        renderer.use_model(&ctx.defaults.relative_camera.0.model());
         renderer.use_sprite(&map, 1);
         renderer.use_uniform(&state.shadow_color, 2);
         renderer.draw(0);

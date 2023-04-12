@@ -80,13 +80,15 @@ impl<'a> Renderer<'a> {
         };
 
         let camera = match config.camera {
-            RenderConfigCamera::UnitCamera => &defaults.unit_camera,
             RenderConfigCamera::WordCamera => &defaults.world_camera,
-            RenderConfigCamera::RelativeCamera => &defaults.relative_camera,
-            RenderConfigCamera::RelativeCameraBottomLeft => &defaults.relative_bottom_left_camera,
-            RenderConfigCamera::RelativeCameraBottomRight => &defaults.relative_bottom_right_camera,
-            RenderConfigCamera::RelativeCameraTopLeft => &defaults.relative_top_left_camera,
-            RenderConfigCamera::RelativeCameraTopRight => &defaults.relative_top_right_camera,
+            RenderConfigCamera::UnitCamera => &defaults.unit_camera.0,
+            RenderConfigCamera::RelativeCamera => &defaults.relative_camera.0,
+            RenderConfigCamera::RelativeCameraBottomLeft => &defaults.relative_bottom_left_camera.0,
+            RenderConfigCamera::RelativeCameraBottomRight => {
+                &defaults.relative_bottom_right_camera.0
+            }
+            RenderConfigCamera::RelativeCameraTopLeft => &defaults.relative_top_left_camera.0,
+            RenderConfigCamera::RelativeCameraTopRight => &defaults.relative_top_right_camera.0,
             RenderConfigCamera::Custom(c) => c,
         };
         renderer.use_camera(camera);
@@ -129,7 +131,7 @@ impl<'a> Renderer<'a> {
             cache: Default::default(),
             defaults,
         };
-        renderer.use_uniform(defaults.relative_camera.buffer().uniform(), 0);
+        renderer.use_uniform(defaults.relative_camera.0.uniform(), 0);
         renderer.use_instances(&defaults.single_centered_instance);
         return renderer;
     }

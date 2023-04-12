@@ -485,14 +485,13 @@ impl Shura {
         {
             let mut renderer =
                 Renderer::output_renderer(&mut encoder.inner, &output_view, &ctx.defaults);
-            renderer.use_camera(&ctx.defaults.relative_camera);
+            renderer.use_camera(&ctx.defaults.relative_camera.0);
             renderer.use_instances(&ctx.defaults.single_centered_instance);
             renderer.use_shader(&ctx.defaults.sprite_no_msaa);
-            renderer.use_model(ctx.defaults.relative_camera.model());
+            renderer.use_model(ctx.defaults.relative_camera.0.model());
             renderer.use_sprite(ctx.defaults.world_target.sprite(), 1);
             renderer.draw(0);
         }
-
 
         #[cfg(feature = "gui")]
         ctx.gui.render(&ctx.gpu, &mut encoder.inner, &output_view);

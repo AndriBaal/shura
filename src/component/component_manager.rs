@@ -5,7 +5,7 @@ use crate::{
     ComponentCluster, ComponentController, ComponentDerive, ComponentGroup,
     ComponentGroupDescriptor, ComponentHandle, ComponentIterRender, ComponentPath,
     ComponentRenderGroup, ComponentSet, ComponentSetMut, ComponentTypeId, Gpu, GpuDefaults,
-    GroupActivation, InstanceBuffer, DEFAULT_GROUP_ID,
+    GroupActivation, InstanceBuffer, Vector, DEFAULT_GROUP_ID,
 };
 use instant::Instant;
 #[cfg(feature = "log")]
@@ -92,7 +92,7 @@ impl ComponentManager {
     }
 
     pub(crate) fn update_sets(&mut self, camera: &CameraBuffer) {
-        let aabb = camera.model.aabb();
+        let aabb = camera.model().aabb(Vector::new(0.0, 0.0).into());
         let active_components = Rc::get_mut(&mut self.active_components).unwrap();
         let now = Instant::now();
         let mut groups_changed = false;

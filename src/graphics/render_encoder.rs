@@ -175,7 +175,7 @@ impl<'a> RenderEncoder<'a> {
             },
         );
         renderer.use_shader(&self.defaults.sprite);
-        renderer.use_model(self.defaults.relative_camera.model());
+        renderer.use_model(self.defaults.relative_camera.0.model());
         renderer.use_sprite(src, 1);
         renderer.draw(0);
     }

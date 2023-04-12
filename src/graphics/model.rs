@@ -685,37 +685,18 @@ impl Model {
     }
 
     pub fn intersects_camera(&self, position: Isometry<f32>, camera: &CameraBuffer) -> bool {
-        let mut model_aabb = self.aabb;
-        model_aabb.0 += position.translation.vector;
-        model_aabb.1 += position.translation.vector;
-
-        if position.rotation.angle() != ModelBuilder::DEFAULT_ROTATION {
-            let sin = position.rotation.sin_angle();
-            let cos = position.rotation.cos_angle();
-            let delta = model_aabb.0 - position.translation.vector;
-            model_aabb.0 = Vector::new(
-                model_aabb.0.x + (delta.x) * cos - (delta.y) * sin,
-                model_aabb.0.y + (delta.x) * sin + (delta.y) * cos,
-            );
-
-            let sin = position.rotation.sin_angle();
-            let cos = position.rotation.cos_angle();
-            let delta = model_aabb.1 - position.translation.vector;
-            model_aabb.1 = Vector::new(
-                model_aabb.1.x + (delta.x) * cos - (delta.y) * sin,
-                model_aabb.1.y + (delta.x) * sin + (delta.y) * cos,
-            );
-        }
-        let camera_aabb = camera.model.aabb();
+        let model_aabb = self.aabb(position);
+        let camera_aabb = camera.model().aabb(Vector::default().into());
         return (camera_aabb.0.x < model_aabb.1.x)
             && (model_aabb.0.x < camera_aabb.1.x)
             && (camera_aabb.0.y < model_aabb.1.y)
             && (model_aabb.0.y < camera_aabb.1.y);
     }
 
-    pub fn write(&mut self, gpu: &Gpu, vertices: &[Vertex], indices: &[Index]) {
-        self.write_indices(gpu, indices);
-        self.write_vertices(gpu, vertices);
+    pub fn write(&mut self, gpu: &Gpu, builder: ModelBuilder) {
+        let builder = builder.apply_modifiers();
+        self.write_indices(gpu, &builder.indices);
+        self.write_vertices(gpu, &builder.vertices);
     }
 
     pub fn write_vertices(&mut self, gpu: &Gpu, vertices: &[Vertex]) {
@@ -747,7 +728,47 @@ impl Model {
         self.amount_of_vertices
     }
 
-    pub fn aabb(&self) -> (Vector<f32>, Vector<f32>) {
-        self.aabb
+    pub fn aabb(&self, position: Isometry<f32>) -> (Vector<f32>, Vector<f32>) {
+        let mut model_aabb = self.aabb;
+        model_aabb.0 += position.translation.vector;
+        model_aabb.1 += position.translation.vector;
+
+        if position.rotation.angle() != ModelBuilder::DEFAULT_ROTATION {
+            let sin = position.rotation.sin_angle();
+            let cos = position.rotation.cos_angle();
+            let delta = model_aabb.0 - position.translation.vector;
+            model_aabb.0 = Vector::new(
+                model_aabb.0.x + (delta.x) * cos - (delta.y) * sin,
+                model_aabb.0.y + (delta.x) * sin + (delta.y) * cos,
+            );
+
+            let sin = position.rotation.sin_angle();
+            let cos = position.rotation.cos_angle();
+            let delta = model_aabb.1 - position.translation.vector;
+            model_aabb.1 = Vector::new(
+                model_aabb.1.x + (delta.x) * cos - (delta.y) * sin,
+                model_aabb.1.y + (delta.x) * sin + (delta.y) * cos,
+            );
+
+            let mut xs = [
+                model_aabb.0.x,
+                model_aabb.0.x,
+                model_aabb.1.x,
+                model_aabb.1.x,
+            ];
+            xs.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            let mut ys = [
+                model_aabb.0.y,
+                model_aabb.0.y,
+                model_aabb.1.y,
+                model_aabb.1.y,
+            ];
+            ys.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
+            model_aabb.0 = Vector::new(*xs.first().unwrap(), *ys.first().unwrap());
+            model_aabb.1 = Vector::new(*xs.last().unwrap(), *ys.last().unwrap());
+        }
+
+        return model_aabb;
     }
 }
