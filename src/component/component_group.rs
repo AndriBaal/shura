@@ -3,13 +3,13 @@ use crate::{ComponentController, ComponentType, ComponentTypeId, Vector};
 use rustc_hash::FxHashMap;
 
 /// Helper to create a [ComponentGroup](crate::ComponentGroup).
+#[derive(Debug, Copy, Clone)]
 pub struct ComponentGroupDescriptor {
     /// Id of the group.
     pub id: u16,
     /// Describes when the ggroup is active.
     pub activation: GroupActivation,
     /// Describes if the group is enabled from the start.
-    pub enabled: bool,
     pub user_data: u64,
 }
 
@@ -27,6 +27,19 @@ pub enum GroupActivation {
     Always,
 }
 
+impl Into<ComponentGroup> for ComponentGroupDescriptor {
+    fn into(self) -> ComponentGroup {
+        ComponentGroup {
+            id: self.id,
+            activation: self.activation,
+            type_map: Default::default(),
+            types: Default::default(),
+            active: false,
+            user_data: self.user_data,
+        }
+    }
+}
+
 /// Every group has a id and a fixed position where it operates. When the camera intersects with
 /// the position and size of the group the group is marked as `active`.It can be used like a chunk
 /// system to make huge 2D worlds possible or to just order your components. The Engine has a
@@ -37,28 +50,19 @@ pub enum GroupActivation {
 /// from the [context](crate::Context).
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ComponentGroup {
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[cfg_attr(feature = "serde", serde(default))]
     type_map: FxHashMap<ComponentTypeId, ArenaIndex>,
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[cfg_attr(feature = "serde", serde(default))]
     types: Arena<ComponentType>,
     id: u16,
-    enabled: bool,
     active: bool,
     pub activation: GroupActivation,
     pub user_data: u64,
 }
 
 impl ComponentGroup {
-    pub(crate) fn new(descriptor: &ComponentGroupDescriptor) -> Self {
-        Self {
-            id: descriptor.id,
-            enabled: descriptor.enabled,
-            activation: descriptor.activation,
-            type_map: Default::default(),
-            types: Default::default(),
-            active: false,
-            user_data: descriptor.user_data,
-        }
-    }
-
     pub(crate) fn intersects_camera(
         &self,
         cam_bottom_left: Vector<f32>,
@@ -84,14 +88,6 @@ impl ComponentGroup {
 
     pub(crate) fn set_active(&mut self, active: bool) {
         self.active = active;
-    }
-
-    /// Disable or enable a group
-    ///
-    /// # Warning
-    /// [RigidBody](crate::physics::RigidBody) collisions do not get disabled and must be manually disabled per [RigidBody](crate::physics::RigidBody).
-    pub fn set_enabled(&mut self, enabled: bool) {
-        self.enabled = enabled;
     }
 
     /// Set the activation of this group.
@@ -134,11 +130,6 @@ impl ComponentGroup {
         return (type_index, component_index);
     }
 
-    /// Get if the group is enabled
-    pub const fn enabled(&self) -> bool {
-        self.enabled
-    }
-
     /// Get the id of the group.
     pub const fn id(&self) -> u16 {
         self.id
@@ -157,36 +148,4 @@ impl ComponentGroup {
     pub const fn user_data(&self) -> u64 {
         self.user_data
     }
-
-    // pub fn component<C: ComponentDerive>(&self, handle: ComponentHandle) -> Option<&C> {
-
-    // }
-
-    // pub fn component_mut<C: ComponentDerive>(&mut self, handle: ComponentHandle) -> Option<&mut C> {
-
-    // }
-
-    // pub fn components<C: ComponentIdentifier>(&self) -> ComponentSet<C> {
-
-    // }
-
-    // pub fn components_mut<C: ComponentIdentifier>(&mut self) -> ComponentSetMut<C> {
-
-    // }
-
-    // pub fn add_component<C: ComponentController>(
-    //     &mut self,
-    //     component: C,
-    // ) -> (&mut C, ComponentHandle) {
-    // }
-
-    // pub fn remove_component(&mut self, handle: ComponentHandle) -> Option<BoxedComponent> {
-    //     if let Some(component_type) = self.type_mut(handle.type_index()) {
-    //         if let Some(mut to_remove) = component_type.remove(handle) {
-    //             to_remove.base_mut().deinit()
-    //             return  Some(to_remove);
-    //         }
-    //     }
-    //     return None;
-    // }
 }

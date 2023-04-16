@@ -1,11 +1,11 @@
 use crate::{
     BoxedComponent, Camera, CameraBuffer, Color, ComponentController, ComponentDerive,
-    ComponentGroup, ComponentGroupDescriptor, ComponentHandle, ComponentManager, ComponentPath,
-    ComponentRenderGroup, ComponentSet, ComponentSetMut, ComponentTypeId, Duration, FrameManager,
-    GlobalState, Gpu, GpuDefaults, GroupFilter, Input, InputEvent, InputTrigger, InstanceBuffer,
-    Instant, Isometry, Matrix, Model, ModelBuilder, Modifier, RenderConfig, RenderEncoder,
-    RenderTarget, Rotation, Scene, SceneCreator, SceneManager, SceneState, ScreenConfig, Shader,
-    ShaderConfig, Shura, Sprite, SpriteSheet, Uniform, Vector, WorldCamera, WorldCameraScale,
+    ComponentGroup, ComponentHandle, ComponentManager, ComponentPath, ComponentRenderGroup,
+    ComponentSet, ComponentSetMut, ComponentTypeId, Duration, FrameManager, GlobalState, Gpu,
+    GpuDefaults, GroupDelta, GroupFilter, Input, InputEvent, InputTrigger, InstanceBuffer, Instant,
+    Isometry, Matrix, Model, ModelBuilder, Modifier, RenderConfig, RenderEncoder, RenderTarget,
+    Rotation, Scene, SceneCreator, SceneManager, SceneState, ScreenConfig, Shader, ShaderConfig,
+    Shura, Sprite, SpriteSheet, Uniform, Vector, WorldCamera, WorldCameraScale,
 };
 
 #[cfg(feature = "serde")]
@@ -430,7 +430,7 @@ impl<'a> Context<'a> {
         )
     }
 
-    pub fn add_group(&mut self, group: &ComponentGroupDescriptor) {
+    pub fn add_group(&mut self, group: impl Into<ComponentGroup>) {
         self.component_manager.add_group(group);
     }
 
@@ -453,6 +453,10 @@ impl<'a> Context<'a> {
     pub fn add_scene(&mut self, scene: impl SceneCreator) {
         let scene = scene.scene(ShuraFields::from_ctx(self));
         self.scene_manager.add(scene);
+    }
+
+    pub fn group_deltas(&self) -> &[GroupDelta] {
+        self.component_manager.group_deltas()
     }
 
     /// Remove a scene by its id

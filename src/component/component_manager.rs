@@ -16,6 +16,12 @@ use std::cell::{Ref, RefCell, RefMut};
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum GroupDelta {
+    Add(u16),
+    Remove(u16)
+}
+
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Ord, Eq)]
 pub enum GroupFilter<'a> {
     All,
@@ -40,6 +46,10 @@ pub struct ComponentManager {
     id_counter: u32,
     force_update_sets: bool,
     group_map: FxHashMap<u16, ArenaIndex>,
+    group_deltas: Vec<GroupDelta>,
+
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[cfg_attr(feature = "serde", serde(default))]
     groups: Arena<ComponentGroup>,
 
     #[cfg_attr(feature = "serde", serde(skip))]
@@ -58,17 +68,16 @@ pub struct ComponentManager {
     #[cfg_attr(feature = "serde", serde(default))]
     component_callbacks: FxHashMap<ComponentTypeId, ComponentCallbacks>,
     #[cfg(feature = "physics")]
-    pub world: Rc<RefCell<World>>,
+    pub(crate) world: Rc<RefCell<World>>,
 }
 
 impl ComponentManager {
     pub(crate) fn new() -> Self {
-        let default_component_group = ComponentGroup::new(&ComponentGroupDescriptor {
+        let default_component_group = ComponentGroupDescriptor {
             id: DEFAULT_GROUP_ID,
             activation: GroupActivation::Always,
-            enabled: true,
             user_data: 0,
-        });
+        }.into();
         let mut groups = Arena::default();
         let mut group_map = FxHashMap::default();
         let index = groups.insert(default_component_group);
@@ -78,6 +87,7 @@ impl ComponentManager {
             active_group_ids: vec![DEFAULT_GROUP_ID],
             groups,
             group_map,
+            group_deltas: vec![],
 
             render_components: true,
 
@@ -96,15 +106,18 @@ impl ComponentManager {
         let active_components = Rc::get_mut(&mut self.active_components).unwrap();
         let now = Instant::now();
         let mut groups_changed = false;
+        self.group_deltas.clear();
         for (index, group) in &mut self.groups {
-            if group.enabled() && group.intersects_camera(aabb.0, aabb.1) {
+            if group.intersects_camera(aabb.0, aabb.1) {
                 group.set_active(true);
                 if self.active_groups.insert(index) {
+                    self.group_deltas.push(GroupDelta::Add(group.id()));
                     groups_changed = true;
                 }
             } else {
                 group.set_active(false);
                 if self.active_groups.remove(&index) {
+                    self.group_deltas.push(GroupDelta::Remove(group.id()));
                     groups_changed = true;
                 }
             }
@@ -261,10 +274,17 @@ impl ComponentManager {
         return (c.downcast_mut().unwrap(), handle);
     }
 
-    pub fn add_group(&mut self, group: &ComponentGroupDescriptor) {
-        let group = ComponentGroup::new(group);
+    pub fn add_group(&mut self, group: impl Into<ComponentGroup>) {
+        let mut group = group.into();
         let group_id = group.id();
         assert!(self.group_map.contains_key(&group_id) == false);
+        #[cfg(feature = "physics")]
+        for (_, component_type) in group.types() {
+            let type_id = component_type.type_id();
+            for (_, component) in component_type {
+                component.base_mut().add_to_world(type_id, self.world.clone())
+            }
+        }
         let index = self.groups.insert(group);
         self.force_update_sets = true;
         self.group_map.insert(group_id, index);
@@ -639,6 +659,10 @@ impl ComponentManager {
 
     pub fn set_render_components(&mut self, render_components: bool) {
         self.render_components = render_components
+    }
+
+    pub fn group_deltas(&self) -> &[GroupDelta] {
+        &self.group_deltas
     }
 
     #[cfg(feature = "physics")]
