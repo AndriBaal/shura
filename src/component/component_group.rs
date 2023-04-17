@@ -1,5 +1,7 @@
 use crate::data::arena::{Arena, ArenaIndex, ArenaIterMut};
 use crate::{ComponentController, ComponentType, ComponentTypeId, Vector};
+#[cfg(feature = "serde")]
+use crate::BoxedComponent;
 use rustc_hash::FxHashMap;
 
 /// Helper to create a [ComponentGroup](crate::ComponentGroup).
@@ -90,15 +92,6 @@ impl ComponentGroup {
         self.active = active;
     }
 
-    /// Set the activation of this group.
-    pub fn set_activation(&mut self, activation: GroupActivation) {
-        self.activation = activation;
-    }
-
-    pub fn set_user_data(&mut self, user_data: u64) {
-        self.user_data = user_data;
-    }
-
     pub(crate) fn type_index(&self, type_id: ComponentTypeId) -> Option<&ArenaIndex> {
         self.type_map.get(&type_id)
     }
@@ -130,6 +123,22 @@ impl ComponentGroup {
         return (type_index, component_index);
     }
 
+    #[cfg(feature = "serde")]
+    pub(crate) fn deserialize_type<C: ComponentController>(&mut self, components: Arena<BoxedComponent>) {
+        let component_type = ComponentType::from_arena::<C>(components);
+        let type_index = self.types.insert(component_type);
+        self.type_map.insert(C::IDENTIFIER, type_index);
+    }
+
+    /// Set the activation of this group.
+    pub fn set_activation(&mut self, activation: GroupActivation) {
+        self.activation = activation;
+    }
+
+    pub fn set_user_data(&mut self, user_data: u64) {
+        self.user_data = user_data;
+    }
+
     /// Get the id of the group.
     pub const fn id(&self) -> u16 {
         self.id
@@ -149,3 +158,4 @@ impl ComponentGroup {
         self.user_data
     }
 }
+

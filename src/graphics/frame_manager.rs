@@ -28,7 +28,7 @@ impl FrameManager {
             fps_time: elapsed,
             total_frames: 0,
             fps_counter: 0,
-            fps: 0,
+            fps: 0
         }
     }
 
@@ -80,6 +80,10 @@ impl FrameManager {
 
     pub const fn frame_time_duration(&self) -> Duration {
         self.frame_time
+    }
+
+    pub const fn frames_since_last_seconds(&self) -> u32 {
+        self.fps_counter
     }
 
     pub const fn total_time_duration(&self) -> Duration {

@@ -21,13 +21,8 @@ pub trait ComponentIdentifier {
     const IDENTIFIER: ComponentTypeId;
 }
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct ComponentType {
-    #[cfg_attr(feature = "serde", serde(skip))]
-    #[cfg_attr(feature = "serde", serde(default))]
     components: Arena<BoxedComponent>,
-    #[cfg_attr(feature = "serde", serde(skip))]
-    #[cfg_attr(feature = "serde", serde(default))]
     buffer: Option<InstanceBuffer>,
 
     type_id: ComponentTypeId,
@@ -42,15 +37,19 @@ impl ComponentType {
         let component_index = components.insert(Box::new(component));
         (
             component_index,
-            Self {
-                components,
-                buffer: None,
-                force_buffer: false,
-                last_len: 0,
-                config: C::CONFIG,
-                type_id: C::IDENTIFIER,
-            },
+            Self::from_arena::<C>(components)
         )
+    }
+
+    pub fn from_arena<C: ComponentController>(components: Arena<BoxedComponent>) -> Self {
+        Self {
+            components,
+            buffer: None,
+            force_buffer: false,
+            last_len: 0,
+            config: C::CONFIG,
+            type_id: C::IDENTIFIER,
+        }
     }
 
     pub fn buffer_data(&mut self, gpu: &Gpu) {
@@ -99,11 +98,6 @@ impl ComponentType {
 
     pub fn buffer(&self) -> Option<&InstanceBuffer> {
         self.buffer.as_ref()
-    }
-
-    #[cfg(feature = "serde")]
-    pub fn deserialize_components(&mut self, components: Arena<BoxedComponent>) {
-        self.components = components;
     }
 
     pub const fn config(&self) -> &ComponentConfig {

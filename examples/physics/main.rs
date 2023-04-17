@@ -73,12 +73,15 @@ impl PhysicsState {
     fn serialize_scene(ctx: &mut Context) {
         info!("Serializing scene!");
         let ser = ctx
-            .serialize(|s| {
-                s.serialize_scene_state::<Self>();
-                s.serialize_components::<Floor>(GroupFilter::All);
-                s.serialize_components::<Player>(GroupFilter::All);
-                s.serialize_components::<PhysicsBox>(GroupFilter::All);
-            })
+            .serialize_scene(
+                GroupFilter::All,
+                |s| {
+                    s.serialize_scene_state::<Self>();
+                    s.serialize_components::<Floor>();
+                    s.serialize_components::<Player>();
+                    s.serialize_components::<PhysicsBox>();
+                },
+            )
             .unwrap();
         fs::write("data.binc", ser).expect("Unable to write file");
     }

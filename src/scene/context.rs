@@ -204,14 +204,21 @@ impl<'a> Context<'a> {
     // }
 
     #[cfg(feature = "serde")]
-    pub fn serialize(
+    pub fn serialize_scene(
         &mut self,
+        filter: GroupFilter,
         mut serialize: impl FnMut(&mut SceneSerializer),
     ) -> Result<Vec<u8>, Box<bincode::ErrorKind>> {
+        use crate::SerializedGroups;
+
         let component_manager = &self.component_manager;
 
-        let mut serializer =
-            SceneSerializer::new(component_manager, &self.global_state, &self.scene_state);
+        let mut serializer = SceneSerializer::new(
+            component_manager,
+            &self.global_state,
+            &self.scene_state,
+            filter,
+        );
         (serialize)(&mut serializer);
 
         #[derive(serde::Serialize)]
@@ -227,7 +234,6 @@ impl<'a> Context<'a> {
 
         #[cfg(feature = "physics")]
         {
-            use rustc_hash::FxHashMap;
             use std::mem;
             let (components, body_handles, scene_state, global_state) = serializer.finish();
             let mut world = self.component_manager.world.borrow_mut();
@@ -256,12 +262,8 @@ impl<'a> Context<'a> {
                 world_camera: self.world_camera,
                 component_manager: self.component_manager,
             };
-            let scene: (
-                &Scene,
-                FxHashMap<ComponentTypeId, Vec<(u16, Vec<Option<(u32, Vec<u8>)>>)>>,
-                Option<Vec<u8>>,
-                Option<Vec<u8>>,
-            ) = (&scene, components, scene_state, global_state);
+            let scene: (&Scene, SerializedGroups, Option<Vec<u8>>, Option<Vec<u8>>) =
+                (&scene, components, scene_state, global_state);
             let result = bincode::serialize(&scene);
 
             *self.component_manager.world.borrow_mut() = old_world;
@@ -1108,5 +1110,9 @@ impl<'a> Context<'a> {
 
     pub fn set_max_fps(&mut self, max_fps: Option<u32>) {
         self.screen_config.set_max_fps(max_fps);
+    }
+
+    pub const fn frames_since_last_seconds(&self) -> u32 {
+        self.frame_manager.frames_since_last_seconds()
     }
 }

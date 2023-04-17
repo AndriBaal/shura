@@ -19,7 +19,7 @@ use std::rc::Rc;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum GroupDelta {
     Add(u16),
-    Remove(u16)
+    Remove(u16),
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Ord, Eq)]
@@ -45,8 +45,11 @@ pub struct ComponentManager {
     render_components: bool,
     id_counter: u32,
     force_update_sets: bool,
-    group_map: FxHashMap<u16, ArenaIndex>,
     group_deltas: Vec<GroupDelta>,
+
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[cfg_attr(feature = "serde", serde(default))]
+    group_map: FxHashMap<u16, ArenaIndex>,
 
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
@@ -77,7 +80,8 @@ impl ComponentManager {
             id: DEFAULT_GROUP_ID,
             activation: GroupActivation::Always,
             user_data: 0,
-        }.into();
+        }
+        .into();
         let mut groups = Arena::default();
         let mut group_map = FxHashMap::default();
         let index = groups.insert(default_component_group);
@@ -282,7 +286,9 @@ impl ComponentManager {
         for (_, component_type) in group.types() {
             let type_id = component_type.type_id();
             for (_, component) in component_type {
-                component.base_mut().add_to_world(type_id, self.world.clone())
+                component
+                    .base_mut()
+                    .add_to_world(type_id, self.world.clone())
             }
         }
         let index = self.groups.insert(group);
