@@ -33,7 +33,7 @@ use crate::text::{FontBrush, TextDescriptor};
 use crate::gamepad::*;
 
 #[cfg(feature = "animation")]
-use crate::animation::{EaseMethod, Tween, TweenSequence};
+use crate::animation::{EaseMethod, Stepable, Tween, TweenSequence};
 
 pub struct ShuraFields<'a> {
     pub frame_manager: &'a FrameManager,
@@ -395,18 +395,21 @@ impl<'a> Context<'a> {
     }
 
     #[cfg(feature = "animation")]
-    pub fn create_tween(
+    pub fn create_tween<T: Stepable>(
         &self,
         ease_function: impl Into<EaseMethod>,
         duration: Duration,
-        start: Isometry<f32>,
-        end: Isometry<f32>,
-    ) -> Tween {
+        start: T,
+        end: T,
+    ) -> Tween<T> {
         return Tween::new(ease_function, duration, start, end);
     }
 
     #[cfg(feature = "animation")]
-    pub fn create_tween_sequence(&self, items: impl IntoIterator<Item = Tween>) -> TweenSequence {
+    pub fn create_tween_sequence<T: Stepable>(
+        &self,
+        items: impl IntoIterator<Item = Tween<T>>,
+    ) -> TweenSequence<T> {
         return TweenSequence::new(items);
     }
 
