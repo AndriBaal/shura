@@ -46,6 +46,9 @@ mod shura;
 pub use instant::Duration;
 pub use shura_proc::*;
 
+#[cfg(target_os = "android")]
+use winit::platform::android::activity::AndroidApp;
+
 pub(crate) use {
     component::controller_caller::*, data::arena::*, data::arena_path::*,
     scene::context::ShuraFields,

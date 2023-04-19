@@ -9,7 +9,7 @@ fn main() {
         id: 1,
         init: |ctx| {
             ctx.set_camera_scale(WorldCameraScale::Max(10.0));
-            ctx.add_component(Background::new(ctx));
+            // ctx.add_component(Background::new(ctx));
             ctx.set_global_state(LightingState {
                 shadow_color: ctx.create_uniform(Color::BLACK),
                 light_shader: ctx.create_shader(ShaderConfig {
@@ -28,12 +28,12 @@ fn main() {
                         color: BlendComponent {
                             src_factor: BlendFactor::SrcAlpha,
                             dst_factor: BlendFactor::OneMinusSrcAlpha,
-                            operation: BlendOperation::ReverseSubtract,
+                            operation: BlendOperation::Subtract,
                         },
                         alpha: BlendComponent {
                             src_factor: BlendFactor::One,
                             dst_factor: BlendFactor::OneMinusSrcAlpha,
-                            operation: BlendOperation::ReverseSubtract,
+                            operation: BlendOperation::Subtract,
                         },
                     },
                     msaa: true,
