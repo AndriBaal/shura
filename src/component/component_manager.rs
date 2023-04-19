@@ -281,6 +281,7 @@ impl ComponentManager {
     pub fn add_group(&mut self, group: impl Into<ComponentGroup>) {
         let mut group = group.into();
         let group_id = group.id();
+        assert_ne!(group_id, 0);
         assert!(self.group_map.contains_key(&group_id) == false);
         #[cfg(feature = "physics")]
         for (_, component_type) in group.types() {

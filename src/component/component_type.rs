@@ -35,10 +35,7 @@ impl ComponentType {
     pub fn new<C: ComponentController>(component: C) -> (ArenaIndex, Self) {
         let mut components: Arena<BoxedComponent> = Arena::new();
         let component_index = components.insert(Box::new(component));
-        (
-            component_index,
-            Self::from_arena::<C>(components)
-        )
+        (component_index, Self::from_arena::<C>(components))
     }
 
     pub fn from_arena<C: ComponentController>(components: Arena<BoxedComponent>) -> Self {

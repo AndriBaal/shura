@@ -23,17 +23,13 @@ pub(crate) struct ArenaIndex {
 }
 
 impl ArenaIndex {
+    pub const INVALID: Self = Self {
+        index: u32::MAX,
+        generation: u32::MAX,
+    };
+
     pub fn index(&self) -> u32 {
         self.index
-    }
-}
-
-impl Default for ArenaIndex {
-    fn default() -> Self {
-        Self {
-            index: u32::MAX,
-            generation: u32::MAX,
-        }
     }
 }
 

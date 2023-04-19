@@ -1,4 +1,4 @@
-use crate::{animation::EaseMethod, Duration, Isometry, Vector, Rotation};
+use crate::{animation::EaseMethod, Duration, Isometry, Rotation, Vector};
 
 // Animations heavily inspired by bevy_tweening
 
@@ -20,7 +20,7 @@ impl Stepable for f32 {
 
 impl Stepable for Vector<f32> {
     fn step(&mut self, end: &Self, factor: f32) -> Self {
-        self.lerp(end, factor)   
+        self.lerp(end, factor)
     }
 }
 

@@ -33,6 +33,8 @@
 #![crate_type = "lib"]
 #![crate_name = "shura"]
 
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 mod component;
 mod data;
 mod graphics;

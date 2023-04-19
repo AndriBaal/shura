@@ -6,7 +6,7 @@ use core::hash::Hash;
 /// [component_mut](crate::Context::component_mut) method or without a specific type through the
 /// [boxed_component](crate::Context::boxed_component) or
 /// [boxed_component_mut](crate::Context::boxed_component_mut) method from the [context](crate::Context)
-#[derive(Copy, Clone, Default, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ComponentHandle {
     component_index: ArenaIndex,
@@ -14,6 +14,16 @@ pub struct ComponentHandle {
     group_index: ArenaIndex,
     id: u32,
     group_id: u16,
+}
+
+impl ComponentHandle {
+    pub const INVALID: Self = ComponentHandle {
+        component_index: ArenaIndex::INVALID,
+        type_index: ArenaIndex::INVALID,
+        group_index: ArenaIndex::INVALID,
+        id: 0,
+        group_id: 0,
+    };
 }
 
 impl Hash for ComponentHandle {
@@ -27,6 +37,12 @@ impl Eq for ComponentHandle {}
 impl PartialEq for ComponentHandle {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
+    }
+}
+
+impl Default for ComponentHandle {
+    fn default() -> Self {
+        Self::INVALID
     }
 }
 

@@ -5,7 +5,7 @@ use crate::physics::{ActiveEvents, CollideType};
 use crate::{
     scene::context::ShuraFields, Context, FrameManager, GlobalState, Gpu, GpuDefaults, Input,
     RenderConfigTarget, RenderEncoder, RenderOperation, Renderer, Scene, SceneCreator,
-    SceneManager, Vector,
+    SceneManager, Vector, VERSION,
 };
 #[cfg(target_os = "android")]
 use winit::platform::android::activity::AndroidApp;
@@ -75,7 +75,7 @@ impl Shura {
         }
 
         #[cfg(feature = "log")]
-        info!("Using shura version: {}", env!("CARGO_PKG_VERSION"));
+        info!("Using shura version: {}", VERSION);
         #[cfg(target_os = "android")]
         let events = winit::event_loop::EventLoopBuilder::new()
             .with_android_app(app)

@@ -1,7 +1,7 @@
 use crate::data::arena::{Arena, ArenaIndex, ArenaIterMut};
-use crate::{ComponentController, ComponentType, ComponentTypeId, Vector};
 #[cfg(feature = "serde")]
 use crate::BoxedComponent;
+use crate::{ComponentController, ComponentType, ComponentTypeId, Vector};
 use rustc_hash::FxHashMap;
 
 /// Helper to create a [ComponentGroup](crate::ComponentGroup).
@@ -124,7 +124,10 @@ impl ComponentGroup {
     }
 
     #[cfg(feature = "serde")]
-    pub(crate) fn deserialize_type<C: ComponentController>(&mut self, components: Arena<BoxedComponent>) {
+    pub(crate) fn deserialize_type<C: ComponentController>(
+        &mut self,
+        components: Arena<BoxedComponent>,
+    ) {
         let component_type = ComponentType::from_arena::<C>(components);
         let type_index = self.types.insert(component_type);
         self.type_map.insert(C::IDENTIFIER, type_index);
@@ -158,4 +161,3 @@ impl ComponentGroup {
         self.user_data
     }
 }
-

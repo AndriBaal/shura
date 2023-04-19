@@ -28,7 +28,7 @@ impl FrameManager {
             fps_time: elapsed,
             total_frames: 0,
             fps_counter: 0,
-            fps: 0
+            fps: 0,
         }
     }
 
