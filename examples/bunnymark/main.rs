@@ -1,8 +1,9 @@
 use rand::{thread_rng, Rng};
 use shura::*;
 
-fn main() {
-    Shura::init(NewScene {
+#[shura::main]
+fn shura_main(config: ShuraConfig) {
+    config.init(NewScene {
         id: 1,
         init: |ctx| {
             ctx.set_scene_state(BunnyState::new(ctx));

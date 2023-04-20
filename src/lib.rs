@@ -45,6 +45,7 @@ mod shura;
 
 pub use instant::Duration;
 pub use shura_proc::*;
+pub use rustc_hash::{FxHashMap, FxHashSet};
 
 #[cfg(target_os = "android")]
 use winit::platform::android::activity::AndroidApp;

@@ -3,9 +3,10 @@ use shura::physics::*;
 use shura::*;
 use std::{fmt, fs};
 
-fn main() {
+#[shura::main]
+fn shura_main(config: ShuraConfig) {
     if let Some(save_game) = fs::read("data.binc").ok() {
-        Shura::init(SerializedScene {
+        config.init(SerializedScene {
             id: 1,
             scene: save_game,
             init: |ctx, s| {
@@ -18,7 +19,7 @@ fn main() {
             },
         })
     } else {
-        Shura::init(NewScene {
+        config.init(NewScene {
             id: 1,
             init: |ctx| {
                 const PYRAMID_ELEMENTS: i32 = 8;

@@ -398,8 +398,9 @@ use std::f32::consts::PI;
 
 const TWO_PI_INV: f32 = 1.0 / (2.0 * PI);
 
-fn main() {
-    Shura::init(NewScene {
+#[shura::main]
+fn shura_main(config: ShuraConfig) {
+    config.init(NewScene {
         id: 1,
         init: |ctx| {
             ctx.set_clear_color(Some(Color::BLACK));

@@ -11,6 +11,27 @@ use std::borrow::Cow;
 use wgpu::BlendState;
 pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 0.5;
 
+#[derive(Clone)]
+pub struct GpuConfig {
+    pub backends: wgpu::Backends,
+    pub device_features: wgpu::Features,
+    pub device_limits: wgpu::Limits,
+}
+
+impl Default for GpuConfig {
+    fn default() -> Self {
+        Self {
+            backends: wgpu::Backends::all(),
+            device_features: wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES,
+            device_limits: if cfg!(target_arch = "wasm32") {
+                wgpu::Limits::downlevel_webgl2_defaults()
+            } else {
+                wgpu::Limits::default()
+            },
+        }
+    }
+}
+
 /// Holds the connection to the GPU using wgpu. Also has some default buffers, layouts etc.
 pub struct Gpu {
     pub instance: wgpu::Instance,
@@ -24,11 +45,11 @@ pub struct Gpu {
 }
 
 impl Gpu {
-    pub(crate) async fn new(window: &winit::window::Window) -> Self {
+    pub(crate) async fn new(window: &winit::window::Window, config: GpuConfig) -> Self {
         let window_size = window.inner_size();
         let window_size = Vector::new(window_size.width, window_size.height);
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::all(),
+            backends: config.backends,
             dx12_shader_compiler: wgpu::Dx12Compiler::Fxc,
         });
         let surface = unsafe { instance.create_surface(window).unwrap() };
@@ -41,18 +62,12 @@ impl Gpu {
             .await
             .unwrap();
 
-        let limits = if cfg!(target_arch = "wasm32") {
-            wgpu::Limits::downlevel_webgl2_defaults()
-        } else {
-            wgpu::Limits::default()
-        };
-
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
-                    features: wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES,
                     label: None,
-                    limits,
+                    features: config.device_features,
+                    limits: config.device_limits,
                 },
                 None,
             )

@@ -3,90 +3,77 @@ use crate::gui::Gui;
 #[cfg(feature = "physics")]
 use crate::physics::{ActiveEvents, CollideType};
 use crate::{
-    scene::context::ShuraFields, Context, FrameManager, GlobalState, Gpu, GpuDefaults, Input,
-    RenderConfigTarget, RenderEncoder, RenderOperation, Renderer, Scene, SceneCreator,
+    scene::context::ShuraFields, Context, FrameManager, GlobalState, Gpu, GpuConfig, GpuDefaults,
+    Input, RenderConfigTarget, RenderEncoder, RenderOperation, Renderer, Scene, SceneCreator,
     SceneManager, Vector, VERSION,
 };
+#[cfg(target_arch = "wasm32")]
+use rustc_hash::FxHashMap;
 #[cfg(target_os = "android")]
 use winit::platform::android::activity::AndroidApp;
 
 #[cfg(feature = "log")]
 use crate::log::{error, info, LoggerBuilder};
 
-const INITIAL_WIDTH: u32 = 800;
-const INITIAL_HEIGHT: u32 = 600;
+pub struct ShuraConfig {
+    pub window: winit::window::WindowBuilder,
+    pub gpu: GpuConfig,
+    #[cfg(target_os = "android")]
+    pub app: AndroidApp,
+    #[cfg(feature = "log")]
+    pub logger: Option<LoggerBuilder>,
+    #[cfg(target_arch = "wasm32")]
+    pub canvas_attrs: FxHashMap<&'static str, &'static str>,
+    #[cfg(target_arch = "wasm32")]
+    pub auto_scale_canvas: bool,
+}
 
-impl Drop for Shura {
-    fn drop(&mut self) {
-        for (_, mut scene) in self.scene_manager.end_scenes() {
-            if let Some(scene) = &mut scene {
-                let end = scene.state.get_end();
-                let mut ctx = Context::new(self, scene);
-                end(&mut ctx);
-            }
+impl ShuraConfig {
+    pub fn default(#[cfg(target_os = "android")] app: AndroidApp) -> Self {
+        ShuraConfig {
+            window: winit::window::WindowBuilder::new()
+                .with_inner_size(winit::dpi::PhysicalSize::new(800, 600))
+                .with_title("Shura Game"),
+            gpu: GpuConfig::default(),
+            #[cfg(target_os = "android")]
+            app,
+            #[cfg(feature = "log")]
+            logger: Some(Default::default()),
+            #[cfg(target_arch = "wasm32")]
+            auto_scale_canvas: true,
+            #[cfg(target_arch = "wasm32")]
+            canvas_attrs: {
+                let mut map = FxHashMap::default();
+                map.insert("tabindex", "0");
+                map.insert("oncontextmenu", "return false;");
+                map.insert("style", "margin: auto; position: absolute; top: 0; bottom: 0; left: 0; right: 0;");
+                map
+            },
         }
     }
 }
 
-pub struct Shura {
-    pub(crate) end: bool,
-    pub(crate) frame_manager: FrameManager,
-    pub(crate) scene_manager: SceneManager,
-    pub(crate) window: winit::window::Window,
-    pub(crate) input: Input,
-    pub(crate) gpu: Gpu,
-    pub(crate) global_state: Box<dyn GlobalState>,
-    pub(crate) defaults: GpuDefaults,
-    #[cfg(feature = "gui")]
-    pub(crate) gui: Gui,
-    #[cfg(feature = "audio")]
-    pub(crate) audio: rodio::OutputStream,
-    #[cfg(feature = "audio")]
-    pub(crate) audio_handle: rodio::OutputStreamHandle,
-}
-
-impl Shura {
-    #[cfg(feature = "log")]
-    pub fn with_logger<C: SceneCreator + 'static>(
-        logger: LoggerBuilder,
-        #[cfg(target_os = "android")] app: AndroidApp,
-        creator: C,
-    ) {
-        logger.init().expect("Failed to initialize Logger!");
-        Self::init(
-            #[cfg(target_os = "android")]
-            app,
-            creator,
-        )
-    }
-
+impl ShuraConfig {
     /// Start a new game with the given callback to initialize the first [Scene](crate::Scene).
-    pub fn init<C: SceneCreator + 'static>(
-        #[cfg(target_os = "android")] app: AndroidApp,
-        creator: C,
-    ) {
+    pub fn init<C: SceneCreator + 'static>(self, init: C) {
         #[cfg(target_os = "android")]
         use winit::platform::android::EventLoopBuilderExtAndroid;
 
         #[cfg(feature = "log")]
-        {
-            let logger = LoggerBuilder::default();
+        if let Some(logger) = self.logger {
             logger.init().ok();
         }
 
         #[cfg(feature = "log")]
         info!("Using shura version: {}", VERSION);
+
         #[cfg(target_os = "android")]
         let events = winit::event_loop::EventLoopBuilder::new()
-            .with_android_app(app)
+            .with_android_app(self.app)
             .build();
         #[cfg(not(target_os = "android"))]
         let events = winit::event_loop::EventLoop::new();
-        let window = winit::window::WindowBuilder::new()
-            .with_inner_size(winit::dpi::PhysicalSize::new(INITIAL_WIDTH, INITIAL_HEIGHT))
-            .with_title("Shura Game")
-            .build(&events)
-            .unwrap();
+        let window = self.window.build(&events).unwrap();
         let shura_window_id = window.id();
 
         #[cfg(target_arch = "wasm32")]
@@ -96,22 +83,9 @@ impl Shura {
 
             std::panic::set_hook(Box::new(hook));
             let canvas = &web_sys::Element::from(window.canvas());
-            canvas.set_attribute("tabindex", "0").unwrap();
-            canvas
-                .set_attribute("oncontextmenu", "return false;")
-                .unwrap();
-            canvas
-                .set_attribute(
-                    "style",
-                    "
-                    margin: auto;
-                    position: absolute;
-                    top: 0;
-                    bottom: 0;
-                    left: 0;
-                    right: 0;",
-                )
-                .unwrap();
+            for (attr, value) in self.canvas_attrs {
+                canvas.set_attribute(attr, value).unwrap();
+            }
 
             let browser_window = web_sys::window().unwrap();
             let document = browser_window.document().unwrap();
@@ -119,7 +93,7 @@ impl Shura {
             body.append_child(canvas).ok();
         }
 
-        let mut init = Some(creator);
+        let mut init = Some(init);
         let mut window = Some(window);
         let mut shura: Option<Shura> = if cfg!(target_os = "android") {
             None
@@ -127,7 +101,10 @@ impl Shura {
             Some(Shura::new(
                 window.take().unwrap(),
                 &events,
+                self.gpu,
                 init.take().unwrap(),
+                #[cfg(target_arch = "wasm32")]
+                self.auto_scale_canvas,
             ))
         };
 
@@ -213,7 +190,10 @@ impl Shura {
                         shura = Some(Shura::new(
                             window.take().unwrap(),
                             &_target,
+                            self.gpu.clone(),
                             init.take().unwrap(),
+                            #[cfg(target_arch = "wasm32")]
+                            self.auto_scale_canvas,
                         ))
                     }
                     _ => {}
@@ -221,13 +201,36 @@ impl Shura {
             }
         });
     }
+}
 
+pub(crate) struct Shura {
+    pub(crate) end: bool,
+    pub(crate) frame_manager: FrameManager,
+    pub(crate) scene_manager: SceneManager,
+    pub(crate) window: winit::window::Window,
+    pub(crate) input: Input,
+    pub(crate) gpu: Gpu,
+    pub(crate) global_state: Box<dyn GlobalState>,
+    pub(crate) defaults: GpuDefaults,
+    #[cfg(feature = "gui")]
+    pub(crate) gui: Gui,
+    #[cfg(feature = "audio")]
+    pub(crate) audio: rodio::OutputStream,
+    #[cfg(feature = "audio")]
+    pub(crate) audio_handle: rodio::OutputStreamHandle,
+    #[cfg(target_arch = "wasm32")]
+    auto_scale_canvas: bool,
+}
+
+impl Shura {
     fn new<C: SceneCreator>(
         window: winit::window::Window,
         _event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
+        gpu: GpuConfig,
         creator: C,
+        #[cfg(target_arch = "wasm32")] auto_scale_canvas: bool,
     ) -> Self {
-        let gpu = pollster::block_on(Gpu::new(&window));
+        let gpu = pollster::block_on(Gpu::new(&window, gpu));
         let mint: mint::Vector2<u32> = (window.inner_size()).into();
         let window_size: Vector<u32> = mint.into();
         let defaults = GpuDefaults::new(&gpu, window_size);
@@ -248,6 +251,8 @@ impl Shura {
             window,
             gpu: gpu,
             defaults,
+            #[cfg(target_arch = "wasm32")]
+            auto_scale_canvas,
         };
         let scene = creator.scene(ShuraFields::from_shura(&mut shura));
         shura.scene_manager.init(scene);
@@ -331,22 +336,24 @@ impl Shura {
         let window_size: Vector<u32> = mint.into();
         #[cfg(target_arch = "wasm32")]
         {
-            let browser_window = web_sys::window().unwrap();
-            let width: u32 = browser_window.inner_width().unwrap().as_f64().unwrap() as u32;
-            let height: u32 = browser_window.inner_height().unwrap().as_f64().unwrap() as u32;
-            let size = winit::dpi::PhysicalSize::new(width, height);
-            if size != self.window.inner_size().into() {
-                self.window.set_inner_size(size);
-                info!(
-                    "{:?}",
-                    browser_window
-                        .document()
-                        .unwrap()
-                        .body()
-                        .unwrap()
-                        .client_width()
-                );
-                info!("Adjusting canvas to browser window!");
+            if self.auto_scale_canvas {
+                let browser_window = web_sys::window().unwrap();
+                let width: u32 = browser_window.inner_width().unwrap().as_f64().unwrap() as u32;
+                let height: u32 = browser_window.inner_height().unwrap().as_f64().unwrap() as u32;
+                let size = winit::dpi::PhysicalSize::new(width, height);
+                if size != self.window.inner_size().into() {
+                    self.window.set_inner_size(size);
+                    info!(
+                        "{:?}",
+                        browser_window
+                            .document()
+                            .unwrap()
+                            .body()
+                            .unwrap()
+                            .client_width()
+                    );
+                    info!("Adjusting canvas to browser window!");
+                }
             }
         }
         if scene.switched || scene.resized || scene.screen_config.changed {
@@ -503,5 +510,17 @@ impl Shura {
         scene.switched = false;
         scene.started = false;
         Ok(())
+    }
+}
+
+impl Drop for Shura {
+    fn drop(&mut self) {
+        for (_, mut scene) in self.scene_manager.end_scenes() {
+            if let Some(scene) = &mut scene {
+                let end = scene.state.get_end();
+                let mut ctx = Context::new(self, scene);
+                end(&mut ctx);
+            }
+        }
     }
 }

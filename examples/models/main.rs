@@ -1,7 +1,8 @@
 use shura::*;
 
-fn main() {
-    Shura::init(NewScene::new(1, |ctx| {
+#[shura::main]
+fn shura_main(config: ShuraConfig) {
+    config.init(NewScene::new(1, |ctx| {
         ctx.set_camera_scale(WorldCameraScale::Min(10.0));
         ctx.add_component(ModelTest::new(
             Vector::new(-3.0, 3.0),

@@ -53,7 +53,7 @@ pub struct ShuraFields<'a> {
 }
 
 impl<'a> ShuraFields<'a> {
-    pub fn from_shura(shura: &'a mut Shura) -> ShuraFields<'a> {
+    pub(crate) fn from_shura(shura: &'a mut Shura) -> ShuraFields<'a> {
         Self {
             frame_manager: &shura.frame_manager,
             defaults: &shura.defaults,
