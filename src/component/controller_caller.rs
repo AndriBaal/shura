@@ -30,7 +30,7 @@ impl<C: ComponentController> ComponentControllerCaller for C {
     }
 
     fn call_update(paths: &[ArenaPath], ctx: &mut Context) {
-        C::update(ComponentPath::new(paths), ctx)
+        C::update(&ComponentPath::new(paths), ctx)
     }
 
     #[cfg(feature = "physics")]

@@ -226,7 +226,7 @@ impl ComponentController for Light {
         ..DEFAULT_CONFIG
     };
 
-    fn update(active: ComponentPath<Self>, ctx: &mut Context) {
+    fn update(active: &ComponentPath<Self>, ctx: &mut Context) {
         let cursor_pos = ctx.cursor_camera(&ctx.world_camera);
         let window_size = ctx.window_size();
         for light in ctx.component_manager.path_mut(&active) {

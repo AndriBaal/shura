@@ -156,7 +156,7 @@ impl Player {
 }
 
 impl ComponentController for Player {
-    fn update(active: ComponentPath<Self>, ctx: &mut Context) {
+    fn update(active: &ComponentPath<Self>, ctx: &mut Context) {
         let delta = ctx.frame_time();
         let input = &mut ctx.input;
 
@@ -300,7 +300,7 @@ impl ComponentController for PhysicsBox {
         }
     }
 
-    fn update(active: ComponentPath<Self>, ctx: &mut Context) {
+    fn update(active: &ComponentPath<Self>, ctx: &mut Context) {
         let cursor_world: Point<f32> = (ctx.cursor_camera(&ctx.world_camera)).into();
         let remove = ctx.is_held(MouseButton::Left) || ctx.is_pressed(ScreenTouch);
         for physics_box in &mut ctx.path_mut(&active) {

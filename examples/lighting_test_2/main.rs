@@ -185,7 +185,7 @@ impl ComponentController for Light {
         ..DEFAULT_CONFIG
     };
 
-    fn update(active: ComponentPath<Self>, ctx: &mut Context) {
+    fn update(active: &ComponentPath<Self>, ctx: &mut Context) {
         fn det(v1: Vector<f32>, v2: Vector<f32>) -> f32 {
             return v1.x * v2.y - v1.y * v2.x;
         }

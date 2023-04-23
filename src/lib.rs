@@ -165,6 +165,10 @@ pub mod mint {
     pub use mint::*;
 }
 
+pub mod rand {
+    pub use rand::*;
+}
+
 #[cfg(feature = "log")]
 mod logging;
 

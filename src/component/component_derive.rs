@@ -45,7 +45,7 @@ where
     /// This component gets updated if the component's [group](crate::ComponentGroup) is active and enabled.
     /// Through the [context](crate::Context) you have access to all other scenes, groups,
     /// components with the matching controller and all data from the engine.
-    fn update(active: ComponentPath<Self>, ctx: &mut Context) {}
+    fn update(active: &ComponentPath<Self>, ctx: &mut Context) {}
 
     #[cfg(feature = "physics")]
     /// Collision Event between 2 components. It requires that

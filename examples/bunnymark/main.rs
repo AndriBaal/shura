@@ -108,7 +108,7 @@ impl ComponentController for Bunny {
         priority: 2,
         ..DEFAULT_CONFIG
     };
-    fn update(active: ComponentPath<Self>, ctx: &mut Context) {
+    fn update(active: &ComponentPath<Self>, ctx: &mut Context) {
         const GRAVITY: f32 = -2.5;
         let frame = ctx.frame_time();
         let fov = ctx.camera_fov();

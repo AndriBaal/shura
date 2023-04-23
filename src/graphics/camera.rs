@@ -116,6 +116,8 @@ pub struct WorldCamera {
 #[derive(Debug, Clone, Copy)]
 pub enum WorldCameraScale {
     Max(f32),
+    Horizontal(f32),
+    Vertical(f32),
     Min(f32),
 }
 
@@ -124,6 +126,8 @@ impl WorldCameraScale {
         match self {
             WorldCameraScale::Max(max) => *max,
             WorldCameraScale::Min(min) => *min,
+            WorldCameraScale::Vertical(vertical) => *vertical,
+            WorldCameraScale::Horizontal(horizontal) => *horizontal,
         }
     }
 
@@ -154,6 +158,22 @@ impl WorldCameraScale {
                     Vector::new(min, scale * min)
                 };
             }
+            WorldCameraScale::Horizontal(mut horizontal) => {
+                if horizontal < MINIMAL_FOV {
+                    horizontal = MINIMAL_FOV;
+                }
+
+                let yx = window_size.y as f32 / window_size.x as f32 * horizontal;
+                Vector::new(horizontal, yx)
+            },
+            WorldCameraScale::Vertical(mut vertical) => {
+                if vertical < MINIMAL_FOV {
+                    vertical = MINIMAL_FOV;
+                }
+
+                let xy = window_size.x as f32 / window_size.y as f32 * vertical;
+                Vector::new(xy, vertical)
+            },
         }
     }
 }
