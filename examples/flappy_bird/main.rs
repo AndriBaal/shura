@@ -1,5 +1,5 @@
 use shura::{
-    physics::{ActiveEvents, ColliderBuilder, RigidBodyBuilder},
+    physics::{ActiveEvents, ColliderBuilder, RigidBodyBuilder, LockedAxes},
     *,
 };
 
@@ -36,7 +36,7 @@ impl Bird {
             model: ctx.create_model(ModelBuilder::cuboid(bird_size)),
             sprites: vec![sprite],
             base: BaseComponent::new_rigid_body(
-                RigidBodyBuilder::dynamic(),
+                RigidBodyBuilder::dynamic().locked_axes(LockedAxes::TRANSLATION_LOCKED_X),
                 vec![ColliderBuilder::cuboid(bird_size.x, bird_size.y)
                     .active_events(ActiveEvents::COLLISION_EVENTS)],
             ),
@@ -47,11 +47,11 @@ impl Bird {
 impl ComponentController for Bird {
     fn update(active: &ComponentPath<Self>, ctx: &mut Context) {
         for bird in ctx.component_manager.path_mut(&active) {
+            let mut body = bird.base_mut().rigid_body_mut().unwrap();
             if ctx.input.is_pressed(Key::Space)
                 || ctx.input.is_pressed(MouseButton::Left)
                 || ctx.input.is_pressed(ScreenTouch)
             {
-                let mut body = bird.base_mut().rigid_body_mut().unwrap();
                 body.set_linvel(Vector::new(0.0, 8.0), true);
             }
         }
@@ -91,8 +91,8 @@ impl Ground {
                 vec![
                     ColliderBuilder::cuboid(size.x, size.y),
                     ColliderBuilder::segment(
-                        Point::new(-GAME_SIZE.x, GAME_SIZE.y),
-                        Point::new(GAME_SIZE.x, GAME_SIZE.y),
+                        Point::new(-GAME_SIZE.x, GAME_SIZE.y + GAME_SIZE.y - size.y),
+                        Point::new(GAME_SIZE.x, GAME_SIZE.y + GAME_SIZE.y - size.y),
                     ),
                 ],
             ),
