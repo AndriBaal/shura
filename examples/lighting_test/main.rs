@@ -41,7 +41,7 @@ fn shura_main(config: ShuraConfig) {
                     msaa: true,
                     write_mask: ColorWrites::ALL,
                 }),
-                blend
+                blend,
             });
             ctx.add_component(Obstacle::new(
                 ctx,
@@ -122,9 +122,21 @@ impl SceneState for LightingState {
                 gui::ComboBox::from_label("Select one!")
                     .selected_text(format!("{:?}", state.blend.alpha.dst_factor))
                     .show_ui(ui, |ui| {
-                        ui.selectable_value(&mut state.blend.alpha.dst_factor, BlendFactor::SrcAlpha, "SrcAlpha");
-                        ui.selectable_value(&mut state.blend.alpha.dst_factor, BlendFactor::One, "One");
-                        ui.selectable_value(&mut state.blend.alpha.dst_factor, BlendFactor::Src, "Src");
+                        ui.selectable_value(
+                            &mut state.blend.alpha.dst_factor,
+                            BlendFactor::SrcAlpha,
+                            "SrcAlpha",
+                        );
+                        ui.selectable_value(
+                            &mut state.blend.alpha.dst_factor,
+                            BlendFactor::One,
+                            "One",
+                        );
+                        ui.selectable_value(
+                            &mut state.blend.alpha.dst_factor,
+                            BlendFactor::Src,
+                            "Src",
+                        );
                     });
             });
     }
@@ -133,7 +145,7 @@ struct LightingState {
     light_shader: Shader,
     shadow_shader: Shader,
     shadow_color: Uniform<Color>,
-    blend: BlendState
+    blend: BlendState,
 }
 
 #[derive(Component)]

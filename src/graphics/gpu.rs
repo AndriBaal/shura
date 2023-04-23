@@ -457,7 +457,7 @@ impl GpuDefaults {
         let world_target = gpu.create_render_target(size);
         let times = Uniform::new(gpu, [0.0, 0.0]);
         let single_centered_instance =
-            gpu.create_instance_buffer(&[Matrix::new(Default::default())]);
+            gpu.create_instance_buffer(&[Matrix::new(Default::default(), Vector::new(1.0, 1.0))]);
         let empty_instance = gpu.create_instance_buffer(&[]);
 
         let fov = Self::relative_fov(window_size);

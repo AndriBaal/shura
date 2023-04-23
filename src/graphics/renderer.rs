@@ -326,11 +326,7 @@ impl<'a> Renderer<'a> {
         self.draw(instances);
     }
 
-    pub fn render_rainbow(
-        &mut self,
-        instances: impl Into<InstanceIndices>,
-        model: &'a Model,
-    ) {
+    pub fn render_rainbow(&mut self, instances: impl Into<InstanceIndices>, model: &'a Model) {
         self.use_shader(&self.defaults.rainbow);
         self.use_model(model);
         self.use_uniform(&self.defaults.times, 1);

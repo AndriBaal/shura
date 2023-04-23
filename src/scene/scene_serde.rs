@@ -12,9 +12,9 @@ use serde::{de::Visitor, Deserializer, Serialize};
 use std::{cmp, marker::PhantomData};
 
 use crate::{
-    Arena, ArenaEntry, BoxedComponent, ComponentController, ComponentGroup,
-    ComponentManager, ComponentTypeId, Context, FieldNames, GlobalState, GroupFilter, Scene,
-    SceneCreator, SceneState, ShuraFields,
+    Arena, ArenaEntry, BoxedComponent, ComponentController, ComponentGroup, ComponentManager,
+    ComponentTypeId, Context, FieldNames, GlobalState, GroupFilter, Scene, SceneCreator,
+    SceneState, ShuraFields,
 };
 
 pub struct SceneSerializer<'a> {

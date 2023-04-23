@@ -1,4 +1,4 @@
-use crate::{ComponentHandle, Isometry, Matrix, Rotation, Vector, ComponentDerive};
+use crate::{ComponentDerive, ComponentHandle, Isometry, Matrix, Rotation, Vector};
 #[cfg(feature = "physics")]
 use std::{
     cell::{Ref, RefCell, RefMut},
@@ -140,9 +140,12 @@ impl BaseComponent {
                     .rigid_body(*body_handle)
                     .unwrap()
                     .position(),
+                Vector::new(1.0, 1.0),
             ),
             #[cfg(feature = "physics")]
-            BodyStatus::RigidBodyPending { body, .. } => Matrix::new(*body.position()),
+            BodyStatus::RigidBodyPending { body, .. } => {
+                Matrix::new(*body.position(), Vector::new(1.0, 1.0))
+            }
         };
     }
 

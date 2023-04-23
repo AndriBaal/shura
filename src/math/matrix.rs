@@ -27,10 +27,10 @@ impl Matrix {
         Self { x, y, z, w }
     }
 
-    pub fn new(pos: Isometry<f32>) -> Self {
+    pub fn new(pos: Isometry<f32>, scale: Vector<f32>) -> Self {
         let mut matrix = Matrix::default();
         matrix.translate(pos.translation.vector);
-        matrix.rotate(Vector::new(1.0, 1.0), pos.rotation);
+        matrix.rotate(scale, pos.rotation);
         return matrix;
     }
 
@@ -152,6 +152,6 @@ impl Mul for Matrix {
 
 impl Into<Matrix> for Isometry<f32> {
     fn into(self) -> Matrix {
-        Matrix::new(self)
+        Matrix::new(self, Vector::new(1.0, 1.0))
     }
 }

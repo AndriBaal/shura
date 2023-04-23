@@ -704,7 +704,6 @@ impl ComponentManager {
         self.world.borrow_mut().collision_event()
     }
 
-
     #[cfg(feature = "serde")]
     pub(crate) fn register_callbacks<C: ComponentController>(&mut self) {
         self.component_callbacks
@@ -744,5 +743,4 @@ impl ComponentManager {
         }
         self.groups = groups;
     }
-
 }

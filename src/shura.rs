@@ -5,7 +5,7 @@ use crate::physics::{ActiveEvents, CollideType};
 use crate::{
     scene::context::ShuraFields, Context, FrameManager, GlobalState, Gpu, GpuConfig, GpuDefaults,
     Input, RenderConfigTarget, RenderEncoder, RenderOperation, Renderer, Scene, SceneCreator,
-    SceneManager, Vector
+    SceneManager, Vector,
 };
 #[cfg(target_arch = "wasm32")]
 use rustc_hash::FxHashMap;
@@ -13,7 +13,10 @@ use rustc_hash::FxHashMap;
 use winit::platform::android::activity::AndroidApp;
 
 #[cfg(feature = "log")]
-use crate::{VERSION, log::{error, info, LoggerBuilder}};
+use crate::{
+    log::{error, info, LoggerBuilder},
+    VERSION,
+};
 
 pub struct ShuraConfig {
     pub window: winit::window::WindowBuilder,

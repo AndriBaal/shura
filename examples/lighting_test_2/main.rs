@@ -19,7 +19,7 @@ fn shura_main(config: ShuraConfig) {
                     blend: BlendState::ALPHA_BLENDING,
                     msaa: true,
                     write_mask: ColorWrites::ALL,
-                })
+                }),
             });
             ctx.add_component(Obstacle::new(
                 ctx,
@@ -93,7 +93,7 @@ fn shura_main(config: ShuraConfig) {
 
 impl SceneState for LightingState {}
 struct LightingState {
-    light_shader: Shader
+    light_shader: Shader,
 }
 
 #[derive(Component)]

@@ -4,9 +4,7 @@ use shura::*;
 fn shura_main(config: ShuraConfig) {
     config.init(NewScene {
         id: 0,
-        init: |ctx| {
-            ctx.set_scene_state(GuiState::default())
-        },
+        init: |ctx| ctx.set_scene_state(GuiState::default()),
     });
 }
 

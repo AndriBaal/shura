@@ -165,7 +165,7 @@ impl WorldCameraScale {
 
                 let yx = window_size.y as f32 / window_size.x as f32 * horizontal;
                 Vector::new(horizontal, yx)
-            },
+            }
             WorldCameraScale::Vertical(mut vertical) => {
                 if vertical < MINIMAL_FOV {
                     vertical = MINIMAL_FOV;
@@ -173,7 +173,7 @@ impl WorldCameraScale {
 
                 let xy = window_size.x as f32 / window_size.y as f32 * vertical;
                 Vector::new(xy, vertical)
-            },
+            }
         }
     }
 }

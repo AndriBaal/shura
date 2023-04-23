@@ -1,5 +1,7 @@
-use rand::{thread_rng, Rng};
-use shura::*;
+use shura::{
+    rand::{thread_rng, Rng},
+    *,
+};
 
 #[shura::main]
 fn shura_main(config: ShuraConfig) {
