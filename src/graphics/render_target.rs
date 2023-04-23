@@ -32,7 +32,7 @@ impl RenderTarget {
         defaults: &GpuDefaults,
         texture_size: Vector<u32>,
         camera: &CameraBuffer,
-        compute: impl Fn(RenderConfig, &mut RenderEncoder),
+        compute: impl FnMut(RenderConfig, &mut RenderEncoder),
     ) -> Self {
         let target = RenderTarget::new(gpu, texture_size);
         target.draw(gpu, defaults, camera, compute);

@@ -1,13 +1,14 @@
 use crate::{
-    CameraBuffer, Color, GpuDefaults, InstanceBuffer, InstanceIndices, Model, RenderConfig,
-    RenderConfigCamera, RenderConfigInstances, Shader, Sprite, Uniform,
+    CameraBuffer, Color, GpuDefaults, InstanceBuffer, InstanceIndices, Model, ModelIndexBuffer,
+    RenderConfig, RenderConfigCamera, RenderConfigInstances, Shader, Sprite, Uniform,
 };
 use std::ptr::null;
 
 struct RenderCache {
     pub bound_shader: *const Shader,
     pub bound_camera: *const CameraBuffer,
-    pub bound_model: *const Model,
+    pub bound_vertex_buffer: *const wgpu::Buffer,
+    pub bound_index_buffer: *const wgpu::Buffer,
     pub bound_instances: *const InstanceBuffer,
     pub bound_uniforms: [*const wgpu::BindGroup; 5],
 }
@@ -17,7 +18,8 @@ impl Default for RenderCache {
         Self {
             bound_shader: null(),
             bound_camera: null(),
-            bound_model: null(),
+            bound_vertex_buffer: null(),
+            bound_index_buffer: null(),
             bound_instances: null(),
             bound_uniforms: [null(), null(), null(), null(), null()],
         }
@@ -168,15 +170,26 @@ impl<'a> Renderer<'a> {
     }
 
     pub fn use_model(&mut self, model: &'a Model) {
-        let ptr = model as *const _;
-        if ptr != self.cache.bound_model {
-            self.cache.bound_model = ptr;
+        let index_buffer = match model.index_buffer() {
+            ModelIndexBuffer::Triangle => &self.defaults.triangle_index_buffer,
+            ModelIndexBuffer::Cuboid => &self.defaults.cuboid_index_buffer,
+            ModelIndexBuffer::Custom(c) => c,
+        };
+        let index_ptr = index_buffer as *const _;
+        let vertex_ptr = model.vertex_buffer() as *const _;
+
+        if index_ptr != self.cache.bound_index_buffer {
+            self.cache.bound_index_buffer = index_ptr;
 
             self.render_pass
-                .set_index_buffer(model.index_buffer().slice(..), wgpu::IndexFormat::Uint32);
+                .set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+            self.indices = model.amount_of_indices();
+        }
+
+        if vertex_ptr != self.cache.bound_vertex_buffer {
+            self.cache.bound_vertex_buffer = vertex_ptr;
             self.render_pass
                 .set_vertex_buffer(0, model.vertex_buffer().slice(..));
-            self.indices = model.amount_of_indices();
         }
     }
 
@@ -215,12 +228,10 @@ impl<'a> Renderer<'a> {
 
     pub fn render_sprite(
         &mut self,
-        instance_buffer: &'a InstanceBuffer,
         instances: impl Into<InstanceIndices>,
         model: &'a Model,
         sprite: &'a Sprite,
     ) {
-        self.use_instances(instance_buffer);
         self.use_shader(&self.defaults.sprite);
         self.use_model(model);
         self.use_sprite(sprite, 1);
@@ -229,12 +240,10 @@ impl<'a> Renderer<'a> {
 
     pub fn render_grey(
         &mut self,
-        instance_buffer: &'a InstanceBuffer,
         instances: impl Into<InstanceIndices>,
         model: &'a Model,
         sprite: &'a Sprite,
     ) {
-        self.use_instances(instance_buffer);
         self.use_shader(&self.defaults.grey);
         self.use_model(model);
         self.use_sprite(sprite, 1);
@@ -243,12 +252,10 @@ impl<'a> Renderer<'a> {
 
     pub fn render_blurred(
         &mut self,
-        instance_buffer: &'a InstanceBuffer,
         instances: impl Into<InstanceIndices>,
         model: &'a Model,
         sprite: &'a Sprite,
     ) {
-        self.use_instances(instance_buffer);
         self.use_shader(&self.defaults.blurr);
         self.use_model(model);
         self.use_sprite(sprite, 1);
@@ -257,13 +264,11 @@ impl<'a> Renderer<'a> {
 
     pub fn render_colored_sprite(
         &mut self,
-        instance_buffer: &'a InstanceBuffer,
         instances: impl Into<InstanceIndices>,
         model: &'a Model,
         sprite: &'a Sprite,
         color: &'a Uniform<Color>,
     ) {
-        self.use_instances(instance_buffer);
         self.use_shader(&self.defaults.colored_sprite);
         self.use_model(model);
         self.use_sprite(sprite, 1);
@@ -273,13 +278,11 @@ impl<'a> Renderer<'a> {
 
     pub fn render_transparent_sprite(
         &mut self,
-        instance_buffer: &'a InstanceBuffer,
         instances: impl Into<InstanceIndices>,
         model: &'a Model,
         sprite: &'a Sprite,
         transparency: &'a Uniform<f32>,
     ) {
-        self.use_instances(instance_buffer);
         self.use_shader(&self.defaults.transparent);
         self.use_model(model);
         self.use_sprite(sprite, 1);
@@ -289,12 +292,10 @@ impl<'a> Renderer<'a> {
 
     pub fn render_color(
         &mut self,
-        instance_buffer: &'a InstanceBuffer,
         instances: impl Into<InstanceIndices>,
         model: &'a Model,
         color: &'a Uniform<Color>,
     ) {
-        self.use_instances(instance_buffer);
         self.use_shader(&self.defaults.color);
         self.use_model(model);
         self.use_uniform(color, 1);
@@ -303,12 +304,10 @@ impl<'a> Renderer<'a> {
 
     pub fn render_color_no_msaa(
         &mut self,
-        instance_buffer: &'a InstanceBuffer,
         instances: impl Into<InstanceIndices>,
         model: &'a Model,
         color: &'a Uniform<Color>,
     ) {
-        self.use_instances(instance_buffer);
         self.use_shader(&self.defaults.color_no_msaa);
         self.use_model(model);
         self.use_uniform(color, 1);
@@ -317,12 +316,10 @@ impl<'a> Renderer<'a> {
 
     pub fn render_sprite_no_msaa(
         &mut self,
-        instance_buffer: &'a InstanceBuffer,
         instances: impl Into<InstanceIndices>,
         model: &'a Model,
         sprite: &'a Sprite,
     ) {
-        self.use_instances(instance_buffer);
         self.use_shader(&self.defaults.sprite_no_msaa);
         self.use_model(model);
         self.use_sprite(sprite, 1);
@@ -331,11 +328,9 @@ impl<'a> Renderer<'a> {
 
     pub fn render_rainbow(
         &mut self,
-        instance_buffer: &'a InstanceBuffer,
         instances: impl Into<InstanceIndices>,
         model: &'a Model,
     ) {
-        self.use_instances(instance_buffer);
         self.use_shader(&self.defaults.rainbow);
         self.use_model(model);
         self.use_uniform(&self.defaults.times, 1);

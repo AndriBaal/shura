@@ -279,6 +279,7 @@ impl ComponentManager {
     }
 
     pub fn add_group(&mut self, group: impl Into<ComponentGroup>) {
+        #[allow(unused_mut)]
         let mut group = group.into();
         let group_id = group.id();
         assert_ne!(group_id, 0);
@@ -648,14 +649,9 @@ impl ComponentManager {
         self.render_components
     }
 
+    #[cfg(feature = "physics")]
     pub(crate) fn component_callbacks(&self, type_id: &ComponentTypeId) -> &ComponentCallbacks {
         return self.component_callbacks.get(&type_id).unwrap();
-    }
-
-    #[cfg(feature = "serde")]
-    pub(crate) fn register_callbacks<C: ComponentController>(&mut self) {
-        self.component_callbacks
-            .insert(C::IDENTIFIER, ComponentCallbacks::new::<C>());
     }
 
     pub(crate) fn copy_active_components(
@@ -702,9 +698,51 @@ impl ComponentManager {
     }
 
     #[cfg(feature = "physics")]
-    pub fn collision_event(
+    pub(crate) fn collision_event(
         &mut self,
     ) -> Result<rapier2d::prelude::CollisionEvent, crossbeam::channel::TryRecvError> {
         self.world.borrow_mut().collision_event()
     }
+
+
+    #[cfg(feature = "serde")]
+    pub(crate) fn register_callbacks<C: ComponentController>(&mut self) {
+        self.component_callbacks
+            .insert(C::IDENTIFIER, ComponentCallbacks::new::<C>());
+    }
+
+    #[cfg(feature = "serde")]
+    pub(crate) fn serialize_groups(
+        &self,
+        filter: GroupFilter,
+    ) -> Vec<Option<(&u32, &ComponentGroup)>> {
+        let mut ids = FxHashSet::default();
+        match filter {
+            GroupFilter::All => {
+                for group_id in self.group_ids() {
+                    ids.insert(*group_id);
+                }
+            }
+            GroupFilter::Active => {
+                for group_id in self.active_group_ids() {
+                    ids.insert(*group_id);
+                }
+            }
+            GroupFilter::Specific(group_ids) => {
+                for group_id in group_ids {
+                    ids.insert(*group_id);
+                }
+            }
+        }
+        return self.groups.serialize_groups(ids);
+    }
+
+    #[cfg(feature = "serde")]
+    pub(crate) fn deserialize_groups(&mut self, groups: Arena<ComponentGroup>) {
+        for (index, group) in &groups {
+            self.group_map.insert(group.id(), index);
+        }
+        self.groups = groups;
+    }
+
 }

@@ -1,11 +1,12 @@
 use crate::{
     BoxedComponent, Camera, CameraBuffer, Color, ComponentController, ComponentDerive,
     ComponentGroup, ComponentHandle, ComponentManager, ComponentPath, ComponentRenderGroup,
-    ComponentSet, ComponentSetMut, ComponentTypeId, Duration, FrameManager, GlobalState, Gpu,
-    GpuDefaults, GroupDelta, GroupFilter, Input, InputEvent, InputTrigger, InstanceBuffer, Instant,
-    Isometry, Matrix, Model, ModelBuilder, Modifier, RenderConfig, RenderEncoder, RenderTarget,
-    Rotation, Scene, SceneCreator, SceneManager, SceneState, ScreenConfig, Shader, ShaderConfig,
-    Shura, Sprite, SpriteSheet, Uniform, Vector, WorldCamera, WorldCameraScale,
+    ComponentSet, ComponentSetMut, Duration, FrameManager, GlobalState, Gpu, GpuDefaults,
+    GroupDelta, GroupFilter, Input, InputEvent, InputTrigger, InstanceBuffer, InstanceIndex,
+    InstanceIndices, Instant, Isometry, Matrix, Model, ModelBuilder, Modifier, RenderConfig,
+    RenderEncoder, RenderTarget, Renderer, Rotation, Scene, SceneCreator, SceneManager, SceneState,
+    ScreenConfig, Shader, ShaderConfig, Shura, Sprite, SpriteSheet, Uniform, Vector, WorldCamera,
+    WorldCameraScale,
 };
 
 #[cfg(feature = "serde")]
@@ -22,6 +23,9 @@ use std::{
     cell::{Ref, RefMut},
     ops::{Deref, DerefMut},
 };
+
+#[cfg(any(feature = "physics", feature = "physics"))]
+use crate::ComponentTypeId;
 
 #[cfg(feature = "gui")]
 use crate::gui::Gui;
@@ -209,7 +213,7 @@ impl<'a> Context<'a> {
         filter: GroupFilter,
         mut serialize: impl FnMut(&mut SceneSerializer),
     ) -> Result<Vec<u8>, Box<bincode::ErrorKind>> {
-        use crate::SerializedGroups;
+        use rustc_hash::FxHashMap;
 
         let component_manager = &self.component_manager;
 
@@ -229,13 +233,14 @@ impl<'a> Context<'a> {
             started: bool,
             screen_config: &'a ScreenConfig,
             world_camera: &'a WorldCamera,
-            component_manager: &'a mut ComponentManager,
+            component_manager: &'a ComponentManager,
         }
 
         #[cfg(feature = "physics")]
         {
             use std::mem;
-            let (components, body_handles, scene_state, global_state) = serializer.finish();
+            let (groups, ser_components, ser_scene_state, ser_global_state, body_handles) =
+                serializer.finish();
             let mut world = self.component_manager.world.borrow_mut();
             let mut world_cpy = world.clone();
             let mut to_remove = vec![];
@@ -262,8 +267,19 @@ impl<'a> Context<'a> {
                 world_camera: self.world_camera,
                 component_manager: self.component_manager,
             };
-            let scene: (&Scene, SerializedGroups, Option<Vec<u8>>, Option<Vec<u8>>) =
-                (&scene, components, scene_state, global_state);
+            let scene: (
+                &Scene,
+                Vec<Option<(&u32, &ComponentGroup)>>,
+                FxHashMap<ComponentTypeId, Vec<(u16, Vec<Option<(u32, Vec<u8>)>>)>>,
+                Option<Vec<u8>>,
+                Option<Vec<u8>>,
+            ) = (
+                &scene,
+                groups,
+                ser_components,
+                ser_scene_state,
+                ser_global_state,
+            );
             let result = bincode::serialize(&scene);
 
             *self.component_manager.world.borrow_mut() = old_world;
@@ -273,19 +289,29 @@ impl<'a> Context<'a> {
 
         #[cfg(not(feature = "physics"))]
         {
-            let components = serializer.finish();
+            let (groups, ser_components, ser_scene_state, ser_global_state) = serializer.finish();
             let scene = Scene {
                 id: *self.scene_id,
                 resized: true,
                 switched: true,
+                started: true,
                 screen_config: self.screen_config,
                 world_camera: self.world_camera,
                 component_manager: self.component_manager,
             };
             let scene: (
                 &Scene,
-                FxHashMap<ComponentTypeId, Vec<(u32, Vec<Option<(u32, Vec<u8>)>>)>>,
-            ) = (&scene, components);
+                Vec<Option<(&u32, &ComponentGroup)>>,
+                FxHashMap<ComponentTypeId, Vec<(u16, Vec<Option<(u32, Vec<u8>)>>)>>,
+                Option<Vec<u8>>,
+                Option<Vec<u8>>,
+            ) = (
+                &scene,
+                groups,
+                ser_components,
+                ser_scene_state,
+                ser_global_state,
+            );
             let result = bincode::serialize(&scene);
             return result;
         }
@@ -383,7 +409,7 @@ impl<'a> Context<'a> {
         &self,
         texture_size: Vector<u32>,
         camera: &CameraBuffer,
-        compute: impl Fn(RenderConfig, &mut RenderEncoder),
+        compute: impl FnMut(RenderConfig, &mut RenderEncoder),
     ) -> RenderTarget {
         self.gpu
             .create_computed_target(self.defaults, texture_size, camera, compute)
@@ -521,11 +547,19 @@ impl<'a> Context<'a> {
         return state.downcast::<S>().ok().and_then(|s| Some(*s));
     }
 
-    pub fn scene_state<S: SceneState>(&self) -> Option<&S> {
+    pub fn scene_state<S: SceneState>(&self) -> &S {
+        self.scene_state.downcast_ref::<S>().unwrap()
+    }
+
+    pub fn scene_state_mut<S: SceneState>(&mut self) -> &mut S {
+        self.scene_state.downcast_mut::<S>().unwrap()
+    }
+
+    pub fn try_scene_state<S: SceneState>(&self) -> Option<&S> {
         self.scene_state.downcast_ref::<S>()
     }
 
-    pub fn scene_state_mut<S: SceneState>(&mut self) -> Option<&mut S> {
+    pub fn try_scene_state_mut<S: SceneState>(&mut self) -> Option<&mut S> {
         self.scene_state.downcast_mut::<S>()
     }
 
@@ -973,6 +1007,36 @@ impl<'a> Context<'a> {
         path: &ComponentPath<C>,
     ) -> ComponentRenderGroup<C> {
         return self.component_manager.path_render(path, self.defaults);
+    }
+
+    pub fn render_each<C: ComponentDerive>(
+        &'a self,
+        active: &ComponentPath<C>,
+        encoder: &'a mut RenderEncoder,
+        config: RenderConfig<'a>,
+        mut each: impl FnMut(&mut Renderer<'a>, &'a C, InstanceIndex),
+    ) {
+        let mut renderer = encoder.renderer(config);
+        for (buffer, components) in self.path_render(active) {
+            renderer.use_instances(buffer);
+            for (instance, component) in components {
+                (each)(&mut renderer, component, instance);
+            }
+        }
+    }
+
+    pub fn render_all<C: ComponentDerive>(
+        &'a self,
+        active: &ComponentPath<C>,
+        encoder: &'a mut RenderEncoder,
+        config: RenderConfig<'a>,
+        mut all: impl FnMut(&mut Renderer<'a>, InstanceIndices),
+    ) {
+        let mut renderer = encoder.renderer(config);
+        for (buffer, _) in self.path_render(active) {
+            renderer.use_instances(buffer);
+            (all)(&mut renderer, buffer.all_instances());
+        }
     }
 
     pub fn path<C: ComponentDerive>(&self, path: &ComponentPath<C>) -> ComponentSet<C> {

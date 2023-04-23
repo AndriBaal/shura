@@ -52,11 +52,7 @@ impl Into<ComponentGroup> for ComponentGroupDescriptor {
 /// from the [context](crate::Context).
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ComponentGroup {
-    #[cfg_attr(feature = "serde", serde(skip))]
-    #[cfg_attr(feature = "serde", serde(default))]
     type_map: FxHashMap<ComponentTypeId, ArenaIndex>,
-    #[cfg_attr(feature = "serde", serde(skip))]
-    #[cfg_attr(feature = "serde", serde(default))]
     types: Arena<ComponentType>,
     id: u16,
     active: bool,
@@ -128,9 +124,9 @@ impl ComponentGroup {
         &mut self,
         components: Arena<BoxedComponent>,
     ) {
-        let component_type = ComponentType::from_arena::<C>(components);
-        let type_index = self.types.insert(component_type);
-        self.type_map.insert(C::IDENTIFIER, type_index);
+        let type_index = self.type_map.get(&C::IDENTIFIER).unwrap();
+        let ty = &mut self.types[*type_index];
+        *ty = ComponentType::from_arena::<C>(components);
     }
 
     /// Set the activation of this group.

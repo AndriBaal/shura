@@ -5,7 +5,7 @@ use crate::physics::{ActiveEvents, CollideType};
 use crate::{
     scene::context::ShuraFields, Context, FrameManager, GlobalState, Gpu, GpuConfig, GpuDefaults,
     Input, RenderConfigTarget, RenderEncoder, RenderOperation, Renderer, Scene, SceneCreator,
-    SceneManager, Vector, VERSION,
+    SceneManager, Vector
 };
 #[cfg(target_arch = "wasm32")]
 use rustc_hash::FxHashMap;
@@ -13,7 +13,7 @@ use rustc_hash::FxHashMap;
 use winit::platform::android::activity::AndroidApp;
 
 #[cfg(feature = "log")]
-use crate::log::{error, info, LoggerBuilder};
+use crate::{VERSION, log::{error, info, LoggerBuilder}};
 
 pub struct ShuraConfig {
     pub window: winit::window::WindowBuilder,
@@ -46,7 +46,10 @@ impl ShuraConfig {
                 let mut map = FxHashMap::default();
                 map.insert("tabindex", "0");
                 map.insert("oncontextmenu", "return false;");
-                map.insert("style", "margin: auto; position: absolute; top: 0; bottom: 0; left: 0; right: 0;");
+                map.insert(
+                    "style",
+                    "margin: auto; position: absolute; top: 0; bottom: 0; left: 0; right: 0;",
+                );
                 map
             },
         }
@@ -163,9 +166,9 @@ impl ShuraConfig {
                                 Err(wgpu::SurfaceError::OutOfMemory) => {
                                     *control_flow = winit::event_loop::ControlFlow::Exit
                                 }
-                                Err(e) => {
+                                Err(_e) => {
                                     #[cfg(feature = "log")]
-                                    error!("SurfaceError: {:?}", e)
+                                    error!("SurfaceError: {:?}", _e)
                                 }
                             }
 

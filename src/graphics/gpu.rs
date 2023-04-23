@@ -8,7 +8,7 @@ use crate::{
     Sprite, SpriteSheet, Uniform, Vector,
 };
 use std::borrow::Cow;
-use wgpu::BlendState;
+use wgpu::{util::DeviceExt, BlendState};
 pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 0.5;
 
 #[derive(Clone)]
@@ -94,10 +94,10 @@ impl Gpu {
         let base = WgpuBase::new(&device, sample_count);
 
         surface.configure(&device, &config);
-        let adapter_info = adapter.get_info();
 
         #[cfg(feature = "log")]
         {
+            let adapter_info = adapter.get_info();
             info!("Using GPU: {}", adapter_info.name);
             info!("Using WGPU backend: {:?}", adapter_info.backend);
             info!("Using Multisample X{sample_count}");
@@ -217,7 +217,7 @@ impl Gpu {
         defaults: &GpuDefaults,
         texture_size: Vector<u32>,
         camera: &CameraBuffer,
-        compute: impl Fn(RenderConfig, &mut RenderEncoder),
+        compute: impl FnMut(RenderConfig, &mut RenderEncoder),
     ) -> RenderTarget {
         return RenderTarget::computed(self, defaults, texture_size, camera, compute);
     }
@@ -349,6 +349,9 @@ pub struct GpuDefaults {
     pub color_no_msaa: Shader,
     pub sprite_no_msaa: Shader,
 
+    pub cuboid_index_buffer: wgpu::Buffer,
+    pub triangle_index_buffer: wgpu::Buffer,
+
     /// This field holds both total time and the frame time. Both are stored as f32 in the buffer.
     /// The first f32 is the `total_time` and the second f32 is the `frame_time`. In the shader
     /// the struct also needs 2 additional floats which are empty to match the 16 byte alignment
@@ -478,7 +481,25 @@ impl GpuDefaults {
         let camera = Camera::new(Default::default(), Vector::new(0.5, 0.5));
         let unit_camera = (camera.create_buffer(gpu), camera);
 
+        let cuboid_index_buffer =
+            gpu.device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("cuboid_index_buffer"),
+                    contents: bytemuck::cast_slice(&ModelBuilder::CUBOID_INDICES),
+                    usage: wgpu::BufferUsages::INDEX,
+                });
+
+        let triangle_index_buffer =
+            gpu.device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("triangle_index_buffer"),
+                    contents: bytemuck::cast_slice(&ModelBuilder::TRIANGLE_INDICES),
+                    usage: wgpu::BufferUsages::INDEX,
+                });
+
         Self {
+            cuboid_index_buffer,
+            triangle_index_buffer,
             unit_camera,
             sprite,
             rainbow,

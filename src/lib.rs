@@ -44,11 +44,11 @@ mod scene;
 mod shura;
 
 pub use instant::Duration;
-pub use shura_proc::*;
 pub use rustc_hash::{FxHashMap, FxHashSet};
+pub use shura_proc::*;
 
 #[cfg(target_os = "android")]
-use winit::platform::android::activity::AndroidApp;
+pub use winit::platform::android::activity::AndroidApp;
 
 pub(crate) use {
     component::controller_caller::*, data::arena::*, data::arena_path::*,
@@ -60,11 +60,10 @@ pub use crate::{
         base_component::*, component_config::*, component_derive::*, component_group::*,
         component_handle::*, component_manager::*, component_set::*, component_type::*,
     },
-    graphics::{camera::*, frame_manager::*},
     graphics::{
-        color::*, gpu::*, instance_buffer::*, model::*, render_encoder::*, render_target::*,
-        renderer::*, screen_config::*, shader::*, sprite::*, sprite_sheet::*, uniform::*,
-        vertex::*,
+        camera::*, color::*, frame_manager::*, gpu::*, instance_buffer::*, model::*,
+        render_encoder::*, render_target::*, renderer::*, screen_config::*, shader::*, sprite::*,
+        sprite_sheet::*, uniform::*, vertex::*,
     },
     input::input::*,
     math::{math::*, matrix::*},

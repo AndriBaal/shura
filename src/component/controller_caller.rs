@@ -26,7 +26,7 @@ where
 
 impl<C: ComponentController> ComponentControllerCaller for C {
     fn call_render(paths: &[ArenaPath], ctx: &Context, encoder: &mut RenderEncoder) {
-        C::render(ComponentPath::new(paths), ctx, encoder);
+        C::render(&ComponentPath::new(paths), ctx, encoder);
     }
 
     fn call_update(paths: &[ArenaPath], ctx: &mut Context) {

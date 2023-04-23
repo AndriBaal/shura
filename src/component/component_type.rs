@@ -21,8 +21,14 @@ pub trait ComponentIdentifier {
     const IDENTIFIER: ComponentTypeId;
 }
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct ComponentType {
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[cfg_attr(feature = "serde", serde(default))]
     components: Arena<BoxedComponent>,
+
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[cfg_attr(feature = "serde", serde(default))]
     buffer: Option<InstanceBuffer>,
 
     type_id: ComponentTypeId,

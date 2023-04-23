@@ -1,4 +1,4 @@
-use crate::{ComponentHandle, Isometry, Matrix, Rotation, Vector};
+use crate::{ComponentHandle, Isometry, Matrix, Rotation, Vector, ComponentDerive};
 #[cfg(feature = "physics")]
 use std::{
     cell::{Ref, RefCell, RefMut},
@@ -539,6 +539,16 @@ impl Drop for BaseComponent {
     }
 }
 
+impl ComponentDerive for BaseComponent {
+    fn base(&self) -> &BaseComponent {
+        self
+    }
+
+    fn base_mut(&mut self) -> &mut BaseComponent {
+        self
+    }
+}
+
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg(feature = "physics")]
 struct WorldWrapper {
@@ -585,7 +595,7 @@ impl WorldWrapper {
     }
 }
 
-#[cfg(not(feature = "serde"))]
+#[cfg(all(not(feature = "serde"), feature = "physics"))]
 impl WorldWrapper {
     pub fn world(&self) -> Ref<World> {
         return self.world.borrow();

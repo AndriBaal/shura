@@ -184,13 +184,10 @@ impl ComponentController for Player {
         }
     }
 
-    fn render(active: ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
-        let mut renderer = encoder.renderer(RenderConfig::WORLD);
-        for (buffer, players) in ctx.path_render(&active) {
-            for (instance, player) in players {
-                renderer.render_sprite(buffer, instance, &player.model, &player.sprite);
-            }
-        }
+    fn render(active: &ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
+        ctx.render_each(active, encoder, RenderConfig::WORLD, |r, player, index| {
+            r.render_sprite(index, &player.model, &player.sprite)
+        })
     }
 
     fn collision(
@@ -243,13 +240,10 @@ impl Floor {
 }
 
 impl ComponentController for Floor {
-    fn render(active: ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
-        let mut renderer = encoder.renderer(RenderConfig::WORLD);
-        for (instance, floors) in ctx.path_render(&active) {
-            for (index, floor) in floors {
-                renderer.render_color(instance, index, &floor.model, &floor.color);
-            }
-        }
+    fn render(active: &ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
+        ctx.render_each(active, encoder, RenderConfig::WORLD, |r, floor, index| {
+            r.render_color(index, &floor.model, &floor.color)
+        })
     }
 }
 
@@ -281,9 +275,9 @@ impl PhysicsBox {
 }
 
 impl ComponentController for PhysicsBox {
-    fn render(active: ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
+    fn render(active: &ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
         let mut renderer = encoder.renderer(RenderConfig::WORLD);
-        let state = ctx.scene_state::<PhysicsState>().unwrap();
+        let state = ctx.scene_state::<PhysicsState>();
         for (buffer, boxes) in ctx.path_render(&active) {
             let mut ranges = vec![];
             let mut last = 0;
@@ -299,36 +293,31 @@ impl ComponentController for PhysicsBox {
                 }
             }
             ranges.push((&state.default_color, last..buffer.len()));
+            renderer.use_instances(buffer);
             for (color, r) in ranges {
-                renderer.render_color(buffer, r, &state.box_model, color)
+                renderer.render_color(r, &state.box_model, color)
             }
         }
     }
 
     fn update(active: ComponentPath<Self>, ctx: &mut Context) {
         let cursor_world: Point<f32> = (ctx.cursor_camera(&ctx.world_camera)).into();
-        let mut to_remove = vec![];
         let remove = ctx.is_held(MouseButton::Left) || ctx.is_pressed(ScreenTouch);
         for physics_box in &mut ctx.path_mut(&active) {
-            let collider_handle = physics_box.base.collider_handles().unwrap()[0];
-            let collider = physics_box.base.collider(collider_handle).unwrap();
-            if collider
-                .shape()
-                .contains_point(collider.position(), &cursor_world)
-            {
-                drop(collider);
+            physics_box.hovered = false;
+        }
+        let mut component: Option<ComponentHandle> = None;
+        ctx.intersections_with_point(&cursor_world, Default::default(), |component_handle, _| {
+            component = Some(component_handle);
+            false
+        });
+        if let Some(handle) = component {
+            if let Some(physics_box) = ctx.component_mut::<Self>(handle) {
                 physics_box.hovered = true;
                 if remove {
-                    to_remove.push(physics_box.base.handle().unwrap());
+                    ctx.remove_component(handle);
                 }
-            } else {
-                drop(collider);
-                physics_box.hovered = false;
             }
-        }
-
-        for handle in to_remove {
-            ctx.remove_component(handle);
         }
     }
 }

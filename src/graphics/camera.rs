@@ -93,9 +93,12 @@ impl Camera {
         let fov = self.fov();
         let view = self.view();
         let proj = self.proj();
-        buffer.model.write(
+        buffer.model.write_vertices(
             gpu,
-            ModelBuilder::cuboid(fov).vertex_position(self.position),
+            &ModelBuilder::cuboid(fov)
+                .vertex_position(self.position)
+                .apply_modifiers()
+                .vertices,
         );
         buffer.uniform.write(gpu, view * proj);
     }

@@ -14,18 +14,6 @@ pub use winit::event::VirtualKeyCode as Key;
 /// Indicates if the screen is touched anywhere.
 pub struct ScreenTouch;
 
-// #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
-// pub enum Scroll {
-//     Up,
-//     Down
-// }
-
-// impl From<Scroll> for InputTrigger {
-//     fn from(s: Scroll) -> Self {
-//         Self::Scroll(s)
-//     }
-// }
-
 impl From<Key> for InputTrigger {
     fn from(k: Key) -> Self {
         Self::Key(k)
@@ -57,7 +45,7 @@ pub struct InputEvent {
     trigger: InputTrigger,
     pressed: bool,
     start: Instant,
-    cycles: u32,
+    frames: u32,
 }
 
 impl InputEvent {
@@ -66,17 +54,17 @@ impl InputEvent {
             trigger,
             pressed: true,
             start: Instant::now(),
-            cycles: 1,
+            frames: 1,
         }
     }
 
     pub fn update(&mut self) {
         self.pressed = false;
-        self.cycles += 1;
+        self.frames += 1;
     }
 
-    pub fn cycles(&self) -> u32 {
-        self.cycles
+    pub fn frames(&self) -> u32 {
+        self.frames
     }
 
     pub fn held_time(&self) -> Duration {

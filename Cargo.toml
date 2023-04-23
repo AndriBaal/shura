@@ -96,6 +96,7 @@ web-sys = { version = "0.3", features = ["Document", "Window", "Element", "conso
 
 [dev-dependencies]
 rand = "0.8.5"
+egui_demo_lib = "0.21"
 getrandom = { version = "0.2", features = ["js"] }
 
 [target.'cfg(target_os = "android")'.dependencies]

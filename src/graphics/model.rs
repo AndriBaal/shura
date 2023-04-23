@@ -5,6 +5,13 @@ use crate::{na::Matrix2, Gpu, Index, Isometry, Rotation, Vector, Vertex};
 use std::f32::consts::{FRAC_PI_2, PI};
 use wgpu::util::DeviceExt;
 
+#[derive(Debug)]
+pub enum ModelIndexBuffer {
+    Triangle,
+    Cuboid,
+    Custom(wgpu::Buffer),
+}
+
 impl Default for ModelBuilder {
     fn default() -> Self {
         Self {
@@ -66,6 +73,9 @@ pub struct ModelBuilder {
 }
 
 impl ModelBuilder {
+    pub(crate) const TRIANGLE_INDICES: [Index; 1] = [Index::new(0, 1, 2)];
+    pub(crate) const CUBOID_INDICES: [Index; 2] = [Index::new(0, 1, 2), Index::new(2, 3, 0)];
+
     const DEFAULT_OFFSET: Vector<f32> = Vector::new(0.0, 0.0);
     const DEFAULT_ROTATION: f32 = 0.0;
     const DEFAULT_SCALE: Vector<f32> = Vector::new(1.0, 1.0);
@@ -112,8 +122,8 @@ impl ModelBuilder {
             ..Default::default()
         }
     }
-    pub fn square(length: f32) -> Self {
-        Self::cuboid(Vector::new(length, length))
+    pub fn square(half_length: f32) -> Self {
+        Self::cuboid(Vector::new(half_length, half_length))
     }
     pub fn cuboid(half_extents: Vector<f32>) -> Self {
         let vertices = vec![
@@ -134,7 +144,7 @@ impl ModelBuilder {
                 Vector::new(1.0, 0.0),
             ),
         ];
-        let indices = vec![Index::new(0, 1, 2), Index::new(2, 3, 0)];
+        let indices = Vec::from(Self::CUBOID_INDICES);
         Self {
             vertices,
             indices,
@@ -149,7 +159,7 @@ impl ModelBuilder {
             vec![c, b, a]
         };
         let vertices = Self::create_tex_coords(vertices);
-        let indices = vec![Index::new(0, 1, 2)];
+        let indices = Vec::from(Self::TRIANGLE_INDICES);
         Self {
             vertices,
             indices,
@@ -562,19 +572,6 @@ impl ModelBuilder {
         vertex_rotation_axis: Vector<f32>,
         tex_coord_rotation_axis: Vector<f32>,
     ) {
-        // fn rotate_point_around_origin(
-        //     origin: Vector<f32>,
-        //     point: Vector<f32>,
-        //     rot: Rotation<f32>,
-        // ) -> Vector<f32> {
-        //     let sin = rot.sin_angle();
-        //     let cos = rot.cos_angle();
-        //     return Vector::new(
-        //         origin.x + (point.x - origin.x) * cos - (point.y - origin.y) * sin,
-        //         origin.y + (point.x - origin.x) * sin + (point.y - origin.y) * cos,
-        //     );
-        // }
-
         if vertex_scale != Self::DEFAULT_SCALE {
             for v in vertices.iter_mut() {
                 v.pos.x *= vertex_scale.x;
@@ -651,13 +648,20 @@ impl ModelBuilder {
                 usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             });
 
-        let index_buffer = gpu
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("index_buffer"),
-                contents: bytemuck::cast_slice(&self.indices[..]),
-                usage: wgpu::BufferUsages::INDEX,
-            });
+        let index_buffer;
+        if self.indices[..] == ModelBuilder::TRIANGLE_INDICES {
+            index_buffer = ModelIndexBuffer::Triangle;
+        } else if self.indices[..] == ModelBuilder::CUBOID_INDICES {
+            index_buffer = ModelIndexBuffer::Cuboid;
+        } else {
+            index_buffer = ModelIndexBuffer::Custom(gpu.device.create_buffer_init(
+                &wgpu::util::BufferInitDescriptor {
+                    label: Some("index_buffer"),
+                    contents: bytemuck::cast_slice(&self.indices[..]),
+                    usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
+                },
+            ));
+        }
 
         Model {
             amount_of_vertices: self.vertices.len() as u32,
@@ -675,7 +679,7 @@ pub struct Model {
     amount_of_vertices: u32,
     amount_of_indices: u32,
     vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer,
+    index_buffer: ModelIndexBuffer,
     aabb: (Vector<f32>, Vector<f32>),
 }
 
@@ -699,6 +703,25 @@ impl Model {
         self.write_vertices(gpu, &builder.vertices);
     }
 
+    pub fn write_indices(&mut self, gpu: &Gpu, indices: &[Index]) {
+        assert_eq!(indices.len(), self.amount_of_indices as usize);
+        match &self.index_buffer {
+            ModelIndexBuffer::Custom(c) => {
+                gpu.queue
+                    .write_buffer(c, 0, bytemuck::cast_slice(&indices[..]));
+            }
+            _ => {
+                self.index_buffer = ModelIndexBuffer::Custom(gpu.device.create_buffer_init(
+                    &wgpu::util::BufferInitDescriptor {
+                        label: Some("index_buffer"),
+                        contents: bytemuck::cast_slice(&indices[..]),
+                        usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
+                    },
+                ));
+            }
+        };
+    }
+
     pub fn write_vertices(&mut self, gpu: &Gpu, vertices: &[Vertex]) {
         assert_eq!(vertices.len(), self.amount_of_vertices as usize);
         self.aabb = vertices.aabb();
@@ -706,17 +729,11 @@ impl Model {
             .write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&vertices[..]));
     }
 
-    pub fn write_indices(&mut self, gpu: &Gpu, indices: &[Index]) {
-        assert_eq!(indices.len(), self.amount_of_indices as usize);
-        gpu.queue
-            .write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&indices[..]));
-    }
-
     pub fn vertex_buffer(&self) -> &wgpu::Buffer {
         &self.vertex_buffer
     }
 
-    pub fn index_buffer(&self) -> &wgpu::Buffer {
+    pub fn index_buffer(&self) -> &ModelIndexBuffer {
         &self.index_buffer
     }
 

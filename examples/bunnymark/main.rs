@@ -138,18 +138,11 @@ impl ComponentController for Bunny {
         }
     }
 
-    fn render(active: ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
-        let mut renderer = encoder.renderer(RenderConfig::WORLD);
-        let scene = ctx.scene_state::<BunnyState>().unwrap();
-        for (instances, _group) in ctx.path_render(&active) {
-            renderer.render_sprite(
-                instances,
-                instances.all_instances(),
-                &scene.bunny_model,
-                &scene.bunny_sprite,
-            )
-        }
-        drop(renderer);
+    fn render(active: &ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
+        let scene = ctx.scene_state::<BunnyState>();
+        ctx.render_all(active, encoder, RenderConfig::WORLD, |r, instances| {
+            r.render_sprite(instances, &scene.bunny_model, &scene.bunny_sprite)
+        });
         if let Some(screenshot) = &scene.screenshot {
             encoder.copy_to_target(&ctx.defaults.world_target, &screenshot);
         }

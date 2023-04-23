@@ -9,22 +9,9 @@ fn shura_main(config: ShuraConfig) {
     config.init(NewScene {
         id: 1,
         init: |ctx| {
-            let blend = BlendState {
-                color: BlendComponent {
-                    src_factor: BlendFactor::SrcAlpha,
-                    dst_factor: BlendFactor::OneMinusSrcAlpha,
-                    operation: BlendOperation::Subtract,
-                },
-                alpha: BlendComponent {
-                    src_factor: BlendFactor::One,
-                    dst_factor: BlendFactor::OneMinusSrcAlpha,
-                    operation: BlendOperation::Subtract,
-                },
-            };
             ctx.set_camera_scale(WorldCameraScale::Max(10.0));
             ctx.add_component(Background::new(ctx));
             ctx.set_scene_state(LightingState {
-                shadow_color: ctx.create_uniform(Color::BLACK),
                 light_shader: ctx.create_shader(ShaderConfig {
                     fragment_source: include_str!("./light.glsl"),
                     shader_lang: ShaderLang::GLSL,
@@ -32,16 +19,7 @@ fn shura_main(config: ShuraConfig) {
                     blend: BlendState::ALPHA_BLENDING,
                     msaa: true,
                     write_mask: ColorWrites::ALL,
-                }),
-                shadow_shader: ctx.create_shader(ShaderConfig {
-                    fragment_source: include_str!("./light.glsl"),
-                    shader_lang: ShaderLang::GLSL,
-                    shader_fields: &[ShaderField::Uniform],
-                    blend,
-                    msaa: true,
-                    write_mask: ColorWrites::ALL,
-                }),
-                blend
+                })
             });
             ctx.add_component(Obstacle::new(
                 ctx,
@@ -113,27 +91,9 @@ fn shura_main(config: ShuraConfig) {
     });
 }
 
-impl SceneState for LightingState {
-    fn update(ctx: &mut Context) {
-        let state = ctx.scene_state.downcast_mut::<Self>().unwrap();
-        gui::Window::new("bunnymark")
-            .anchor(gui::Align2::LEFT_TOP, gui::Vec2::default())
-            .show(&ctx.gui.clone(), |ui| {
-                gui::ComboBox::from_label("Select one!")
-                    .selected_text(format!("{:?}", state.blend.alpha.dst_factor))
-                    .show_ui(ui, |ui| {
-                        ui.selectable_value(&mut state.blend.alpha.dst_factor, BlendFactor::SrcAlpha, "SrcAlpha");
-                        ui.selectable_value(&mut state.blend.alpha.dst_factor, BlendFactor::One, "One");
-                        ui.selectable_value(&mut state.blend.alpha.dst_factor, BlendFactor::Src, "Src");
-                    });
-            });
-    }
-}
+impl SceneState for LightingState {}
 struct LightingState {
-    light_shader: Shader,
-    shadow_shader: Shader,
-    shadow_color: Uniform<Color>,
-    blend: BlendState
+    light_shader: Shader
 }
 
 #[derive(Component)]
@@ -193,7 +153,7 @@ struct Light {
     light_model: Model,
     follow_mouse: bool,
     shape: Ball,
-    shadows: Vec<Model>,
+    fragments: Vec<Model>,
 }
 
 impl Light {
@@ -214,7 +174,7 @@ impl Light {
             light_color: ctx.create_uniform(color),
             shape: Ball::new(radius),
             base: BaseComponent::new(PositionBuilder::new().translation(position)),
-            shadows: vec![],
+            fragments: vec![],
         }
     }
 }
@@ -239,7 +199,7 @@ impl ComponentController for Light {
 
             let light_position = light.base.position();
             let light_translation = light.base.translation();
-            light.shadows.clear();
+            light.fragments.clear();
             world.intersections_with_shape(
                 &light_position,
                 &light.shape,
@@ -308,47 +268,47 @@ impl ComponentController for Light {
                     let c = gamma.sin() / alpha.sin() * v0_to_leftback.norm();
                     leftback = light_translation + v0 + c * v0_to_v1.normalize();
 
-                    let mut vertices = vec![];
-                    if light
-                        .shape
-                        .contains_point(&light_position, &rightmost.into())
-                    {
-                        vertices.push(rightmost);
-                    }
-                    vertices.push(rightback);
-                    let end = (left_index + 1) % (Self::RESOLUTION as usize);
-                    let mut i = (right_index + 1) % (Self::RESOLUTION as usize);
-                    while i != end {
-                        vertices.push(light_translation + light.vertices[i].pos);
-                        i = (i + 1) % (Self::RESOLUTION as usize);
-                    }
+                    // let mut vertices = vec![];
+                    // if light
+                    //     .shape
+                    //     .contains_point(&light_position, &rightmost.into())
+                    // {
+                    //     vertices.push(rightmost);
+                    // }
+                    // vertices.push(rightback);
+                    // let end = (left_index + 1) % (Self::RESOLUTION as usize);
+                    // let mut i = (right_index + 1) % (Self::RESOLUTION as usize);
+                    // while i != end {
+                    //     vertices.push(light_translation + light.vertices[i].pos);
+                    //     i = (i + 1) % (Self::RESOLUTION as usize);
+                    // }
 
-                    vertices.push(leftback);
-                    if light
-                        .shape
-                        .contains_point(&light_position, &leftmost.into())
-                    {
-                        vertices.push(leftmost);
-                    }
+                    // vertices.push(leftback);
+                    // if light
+                    //     .shape
+                    //     .contains_point(&light_position, &leftmost.into())
+                    // {
+                    //     vertices.push(leftmost);
+                    // }
 
-                    if vertices.len() >= 3 {
-                        let mut builder = ModelBuilder::convex_polygon(vertices)
-                            .vertex_translation(-light_translation);
+                    // if vertices.len() >= 3 {
+                    //     let mut builder = ModelBuilder::convex_polygon(vertices)
+                    //         .vertex_translation(-light_translation);
 
-                        // let diameter = 2.0 * light.radius;
-                        // for vertex in &mut builder.vertices {
-                        //     let rel = vertex.pos - light_translation;
-                        //     vertex.tex_coords =
-                        //         Vector::new(rel.x / diameter + 0.5, rel.y / -diameter + 0.5);
-                        // }
-                        let diameter = 2.0 * light.radius;
-                        for vertex in &mut builder.vertices {
-                            let rel = vertex.pos - light_translation;
-                            vertex.tex_coords =
-                                Vector::new(rel.x / diameter + 0.5, rel.y / -diameter + 0.5);
-                        }
-                        light.shadows.push(ctx.gpu.create_model(builder));
-                    }
+                    //     // let diameter = 2.0 * light.radius;
+                    //     // for vertex in &mut builder.vertices {
+                    //     //     let rel = vertex.pos - light_translation;
+                    //     //     vertex.tex_coords =
+                    //     //         Vector::new(rel.x / diameter + 0.5, rel.y / -diameter + 0.5);
+                    //     // }
+                    //     let diameter = 2.0 * light.radius;
+                    //     for vertex in &mut builder.vertices {
+                    //         let rel = vertex.pos - light_translation;
+                    //         vertex.tex_coords =
+                    //             Vector::new(rel.x / diameter + 0.5, rel.y / -diameter + 0.5);
+                    //     }
+                    //     light.shadows.push(ctx.gpu.create_model(builder));
+                    // }
                     true
                 },
             );
