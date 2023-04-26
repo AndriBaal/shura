@@ -16,7 +16,11 @@ fn shura_main(config: ShuraConfig) {
     }))
 }
 
-struct FlappyBird {}
+#[derive(State)]
+struct FlappyBird {
+
+}
+
 impl SceneState for FlappyBird {}
 
 #[derive(Component)]
@@ -149,4 +153,8 @@ impl ComponentController for Background {
             },
         );
     }
+}
+
+struct Pipe {
+
 }

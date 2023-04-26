@@ -71,7 +71,7 @@ pub use crate::{
         context::Context,
         scene::*,
         scene_manager::*,
-        state::{GlobalState, SceneState},
+        state::{State, SceneStateController, GlobalStateController},
     },
     shura::*,
 };

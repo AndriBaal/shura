@@ -8,7 +8,7 @@ pub trait SceneStateStaticAccess {
     fn get_after_update(&self) -> fn(&mut Context);
 }
 
-impl<T: SceneState> SceneStateStaticAccess for T {
+impl<T: SceneStateController> SceneStateStaticAccess for T {
     fn get_update(&self) -> fn(&mut Context) {
         T::update
     }
@@ -22,8 +22,12 @@ impl<T: SceneState> SceneStateStaticAccess for T {
     }
 }
 
+pub trait State {
+    // Maybe add stuff here later ..
+}
+
 #[allow(unused_variables)]
-pub trait SceneState: Downcast + SceneStateStaticAccess {
+pub trait SceneStateController: Downcast + SceneStateStaticAccess + State {
     fn update(ctx: &mut Context)
     where
         Self: Sized,
@@ -43,15 +47,13 @@ pub trait SceneState: Downcast + SceneStateStaticAccess {
 }
 
 #[allow(unused_variables)]
-pub trait GlobalState: Downcast {
+pub trait GlobalStateController: Downcast + State {
     fn winit_event(&mut self, winit_event: &winit::event::Event<()>) {}
 }
 
-impl_downcast!(SceneState);
-impl_downcast!(GlobalState);
+impl_downcast!(SceneStateController);
+impl_downcast!(GlobalStateController);
 
-impl SceneState for () {}
-impl GlobalState for () {}
-
-impl<T: SceneState + ?Sized> SceneState for Box<T> {}
-impl<T: SceneState + ?Sized> GlobalState for Box<T> {}
+impl State for () {}
+impl SceneStateController for () {}
+impl GlobalStateController for () {}

@@ -1,12 +1,12 @@
 use crate::{
     BoxedComponent, Camera, CameraBuffer, Color, ComponentController, ComponentDerive,
-    ComponentGroup, ComponentHandle, ComponentManager, ComponentPath, ComponentRenderGroup,
-    ComponentSet, ComponentSetMut, Duration, FrameManager, GlobalState, Gpu, GpuDefaults,
-    GroupDelta, GroupFilter, Input, InputEvent, InputTrigger, InstanceBuffer, InstanceIndex,
-    InstanceIndices, Instant, Isometry, Matrix, Model, ModelBuilder, Modifier, RenderConfig,
-    RenderEncoder, RenderTarget, Renderer, Rotation, Scene, SceneCreator, SceneManager, SceneState,
-    ScreenConfig, Shader, ShaderConfig, Shura, Sprite, SpriteSheet, Uniform, Vector, WorldCamera,
-    WorldCameraScale,
+    ComponentFilter, ComponentGroup, ComponentHandle, ComponentManager, ComponentPath,
+    ComponentRenderGroup, ComponentSet, ComponentSetMut, Duration, FrameManager,
+    GlobalStateController, Gpu, GpuDefaults, GroupDelta, Input, InputEvent, InputTrigger,
+    InstanceBuffer, InstanceIndex, InstanceIndices, Instant, Isometry, Matrix, Model, ModelBuilder,
+    Modifier, RenderConfig, RenderEncoder, RenderTarget, Renderer, Rotation, Scene, SceneCreator,
+    SceneManager, SceneStateController, ScreenConfig, Shader, ShaderConfig, Shura, Sprite,
+    SpriteSheet, Uniform, Vector, WorldCamera, WorldCameraScale,
 };
 
 #[cfg(feature = "serde")]
@@ -47,7 +47,7 @@ pub struct ShuraFields<'a> {
     pub end: &'a mut bool,
     pub scene_manager: &'a mut SceneManager,
     pub window: &'a mut winit::window::Window,
-    pub global_state: &'a mut Box<dyn GlobalState>,
+    pub global_state: &'a mut Box<dyn GlobalStateController>,
     #[cfg(feature = "gui")]
     pub gui: &'a mut Gui,
     #[cfg(feature = "audio")]
@@ -103,7 +103,7 @@ pub struct Context<'a> {
     pub scene_switched: &'a bool,
     pub scene_started: &'a bool,
     pub screen_config: &'a mut ScreenConfig,
-    pub scene_state: &'a mut Box<dyn SceneState>,
+    pub scene_state: &'a mut Box<dyn SceneStateController>,
     pub world_camera: &'a mut WorldCamera,
     pub component_manager: &'a mut ComponentManager,
 
@@ -115,7 +115,7 @@ pub struct Context<'a> {
     pub end: &'a mut bool,
     pub scene_manager: &'a mut SceneManager,
     pub window: &'a mut winit::window::Window,
-    pub global_state: &'a mut Box<dyn GlobalState>,
+    pub global_state: &'a mut Box<dyn GlobalStateController>,
     #[cfg(feature = "gui")]
     pub gui: &'a mut Gui,
     #[cfg(feature = "audio")]
@@ -210,7 +210,7 @@ impl<'a> Context<'a> {
     #[cfg(feature = "serde")]
     pub fn serialize_scene(
         &mut self,
-        filter: GroupFilter,
+        filter: ComponentFilter,
         mut serialize: impl FnMut(&mut SceneSerializer),
     ) -> Result<Vec<u8>, Box<bincode::ErrorKind>> {
         use rustc_hash::FxHashMap;
@@ -505,7 +505,7 @@ impl<'a> Context<'a> {
         return self.component_manager.remove_component(handle);
     }
 
-    pub fn remove_components<C: ComponentController>(&mut self, filter: GroupFilter) {
+    pub fn remove_components<C: ComponentController>(&mut self, filter: ComponentFilter) {
         self.component_manager.remove_components::<C>(filter);
     }
 
@@ -529,37 +529,37 @@ impl<'a> Context<'a> {
 
     //////////////////////////////////////////////////////////////////////////////////////////////
 
-    pub fn take_global_state<G: GlobalState>(&mut self) -> Option<G> {
+    pub fn take_global_state<G: GlobalStateController>(&mut self) -> Option<G> {
         let state = std::mem::replace(self.global_state, Box::new(()));
         return state.downcast::<G>().ok().and_then(|s| Some(*s));
     }
 
-    pub fn global_state<G: GlobalState>(&self) -> Option<&G> {
+    pub fn global_state<G: GlobalStateController>(&self) -> Option<&G> {
         self.global_state.downcast_ref::<G>()
     }
 
-    pub fn global_state_mut<G: GlobalState>(&mut self) -> Option<&mut G> {
+    pub fn global_state_mut<G: GlobalStateController>(&mut self) -> Option<&mut G> {
         self.global_state.downcast_mut::<G>()
     }
 
-    pub fn take_scene_state<S: SceneState>(&mut self) -> Option<S> {
+    pub fn take_scene_state<S: SceneStateController>(&mut self) -> Option<S> {
         let state = std::mem::replace(self.scene_state, Box::new(()));
         return state.downcast::<S>().ok().and_then(|s| Some(*s));
     }
 
-    pub fn scene_state<S: SceneState>(&self) -> &S {
+    pub fn scene_state<S: SceneStateController>(&self) -> &S {
         self.scene_state.downcast_ref::<S>().unwrap()
     }
 
-    pub fn scene_state_mut<S: SceneState>(&mut self) -> &mut S {
+    pub fn scene_state_mut<S: SceneStateController>(&mut self) -> &mut S {
         self.scene_state.downcast_mut::<S>().unwrap()
     }
 
-    pub fn try_scene_state<S: SceneState>(&self) -> Option<&S> {
+    pub fn try_scene_state<S: SceneStateController>(&self) -> Option<&S> {
         self.scene_state.downcast_ref::<S>()
     }
 
-    pub fn try_scene_state_mut<S: SceneState>(&mut self) -> Option<&mut S> {
+    pub fn try_scene_state_mut<S: SceneStateController>(&mut self) -> Option<&mut S> {
         self.scene_state.downcast_mut::<S>()
     }
 
@@ -983,7 +983,7 @@ impl<'a> Context<'a> {
         self.component_manager.boxed_component_mut(handle)
     }
 
-    pub fn force_buffer<C: ComponentController>(&mut self, filter: GroupFilter) {
+    pub fn force_buffer<C: ComponentController>(&mut self, filter: ComponentFilter) {
         self.component_manager.force_buffer::<C>(filter)
     }
 
@@ -1049,12 +1049,12 @@ impl<'a> Context<'a> {
 
     pub fn components_mut<C: ComponentController>(
         &mut self,
-        filter: GroupFilter,
+        filter: ComponentFilter,
     ) -> ComponentSetMut<C> {
         self.component_manager.components_mut::<C>(filter)
     }
 
-    pub fn components<C: ComponentController>(&self, filter: GroupFilter) -> ComponentSet<C> {
+    pub fn components<C: ComponentController>(&self, filter: ComponentFilter) -> ComponentSet<C> {
         self.component_manager.components::<C>(filter)
     }
 
@@ -1078,11 +1078,11 @@ impl<'a> Context<'a> {
     //////////////////////////////////////////////////////////////////////////////////////////////
 
     //////////////////////////////////////////////////////////////////////////////////////////////
-    pub fn set_global_state<G: GlobalState>(&mut self, state: G) {
+    pub fn set_global_state<G: GlobalStateController>(&mut self, state: G) {
         *self.global_state = Box::new(state);
     }
 
-    pub fn set_scene_state<S: SceneState>(&mut self, state: S) {
+    pub fn set_scene_state<S: SceneStateController>(&mut self, state: S) {
         *self.scene_state = Box::new(state);
     }
 

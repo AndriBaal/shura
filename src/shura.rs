@@ -3,9 +3,9 @@ use crate::gui::Gui;
 #[cfg(feature = "physics")]
 use crate::physics::{ActiveEvents, CollideType};
 use crate::{
-    scene::context::ShuraFields, Context, FrameManager, GlobalState, Gpu, GpuConfig, GpuDefaults,
-    Input, RenderConfigTarget, RenderEncoder, RenderOperation, Renderer, Scene, SceneCreator,
-    SceneManager, Vector,
+    scene::context::ShuraFields, Context, FrameManager, GlobalStateController, Gpu, GpuConfig,
+    GpuDefaults, Input, RenderConfigTarget, RenderEncoder, RenderOperation, Renderer, Scene,
+    SceneCreator, SceneManager, Vector,
 };
 #[cfg(target_arch = "wasm32")]
 use rustc_hash::FxHashMap;
@@ -216,7 +216,7 @@ pub(crate) struct Shura {
     pub(crate) window: winit::window::Window,
     pub(crate) input: Input,
     pub(crate) gpu: Gpu,
-    pub(crate) global_state: Box<dyn GlobalState>,
+    pub(crate) global_state: Box<dyn GlobalStateController>,
     pub(crate) defaults: GpuDefaults,
     #[cfg(feature = "gui")]
     pub(crate) gui: Gui,

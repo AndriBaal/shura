@@ -1,4 +1,4 @@
-use crate::{ComponentDerive, ComponentHandle, Isometry, Matrix, Rotation, Vector};
+use crate::{ComponentDerive, ComponentHandle, Isometry, Matrix, Rotation, Vector, FieldNames};
 #[cfg(feature = "physics")]
 use std::{
     cell::{Ref, RefCell, RefMut},

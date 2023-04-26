@@ -17,6 +17,7 @@ fn shura_main(config: ShuraConfig) {
     });
 }
 
+#[derive(State)]
 struct BunnyState {
     screenshot: Option<RenderTarget>,
     bunny_model: Model,
@@ -35,7 +36,7 @@ impl BunnyState {
     }
 }
 
-impl SceneState for BunnyState {
+impl SceneStateController for BunnyState {
     fn update(ctx: &mut Context) {
         const MODIFY_STEP: usize = 1500;
         gui::Window::new("bunnymark")
@@ -46,7 +47,7 @@ impl SceneState for BunnyState {
                 ui.label(&format!("FPS: {}", ctx.fps()));
                 ui.label(format!(
                     "Bunnies: {}",
-                    ctx.components::<Bunny>(GroupFilter::All).len()
+                    ctx.components::<Bunny>(ComponentFilter::All).len()
                 ));
                 if ui.button("Clear Bunnies").clicked() {
                     ctx.remove_components::<Bunny>(Default::default());

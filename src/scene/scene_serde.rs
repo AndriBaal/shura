@@ -12,14 +12,14 @@ use serde::{de::Visitor, Deserializer, Serialize};
 use std::{cmp, marker::PhantomData};
 
 use crate::{
-    Arena, ArenaEntry, BoxedComponent, ComponentController, ComponentGroup, ComponentManager,
-    ComponentTypeId, Context, FieldNames, GlobalState, GroupFilter, Scene, SceneCreator,
-    SceneState, ShuraFields,
+    Arena, ArenaEntry, BoxedComponent, ComponentController, ComponentFilter, ComponentGroup,
+    ComponentManager, ComponentTypeId, Context, FieldNames, GlobalStateController, Scene,
+    SceneCreator, SceneStateController, ShuraFields,
 };
 
 pub struct SceneSerializer<'a> {
-    global_state: &'a Box<dyn GlobalState>,
-    scene_state: &'a Box<dyn SceneState>,
+    global_state: &'a Box<dyn GlobalStateController>,
+    scene_state: &'a Box<dyn SceneStateController>,
 
     groups: Vec<Option<(&'a u32, &'a ComponentGroup)>>,
     ser_components: FxHashMap<ComponentTypeId, Vec<(u16, Vec<Option<(u32, Vec<u8>)>>)>>,
@@ -33,9 +33,9 @@ pub struct SceneSerializer<'a> {
 impl<'a> SceneSerializer<'a> {
     pub(crate) fn new(
         component_manager: &'a ComponentManager,
-        global_state: &'a Box<dyn GlobalState>,
-        scene_state: &'a Box<dyn SceneState>,
-        filter: GroupFilter,
+        global_state: &'a Box<dyn GlobalStateController>,
+        scene_state: &'a Box<dyn SceneStateController>,
+        filter: ComponentFilter,
     ) -> Self {
         let groups = component_manager.serialize_groups(filter);
         Self {
@@ -107,12 +107,12 @@ impl<'a> SceneSerializer<'a> {
         }
     }
 
-    pub fn serialize_global_state<G: GlobalState + Serialize>(&mut self) {
+    pub fn serialize_global_state<G: GlobalStateController + Serialize>(&mut self) {
         self.ser_global_state =
             bincode::serialize(self.global_state.downcast_ref::<G>().unwrap()).ok();
     }
 
-    pub fn serialize_scene_state<S: SceneState + Serialize>(&mut self) {
+    pub fn serialize_scene_state<S: SceneStateController + Serialize>(&mut self) {
         self.ser_scene_state =
             bincode::serialize(self.scene_state.downcast_ref::<S>().unwrap()).ok();
     }
@@ -263,7 +263,7 @@ impl SceneDeserializer {
         }
     }
 
-    pub fn deserialize_global_state<G: GlobalState + serde::de::DeserializeOwned>(
+    pub fn deserialize_global_state<G: GlobalStateController + serde::de::DeserializeOwned>(
         &mut self,
         ctx: &mut Context,
     ) {
@@ -273,7 +273,7 @@ impl SceneDeserializer {
         }
     }
 
-    pub fn deserialize_scene_state<S: SceneState + serde::de::DeserializeOwned>(
+    pub fn deserialize_scene_state<S: SceneStateController + serde::de::DeserializeOwned>(
         &mut self,
         ctx: &mut Context,
     ) {
@@ -283,7 +283,7 @@ impl SceneDeserializer {
         }
     }
 
-    pub fn deserialize_global_state_with<G: GlobalState + FieldNames>(
+    pub fn deserialize_global_state_with<G: GlobalStateController + FieldNames>(
         &mut self,
         ctx: &mut Context,
         mut de: impl for<'de> FnMut(DeserializeWrapper<'de, G>, &'de Context<'de>) -> G,
@@ -294,7 +294,7 @@ impl SceneDeserializer {
             ctx.set_global_state(state);
         }
     }
-    pub fn deserialize_scene_state_with<S: SceneState + FieldNames>(
+    pub fn deserialize_scene_state_with<S: SceneStateController + FieldNames>(
         &mut self,
         ctx: &mut Context,
         mut de: impl for<'de> FnMut(DeserializeWrapper<'de, S>, &'de Context<'de>) -> S,

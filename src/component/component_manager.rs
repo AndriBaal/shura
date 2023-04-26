@@ -23,20 +23,20 @@ pub enum GroupDelta {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Ord, Eq)]
-pub enum GroupFilter<'a> {
+pub enum ComponentFilter<'a> {
     All,
     Active,
-    Specific(&'a [u16]),
+    Specific(&'a [u16]),    
 }
 
-impl<'a> Default for GroupFilter<'a> {
+impl<'a> Default for ComponentFilter<'a> {
     fn default() -> Self {
-        return GroupFilter::DEFAULT_GROUP;
+        return ComponentFilter::DEFAULT_GROUP;
     }
 }
 
-impl GroupFilter<'static> {
-    pub const DEFAULT_GROUP: Self = GroupFilter::Specific(&[DEFAULT_GROUP_ID]);
+impl ComponentFilter<'static> {
+    pub const DEFAULT_GROUP: Self = ComponentFilter::Specific(&[DEFAULT_GROUP_ID]);
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -188,10 +188,10 @@ impl ComponentManager {
         }
     }
 
-    pub fn force_buffer<C: ComponentController>(&mut self, filter: GroupFilter) {
+    pub fn force_buffer<C: ComponentController>(&mut self, filter: ComponentFilter) {
         let type_id = C::IDENTIFIER;
         match filter {
-            GroupFilter::All => {
+            ComponentFilter::All => {
                 for group in &mut self.groups {
                     if let Some(index) = group.1.type_index(type_id) {
                         let component_type = group.1.type_mut(*index).unwrap();
@@ -199,7 +199,7 @@ impl ComponentManager {
                     }
                 }
             }
-            GroupFilter::Active => {
+            ComponentFilter::Active => {
                 for group in self.active_groups.iter() {
                     if let Some(group) = self.groups.get_mut(*group) {
                         if let Some(index) = group.type_index(type_id) {
@@ -209,7 +209,7 @@ impl ComponentManager {
                     }
                 }
             }
-            GroupFilter::Specific(groups) => {
+            ComponentFilter::Specific(groups) => {
                 for group_id in groups {
                     if let Some(group_index) = self.group_map.get(group_id) {
                         let group = &mut self.groups[*group_index];
@@ -315,7 +315,7 @@ impl ComponentManager {
         return None;
     }
 
-    pub fn remove_components<C: ComponentController>(&mut self, filter: GroupFilter) {
+    pub fn remove_components<C: ComponentController>(&mut self, filter: ComponentFilter) {
         let type_id = C::IDENTIFIER;
 
         fn remove(rewrite: &mut bool, group: &mut ComponentGroup, type_id: ComponentTypeId) {
@@ -332,19 +332,19 @@ impl ComponentManager {
         }
 
         match filter {
-            GroupFilter::All => {
+            ComponentFilter::All => {
                 for (_index, group) in &mut self.groups {
                     remove(&mut self.force_update_sets, group, type_id)
                 }
             }
-            GroupFilter::Active => {
+            ComponentFilter::Active => {
                 for index in &self.active_groups {
                     if let Some(group) = self.groups.get_mut(*index) {
                         remove(&mut self.force_update_sets, group, type_id)
                     }
                 }
             }
-            GroupFilter::Specific(group_ids) => {
+            ComponentFilter::Specific(group_ids) => {
                 for group_id in group_ids {
                     if let Some(index) = self.group_map.get(&group_id) {
                         let group = self.groups.get_mut(*index).unwrap();
@@ -454,14 +454,14 @@ impl ComponentManager {
 
     pub fn components<'a, C: ComponentController>(
         &'a self,
-        filter: GroupFilter,
+        filter: ComponentFilter,
     ) -> ComponentSet<'a, C> {
         let type_id = C::IDENTIFIER;
         let mut iters = vec![];
         let mut len = 0;
 
         match filter {
-            GroupFilter::All => {
+            ComponentFilter::All => {
                 for (_, group) in &self.groups {
                     if let Some(type_index) = group.type_index(type_id) {
                         let component_type = group.type_ref(*type_index).unwrap();
@@ -473,13 +473,13 @@ impl ComponentManager {
                     }
                 }
             }
-            GroupFilter::Active => {
+            ComponentFilter::Active => {
                 let key = (C::CONFIG.priority, C::IDENTIFIER);
                 if let Some(cluster) = self.active_components.get(&key) {
                     return self.path(&ComponentPath::new(cluster.paths()));
                 }
             }
-            GroupFilter::Specific(group_ids) => {
+            ComponentFilter::Specific(group_ids) => {
                 for group_id in group_ids {
                     if let Some(index) = self.group_map.get(&group_id) {
                         let group = self.groups.get(*index).unwrap();
@@ -502,14 +502,14 @@ impl ComponentManager {
 
     pub fn components_mut<C: ComponentController>(
         &mut self,
-        filter: GroupFilter,
+        filter: ComponentFilter,
     ) -> ComponentSetMut<C> {
         let type_id = C::IDENTIFIER;
         let mut iters = vec![];
         let mut len = 0;
 
         match filter {
-            GroupFilter::All => {
+            ComponentFilter::All => {
                 for (_, group) in &mut self.groups {
                     if let Some(type_index) = group.type_index(type_id) {
                         let component_type = group.type_mut(*type_index).unwrap();
@@ -521,13 +521,13 @@ impl ComponentManager {
                     }
                 }
             }
-            GroupFilter::Active => {
+            ComponentFilter::Active => {
                 let key = (C::CONFIG.priority, C::IDENTIFIER);
                 if let Some(cluster) = self.active_components.get(&key).cloned() {
                     return self.path_mut(&ComponentPath::new(&cluster.paths()));
                 }
             }
-            GroupFilter::Specific(group_ids) => {
+            ComponentFilter::Specific(group_ids) => {
                 let mut indices: Vec<ArenaIndex> = group_ids
                     .iter()
                     .filter_map(|group_id| self.group_index(group_id).cloned())
@@ -713,21 +713,21 @@ impl ComponentManager {
     #[cfg(feature = "serde")]
     pub(crate) fn serialize_groups(
         &self,
-        filter: GroupFilter,
+        filter: ComponentFilter,
     ) -> Vec<Option<(&u32, &ComponentGroup)>> {
         let mut ids = FxHashSet::default();
         match filter {
-            GroupFilter::All => {
+            ComponentFilter::All => {
                 for group_id in self.group_ids() {
                     ids.insert(*group_id);
                 }
             }
-            GroupFilter::Active => {
+            ComponentFilter::Active => {
                 for group_id in self.active_group_ids() {
                     ids.insert(*group_id);
                 }
             }
-            GroupFilter::Specific(group_ids) => {
+            ComponentFilter::Specific(group_ids) => {
                 for group_id in group_ids {
                     ids.insert(*group_id);
                 }
