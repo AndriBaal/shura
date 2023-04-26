@@ -1,8 +1,7 @@
 use crate::{
-    ComponentManager, Context, ScreenConfig, ShuraFields, Vector, WorldCamera, WorldCameraScale,
-    SceneStateController
+    ComponentManager, Context, SceneStateController, ScreenConfig, ShuraFields, Vector,
+    WorldCamera, WorldCameraScale,
 };
-
 
 pub trait SceneCreator {
     fn id(&self) -> u32;

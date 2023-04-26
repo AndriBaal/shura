@@ -451,8 +451,8 @@ impl<'a> Context<'a> {
             .expect("Cannot add a collider to a component with no RigidBody!");
         let component_handle = component
             .base()
-            .handle()
-            .expect("Initialize the component before adding additional colliders!");
+            .handle();
+        assert!(component_handle != ComponentHandle::INVALID, "Initialize the component before adding additional colliders!");
         self.component_manager.world_mut().create_collider(
             body_handle,
             component_handle,
@@ -1150,6 +1150,8 @@ impl<'a> Context<'a> {
 
     pub fn set_window_resizable(&mut self, resizable: bool) {
         self.window.set_resizable(resizable);
+        self.window
+            .set_enabled_buttons(winit::window::WindowButtons::CLOSE)
     }
 
     pub fn set_window_title(&mut self, title: &str) {

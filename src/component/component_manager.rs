@@ -26,7 +26,7 @@ pub enum GroupDelta {
 pub enum ComponentFilter<'a> {
     All,
     Active,
-    Specific(&'a [u16]),    
+    Specific(&'a [u16]),
 }
 
 impl<'a> Default for ComponentFilter<'a> {
@@ -328,6 +328,8 @@ impl ComponentManager {
                     group.remove_type(type_index);
                     *rewrite = true;
                 }
+
+                group.remove_type(type_index)
             }
         }
 

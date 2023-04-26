@@ -8,7 +8,7 @@ use std::{
 
 #[cfg(feature = "physics")]
 use crate::{
-    physics::{Collider, ColliderHandle, RigidBody, RigidBodyHandle, World},
+    physics::{Collider, ColliderBuilder, ColliderHandle, RigidBody, RigidBodyHandle, World},
     ComponentTypeId,
 };
 
@@ -69,7 +69,7 @@ impl Into<BaseComponent> for PositionBuilder {
 /// Position or a RigidBody.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct BaseComponent {
-    handle: Option<ComponentHandle>,
+    handle: ComponentHandle,
     render_scale: Vector<f32>,
     body: BodyStatus,
 }
@@ -97,7 +97,7 @@ impl BaseComponent {
     }
 
     #[cfg(feature = "physics")]
-    pub fn new_rigid_body(body: impl Into<RigidBody>, colliders: Vec<impl Into<Collider>>) -> Self {
+    pub fn new_rigid_body(body: impl Into<RigidBody>, colliders: Vec<ColliderBuilder>) -> Self {
         Self {
             handle: Default::default(),
             render_scale: Vector::new(1.0, 1.0),
@@ -112,13 +112,11 @@ impl BaseComponent {
     }
 
     pub(crate) fn init(&mut self, handle: ComponentHandle) {
-        if self.handle.is_none() {
-            self.handle = Some(handle);
-        }
+        self.handle = handle;
     }
 
     pub(crate) fn deinit(&mut self) {
-        self.handle = None;
+        self.handle = ComponentHandle::INVALID;
         #[cfg(feature = "physics")]
         match self.body {
             BodyStatus::RigidBody { .. } => self.remove_from_world(),
@@ -149,7 +147,7 @@ impl BaseComponent {
         };
     }
 
-    pub fn handle(&self) -> Option<ComponentHandle> {
+    pub fn handle(&self) -> ComponentHandle {
         return self.handle;
     }
 
@@ -489,7 +487,7 @@ impl BaseComponent {
         );
         match temp {
             BodyStatus::RigidBodyPending { body, colliders } => {
-                let component_handle = self.handle().unwrap();
+                let component_handle = self.handle();
                 let body_handle = world.borrow_mut().create_body(*body);
                 let mut world_mut = world.borrow_mut();
                 for collider in colliders {

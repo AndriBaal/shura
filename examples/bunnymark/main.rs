@@ -69,7 +69,7 @@ impl SceneStateController for BunnyState {
                 if dead.len() == MODIFY_STEP {
                     break;
                 }
-                dead.push(bunny.base().handle().unwrap());
+                dead.push(bunny.base().handle());
             }
             for handle in dead {
                 ctx.remove_component(handle);
