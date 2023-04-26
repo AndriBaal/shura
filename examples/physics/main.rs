@@ -85,7 +85,7 @@ impl PhysicsState {
     }
 }
 
-impl SceneState for PhysicsState {
+impl SceneStateController for PhysicsState {
     fn update(ctx: &mut Context) {
         let scroll = ctx.wheel_delta();
         let fov = ctx.camera_fov();

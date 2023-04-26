@@ -21,7 +21,7 @@ struct FlappyBird {
 
 }
 
-impl SceneState for FlappyBird {}
+impl SceneStateController for FlappyBird {}
 
 #[derive(Component)]
 struct Bird {
