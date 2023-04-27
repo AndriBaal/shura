@@ -155,7 +155,7 @@ impl Obstacle {
                 24,
                 2.0,
             )),
-            base: BaseComponent::new_rigid_body(
+            base: BaseComponent::new_body(
                 RigidBodyBuilder::fixed().translation(position),
                 vec![collider],
             ),

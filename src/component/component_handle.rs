@@ -81,6 +81,10 @@ impl ComponentHandle {
         self.id
     }
 
+    pub fn index(&self) -> u32 {
+        self.component_index.index()
+    }
+
     pub fn group_id(&self) -> u16 {
         self.group_id
     }

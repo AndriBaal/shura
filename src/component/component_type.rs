@@ -115,6 +115,14 @@ impl ComponentType {
         self.components.is_empty()
     }
 
+    pub fn index(&self, index: usize) -> Option<&BoxedComponent> {
+        self.components.get_unknown_gen(index)
+    }
+
+    pub fn index_mut(&mut self, index: usize) -> Option<&mut BoxedComponent> {
+        self.components.get_unknown_gen_mut(index)
+    }
+
     pub fn component(&self, index: ArenaIndex) -> Option<&BoxedComponent> {
         self.components.get(index)
     }
@@ -138,6 +146,8 @@ impl ComponentType {
     pub fn set_force_buffer(&mut self, force_buffer: bool) {
         self.force_buffer = force_buffer;
     }
+
+    
 }
 
 impl<'a> IntoIterator for &'a ComponentType {

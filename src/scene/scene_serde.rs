@@ -98,7 +98,7 @@ impl<'a> SceneSerializer<'a> {
                     ty.push((group.id(), ser_components));
                     #[cfg(feature = "physics")]
                     for (_, component) in type_ref {
-                        if let Some(body_handle) = component.base().rigid_body_handle() {
+                        if let Some(body_handle) = component.base().try_body_handle() {
                             self.body_handles.insert(body_handle);
                         }
                     }
@@ -199,10 +199,10 @@ impl SceneDeserializer {
 
                         #[cfg(feature = "physics")]
                         {
-                            if component.base().is_rigid_body() {
+                            if component.base().is_body() {
                                 component
                                     .base_mut()
-                                    .init_rigid_body(ctx.component_manager.world.clone());
+                                    .init_body(ctx.component_manager.world.clone());
                             }
                         }
                         ArenaEntry::Occupied {
@@ -242,10 +242,10 @@ impl SceneDeserializer {
                         #[allow(unused_mut)]
                         let mut component: BoxedComponent = Box::new((de)(wrapper, ctx));
                         #[cfg(feature = "physics")]
-                        if component.base().is_rigid_body() {
+                        if component.base().is_body() {
                             component
                                 .base_mut()
-                                .init_rigid_body(ctx.component_manager.world.clone());
+                                .init_body(ctx.component_manager.world.clone());
                         }
                         ArenaEntry::Occupied {
                             generation: gen,

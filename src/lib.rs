@@ -103,18 +103,18 @@ mod world;
 /// Access to the relevant items from the [rapier2d](https://github.com/dimforge/rapier) library.
 pub mod physics {
     pub use crate::world::world::CollideType;
-    pub(crate) use crate::world::world::World;
+    pub use crate::world::world::World;
     pub use rapier2d::geometry::*;
     pub use rapier2d::parry;
     pub use rapier2d::prelude::{
         ActiveCollisionTypes, ActiveEvents, ActiveHooks, CoefficientCombineRule, Collider,
         ColliderBroadPhaseData, ColliderBuilder, ColliderChanges, ColliderFlags, ColliderHandle,
-        ColliderMaterial, ColliderParent, ColliderShape, ColliderType, FixedJoint,
+        ColliderMaterial, ColliderParent, ColliderSet, ColliderShape, ColliderType, FixedJoint,
         FixedJointBuilder, GenericJoint, GenericJointBuilder, Group, ImpulseJoint,
         ImpulseJointHandle, InteractionGroups, LockedAxes, MassProperties, MotorModel,
         PrismaticJoint, QueryFilter, QueryFilterFlags, Ray, RayIntersection, RevoluteJoint,
         RevoluteJointBuilder, RigidBody, RigidBodyActivation, RigidBodyBuilder, RigidBodyHandle,
-        RigidBodyType, Shape, ShapeType, SharedShape, SpacialVector, TypedShape, TOI,
+        RigidBodySet, RigidBodyType, Shape, ShapeType, SharedShape, SpacialVector, TypedShape, TOI,
     };
 }
 
@@ -166,6 +166,18 @@ pub mod mint {
 }
 
 pub mod rand {
+    pub fn gen_range<
+        T: distributions::uniform::SampleUniform,
+        R: distributions::uniform::SampleRange<T>,
+    >(
+        range: R,
+    ) -> T {
+        return thread_rng().gen_range(range);
+    }
+    pub fn gen_bool(p: f64) -> bool {
+        return thread_rng().gen_bool(p);
+    }
+
     pub use rand::*;
 }
 

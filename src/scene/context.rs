@@ -447,12 +447,13 @@ impl<'a> Context<'a> {
     ) -> ColliderHandle {
         let body_handle = component
             .base()
-            .rigid_body_handle()
+            .try_body_handle()
             .expect("Cannot add a collider to a component with no RigidBody!");
-        let component_handle = component
-            .base()
-            .handle();
-        assert!(component_handle != ComponentHandle::INVALID, "Initialize the component before adding additional colliders!");
+        let component_handle = component.base().handle();
+        assert!(
+            component_handle != ComponentHandle::INVALID,
+            "Initialize the component before adding additional colliders!"
+        );
         self.component_manager.world_mut().create_collider(
             body_handle,
             component_handle,
@@ -609,25 +610,32 @@ impl<'a> Context<'a> {
     }
 
     #[cfg(feature = "physics")]
-    pub fn rigid_body(
+    pub fn body(
         &self,
-        rigid_body_handle: RigidBodyHandle,
+        body_handle: RigidBodyHandle,
     ) -> Option<impl Deref<Target = RigidBody> + '_> {
-        Ref::filter_map(self.component_manager.world(), |w| {
-            w.rigid_body(rigid_body_handle)
+        Ref::filter_map(self.component_manager.world(), |w| w.body(body_handle)).ok()
+    }
+
+    #[cfg(feature = "physics")]
+    pub fn body_mut(
+        &mut self,
+        body_handle: RigidBodyHandle,
+    ) -> Option<impl DerefMut<Target = RigidBody> + '_> {
+        RefMut::filter_map(self.component_manager.world_mut(), |w| {
+            w.body_mut(body_handle)
         })
         .ok()
     }
 
     #[cfg(feature = "physics")]
-    pub fn rigid_body_mut(
-        &mut self,
-        rigid_body_handle: RigidBodyHandle,
-    ) -> Option<impl DerefMut<Target = RigidBody> + '_> {
-        RefMut::filter_map(self.component_manager.world_mut(), |w| {
-            w.rigid_body_mut(rigid_body_handle)
-        })
-        .ok()
+    pub fn bodies(&self) -> impl Deref<Target = RigidBodySet> + '_ {
+        Ref::map(self.component_manager.world(), |w| w.bodies())
+    }
+
+    #[cfg(feature = "physics")]
+    pub fn colliders(&self) -> impl Deref<Target = ColliderSet> + '_ {
+        Ref::map(self.component_manager.world(), |w| w.colliders())
     }
 
     #[cfg(feature = "physics")]
@@ -965,6 +973,31 @@ impl<'a> Context<'a> {
 
     pub fn group_ids(&self) -> impl Iterator<Item = &u16> {
         self.component_manager.group_ids()
+    }
+
+    pub fn amount_of_components<C: ComponentController + ComponentDerive>(
+        &self,
+        group_id: u16,
+    ) -> usize {
+        self.component_manager.amount_of_components::<C>(group_id)
+    }
+
+    pub fn component_by_index<C: ComponentController + ComponentDerive>(
+        &self,
+        group_id: u16,
+        index: u32,
+    ) -> Option<&C> {
+        self.component_manager
+            .component_by_index::<C>(group_id, index)
+    }
+
+    pub fn component_by_index_mut<C: ComponentController + ComponentDerive>(
+        &mut self,
+        group_id: u16,
+        index: u32,
+    ) -> Option<&mut C> {
+        self.component_manager
+            .component_by_index_mut::<C>(group_id, index)
     }
 
     pub fn component<C: ComponentDerive>(&self, handle: ComponentHandle) -> Option<&C> {

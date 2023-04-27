@@ -1,7 +1,4 @@
-use shura::{
-    rand::{thread_rng, Rng},
-    *,
-};
+use shura::{rand::gen_range, *};
 
 #[shura::main]
 fn shura_main(config: ShuraConfig) {
@@ -10,7 +7,6 @@ fn shura_main(config: ShuraConfig) {
         init: |ctx| {
             ctx.set_scene_state(BunnyState::new(ctx));
             ctx.set_clear_color(Some(Color::new_rgba(220, 220, 220, 255)));
-            // ctx.set_window_size(Vector::new(800, 600));
             ctx.set_camera_scale(WorldCameraScale::Min(3.0));
             ctx.add_component(Bunny::new(&ctx));
         },
@@ -98,10 +94,7 @@ impl Bunny {
         let base = PositionBuilder::new()
             .translation(ctx.cursor_camera(&ctx.world_camera))
             .into();
-        let linvel = Vector::new(
-            thread_rng().gen_range(-2.5..2.5),
-            thread_rng().gen_range(-7.5..7.5),
-        );
+        let linvel = Vector::new(gen_range(-2.5..2.5), gen_range(-7.5..7.5));
         Bunny { base, linvel }
     }
 }
@@ -130,7 +123,7 @@ impl ComponentController for Bunny {
             }
 
             if translation.y < -fov.y {
-                linvel.y = thread_rng().gen_range(0.0..15.0);
+                linvel.y = gen_range(0.0..15.0);
                 translation.y = -fov.y;
             } else if translation.y > fov.y {
                 linvel.y = -1.0;

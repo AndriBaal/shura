@@ -167,6 +167,20 @@ impl<T> Arena<T> {
         }
     }
 
+    pub fn get_unknown_gen(&self, i: usize) -> Option<&T> {
+        match self.items.get(i) {
+            Some(ArenaEntry::Occupied { data, .. }) => Some(data),
+            _ => None,
+        }
+    }
+
+    pub fn get_unknown_gen_mut(&mut self, i: usize) -> Option<&mut T> {
+        match self.items.get_mut(i) {
+            Some(ArenaEntry::Occupied { data, .. }) => Some(data),
+            _ => None,
+        }
+    }
+
     pub fn len(&self) -> usize {
         self.len
     }

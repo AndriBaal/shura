@@ -130,7 +130,7 @@
 //                 24,
 //                 2.0,
 //             )),
-//             base: BaseComponent::new_rigid_body(
+//             base: BaseComponent::new_body(
 //                 RigidBodyBuilder::fixed().translation(position),
 //                 vec![collider],
 //             ),
@@ -184,7 +184,7 @@
 //             follow_mouse: follow_cursor,
 //             shadows: vec![],
 //             vertices: model_builder.vertices.clone(),
-//             base: BaseComponent::new_rigid_body(
+//             base: BaseComponent::new_body(
 //                 RigidBodyBuilder::dynamic().translation(position),
 //                 vec![ColliderBuilder::ball(radius)
 //                     .sensor(true)
@@ -479,7 +479,7 @@ impl Obstacle {
                 24,
                 2.0,
             )),
-            base: BaseComponent::new_rigid_body(
+            base: BaseComponent::new_body(
                 RigidBodyBuilder::fixed().translation(position),
                 vec![collider],
             ),

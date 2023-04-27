@@ -193,8 +193,7 @@ impl ComponentManager {
         match filter {
             ComponentFilter::All => {
                 for group in &mut self.groups {
-                    if let Some(index) = group.1.type_index(type_id) {
-                        let component_type = group.1.type_mut(*index).unwrap();
+                    if let Some(component_type) = group.1.type_by_id_mut(type_id) {
                         component_type.set_force_buffer(true);
                     }
                 }
@@ -202,8 +201,7 @@ impl ComponentManager {
             ComponentFilter::Active => {
                 for group in self.active_groups.iter() {
                     if let Some(group) = self.groups.get_mut(*group) {
-                        if let Some(index) = group.type_index(type_id) {
-                            let component_type = group.type_mut(*index).unwrap();
+                        if let Some(component_type) = group.type_by_id_mut(type_id) {
                             component_type.set_force_buffer(true);
                         }
                     }
@@ -213,8 +211,7 @@ impl ComponentManager {
                 for group_id in groups {
                     if let Some(group_index) = self.group_map.get(group_id) {
                         let group = &mut self.groups[*group_index];
-                        if let Some(index) = group.type_index(type_id) {
-                            let component_type = group.type_mut(*index).unwrap();
+                        if let Some(component_type) = group.type_by_id_mut(type_id) {
                             component_type.set_force_buffer(true);
                         }
                     }
@@ -272,7 +269,7 @@ impl ComponentManager {
             .unwrap();
         c.base_mut().init(handle);
         #[cfg(feature = "physics")]
-        if c.base().is_rigid_body() {
+        if c.base().is_body() {
             c.base_mut().add_to_world(C::IDENTIFIER, self.world.clone())
         }
         return (c.downcast_mut().unwrap(), handle);
@@ -574,6 +571,48 @@ impl ComponentManager {
         if let Some(group) = self.groups.get_mut(handle.group_index()) {
             if let Some(component_type) = group.type_mut(handle.type_index()) {
                 return component_type.component_mut(handle.component_index());
+            }
+        }
+        return None;
+    }
+
+    pub fn amount_of_components<C: ComponentController + ComponentDerive>(
+        &self,
+        group_id: u16,
+    ) -> usize {
+        if let Some(group) = self.group_by_id(group_id) {
+            if let Some(component_type) = group.type_by_id(C::IDENTIFIER) {
+                return component_type.len();
+            }
+        }
+        return 0;
+    }
+
+    pub fn component_by_index<C: ComponentController + ComponentDerive>(
+        &self,
+        group_id: u16,
+        index: u32,
+    ) -> Option<&C> {
+        if let Some(group) = self.group_by_id(group_id) {
+            if let Some(component_type) = group.type_by_id(C::IDENTIFIER) {
+                if let Some(component) = component_type.index(index as usize) {
+                    return component.as_ref().downcast_ref();
+                }
+            }
+        }
+        return None;
+    }
+
+    pub fn component_by_index_mut<C: ComponentController + ComponentDerive>(
+        &mut self,
+        group_id: u16,
+        index: u32,
+    ) -> Option<&mut C> {
+        if let Some(group) = self.group_by_id_mut(group_id) {
+            if let Some(component_type) = group.type_by_id_mut(C::IDENTIFIER) {
+                if let Some(component) = component_type.index_mut(index as usize) {
+                    return component.as_mut().downcast_mut();
+                }
             }
         }
         return None;

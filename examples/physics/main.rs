@@ -147,7 +147,7 @@ impl Player {
                 Self::RESOLUTION,
                 0.0,
             )),
-            base: BaseComponent::new_rigid_body(
+            base: BaseComponent::new_body(
                 RigidBodyBuilder::dynamic().translation(Vector::new(5.0, 4.0)),
                 vec![collider],
             ),
@@ -161,7 +161,7 @@ impl ComponentController for Player {
         let input = &mut ctx.input;
 
         for player in &mut ctx.component_manager.path_mut(&active) {
-            let mut body = player.base.rigid_body_mut().unwrap();
+            let mut body = player.body_mut();
             let mut linvel = *body.linvel();
 
             if input.is_held(Key::D) {
@@ -231,7 +231,7 @@ impl Floor {
                 Self::FLOOR_RESOLUTION,
                 0.0,
             )),
-            base: BaseComponent::new_rigid_body(
+            base: BaseComponent::new_body(
                 RigidBodyBuilder::fixed().translation(Vector::new(0.0, -1.0)),
                 vec![collider],
             ),
@@ -264,7 +264,7 @@ impl PhysicsBox {
         Self {
             collided: false,
             hovered: false,
-            base: BaseComponent::new_rigid_body(
+            base: BaseComponent::new_body(
                 RigidBodyBuilder::dynamic().translation(position),
                 vec![ColliderBuilder::new(SharedShape::new(
                     PhysicsBox::BOX_SHAPE,

@@ -171,7 +171,7 @@ impl ShuraConfig {
                                 }
                                 Err(_e) => {
                                     #[cfg(feature = "log")]
-                                    error!("SurfaceError: {:?}", _e)
+                                    error!("Render Error: {:?}", _e)
                                 }
                             }
 
