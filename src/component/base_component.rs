@@ -284,11 +284,9 @@ impl BaseComponent {
     }
 
     #[cfg(feature = "physics")]
-    pub fn collider(
-        &self,
-        collider_handle: ColliderHandle,
-    ) -> impl Deref<Target = Collider> + '_ {
-        self.try_collider(collider_handle).expect(NO_RIGID_BODY_PANIC)
+    pub fn collider(&self, collider_handle: ColliderHandle) -> impl Deref<Target = Collider> + '_ {
+        self.try_collider(collider_handle)
+            .expect(NO_RIGID_BODY_PANIC)
     }
 
     #[cfg(feature = "physics")]
@@ -296,7 +294,8 @@ impl BaseComponent {
         &mut self,
         collider_handle: ColliderHandle,
     ) -> impl DerefMut<Target = Collider> + '_ {
-        self.try_collider_mut(collider_handle).expect(NO_RIGID_BODY_PANIC)
+        self.try_collider_mut(collider_handle)
+            .expect(NO_RIGID_BODY_PANIC)
     }
 
     #[cfg(feature = "physics")]

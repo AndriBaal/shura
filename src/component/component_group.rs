@@ -90,14 +90,17 @@ impl ComponentGroup {
 
     pub(crate) fn type_by_id(&self, type_id: ComponentTypeId) -> Option<&ComponentType> {
         if let Some(type_index) = self.type_map.get(&type_id) {
-            return self.types.get(*type_index); 
+            return self.types.get(*type_index);
         }
         return None;
     }
 
-    pub(crate) fn type_by_id_mut(&mut self, type_id: ComponentTypeId) -> Option<&mut ComponentType> {
+    pub(crate) fn type_by_id_mut(
+        &mut self,
+        type_id: ComponentTypeId,
+    ) -> Option<&mut ComponentType> {
         if let Some(type_index) = self.type_map.get(&type_id) {
-            return self.types.get_mut(*type_index); 
+            return self.types.get_mut(*type_index);
         }
         return None;
     }

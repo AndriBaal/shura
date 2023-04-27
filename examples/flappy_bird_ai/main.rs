@@ -17,10 +17,8 @@ const GAME_SIZE: Vector<f32> = Vector::new(11.25, 5.0);
 fn shura_main(config: ShuraConfig) {
     config.init(NewScene::new(1, |ctx| {
         ctx.set_camera_scale(WorldCameraScale::Vertical(GAME_SIZE.y));
-        ctx.set_gravity(Vector::new(0.0, -20.0));
+        ctx.set_gravity(Vector::new(0.0, -15.0));
         ctx.set_scene_state(BirdSimulation::new(ctx));
-        // ctx.set_window_size(Vector::new(800, 600));
-        // ctx.set_window_resizable(false);
         ctx.add_component(Background::new(ctx));
         ctx.add_component(Ground::new(ctx));
         for _ in 0..500 {
@@ -33,24 +31,29 @@ fn shura_main(config: ShuraConfig) {
 struct BirdSimulation {
     bird_model: Model,
     bird_sprite: Sprite,
-    pipe_model: Model,
+    top_pipe_model: Model,
+    bottom_pipe_model: Model,
     pipe_sprite: Sprite,
     last_spawn: f32,
     generation: u32,
 }
 
 impl BirdSimulation {
-    const SPAWN_TIME: f32 = 3.5;
-    const HOLE_SIZE: f32 = 2.2;
-    const MIN_PIPE_Y: f32 = 0.5;
     pub fn new(ctx: &Context) -> Self {
         return Self {
             bird_model: ctx.create_model(ModelBuilder::cuboid(Bird::SIZE)),
             bird_sprite: ctx.create_sprite(include_bytes!("./sprites/yellowbird-downflap.png")),
-            pipe_model: ctx.create_model(ModelBuilder::cuboid(Pipe::SIZE)),
+            top_pipe_model: ctx.create_model(
+                ModelBuilder::cuboid(Pipe::SIZE)
+                    .vertex_translation(Vector::new(0.0, Pipe::HALF_HOLE_SIZE + Pipe::SIZE.y))
+                    .tex_coord_rotation(Rotation::new(180.0_f32.to_radians())),
+            ),
+            bottom_pipe_model: ctx.create_model(
+                ModelBuilder::cuboid(Pipe::SIZE)
+                    .vertex_translation(Vector::new(0.0, -Pipe::HALF_HOLE_SIZE - Pipe::SIZE.y)),
+            ),
             pipe_sprite: ctx.create_sprite(include_bytes!("./sprites/pipe-green.png")),
-            last_spawn: -Self::SPAWN_TIME,
-            // score: 0,
+            last_spawn: -Pipe::SPAWN_TIME,
             generation: 0,
         };
     }
@@ -59,23 +62,8 @@ impl BirdSimulation {
         let total_time = ctx.total_time();
         let scene = ctx.scene_state_mut::<Self>();
         scene.last_spawn = total_time;
-        let under_y = gen_range(
-            -GAME_SIZE.y + Self::MIN_PIPE_Y + Ground::SIZE.y * 2.0
-                ..GAME_SIZE.y - Self::MIN_PIPE_Y - Self::HOLE_SIZE,
-        );
-        let (_, pipe1) = ctx.add_component(Pipe::new(
-            Vector::new(GAME_SIZE.x, under_y - Pipe::SIZE.y),
-            false,
-        ));
-        let (_, pipe2) = ctx.add_component(Pipe::new(
-            Vector::new(GAME_SIZE.x, under_y + Pipe::SIZE.y + Self::HOLE_SIZE),
-            true,
-        ));
-        info!(
-            "Spawning new pipes with ids: [{}, {}]",
-            pipe1.id(),
-            pipe2.id()
-        );
+        let (_, pipe) = ctx.add_component(Pipe::new());
+        info!("Spawning new pipes with id: {}]", pipe.id());
     }
 }
 
@@ -101,7 +89,7 @@ impl SceneStateController for BirdSimulation {
                 ui.label(format!("Score: {}", score));
             });
 
-        if total_time >= scene.last_spawn + Self::SPAWN_TIME {
+        if total_time >= scene.last_spawn + Pipe::SPAWN_TIME {
             new_pipe = true;
         }
 
@@ -132,33 +120,58 @@ impl Bird {
                     .collision_groups(InteractionGroups {
                         memberships: Group::GROUP_2,
                         filter: Group::GROUP_1,
-                    })],
+                    })
+                    .sensor(true)],
             ),
             score: 0.0,
-            brain: NeuralNetwork::new(vec![4, 8, 1]),
+            brain: NeuralNetwork::new(vec![5, 8, 1]),
         }
+    }
+
+    pub fn with_brain(other: &Bird) -> Self {
+        let mut new_bird = Bird::new();
+        new_bird.brain = other.brain.clone();
+        new_bird
     }
 }
 
 impl ComponentController for Bird {
     fn update(active: &ComponentPath<Self>, ctx: &mut Context) {
-        let mut pipes = ctx.components::<Pipe>(ComponentFilter::All);
-        let bottom_pipe = pipes.next().unwrap().translation();
-        let top_pipe = pipes.next().unwrap().translation();
+        let pipes = ctx.components::<Pipe>(ComponentFilter::All);
+        let closest_pipe = pipes
+            .min_by(|a, b| a.translation().x.total_cmp(&b.translation().x))
+            .unwrap()
+            .translation();
+
+        let bottom_y = closest_pipe.y - Pipe::HALF_HOLE_SIZE;
+        let top_y = closest_pipe.y + Pipe::HALF_HOLE_SIZE;
+        let x = closest_pipe.x;
 
         for bird in ctx.component_manager.path_mut(&active) {
-            bird.score += ctx.frame_manager.frame_time() * 1.0;
             let mut body = bird.base.body_mut();
+            if !body.is_enabled() {
+                continue;
+            }
+
+            bird.score += ctx.frame_manager.frame_time() * 1.0;
+            let half_play_size = GAME_SIZE.y - Ground::SIZE.y;
+            let play_size = 2.0 * half_play_size;
+
+            fn compute_relative_value(value: f32, play_size: f32) -> f64 {
+                ((value + (GAME_SIZE.y - (2.0 * Ground::SIZE.y))) / play_size) as f64
+            }
 
             let out = bird.brain.predict(&vec![
-                bottom_pipe.x as f64,
-                top_pipe.x as f64,
-                body.translation().y as f64,
-                body.linvel().y as f64,
+                compute_relative_value(body.translation().y, play_size),
+                compute_relative_value(bottom_y, play_size),
+                compute_relative_value(top_y, play_size),
+                compute_relative_value(x, play_size),
+                (body.linvel().y / 10.0) as f64,
             ])[0];
 
+
             if out >= 0.5 {
-                body.set_linvel(Vector::new(0.0, 6.0), true);
+                body.set_linvel(Vector::new(0.0, 4.0), true);
             }
         }
     }
@@ -196,28 +209,29 @@ impl ComponentController for Bird {
 
                 let gene_pool = WeightedIndex::new(&weights).expect("Failed to generate gene pool");
 
+                let amount = ctx.amount_of_components::<Bird>(DEFAULT_GROUP_ID);
                 let mut rng = thread_rng();
-                for _ in 0..ctx.amount_of_components::<Bird>(DEFAULT_GROUP_ID) {
+                let mut new_birds = Vec::with_capacity(amount);
+                for _ in 0..amount {
                     let index = gene_pool.sample(&mut rng);
                     let rand_bird = ctx
-                        .components_mut::<Bird>(ComponentFilter::DEFAULT_GROUP)
-                        .nth(index)
+                        .component_by_index_mut::<Bird>(DEFAULT_GROUP_ID, index as u32)
                         .unwrap();
-                    rand_bird.brain.mutate();
+
+                    let mut new_bird = Bird::with_brain(&rand_bird);
+                    new_bird.brain.mutate();
+                    new_birds.push(new_bird);
+                }
+                ctx.remove_components::<Pipe>(ComponentFilter::All);
+                for bird in new_birds {
+                    ctx.add_component(bird);
                 }
 
                 let scene = ctx.scene_state_mut::<BirdSimulation>();
                 scene.generation += 1;
                 info!("Now at generation {}!", scene.generation);
-                ctx.remove_components::<Pipe>(Default::default());
+                ctx.remove_components::<Pipe>(ComponentFilter::All);
                 BirdSimulation::spawn_pipes(ctx);
-                for bird in ctx.components_mut::<Bird>(ComponentFilter::All) {
-                    bird.score = 0.0;
-                    let mut body = bird.body_mut();
-                    body.set_linvel(Vector::new(0.0, 0.0), true);
-                    body.set_translation(Vector::new(0.0, 0.0), true);
-                    body.set_enabled(true);
-                }
             }
         }
     }
@@ -328,16 +342,27 @@ struct Pipe {
 }
 
 impl Pipe {
-    const PIPE_SPEED: f32 = -2.0;
+    const PIPE_SPEED: f32 = -3.0;
     const SIZE: Vector<f32> = Vector::new(0.65, 4.0);
-    pub fn new(translation: Vector<f32>, top_down: bool) -> Self {
+    const HALF_HOLE_SIZE: f32 = 1.5;
+    const MIN_PIPE_Y: f32 = 0.25;
+    const SPAWN_TIME: f32 = 2.5;
+    pub fn new() -> Self {
+        let y = gen_range(
+            -GAME_SIZE.y + Self::MIN_PIPE_Y + Pipe::HALF_HOLE_SIZE + Ground::SIZE.y * 2.0
+                ..GAME_SIZE.y - Self::MIN_PIPE_Y - Pipe::HALF_HOLE_SIZE,
+        );
         return Self {
             base: BaseComponent::new_body(
                 RigidBodyBuilder::kinematic_velocity_based()
-                    .translation(translation)
-                    .linvel(Vector::new(Self::PIPE_SPEED, 0.0))
-                    .rotation(if top_down { std::f32::consts::PI } else { 0.0 }),
-                vec![ColliderBuilder::cuboid(Self::SIZE.x, Self::SIZE.y)],
+                    .translation(Vector::new(GAME_SIZE.x, y))
+                    .linvel(Vector::new(Self::PIPE_SPEED, 0.0)),
+                vec![
+                    ColliderBuilder::cuboid(Self::SIZE.x, Self::SIZE.y)
+                        .translation(Vector::new(0.0, -Pipe::HALF_HOLE_SIZE - Pipe::SIZE.y)),
+                    ColliderBuilder::cuboid(Self::SIZE.x, Self::SIZE.y)
+                        .translation(Vector::new(0.0, Pipe::HALF_HOLE_SIZE + Pipe::SIZE.y)),
+                ],
             ),
         };
     }
@@ -367,7 +392,8 @@ impl ComponentController for Pipe {
     fn render(active: &ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
         let scene = ctx.scene_state::<BirdSimulation>();
         ctx.render_all(active, encoder, RenderConfig::default(), |r, instances| {
-            r.render_sprite(instances, &scene.pipe_model, &scene.pipe_sprite)
+            r.render_sprite(instances.clone(), &scene.top_pipe_model, &scene.pipe_sprite);
+            r.render_sprite(instances, &scene.bottom_pipe_model, &scene.pipe_sprite);
         });
     }
 }

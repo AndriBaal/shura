@@ -261,10 +261,8 @@ impl World {
         component2: &BaseComponent,
         joint: impl Into<GenericJoint>,
     ) -> ImpulseJointHandle {
-        let body_handle1 = component1
-            .body_handle();
-        let body_handle2 = component2
-            .body_handle();
+        let body_handle1 = component1.body_handle();
+        let body_handle2 = component2.body_handle();
         self.impulse_joints
             .insert(body_handle1, body_handle2, joint, true)
     }

@@ -146,8 +146,6 @@ impl ComponentType {
     pub fn set_force_buffer(&mut self, force_buffer: bool) {
         self.force_buffer = force_buffer;
     }
-
-    
 }
 
 impl<'a> IntoIterator for &'a ComponentType {
