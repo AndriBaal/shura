@@ -2,6 +2,7 @@ use super::arena::{Arena, ArenaEntry, ArenaIndex, DEFAULT_CAPACITY};
 use crate::BoxedComponent;
 use crate::ComponentDerive;
 use crate::ComponentGroup;
+use crate::ComponentGroupId;
 use core::cmp;
 use core::fmt;
 use core::iter;
@@ -67,7 +68,7 @@ impl Arena<BoxedComponent> {
 }
 
 impl Arena<ComponentGroup> {
-    pub fn serialize_groups(&self, ids: FxHashSet<u16>) -> Vec<Option<(&u32, &ComponentGroup)>> {
+    pub fn serialize_groups(&self, ids: FxHashSet<ComponentGroupId>) -> Vec<Option<(&u32, &ComponentGroup)>> {
         let e = self
             .items
             .iter()

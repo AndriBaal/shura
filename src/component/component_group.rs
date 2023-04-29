@@ -4,20 +4,40 @@ use crate::BoxedComponent;
 use crate::{ComponentController, ComponentType, ComponentTypeId, Vector};
 use rustc_hash::FxHashMap;
 
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct ComponentGroupId {
+    pub id: u16,
+}
+
+impl Default for ComponentGroupId {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+impl ComponentGroupId {
+    /// Id of the default [ComponentGroup](crate::ComponentGroup). Components within this group are
+    /// always getting rendered and updated in every cycle.
+    pub const DEFAULT: Self = Self { id: u16::MAX / 2 };
+    pub const INVALID: Self = Self { id: 0 };
+
+    pub fn new(id: u16) -> Self {
+        Self { id }
+    }
+}
+
 /// Helper to create a [ComponentGroup](crate::ComponentGroup).
 #[derive(Debug, Copy, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ComponentGroupDescriptor {
     /// Id of the group.
-    pub id: u16,
+    pub id: ComponentGroupId,
     /// Describes when the ggroup is active.
     pub activation: GroupActivation,
     /// Describes if the group is enabled from the start.
     pub user_data: u64,
 }
-
-/// Id of the default [ComponentGroup](crate::ComponentGroup). Components within this group are
-/// always getting rendered and updated in every cycle.
-pub const DEFAULT_GROUP_ID: u16 = u16::MAX / 2;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Copy, Clone)]
@@ -54,7 +74,7 @@ impl Into<ComponentGroup> for ComponentGroupDescriptor {
 pub struct ComponentGroup {
     type_map: FxHashMap<ComponentTypeId, ArenaIndex>,
     types: Arena<ComponentType>,
-    id: u16,
+    id: ComponentGroupId,
     active: bool,
     pub activation: GroupActivation,
     pub user_data: u64,
@@ -117,6 +137,15 @@ impl ComponentGroup {
         self.types.get_mut(index)
     }
 
+    pub(crate) fn add_component_type<C: ComponentController>(
+        &mut self,
+    ) -> (ArenaIndex, &mut ComponentType) {
+        let component_type = ComponentType::new::<C>();
+        let type_index = self.types.insert(component_type);
+        self.type_map.insert(C::IDENTIFIER, type_index);
+        return (type_index, self.types.get_mut(type_index).unwrap())
+    }
+
     pub(crate) fn types(&mut self) -> ArenaIterMut<ComponentType> {
         self.types.iter_mut()
     }
@@ -124,16 +153,6 @@ impl ComponentGroup {
     pub(crate) fn remove_type(&mut self, index: ArenaIndex) {
         let removed = self.types.remove(index).unwrap();
         self.type_map.remove(&removed.type_id());
-    }
-
-    pub(crate) fn add_component_type<C: ComponentController>(
-        &mut self,
-        component: C,
-    ) -> (ArenaIndex, ArenaIndex) {
-        let (component_index, component_type) = ComponentType::new(component);
-        let type_index = self.types.insert(component_type);
-        self.type_map.insert(C::IDENTIFIER, type_index);
-        return (type_index, component_index);
     }
 
     #[cfg(feature = "serde")]
@@ -156,7 +175,7 @@ impl ComponentGroup {
     }
 
     /// Get the id of the group.
-    pub const fn id(&self) -> u16 {
+    pub const fn id(&self) -> ComponentGroupId {
         self.id
     }
 

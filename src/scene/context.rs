@@ -1,7 +1,7 @@
 use crate::{
     BoxedComponent, Camera, CameraBuffer, Color, ComponentController, ComponentDerive,
-    ComponentFilter, ComponentGroup, ComponentHandle, ComponentManager, ComponentPath,
-    ComponentRenderGroup, ComponentSet, ComponentSetMut, Duration, FrameManager,
+    ComponentFilter, ComponentGroup, ComponentGroupId, ComponentHandle, ComponentManager,
+    ComponentPath, ComponentRenderGroup, ComponentSet, ComponentSetMut, Duration, FrameManager,
     GlobalStateController, Gpu, GpuDefaults, GroupDelta, Input, InputEvent, InputTrigger,
     InstanceBuffer, InstanceIndex, InstanceIndices, Instant, Isometry, Matrix, Model, ModelBuilder,
     Modifier, RenderConfig, RenderEncoder, RenderTarget, Renderer, Rotation, Scene, SceneCreator,
@@ -193,7 +193,7 @@ impl<'a> Context<'a> {
             .component_from_collider(collider)
     }
 
-    pub fn does_group_exist(&self, group: u16) -> bool {
+    pub fn does_group_exist(&self, group: ComponentGroupId) -> bool {
         self.component_manager.does_group_exist(group)
     }
 
@@ -270,7 +270,7 @@ impl<'a> Context<'a> {
             let scene: (
                 &Scene,
                 Vec<Option<(&u32, &ComponentGroup)>>,
-                FxHashMap<ComponentTypeId, Vec<(u16, Vec<Option<(u32, Vec<u8>)>>)>>,
+                FxHashMap<ComponentTypeId, Vec<(ComponentGroupId, Vec<Option<(u32, Vec<u8>)>>)>>,
                 Option<Vec<u8>>,
                 Option<Vec<u8>>,
             ) = (
@@ -302,7 +302,7 @@ impl<'a> Context<'a> {
             let scene: (
                 &Scene,
                 Vec<Option<(&u32, &ComponentGroup)>>,
-                FxHashMap<ComponentTypeId, Vec<(u16, Vec<Option<(u32, Vec<u8>)>>)>>,
+                FxHashMap<ComponentTypeId, Vec<(ComponentGroupId, Vec<Option<(u32, Vec<u8>)>>)>>,
                 Option<Vec<u8>>,
                 Option<Vec<u8>>,
             ) = (
@@ -466,20 +466,43 @@ impl<'a> Context<'a> {
         self.component_manager.add_group(group);
     }
 
-    pub fn add_component<C: ComponentController>(
+    pub fn add_component_to_group<C: ComponentController>(
         &mut self,
+        group_id: ComponentGroupId,
         component: C,
-    ) -> (&mut C, ComponentHandle) {
+    ) -> ComponentHandle {
+        return self
+            .component_manager
+            .add_component_to_group(group_id, component);
+    }
+
+    pub fn add_component<C: ComponentController>(&mut self, component: C) -> ComponentHandle {
         return self.component_manager.add_component(component);
     }
 
-    pub fn add_component_with_group<C: ComponentController>(
+    pub fn add_components<I, C: ComponentController>(
         &mut self,
-        group: Option<u16>,
-        component: C,
-    ) -> (&mut C, ComponentHandle) {
-        self.component_manager
-            .add_component_with_group(group, component)
+        components: I,
+    ) -> Vec<ComponentHandle>
+    where
+        I: IntoIterator,
+        I::IntoIter: ExactSizeIterator<Item = C>,
+    {
+        return self.component_manager.add_components(components);
+    }
+
+    pub fn add_components_to_group<I, C: ComponentController>(
+        &mut self,
+        group_id: ComponentGroupId,
+        components: I,
+    ) -> Vec<ComponentHandle>
+    where
+        I: IntoIterator,
+        I::IntoIter: ExactSizeIterator<Item = C>,
+    {
+        return self
+            .component_manager
+            .add_components_to_group(group_id, components);
     }
 
     pub fn add_scene(&mut self, scene: impl SceneCreator) {
@@ -510,7 +533,7 @@ impl<'a> Context<'a> {
         self.component_manager.remove_components::<C>(filter);
     }
 
-    pub fn remove_group(&mut self, group_id: u16) -> Option<ComponentGroup> {
+    pub fn remove_group(&mut self, group_id: ComponentGroupId) -> Option<ComponentGroup> {
         self.component_manager.remove_group(group_id)
     }
 
@@ -939,11 +962,11 @@ impl<'a> Context<'a> {
         &mut self.window
     }
 
-    pub fn group_mut(&mut self, id: u16) -> Option<&mut ComponentGroup> {
+    pub fn group_mut(&mut self, id: ComponentGroupId) -> Option<&mut ComponentGroup> {
         self.component_manager.group_by_id_mut(id)
     }
 
-    pub fn group(&self, id: u16) -> Option<&ComponentGroup> {
+    pub fn group(&self, id: ComponentGroupId) -> Option<&ComponentGroup> {
         self.component_manager.group_by_id(id)
     }
 
@@ -967,24 +990,24 @@ impl<'a> Context<'a> {
         self.scene_manager.does_scene_exist(name)
     }
 
-    pub fn active_group_ids(&self) -> &[u16] {
+    pub fn active_group_ids(&self) -> &[ComponentGroupId] {
         self.component_manager.active_group_ids()
     }
 
-    pub fn group_ids(&self) -> impl Iterator<Item = &u16> {
+    pub fn group_ids(&self) -> impl Iterator<Item = &ComponentGroupId> {
         self.component_manager.group_ids()
     }
 
     pub fn amount_of_components<C: ComponentController + ComponentDerive>(
         &self,
-        group_id: u16,
+        group_id: ComponentGroupId,
     ) -> usize {
         self.component_manager.amount_of_components::<C>(group_id)
     }
 
     pub fn component_by_index<C: ComponentController + ComponentDerive>(
         &self,
-        group_id: u16,
+        group_id: ComponentGroupId,
         index: u32,
     ) -> Option<&C> {
         self.component_manager
@@ -993,7 +1016,7 @@ impl<'a> Context<'a> {
 
     pub fn component_by_index_mut<C: ComponentController + ComponentDerive>(
         &mut self,
-        group_id: u16,
+        group_id: ComponentGroupId,
         index: u32,
     ) -> Option<&mut C> {
         self.component_manager
@@ -1093,7 +1116,7 @@ impl<'a> Context<'a> {
 
     pub fn instance_buffer<C: ComponentController>(
         &self,
-        group_id: u16,
+        group_id: ComponentGroupId,
     ) -> Option<&InstanceBuffer> {
         self.component_manager.instance_buffer::<C>(group_id)
     }

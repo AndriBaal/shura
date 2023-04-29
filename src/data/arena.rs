@@ -75,6 +75,23 @@ impl<T> Arena<T> {
         }
     }
 
+    #[inline]
+    pub fn try_insert_with<F: FnOnce(ArenaIndex) -> T>(
+        &mut self,
+        create: F,
+    ) -> Result<ArenaIndex, F> {
+        match self.try_alloc_next_index() {
+            None => Err(create),
+            Some(index) => {
+                self.items[index.index as usize] = ArenaEntry::Occupied {
+                    generation: self.generation,
+                    data: create(index),
+                };
+                Ok(index)
+            }
+        }
+    }
+
     fn try_alloc_next_index(&mut self) -> Option<ArenaIndex> {
         match self.free_list_head {
             None => None,
@@ -116,6 +133,23 @@ impl<T> Arena<T> {
         };
         self.reserve(len);
         self.try_insert(data)
+            .map_err(|_| ())
+            .expect("inserting will always succeed after reserving additional space")
+    }
+
+    #[inline]
+    pub fn insert_with(&mut self, create: impl FnOnce(ArenaIndex) -> T) -> ArenaIndex {
+        match self.try_insert_with(create) {
+            Ok(i) => i,
+            Err(create) => self.insert_with_slow_path(create),
+        }
+    }
+
+    #[inline(never)]
+    fn insert_with_slow_path(&mut self, create: impl FnOnce(ArenaIndex) -> T) -> ArenaIndex {
+        let len = self.items.len();
+        self.reserve(len);
+        self.try_insert_with(create)
             .map_err(|_| ())
             .expect("inserting will always succeed after reserving additional space")
     }

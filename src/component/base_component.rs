@@ -1,15 +1,14 @@
 use crate::{ComponentDerive, ComponentHandle, Isometry, Matrix, Rotation, Vector};
 #[cfg(feature = "physics")]
 use std::{
-    cell::{Ref, RefCell, RefMut},
-    ops::{Deref, DerefMut},
-    rc::Rc,
+    cell::{Ref, RefMut},
+    ops::{Deref, DerefMut}
 };
 
 #[cfg(feature = "physics")]
 use crate::{
-    physics::{Collider, ColliderBuilder, ColliderHandle, RigidBody, RigidBodyHandle, World},
-    ComponentTypeId,
+    physics::{Collider, ColliderBuilder, ColliderHandle, RigidBody, RigidBodyHandle, RcWorld},
+    ComponentTypeId
 };
 
 const NO_RIGID_BODY_PANIC: &'static str = "This body has no RigidBody or Collider!";
@@ -470,7 +469,7 @@ impl BaseComponent {
     }
 
     #[cfg(feature = "physics")]
-    pub(crate) fn add_to_world(&mut self, type_id: ComponentTypeId, world: Rc<RefCell<World>>) {
+    pub(crate) fn add_to_world(&mut self, type_id: ComponentTypeId, world: RcWorld) {
         let temp = std::mem::replace(
             &mut self.body,
             BodyStatus::Position {
@@ -498,7 +497,7 @@ impl BaseComponent {
 
     #[cfg(all(feature = "physics", feature = "serde"))]
     /// Initialize the [RigidBody] after deserialization.
-    pub fn init_body(&mut self, world: Rc<RefCell<World>>) {
+    pub fn init_body(&mut self, world: RcWorld) {
         match &mut self.body {
             BodyStatus::RigidBody { world_wrapper, .. } => *world_wrapper = WorldWrapper::Rc(world),
             _ => {}
@@ -545,7 +544,7 @@ impl ComponentDerive for BaseComponent {
 #[cfg(feature = "physics")]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 enum WorldWrapper {
-    Rc(Rc<RefCell<World>>),
+    Rc(RcWorld),
     None,
 }
 

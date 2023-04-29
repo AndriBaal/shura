@@ -1,10 +1,7 @@
 use ::rand::prelude::Distribution;
 use shura::{
     log::info,
-    physics::{
-        ActiveEvents, CollideType, ColliderBuilder, ColliderHandle, Group, InteractionGroups,
-        LockedAxes, RigidBodyBuilder,
-    },
+    physics::{LockedAxes, RigidBodyBuilder},
     rand::{distributions::WeightedIndex, gen_range, thread_rng},
     *,
 };
@@ -21,7 +18,7 @@ fn shura_main(config: ShuraConfig) {
         ctx.set_scene_state(BirdSimulation::new(ctx));
         ctx.add_component(Background::new(ctx));
         ctx.add_component(Ground::new(ctx));
-        for _ in 0..500 {
+        for _ in 0..1000 {
             ctx.add_component(Bird::new());
         }
     }))
@@ -62,7 +59,7 @@ impl BirdSimulation {
         let total_time = ctx.total_time();
         let scene = ctx.scene_state_mut::<Self>();
         scene.last_spawn = total_time;
-        let (_, pipe) = ctx.add_component(Pipe::new());
+        let pipe = ctx.add_component(Pipe::new());
         info!("Spawning new pipes with id: {}]", pipe.id());
     }
 }
@@ -97,6 +94,52 @@ impl SceneStateController for BirdSimulation {
             Self::spawn_pipes(ctx);
         }
     }
+
+    fn after_update(ctx: &mut Context) {
+        let dead_count = ctx
+            .components::<Bird>(ComponentFilter::All)
+            .filter(|b| b.body().is_enabled())
+            .count();
+
+        if dead_count == 0 {
+            let mut max_fitness = 0.0;
+            let mut weights = Vec::new();
+
+            for b in ctx.components::<Bird>(ComponentFilter::All) {
+                if b.score > max_fitness {
+                    max_fitness = b.score;
+                }
+                weights.push(b.score);
+            }
+            weights
+                .iter_mut()
+                .for_each(|i| *i = (*i / max_fitness) * 100.0);
+
+            let gene_pool = WeightedIndex::new(&weights).expect("Failed to generate gene pool");
+
+            let amount = ctx.amount_of_components::<Bird>(ComponentGroupId::DEFAULT);
+            let mut rng = thread_rng();
+            let mut new_birds = Vec::with_capacity(amount);
+            for _ in 0..amount {
+                let index = gene_pool.sample(&mut rng);
+                let rand_bird = ctx
+                    .component_by_index_mut::<Bird>(ComponentGroupId::DEFAULT, index as u32)
+                    .unwrap();
+
+                let mut new_bird = Bird::with_brain(&rand_bird);
+                new_bird.brain.mutate();
+                new_birds.push(new_bird);
+            }
+            ctx.remove_components::<Pipe>(ComponentFilter::All);
+            ctx.add_components(new_birds);
+
+            let scene = ctx.scene_state_mut::<BirdSimulation>();
+            scene.generation += 1;
+            info!("Now at generation {}!", scene.generation);
+            ctx.remove_components::<Pipe>(ComponentFilter::All);
+            BirdSimulation::spawn_pipes(ctx);
+        }
+    }
 }
 
 #[derive(Component)]
@@ -114,14 +157,9 @@ impl Bird {
             base: BaseComponent::new_body(
                 RigidBodyBuilder::dynamic()
                     .locked_axes(LockedAxes::TRANSLATION_LOCKED_X)
-                    .lock_rotations(),
-                vec![ColliderBuilder::cuboid(Self::SIZE.x, Self::SIZE.y)
-                    .active_events(ActiveEvents::COLLISION_EVENTS)
-                    .collision_groups(InteractionGroups {
-                        memberships: Group::GROUP_2,
-                        filter: Group::GROUP_1,
-                    })
-                    .sensor(true)],
+                    .lock_rotations()
+                    .additional_mass(3.0),
+                vec![],
             ),
             score: 0.0,
             brain: NeuralNetwork::new(vec![5, 8, 1]),
@@ -138,17 +176,32 @@ impl Bird {
 impl ComponentController for Bird {
     fn update(active: &ComponentPath<Self>, ctx: &mut Context) {
         let pipes = ctx.components::<Pipe>(ComponentFilter::All);
-        let closest_pipe = pipes
-            .min_by(|a, b| a.translation().x.total_cmp(&b.translation().x))
-            .unwrap()
-            .translation();
+        let mut closest = Vector::new(GAME_SIZE.x, 0.0);
+        for pipe in pipes {
+            let translation = pipe.translation();
+            if translation.x >= 0.0 && translation.x < closest.x {
+                closest = translation;
+            }
+        }
 
-        let bottom_y = closest_pipe.y - Pipe::HALF_HOLE_SIZE;
-        let top_y = closest_pipe.y + Pipe::HALF_HOLE_SIZE;
-        let x = closest_pipe.x;
+        let bottom_y = closest.y - Pipe::HALF_HOLE_SIZE;
+        let top_y = closest.y + Pipe::HALF_HOLE_SIZE;
+        let x = closest.x;
+        assert!(x >= 0.0);
 
         for bird in ctx.component_manager.path_mut(&active) {
             let mut body = bird.base.body_mut();
+            let pos = *body.translation();
+            if pos.y < -GAME_SIZE.y + Ground::SIZE.y * 2.0 || pos.y > GAME_SIZE.y {
+                body.set_enabled(false);
+            }
+
+            if pos.x > x + -Pipe::SIZE.x && pos.x < x - -Pipe::SIZE.x {
+                if pos.y > top_y || pos.y < bottom_y {
+                    body.set_enabled(false);
+                }
+            }
+
             if !body.is_enabled() {
                 continue;
             }
@@ -169,69 +222,8 @@ impl ComponentController for Bird {
                 (body.linvel().y / 10.0) as f64,
             ])[0];
 
-
             if out >= 0.5 {
                 body.set_linvel(Vector::new(0.0, 4.0), true);
-            }
-        }
-    }
-
-    fn collision(
-        ctx: &mut Context,
-        self_handle: ComponentHandle,
-        _other_handle: ComponentHandle,
-        _self_collider: ColliderHandle,
-        _other_collider: ColliderHandle,
-        collision_type: CollideType,
-    ) {
-        if collision_type == CollideType::Started {
-            let bird = ctx.component_mut::<Self>(self_handle).unwrap();
-            bird.body_mut().set_enabled(false);
-
-            let dead_count = ctx
-                .components::<Bird>(ComponentFilter::All)
-                .filter(|b| b.body().is_enabled())
-                .count();
-
-            if dead_count == 0 {
-                let mut max_fitness = 0.0;
-                let mut weights = Vec::new();
-
-                for b in ctx.components::<Bird>(ComponentFilter::All) {
-                    if b.score > max_fitness {
-                        max_fitness = b.score;
-                    }
-                    weights.push(b.score);
-                }
-                weights
-                    .iter_mut()
-                    .for_each(|i| *i = (*i / max_fitness) * 100.0);
-
-                let gene_pool = WeightedIndex::new(&weights).expect("Failed to generate gene pool");
-
-                let amount = ctx.amount_of_components::<Bird>(DEFAULT_GROUP_ID);
-                let mut rng = thread_rng();
-                let mut new_birds = Vec::with_capacity(amount);
-                for _ in 0..amount {
-                    let index = gene_pool.sample(&mut rng);
-                    let rand_bird = ctx
-                        .component_by_index_mut::<Bird>(DEFAULT_GROUP_ID, index as u32)
-                        .unwrap();
-
-                    let mut new_bird = Bird::with_brain(&rand_bird);
-                    new_bird.brain.mutate();
-                    new_birds.push(new_bird);
-                }
-                ctx.remove_components::<Pipe>(ComponentFilter::All);
-                for bird in new_birds {
-                    ctx.add_component(bird);
-                }
-
-                let scene = ctx.scene_state_mut::<BirdSimulation>();
-                scene.generation += 1;
-                info!("Now at generation {}!", scene.generation);
-                ctx.remove_components::<Pipe>(ComponentFilter::All);
-                BirdSimulation::spawn_pipes(ctx);
             }
         }
     }
@@ -248,10 +240,6 @@ impl ComponentController for Bird {
                 }
             },
         );
-        // let scene = ctx.scene_state::<BirdSimulation>();
-        // ctx.render_all(active, encoder, RenderConfig::default(), |r, instance| {
-        //     r.render_sprite(instance, &scene.bird_model, &scene.bird_sprite)
-        // });
     }
 }
 
@@ -269,16 +257,8 @@ impl Ground {
         Self {
             model: ctx.create_model(ModelBuilder::cuboid(Self::SIZE)),
             sprite: ctx.create_sprite(include_bytes!("./sprites/base.png")),
-            base: BaseComponent::new_body(
-                RigidBodyBuilder::fixed()
-                    .translation(Vector::new(0.0, -GAME_SIZE.y + Self::SIZE.y)),
-                vec![
-                    ColliderBuilder::cuboid(Self::SIZE.x, Self::SIZE.y),
-                    ColliderBuilder::segment(
-                        Point::new(-GAME_SIZE.x, GAME_SIZE.y + GAME_SIZE.y - Self::SIZE.y),
-                        Point::new(GAME_SIZE.x, GAME_SIZE.y + GAME_SIZE.y - Self::SIZE.y),
-                    ),
-                ],
+            base: BaseComponent::new(
+                PositionBuilder::new().translation(Vector::new(0.0, -GAME_SIZE.y + Self::SIZE.y)),
             ),
         }
     }
@@ -346,7 +326,7 @@ impl Pipe {
     const SIZE: Vector<f32> = Vector::new(0.65, 4.0);
     const HALF_HOLE_SIZE: f32 = 1.5;
     const MIN_PIPE_Y: f32 = 0.25;
-    const SPAWN_TIME: f32 = 2.5;
+    const SPAWN_TIME: f32 = 2.0;
     pub fn new() -> Self {
         let y = gen_range(
             -GAME_SIZE.y + Self::MIN_PIPE_Y + Pipe::HALF_HOLE_SIZE + Ground::SIZE.y * 2.0
@@ -357,12 +337,7 @@ impl Pipe {
                 RigidBodyBuilder::kinematic_velocity_based()
                     .translation(Vector::new(GAME_SIZE.x, y))
                     .linvel(Vector::new(Self::PIPE_SPEED, 0.0)),
-                vec![
-                    ColliderBuilder::cuboid(Self::SIZE.x, Self::SIZE.y)
-                        .translation(Vector::new(0.0, -Pipe::HALF_HOLE_SIZE - Pipe::SIZE.y)),
-                    ColliderBuilder::cuboid(Self::SIZE.x, Self::SIZE.y)
-                        .translation(Vector::new(0.0, Pipe::HALF_HOLE_SIZE + Pipe::SIZE.y)),
-                ],
+                vec![],
             ),
         };
     }

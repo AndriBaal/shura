@@ -37,7 +37,7 @@ fn shura_main(config: ShuraConfig) {
                     }
                 }
 
-                let (_, player_handle) = ctx.add_component(Player::new(ctx));
+                let player_handle = ctx.add_component(Player::new(ctx));
                 ctx.set_camera_target(Some(player_handle));
                 ctx.add_component(Floor::new(ctx));
             },

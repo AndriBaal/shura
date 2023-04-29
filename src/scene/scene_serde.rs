@@ -13,8 +13,8 @@ use std::{cmp, marker::PhantomData};
 
 use crate::{
     Arena, ArenaEntry, BoxedComponent, ComponentController, ComponentFilter, ComponentGroup,
-    ComponentManager, ComponentTypeId, Context, FieldNames, GlobalStateController, Scene,
-    SceneCreator, SceneStateController, ShuraFields,
+    ComponentGroupId, ComponentManager, ComponentTypeId, Context, FieldNames,
+    GlobalStateController, Scene, SceneCreator, SceneStateController, ShuraFields,
 };
 
 pub struct SceneSerializer<'a> {
@@ -22,7 +22,8 @@ pub struct SceneSerializer<'a> {
     scene_state: &'a Box<dyn SceneStateController>,
 
     groups: Vec<Option<(&'a u32, &'a ComponentGroup)>>,
-    ser_components: FxHashMap<ComponentTypeId, Vec<(u16, Vec<Option<(u32, Vec<u8>)>>)>>,
+    ser_components:
+        FxHashMap<ComponentTypeId, Vec<(ComponentGroupId, Vec<Option<(u32, Vec<u8>)>>)>>,
     ser_scene_state: Option<Vec<u8>>,
     ser_global_state: Option<Vec<u8>>,
 
@@ -55,7 +56,7 @@ impl<'a> SceneSerializer<'a> {
         self,
     ) -> (
         Vec<Option<(&'a u32, &'a ComponentGroup)>>,
-        FxHashMap<ComponentTypeId, Vec<(u16, Vec<Option<(u32, Vec<u8>)>>)>>,
+        FxHashMap<ComponentTypeId, Vec<(ComponentGroupId, Vec<Option<(u32, Vec<u8>)>>)>>,
         Option<Vec<u8>>,
         Option<Vec<u8>>,
         FxHashSet<RigidBodyHandle>,
@@ -74,7 +75,7 @@ impl<'a> SceneSerializer<'a> {
         self,
     ) -> (
         Vec<Option<(&'a u32, &'a ComponentGroup)>>,
-        FxHashMap<ComponentTypeId, Vec<(u16, Vec<Option<(u32, Vec<u8>)>>)>>,
+        FxHashMap<ComponentTypeId, Vec<(ComponentGroupId, Vec<Option<(u32, Vec<u8>)>>)>>,
         Option<Vec<u8>>,
         Option<Vec<u8>>,
     ) {
@@ -139,7 +140,7 @@ impl<N: 'static + FnMut(&mut Context, &mut SceneDeserializer)> SceneCreator for 
         let (mut scene, groups, ser_components, ser_scene_state, ser_global_state): (
             Scene,
             Arena<ComponentGroup>,
-            FxHashMap<ComponentTypeId, Vec<(u16, Vec<Option<(u32, Vec<u8>)>>)>>,
+            FxHashMap<ComponentTypeId, Vec<(ComponentGroupId, Vec<Option<(u32, Vec<u8>)>>)>>,
             Option<Vec<u8>>,
             Option<Vec<u8>>,
         ) = bincode::deserialize(&self.scene).unwrap();
@@ -153,14 +154,18 @@ impl<N: 'static + FnMut(&mut Context, &mut SceneDeserializer)> SceneCreator for 
 
 #[derive(serde::Deserialize)]
 pub struct SceneDeserializer {
-    ser_components: FxHashMap<ComponentTypeId, Vec<(u16, Vec<Option<(u32, Vec<u8>)>>)>>,
+    ser_components:
+        FxHashMap<ComponentTypeId, Vec<(ComponentGroupId, Vec<Option<(u32, Vec<u8>)>>)>>,
     ser_scene_state: Option<Vec<u8>>,
     ser_global_state: Option<Vec<u8>>,
 }
 
 impl SceneDeserializer {
     pub(crate) fn new(
-        ser_components: FxHashMap<ComponentTypeId, Vec<(u16, Vec<Option<(u32, Vec<u8>)>>)>>,
+        ser_components: FxHashMap<
+            ComponentTypeId,
+            Vec<(ComponentGroupId, Vec<Option<(u32, Vec<u8>)>>)>,
+        >,
         ser_scene_state: Option<Vec<u8>>,
         ser_global_state: Option<Vec<u8>>,
     ) -> Self {

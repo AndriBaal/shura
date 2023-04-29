@@ -1,9 +1,13 @@
+use std::{cell::RefCell, rc::Rc};
+
 use crate::{BaseComponent, ComponentHandle, ComponentTypeId};
 use rapier2d::prelude::*;
 use rustc_hash::FxHashMap;
 
 type EventReceiver<T> = crossbeam::channel::Receiver<T>;
 pub(crate) type ColliderMapping = FxHashMap<ColliderHandle, (ComponentTypeId, ComponentHandle)>;
+
+pub type RcWorld = Rc<RefCell<World>>;
 
 struct WorldEvents {
     collision: EventReceiver<CollisionEvent>,

@@ -4,6 +4,9 @@ use crate::{
     ComponentDerive, ComponentHandle, Gpu, InstanceBuffer, Matrix,
 };
 
+#[cfg(feature = "physics")]
+use crate::physics::RcWorld;
+
 #[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ComponentTypeId {
@@ -38,10 +41,8 @@ pub(crate) struct ComponentType {
 }
 
 impl ComponentType {
-    pub fn new<C: ComponentController>(component: C) -> (ArenaIndex, Self) {
-        let mut components: Arena<BoxedComponent> = Arena::new();
-        let component_index = components.insert(Box::new(component));
-        (component_index, Self::from_arena::<C>(components))
+    pub fn new<C: ComponentController>() -> Self {
+        return Self::from_arena::<C>(Arena::new());
     }
 
     pub fn from_arena<C: ComponentController>(components: Arena<BoxedComponent>) -> Self {
@@ -84,8 +85,25 @@ impl ComponentType {
             .collect::<Vec<Matrix>>()
     }
 
-    pub fn add<C: ComponentDerive>(&mut self, component: C) -> ArenaIndex {
-        return self.components.insert(Box::new(component));
+    pub fn add<C: ComponentDerive + ComponentController>(
+        &mut self,
+        mut handle: ComponentHandle,
+        #[cfg(feature = "physics")]
+        world: RcWorld,
+        mut component: C,
+    ) -> ComponentHandle {
+        self.components.insert_with(|idx| {
+            handle.component_index = idx;
+            component.base_mut().init(handle);
+            #[cfg(feature = "physics")]
+            if component.base().is_body() {
+                component
+                    .base_mut()
+                    .add_to_world(C::IDENTIFIER, world)
+            }
+            Box::new(component)
+        });
+        return handle;
     }
 
     #[cfg(feature = "serde")]
