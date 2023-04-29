@@ -2,13 +2,13 @@ use crate::{ComponentDerive, ComponentHandle, Isometry, Matrix, Rotation, Vector
 #[cfg(feature = "physics")]
 use std::{
     cell::{Ref, RefMut},
-    ops::{Deref, DerefMut}
+    ops::{Deref, DerefMut},
 };
 
 #[cfg(feature = "physics")]
 use crate::{
-    physics::{Collider, ColliderBuilder, ColliderHandle, RigidBody, RigidBodyHandle, RcWorld},
-    ComponentTypeId
+    physics::{Collider, ColliderBuilder, ColliderHandle, RcWorld, RigidBody, RigidBodyHandle},
+    ComponentTypeId,
 };
 
 const NO_RIGID_BODY_PANIC: &'static str = "This body has no RigidBody or Collider!";

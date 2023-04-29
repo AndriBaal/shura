@@ -1,7 +1,7 @@
 use ::rand::prelude::Distribution;
 use shura::{
     log::info,
-    physics::{LockedAxes, RigidBodyBuilder},
+    physics::{parry::bounding_volume::BoundingVolume, Aabb, LockedAxes, RigidBodyBuilder},
     rand::{distributions::WeightedIndex, gen_range, thread_rng},
     *,
 };
@@ -33,6 +33,7 @@ struct BirdSimulation {
     pipe_sprite: Sprite,
     last_spawn: f32,
     generation: u32,
+    high_score: u32,
 }
 
 impl BirdSimulation {
@@ -52,6 +53,7 @@ impl BirdSimulation {
             pipe_sprite: ctx.create_sprite(include_bytes!("./sprites/pipe-green.png")),
             last_spawn: -Pipe::SPAWN_TIME,
             generation: 0,
+            high_score: 0,
         };
     }
 
@@ -75,6 +77,9 @@ impl SceneStateController for BirdSimulation {
             .unwrap()
             .score as u32;
         let scene = ctx.scene_state.downcast_mut::<Self>().unwrap();
+        if score > scene.high_score {
+            scene.high_score = score;
+        }
 
         gui::Window::new("Flappy Bird")
             .anchor(gui::Align2::LEFT_TOP, gui::Vec2::default())
@@ -84,6 +89,7 @@ impl SceneStateController for BirdSimulation {
                 ui.label(&format!("FPS: {}", fps));
                 ui.label(format!("Generation: {}", scene.generation));
                 ui.label(format!("Score: {}", score));
+                ui.label(format!("High Score: {}", scene.high_score));
             });
 
         if total_time >= scene.last_spawn + Pipe::SPAWN_TIME {
@@ -130,7 +136,7 @@ impl SceneStateController for BirdSimulation {
                 new_bird.brain.mutate();
                 new_birds.push(new_bird);
             }
-            ctx.remove_components::<Pipe>(ComponentFilter::All);
+            ctx.remove_components::<Bird>(ComponentFilter::All);
             ctx.add_components(new_birds);
 
             let scene = ctx.scene_state_mut::<BirdSimulation>();
@@ -186,23 +192,26 @@ impl ComponentController for Bird {
 
         let bottom_y = closest.y - Pipe::HALF_HOLE_SIZE;
         let top_y = closest.y + Pipe::HALF_HOLE_SIZE;
+        
+        let pipe_aabb = Aabb::new((closest - Pipe::SIZE).into(), (closest + Pipe::SIZE).into());
         let x = closest.x;
         assert!(x >= 0.0);
 
         for bird in ctx.component_manager.path_mut(&active) {
             let mut body = bird.base.body_mut();
             let pos = *body.translation();
-            if pos.y < -GAME_SIZE.y + Ground::SIZE.y * 2.0 || pos.y > GAME_SIZE.y {
+            let bl = pos - Bird::SIZE;
+            let tr = pos + Bird::SIZE;
+            let bird_aabb = Aabb::new(bl.into(), tr.into());
+            if bl.y < -GAME_SIZE.y + Ground::SIZE.y * 2.0 || tr.y > GAME_SIZE.y {
                 body.set_enabled(false);
             }
 
-            if pos.x > x + -Pipe::SIZE.x && pos.x < x - -Pipe::SIZE.x {
-                if pos.y > top_y || pos.y < bottom_y {
-                    body.set_enabled(false);
-                }
+            if pipe_aabb.intersects(&bird_aabb) {
+                body.set_enabled(false);
             }
 
-            if !body.is_enabled() {
+            if !body.is_enabled() { 
                 continue;
             }
 
@@ -324,7 +333,7 @@ struct Pipe {
 impl Pipe {
     const PIPE_SPEED: f32 = -3.0;
     const SIZE: Vector<f32> = Vector::new(0.65, 4.0);
-    const HALF_HOLE_SIZE: f32 = 1.5;
+    const HALF_HOLE_SIZE: f32 = 1.1;
     const MIN_PIPE_Y: f32 = 0.25;
     const SPAWN_TIME: f32 = 2.0;
     pub fn new() -> Self {
@@ -463,7 +472,6 @@ impl NetworkLayer {
                 if gen_range(0.0..1.0) >= Self::BRAIN_MUTATION_RATE {
                     continue;
                 }
-
                 *val += gen_range(-Self::BRAIN_MUTATION_VARIATION..Self::BRAIN_MUTATION_VARIATION);
             }
         }

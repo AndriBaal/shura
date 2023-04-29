@@ -88,8 +88,7 @@ impl ComponentType {
     pub fn add<C: ComponentDerive + ComponentController>(
         &mut self,
         mut handle: ComponentHandle,
-        #[cfg(feature = "physics")]
-        world: RcWorld,
+        #[cfg(feature = "physics")] world: RcWorld,
         mut component: C,
     ) -> ComponentHandle {
         self.components.insert_with(|idx| {
@@ -97,9 +96,7 @@ impl ComponentType {
             component.base_mut().init(handle);
             #[cfg(feature = "physics")]
             if component.base().is_body() {
-                component
-                    .base_mut()
-                    .add_to_world(C::IDENTIFIER, world)
+                component.base_mut().add_to_world(C::IDENTIFIER, world)
             }
             Box::new(component)
         });

@@ -143,7 +143,7 @@ impl ComponentGroup {
         let component_type = ComponentType::new::<C>();
         let type_index = self.types.insert(component_type);
         self.type_map.insert(C::IDENTIFIER, type_index);
-        return (type_index, self.types.get_mut(type_index).unwrap())
+        return (type_index, self.types.get_mut(type_index).unwrap());
     }
 
     pub(crate) fn types(&mut self) -> ArenaIterMut<ComponentType> {

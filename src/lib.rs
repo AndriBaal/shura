@@ -103,7 +103,7 @@ mod world;
 /// Access to the relevant items from the [rapier2d](https://github.com/dimforge/rapier) library.
 pub mod physics {
     pub use crate::world::world::CollideType;
-    pub use crate::world::world::{World, RcWorld};
+    pub use crate::world::world::{RcWorld, World};
     pub use rapier2d::geometry::*;
     pub use rapier2d::parry;
     pub use rapier2d::prelude::{
@@ -116,6 +116,9 @@ pub mod physics {
         RevoluteJointBuilder, RigidBody, RigidBodyActivation, RigidBodyBuilder, RigidBodyHandle,
         RigidBodySet, RigidBodyType, Shape, ShapeType, SharedShape, SpacialVector, TypedShape, TOI,
     };
+    pub mod rapier {
+        pub use rapier2d::*;
+    }
 }
 
 // egui
