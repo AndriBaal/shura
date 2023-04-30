@@ -9,6 +9,7 @@ use shura::{
 // Inspired by: https://github.com/bones-ai/rust-flappy-bird-ai
 
 const GAME_SIZE: Vector<f32> = Vector::new(11.25, 5.0);
+const AMOUNT_BIRDS: u32 = 1000;
 
 #[shura::main]
 fn shura_main(config: ShuraConfig) {
@@ -18,7 +19,8 @@ fn shura_main(config: ShuraConfig) {
         ctx.set_scene_state(BirdSimulation::new(ctx));
         ctx.add_component(Background::new(ctx));
         ctx.add_component(Ground::new(ctx));
-        for _ in 0..1000 {
+        ctx.set_physics_priority(Some(10));
+        for _ in 0..AMOUNT_BIRDS {
             ctx.add_component(Bird::new());
         }
     }))
@@ -39,16 +41,21 @@ struct BirdSimulation {
 impl BirdSimulation {
     pub fn new(ctx: &Context) -> Self {
         return Self {
-            bird_model: ctx.create_model(ModelBuilder::cuboid(Bird::SIZE)),
+            bird_model: ctx.create_model(ModelBuilder::cuboid(Bird::HALF_EXTENTS)),
             bird_sprite: ctx.create_sprite(include_bytes!("./sprites/yellowbird-downflap.png")),
             top_pipe_model: ctx.create_model(
-                ModelBuilder::cuboid(Pipe::SIZE)
-                    .vertex_translation(Vector::new(0.0, Pipe::HALF_HOLE_SIZE + Pipe::SIZE.y))
+                ModelBuilder::cuboid(Pipe::HALF_EXTENTS)
+                    .vertex_translation(Vector::new(
+                        0.0,
+                        Pipe::HALF_HOLE_SIZE + Pipe::HALF_EXTENTS.y,
+                    ))
                     .tex_coord_rotation(Rotation::new(180.0_f32.to_radians())),
             ),
             bottom_pipe_model: ctx.create_model(
-                ModelBuilder::cuboid(Pipe::SIZE)
-                    .vertex_translation(Vector::new(0.0, -Pipe::HALF_HOLE_SIZE - Pipe::SIZE.y)),
+                ModelBuilder::cuboid(Pipe::HALF_EXTENTS).vertex_translation(Vector::new(
+                    0.0,
+                    -Pipe::HALF_HOLE_SIZE - Pipe::HALF_EXTENTS.y,
+                )),
             ),
             pipe_sprite: ctx.create_sprite(include_bytes!("./sprites/pipe-green.png")),
             last_spawn: -Pipe::SPAWN_TIME,
@@ -157,7 +164,7 @@ struct Bird {
 }
 
 impl Bird {
-    const SIZE: Vector<f32> = Vector::new(0.3, 0.21176472);
+    const HALF_EXTENTS: Vector<f32> = Vector::new(0.3, 0.21176472);
     pub fn new() -> Self {
         Self {
             base: BaseComponent::new_body(
@@ -192,43 +199,54 @@ impl ComponentController for Bird {
 
         let bottom_y = closest.y - Pipe::HALF_HOLE_SIZE;
         let top_y = closest.y + Pipe::HALF_HOLE_SIZE;
-        
-        let pipe_aabb = Aabb::new((closest - Pipe::SIZE).into(), (closest + Pipe::SIZE).into());
+
+        let bottom_aabb = Aabb::new(
+            (closest
+                - Vector::new(
+                    Pipe::HALF_EXTENTS.x,
+                    Pipe::HALF_HOLE_SIZE + Pipe::HALF_EXTENTS.y * 2.0,
+                ))
+            .into(),
+            (closest + Vector::new(Pipe::HALF_EXTENTS.x, -Pipe::HALF_HOLE_SIZE)).into(),
+        );
+        let top_aabb = Aabb::new(
+            (closest - Vector::new(Pipe::HALF_EXTENTS.x, -Pipe::HALF_HOLE_SIZE)).into(),
+            (closest
+                + Vector::new(
+                    Pipe::HALF_EXTENTS.x,
+                    Pipe::HALF_HOLE_SIZE + Pipe::HALF_EXTENTS.y * 2.0,
+                ))
+            .into(),
+        );
         let x = closest.x;
         assert!(x >= 0.0);
 
         for bird in ctx.component_manager.path_mut(&active) {
             let mut body = bird.base.body_mut();
             let pos = *body.translation();
-            let bl = pos - Bird::SIZE;
-            let tr = pos + Bird::SIZE;
+            let bl = pos - Bird::HALF_EXTENTS;
+            let tr = pos + Bird::HALF_EXTENTS;
             let bird_aabb = Aabb::new(bl.into(), tr.into());
-            if bl.y < -GAME_SIZE.y + Ground::SIZE.y * 2.0 || tr.y > GAME_SIZE.y {
+            assert!(bird_aabb.maxs > bird_aabb.mins);
+            if bl.y < -GAME_SIZE.y + Ground::HALF_EXTENTS.y * 2.0 || tr.y > GAME_SIZE.y {
                 body.set_enabled(false);
             }
 
-            if pipe_aabb.intersects(&bird_aabb) {
+            if bird_aabb.intersects(&bottom_aabb) || bird_aabb.intersects(&top_aabb) {
                 body.set_enabled(false);
             }
 
-            if !body.is_enabled() { 
+            if !body.is_enabled() {
                 continue;
             }
 
             bird.score += ctx.frame_manager.frame_time() * 1.0;
-            let half_play_size = GAME_SIZE.y - Ground::SIZE.y;
-            let play_size = 2.0 * half_play_size;
-
-            fn compute_relative_value(value: f32, play_size: f32) -> f64 {
-                ((value + (GAME_SIZE.y - (2.0 * Ground::SIZE.y))) / play_size) as f64
-            }
-
             let out = bird.brain.predict(&vec![
-                compute_relative_value(body.translation().y, play_size),
-                compute_relative_value(bottom_y, play_size),
-                compute_relative_value(top_y, play_size),
-                compute_relative_value(x, play_size),
-                (body.linvel().y / 10.0) as f64,
+                body.translation().y as f64,
+                bottom_y as f64,
+                top_y as f64,
+                x as f64,
+                body.linvel().y as f64,
             ])[0];
 
             if out >= 0.5 {
@@ -261,13 +279,14 @@ struct Ground {
 }
 
 impl Ground {
-    const SIZE: Vector<f32> = Vector::new(GAME_SIZE.data.0[0][0], 0.9375);
+    const HALF_EXTENTS: Vector<f32> = Vector::new(GAME_SIZE.data.0[0][0], 0.9375);
     pub fn new(ctx: &Context) -> Self {
         Self {
-            model: ctx.create_model(ModelBuilder::cuboid(Self::SIZE)),
+            model: ctx.create_model(ModelBuilder::cuboid(Self::HALF_EXTENTS)),
             sprite: ctx.create_sprite(include_bytes!("./sprites/base.png")),
             base: BaseComponent::new(
-                PositionBuilder::new().translation(Vector::new(0.0, -GAME_SIZE.y + Self::SIZE.y)),
+                PositionBuilder::new()
+                    .translation(Vector::new(0.0, -GAME_SIZE.y + Self::HALF_EXTENTS.y)),
             ),
         }
     }
@@ -332,13 +351,13 @@ struct Pipe {
 
 impl Pipe {
     const PIPE_SPEED: f32 = -3.0;
-    const SIZE: Vector<f32> = Vector::new(0.65, 4.0);
+    const HALF_EXTENTS: Vector<f32> = Vector::new(0.65, 4.0);
     const HALF_HOLE_SIZE: f32 = 1.1;
     const MIN_PIPE_Y: f32 = 0.25;
-    const SPAWN_TIME: f32 = 2.0;
+    const SPAWN_TIME: f32 = 3.0;
     pub fn new() -> Self {
         let y = gen_range(
-            -GAME_SIZE.y + Self::MIN_PIPE_Y + Pipe::HALF_HOLE_SIZE + Ground::SIZE.y * 2.0
+            -GAME_SIZE.y + Self::MIN_PIPE_Y + Pipe::HALF_HOLE_SIZE + Ground::HALF_EXTENTS.y * 2.0
                 ..GAME_SIZE.y - Self::MIN_PIPE_Y - Pipe::HALF_HOLE_SIZE,
         );
         return Self {
