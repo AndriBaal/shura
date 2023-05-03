@@ -252,7 +252,7 @@ impl ComponentController for Light {
         }
 
         let map = ctx.create_render_target(ctx.window_size());
-        let state = ctx.global_state::<LightingState>().unwrap();
+        let state = ctx.global_states::<LightingState>().unwrap();
         for (buffer, lights) in ctx.path_render(&active) {
             for (i, light) in lights {
                 let mut shadows = vec![];

@@ -5,7 +5,7 @@ fn shura_main(config: ShuraConfig) {
     config.init(NewScene {
         id: 1,
         init: |ctx| {
-            ctx.set_scene_state(BunnyState::new(ctx));
+            ctx.insert_scene_state(BunnyState::new(ctx));
             ctx.set_clear_color(Some(Color::new_rgba(220, 220, 220, 255)));
             ctx.set_camera_scale(WorldCameraScale::Min(3.0));
             ctx.add_component(Bunny::new(&ctx));
@@ -73,7 +73,7 @@ impl SceneStateController for BunnyState {
         }
 
         let window_size = ctx.window_size();
-        let bunny_state = ctx.scene_state.downcast_mut::<Self>().unwrap();
+        let bunny_state = ctx.scene_states.get_mut::<Self>();
         if let Some(screenshot) = bunny_state.screenshot.take() {
             shura::log::info!("Taking Screenshot!");
             screenshot.sprite().save(&ctx.gpu, "test.png").ok();
@@ -130,7 +130,7 @@ impl ComponentController for Bunny {
                 translation.y = fov.y;
             }
             bunny.linvel = linvel;
-            bunny.base.set_translation(translation);
+            bunny.set_translation(translation);
         }
     }
 

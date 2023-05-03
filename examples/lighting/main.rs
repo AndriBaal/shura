@@ -333,7 +333,7 @@
 //                 &ctx.world_camera,
 //                 ctx.window_size(),
 //             );
-//             let state = ctx.global_state::<LightingState>().unwrap();
+//             let state = ctx.global_states::<LightingState>().unwrap();
 //             let test = ctx.create_computed_target(size, &ctx.defaults.unit_camera, |mut config, encoder| {
 //                 // config.clear_color = Some(Color::BLACK);
 //                 let mut renderer = encoder.renderer(config);
@@ -363,7 +363,7 @@
 
 //     fn render(active: ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
 //         let mut renderer = encoder.renderer(RenderConfig::WORLD);
-//         let state = ctx.global_state::<LightingState>().unwrap();
+//         let state = ctx.global_states::<LightingState>().unwrap();
 //         for (buffer, lights) in ctx.path_render(&active) {
 //             renderer.use_instances(&buffer);
 
@@ -741,7 +741,7 @@ impl ComponentController for LightManager {
                     },
                 );
 
-                // let state = ctx.global_state::<LightingState>().unwrap();
+                // let state = ctx.global_states::<LightingState>().unwrap();
                 // let test = ctx.create_computed_target(
                 //     size,
                 //     &ctx.defaults.unit_camera,

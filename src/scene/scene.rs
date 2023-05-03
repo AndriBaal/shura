@@ -1,6 +1,6 @@
 use crate::{
-    ComponentManager, Context, SceneStateController, ScreenConfig, ShuraFields, Vector,
-    WorldCamera, WorldCameraScale,
+    ComponentManager, Context, SceneStateManager, ScreenConfig, ShuraFields, Vector, WorldCamera,
+    WorldCameraScale,
 };
 
 pub trait SceneCreator {
@@ -73,10 +73,6 @@ impl<N: 'static + FnMut(&mut Context)> SceneCreator for RecycleScene<N> {
     }
 }
 
-fn default_state() -> Box<dyn SceneStateController> {
-    return Box::new(());
-}
-
 #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub struct Scene {
     pub(crate) id: u32,
@@ -87,8 +83,8 @@ pub struct Scene {
     pub world_camera: WorldCamera,
     pub component_manager: ComponentManager,
     #[cfg_attr(feature = "serde", serde(skip))]
-    #[cfg_attr(feature = "serde", serde(default = "default_state"))]
-    pub state: Box<dyn SceneStateController>,
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub states: SceneStateManager,
 }
 
 impl Scene {
@@ -106,7 +102,7 @@ impl Scene {
             ),
             component_manager: ComponentManager::new(),
             screen_config: ScreenConfig::new(),
-            state: default_state(),
+            states: SceneStateManager::default(),
         }
     }
 

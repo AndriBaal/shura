@@ -3,9 +3,9 @@ use crate::gui::Gui;
 #[cfg(feature = "physics")]
 use crate::physics::{ActiveEvents, CollideType};
 use crate::{
-    scene::context::ShuraFields, Context, FrameManager, GlobalStateController, Gpu, GpuConfig,
-    GpuDefaults, Input, RenderConfigTarget, RenderEncoder, RenderOperation, Renderer, Scene,
-    SceneCreator, SceneManager, Vector,
+    scene::context::ShuraFields, Context, FrameManager, GlobalStateController, GlobalStateManager,
+    Gpu, GpuConfig, GpuDefaults, Input, RenderConfigTarget, RenderEncoder, RenderOperation,
+    Renderer, Scene, SceneCreator, SceneManager, Vector,
 };
 #[cfg(target_arch = "wasm32")]
 use rustc_hash::FxHashMap;
@@ -20,6 +20,7 @@ use crate::{
 
 pub struct ShuraConfig {
     pub window: winit::window::WindowBuilder,
+    pub global_states: Vec<Box<dyn GlobalStateController>>,
     pub gpu: GpuConfig,
     #[cfg(target_os = "android")]
     pub app: AndroidApp,
@@ -34,6 +35,7 @@ pub struct ShuraConfig {
 impl ShuraConfig {
     pub fn default(#[cfg(target_os = "android")] app: AndroidApp) -> Self {
         ShuraConfig {
+            global_states: vec![],
             window: winit::window::WindowBuilder::new()
                 .with_inner_size(winit::dpi::PhysicalSize::new(800, 600))
                 .with_title("Shura Game"),
@@ -117,7 +119,9 @@ impl ShuraConfig {
         events.run(move |event, _target, control_flow| {
             use winit::event::{Event, WindowEvent};
             if let Some(shura) = &mut shura {
-                shura.global_state.winit_event(&event);
+                for global in shura.states.iter_mut() {
+                    global.winit_event(&event);
+                }
                 if !shura.end {
                     match event {
                         Event::WindowEvent {
@@ -193,6 +197,7 @@ impl ShuraConfig {
                 #[cfg(target_os = "android")]
                 match event {
                     Event::Resumed => {
+                        // TODO: Maybe add call to globalstate here
                         shura = Some(Shura::new(
                             window.take().unwrap(),
                             &_target,
@@ -216,7 +221,7 @@ pub(crate) struct Shura {
     pub(crate) window: winit::window::Window,
     pub(crate) input: Input,
     pub(crate) gpu: Gpu,
-    pub(crate) global_state: Box<dyn GlobalStateController>,
+    pub(crate) states: GlobalStateManager,
     pub(crate) defaults: GpuDefaults,
     #[cfg(feature = "gui")]
     pub(crate) gui: Gui,
@@ -233,6 +238,7 @@ impl Shura {
         window: winit::window::Window,
         _event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
         gpu: GpuConfig,
+        global_states: Vec<Box<dyn GlobalState>,
         creator: C,
         #[cfg(target_arch = "wasm32")] auto_scale_canvas: bool,
     ) -> Self {
@@ -246,7 +252,7 @@ impl Shura {
             scene_manager: SceneManager::new(creator.id()),
             frame_manager: FrameManager::new(),
             input: Input::new(),
-            global_state: Box::new(()),
+            states: GlobalStateManager::default(),
             #[cfg(feature = "audio")]
             audio,
             #[cfg(feature = "audio")]
@@ -349,16 +355,19 @@ impl Shura {
                 let size = winit::dpi::PhysicalSize::new(width, height);
                 if size != self.window.inner_size().into() {
                     self.window.set_inner_size(size);
-                    info!(
-                        "{:?}",
-                        browser_window
-                            .document()
-                            .unwrap()
-                            .body()
-                            .unwrap()
-                            .client_width()
-                    );
-                    info!("Adjusting canvas to browser window!");
+                    #[cfg(feature = "log")]
+                    {
+                        info!(
+                            "{:?}",
+                            browser_window
+                                .document()
+                                .unwrap()
+                                .body()
+                                .unwrap()
+                                .client_width()
+                        );
+                        info!("Adjusting canvas to browser window!");
+                    }
                 }
             }
         }
@@ -391,8 +400,6 @@ impl Shura {
             .begin(&self.frame_manager.total_time_duration(), &self.window);
 
         {
-            let state_update = scene.state.get_update();
-            let state_after_update = scene.state.get_after_update();
             let mut ctx = Context::new(self, scene);
             #[cfg(feature = "physics")]
             let (mut done_step, physics_priority) = {
@@ -405,17 +412,24 @@ impl Shura {
             let now = ctx.update_time();
             {
                 let sets = ctx.component_manager.copy_active_components();
-                state_update(&mut ctx);
+                let mut prev_priority = i16::MIN;
                 for set in sets.values() {
-                    if set.paths().len() == 0 {
-                        continue;
+                    let config = set.config();
+                    for update in ctx
+                        .scene_states
+                        .updates(prev_priority, set.config().priority)
+                    {
+                        update(&mut ctx);
                     }
 
-                    let config = set.config();
                     #[cfg(feature = "physics")]
                     if !done_step && config.priority > physics_priority {
                         done_step = true;
                         Self::physics_step(&mut ctx);
+                    }
+
+                    if set.paths().len() == 0 {
+                        continue;
                     }
 
                     match config.update {
@@ -436,10 +450,9 @@ impl Shura {
                     }
 
                     (set.callbacks().call_update)(set.paths(), &mut ctx);
+                    prev_priority = config.priority;
                 }
             }
-
-            state_after_update(&mut ctx);
 
             #[cfg(feature = "physics")]
             if !done_step && ctx.physics_priority().is_some() {
@@ -523,9 +536,10 @@ impl Drop for Shura {
     fn drop(&mut self) {
         for (_, mut scene) in self.scene_manager.end_scenes() {
             if let Some(scene) = &mut scene {
-                let end = scene.state.get_end();
-                let mut ctx = Context::new(self, scene);
-                end(&mut ctx);
+                for end in scene.states.ends() {
+                    let mut ctx = Context::new(self, scene);
+                    end(&mut ctx);
+                }
             }
         }
     }

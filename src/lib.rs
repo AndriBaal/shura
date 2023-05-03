@@ -42,6 +42,7 @@ mod input;
 mod math;
 mod scene;
 mod shura;
+mod state;
 
 pub use instant::Duration;
 pub use rustc_hash::{FxHashMap, FxHashSet};
@@ -67,12 +68,8 @@ pub use crate::{
     },
     input::input::*,
     math::{math::*, matrix::*},
-    scene::{
-        context::Context,
-        scene::*,
-        scene_manager::*,
-        state::{GlobalStateController, SceneStateController, State},
-    },
+    scene::{context::Context, scene::*, scene_manager::*},
+    state::{global_state::*, scene_state::*, state::*},
     shura::*,
 };
 

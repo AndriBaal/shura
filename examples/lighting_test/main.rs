@@ -368,7 +368,7 @@ impl ComponentController for Light {
     }
 
     fn render(active: ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
-        let state = ctx.scene_state::<LightingState>().unwrap();
+        let state = ctx.scene_states::<LightingState>().unwrap();
         let map = ctx.create_render_target(ctx.window_size());
 
         {

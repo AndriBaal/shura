@@ -2,15 +2,16 @@ use crate::{
     BoxedComponent, Camera, CameraBuffer, Color, ComponentController, ComponentDerive,
     ComponentFilter, ComponentGroup, ComponentGroupId, ComponentHandle, ComponentManager,
     ComponentPath, ComponentRenderGroup, ComponentSet, ComponentSetMut, Duration, FrameManager,
-    GlobalStateController, Gpu, GpuDefaults, GroupDelta, Input, InputEvent, InputTrigger,
-    InstanceBuffer, InstanceIndex, InstanceIndices, Instant, Isometry, Matrix, Model, ModelBuilder,
-    Modifier, RenderConfig, RenderEncoder, RenderTarget, Renderer, Rotation, Scene, SceneCreator,
-    SceneManager, SceneStateController, ScreenConfig, Shader, ShaderConfig, Shura, Sprite,
-    SpriteSheet, Uniform, Vector, WorldCamera, WorldCameraScale,
+    GlobalStateController, GlobalStateManager, Gpu, GpuDefaults, GroupDelta, Input, InputEvent,
+    InputTrigger, InstanceBuffer, InstanceIndex, InstanceIndices, Instant, Isometry, Matrix, Model,
+    ModelBuilder, Modifier, RenderConfig, RenderEncoder, RenderTarget, Renderer, Rotation, Scene,
+    SceneCreator, SceneManager, SceneStateController, SceneStateManager, ScreenConfig, Shader,
+    ShaderConfig, Shura, Sprite, SpriteSheet, State, Uniform, Vector, WorldCamera,
+    WorldCameraScale,
 };
 
 #[cfg(feature = "serde")]
-use crate::SceneSerializer;
+use crate::{SceneSerializer, StateTypeId};
 
 #[cfg(feature = "audio")]
 use crate::audio::{Sink, Sound};
@@ -47,7 +48,7 @@ pub struct ShuraFields<'a> {
     pub end: &'a mut bool,
     pub scene_manager: &'a mut SceneManager,
     pub window: &'a mut winit::window::Window,
-    pub global_state: &'a mut Box<dyn GlobalStateController>,
+    pub states: &'a mut GlobalStateManager,
     #[cfg(feature = "gui")]
     pub gui: &'a mut Gui,
     #[cfg(feature = "audio")]
@@ -66,7 +67,7 @@ impl<'a> ShuraFields<'a> {
             end: &mut shura.end,
             scene_manager: &mut shura.scene_manager,
             window: &mut shura.window,
-            global_state: &mut shura.global_state,
+            states: &mut shura.states,
             #[cfg(feature = "gui")]
             gui: &mut shura.gui,
             #[cfg(feature = "audio")]
@@ -85,7 +86,7 @@ impl<'a> ShuraFields<'a> {
             end: ctx.end,
             scene_manager: ctx.scene_manager,
             window: ctx.window,
-            global_state: ctx.global_state,
+            states: ctx.global_states,
             #[cfg(feature = "gui")]
             gui: ctx.gui,
             #[cfg(feature = "audio")]
@@ -103,7 +104,7 @@ pub struct Context<'a> {
     pub scene_switched: &'a bool,
     pub scene_started: &'a bool,
     pub screen_config: &'a mut ScreenConfig,
-    pub scene_state: &'a mut Box<dyn SceneStateController>,
+    pub scene_states: &'a mut SceneStateManager,
     pub world_camera: &'a mut WorldCamera,
     pub component_manager: &'a mut ComponentManager,
 
@@ -115,7 +116,7 @@ pub struct Context<'a> {
     pub end: &'a mut bool,
     pub scene_manager: &'a mut SceneManager,
     pub window: &'a mut winit::window::Window,
-    pub global_state: &'a mut Box<dyn GlobalStateController>,
+    pub global_states: &'a mut GlobalStateManager,
     #[cfg(feature = "gui")]
     pub gui: &'a mut Gui,
     #[cfg(feature = "audio")]
@@ -134,7 +135,7 @@ impl<'a> Context<'a> {
             screen_config: &mut scene.screen_config,
             world_camera: &mut scene.world_camera,
             component_manager: &mut scene.component_manager,
-            scene_state: &mut scene.state,
+            scene_states: &mut scene.states,
 
             // Shura
             frame_manager: &shura.frame_manager,
@@ -144,7 +145,7 @@ impl<'a> Context<'a> {
             end: &mut shura.end,
             scene_manager: &mut shura.scene_manager,
             window: &mut shura.window,
-            global_state: &mut shura.global_state,
+            global_states: &mut shura.states,
             #[cfg(feature = "gui")]
             gui: &mut shura.gui,
             #[cfg(feature = "audio")]
@@ -163,7 +164,7 @@ impl<'a> Context<'a> {
             screen_config: &mut scene.screen_config,
             world_camera: &mut scene.world_camera,
             component_manager: &mut scene.component_manager,
-            scene_state: &mut scene.state,
+            scene_states: &mut scene.states,
 
             // Shura
             frame_manager: shura.frame_manager,
@@ -173,7 +174,7 @@ impl<'a> Context<'a> {
             end: shura.end,
             scene_manager: shura.scene_manager,
             window: shura.window,
-            global_state: shura.global_state,
+            global_states: shura.states,
             #[cfg(feature = "gui")]
             gui: shura.gui,
             #[cfg(feature = "audio")]
@@ -219,8 +220,8 @@ impl<'a> Context<'a> {
 
         let mut serializer = SceneSerializer::new(
             component_manager,
-            &self.global_state,
-            &self.scene_state,
+            &self.global_states,
+            &self.scene_states,
             filter,
         );
         (serialize)(&mut serializer);
@@ -271,8 +272,8 @@ impl<'a> Context<'a> {
                 &Scene,
                 Vec<Option<(&u32, &ComponentGroup)>>,
                 FxHashMap<ComponentTypeId, Vec<(ComponentGroupId, Vec<Option<(u32, Vec<u8>)>>)>>,
-                Option<Vec<u8>>,
-                Option<Vec<u8>>,
+                FxHashMap<StateTypeId, Vec<u8>>,
+                FxHashMap<StateTypeId, Vec<u8>>,
             ) = (
                 &scene,
                 groups,
@@ -303,8 +304,8 @@ impl<'a> Context<'a> {
                 &Scene,
                 Vec<Option<(&u32, &ComponentGroup)>>,
                 FxHashMap<ComponentTypeId, Vec<(ComponentGroupId, Vec<Option<(u32, Vec<u8>)>>)>>,
-                Option<Vec<u8>>,
-                Option<Vec<u8>>,
+                FxHashMap<StateTypeId, Vec<u8>>,
+                FxHashMap<StateTypeId, Vec<u8>>,
             ) = (
                 &scene,
                 groups,
@@ -316,10 +317,6 @@ impl<'a> Context<'a> {
             return result;
         }
     }
-
-    //////////////////////////////////////////////////////////////////////////////////////////////
-    // Create
-    //////////////////////////////////////////////////////////////////////////////////////////////
 
     #[cfg(feature = "physics")]
     pub fn create_joint(
@@ -517,9 +514,10 @@ impl<'a> Context<'a> {
     /// Remove a scene by its id
     pub fn remove_scene(&mut self, id: u32) -> Option<Scene> {
         if let Some(mut scene) = self.scene_manager.remove(id) {
-            let end = scene.state.get_end();
-            let mut ctx = Context::from_fields(ShuraFields::from_ctx(self), &mut scene);
-            end(&mut ctx);
+            for end in scene.states.ends() {
+                let mut ctx = Context::from_fields(ShuraFields::from_ctx(self), &mut scene);
+                end(&mut ctx);
+            }
             return Some(scene);
         }
         return None;
@@ -537,6 +535,60 @@ impl<'a> Context<'a> {
         self.component_manager.remove_group(group_id)
     }
 
+    pub fn try_global_state<T: GlobalStateController + State>(&self) -> Option<&T> {
+        self.global_states.try_get::<T>()
+    }
+    pub fn try_global_state_mut<T: GlobalStateController + State>(&mut self) -> Option<&mut T> {
+        self.global_states.try_get_mut::<T>()
+    }
+    pub fn try_remove_global_state<T: GlobalStateController + State>(&mut self) -> Option<Box<T>> {
+        self.global_states.try_remove::<T>()
+    }
+    pub fn insert_global_state<T: GlobalStateController + State>(&mut self, state: T) {
+        self.global_states.insert(state)
+    }
+    pub fn contains_global_state<T: GlobalStateController + State>(&self) -> bool {
+        self.global_states.contains::<T>()
+    }
+    pub fn remove_global_state<T: GlobalStateController + State>(&mut self) -> Box<T> {
+        self.global_states.remove::<T>()
+    }
+    pub fn global_state<T: GlobalStateController + State>(&self) -> &T {
+        self.global_states.get::<T>()
+    }
+    pub fn global_state_mut<T: GlobalStateController + State>(&mut self) -> &mut T {
+        self.global_states.get_mut::<T>()
+    }
+
+    pub fn try_scene_state<T: SceneStateController + State>(&self) -> Option<&T> {
+        self.scene_states.try_get::<T>()
+    }
+    pub fn try_scene_state_mut<T: SceneStateController + State>(&mut self) -> Option<&mut T> {
+        self.scene_states.try_get_mut::<T>()
+    }
+    pub fn try_remove_scene_state<T: SceneStateController + State>(&mut self) -> Option<Box<T>> {
+        self.scene_states.try_remove::<T>()
+    }
+    pub fn insert_scene_state<T: SceneStateController + State>(&mut self, state: T) {
+        self.scene_states.insert(state)
+    }
+    pub fn contains_scene_state<T: SceneStateController + State>(&self) -> bool {
+        self.scene_states.contains::<T>()
+    }
+    pub fn remove_scene_state<T: SceneStateController + State>(&mut self) -> Box<T> {
+        self.scene_states.remove::<T>()
+    }
+    pub fn scene_state<T: SceneStateController + State>(&self) -> &T {
+        self.scene_states.get::<T>()
+    }
+    pub fn scene_state_mut<T: SceneStateController + State>(&mut self) -> &mut T {
+        self.scene_states.get_mut::<T>()
+    }
+
+    pub fn render_scale(&self) -> f32 {
+        self.screen_config.render_scale()
+    }
+
     #[cfg(feature = "physics")]
     pub fn remove_joint(&mut self, joint: ImpulseJointHandle) -> Option<ImpulseJoint> {
         self.component_manager.world_mut().remove_joint(joint)
@@ -547,48 +599,6 @@ impl<'a> Context<'a> {
         self.component_manager
             .world_mut()
             .remove_collider(collider_handle)
-    }
-
-    //////////////////////////////////////////////////////////////////////////////////////////////
-
-    //////////////////////////////////////////////////////////////////////////////////////////////
-
-    pub fn take_global_state<G: GlobalStateController>(&mut self) -> Option<G> {
-        let state = std::mem::replace(self.global_state, Box::new(()));
-        return state.downcast::<G>().ok().and_then(|s| Some(*s));
-    }
-
-    pub fn global_state<G: GlobalStateController>(&self) -> Option<&G> {
-        self.global_state.downcast_ref::<G>()
-    }
-
-    pub fn global_state_mut<G: GlobalStateController>(&mut self) -> Option<&mut G> {
-        self.global_state.downcast_mut::<G>()
-    }
-
-    pub fn take_scene_state<S: SceneStateController>(&mut self) -> Option<S> {
-        let state = std::mem::replace(self.scene_state, Box::new(()));
-        return state.downcast::<S>().ok().and_then(|s| Some(*s));
-    }
-
-    pub fn scene_state<S: SceneStateController>(&self) -> &S {
-        self.scene_state.downcast_ref::<S>().unwrap()
-    }
-
-    pub fn scene_state_mut<S: SceneStateController>(&mut self) -> &mut S {
-        self.scene_state.downcast_mut::<S>().unwrap()
-    }
-
-    pub fn try_scene_state<S: SceneStateController>(&self) -> Option<&S> {
-        self.scene_state.downcast_ref::<S>()
-    }
-
-    pub fn try_scene_state_mut<S: SceneStateController>(&mut self) -> Option<&mut S> {
-        self.scene_state.downcast_mut::<S>()
-    }
-
-    pub fn render_scale(&self) -> f32 {
-        self.screen_config.render_scale()
     }
 
     #[cfg(feature = "physics")]
@@ -1129,17 +1139,6 @@ impl<'a> Context<'a> {
     #[cfg(feature = "gamepad")]
     pub fn gamepad(&self, gamepad_id: GamepadId) -> Option<Gamepad> {
         self.input.gamepad(gamepad_id)
-    }
-
-    //////////////////////////////////////////////////////////////////////////////////////////////
-
-    //////////////////////////////////////////////////////////////////////////////////////////////
-    pub fn set_global_state<G: GlobalStateController>(&mut self, state: G) {
-        *self.global_state = Box::new(state);
-    }
-
-    pub fn set_scene_state<S: SceneStateController>(&mut self, state: S) {
-        *self.scene_state = Box::new(state);
     }
 
     pub fn set_render_scale(&mut self, scale: f32) {

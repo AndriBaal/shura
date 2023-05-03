@@ -172,7 +172,7 @@ impl Bird {
                     .locked_axes(LockedAxes::TRANSLATION_LOCKED_X)
                     .lock_rotations()
                     .additional_mass(3.0),
-                vec![],
+                &[],
             ),
             score: 0.0,
             brain: NeuralNetwork::new(vec![5, 8, 1]),
@@ -256,7 +256,7 @@ impl ComponentController for Bird {
     }
 
     fn render(active: &ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
-        let scene = ctx.scene_state::<BirdSimulation>();
+        let scene = ctx.scene_states::<BirdSimulation>();
         ctx.render_each(
             active,
             encoder,
@@ -365,7 +365,7 @@ impl Pipe {
                 RigidBodyBuilder::kinematic_velocity_based()
                     .translation(Vector::new(GAME_SIZE.x, y))
                     .linvel(Vector::new(Self::PIPE_SPEED, 0.0)),
-                vec![],
+                &[],
             ),
         };
     }
@@ -393,7 +393,7 @@ impl ComponentController for Pipe {
     }
 
     fn render(active: &ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
-        let scene = ctx.scene_state::<BirdSimulation>();
+        let scene = ctx.scene_states::<BirdSimulation>();
         ctx.render_all(active, encoder, RenderConfig::default(), |r, instances| {
             r.render_sprite(instances.clone(), &scene.top_pipe_model, &scene.pipe_sprite);
             r.render_sprite(instances, &scene.bottom_pipe_model, &scene.pipe_sprite);

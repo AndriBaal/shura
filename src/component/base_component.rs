@@ -81,6 +81,40 @@ impl Default for BaseComponent {
     }
 }
 
+impl Clone for BaseComponent {
+    fn clone(&self) -> Self {
+        Self {
+            handle: ComponentHandle::INVALID,
+            render_scale: self.render_scale.clone(),
+            body: match &self.body {
+                BodyStatus::RigidBody {
+                    world_wrapper,
+                    body_handle,
+                } => {
+                    let body = world_wrapper.body(*body_handle);
+                    let colliders = body
+                        .colliders()
+                        .iter()
+                        .map(|h| world_wrapper.collider(*h).unwrap().clone())
+                        .collect();
+                    BodyStatus::RigidBodyPending {
+                        body: Box::new(body.deref().clone()),
+                        colliders: colliders,
+                    }
+                }
+                BodyStatus::RigidBodyPending { body, colliders } => BodyStatus::RigidBodyPending {
+                    body: body.clone(),
+                    colliders: colliders.clone(),
+                },
+                BodyStatus::Position { position, matrix } => BodyStatus::Position {
+                    position: *position,
+                    matrix: *matrix,
+                },
+            },
+        }
+    }
+}
+
 #[allow(unreachable_patterns)]
 impl BaseComponent {
     pub fn new(pos: PositionBuilder) -> Self {
@@ -98,7 +132,7 @@ impl BaseComponent {
     }
 
     #[cfg(feature = "physics")]
-    pub fn new_body(body: impl Into<RigidBody>, colliders: Vec<ColliderBuilder>) -> Self {
+    pub fn new_body(body: impl Into<RigidBody>, colliders: &[ColliderBuilder]) -> Self {
         Self {
             handle: Default::default(),
             render_scale: Vector::new(1.0, 1.0),
@@ -106,7 +140,7 @@ impl BaseComponent {
                 body: Box::new(body.into()),
                 colliders: colliders
                     .into_iter()
-                    .map(|collider| collider.into())
+                    .map(|collider| collider.build())
                     .collect(),
             },
         }

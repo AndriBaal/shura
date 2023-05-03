@@ -75,7 +75,7 @@ impl PhysicsState {
         info!("Serializing scene!");
         let ser = ctx
             .serialize_scene(ComponentFilter::All, |s| {
-                s.serialize_scene_state::<Self>();
+                s.serialize_scene_states::<Self>();
                 s.serialize_components::<Floor>();
                 s.serialize_components::<Player>();
                 s.serialize_components::<PhysicsBox>();
@@ -149,7 +149,7 @@ impl Player {
             )),
             base: BaseComponent::new_body(
                 RigidBodyBuilder::dynamic().translation(Vector::new(5.0, 4.0)),
-                vec![collider],
+                &[collider],
             ),
         }
     }
@@ -233,7 +233,7 @@ impl Floor {
             )),
             base: BaseComponent::new_body(
                 RigidBodyBuilder::fixed().translation(Vector::new(0.0, -1.0)),
-                vec![collider],
+                &[collider],
             ),
         }
     }
@@ -266,7 +266,7 @@ impl PhysicsBox {
             hovered: false,
             base: BaseComponent::new_body(
                 RigidBodyBuilder::dynamic().translation(position),
-                vec![ColliderBuilder::new(SharedShape::new(
+                &[ColliderBuilder::new(SharedShape::new(
                     PhysicsBox::BOX_SHAPE,
                 ))],
             ),
@@ -277,7 +277,7 @@ impl PhysicsBox {
 impl ComponentController for PhysicsBox {
     fn render(active: &ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
         let mut renderer = encoder.renderer(RenderConfig::WORLD);
-        let state = ctx.scene_state::<PhysicsState>();
+        let state = ctx.scene_states::<PhysicsState>();
         for (buffer, boxes) in ctx.path_render(&active) {
             let mut ranges = vec![];
             let mut last = 0;
