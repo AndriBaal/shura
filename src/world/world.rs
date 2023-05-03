@@ -139,20 +139,20 @@ pub enum CollideType {
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct World {
-    physics_priority: Option<i16>,
+    pub physics_priority: Option<i16>,
+    pub time_scale: f32,
+    pub gravity: Vector<f32>,
     bodies: RigidBodySet,
     colliders: ColliderSet,
     component_mapping: ColliderMapping,
 
     query_pipeline: QueryPipeline,
-    gravity: Vector<f32>,
     integration_parameters: IntegrationParameters,
     islands: IslandManager,
     broad_phase: BroadPhase,
     narrow_phase: NarrowPhase,
     impulse_joints: ImpulseJointSet,
     multibody_joints: MultibodyJointSet,
-    time_scale: f32,
     ccd_solver: CCDSolver,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]

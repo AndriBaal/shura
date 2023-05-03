@@ -69,8 +69,8 @@ pub use crate::{
     input::input::*,
     math::{math::*, matrix::*},
     scene::{context::Context, scene::*, scene_manager::*},
-    state::{global_state::*, scene_state::*, state::*},
     shura::*,
+    state::{global_state::*, scene_state::*, state::*},
 };
 
 /// Access to [wgpu](https://github.com/gfx-rs/wgpu) for creating custom graphics.

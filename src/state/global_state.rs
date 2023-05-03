@@ -1,4 +1,4 @@
-use crate::{State,  StateTypeId};
+use crate::{State, StateTypeId};
 use downcast_rs::{impl_downcast, Downcast};
 use std::collections::BTreeMap;
 

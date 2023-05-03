@@ -26,7 +26,7 @@ fn shura_main(config: ShuraConfig) {
                 const MINIMAL_SPACING: f32 = 0.1;
                 ctx.set_camera_scale(WorldCameraScale::Max(5.0));
                 ctx.set_gravity(Vector::new(0.00, -9.81));
-                ctx.set_scene_state(PhysicsState::new(ctx));
+                ctx.insert_scene_state(PhysicsState::new(ctx));
 
                 for x in -PYRAMID_ELEMENTS..PYRAMID_ELEMENTS {
                     for y in 0..(PYRAMID_ELEMENTS - x.abs()) {
@@ -75,7 +75,7 @@ impl PhysicsState {
         info!("Serializing scene!");
         let ser = ctx
             .serialize_scene(ComponentFilter::All, |s| {
-                s.serialize_scene_states::<Self>();
+                s.serialize_scene_state::<Self>();
                 s.serialize_components::<Floor>();
                 s.serialize_components::<Player>();
                 s.serialize_components::<PhysicsBox>();
@@ -277,7 +277,7 @@ impl PhysicsBox {
 impl ComponentController for PhysicsBox {
     fn render(active: &ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
         let mut renderer = encoder.renderer(RenderConfig::WORLD);
-        let state = ctx.scene_states::<PhysicsState>();
+        let state = ctx.scene_state::<PhysicsState>();
         for (buffer, boxes) in ctx.path_render(&active) {
             let mut ranges = vec![];
             let mut last = 0;

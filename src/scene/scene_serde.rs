@@ -111,19 +111,15 @@ impl<'a> SceneSerializer<'a> {
 
     pub fn serialize_global_state<G: GlobalStateController + State + Serialize>(&mut self) {
         if let Some(state) = self.global_states.try_get::<G>() {
-            self.ser_global_states.insert(
-                G::IDENTIFIER,
-                bincode::serialize(state).unwrap(),
-            );
+            self.ser_global_states
+                .insert(G::IDENTIFIER, bincode::serialize(state).unwrap());
         }
     }
 
     pub fn serialize_scene_state<S: SceneStateController + State + Serialize>(&mut self) {
         if let Some(state) = self.scene_states.try_get::<S>() {
-            self.ser_scene_states.insert(
-                S::IDENTIFIER,
-                bincode::serialize(state).unwrap(),
-            );
+            self.ser_scene_states
+                .insert(S::IDENTIFIER, bincode::serialize(state).unwrap());
         }
     }
 }
@@ -270,7 +266,9 @@ impl SceneDeserializer {
         }
     }
 
-    pub fn deserialize_global_state<G: GlobalStateController + State + serde::de::DeserializeOwned>(
+    pub fn deserialize_global_state<
+        G: GlobalStateController + State + serde::de::DeserializeOwned,
+    >(
         &mut self,
         ctx: &mut Context,
     ) {
@@ -280,7 +278,9 @@ impl SceneDeserializer {
         }
     }
 
-    pub fn deserialize_scene_state<S: SceneStateController + State + serde::de::DeserializeOwned>(
+    pub fn deserialize_scene_state<
+        S: SceneStateController + State + serde::de::DeserializeOwned,
+    >(
         &mut self,
         ctx: &mut Context,
     ) {
