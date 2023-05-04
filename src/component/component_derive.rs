@@ -13,7 +13,7 @@ pub trait FieldNames {
     const FIELDS: &'static [&'static str];
 }
 
-/// Boxed component, that can be downcasted to any [ComponentDerive](crate::ComponentDerive)
+/// Boxed component, that can be downcasted to any [Component](crate::Component)
 /// using downcast_ref or downcast_mut.
 pub type BoxedComponent = Box<dyn ComponentDerive>;
 

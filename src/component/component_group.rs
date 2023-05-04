@@ -6,6 +6,7 @@ use rustc_hash::FxHashMap;
 
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+/// Unique Identifier of a [ComponentGroup]
 pub struct ComponentGroupId {
     pub id: u16,
 }
@@ -41,11 +42,17 @@ pub struct ComponentGroupDescriptor {
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Copy, Clone)]
+/// Decides when a group is active. 
+/// 
+/// # Important
+/// Components in a inactive [ComponentGroup] still process the physics
 pub enum GroupActivation {
+    /// Group is only active when it collides with the fov of the [WorldCamera](crate::WorldCamera)
     Position {
         position: Vector<f32>,
         half_extents: Vector<f32>,
     },
+    /// Group is always active
     Always,
 }
 
@@ -62,10 +69,9 @@ impl Into<ComponentGroup> for ComponentGroupDescriptor {
     }
 }
 
-/// Every group has a id and a fixed position where it operates. When the camera intersects with
-/// the position and size of the group the group is marked as `active`.It can be used like a chunk
-/// system to make huge 2D worlds possible or to just order your components. The Engine has a
-/// default [ComponentGroup](crate::ComponentGroup) with the default [ComponentGroupId] value.
+/// Every group has a [id](crate::ComponentGroupId) and a [activation](crate::GroupActivation). 
+/// Groups can be used like a chunk system to make huge 2D worlds possible or to just order your components. 
+/// The Engine has a default [ComponentGroup](crate::ComponentGroup) with the default [ComponentGroupId] value.
 /// After every update and before rendering, the set of active component groups gets
 /// computed. A group can be accessed with [group](crate::Context::group) or
 /// [group_mut](crate::Context::group_mut). The components of the group can be accessed with

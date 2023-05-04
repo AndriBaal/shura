@@ -250,6 +250,7 @@ impl Deref for WorldCamera {
     }
 }
 
+/// Holds the [Uniform] with the position of a [Camera] and the [Model] of the fov.
 pub struct CameraBuffer {
     model: Model,
     uniform: Uniform<Matrix>

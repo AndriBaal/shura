@@ -19,7 +19,7 @@ pub use rustc_hash::{FxHashMap, FxHashSet};
 pub use shura_proc::*;
 
 #[cfg(target_os = "android")]
-pub use winit::platform::android::activity::AndroidApp;
+pub use ::winit::platform::android::activity::AndroidApp;
 
 pub(crate) use {
     component::controller_caller::*, data::arena::*, data::arena_path::*,
@@ -93,7 +93,6 @@ pub mod physics {
 /// Access to [egui](https://github.com/emilk/egui)
 pub mod gui {
     pub(crate) use crate::graphics::gui::gui::*;
-    pub use crate::Context;
     pub use egui::Context as GuiContext;
     pub use egui::*;
 }

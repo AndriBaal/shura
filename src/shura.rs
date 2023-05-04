@@ -110,7 +110,7 @@ impl ShuraConfig {
             Some(Shura::new(
                 window.take().unwrap(),
                 &events,
-                self.gpu,
+                self.gpu.clone(),
                 init.take().unwrap(),
                 #[cfg(target_arch = "wasm32")]
                 self.auto_scale_canvas,
