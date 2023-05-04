@@ -1,34 +1,4 @@
-//! shura - A safe 2D game engine to easily create manageable games
-//!
-//! shura is a safe, fast and cross-platform 2D component-based game framework written in rust. shura helps you to manage big games with a component system, scene managing and its group system.
-//! The main goal of shura is, that your games logic can be separated into different components, groups and scenes where the logic is easily manageable and safe to control.
-//!
-//! Here are some main features of the engine:
-//!
-//! - Managing multiple independent scenes.
-//!
-//! - Easy to use component system with a group system to ensure fast manageable 2D games in massive levels
-//!
-//! - Group system that acts like a chunk system to organize components and manage big worlds
-//!
-//! - Built in support for postprocessing of your renders
-//!
-//! - Physics simulations directly implemented into the component system through rapier (feature flag 'physics')
-//!
-//! - Window Management with winit
-//!
-//! - Cross-platform extendable rendering with wgpu
-//!
-//! - Input handling for touch, mouse and keyboard and controller with gilrs (feature flag 'gamepad')
-//!
-//! - Text rendering with wgpu_glyph (feature flag 'text')
-//!
-//! - Audio playback with rodio (feature flag 'audio')
-//!
-//! - Easily create GUI's with egui(feature flag 'gui')
-//!
-//! Feedback is very welcome since shura is still in its beta phase.
-//!
+// TODO: Doc
 
 #![crate_type = "lib"]
 #![crate_name = "shura"]
@@ -78,7 +48,7 @@ pub mod wgpu {
     pub use wgpu::*;
 }
 
-/// Access to the windowing library [winit](https://github.com/rust-windowing/winit).
+/// Access to [winit](https://github.com/rust-windowing/winit).
 pub mod winit {
     pub use winit::*;
 }
@@ -87,7 +57,7 @@ pub mod winit {
 #[cfg(feature = "audio")]
 mod sound;
 #[cfg(feature = "audio")]
-/// Access to [rodio](https://github.com/RustAudio/rodio) library
+/// Access to [rodio](https://github.com/RustAudio/rodio)
 pub mod audio {
     pub use crate::sound::sound::*;
     pub use rodio::*;
@@ -97,7 +67,7 @@ pub mod audio {
 #[cfg(feature = "physics")]
 mod world;
 #[cfg(feature = "physics")]
-/// Access to the relevant items from the [rapier2d](https://github.com/dimforge/rapier) library.
+/// Access to the relevant items from [rapier2d](https://github.com/dimforge/rapier)
 pub mod physics {
     pub use crate::world::world::CollideType;
     pub use crate::world::world::{RcWorld, World};
@@ -120,7 +90,7 @@ pub mod physics {
 
 // egui
 #[cfg(feature = "gui")]
-/// Access to [egui](https://github.com/emilk/egui) library.
+/// Access to [egui](https://github.com/emilk/egui)
 pub mod gui {
     pub(crate) use crate::graphics::gui::gui::*;
     pub use crate::Context;
@@ -137,7 +107,7 @@ pub mod text {
 
 // gamepad
 #[cfg(feature = "gamepad")]
-/// Access to [gilrs](https://gitlab.com/gilrs-project/gilrs) library.
+/// Access to [gilrs](https://gitlab.com/gilrs-project/gilrs)
 pub mod gamepad {
     pub use gilrs::{
         ev, ff, Axis, Button, ConnectedGamepadsIterator, Gamepad, GamepadId, Mapping, MappingError,
@@ -152,19 +122,23 @@ pub use crate::scene::scene_serde::*;
 // animation
 #[cfg(feature = "animation")]
 mod tween;
+/// Access to animations
 #[cfg(feature = "animation")]
 pub mod animation {
     pub use crate::tween::{ease::*, tween::*};
 }
 
+/// Access to [nalgebra](https://github.com/dimforge/nalgebra), the math library used by shura
 pub mod na {
     pub use nalgebra::*;
 }
 
+/// Access to [mint](https://github.com/kvark/mint) to convert between the diffrent math types
 pub mod mint {
     pub use mint::*;
 }
 
+/// Access to some easy randomizer functions
 pub mod rand {
     pub fn gen_range<
         T: distributions::uniform::SampleUniform,
@@ -185,6 +159,7 @@ pub mod rand {
 mod logging;
 
 #[cfg(feature = "log")]
+/// Access to the logging abstraction over [env_logger](https://github.com/rust-cli/env_logger) and copy of [wasm_logger](https://gitlab.com/limira-rs/wasm-logger)
 pub mod log {
     pub use crate::logging::logging::LoggerBuilder;
     pub use log::{debug, error, info, trace, warn, Level, LevelFilter, SetLoggerError};

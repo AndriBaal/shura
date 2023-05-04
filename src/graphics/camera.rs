@@ -9,6 +9,7 @@ const MINIMAL_FOV: f32 = 0.0000001;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone)]
+/// 2D Camera for rendering
 pub struct Camera {
     position: Isometry<f32>,
     fov: Vector<f32>,
@@ -106,6 +107,9 @@ impl Camera {
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone)]
+/// Limits a [Camera] to always maintain the aspect ratio of the window. This behaviour can be controlled
+/// through the [WorldCameraScale]. This camera is also in charge of deciding which [ComponentGroups](crate::ComponentGroup)
+/// is active based on if the [ComponentGroups](crate::ComponentGroup) intersects with the camera.
 pub struct WorldCamera {
     pub(crate) camera: Camera,
     target: Option<ComponentHandle>,
@@ -248,9 +252,7 @@ impl Deref for WorldCamera {
 
 pub struct CameraBuffer {
     model: Model,
-    uniform: Uniform<Matrix>,
-    // instance: InstanceBuffer,
-    // position: Isometry<f32>
+    uniform: Uniform<Matrix>
 }
 
 impl CameraBuffer {

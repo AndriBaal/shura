@@ -229,9 +229,9 @@ impl SceneStateController for BirdSimulation {
                 ui.add(
                     gui::Slider::new(
                         &mut ctx.component_manager.world_mut().time_scale,
-                        0.0..=20.0,
+                        0.1..=20.0,
                     )
-                    .text("My value"),
+                    .text("Speed"),
                 );
             });
     }
@@ -423,17 +423,13 @@ pub struct NeuralNetwork {
 
 impl NeuralNetwork {
     pub fn new(layer_sizes: Vec<usize>) -> Self {
-        if layer_sizes.len() < 2 {
-            panic!("Need at least 2 layers");
-        }
+        assert!(layer_sizes.len() >= 2, "Need at least 2 layers");
         for &size in layer_sizes.iter() {
-            if size < 1 {
-                panic!("Empty layers not allowed");
-            }
+            assert!(size >= 1, "Empty layers not allowed");
         }
 
-        let mut layers = Vec::new();
         let first_layer_size = *layer_sizes.first().unwrap();
+        let mut layers = Vec::new();
         let mut prev_layer_size = first_layer_size;
 
         for &layer_size in layer_sizes[1..].iter() {
@@ -448,9 +444,7 @@ impl NeuralNetwork {
     }
 
     pub fn predict(&self, inputs: &Vec<f64>) -> Vec<f64> {
-        if inputs.len() != self.inputs {
-            panic!("Bad input size");
-        }
+        assert_eq!(inputs.len(), self.inputs, "Bad input size");
 
         let mut outputs = Vec::new();
         outputs.push(inputs.clone());

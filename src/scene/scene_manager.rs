@@ -3,7 +3,7 @@ use rustc_hash::FxHashMap;
 
 use crate::Scene;
 
-/// Access to the scenes. [Removing](crate::Context::remove_scene) and [creating](crate::Context::create_scene)
+/// Access to the scenes. [Removing](crate::Context::remove_scene) and [creating](crate::Context::add_scene)
 /// scenes must be done from the [Context](crate::Context).
 pub struct SceneManager {
     scenes: FxHashMap<u32, Option<Scene>>,

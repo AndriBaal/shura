@@ -67,7 +67,7 @@ impl Into<BaseComponent> for PositionBuilder {
 }
 
 /// Base of a component that is bound to a poisition on the screen, either by a
-/// Position or a RigidBody.
+/// Position or a [RigidBody (physics only)](crate::physics::RigidBody).
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct BaseComponent {
     handle: ComponentHandle,

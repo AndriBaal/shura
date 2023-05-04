@@ -54,12 +54,11 @@ crate-type = ["lib", "cdylib"]
 [dependencies]
 env_logger = "0.10"
 delaunator = "1"
-mint = { version = "0.5.6" }
-nalgebra = { version = "0.32.1", features = ["convert-bytemuck", "mint"] }
-wgpu_glyph = { version = "0.19.0", optional = true }
-gilrs = { version = "0.10.1", optional = true }
-naga = "0.11.0"
-egui-winit = { version = "0.21", optional = true }
+mint = { version = "0.5" }
+nalgebra = { version = "0.32", features = ["convert-bytemuck", "mint"] }
+wgpu_glyph = { version = "0.19", optional = true }
+gilrs = { version = "0.10", optional = true }
+naga = "0.11"
 egui-wgpu = { version = "0.21", features = ["winit"], optional = true }
 egui = { version = "0.21", default-features = false, optional = true, features = [
     "bytemuck",
@@ -86,6 +85,7 @@ bincode = { version = "1.3.3", optional = true }
 rand = "0.8.5"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+egui-winit = { version = "0.21", optional = true }
 wgpu = { version = "0.15", features = ["glsl"] }
 rodio = { version = "0.17", default-features = false, optional = true, features = [
     "symphonia-all",
@@ -93,6 +93,7 @@ rodio = { version = "0.17", default-features = false, optional = true, features 
 
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+egui-winit = { version = "0.21", optional = true, default-features = false}
 rodio = { version = "0.17", features = [
     "wasm-bindgen",
     "symphonia-all",
@@ -107,6 +108,7 @@ web-sys = { version = "0.3", features = [
     "Window",
     "Element",
     "console",
+    "Clipboard"
 ] }
 
 [dev-dependencies]

@@ -1,7 +1,7 @@
 use crate::{ArenaIndex, ComponentGroupId};
 use core::hash::Hash;
 
-/// Handle for a component. Through these handles components can be easily be fetches every frame
+/// Handle for a component. Through these handles components can be easily be fetched every frame
 /// with a specific type through the [component](crate::Context::component) or
 /// [component_mut](crate::Context::component_mut) method or without a specific type through the
 /// [boxed_component](crate::Context::boxed_component) or

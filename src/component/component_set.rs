@@ -77,6 +77,8 @@ impl ComponentCluster {
     }
 }
 
+/// Paths of currently active ComponentGroup's that contain the component type C. This is equal to
+/// [ComponentFilter::Active](crate::ComponentFilter::Active)
 pub struct ComponentPath<'a, C: ComponentDerive> {
     paths: &'a [ArenaPath],
     marker: PhantomData<C>,
@@ -263,6 +265,8 @@ where
     }
 }
 
+/// Iterator that yields all components from a given [ComponentGroup](crate::ComponentGroup) and the 
+/// corresponding [InstanceBuffer]
 pub struct ComponentRenderGroup<'a, C>
 where
     C: ComponentDerive,
@@ -339,6 +343,7 @@ where
     }
 }
 
+/// Iterator that yields a component and the corresponding [InstanceIndex] in the [InstanceBuffer]
 pub struct ComponentIterRender<'a, C>
 where
     C: ComponentDerive,

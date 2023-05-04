@@ -65,7 +65,8 @@ impl Into<ComponentGroup> for ComponentGroupDescriptor {
 /// Every group has a id and a fixed position where it operates. When the camera intersects with
 /// the position and size of the group the group is marked as `active`.It can be used like a chunk
 /// system to make huge 2D worlds possible or to just order your components. The Engine has a
-/// default [ComponentGroup](crate::ComponentGroup) that holds the [DEFAULT_GROUP_ID]. After every update and before rendering, the set of active component groups gets
+/// default [ComponentGroup](crate::ComponentGroup) with the default [ComponentGroupId] value.
+/// After every update and before rendering, the set of active component groups gets
 /// computed. A group can be accessed with [group](crate::Context::group) or
 /// [group_mut](crate::Context::group_mut). The components of the group can be accessed with
 /// [components](crate::Context::components) or [components_mut](crate::Context::components_mut)

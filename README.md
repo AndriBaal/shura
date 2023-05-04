@@ -2,17 +2,20 @@
 
 shura is a safe, fast and [cross-platform](#Cross-platform) 2D component-based game framework written in rust. shura helps you to manage big games with a component system, scene managing and its group system. See the [features](#Features) section for all of shura's features.
 
-shura is currently in an early beta version and many features most likely have some issues, so feedback is very welcome.
+shura's component system is built in a way to easily share components between projects and therefore allows for a ecosystem of components.
+
+shura is currently in an early version and things might change in the future or don't work as intended.
 
 ## Getting started
 
-Get started by copying the [template](https://github.com/AndriBaal/shura/tree/main/examples/template). The template includes the library and has some additional config to make sure your game runs on all [supported platforms](#Cross-platform).
+Get started by copying the [template](https://github.com/AndriBaal/shura/tree/main/examples/template). The template includes the library and has some additional configuration to make sure your game runs on all [supported platforms](#Cross-platform).
 
-If you don't care for other platforms than PC, you can just add the following to your `Cargo.toml`:
+OR:
 
+Add the following to your `Cargo.toml`:
 ```
 [dependencies]
-shura = "*"
+shura = "0.2.0"
 ```
 
 A good way to learn shura is through the provided examples or through reading the code [documentation](https://docs.rs/shura).
@@ -41,29 +44,15 @@ A good way to learn shura is through the provided examples or through reading th
 
 - Easily create GUI's with [egui](https://github.com/emilk/egui) (feature flag 'gui')
 
+- Serializing and serializing of scenes and groups with [serde](https://github.com/serde-rs/serde) and [bincode](https://github.com/bincode-org/bincode)
+
+- Animations inspired by [bevy_tweening](https://github.com/djeedai/bevy_tweening)
+
 ## Future features (TODO):
 
 - Tutorials and in depth documentation
 
-- Lighting (with rapier2d)
-
-- Debug grid and complete debug information
-
-- Create models from rapier2d colliders / bodies
-
-- Serialization of the Components
-
-- ComponentGroup always active (before you would just add a huge dimension to it) 
-
-- Examples:
-
-    - Computed Sprite
-
-    - Groups
-
-    - Postprocess (Improve)
-
-    - Screenshots and videos
+- More Examples
 
 ## Safety:
 
@@ -72,8 +61,6 @@ The entire engine including the component system is completely without any unsaf
 ## Cross-platform
 
 shura is currently only tested on Windows 10 / 11, Linux, Android and on the web with WASM. macOS and iOS are currently untested, but are likely to work.
-
-All examples are running on said platforms, but not every example has support for mobile.
 
 The [template](https://github.com/AndriBaal/shura/tree/main/examples/template) uses [run-wasm](https://github.com/rukai/cargo-run-wasm) to run on the web and [cargo-apk](https://github.com/rust-mobile/cargo-apk) to run on android.
 
@@ -89,25 +76,4 @@ path = "src/main.rs"
 
 ## Run Examples
 
-Checkout some [cross-platform](#Cross-platform) examples in the [examples](https://github.com/AndriBaal/shura/tree/main/examples) directory.
-
-Run a postprocessing example (Located in /examples/postprocessing):
-
-Native:
-```
-cargo run --release
-```
-
-Android (See [Android](#Android)) :
-```
-cargo apk run --release
-```
-
-Browser (Make sure that hardware acceleration is enabled)
-```
-http://3.71.15.62
-```
-Or build it yourself:
-```
-cargo run-wasm --release --package bunnymark
-```
+See some WASM examples: http://3.71.15.62

@@ -97,7 +97,7 @@ impl<'a> ShuraFields<'a> {
     }
 }
 
-/// Context to communicate with the game engine to access components, scenes, camera, physics and many more.
+/// Context to communicate with the game engine to access components, scenes, camera, physics and much more.
 pub struct Context<'a> {
     pub scene_id: &'a u32,
     pub scene_resized: &'a bool,
@@ -741,8 +741,6 @@ impl<'a> Context<'a> {
         self.component_manager.render_components()
     }
 
-    /// Returns a dimension with the distance from the center of the camera to the right and from the
-    /// center to the top.
     pub fn camera_fov(&self) -> Vector<f32> {
         self.world_camera.fov()
     }

@@ -18,6 +18,7 @@ use crate::{
     VERSION,
 };
 
+/// Configuration for the base of the game engine
 pub struct ShuraConfig {
     pub window: winit::window::WindowBuilder,
     // pub global_states: Vec<Box<dyn GlobalStateController>>,

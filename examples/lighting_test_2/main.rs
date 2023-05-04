@@ -11,7 +11,7 @@ fn shura_main(config: ShuraConfig) {
         init: |ctx| {
             ctx.set_camera_scale(WorldCameraScale::Max(10.0));
             ctx.add_component(Background::new(ctx));
-            ctx.set_scene_state(LightingState {
+            ctx.insert_scene_state(LightingState {
                 light_shader: ctx.create_shader(ShaderConfig {
                     fragment_source: include_str!("./light.glsl"),
                     shader_lang: ShaderLang::GLSL,
@@ -91,10 +91,12 @@ fn shura_main(config: ShuraConfig) {
     });
 }
 
-impl SceneState for LightingState {}
+#[derive(State)]
 struct LightingState {
     light_shader: Shader,
 }
+
+impl SceneStateController for LightingState {}
 
 #[derive(Component)]
 struct Obstacle {
@@ -119,7 +121,7 @@ impl Obstacle {
             )),
             base: BaseComponent::new_body(
                 RigidBodyBuilder::fixed().translation(position),
-                vec![collider],
+                &[collider],
             ),
             color: ctx.create_uniform(color),
         }
@@ -133,13 +135,15 @@ impl ComponentController for Obstacle {
         ..DEFAULT_CONFIG
     };
 
-    fn render(active: ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
-        let mut renderer = encoder.renderer(RenderConfig::WORLD);
-        for (buffer, obstacles) in ctx.path_render(&active) {
-            for (i, b) in obstacles {
-                renderer.render_color(buffer, i, &b.model, &b.color)
-            }
-        }
+    fn render(active: &ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
+        ctx.render_each(
+            active,
+            encoder,
+            RenderConfig::WORLD,
+            |renderer, obstacle, instance| {
+                renderer.render_color(instance, &obstacle.model, &obstacle.color)
+            },
+        )
     }
 }
 
@@ -268,20 +272,20 @@ impl ComponentController for Light {
                     let c = gamma.sin() / alpha.sin() * v0_to_leftback.norm();
                     leftback = light_translation + v0 + c * v0_to_v1.normalize();
 
-                    // let mut vertices = vec![];
-                    // if light
-                    //     .shape
-                    //     .contains_point(&light_position, &rightmost.into())
-                    // {
-                    //     vertices.push(rightmost);
-                    // }
-                    // vertices.push(rightback);
-                    // let end = (left_index + 1) % (Self::RESOLUTION as usize);
-                    // let mut i = (right_index + 1) % (Self::RESOLUTION as usize);
-                    // while i != end {
-                    //     vertices.push(light_translation + light.vertices[i].pos);
-                    //     i = (i + 1) % (Self::RESOLUTION as usize);
-                    // }
+                    let mut vertices = vec![];
+                    if light
+                        .shape
+                        .contains_point(&light_position, &rightmost.into())
+                    {
+                        vertices.push(rightmost);
+                    }
+                    vertices.push(rightback);
+                    let end = (left_index + 1) % (Self::RESOLUTION as usize);
+                    let mut i = (right_index + 1) % (Self::RESOLUTION as usize);
+                    while i != end {
+                        vertices.push(light_translation + light.vertices[i].pos);
+                        i = (i + 1) % (Self::RESOLUTION as usize);
+                    }
 
                     // vertices.push(leftback);
                     // if light
@@ -315,39 +319,52 @@ impl ComponentController for Light {
         }
     }
 
-    fn render(active: ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
-        let state = ctx.scene_states::<LightingState>().unwrap();
-        let map = ctx.create_render_target(ctx.window_size());
+    fn render(active: &ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
+        let state = ctx.scene_state::<LightingState>();
+        ctx.render_each(
+            active,
+            encoder,
+            RenderConfig::WORLD,
+            |renderer, light, instance| {
+                renderer.use_shader(&state.light_shader);
+                renderer.use_model(&light.light_model);
+                renderer.use_uniform(&light.light_color, 1);
+                renderer.draw(instance);
+            },
+        );
 
-        {
-            let mut renderer = encoder.renderer(RenderConfig::WORLD);
-            for (buffer, lights) in ctx.path_render(&active) {
-                renderer.use_instances(buffer);
-                for (i, light) in lights {
-                    renderer.use_shader(&state.light_shader);
-                    renderer.use_model(&light.light_model);
-                    renderer.use_uniform(&light.light_color, 1);
-                    renderer.draw(i);
+        // let state = ctx.scene_state::<LightingState>();
+        // let map = ctx.create_render_target(ctx.window_size());
 
-                    for shadow in &light.shadows {
-                        // renderer.render_color(buffer, i, shadow, &state.shadow_color);
+        // {
+        //     let mut renderer = encoder.renderer(RenderConfig::WORLD);
+        //     for (buffer, lights) in ctx.path_render(&active) {
+        //         renderer.use_instances(buffer);
+        //         for (i, light) in lights {
+        //             renderer.use_shader(&state.light_shader);
+        //             renderer.use_model(&light.light_model);
+        //             renderer.use_uniform(&light.light_color, 1);
+        //             renderer.draw(i);
 
-                        renderer.use_shader(&state.shadow_shader);
-                        renderer.use_model(shadow);
-                        // renderer.use_uniform(&state.shadow_color, 1);
-                        renderer.draw(i);
-                    }
-                }
-            }
-        }
+        //             for shadow in &light.shadows {
+        //                 // renderer.render_color(buffer, i, shadow, &state.shadow_color);
 
-        let mut renderer = encoder.renderer(RenderConfig::RELATIVE_WORLD);
-        renderer.use_instances(&ctx.defaults.single_centered_instance);
-        renderer.use_shader(&ctx.defaults.sprite);
-        renderer.use_model(&ctx.defaults.relative_camera.0.model());
-        renderer.use_sprite(&map, 1);
-        renderer.use_uniform(&state.shadow_color, 2);
-        renderer.draw(0);
+        //                 renderer.use_shader(&state.shadow_shader);
+        //                 renderer.use_model(shadow);
+        //                 // renderer.use_uniform(&state.shadow_color, 1);
+        //                 renderer.draw(i);
+        //             }
+        //         }
+        //     }
+        // }
+
+        // let mut renderer = encoder.renderer(RenderConfig::RELATIVE_WORLD);
+        // renderer.use_instances(&ctx.defaults.single_centered_instance);
+        // renderer.use_shader(&ctx.defaults.sprite);
+        // renderer.use_model(&ctx.defaults.relative_camera.0.model());
+        // renderer.use_sprite(&map, 1);
+        // renderer.use_uniform(&state.shadow_color, 2);
+        // renderer.draw(0);
     }
 }
 
@@ -376,12 +393,9 @@ impl ComponentController for Background {
         ..DEFAULT_CONFIG
     };
 
-    fn render(active: ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
-        let mut renderer = encoder.renderer(RenderConfig::WORLD);
-        for (buffer, obstacles) in ctx.path_render(&active) {
-            for (i, b) in obstacles {
-                renderer.render_sprite(buffer, i, &b.model, &b.sprite)
-            }
-        }
+    fn render(active: &ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
+        ctx.render_each(active, encoder, RenderConfig::WORLD, |renderer, background, instance| {
+            renderer.render_sprite(instance, &background.model, &background.sprite)
+        })
     }
 }
