@@ -12,6 +12,7 @@ use wgpu::{util::DeviceExt, BlendState};
 pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 0.5;
 
 #[derive(Clone)]
+/// Configuration of the [wgpu](https://github.com/gfx-rs/wgpu) limits, features and backend graphics api
 pub struct GpuConfig {
     pub backends: wgpu::Backends,
     pub device_features: wgpu::Features,

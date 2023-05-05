@@ -3,6 +3,7 @@ use crate::{
     Color, Vector,
 };
 
+/// Section of Text
 pub struct TextSection<'a> {
     pub position: Vector<f32>,
     pub bounds: Vector<f32>,
@@ -10,6 +11,7 @@ pub struct TextSection<'a> {
     pub text: Vec<Text<'a>>,
 }
 
+/// Descriptor for rendering a Text onto a [RenderTarget](crate::RenderTarget)
 pub struct TextDescriptor<'a> {
     pub clear_color: Option<Color>,
     pub sections: Vec<TextSection<'a>>,

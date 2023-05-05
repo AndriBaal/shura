@@ -9,6 +9,7 @@ use crate::{
 };
 use downcast_rs::*;
 
+/// Fields names of a struct used for deserialization and serialization
 pub trait FieldNames {
     const FIELDS: &'static [&'static str];
 }

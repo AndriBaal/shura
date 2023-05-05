@@ -17,12 +17,14 @@ use std::collections::BTreeMap;
 use std::rc::Rc;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+/// Changed [Groups](crate::ComponentGroup) between frames
 pub enum GroupDelta {
     Add(ComponentGroupId),
     Remove(ComponentGroupId),
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Ord, Eq)]
+/// Filter to query which components should be in a [ComponentSet]
 pub enum ComponentFilter<'a> {
     All,
     Active,

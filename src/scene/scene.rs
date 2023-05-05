@@ -3,6 +3,7 @@ use crate::{
     WorldCameraScale,
 };
 
+/// Origin of a [Scene]
 pub trait SceneCreator {
     fn id(&self) -> u32;
     fn create(self, shura: ShuraFields) -> Scene;
@@ -20,6 +21,7 @@ pub trait SceneCreator {
     }
 }
 
+/// Create a new [Scene] from scratch
 pub struct NewScene<N: 'static + FnMut(&mut Context)> {
     pub id: u32,
     pub init: N,
@@ -46,6 +48,7 @@ impl<N: 'static + FnMut(&mut Context)> SceneCreator for NewScene<N> {
     }
 }
 
+/// Add a [Scene] that previously has been removed by calling [remove_scene](crate::Context::remove_scene)
 pub struct RecycleScene<N: 'static + FnMut(&mut Context)> {
     pub id: u32,
     pub scene: Scene,
@@ -74,6 +77,8 @@ impl<N: 'static + FnMut(&mut Context)> SceneCreator for RecycleScene<N> {
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+/// Scene owning its own [Components](ComponentManager), [Configurations](ScreenConfig), callbacks(resized, switched, started),
+/// [states](SceneStateManager) and [camera](WorldCamera) identified by an Id
 pub struct Scene {
     pub(crate) id: u32,
     pub(crate) resized: bool,

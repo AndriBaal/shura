@@ -23,7 +23,7 @@ fn shura_main(config: ShuraConfig) {
             };
             ctx.set_camera_scale(WorldCameraScale::Max(10.0));
             ctx.add_component(Background::new(ctx));
-            ctx.set_scene_state(LightingState {
+            ctx.insert_scene_state(LightingState {
                 shadow_color: ctx.create_uniform(Color::BLACK),
                 light_shader: ctx.create_shader(ShaderConfig {
                     fragment_source: include_str!("./light.glsl"),
@@ -113,9 +113,9 @@ fn shura_main(config: ShuraConfig) {
     });
 }
 
-impl SceneState for LightingState {
+impl SceneStateController for LightingState {
     fn update(ctx: &mut Context) {
-        let state = ctx.scene_state.downcast_mut::<Self>().unwrap();
+        let state = ctx.scene_states.get_mut::<Self>();
         gui::Window::new("bunnymark")
             .anchor(gui::Align2::LEFT_TOP, gui::Vec2::default())
             .show(&ctx.gui.clone(), |ui| {
@@ -141,6 +141,8 @@ impl SceneState for LightingState {
             });
     }
 }
+
+#[derive(State)]
 struct LightingState {
     light_shader: Shader,
     shadow_shader: Shader,
@@ -171,7 +173,7 @@ impl Obstacle {
             )),
             base: BaseComponent::new_body(
                 RigidBodyBuilder::fixed().translation(position),
-                vec![collider],
+                &[collider],
             ),
             color: ctx.create_uniform(color),
         }
@@ -185,13 +187,10 @@ impl ComponentController for Obstacle {
         ..DEFAULT_CONFIG
     };
 
-    fn render(active: ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
-        let mut renderer = encoder.renderer(RenderConfig::WORLD);
-        for (buffer, obstacles) in ctx.path_render(&active) {
-            for (i, b) in obstacles {
-                renderer.render_color(buffer, i, &b.model, &b.color)
-            }
-        }
+    fn render(active: &ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
+        ctx.render_each(active, encoder, RenderConfig::WORLD, |renderer, o, i| {
+            renderer.render_color(i, &o.model, &o.color)
+        })
     }
 }
 
@@ -367,8 +366,8 @@ impl ComponentController for Light {
         }
     }
 
-    fn render(active: ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
-        let state = ctx.scene_states::<LightingState>().unwrap();
+    fn render(active: &ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
+        let state = ctx.scene_state::<LightingState>();
         let map = ctx.create_render_target(ctx.window_size());
 
         {
@@ -428,12 +427,14 @@ impl ComponentController for Background {
         ..DEFAULT_CONFIG
     };
 
-    fn render(active: ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
-        let mut renderer = encoder.renderer(RenderConfig::WORLD);
-        for (buffer, obstacles) in ctx.path_render(&active) {
-            for (i, b) in obstacles {
-                renderer.render_sprite(buffer, i, &b.model, &b.sprite)
-            }
-        }
+    fn render(active: &ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
+        ctx.render_each(
+            active,
+            encoder,
+            RenderConfig::WORLD,
+            |renderer, background, instance| {
+                renderer.render_sprite(instance, &background.model, &background.sprite)
+            },
+        )
     }
 }

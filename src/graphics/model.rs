@@ -6,6 +6,9 @@ use std::f32::consts::{FRAC_PI_2, PI};
 use wgpu::util::DeviceExt;
 
 #[derive(Debug)]
+/// Indexbuffer of a [Model]. This is either a 'custom' one for the [Model] or a shared one.
+/// For example all rectangles have the same IndexBuffer, so we don't need to have a seperate one
+/// for every Rectangle.
 pub enum ModelIndexBuffer {
     Triangle,
     Cuboid,

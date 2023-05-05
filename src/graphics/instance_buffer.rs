@@ -49,6 +49,7 @@ impl InstanceBuffer {
 }
 
 #[derive(Debug, Copy, Clone)]
+/// Index of a [Position](crate::Isometry) in a [InstanceBuffer] represented by a [Matrix]
 pub struct InstanceIndex {
     pub index: u32,
 }
@@ -82,6 +83,7 @@ impl Into<InstanceIndices> for Range<u32> {
 }
 
 #[derive(Debug, Clone)]
+/// Range of [InstanceIndex]
 pub struct InstanceIndices {
     pub range: Range<u32>,
 }

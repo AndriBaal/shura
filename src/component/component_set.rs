@@ -265,7 +265,7 @@ where
     }
 }
 
-/// Iterator that yields all components from a given [ComponentGroup](crate::ComponentGroup) and the 
+/// Iterator that yields all components from a given [ComponentGroup](crate::ComponentGroup) and the
 /// corresponding [InstanceBuffer]
 pub struct ComponentRenderGroup<'a, C>
 where

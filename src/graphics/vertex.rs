@@ -67,7 +67,7 @@ impl Vertex {
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-/// Represents the order in which (Vertices)[Vertex] are drawn in a triangle.
+/// Represents the order in which [Vertices](Vertex) are drawn in a triangle.
 pub struct Index {
     pub a: u32,
     pub b: u32,

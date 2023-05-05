@@ -54,10 +54,6 @@ A good way to learn shura is through the provided examples or through reading th
 
 - More Examples
 
-## Safety:
-
-The entire engine including the component system is completely without any unsafeties except some data conversion mandatory to pass data to the GPU.
-
 ## Cross-platform
 
 shura is currently only tested on Windows 10 / 11, Linux, Android and on the web with WASM. macOS and iOS are currently untested, but are likely to work.

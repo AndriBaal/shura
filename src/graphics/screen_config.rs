@@ -4,6 +4,7 @@ use crate::Color;
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Clone, Debug)]
+/// Configurations of handling the Screen. This can be configured per [Scene](crate::Scene)
 pub struct ScreenConfig {
     pub clear_color: Option<Color>,
     pub render_scale: f32,

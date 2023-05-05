@@ -4,6 +4,7 @@ use crate::{
 };
 use std::ops::Deref;
 
+/// Texture to render onto with a [RenderEncoder]
 pub struct RenderTarget {
     target_msaa: wgpu::TextureView,
     target_view: wgpu::TextureView,

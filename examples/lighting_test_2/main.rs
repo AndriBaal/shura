@@ -394,8 +394,13 @@ impl ComponentController for Background {
     };
 
     fn render(active: &ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
-        ctx.render_each(active, encoder, RenderConfig::WORLD, |renderer, background, instance| {
-            renderer.render_sprite(instance, &background.model, &background.sprite)
-        })
+        ctx.render_each(
+            active,
+            encoder,
+            RenderConfig::WORLD,
+            |renderer, background, instance| {
+                renderer.render_sprite(instance, &background.model, &background.sprite)
+            },
+        )
     }
 }

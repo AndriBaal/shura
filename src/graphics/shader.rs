@@ -3,6 +3,7 @@ use std::borrow::Cow;
 
 pub use wgpu::{BlendComponent, BlendFactor, BlendOperation, BlendState, ColorWrites};
 
+/// Properties of a [Shader]
 pub struct ShaderConfig<'a> {
     pub fragment_source: &'a str,
     pub shader_lang: ShaderLang,

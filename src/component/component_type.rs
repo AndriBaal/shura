@@ -9,6 +9,13 @@ use crate::physics::RcWorld;
 
 #[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+/// TypeId of a struct that derives from the [component](crate::Component) macro. The diffrence to the [std::any::TypeId] is, that
+/// this TypeId is const and is the same on every system.
+///
+/// # How it works
+/// It works by providing a unique identifier to the derive macro. This unique identifier can be passed
+/// with the `name` attribute, otherwise it is just the struct name. Then this identifier is hashed to a unique
+/// u32. The macro is checking at compile time, that every [ComponentTypeId] is unique.
 pub struct ComponentTypeId {
     id: u32,
 }
@@ -19,6 +26,8 @@ impl ComponentTypeId {
     }
 }
 
+/// Trait to identify a struct that derives from  the [Component](crate::Component) macro using
+/// a [ComponentTypeId]
 pub trait ComponentIdentifier {
     const TYPE_NAME: &'static str;
     const IDENTIFIER: ComponentTypeId;

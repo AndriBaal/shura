@@ -6,7 +6,7 @@ use crate::{
     InputTrigger, InstanceBuffer, InstanceIndex, InstanceIndices, Instant, Isometry, Matrix, Model,
     ModelBuilder, Modifier, RenderConfig, RenderEncoder, RenderTarget, Renderer, Rotation, Scene,
     SceneCreator, SceneManager, SceneStateController, SceneStateManager, ScreenConfig, Shader,
-    ShaderConfig, Shura, Sprite, SpriteSheet, State, Uniform, Vector, WorldCamera,
+    ShaderConfig, Shura, Sprite, SpriteSheet, StateIdentifier, Uniform, Vector, WorldCamera,
     WorldCameraScale,
 };
 
@@ -535,53 +535,61 @@ impl<'a> Context<'a> {
         self.component_manager.remove_group(group_id)
     }
 
-    pub fn try_global_state<T: GlobalStateController + State>(&self) -> Option<&T> {
+    pub fn try_global_state<T: GlobalStateController + StateIdentifier>(&self) -> Option<&T> {
         self.global_states.try_get::<T>()
     }
-    pub fn try_global_state_mut<T: GlobalStateController + State>(&mut self) -> Option<&mut T> {
+    pub fn try_global_state_mut<T: GlobalStateController + StateIdentifier>(
+        &mut self,
+    ) -> Option<&mut T> {
         self.global_states.try_get_mut::<T>()
     }
-    pub fn try_remove_global_state<T: GlobalStateController + State>(&mut self) -> Option<Box<T>> {
+    pub fn try_remove_global_state<T: GlobalStateController + StateIdentifier>(
+        &mut self,
+    ) -> Option<Box<T>> {
         self.global_states.try_remove::<T>()
     }
-    pub fn insert_global_state<T: GlobalStateController + State>(&mut self, state: T) {
+    pub fn insert_global_state<T: GlobalStateController + StateIdentifier>(&mut self, state: T) {
         self.global_states.insert(state)
     }
-    pub fn contains_global_state<T: GlobalStateController + State>(&self) -> bool {
+    pub fn contains_global_state<T: GlobalStateController + StateIdentifier>(&self) -> bool {
         self.global_states.contains::<T>()
     }
-    pub fn remove_global_state<T: GlobalStateController + State>(&mut self) -> Box<T> {
+    pub fn remove_global_state<T: GlobalStateController + StateIdentifier>(&mut self) -> Box<T> {
         self.global_states.remove::<T>()
     }
-    pub fn global_state<T: GlobalStateController + State>(&self) -> &T {
+    pub fn global_state<T: GlobalStateController + StateIdentifier>(&self) -> &T {
         self.global_states.get::<T>()
     }
-    pub fn global_state_mut<T: GlobalStateController + State>(&mut self) -> &mut T {
+    pub fn global_state_mut<T: GlobalStateController + StateIdentifier>(&mut self) -> &mut T {
         self.global_states.get_mut::<T>()
     }
 
-    pub fn try_scene_state<T: SceneStateController + State>(&self) -> Option<&T> {
+    pub fn try_scene_state<T: SceneStateController + StateIdentifier>(&self) -> Option<&T> {
         self.scene_states.try_get::<T>()
     }
-    pub fn try_scene_state_mut<T: SceneStateController + State>(&mut self) -> Option<&mut T> {
+    pub fn try_scene_state_mut<T: SceneStateController + StateIdentifier>(
+        &mut self,
+    ) -> Option<&mut T> {
         self.scene_states.try_get_mut::<T>()
     }
-    pub fn try_remove_scene_state<T: SceneStateController + State>(&mut self) -> Option<Box<T>> {
+    pub fn try_remove_scene_state<T: SceneStateController + StateIdentifier>(
+        &mut self,
+    ) -> Option<Box<T>> {
         self.scene_states.try_remove::<T>()
     }
-    pub fn insert_scene_state<T: SceneStateController + State>(&mut self, state: T) {
+    pub fn insert_scene_state<T: SceneStateController + StateIdentifier>(&mut self, state: T) {
         self.scene_states.insert(state)
     }
-    pub fn contains_scene_state<T: SceneStateController + State>(&self) -> bool {
+    pub fn contains_scene_state<T: SceneStateController + StateIdentifier>(&self) -> bool {
         self.scene_states.contains::<T>()
     }
-    pub fn remove_scene_state<T: SceneStateController + State>(&mut self) -> Box<T> {
+    pub fn remove_scene_state<T: SceneStateController + StateIdentifier>(&mut self) -> Box<T> {
         self.scene_states.remove::<T>()
     }
-    pub fn scene_state<T: SceneStateController + State>(&self) -> &T {
+    pub fn scene_state<T: SceneStateController + StateIdentifier>(&self) -> &T {
         self.scene_states.get::<T>()
     }
-    pub fn scene_state_mut<T: SceneStateController + State>(&mut self) -> &mut T {
+    pub fn scene_state_mut<T: SceneStateController + StateIdentifier>(&mut self) -> &mut T {
         self.scene_states.get_mut::<T>()
     }
 

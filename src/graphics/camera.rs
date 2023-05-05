@@ -18,7 +18,7 @@ pub struct Camera {
 
 impl Camera {
     pub fn new(position: Isometry<f32>, fov: Vector<f32>) -> Self {
-        let proj = Matrix::projection(fov);
+        let proj = Matrix::frustum(fov);
         Camera {
             position,
             fov,
@@ -27,7 +27,7 @@ impl Camera {
     }
 
     pub(crate) fn reset_camera_projection(&mut self) {
-        self.proj = Matrix::projection(self.fov());
+        self.proj = Matrix::frustum(self.fov());
     }
 
     pub const fn position(&self) -> &Isometry<f32> {
@@ -250,10 +250,10 @@ impl Deref for WorldCamera {
     }
 }
 
-/// Holds the [Uniform] with the position of a [Camera] and the [Model] of the fov.
+/// Holds the [Uniform] with the matrix of a [Camera] and the [Model] of the fov.
 pub struct CameraBuffer {
     model: Model,
-    uniform: Uniform<Matrix>
+    uniform: Uniform<Matrix>,
 }
 
 impl CameraBuffer {
@@ -264,12 +264,4 @@ impl CameraBuffer {
     pub fn model(&self) -> &Model {
         &self.model
     }
-
-    // pub fn instance(&self) -> &InstanceBuffer {
-    //     &self.instance
-    // }
-
-    // pub fn position(&self) -> &Isometry<f32> {
-    //     &self.position
-    // }
 }

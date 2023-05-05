@@ -42,8 +42,8 @@ pub struct ComponentGroupDescriptor {
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Copy, Clone)]
-/// Decides when a group is active. 
-/// 
+/// Decides when a group is active.
+///
 /// # Important
 /// Components in a inactive [ComponentGroup] still process the physics
 pub enum GroupActivation {
@@ -69,8 +69,8 @@ impl Into<ComponentGroup> for ComponentGroupDescriptor {
     }
 }
 
-/// Every group has a [id](crate::ComponentGroupId) and a [activation](crate::GroupActivation). 
-/// Groups can be used like a chunk system to make huge 2D worlds possible or to just order your components. 
+/// Every group has a [id](crate::ComponentGroupId) and a [activation](crate::GroupActivation).
+/// Groups can be used like a chunk system to make huge 2D worlds possible or to just order your components.
 /// The Engine has a default [ComponentGroup](crate::ComponentGroup) with the default [ComponentGroupId] value.
 /// After every update and before rendering, the set of active component groups gets
 /// computed. A group can be accessed with [group](crate::Context::group) or

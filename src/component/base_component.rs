@@ -118,7 +118,7 @@ impl Clone for BaseComponent {
 #[allow(unreachable_patterns)]
 impl BaseComponent {
     pub fn new(pos: PositionBuilder) -> Self {
-        let mut matrix = Matrix::default();
+        let mut matrix = Matrix::NULL_MODEL;
         matrix.translate(pos.position.translation.vector);
         matrix.rotate(pos.render_scale, pos.position.rotation);
         Self {
@@ -508,7 +508,7 @@ impl BaseComponent {
             &mut self.body,
             BodyStatus::Position {
                 position: Default::default(),
-                matrix: Default::default(),
+                matrix: Matrix::NULL_MODEL,
             },
         );
         match temp {
