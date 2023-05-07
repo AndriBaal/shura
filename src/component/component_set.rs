@@ -79,12 +79,12 @@ impl ComponentCluster {
 
 /// Paths of currently active ComponentGroup's that contain the component type C. This is equal to
 /// [ComponentFilter::Active](crate::ComponentFilter::Active)
-pub struct ComponentPath<'a, C: ComponentDerive> {
+pub struct ActiveComponents<'a, C: ComponentDerive> {
     paths: &'a [ArenaPath],
     marker: PhantomData<C>,
 }
 
-impl<'a, C: ComponentDerive> ComponentPath<'a, C> {
+impl<'a, C: ComponentDerive> ActiveComponents<'a, C> {
     pub(crate) fn new(paths: &'a [ArenaPath]) -> Self {
         Self {
             paths,
@@ -105,10 +105,7 @@ impl<'a, C: ComponentDerive> ComponentPath<'a, C> {
 /// [ComponentGroups](crate::ComponentGroup).
 /// A [ComponentSet] can be retrieved from the [Context](crate::Context) with
 /// [components](crate::Context::components) or [components_mut](crate::Context::components_mut).
-pub struct ComponentSet<'a, C>
-where
-    C: ComponentDerive,
-{
+pub struct ComponentSet<'a, C: ComponentDerive> {
     iters: Vec<ArenaIter<'a, BoxedComponent>>,
     iter_index: usize,
     len: usize,
@@ -127,10 +124,7 @@ impl<C: ComponentDerive> Clone for ComponentSet<'_, C> {
     }
 }
 
-impl<'a, C> ComponentSet<'a, C>
-where
-    C: ComponentDerive,
-{
+impl<'a, C: ComponentDerive> ComponentSet<'a, C> {
     pub(crate) fn new(
         iters: Vec<ArenaIter<'a, BoxedComponent>>,
         len: usize,
@@ -144,19 +138,13 @@ where
     }
 }
 
-impl<'a, C> ExactSizeIterator for ComponentSet<'a, C>
-where
-    C: ComponentDerive,
-{
+impl<'a, C: ComponentDerive> ExactSizeIterator for ComponentSet<'a, C> {
     fn len(&self) -> usize {
         self.len
     }
 }
 
-impl<'a, C> Iterator for ComponentSet<'a, C>
-where
-    C: ComponentDerive,
-{
+impl<'a, C: ComponentDerive> Iterator for ComponentSet<'a, C> {
     type Item = &'a C;
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(iter) = self.iters.get_mut(self.iter_index) {
@@ -171,10 +159,7 @@ where
     }
 }
 
-impl<'a, C> DoubleEndedIterator for ComponentSet<'a, C>
-where
-    C: ComponentDerive,
-{
+impl<'a, C: ComponentDerive> DoubleEndedIterator for ComponentSet<'a, C> {
     fn next_back(&mut self) -> Option<&'a C> {
         let len = self.iters.len();
         if let Some(iter) = self.iters.get_mut(len - 1 - self.iter_index) {
@@ -193,20 +178,14 @@ where
 /// [ComponentGroups](crate::ComponentGroup).
 /// A [ComponentSet] can be retrieved from the [Context](crate::Context) with
 /// [components](crate::Context::components) or [components_mut](crate::Context::components_mut).
-pub struct ComponentSetMut<'a, C>
-where
-    C: ComponentDerive,
-{
+pub struct ComponentSetMut<'a, C: ComponentDerive> {
     iters: Vec<ArenaIterMut<'a, BoxedComponent>>,
     iter_index: usize,
     len: usize,
     marker: PhantomData<C>,
 }
 
-impl<'a, C> ComponentSetMut<'a, C>
-where
-    C: ComponentDerive,
-{
+impl<'a, C: ComponentDerive> ComponentSetMut<'a, C> {
     pub(crate) fn new(
         iters: Vec<ArenaIterMut<'a, BoxedComponent>>,
         len: usize,
@@ -220,19 +199,13 @@ where
     }
 }
 
-impl<'a, C> ExactSizeIterator for ComponentSetMut<'a, C>
-where
-    C: ComponentDerive,
-{
+impl<'a, C: ComponentDerive> ExactSizeIterator for ComponentSetMut<'a, C> {
     fn len(&self) -> usize {
         self.len
     }
 }
 
-impl<'a, C> Iterator for ComponentSetMut<'a, C>
-where
-    C: ComponentDerive,
-{
+impl<'a, C: ComponentDerive> Iterator for ComponentSetMut<'a, C> {
     type Item = &'a mut C;
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(iter) = self.iters.get_mut(self.iter_index) {
@@ -247,10 +220,7 @@ where
     }
 }
 
-impl<'a, C> DoubleEndedIterator for ComponentSetMut<'a, C>
-where
-    C: ComponentDerive,
-{
+impl<'a, C: ComponentDerive> DoubleEndedIterator for ComponentSetMut<'a, C> {
     fn next_back(&mut self) -> Option<&'a mut C> {
         let len = self.iters.len();
         if let Some(iter) = self.iters.get_mut(len - 1 - self.iter_index) {
@@ -267,10 +237,7 @@ where
 
 /// Iterator that yields all components from a given [ComponentGroup](crate::ComponentGroup) and the
 /// corresponding [InstanceBuffer]
-pub struct ComponentRenderGroup<'a, C>
-where
-    C: ComponentDerive,
-{
+pub struct ComponentRenderGroup<'a, C: ComponentDerive> {
     iters: Vec<(&'a InstanceBuffer, ComponentIterRender<'a, C>)>,
     iter_index: usize,
     len: usize,
@@ -289,10 +256,7 @@ impl<C: ComponentDerive> Clone for ComponentRenderGroup<'_, C> {
     }
 }
 
-impl<'a, C> ComponentRenderGroup<'a, C>
-where
-    C: ComponentDerive,
-{
+impl<'a, C: ComponentDerive> ComponentRenderGroup<'a, C> {
     pub(crate) fn new(
         iters: Vec<(&'a InstanceBuffer, ComponentIterRender<'a, C>)>,
         len: usize,
@@ -306,19 +270,13 @@ where
     }
 }
 
-impl<'a, C> ExactSizeIterator for ComponentRenderGroup<'a, C>
-where
-    C: ComponentDerive,
-{
+impl<'a, C: ComponentDerive> ExactSizeIterator for ComponentRenderGroup<'a, C> {
     fn len(&self) -> usize {
         self.len
     }
 }
 
-impl<'a, C> Iterator for ComponentRenderGroup<'a, C>
-where
-    C: ComponentDerive,
-{
+impl<'a, C: ComponentDerive> Iterator for ComponentRenderGroup<'a, C> {
     type Item = (&'a InstanceBuffer, ComponentIterRender<'a, C>);
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(iter) = self.iters.get_mut(self.iter_index) {
@@ -329,10 +287,7 @@ where
     }
 }
 
-impl<'a, C> DoubleEndedIterator for ComponentRenderGroup<'a, C>
-where
-    C: ComponentDerive,
-{
+impl<'a, C: ComponentDerive> DoubleEndedIterator for ComponentRenderGroup<'a, C> {
     fn next_back(&mut self) -> Option<Self::Item> {
         let len = self.len();
         if let Some(iter) = self.iters.get_mut(len - 1 - self.iter_index) {
@@ -344,10 +299,7 @@ where
 }
 
 /// Iterator that yields a component and the corresponding [InstanceIndex] in the [InstanceBuffer]
-pub struct ComponentIterRender<'a, C>
-where
-    C: ComponentDerive,
-{
+pub struct ComponentIterRender<'a, C: ComponentDerive> {
     iter: Enumerate<ArenaIter<'a, BoxedComponent>>,
     marker: PhantomData<C>,
 }
@@ -362,10 +314,7 @@ impl<C: ComponentDerive> Clone for ComponentIterRender<'_, C> {
     }
 }
 
-impl<'a, C> ComponentIterRender<'a, C>
-where
-    C: ComponentDerive,
-{
+impl<'a, C: ComponentDerive> ComponentIterRender<'a, C> {
     pub(crate) fn new(
         iter: Enumerate<ArenaIter<'a, BoxedComponent>>,
     ) -> ComponentIterRender<'a, C> {
@@ -376,19 +325,13 @@ where
     }
 }
 
-impl<'a, C> ExactSizeIterator for ComponentIterRender<'a, C>
-where
-    C: ComponentDerive,
-{
+impl<'a, C: ComponentDerive> ExactSizeIterator for ComponentIterRender<'a, C> {
     fn len(&self) -> usize {
         self.iter.len()
     }
 }
 
-impl<'a, C> Iterator for ComponentIterRender<'a, C>
-where
-    C: ComponentDerive,
-{
+impl<'a, C: ComponentDerive> Iterator for ComponentIterRender<'a, C> {
     type Item = (InstanceIndex, &'a C);
     fn next(&mut self) -> Option<Self::Item> {
         if let Some((i, entry)) = self.iter.next() {
@@ -402,10 +345,7 @@ where
     }
 }
 
-impl<'a, C> DoubleEndedIterator for ComponentIterRender<'a, C>
-where
-    C: ComponentDerive,
-{
+impl<'a, C: ComponentDerive> DoubleEndedIterator for ComponentIterRender<'a, C> {
     fn next_back(&mut self) -> Option<Self::Item> {
         if let Some((i, entry)) = self.iter.next_back() {
             let i = i as u32;

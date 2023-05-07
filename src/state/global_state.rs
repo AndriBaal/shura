@@ -48,11 +48,11 @@ impl GlobalStateManager {
     pub fn remove<T: GlobalStateController + StateIdentifier>(&mut self) -> Box<T> {
         self.try_remove().unwrap()
     }
-    
+
     pub fn get<T: GlobalStateController + StateIdentifier>(&self) -> &T {
         self.try_get().unwrap()
     }
-    
+
     pub fn get_mut<T: GlobalStateController + StateIdentifier>(&mut self) -> &mut T {
         self.try_get_mut().unwrap()
     }

@@ -3,7 +3,7 @@ use crate::{
     physics::{CollideType, ColliderHandle},
     ComponentHandle,
 };
-use crate::{ArenaPath, ComponentController, ComponentPath, Context, RenderEncoder};
+use crate::{ActiveComponents, ArenaPath, ComponentController, Context, RenderEncoder};
 
 /// Grants access to the static members of the component type. This should never be overwritten,
 /// since it is automatically implemented with generics.
@@ -26,11 +26,11 @@ where
 
 impl<C: ComponentController> ComponentControllerCaller for C {
     fn call_render(paths: &[ArenaPath], ctx: &Context, encoder: &mut RenderEncoder) {
-        C::render(&ComponentPath::new(paths), ctx, encoder);
+        C::render(&ActiveComponents::new(paths), ctx, encoder);
     }
 
     fn call_update(paths: &[ArenaPath], ctx: &mut Context) {
-        C::update(&ComponentPath::new(paths), ctx)
+        C::update(&ActiveComponents::new(paths), ctx)
     }
 
     #[cfg(feature = "physics")]

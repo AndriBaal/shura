@@ -76,7 +76,7 @@ impl SceneStateManager {
     pub fn get<T: SceneStateController + StateIdentifier>(&self) -> &T {
         self.try_get().unwrap()
     }
-    
+
     pub fn get_mut<T: SceneStateController + StateIdentifier>(&mut self) -> &mut T {
         self.try_get_mut().unwrap()
     }

@@ -1,11 +1,12 @@
 use rodio::Sink;
 use shura::{
+    audio::Sound,
     log::info,
     physics::{
         ActiveEvents, CollideType, ColliderBuilder, ColliderHandle, LockedAxes, RigidBodyBuilder,
     },
     rand::gen_range,
-    *, audio::Sound,
+    *,
 };
 
 // Inspired by: https://github.com/bones-ai/rust-flappy-bird-ai
@@ -22,7 +23,6 @@ fn shura_main(config: ShuraConfig) {
         ctx.set_physics_priority(Some(10));
         ctx.set_camera_scale(WorldCameraScale::Vertical(GAME_SIZE.y));
         ctx.set_gravity(Vector::new(0.0, -15.0));
-        ctx.set_window_resizable(false);
     }))
 }
 
@@ -36,7 +36,7 @@ struct FlappyState {
     spawn_timer: f32,
     started: bool,
     point_sink: Sink,
-    point_sound: Sound
+    point_sound: Sound,
 }
 
 impl FlappyState {
@@ -84,7 +84,10 @@ impl SceneStateController for FlappyState {
                 || ctx.input.is_pressed(ScreenTouch))
         {
             scene.started = true;
-            for bird in ctx.component_manager.components_mut::<Bird>(ComponentFilter::All) {
+            for bird in ctx
+                .component_manager
+                .components_mut::<Bird>(ComponentFilter::All)
+            {
                 bird.body_mut().set_gravity_scale(1.0, true);
             }
         }
@@ -120,7 +123,7 @@ struct Bird {
     sprite: SpriteSheet,
     sink: Sink,
     hit_sound: Sound,
-    wing_sound: Sound
+    wing_sound: Sound,
 }
 
 impl Bird {
@@ -140,7 +143,10 @@ impl Bird {
             ),
 
             model: ctx.create_model(ModelBuilder::cuboid(Self::HALF_EXTENTS)),
-            sprite: ctx.create_sprite_sheet(include_bytes!("./sprites/yellowbird.png"), Vector::new(3, 1)),
+            sprite: ctx.create_sprite_sheet(
+                include_bytes!("./sprites/yellowbird.png"),
+                Vector::new(3, 1),
+            ),
             sink: ctx.create_sink(),
             hit_sound: ctx.create_sound(include_bytes!("./audio/hit.wav")),
             wing_sound: ctx.create_sound(include_bytes!("./audio/wing.wav")),
@@ -149,7 +155,7 @@ impl Bird {
 }
 
 impl ComponentController for Bird {
-    fn render(active: &ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
+    fn render(active: &ActiveComponents<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
         ctx.render_each(
             active,
             encoder,
@@ -161,8 +167,8 @@ impl ComponentController for Bird {
         );
     }
 
-    fn update(active: &ComponentPath<Self>, ctx: &mut Context) {
-        for bird in ctx.component_manager.path_mut(active) {
+    fn update(active: &ActiveComponents<Self>, ctx: &mut Context) {
+        for bird in ctx.component_manager.active_mut(active) {
             if ctx.input.is_pressed(Key::Space)
                 || ctx.input.is_pressed(MouseButton::Left)
                 || ctx.input.is_pressed(ScreenTouch)
@@ -245,7 +251,7 @@ impl ComponentController for Ground {
         priority: 2,
         ..DEFAULT_CONFIG
     };
-    fn render(active: &ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
+    fn render(active: &ActiveComponents<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
         ctx.render_each(
             active,
             encoder,
@@ -279,7 +285,7 @@ impl ComponentController for Background {
         priority: 1,
         ..DEFAULT_CONFIG
     };
-    fn render(active: &ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
+    fn render(active: &ActiveComponents<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
         ctx.render_each(
             active,
             encoder,
@@ -337,10 +343,10 @@ impl ComponentController for Pipe {
         priority: 3,
         ..DEFAULT_CONFIG
     };
-    fn update(active: &ComponentPath<Self>, ctx: &mut Context) {
+    fn update(active: &ActiveComponents<Self>, ctx: &mut Context) {
         let mut to_remove: Vec<ComponentHandle> = vec![];
         let state = ctx.scene_states.get_mut::<FlappyState>();
-        for pipe in ctx.component_manager.path_mut(active) {
+        for pipe in ctx.component_manager.active_mut(active) {
             let x = pipe.base.translation().x;
             if !pipe.point_awarded && x < 0.0 {
                 pipe.point_awarded = true;
@@ -359,7 +365,7 @@ impl ComponentController for Pipe {
         }
     }
 
-    fn render(active: &ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
+    fn render(active: &ActiveComponents<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
         let scene = ctx.scene_state::<FlappyState>();
         ctx.render_all(active, encoder, RenderConfig::default(), |r, instances| {
             r.render_sprite(instances.clone(), &scene.top_pipe_model, &scene.pipe_sprite);

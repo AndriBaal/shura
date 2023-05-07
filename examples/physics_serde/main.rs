@@ -156,11 +156,11 @@ impl Player {
 }
 
 impl ComponentController for Player {
-    fn update(active: &ComponentPath<Self>, ctx: &mut Context) {
+    fn update(active: &ActiveComponents<Self>, ctx: &mut Context) {
         let delta = ctx.frame_time();
         let input = &mut ctx.input;
 
-        for player in &mut ctx.component_manager.path_mut(&active) {
+        for player in &mut ctx.component_manager.active_mut(&active) {
             let mut body = player.body_mut();
             let mut linvel = *body.linvel();
 
@@ -184,7 +184,7 @@ impl ComponentController for Player {
         }
     }
 
-    fn render(active: &ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
+    fn render(active: &ActiveComponents<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
         ctx.render_each(active, encoder, RenderConfig::WORLD, |r, player, index| {
             r.render_sprite(index, &player.model, &player.sprite)
         })
@@ -240,7 +240,7 @@ impl Floor {
 }
 
 impl ComponentController for Floor {
-    fn render(active: &ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
+    fn render(active: &ActiveComponents<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
         ctx.render_each(active, encoder, RenderConfig::WORLD, |r, floor, index| {
             r.render_color(index, &floor.model, &floor.color)
         })
@@ -275,10 +275,10 @@ impl PhysicsBox {
 }
 
 impl ComponentController for PhysicsBox {
-    fn render(active: &ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
+    fn render(active: &ActiveComponents<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
         let mut renderer = encoder.renderer(RenderConfig::WORLD);
         let state = ctx.scene_state::<PhysicsState>();
-        for (buffer, boxes) in ctx.path_render(&active) {
+        for (buffer, boxes) in ctx.active_render(&active) {
             let mut ranges = vec![];
             let mut last = 0;
             for (i, b) in boxes.clone() {
@@ -300,10 +300,10 @@ impl ComponentController for PhysicsBox {
         }
     }
 
-    fn update(active: &ComponentPath<Self>, ctx: &mut Context) {
+    fn update(active: &ActiveComponents<Self>, ctx: &mut Context) {
         let cursor_world: Point<f32> = (ctx.cursor_camera(&ctx.world_camera)).into();
         let remove = ctx.is_held(MouseButton::Left) || ctx.is_pressed(ScreenTouch);
-        for physics_box in &mut ctx.path_mut(&active) {
+        for physics_box in &mut ctx.active_mut(&active) {
             physics_box.hovered = false;
         }
         let mut component: Option<ComponentHandle> = None;
@@ -332,10 +332,7 @@ impl<'de, 'a> serde::de::Visitor<'de> for FloorVisitor<'a> {
         formatter.write_str("A Floor")
     }
 
-    fn visit_seq<V>(self, mut seq: V) -> Result<Floor, V::Error>
-    where
-        V: serde::de::SeqAccess<'de>,
-    {
+    fn visit_seq<V: serde::de::SeqAccess<'de>>(self, mut seq: V) -> Result<Floor, V::Error> {
         let base: BaseComponent = seq
             .next_element()?
             .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
@@ -361,10 +358,7 @@ impl<'de, 'a> serde::de::Visitor<'de> for PlayerVisitor<'a> {
         formatter.write_str("A Player")
     }
 
-    fn visit_seq<V>(self, mut seq: V) -> Result<Player, V::Error>
-    where
-        V: serde::de::SeqAccess<'de>,
-    {
+    fn visit_seq<V: serde::de::SeqAccess<'de>>(self, mut seq: V) -> Result<Player, V::Error> {
         let base: BaseComponent = seq
             .next_element()?
             .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
@@ -390,10 +384,7 @@ impl<'de, 'a> serde::de::Visitor<'de> for PhysicsStateVisitor<'a> {
         formatter.write_str("A PhysicsState")
     }
 
-    fn visit_seq<V>(self, _seq: V) -> Result<PhysicsState, V::Error>
-    where
-        V: serde::de::SeqAccess<'de>,
-    {
+    fn visit_seq<V: serde::de::SeqAccess<'de>>(self, _seq: V) -> Result<PhysicsState, V::Error> {
         Ok(PhysicsState {
             default_color: self.ctx.create_uniform(Color::new_rgba(0, 255, 0, 255)),
             collision_color: self.ctx.create_uniform(Color::new_rgba(255, 0, 0, 255)),

@@ -1,7 +1,7 @@
 use crate::{
-    BoxedComponent, Camera, CameraBuffer, Color, ComponentController, ComponentDerive,
-    ComponentFilter, ComponentGroup, ComponentGroupId, ComponentHandle, ComponentManager,
-    ComponentPath, ComponentRenderGroup, ComponentSet, ComponentSetMut, Duration, FrameManager,
+    ActiveComponents, BoxedComponent, Camera, CameraBuffer, Color, ComponentController,
+    ComponentDerive, ComponentFilter, ComponentGroup, ComponentGroupId, ComponentHandle,
+    ComponentManager, ComponentRenderGroup, ComponentSet, ComponentSetMut, Duration, FrameManager,
     GlobalStateController, GlobalStateManager, Gpu, GpuDefaults, GroupDelta, Input, InputEvent,
     InputTrigger, InstanceBuffer, InstanceIndex, InstanceIndices, Instant, Isometry, Matrix, Model,
     ModelBuilder, Modifier, RenderConfig, RenderEncoder, RenderTarget, Renderer, Rotation, Scene,
@@ -1078,22 +1078,22 @@ impl<'a> Context<'a> {
         self.component_manager.world().physics_priority()
     }
 
-    pub fn path_render<C: ComponentDerive>(
+    pub fn active_render<C: ComponentDerive>(
         &self,
-        path: &ComponentPath<C>,
+        active: &ActiveComponents<C>,
     ) -> ComponentRenderGroup<C> {
-        return self.component_manager.path_render(path, self.defaults);
+        return self.component_manager.active_render(active, self.defaults);
     }
 
     pub fn render_each<C: ComponentDerive>(
         &'a self,
-        active: &ComponentPath<C>,
+        active: &ActiveComponents<C>,
         encoder: &'a mut RenderEncoder,
         config: RenderConfig<'a>,
         mut each: impl FnMut(&mut Renderer<'a>, &'a C, InstanceIndex),
     ) {
         let mut renderer = encoder.renderer(config);
-        for (buffer, components) in self.path_render(active) {
+        for (buffer, components) in self.active_render(active) {
             renderer.use_instances(buffer);
             for (instance, component) in components {
                 (each)(&mut renderer, component, instance);
@@ -1103,24 +1103,27 @@ impl<'a> Context<'a> {
 
     pub fn render_all<C: ComponentDerive>(
         &'a self,
-        active: &ComponentPath<C>,
+        active: &ActiveComponents<C>,
         encoder: &'a mut RenderEncoder,
         config: RenderConfig<'a>,
         mut all: impl FnMut(&mut Renderer<'a>, InstanceIndices),
     ) {
         let mut renderer = encoder.renderer(config);
-        for (buffer, _) in self.path_render(active) {
+        for (buffer, _) in self.active_render(active) {
             renderer.use_instances(buffer);
             (all)(&mut renderer, buffer.all_instances());
         }
     }
 
-    pub fn path<C: ComponentDerive>(&self, path: &ComponentPath<C>) -> ComponentSet<C> {
-        return self.component_manager.path(path);
+    pub fn active<C: ComponentDerive>(&self, active: &ActiveComponents<C>) -> ComponentSet<C> {
+        return self.component_manager.active(active);
     }
 
-    pub fn path_mut<C: ComponentDerive>(&mut self, path: &ComponentPath<C>) -> ComponentSetMut<C> {
-        return self.component_manager.path_mut(path);
+    pub fn active_mut<C: ComponentDerive>(
+        &mut self,
+        active: &ActiveComponents<C>,
+    ) -> ComponentSetMut<C> {
+        return self.component_manager.active_mut(active);
     }
 
     pub fn components_mut<C: ComponentController>(

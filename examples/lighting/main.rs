@@ -177,7 +177,7 @@ impl ComponentController for Obstacle {
         ..DEFAULT_CONFIG
     };
 
-    fn render(active: &ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
+    fn render(active: &ActiveComponents<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
         ctx.render_each(active, encoder, RenderConfig::WORLD, |renderer, o, i| {
             renderer.render_color(i, &o.model, &o.color)
         })
@@ -226,14 +226,14 @@ impl ComponentController for Light {
         ..DEFAULT_CONFIG
     };
 
-    fn update(active: &ComponentPath<Self>, ctx: &mut Context) {
+    fn update(active: &ActiveComponents<Self>, ctx: &mut Context) {
         fn det(v1: Vector<f32>, v2: Vector<f32>) -> f32 {
             return v1.x * v2.y - v1.y * v2.x;
         }
         let cursor_pos = ctx.cursor_camera(&ctx.world_camera);
         let rc = ctx.component_manager.world_rc();
         let world = rc.borrow_mut();
-        for light in ctx.component_manager.path_mut(&active) {
+        for light in ctx.component_manager.active_mut(&active) {
             if light.follow_mouse {
                 light.base.set_translation(cursor_pos);
             }
@@ -350,7 +350,7 @@ impl ComponentController for Light {
         }
     }
 
-    fn render(active: &ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
+    fn render(active: &ActiveComponents<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
         let state = ctx.scene_state::<LightingState>();
 
         {
@@ -359,7 +359,7 @@ impl ComponentController for Light {
                 clear_color: Some(Color::TRANSPARENT),
                 ..RenderConfig::WORLD
             });
-            for (buffer, lights) in ctx.path_render(&active) {
+            for (buffer, lights) in ctx.active_render(&active) {
                 renderer.use_instances(buffer);
                 for (i, light) in lights {
                     renderer.use_shader(&state.light_shader);
@@ -385,4 +385,3 @@ impl ComponentController for Light {
         renderer.draw(0);
     }
 }
-

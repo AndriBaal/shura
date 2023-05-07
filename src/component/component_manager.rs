@@ -1,11 +1,11 @@
 #[cfg(feature = "physics")]
 use crate::physics::{RcWorld, World};
 use crate::{
-    Arena, ArenaEntry, ArenaIndex, ArenaPath, BoxedComponent, CameraBuffer, ComponentCallbacks,
-    ComponentCluster, ComponentController, ComponentDerive, ComponentGroup,
+    ActiveComponents, Arena, ArenaEntry, ArenaIndex, ArenaPath, BoxedComponent, CameraBuffer,
+    ComponentCallbacks, ComponentCluster, ComponentController, ComponentDerive, ComponentGroup,
     ComponentGroupDescriptor, ComponentGroupId, ComponentHandle, ComponentIterRender,
-    ComponentPath, ComponentRenderGroup, ComponentSet, ComponentSetMut, ComponentTypeId, Gpu,
-    GpuDefaults, GroupActivation, InstanceBuffer, Vector,
+    ComponentRenderGroup, ComponentSet, ComponentSetMut, ComponentTypeId, Gpu, GpuDefaults,
+    GroupActivation, InstanceBuffer, Vector,
 };
 use instant::Instant;
 #[cfg(feature = "log")]
@@ -396,15 +396,15 @@ impl ComponentManager {
         return None;
     }
 
-    pub fn path_render<'a, C: ComponentDerive>(
+    pub fn active_render<'a, C: ComponentDerive>(
         &'a self,
-        path: &ComponentPath<C>,
+        active: &ActiveComponents<C>,
         defaults: &'a GpuDefaults,
     ) -> ComponentRenderGroup<'a, C> {
         let mut iters = vec![];
         let mut len = 0;
 
-        for path in path.paths() {
+        for path in active.paths() {
             if let Some(group) = self.group(path.group_index) {
                 if let Some(component_type) = group.type_ref(path.type_index) {
                     let type_len = component_type.len();
@@ -422,11 +422,14 @@ impl ComponentManager {
         return ComponentRenderGroup::new(iters, len);
     }
 
-    pub fn path<'a, C: ComponentDerive>(&'a self, path: &ComponentPath<C>) -> ComponentSet<'a, C> {
+    pub fn active<'a, C: ComponentDerive>(
+        &'a self,
+        active: &ActiveComponents<C>,
+    ) -> ComponentSet<'a, C> {
         let mut iters = vec![];
         let mut len = 0;
 
-        for path in path.paths() {
+        for path in active.paths() {
             if let Some(group) = self.group(path.group_index) {
                 if let Some(component_type) = group.type_ref(path.type_index) {
                     let type_len = component_type.len();
@@ -441,16 +444,16 @@ impl ComponentManager {
         return ComponentSet::new(iters, len);
     }
 
-    pub fn path_mut<'a, C: ComponentDerive>(
+    pub fn active_mut<'a, C: ComponentDerive>(
         &'a mut self,
-        path: &ComponentPath<C>,
+        active: &ActiveComponents<C>,
     ) -> ComponentSetMut<'a, C> {
         let mut iters = vec![];
         let mut len = 0;
 
         let mut head: &mut [ArenaEntry<_>] = self.groups.as_slice();
         let mut offset = 0;
-        for path in path.paths() {
+        for path in active.paths() {
             let split = head.split_at_mut(path.group_index.index() as usize + 1 - offset);
             head = split.1;
             offset += split.0.len();
@@ -495,7 +498,7 @@ impl ComponentManager {
             ComponentFilter::Active => {
                 let key = (C::CONFIG.priority, C::IDENTIFIER);
                 if let Some(cluster) = self.active_components.get(&key) {
-                    return self.path(&ComponentPath::new(cluster.paths()));
+                    return self.active(&ActiveComponents::new(cluster.paths()));
                 }
             }
             ComponentFilter::Specific(group_ids) => {
@@ -543,7 +546,7 @@ impl ComponentManager {
             ComponentFilter::Active => {
                 let key = (C::CONFIG.priority, C::IDENTIFIER);
                 if let Some(cluster) = self.active_components.get(&key).cloned() {
-                    return self.path_mut(&ComponentPath::new(&cluster.paths()));
+                    return self.active_mut(&ActiveComponents::new(&cluster.paths()));
                 }
             }
             ComponentFilter::Specific(group_ids) => {

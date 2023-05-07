@@ -4,8 +4,8 @@ use crate::{
     ComponentHandle,
 };
 use crate::{
-    BaseComponent, ComponentConfig, ComponentControllerCaller, ComponentIdentifier, ComponentPath,
-    Context, RenderEncoder, DEFAULT_CONFIG,
+    ActiveComponents, BaseComponent, ComponentConfig, ComponentControllerCaller,
+    ComponentIdentifier, Context, RenderEncoder, DEFAULT_CONFIG,
 };
 use downcast_rs::*;
 
@@ -36,7 +36,7 @@ impl_downcast!(ComponentDerive);
 
 #[allow(unused_variables)]
 /// A controller is used to define the behaviour of a component, by the given config and callbacks. The
-/// currently relevant components get passed through the [ComponentPath](crate::ComponentPath).
+/// currently relevant components get passed through the [ActiveComponents](crate::ActiveComponents).
 pub trait ComponentController:
     ComponentControllerCaller + ComponentDerive + ComponentIdentifier
 where
@@ -46,7 +46,7 @@ where
     /// This component gets updated if the component's [group](crate::ComponentGroup) is active and enabled.
     /// Through the [context](crate::Context) you have access to all other scenes, groups,
     /// components with the matching controller and all data from the engine.
-    fn update(active: &ComponentPath<Self>, ctx: &mut Context) {}
+    fn update(active: &ActiveComponents<Self>, ctx: &mut Context) {}
 
     #[cfg(feature = "physics")]
     /// Collision Event between 2 components. It requires that
@@ -69,7 +69,7 @@ where
     /// components that have the exact same [model](crate::Model), [uniforms](crate::Uniform) or [sprites](crate::Sprite).
     /// For this method to work the render operation of this component must be set to
     /// [RenderOperation::EveryFrame](crate::RenderOperation::EveryFrame) in the [ComponentConfig](crate::ComponentConfig).
-    fn render(active: &ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {}
+    fn render(active: &ActiveComponents<Self>, ctx: &Context, encoder: &mut RenderEncoder) {}
 }
 
 impl<C: ComponentDerive + ?Sized> ComponentDerive for Box<C> {

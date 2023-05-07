@@ -126,7 +126,7 @@ impl ComponentController for ModelTest {
         buffer: BufferOperation::Manual,
         ..DEFAULT_CONFIG
     };
-    fn render(active: &ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
+    fn render(active: &ActiveComponents<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
         ctx.render_each(active, encoder, RenderConfig::WORLD, |r, model, index| {
             r.render_color(index, &model.model, &model.color)
         })

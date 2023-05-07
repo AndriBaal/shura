@@ -271,7 +271,7 @@ impl Bird {
 }
 
 impl ComponentController for Bird {
-    fn render(active: &ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
+    fn render(active: &ActiveComponents<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
         let scene = ctx.scene_state::<BirdSimulation>();
         ctx.render_each(
             active,
@@ -313,7 +313,7 @@ impl ComponentController for Ground {
         priority: 2,
         ..DEFAULT_CONFIG
     };
-    fn render(active: &ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
+    fn render(active: &ActiveComponents<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
         ctx.render_each(
             active,
             encoder,
@@ -347,7 +347,7 @@ impl ComponentController for Background {
         priority: 1,
         ..DEFAULT_CONFIG
     };
-    fn render(active: &ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
+    fn render(active: &ActiveComponents<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
         ctx.render_each(
             active,
             encoder,
@@ -392,9 +392,9 @@ impl ComponentController for Pipe {
         priority: 3,
         ..DEFAULT_CONFIG
     };
-    fn update(active: &ComponentPath<Self>, ctx: &mut Context) {
+    fn update(active: &ActiveComponents<Self>, ctx: &mut Context) {
         let mut to_remove: Vec<ComponentHandle> = vec![];
-        for pipe in ctx.path_mut(active) {
+        for pipe in ctx.active_mut(active) {
             let x = pipe.base.translation().x;
             if x <= -GAME_SIZE.x {
                 let handle = pipe.base.handle();
@@ -408,7 +408,7 @@ impl ComponentController for Pipe {
         }
     }
 
-    fn render(active: &ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
+    fn render(active: &ActiveComponents<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
         let scene = ctx.scene_state::<BirdSimulation>();
         ctx.render_all(active, encoder, RenderConfig::default(), |r, instances| {
             r.render_sprite(instances.clone(), &scene.top_pipe_model, &scene.pipe_sprite);

@@ -104,11 +104,11 @@ impl ComponentController for Bunny {
         priority: 2,
         ..DEFAULT_CONFIG
     };
-    fn update(active: &ComponentPath<Self>, ctx: &mut Context) {
+    fn update(active: &ActiveComponents<Self>, ctx: &mut Context) {
         const GRAVITY: f32 = -2.5;
         let frame = ctx.frame_time();
         let fov = ctx.camera_fov();
-        for bunny in ctx.path_mut(&active) {
+        for bunny in ctx.active_mut(&active) {
             let mut linvel = bunny.linvel;
             let mut translation = bunny.base.translation();
 
@@ -134,7 +134,7 @@ impl ComponentController for Bunny {
         }
     }
 
-    fn render(active: &ComponentPath<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
+    fn render(active: &ActiveComponents<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
         let scene = ctx.scene_state::<BunnyState>();
         ctx.render_all(active, encoder, RenderConfig::WORLD, |r, instances| {
             r.render_sprite(instances, &scene.bunny_model, &scene.bunny_sprite)
