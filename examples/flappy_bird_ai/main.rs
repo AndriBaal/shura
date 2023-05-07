@@ -1,8 +1,10 @@
-use ::rand::prelude::Distribution;
 use shura::{
     log::info,
     physics::{parry::bounding_volume::BoundingVolume, Aabb, LockedAxes, RigidBodyBuilder},
-    rand::{distributions::WeightedIndex, gen_range, thread_rng},
+    rand::{
+        distributions::{Distribution, WeightedIndex},
+        gen_range, thread_rng,
+    },
     *,
 };
 
@@ -160,7 +162,7 @@ impl SceneStateController for BirdSimulation {
             ])[0];
 
             if out >= 0.5 {
-                body.set_linvel(Vector::new(0.0, 4.0), true);
+                body.set_linvel(Vector::new(0.0, 5.0), true);
             }
         }
 

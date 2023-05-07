@@ -8,7 +8,7 @@ shura is currently in an early version and things might change in the future or 
 
 ## Getting started
 
-Get started by copying the [template](https://github.com/AndriBaal/shura/tree/main/examples/template). The template includes the library and has some additional configuration to make sure your game runs on all [supported platforms](#Cross-platform).
+Get started by copying the [template](https://github.com/AndriBaal/shura_template). The template includes the library and has some additional configuration to make sure your game runs on all [supported platforms](#Cross-platform).
 
 OR:
 
@@ -46,9 +46,17 @@ A good way to learn shura is through the provided examples or through reading th
 
 - Serializing and serializing of scenes and groups with [serde](https://github.com/serde-rs/serde) and [bincode](https://github.com/bincode-org/bincode)
 
-- Animations inspired by [bevy_tweening](https://github.com/djeedai/bevy_tweening)
+- Animations inspired by [bevy_tweening](https://github.com/djeedai/bevy_tweening) (feature flag 'animation')
+
+- Logging on all Platforms with [env_logger](https://github.com/rust-cli/env_logger) and a modified verison of [wasm_logger](https://gitlab.com/limira-rs/wasm-logger) (feature flag 'log')
 
 ## Future features (TODO):
+
+- Serialization of Groups
+
+- Built in AABB for simple collision detection (apart from physics)
+
+- Refactor of rounded Models
 
 - Tutorials and in depth documentation
 
@@ -58,7 +66,7 @@ A good way to learn shura is through the provided examples or through reading th
 
 shura is currently only tested on Windows 10 / 11, Linux, Android and on the web with WASM. macOS and iOS are currently untested, but are likely to work.
 
-The [template](https://github.com/AndriBaal/shura/tree/main/examples/template) uses [run-wasm](https://github.com/rukai/cargo-run-wasm) to run on the web and [cargo-apk](https://github.com/rust-mobile/cargo-apk) to run on android.
+The [template](https://github.com/AndriBaal/shura_template) uses [run-wasm](https://github.com/rukai/cargo-run-wasm) to run on the web and [cargo-apk](https://github.com/rust-mobile/cargo-apk) to run on android.
 
 ### Android
 
@@ -69,7 +77,3 @@ When compiling for android make sure the following is added in the Cargo.toml:
 crate-type = ["cdylib"]
 path = "src/main.rs"
 ```
-
-## Run Examples
-
-See some WASM examples: http://3.71.15.62

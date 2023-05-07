@@ -7,7 +7,7 @@ use crate::{
     RenderConfig, RenderEncoder, RenderTarget, Shader, ShaderConfig, ShaderField, ShaderLang,
     Sprite, SpriteSheet, Uniform, Vector,
 };
-use std::borrow::Cow;
+use std::{borrow::Cow, ops::DerefMut, sync::RwLock};
 use wgpu::{util::DeviceExt, BlendState};
 pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 0.5;
 
@@ -41,7 +41,7 @@ pub struct Gpu {
     pub surface: wgpu::Surface,
     pub config: wgpu::SurfaceConfiguration,
     pub adapter: wgpu::Adapter,
-    pub commands: Vec<wgpu::CommandBuffer>,
+    pub commands: RwLock<Vec<wgpu::CommandBuffer>>,
     pub(crate) base: WgpuBase,
 }
 
@@ -106,7 +106,7 @@ impl Gpu {
         }
 
         let gpu = Self {
-            commands: vec![],
+            commands: RwLock::new(vec![]),
             instance,
             queue,
             surface,
@@ -201,7 +201,7 @@ impl Gpu {
         let target = self.create_render_target(texture_size);
         let mut encoder = RenderEncoder::new(self, defaults);
         encoder.render_text(RenderConfigTarget::Custom(&target), self, descriptor);
-        encoder.submit();
+        encoder.stage();
         return target;
     }
 
@@ -221,6 +221,12 @@ impl Gpu {
         compute: impl FnMut(RenderConfig, &mut RenderEncoder),
     ) -> RenderTarget {
         return RenderTarget::computed(self, defaults, texture_size, camera, compute);
+    }
+
+    pub fn submit_staged_encoders(&self) {
+        let mut commands_ref = self.commands.write().unwrap();
+        let commands = std::mem::replace(commands_ref.deref_mut(), vec![]);
+        self.queue.submit(commands);
     }
 }
 

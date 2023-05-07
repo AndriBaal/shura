@@ -525,7 +525,8 @@ impl Shura {
         #[cfg(feature = "gui")]
         ctx.gui.render(&ctx.gpu, &mut encoder.inner, &output_view);
 
-        encoder.submit();
+        encoder.stage();
+        ctx.gpu.submit_staged_encoders();
         output.present();
 
         scene.resized = false;

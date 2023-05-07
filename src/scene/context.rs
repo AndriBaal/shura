@@ -511,6 +511,10 @@ impl<'a> Context<'a> {
         self.component_manager.group_deltas()
     }
 
+    pub fn submit_staged_encoders(&self) {
+        self.gpu.submit_staged_encoders()
+    }
+
     /// Remove a scene by its id
     pub fn remove_scene(&mut self, id: u32) -> Option<Scene> {
         if let Some(mut scene) = self.scene_manager.remove(id) {

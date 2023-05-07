@@ -162,7 +162,7 @@ pub mod rand {
 mod logging;
 
 #[cfg(feature = "log")]
-/// Access to the logging abstraction over [env_logger](https://github.com/rust-cli/env_logger) and copy of [wasm_logger](https://gitlab.com/limira-rs/wasm-logger)
+/// Access to the logging abstraction over [env_logger](https://github.com/rust-cli/env_logger) and modified version of [wasm_logger](https://gitlab.com/limira-rs/wasm-logger)
 pub mod log {
     pub use crate::logging::logging::LoggerBuilder;
     pub use log::{debug, error, info, trace, warn, Level, LevelFilter, SetLoggerError};

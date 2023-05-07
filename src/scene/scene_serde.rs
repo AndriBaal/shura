@@ -192,40 +192,41 @@ impl SceneDeserializer {
     ) {
         let type_id = C::IDENTIFIER;
         ctx.component_manager.register_callbacks::<C>();
-        let components = self.ser_components.remove(&type_id).unwrap();
-        for (group_id, components) in components {
-            let mut items: Vec<ArenaEntry<BoxedComponent>> =
-                Vec::with_capacity(components.capacity());
-            let mut generation = 0;
-            for component in components {
-                let item = match component {
-                    Some((gen, data)) => {
-                        generation = cmp::max(generation, gen);
-                        #[allow(unused_mut)]
-                        let mut component: BoxedComponent =
-                            Box::new(bincode::deserialize::<C>(&data).unwrap());
+        if let Some(components) = self.ser_components.remove(&type_id) {
+            for (group_id, components) in components {
+                let mut items: Vec<ArenaEntry<BoxedComponent>> =
+                    Vec::with_capacity(components.capacity());
+                let mut generation = 0;
+                for component in components {
+                    let item = match component {
+                        Some((gen, data)) => {
+                            generation = cmp::max(generation, gen);
+                            #[allow(unused_mut)]
+                            let mut component: BoxedComponent =
+                                Box::new(bincode::deserialize::<C>(&data).unwrap());
 
-                        #[cfg(feature = "physics")]
-                        {
-                            if component.base().is_body() {
-                                component
-                                    .base_mut()
-                                    .init_body(ctx.component_manager.world.clone());
+                            #[cfg(feature = "physics")]
+                            {
+                                if component.base().is_body() {
+                                    component
+                                        .base_mut()
+                                        .init_body(ctx.component_manager.world.clone());
+                                }
+                            }
+                            ArenaEntry::Occupied {
+                                generation: gen,
+                                data: component,
                             }
                         }
-                        ArenaEntry::Occupied {
-                            generation: gen,
-                            data: component,
-                        }
-                    }
-                    None => ArenaEntry::Free { next_free: None },
-                };
-                items.push(item);
-            }
+                        None => ArenaEntry::Free { next_free: None },
+                    };
+                    items.push(item);
+                }
 
-            let group = ctx.group_mut(group_id).unwrap();
-            let components = Arena::from_items(items, generation);
-            group.deserialize_type::<C>(components);
+                let group = ctx.group_mut(group_id).unwrap();
+                let components = Arena::from_items(items, generation);
+                group.deserialize_type::<C>(components);
+            }
         }
     }
 
@@ -236,38 +237,39 @@ impl SceneDeserializer {
     ) {
         let type_id = C::IDENTIFIER;
         ctx.component_manager.register_callbacks::<C>();
-        let components = self.ser_components.remove(&type_id).unwrap();
 
-        for (group_id, components) in components {
-            let mut items: Vec<ArenaEntry<BoxedComponent>> =
-                Vec::with_capacity(components.capacity());
-            let mut generation = 0;
-            for component in components {
-                let item = match component {
-                    Some((gen, data)) => {
-                        generation = cmp::max(generation, gen);
-                        let wrapper = DeserializeWrapper::new(&data);
-                        #[allow(unused_mut)]
-                        let mut component: BoxedComponent = Box::new((de)(wrapper, ctx));
-                        #[cfg(feature = "physics")]
-                        if component.base().is_body() {
-                            component
-                                .base_mut()
-                                .init_body(ctx.component_manager.world.clone());
+        if let Some(components) = self.ser_components.remove(&type_id) {
+            for (group_id, components) in components {
+                let mut items: Vec<ArenaEntry<BoxedComponent>> =
+                    Vec::with_capacity(components.capacity());
+                let mut generation = 0;
+                for component in components {
+                    let item = match component {
+                        Some((gen, data)) => {
+                            generation = cmp::max(generation, gen);
+                            let wrapper = DeserializeWrapper::new(&data);
+                            #[allow(unused_mut)]
+                            let mut component: BoxedComponent = Box::new((de)(wrapper, ctx));
+                            #[cfg(feature = "physics")]
+                            if component.base().is_body() {
+                                component
+                                    .base_mut()
+                                    .init_body(ctx.component_manager.world.clone());
+                            }
+                            ArenaEntry::Occupied {
+                                generation: gen,
+                                data: component,
+                            }
                         }
-                        ArenaEntry::Occupied {
-                            generation: gen,
-                            data: component,
-                        }
-                    }
-                    None => ArenaEntry::Free { next_free: None },
-                };
-                items.push(item);
+                        None => ArenaEntry::Free { next_free: None },
+                    };
+                    items.push(item);
+                }
+
+                let group = ctx.group_mut(group_id).unwrap();
+                let components = Arena::from_items(items, generation);
+                group.deserialize_type::<C>(components);
             }
-
-            let group = ctx.group_mut(group_id).unwrap();
-            let components = Arena::from_items(items, generation);
-            group.deserialize_type::<C>(components);
         }
     }
 

@@ -182,7 +182,7 @@ impl<'a> RenderEncoder<'a> {
         renderer.draw(0);
     }
 
-    pub fn submit(self) {
-        self.gpu.queue.submit(Some(self.inner.finish()));
+    pub fn stage(self) {
+        self.gpu.commands.write().unwrap().push(self.inner.finish())
     }
 }
