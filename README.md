@@ -28,7 +28,7 @@ A good way to learn shura is through the provided examples or through reading th
 
 - Group system that acts like a chunk system to organize components and manage big worlds
 
-- Built in support for postprocessing of your renders
+- Support for postprocessing of your renders
 
 - Physics simulations directly implemented into the component system through [rapier](https://github.com/dimforge/rapier) (feature flag 'physics')
 
@@ -53,6 +53,8 @@ A good way to learn shura is through the provided examples or through reading th
 ## Future features (TODO):
 
 - Serialization of Groups
+
+- Expand SpriteSheet
 
 - Built in AABB for simple collision detection (apart from physics)
 
