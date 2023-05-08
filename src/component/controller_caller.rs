@@ -3,7 +3,7 @@ use crate::{
     physics::{CollideType, ColliderHandle},
     ComponentHandle,
 };
-use crate::{ArenaPath, ComponentController, ComponentPath, Context, RenderConfig, RenderEncoder};
+use crate::{ActiveComponents, ArenaPath, ComponentController, Context, RenderEncoder};
 
 /// Grants access to the static members of the component type. This should never be overwritten,
 /// since it is automatically implemented with generics.
@@ -21,26 +21,16 @@ where
         other_collider: ColliderHandle,
         collision_type: CollideType,
     );
-    fn call_render<'a>(
-        paths: &[ArenaPath],
-        ctx: &'a Context<'a>,
-        config: RenderConfig<'a>,
-        encoder: &mut RenderEncoder,
-    );
+    fn call_render(paths: &[ArenaPath], ctx: &Context, encoder: &mut RenderEncoder);
 }
 
 impl<C: ComponentController> ComponentControllerCaller for C {
-    fn call_render<'a>(
-        paths: &[ArenaPath],
-        ctx: &'a Context<'a>,
-        config: RenderConfig<'a>,
-        encoder: &mut RenderEncoder,
-    ) {
-        C::render(ComponentPath::new(paths), ctx, config, encoder);
+    fn call_render(paths: &[ArenaPath], ctx: &Context, encoder: &mut RenderEncoder) {
+        C::render(&ActiveComponents::new(paths), ctx, encoder);
     }
 
     fn call_update(paths: &[ArenaPath], ctx: &mut Context) {
-        C::update(ComponentPath::new(paths), ctx)
+        C::update(&ActiveComponents::new(paths), ctx)
     }
 
     #[cfg(feature = "physics")]
@@ -75,12 +65,7 @@ pub(crate) struct ComponentCallbacks {
         other_collider: ColliderHandle,
         collision_type: CollideType,
     ),
-    pub call_render: for<'a> fn(
-        paths: &[ArenaPath],
-        ctx: &'a Context<'a>,
-        config: RenderConfig<'a>,
-        encoder: &mut RenderEncoder,
-    ),
+    pub call_render: fn(paths: &[ArenaPath], ctx: &Context, encoder: &mut RenderEncoder),
 }
 
 impl ComponentCallbacks {

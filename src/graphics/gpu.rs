@@ -1,21 +1,36 @@
+#[cfg(feature = "log")]
+use crate::log::info;
 #[cfg(feature = "text")]
 use crate::text::{FontBrush, TextDescriptor};
 use crate::{
-    BufferedCamera, Camera, CameraBuffer, ColorWrites, InstanceBuffer, Isometry, Matrix, Model,
-    ModelBuilder, RenderConfig, RenderEncoder, RenderTarget, ScreenConfig, Shader, ShaderConfig,
-    ShaderField, ShaderLang, Sprite, SpriteSheet, Uniform, Vector,
+    Camera, CameraBuffer, ColorWrites, InstanceBuffer, Isometry, Matrix, Model, ModelBuilder,
+    RenderConfig, RenderEncoder, RenderTarget, Shader, ShaderConfig, ShaderField, ShaderLang,
+    Sprite, SpriteSheet, Uniform, Vector,
 };
-use log::info;
-use std::borrow::Cow;
-use wgpu::BlendState;
+use std::{borrow::Cow, ops::DerefMut, sync::RwLock};
+use wgpu::{util::DeviceExt, BlendState};
 pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 0.5;
 
-macro_rules! Where {
-    (
-    $a:lifetime >= $b:lifetime $(,)?
-) => {
-        &$b & $a()
-    };
+#[derive(Clone)]
+/// Configuration of the [wgpu](https://github.com/gfx-rs/wgpu) limits, features and backend graphics api
+pub struct GpuConfig {
+    pub backends: wgpu::Backends,
+    pub device_features: wgpu::Features,
+    pub device_limits: wgpu::Limits,
+}
+
+impl Default for GpuConfig {
+    fn default() -> Self {
+        Self {
+            backends: wgpu::Backends::all(),
+            device_features: wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES,
+            device_limits: if cfg!(target_arch = "wasm32") {
+                wgpu::Limits::downlevel_webgl2_defaults()
+            } else {
+                wgpu::Limits::default()
+            },
+        }
+    }
 }
 
 /// Holds the connection to the GPU using wgpu. Also has some default buffers, layouts etc.
@@ -26,15 +41,16 @@ pub struct Gpu {
     pub surface: wgpu::Surface,
     pub config: wgpu::SurfaceConfiguration,
     pub adapter: wgpu::Adapter,
+    pub commands: RwLock<Vec<wgpu::CommandBuffer>>,
     pub(crate) base: WgpuBase,
 }
 
 impl Gpu {
-    pub(crate) async fn new(window: &winit::window::Window) -> Self {
+    pub(crate) async fn new(window: &winit::window::Window, config: GpuConfig) -> Self {
         let window_size = window.inner_size();
         let window_size = Vector::new(window_size.width, window_size.height);
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::all(),
+            backends: config.backends,
             dx12_shader_compiler: wgpu::Dx12Compiler::Fxc,
         });
         let surface = unsafe { instance.create_surface(window).unwrap() };
@@ -47,18 +63,12 @@ impl Gpu {
             .await
             .unwrap();
 
-        let limits = if cfg!(target_arch = "wasm32") {
-            wgpu::Limits::downlevel_webgl2_defaults()
-        } else {
-            wgpu::Limits::default()
-        };
-
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
-                    features: wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES,
                     label: None,
-                    limits,
+                    features: config.device_features,
+                    limits: config.device_limits,
                 },
                 None,
             )
@@ -85,14 +95,18 @@ impl Gpu {
         let base = WgpuBase::new(&device, sample_count);
 
         surface.configure(&device, &config);
-        let adapter_info = adapter.get_info();
 
-        info!("Using GPU: {}", adapter_info.name);
-        info!("Using WGPU backend: {:?}", adapter_info.backend);
-        info!("Using Multisample X{sample_count}");
-        info!("Using TextureFormat: {:?}", config.format);
+        #[cfg(feature = "log")]
+        {
+            let adapter_info = adapter.get_info();
+            info!("Using GPU: {}", adapter_info.name);
+            info!("Using WGPU backend: {:?}", adapter_info.backend);
+            info!("Using Multisample X{sample_count}");
+            info!("Using TextureFormat: {:?}", config.format);
+        }
 
         let gpu = Self {
+            commands: RwLock::new(vec![]),
             instance,
             queue,
             surface,
@@ -105,15 +119,15 @@ impl Gpu {
         return gpu;
     }
 
-    pub(crate) fn resize(&mut self, size: Vector<u32>) {
-        self.config.width = size.x;
-        self.config.height = size.y;
-        self.surface.configure(&self.device, &self.config);
-    }
-
     #[cfg(target_os = "android")]
     pub(crate) fn resume(&mut self, window: &winit::window::Window) {
         self.surface = unsafe { self.instance.create_surface(window).unwrap() };
+        self.surface.configure(&self.device, &self.config);
+    }
+
+    pub(crate) fn resize(&mut self, window_size: Vector<u32>) {
+        self.config.width = window_size.x;
+        self.config.height = window_size.y;
         self.surface.configure(&self.device, &self.config);
     }
 
@@ -166,13 +180,8 @@ impl Gpu {
         Sprite::empty(self, size)
     }
 
-    pub fn create_sprite_sheet(
-        &self,
-        bytes: &[u8],
-        sprites: Vector<u32>,
-        sprite_size: Vector<u32>,
-    ) -> SpriteSheet {
-        SpriteSheet::new(self, bytes, sprites, sprite_size)
+    pub fn create_sprite_sheet(&self, bytes: &[u8], sprites: Vector<u32>) -> SpriteSheet {
+        SpriteSheet::new(self, bytes, sprites)
     }
 
     #[cfg(feature = "text")]
@@ -187,18 +196,12 @@ impl Gpu {
         texture_size: Vector<u32>,
         descriptor: TextDescriptor,
     ) -> RenderTarget {
+        use crate::RenderConfigTarget;
+
         let target = self.create_render_target(texture_size);
-        let mut encoder = RenderEncoder::new(self);
-        let config = RenderConfig {
-            camera: &defaults.relative_camera,
-            instances: &defaults.single_centered_instance,
-            target: &target,
-            gpu: self,
-            defaults: &defaults,
-            msaa: true,
-        };
-        encoder.render_text(&config, descriptor);
-        encoder.submit(self);
+        let mut encoder = RenderEncoder::new(self, defaults);
+        encoder.render_text(RenderConfigTarget::Custom(&target), self, descriptor);
+        encoder.stage();
         return target;
     }
 
@@ -214,9 +217,16 @@ impl Gpu {
         &self,
         defaults: &GpuDefaults,
         texture_size: Vector<u32>,
-        compute: impl for<'any> Fn(&mut RenderEncoder, RenderConfig<'any>, [Where!('caller >= 'any); 0]),
+        camera: &CameraBuffer,
+        compute: impl FnMut(RenderConfig, &mut RenderEncoder),
     ) -> RenderTarget {
-        return RenderTarget::computed(self, &defaults, texture_size, compute);
+        return RenderTarget::computed(self, defaults, texture_size, camera, compute);
+    }
+
+    pub fn submit_staged_encoders(&self) {
+        let mut commands_ref = self.commands.write().unwrap();
+        let commands = std::mem::replace(commands_ref.deref_mut(), vec![]);
+        self.queue.submit(commands);
     }
 }
 
@@ -285,12 +295,14 @@ impl WgpuBase {
             label: Some("matrix_bind_group_layout"),
         });
 
-        let vertex_wgsl =
-            device.create_shader_module(wgpu::include_wgsl!("../../res/shader/vertex.wgsl"));
+        let vertex_wgsl = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("vertex_wgsl"),
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(Shader::VERTEX_WGSL)),
+        });
         let vertex_glsl = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("vertex_glsl"),
             source: wgpu::ShaderSource::Glsl {
-                shader: Cow::Borrowed(include_str!("../../res/shader/vertex.glsl")),
+                shader: Cow::Borrowed(Shader::VERTEX_GLSL),
                 stage: naga::ShaderStage::Vertex,
                 defines: Default::default(),
             },
@@ -344,26 +356,31 @@ pub struct GpuDefaults {
     pub color_no_msaa: Shader,
     pub sprite_no_msaa: Shader,
 
+    pub cuboid_index_buffer: wgpu::Buffer,
+    pub triangle_index_buffer: wgpu::Buffer,
+
     /// This field holds both total time and the frame time. Both are stored as f32 in the buffer.
     /// The first f32 is the `total_time` and the second f32 is the `frame_time`. In the shader
     /// the struct also needs 2 additional floats which are empty to match the 16 byte alignment
     /// some devices need.
     pub times: Uniform<[f32; 2]>,
-    pub relative_camera: BufferedCamera,
-    pub relative_bottom_left_camera: BufferedCamera,
-    pub relative_bottom_right_camera: BufferedCamera,
-    pub relative_top_left_camera: BufferedCamera,
-    pub relative_top_right_camera: BufferedCamera,
+    /// Camera where the smaller side is always 1.0 and the otherside is scaled to match the window aspect ratio.
+    pub relative_camera: (CameraBuffer, Camera),
+    pub relative_bottom_left_camera: (CameraBuffer, Camera),
+    pub relative_bottom_right_camera: (CameraBuffer, Camera),
+    pub relative_top_left_camera: (CameraBuffer, Camera),
+    pub relative_top_right_camera: (CameraBuffer, Camera),
+    pub unit_camera: (CameraBuffer, Camera),
     pub world_camera: CameraBuffer,
     pub single_centered_instance: InstanceBuffer,
     pub empty_instance: InstanceBuffer,
-    pub target: RenderTarget,
+    pub world_target: RenderTarget,
 }
 
 impl GpuDefaults {
     pub(crate) fn new(gpu: &Gpu, window_size: Vector<u32>) -> Self {
         let sprite = gpu.create_shader(ShaderConfig {
-            fragment_source: include_str!("../../res/shader/sprite.wgsl"),
+            fragment_source: Shader::SPIRTE_WGSL,
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Sprite],
             msaa: true,
@@ -372,7 +389,7 @@ impl GpuDefaults {
         });
 
         let sprite_no_msaa = gpu.create_shader(ShaderConfig {
-            fragment_source: include_str!("../../res/shader/sprite.wgsl"),
+            fragment_source: Shader::SPIRTE_WGSL,
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Sprite],
             msaa: false,
@@ -381,7 +398,7 @@ impl GpuDefaults {
         });
 
         let rainbow = gpu.create_shader(ShaderConfig {
-            fragment_source: include_str!("../../res/shader/rainbow.wgsl"),
+            fragment_source: Shader::RAINBOW_WGSL,
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Uniform],
             msaa: true,
@@ -390,7 +407,7 @@ impl GpuDefaults {
         });
 
         let color = gpu.create_shader(ShaderConfig {
-            fragment_source: include_str!("../../res/shader/color.wgsl"),
+            fragment_source: Shader::COLOR_WGSL,
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Uniform],
             msaa: true,
@@ -399,7 +416,7 @@ impl GpuDefaults {
         });
 
         let color_no_msaa = gpu.create_shader(ShaderConfig {
-            fragment_source: include_str!("../../res/shader/color.wgsl"),
+            fragment_source: Shader::COLOR_WGSL,
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Uniform],
             msaa: false,
@@ -408,7 +425,7 @@ impl GpuDefaults {
         });
 
         let colored_sprite = gpu.create_shader(ShaderConfig {
-            fragment_source: include_str!("../../res/shader/colored_sprite.glsl"),
+            fragment_source: Shader::COLORED_SPRITE_GLSL,
             shader_lang: ShaderLang::GLSL,
             shader_fields: &[ShaderField::Sprite, ShaderField::Uniform],
             msaa: true,
@@ -417,7 +434,7 @@ impl GpuDefaults {
         });
 
         let grey = gpu.create_shader(ShaderConfig {
-            fragment_source: include_str!("../../res/shader/grey.wgsl"),
+            fragment_source: Shader::GREY_WGSL,
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Sprite],
             msaa: true,
@@ -426,7 +443,7 @@ impl GpuDefaults {
         });
 
         let blurr = gpu.create_shader(ShaderConfig {
-            fragment_source: include_str!("../../res/shader/blurr.wgsl"),
+            fragment_source: Shader::BLURR_WGSL,
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Sprite],
             msaa: true,
@@ -435,7 +452,7 @@ impl GpuDefaults {
         });
 
         let transparent = gpu.create_shader(ShaderConfig {
-            fragment_source: include_str!("../../res/shader/transparent_sprite.wgsl"),
+            fragment_source: Shader::TRANSPARENT_SPRITE_WGSL,
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Sprite, ShaderField::Uniform],
             msaa: true,
@@ -444,39 +461,53 @@ impl GpuDefaults {
         });
 
         let size = gpu.render_size(1.0);
-        let target = gpu.create_render_target(size);
+        let world_target = gpu.create_render_target(size);
         let times = Uniform::new(gpu, [0.0, 0.0]);
         let single_centered_instance =
-            gpu.create_instance_buffer(&[Matrix::new(Default::default())]);
+            gpu.create_instance_buffer(&[Matrix::new(Default::default(), Vector::new(1.0, 1.0))]);
         let empty_instance = gpu.create_instance_buffer(&[]);
 
-        let yx = window_size.y as f32 / window_size.x as f32;
-        let xy = window_size.x as f32 / window_size.y as f32;
-        let scale = yx.max(xy) / 2.0;
-        let fov = if window_size.x > window_size.y {
-            Vector::new(scale, RELATIVE_CAMERA_SIZE)
-        } else {
-            Vector::new(RELATIVE_CAMERA_SIZE, scale)
-        };
+        let fov = Self::relative_fov(window_size);
 
-        let relative_bottom_left_camera =
-            BufferedCamera::new(gpu, Camera::new(Isometry::new(fov, 0.0), fov));
-        let relative_bottom_right_camera = BufferedCamera::new(
-            gpu,
-            Camera::new(Isometry::new(Vector::new(-fov.x, fov.y), 0.0), fov),
-        );
-        let relative_top_right_camera =
-            BufferedCamera::new(gpu, Camera::new(Isometry::new(-fov, 0.0), fov));
-        let relative_top_left_camera = BufferedCamera::new(
-            gpu,
-            Camera::new(Isometry::new(Vector::new(fov.x, -fov.y), 0.0), fov),
-        );
+        let camera = Camera::new(Isometry::new(fov, 0.0), fov);
+        let relative_bottom_left_camera = (camera.create_buffer(gpu), camera);
 
-        let relative_cam = Camera::new(Default::default(), fov);
-        let world_camera = relative_cam.create_buffer(gpu);
-        let relative_camera = BufferedCamera::new(gpu, relative_cam);
+        let camera = Camera::new(Isometry::new(Vector::new(-fov.x, fov.y), 0.0), fov);
+        let relative_bottom_right_camera = (camera.create_buffer(gpu), camera);
+
+        let camera = Camera::new(Isometry::new(-fov, 0.0), fov);
+        let relative_top_right_camera = (camera.create_buffer(gpu), camera);
+
+        let camera = Camera::new(Isometry::new(Vector::new(fov.x, -fov.y), 0.0), fov);
+        let relative_top_left_camera = (camera.create_buffer(gpu), camera);
+
+        let camera = Camera::new(Default::default(), fov);
+        let world_camera = camera.create_buffer(gpu);
+        let relative_camera = (camera.create_buffer(gpu), camera);
+
+        let camera = Camera::new(Default::default(), Vector::new(0.5, 0.5));
+        let unit_camera = (camera.create_buffer(gpu), camera);
+
+        let cuboid_index_buffer =
+            gpu.device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("cuboid_index_buffer"),
+                    contents: bytemuck::cast_slice(&ModelBuilder::CUBOID_INDICES),
+                    usage: wgpu::BufferUsages::INDEX,
+                });
+
+        let triangle_index_buffer =
+            gpu.device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("triangle_index_buffer"),
+                    contents: bytemuck::cast_slice(&ModelBuilder::TRIANGLE_INDICES),
+                    usage: wgpu::BufferUsages::INDEX,
+                });
 
         Self {
+            cuboid_index_buffer,
+            triangle_index_buffer,
+            unit_camera,
             sprite,
             rainbow,
             color,
@@ -495,56 +526,63 @@ impl GpuDefaults {
             relative_top_left_camera,
             relative_top_right_camera,
             world_camera,
-            target,
+            world_target,
         }
     }
 
-    pub(crate) fn resize(
-        &mut self,
-        gpu: &Gpu,
-        window_size: Vector<u32>,
-        screen_config: &ScreenConfig,
-    ) {
-        self.apply_render_scale(&gpu, screen_config.render_scale());
-        let yx = window_size.y as f32 / window_size.x as f32;
-        let xy = window_size.x as f32 / window_size.y as f32;
-        let scale = yx.max(xy) / 2.0;
-        let fov = if window_size.x > window_size.y {
-            Vector::new(scale, RELATIVE_CAMERA_SIZE)
-        } else {
-            Vector::new(RELATIVE_CAMERA_SIZE, scale)
-        };
+    pub(crate) fn resize(&mut self, gpu: &Gpu, window_size: Vector<u32>) {
+        let fov = Self::relative_fov(window_size);
+        self.relative_bottom_left_camera.1 = Camera::new(Isometry::new(fov, 0.0), fov);
+        self.relative_bottom_right_camera.1 =
+            Camera::new(Isometry::new(Vector::new(-fov.x, fov.y), 0.0), fov);
+        self.relative_top_right_camera.1 = Camera::new(Isometry::new(-fov, 0.0), fov);
+        self.relative_top_left_camera.1 =
+            Camera::new(Isometry::new(Vector::new(fov.x, -fov.y), 0.0), fov);
+        self.relative_camera.1 = Camera::new(Isometry::default(), fov);
+
         self.relative_bottom_left_camera
-            .write(gpu, Camera::new(Isometry::new(fov, 0.0), fov));
-        self.relative_bottom_right_camera.write(
-            gpu,
-            Camera::new(Isometry::new(Vector::new(-fov.x, fov.y), 0.0), fov),
-        );
+            .1
+            .write_buffer(gpu, &mut self.relative_bottom_left_camera.0);
+        self.relative_bottom_right_camera
+            .1
+            .write_buffer(gpu, &mut self.relative_bottom_right_camera.0);
         self.relative_top_right_camera
-            .write(gpu, Camera::new(Isometry::new(-fov, 0.0), fov));
-        self.relative_top_left_camera.write(
-            gpu,
-            Camera::new(Isometry::new(Vector::new(fov.x, -fov.y), 0.0), fov),
-        );
+            .1
+            .write_buffer(gpu, &mut self.relative_top_right_camera.0);
+        self.relative_top_left_camera
+            .1
+            .write_buffer(gpu, &mut self.relative_top_left_camera.0);
         self.relative_camera
-            .write(gpu, Camera::new(Isometry::default(), fov));
+            .1
+            .write_buffer(gpu, &mut self.relative_camera.0);
     }
 
     pub(crate) fn buffer(
-        &self,
-        active_scene_camera: &Camera,
+        &mut self,
+        active_scene_camera: &mut Camera,
         gpu: &Gpu,
         total_time: f32,
         frame_time: f32,
     ) {
-        active_scene_camera.write_buffer(gpu, &self.world_camera);
+        active_scene_camera.write_buffer(gpu, &mut self.world_camera);
         self.times.write(&gpu, [total_time, frame_time]);
     }
 
     pub(crate) fn apply_render_scale(&mut self, gpu: &Gpu, scale: f32) {
         let size = gpu.render_size(scale);
-        if *self.target.size() != size {
-            self.target = gpu.create_render_target(size);
+        if *self.world_target.size() != size {
+            self.world_target = gpu.create_render_target(size);
         }
+    }
+
+    fn relative_fov(window_size: Vector<u32>) -> Vector<f32> {
+        let yx = window_size.y as f32 / window_size.x as f32;
+        let xy = window_size.x as f32 / window_size.y as f32;
+        let scale = yx.max(xy) / 2.0;
+        return if window_size.x > window_size.y {
+            Vector::new(scale, RELATIVE_CAMERA_SIZE)
+        } else {
+            Vector::new(RELATIVE_CAMERA_SIZE, scale)
+        };
     }
 }

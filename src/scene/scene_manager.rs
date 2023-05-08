@@ -3,7 +3,7 @@ use rustc_hash::FxHashMap;
 
 use crate::Scene;
 
-/// Access to the scenes. [Removing](crate::Context::remove_scene) and [creating](crate::Context::create_scene)
+/// Access to the scenes. [Removing](crate::Context::remove_scene) and [creating](crate::Context::add_scene)
 /// scenes must be done from the [Context](crate::Context).
 pub struct SceneManager {
     scenes: FxHashMap<u32, Option<Scene>>,
@@ -63,22 +63,10 @@ impl SceneManager {
         std::mem::take(&mut self.scenes).into_iter()
     }
 
-    pub(crate) fn resize(&mut self) -> &Scene {
+    pub(crate) fn resize(&mut self) {
         for scene in self.scenes.values_mut() {
             scene.as_mut().unwrap().resized = true;
         }
-        return self
-            .scenes
-            .get(&self.active_scene)
-            .expect(
-                format!(
-                    "Cannot find the currently active scene {}!",
-                    self.active_scene
-                )
-                .as_str(),
-            )
-            .as_ref()
-            .unwrap();
     }
 
     pub fn set_active_scene(&mut self, active_scene: u32) {

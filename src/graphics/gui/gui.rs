@@ -1,10 +1,12 @@
+use std::ops::{Deref, DerefMut};
+
 use crate::{gui::GuiContext, Gpu, Vector};
 use egui_wgpu::renderer::{Renderer, ScreenDescriptor};
 use egui_winit::State;
 use instant::Duration;
 use winit::window::Window;
 
-pub(crate) struct Gui {
+pub struct Gui {
     state: State,
     // TODO: Maybe move to scene
     context: GuiContext,
@@ -19,9 +21,11 @@ impl Gui {
     ) -> Self {
         let config = &gpu.config;
         let device = &gpu.device;
+        // TODO: Implement msaa_samnples and render to the target and not the surface texture
         let renderer = Renderer::new(device, config.format, None, 1);
         let state = State::new(event_loop);
         let context = GuiContext::default();
+
         let screen_descriptor = ScreenDescriptor {
             size_in_pixels: [config.width, config.height],
             pixels_per_point: 1.0,
@@ -49,10 +53,6 @@ impl Gui {
         let mut egui_input = self.state.take_egui_input(window);
         egui_input.time = Some(total_time.as_secs_f64());
         self.context.begin_frame(egui_input);
-    }
-
-    pub(crate) fn context(&self) -> GuiContext {
-        self.context.clone()
     }
 
     pub(crate) fn render(
@@ -98,5 +98,19 @@ impl Gui {
         for free in &output.textures_delta.free {
             self.renderer.free_texture(free);
         }
+    }
+}
+
+impl Deref for Gui {
+    type Target = GuiContext;
+
+    fn deref(&self) -> &Self::Target {
+        &self.context
+    }
+}
+
+impl DerefMut for Gui {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.context
     }
 }

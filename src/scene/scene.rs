@@ -1,12 +1,27 @@
-use crate::{ComponentManager, Context, ScreenConfig, ShuraFields, Vector, WorldCamera};
+use crate::{
+    ComponentManager, Context, SceneStateManager, ScreenConfig, ShuraFields, Vector, WorldCamera,
+    WorldCameraScale,
+};
 
-use super::state::SceneState;
-
+/// Origin of a [Scene]
 pub trait SceneCreator {
     fn id(&self) -> u32;
     fn create(self, shura: ShuraFields) -> Scene;
+    fn scene(self, shura: ShuraFields) -> Scene
+    where
+        Self: Sized,
+    {
+        let id = self.id();
+        let mut scene = self.create(shura);
+        scene.id = id;
+        scene.started = true;
+        scene.resized = true;
+        scene.switched = true;
+        return scene;
+    }
 }
 
+/// Create a new [Scene] from scratch
 pub struct NewScene<N: 'static + FnMut(&mut Context)> {
     pub id: u32,
     pub init: N,
@@ -26,15 +41,14 @@ impl<N: 'static + FnMut(&mut Context)> SceneCreator for NewScene<N> {
     fn create(mut self, shura: ShuraFields) -> Scene {
         let mint: mint::Vector2<u32> = shura.window.inner_size().into();
         let window_size: Vector<u32> = mint.into();
-        let window_ratio = window_size.x as f32 / window_size.y as f32;
-        let mut scene = Scene::new(window_ratio, self.id);
+        let mut scene = Scene::new(window_size, self.id);
         let mut ctx = Context::from_fields(shura, &mut scene);
         (self.init)(&mut ctx);
-        scene.component_manager.update_sets(&scene.world_camera);
         return scene;
     }
 }
 
+/// Add a [Scene] that previously has been removed by calling [remove_scene](crate::Context::remove_scene)
 pub struct RecycleScene<N: 'static + FnMut(&mut Context)> {
     pub id: u32,
     pub scene: Scene,
@@ -55,49 +69,45 @@ impl<N: 'static + FnMut(&mut Context)> SceneCreator for RecycleScene<N> {
     fn create(mut self, shura: ShuraFields) -> Scene {
         let mint: mint::Vector2<u32> = shura.window.inner_size().into();
         let window_size: Vector<u32> = mint.into();
-        let window_ratio = window_size.x as f32 / window_size.y as f32;
-        self.scene.world_camera.resize(window_ratio);
+        self.scene.world_camera.resize(window_size);
         let mut ctx = Context::from_fields(shura, &mut self.scene);
         (self.init)(&mut ctx);
-        self.scene
-            .component_manager
-            .update_sets(&self.scene.world_camera);
         return self.scene;
     }
 }
 
-fn default_state() -> Box<dyn SceneState> {
-    return Box::new(());
-}
-
 #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+/// Scene owning its own [Components](ComponentManager), [Configurations](ScreenConfig), callbacks(resized, switched, started),
+/// [states](SceneStateManager) and [camera](WorldCamera) identified by an Id
 pub struct Scene {
     pub(crate) id: u32,
     pub(crate) resized: bool,
     pub(crate) switched: bool,
+    pub(crate) started: bool,
     pub screen_config: ScreenConfig,
     pub world_camera: WorldCamera,
     pub component_manager: ComponentManager,
     #[cfg_attr(feature = "serde", serde(skip))]
-    #[cfg_attr(feature = "serde", serde(default = "default_state"))]
-    pub state: Box<dyn SceneState>,
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub states: SceneStateManager,
 }
 
 impl Scene {
     pub const DEFAULT_VERTICAL_CAMERA_FOV: f32 = 3.0;
-    pub(crate) fn new(ratio: f32, id: u32) -> Self {
+    pub(crate) fn new(window_size: Vector<u32>, id: u32) -> Self {
         Self {
             id: id,
             switched: true,
             resized: true,
+            started: true,
             world_camera: WorldCamera::new(
                 Default::default(),
-                Self::DEFAULT_VERTICAL_CAMERA_FOV,
-                ratio,
+                WorldCameraScale::Min(Self::DEFAULT_VERTICAL_CAMERA_FOV),
+                window_size,
             ),
             component_manager: ComponentManager::new(),
             screen_config: ScreenConfig::new(),
-            state: default_state(),
+            states: SceneStateManager::default(),
         }
     }
 
@@ -107,6 +117,10 @@ impl Scene {
 
     pub fn switched(&self) -> bool {
         self.switched
+    }
+
+    pub fn started(&self) -> bool {
+        self.started
     }
 
     pub fn id(&self) -> u32 {

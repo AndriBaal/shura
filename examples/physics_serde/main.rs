@@ -3,9 +3,10 @@ use shura::physics::*;
 use shura::*;
 use std::{fmt, fs};
 
-fn main() {
+#[shura::main]
+fn shura_main(config: ShuraConfig) {
     if let Some(save_game) = fs::read("data.binc").ok() {
-        Shura::init(SerializedScene {
+        config.init(SerializedScene {
             id: 1,
             scene: save_game,
             init: |ctx, s| {
@@ -18,14 +19,14 @@ fn main() {
             },
         })
     } else {
-        Shura::init(NewScene {
+        config.init(NewScene {
             id: 1,
             init: |ctx| {
                 const PYRAMID_ELEMENTS: i32 = 8;
                 const MINIMAL_SPACING: f32 = 0.1;
-                ctx.set_camera_horizontal_fov(5.0);
+                ctx.set_camera_scale(WorldCameraScale::Max(5.0));
                 ctx.set_gravity(Vector::new(0.00, -9.81));
-                ctx.set_scene_state(PhysicsState::new(ctx));
+                ctx.insert_scene_state(PhysicsState::new(ctx));
 
                 for x in -PYRAMID_ELEMENTS..PYRAMID_ELEMENTS {
                     for y in 0..(PYRAMID_ELEMENTS - x.abs()) {
@@ -36,7 +37,7 @@ fn main() {
                     }
                 }
 
-                let (_, player_handle) = ctx.add_component(Player::new(ctx));
+                let player_handle = ctx.add_component(Player::new(ctx));
                 ctx.set_camera_target(Some(player_handle));
                 ctx.add_component(Floor::new(ctx));
             },
@@ -73,23 +74,23 @@ impl PhysicsState {
     fn serialize_scene(ctx: &mut Context) {
         info!("Serializing scene!");
         let ser = ctx
-            .serialize(|s| {
+            .serialize_scene(ComponentFilter::All, |s| {
                 s.serialize_scene_state::<Self>();
-                s.serialize_components::<Floor>(GroupFilter::All);
-                s.serialize_components::<Player>(GroupFilter::All);
-                s.serialize_components::<PhysicsBox>(GroupFilter::All);
+                s.serialize_components::<Floor>();
+                s.serialize_components::<Player>();
+                s.serialize_components::<PhysicsBox>();
             })
             .unwrap();
         fs::write("data.binc", ser).expect("Unable to write file");
     }
 }
 
-impl SceneState for PhysicsState {
+impl SceneStateController for PhysicsState {
     fn update(ctx: &mut Context) {
         let scroll = ctx.wheel_delta();
         let fov = ctx.camera_fov();
         if scroll != 0.0 {
-            ctx.set_camera_horizontal_fov(fov.x + scroll / 5.0);
+            ctx.set_camera_scale(WorldCameraScale::Max(fov.x + scroll / 5.0));
         }
 
         if ctx.is_held(MouseButton::Right) {
@@ -146,21 +147,21 @@ impl Player {
                 Self::RESOLUTION,
                 0.0,
             )),
-            base: BaseComponent::new_rigid_body(
+            base: BaseComponent::new_body(
                 RigidBodyBuilder::dynamic().translation(Vector::new(5.0, 4.0)),
-                vec![collider],
+                &[collider],
             ),
         }
     }
 }
 
 impl ComponentController for Player {
-    fn update(active: ComponentPath<Self>, ctx: &mut Context) {
+    fn update(active: &ActiveComponents<Self>, ctx: &mut Context) {
         let delta = ctx.frame_time();
         let input = &mut ctx.input;
 
-        for player in &mut ctx.component_manager.path_mut(&active) {
-            let mut body = player.base.rigid_body_mut().unwrap();
+        for player in &mut ctx.component_manager.active_mut(&active) {
+            let mut body = player.body_mut();
             let mut linvel = *body.linvel();
 
             if input.is_held(Key::D) {
@@ -183,16 +184,10 @@ impl ComponentController for Player {
         }
     }
 
-    fn render<'a>(
-        active: ComponentPath<Self>,
-        ctx: &'a Context<'a>,
-        config: RenderConfig<'a>,
-        encoder: &mut RenderEncoder,
-    ) {
-        let (_, mut renderer) = encoder.renderer(&config);
-        for (instances, player) in &ctx.path_render(&active) {
-            renderer.render_sprite(instances, &player.model, &player.sprite);
-        }
+    fn render(active: &ActiveComponents<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
+        ctx.render_each(active, encoder, RenderConfig::WORLD, |r, player, index| {
+            r.render_sprite(index, &player.model, &player.sprite)
+        })
     }
 
     fn collision(
@@ -236,26 +231,19 @@ impl Floor {
                 Self::FLOOR_RESOLUTION,
                 0.0,
             )),
-            base: BaseComponent::new_rigid_body(
+            base: BaseComponent::new_body(
                 RigidBodyBuilder::fixed().translation(Vector::new(0.0, -1.0)),
-                vec![collider],
+                &[collider],
             ),
         }
     }
 }
 
 impl ComponentController for Floor {
-    fn render<'a>(
-        active: ComponentPath<Self>,
-        ctx: &'a Context<'a>,
-        config: RenderConfig<'a>,
-        encoder: &mut RenderEncoder,
-    ) {
-        let floors = ctx.path_render(&active);
-        let (_, mut renderer) = encoder.renderer(&config);
-        for (instance, floor) in &floors {
-            renderer.render_color(instance, &floor.model, &floor.color);
-        }
+    fn render(active: &ActiveComponents<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
+        ctx.render_each(active, encoder, RenderConfig::WORLD, |r, floor, index| {
+            r.render_color(index, &floor.model, &floor.color)
+        })
     }
 }
 
@@ -276,9 +264,9 @@ impl PhysicsBox {
         Self {
             collided: false,
             hovered: false,
-            base: BaseComponent::new_rigid_body(
+            base: BaseComponent::new_body(
                 RigidBodyBuilder::dynamic().translation(position),
-                vec![ColliderBuilder::new(SharedShape::new(
+                &[ColliderBuilder::new(SharedShape::new(
                     PhysicsBox::BOX_SHAPE,
                 ))],
             ),
@@ -287,51 +275,49 @@ impl PhysicsBox {
 }
 
 impl ComponentController for PhysicsBox {
-    fn render<'a>(
-        active: ComponentPath<Self>,
-        ctx: &'a Context<'a>,
-        config: RenderConfig<'a>,
-        encoder: &mut RenderEncoder,
-    ) {
-        let (_, mut renderer) = encoder.renderer(&config);
-        let state = ctx.scene_state::<PhysicsState>().unwrap();
-        for (instance, physics_box) in &ctx.path_render(&active) {
-            let color: &Uniform<Color>;
-            if physics_box.collided {
-                color = &state.collision_color;
-            } else if physics_box.hovered {
-                color = &state.hover_color;
-            } else {
-                color = &state.default_color;
+    fn render(active: &ActiveComponents<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
+        let mut renderer = encoder.renderer(RenderConfig::WORLD);
+        let state = ctx.scene_state::<PhysicsState>();
+        for (buffer, boxes) in ctx.active_render(&active) {
+            let mut ranges = vec![];
+            let mut last = 0;
+            for (i, b) in boxes.clone() {
+                if b.collided {
+                    ranges.push((&state.default_color, last..i.index));
+                    ranges.push((&state.collision_color, i.index..i.index + 1));
+                    last = i.index + 1;
+                } else if b.hovered {
+                    ranges.push((&state.default_color, last..i.index));
+                    ranges.push((&state.hover_color, i.index..i.index + 1));
+                    last = i.index + 1;
+                }
             }
-            renderer.render_color(instance, &state.box_model, color);
+            ranges.push((&state.default_color, last..buffer.len()));
+            renderer.use_instances(buffer);
+            for (color, r) in ranges {
+                renderer.render_color(r, &state.box_model, color)
+            }
         }
     }
 
-    fn update(active: ComponentPath<Self>, ctx: &mut Context) {
+    fn update(active: &ActiveComponents<Self>, ctx: &mut Context) {
         let cursor_world: Point<f32> = (ctx.cursor_camera(&ctx.world_camera)).into();
-        let mut to_remove = vec![];
         let remove = ctx.is_held(MouseButton::Left) || ctx.is_pressed(ScreenTouch);
-        for physics_box in &mut ctx.path_mut(&active) {
-            let collider_handle = physics_box.base.collider_handles().unwrap()[0];
-            let collider = physics_box.base.collider(collider_handle).unwrap();
-            if collider
-                .shape()
-                .contains_point(collider.position(), &cursor_world)
-            {
-                drop(collider);
+        for physics_box in &mut ctx.active_mut(&active) {
+            physics_box.hovered = false;
+        }
+        let mut component: Option<ComponentHandle> = None;
+        ctx.intersections_with_point(&cursor_world, Default::default(), |component_handle, _| {
+            component = Some(component_handle);
+            false
+        });
+        if let Some(handle) = component {
+            if let Some(physics_box) = ctx.component_mut::<Self>(handle) {
                 physics_box.hovered = true;
                 if remove {
-                    to_remove.push(physics_box.base.handle().unwrap());
+                    ctx.remove_component(handle);
                 }
-            } else {
-                drop(collider);
-                physics_box.hovered = false;
             }
-        }
-
-        for handle in to_remove {
-            ctx.remove_component(handle);
         }
     }
 }
@@ -346,10 +332,7 @@ impl<'de, 'a> serde::de::Visitor<'de> for FloorVisitor<'a> {
         formatter.write_str("A Floor")
     }
 
-    fn visit_seq<V>(self, mut seq: V) -> Result<Floor, V::Error>
-    where
-        V: serde::de::SeqAccess<'de>,
-    {
+    fn visit_seq<V: serde::de::SeqAccess<'de>>(self, mut seq: V) -> Result<Floor, V::Error> {
         let base: BaseComponent = seq
             .next_element()?
             .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
@@ -375,10 +358,7 @@ impl<'de, 'a> serde::de::Visitor<'de> for PlayerVisitor<'a> {
         formatter.write_str("A Player")
     }
 
-    fn visit_seq<V>(self, mut seq: V) -> Result<Player, V::Error>
-    where
-        V: serde::de::SeqAccess<'de>,
-    {
+    fn visit_seq<V: serde::de::SeqAccess<'de>>(self, mut seq: V) -> Result<Player, V::Error> {
         let base: BaseComponent = seq
             .next_element()?
             .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
@@ -404,10 +384,7 @@ impl<'de, 'a> serde::de::Visitor<'de> for PhysicsStateVisitor<'a> {
         formatter.write_str("A PhysicsState")
     }
 
-    fn visit_seq<V>(self, _seq: V) -> Result<PhysicsState, V::Error>
-    where
-        V: serde::de::SeqAccess<'de>,
-    {
+    fn visit_seq<V: serde::de::SeqAccess<'de>>(self, _seq: V) -> Result<PhysicsState, V::Error> {
         Ok(PhysicsState {
             default_color: self.ctx.create_uniform(Color::new_rgba(0, 255, 0, 255)),
             collision_color: self.ctx.create_uniform(Color::new_rgba(255, 0, 0, 255)),

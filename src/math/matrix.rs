@@ -23,14 +23,21 @@ impl Matrix {
         Vector4::new(0.0, 0.0, -3.0, 1.0),
     );
 
+    pub(crate) const NULL_MODEL: Self = Self::raw(
+        Vector4::new(1.0, 0.0, 0.0, 0.0),
+        Vector4::new(0.0, 1.0, 0.0, 0.0),
+        Vector4::new(0.0, 0.0, 0.5, 0.0),
+        Vector4::new(0.0, 0.0, 0.5, 1.0),
+    );
+
     pub const fn raw(x: Vector4<f32>, y: Vector4<f32>, z: Vector4<f32>, w: Vector4<f32>) -> Matrix {
         Self { x, y, z, w }
     }
 
-    pub fn new(pos: Isometry<f32>) -> Self {
-        let mut matrix = Matrix::default();
+    pub fn new(pos: Isometry<f32>, scale: Vector<f32>) -> Self {
+        let mut matrix = Matrix::NULL_MODEL;
         matrix.translate(pos.translation.vector);
-        matrix.rotate(Vector::new(1.0, 1.0), pos.rotation);
+        matrix.rotate(scale, pos.rotation);
         return matrix;
     }
 
@@ -49,7 +56,7 @@ impl Matrix {
     }
 
     /// Frustum
-    pub fn projection(half_extents: Vector<f32>) -> Matrix {
+    pub fn frustum(half_extents: Vector<f32>) -> Matrix {
         const NEAR: f32 = 3.0;
         const FAR: f32 = 7.0;
         let left = -half_extents.x;
@@ -91,17 +98,6 @@ impl Matrix {
         result[5] = c;
 
         return result;
-    }
-}
-
-impl Default for Matrix {
-    fn default() -> Matrix {
-        Self {
-            x: Vector4::new(1.0, 0.0, 0.0, 0.0),
-            y: Vector4::new(0.0, 1.0, 0.0, 0.0),
-            z: Vector4::new(0.0, 0.0, 0.5, 0.0),
-            w: Vector4::new(0.0, 0.0, 0.5, 1.0),
-        }
     }
 }
 
@@ -152,6 +148,6 @@ impl Mul for Matrix {
 
 impl Into<Matrix> for Isometry<f32> {
     fn into(self) -> Matrix {
-        Matrix::new(self)
+        Matrix::new(self, Vector::new(1.0, 1.0))
     }
 }

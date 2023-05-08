@@ -1,14 +1,10 @@
-use crate::{Camera, Gpu, GpuDefaults, RenderConfig, RenderEncoder, Sprite, Vector};
+use crate::{
+    Camera, CameraBuffer, Gpu, GpuDefaults, RenderConfig, RenderConfigCamera, RenderConfigTarget,
+    RenderEncoder, Sprite, Vector,
+};
 use std::ops::Deref;
 
-macro_rules! Where {
-    (
-    $a:lifetime >= $b:lifetime $(,)?
-) => {
-        &$b & $a()
-    };
-}
-
+/// Texture to render onto with a [RenderEncoder]
 pub struct RenderTarget {
     target_msaa: wgpu::TextureView,
     target_view: wgpu::TextureView,
@@ -32,14 +28,15 @@ impl RenderTarget {
         };
     }
 
-    pub fn computed<'caller>(
+    pub fn computed(
         gpu: &Gpu,
         defaults: &GpuDefaults,
         texture_size: Vector<u32>,
-        compute: impl for<'any> Fn(&mut RenderEncoder, RenderConfig<'any>, [Where!('caller >= 'any); 0]),
+        camera: &CameraBuffer,
+        compute: impl FnMut(RenderConfig, &mut RenderEncoder),
     ) -> Self {
         let target = RenderTarget::new(gpu, texture_size);
-        target.draw(gpu, defaults, compute);
+        target.draw(gpu, defaults, camera, compute);
         return target;
     }
 
@@ -86,32 +83,28 @@ impl RenderTarget {
         &self,
         gpu: &Gpu,
         defaults: &GpuDefaults,
-        mut compute: impl for<'any> FnMut(
-            &mut RenderEncoder,
-            RenderConfig<'any>,
-            [Where!('caller >= 'any); 0],
-        ),
+        camera: &CameraBuffer,
+        mut compute: impl FnMut(RenderConfig, &mut RenderEncoder),
     ) {
-        let mut encoder = RenderEncoder::new(gpu);
+        let mut encoder = RenderEncoder::new(gpu, defaults);
         let config = RenderConfig {
-            camera: &defaults.relative_camera,
-            instances: &defaults.single_centered_instance,
-            target: &self,
-            gpu: &gpu,
-            defaults: &defaults,
+            target: RenderConfigTarget::Custom(self),
+            camera: RenderConfigCamera::Custom(camera),
+            intances: None,
             msaa: true,
+            clear_color: None,
         };
-        compute(&mut encoder, config, []);
-        encoder.submit(gpu);
+        compute(config, &mut encoder);
+        encoder.stage();
     }
 
     pub fn compute_target_size(
-        half_extents: Vector<f32>,
+        model_half_extents: Vector<f32>,
         camera: &Camera,
         window_size: Vector<u32>,
     ) -> Vector<u32> {
         let camera_fov = camera.fov() * 2.0;
-        let size = half_extents * 2.0;
+        let size = model_half_extents * 2.0;
         return Vector::new(
             (size.x / camera_fov.x * window_size.x as f32).ceil() as u32,
             (size.y / camera_fov.y * window_size.y as f32).ceil() as u32,

@@ -21,8 +21,8 @@ impl InstanceBuffer {
         return Self { buffer };
     }
 
-    pub fn write(&self, gpu: &Gpu, data: &[Matrix]) {
-        assert_eq!(data.len() as u32, self.amount_of_instances());
+    pub fn write(&mut self, gpu: &Gpu, data: &[Matrix]) {
+        assert_eq!(data.len() as u32, self.len());
         gpu.queue
             .write_buffer(&self.buffer, 0, bytemuck::cast_slice(&data));
     }
@@ -35,13 +35,13 @@ impl InstanceBuffer {
         self.buffer.size()
     }
 
-    pub fn instances(&self) -> InstanceIndices {
+    pub fn all_instances(&self) -> InstanceIndices {
         InstanceIndices {
-            range: 0..self.amount_of_instances(),
+            range: 0..self.len(),
         }
     }
 
-    pub fn amount_of_instances(&self) -> u32 {
+    pub fn len(&self) -> u32 {
         const MATRIX_SIZE: u64 = std::mem::size_of::<Matrix>() as u64;
         let buffer_size = self.size();
         return (buffer_size / MATRIX_SIZE) as u32;
@@ -49,6 +49,7 @@ impl InstanceBuffer {
 }
 
 #[derive(Debug, Copy, Clone)]
+/// Index of a [Position](crate::Isometry) in a [InstanceBuffer] represented by a [Matrix]
 pub struct InstanceIndex {
     pub index: u32,
 }
@@ -82,6 +83,7 @@ impl Into<InstanceIndices> for Range<u32> {
 }
 
 #[derive(Debug, Clone)]
+/// Range of [InstanceIndex]
 pub struct InstanceIndices {
     pub range: Range<u32>,
 }

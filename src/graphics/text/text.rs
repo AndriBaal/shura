@@ -3,6 +3,7 @@ use crate::{
     Color, Vector,
 };
 
+/// Section of Text
 pub struct TextSection<'a> {
     pub position: Vector<f32>,
     pub bounds: Vector<f32>,
@@ -10,14 +11,20 @@ pub struct TextSection<'a> {
     pub text: Vec<Text<'a>>,
 }
 
+/// Descriptor for rendering a Text onto a [RenderTarget](crate::RenderTarget)
 pub struct TextDescriptor<'a> {
     pub clear_color: Option<Color>,
     pub sections: Vec<TextSection<'a>>,
     pub font: &'a mut FontBrush,
+    pub resolution: f32,
 }
 
 impl<'a> TextSection<'a> {
-    pub fn to_glyph_section(self) -> wgpu_glyph::Section<'a> {
+    pub fn to_glyph_section(mut self, resolution: f32) -> wgpu_glyph::Section<'a> {
+        for text in &mut self.text {
+            text.scale.x *= resolution;
+            text.scale.y *= resolution;
+        }
         wgpu_glyph::Section {
             screen_position: (self.position.x, self.position.y),
             bounds: (self.bounds.x, self.bounds.y),

@@ -23,17 +23,13 @@ pub(crate) struct ArenaIndex {
 }
 
 impl ArenaIndex {
+    pub const INVALID: Self = Self {
+        index: u32::MAX,
+        generation: u32::MAX,
+    };
+
     pub fn index(&self) -> u32 {
         self.index
-    }
-}
-
-impl Default for ArenaIndex {
-    fn default() -> Self {
-        Self {
-            index: u32::MAX,
-            generation: u32::MAX,
-        }
     }
 }
 
@@ -73,6 +69,23 @@ impl<T> Arena<T> {
                 self.items[index.index as usize] = ArenaEntry::Occupied {
                     generation: self.generation,
                     data,
+                };
+                Ok(index)
+            }
+        }
+    }
+
+    #[inline]
+    pub fn try_insert_with<F: FnOnce(ArenaIndex) -> T>(
+        &mut self,
+        create: F,
+    ) -> Result<ArenaIndex, F> {
+        match self.try_alloc_next_index() {
+            None => Err(create),
+            Some(index) => {
+                self.items[index.index as usize] = ArenaEntry::Occupied {
+                    generation: self.generation,
+                    data: create(index),
                 };
                 Ok(index)
             }
@@ -124,6 +137,23 @@ impl<T> Arena<T> {
             .expect("inserting will always succeed after reserving additional space")
     }
 
+    #[inline]
+    pub fn insert_with(&mut self, create: impl FnOnce(ArenaIndex) -> T) -> ArenaIndex {
+        match self.try_insert_with(create) {
+            Ok(i) => i,
+            Err(create) => self.insert_with_slow_path(create),
+        }
+    }
+
+    #[inline(never)]
+    fn insert_with_slow_path(&mut self, create: impl FnOnce(ArenaIndex) -> T) -> ArenaIndex {
+        let len = self.items.len();
+        self.reserve(len);
+        self.try_insert_with(create)
+            .map_err(|_| ())
+            .expect("inserting will always succeed after reserving additional space")
+    }
+
     pub fn remove(&mut self, i: ArenaIndex) -> Option<T> {
         if i.index >= self.items.len() as u32 {
             return None;
@@ -167,6 +197,20 @@ impl<T> Arena<T> {
             Some(ArenaEntry::Occupied { generation, data }) if *generation == i.generation => {
                 Some(data)
             }
+            _ => None,
+        }
+    }
+
+    pub fn get_unknown_gen(&self, i: usize) -> Option<&T> {
+        match self.items.get(i) {
+            Some(ArenaEntry::Occupied { data, .. }) => Some(data),
+            _ => None,
+        }
+    }
+
+    pub fn get_unknown_gen_mut(&mut self, i: usize) -> Option<&mut T> {
+        match self.items.get_mut(i) {
+            Some(ArenaEntry::Occupied { data, .. }) => Some(data),
             _ => None,
         }
     }
@@ -228,6 +272,16 @@ impl<'a, T> IntoIterator for &'a Arena<T> {
 pub(crate) struct ArenaIter<'a, T> {
     len: usize,
     base: iter::Enumerate<slice::Iter<'a, ArenaEntry<T>>>,
+}
+
+impl<T> Clone for ArenaIter<'_, T> {
+    #[inline]
+    fn clone(&self) -> Self {
+        Self {
+            len: self.len,
+            base: self.base.clone(),
+        }
+    }
 }
 
 impl<'a, T> Iterator for ArenaIter<'a, T> {

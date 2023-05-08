@@ -4,18 +4,19 @@ use crate::{
     ComponentHandle,
 };
 use crate::{
-    BaseComponent, ComponentConfig, ComponentControllerCaller, ComponentIdentifier, ComponentPath,
-    Context, RenderConfig, RenderEncoder, DEFAULT_CONFIG,
+    ActiveComponents, BaseComponent, ComponentConfig, ComponentControllerCaller,
+    ComponentIdentifier, Context, RenderEncoder, DEFAULT_CONFIG,
 };
 use downcast_rs::*;
 
+/// Fields names of a struct used for deserialization and serialization
 pub trait FieldNames {
     const FIELDS: &'static [&'static str];
 }
 
-/// Dynamic component, that can be downcasted to any [ComponentDerive](crate::ComponentDerive)
+/// Boxed component, that can be downcasted to any [Component](crate::Component)
 /// using downcast_ref or downcast_mut.
-pub type DynamicComponent = Box<dyn ComponentDerive>;
+pub type BoxedComponent = Box<dyn ComponentDerive>;
 
 /// All components need to implement from this trait. This is not done manually, but with the derive macro [Component](crate::Component).
 ///
@@ -31,12 +32,11 @@ pub trait ComponentDerive: Downcast {
     fn base(&self) -> &BaseComponent;
     fn base_mut(&mut self) -> &mut BaseComponent;
 }
-
 impl_downcast!(ComponentDerive);
 
 #[allow(unused_variables)]
 /// A controller is used to define the behaviour of a component, by the given config and callbacks. The
-/// currently relevant components get passed through the [ComponentPath](crate::ComponentPath).
+/// currently relevant components get passed through the [ActiveComponents](crate::ActiveComponents).
 pub trait ComponentController:
     ComponentControllerCaller + ComponentDerive + ComponentIdentifier
 where
@@ -46,7 +46,7 @@ where
     /// This component gets updated if the component's [group](crate::ComponentGroup) is active and enabled.
     /// Through the [context](crate::Context) you have access to all other scenes, groups,
     /// components with the matching controller and all data from the engine.
-    fn update(active: ComponentPath<Self>, ctx: &mut Context) {}
+    fn update(active: &ActiveComponents<Self>, ctx: &mut Context) {}
 
     #[cfg(feature = "physics")]
     /// Collision Event between 2 components. It requires that
@@ -69,13 +69,7 @@ where
     /// components that have the exact same [model](crate::Model), [uniforms](crate::Uniform) or [sprites](crate::Sprite).
     /// For this method to work the render operation of this component must be set to
     /// [RenderOperation::EveryFrame](crate::RenderOperation::EveryFrame) in the [ComponentConfig](crate::ComponentConfig).
-    fn render<'a>(
-        active: ComponentPath<Self>,
-        ctx: &'a Context<'a>,
-        config: RenderConfig<'a>,
-        encoder: &mut RenderEncoder,
-    ) {
-    }
+    fn render(active: &ActiveComponents<Self>, ctx: &Context, encoder: &mut RenderEncoder) {}
 }
 
 impl<C: ComponentDerive + ?Sized> ComponentDerive for Box<C> {

@@ -3,70 +3,86 @@ use crate::gui::Gui;
 #[cfg(feature = "physics")]
 use crate::physics::{ActiveEvents, CollideType};
 use crate::{
-    scene::context::ShuraFields, Context, FrameManager, GlobalState, Gpu, GpuDefaults, Input,
-    InstanceIndex, RenderConfig, RenderEncoder, RenderOperation, Renderer, Scene, SceneCreator,
-    SceneManager, Vector,
+    scene::context::ShuraFields, Context, FrameManager, GlobalStateManager, Gpu, GpuConfig,
+    GpuDefaults, Input, RenderConfigTarget, RenderEncoder, RenderOperation, Renderer, Scene,
+    SceneCreator, SceneManager, Vector,
 };
-use log::{error, info};
+#[cfg(target_arch = "wasm32")]
+use rustc_hash::FxHashMap;
 #[cfg(target_os = "android")]
 use winit::platform::android::activity::AndroidApp;
 
-const INITIAL_WIDTH: u32 = 800;
-const INITIAL_HEIGHT: u32 = 600;
+#[cfg(feature = "log")]
+use crate::{
+    log::{error, info, LoggerBuilder},
+    VERSION,
+};
 
-impl Drop for Shura {
-    fn drop(&mut self) {
-        for (_, scene) in self.scene_manager.end_scenes() {
-            let scene = &mut scene.unwrap();
-            let end = scene.state.get_end();
-            let mut ctx = Context::new(self, scene);
-            end(&mut ctx);
+/// Configuration for the base of the game engine
+pub struct ShuraConfig {
+    pub window: winit::window::WindowBuilder,
+    // pub global_states: Vec<Box<dyn GlobalStateController>>,
+    pub gpu: GpuConfig,
+    #[cfg(target_os = "android")]
+    pub app: AndroidApp,
+    #[cfg(feature = "log")]
+    pub logger: Option<LoggerBuilder>,
+    #[cfg(target_arch = "wasm32")]
+    pub canvas_attrs: FxHashMap<&'static str, &'static str>,
+    #[cfg(target_arch = "wasm32")]
+    pub auto_scale_canvas: bool,
+}
+
+impl ShuraConfig {
+    pub fn default(#[cfg(target_os = "android")] app: AndroidApp) -> Self {
+        ShuraConfig {
+            // global_states: vec![],
+            window: winit::window::WindowBuilder::new()
+                .with_inner_size(winit::dpi::PhysicalSize::new(800, 600))
+                .with_title("Shura Game"),
+            gpu: GpuConfig::default(),
+            #[cfg(target_os = "android")]
+            app,
+            #[cfg(feature = "log")]
+            logger: Some(Default::default()),
+            #[cfg(target_arch = "wasm32")]
+            auto_scale_canvas: true,
+            #[cfg(target_arch = "wasm32")]
+            canvas_attrs: {
+                let mut map = FxHashMap::default();
+                map.insert("tabindex", "0");
+                map.insert("oncontextmenu", "return false;");
+                map.insert(
+                    "style",
+                    "margin: auto; position: absolute; top: 0; bottom: 0; left: 0; right: 0;",
+                );
+                map
+            },
         }
     }
 }
 
-pub struct Shura {
-    pub(crate) end: bool,
-    pub(crate) frame_manager: FrameManager,
-    pub(crate) scene_manager: SceneManager,
-    pub(crate) window: winit::window::Window,
-    pub(crate) input: Input,
-    pub(crate) gpu: Gpu,
-    pub(crate) global_state: Box<dyn GlobalState>,
-    pub(crate) defaults: GpuDefaults,
-    #[cfg(feature = "gui")]
-    pub(crate) gui: Gui,
-    #[cfg(feature = "audio")]
-    pub(crate) audio: rodio::OutputStream,
-    #[cfg(feature = "audio")]
-    pub(crate) audio_handle: rodio::OutputStreamHandle,
-}
-
-impl Shura {
+impl ShuraConfig {
     /// Start a new game with the given callback to initialize the first [Scene](crate::Scene).
-    pub fn init<C: SceneCreator + 'static>(
-        #[cfg(target_os = "android")] app: AndroidApp,
-        creator: C,
-    ) {
+    pub fn init<C: SceneCreator + 'static>(self, init: C) {
         #[cfg(target_os = "android")]
         use winit::platform::android::EventLoopBuilderExtAndroid;
-        // #[cfg(target_os = "android")]
-        // android_logger::init_once(
-        //     android_logger::Config::default().with_min_level(log::Level::Info),
-        // );
 
-        info!("Using shura version: {}", env!("CARGO_PKG_VERSION"));
+        #[cfg(feature = "log")]
+        if let Some(logger) = self.logger {
+            logger.init().ok();
+        }
+
+        #[cfg(feature = "log")]
+        info!("Using shura version: {}", VERSION);
+
         #[cfg(target_os = "android")]
         let events = winit::event_loop::EventLoopBuilder::new()
-            .with_android_app(app)
+            .with_android_app(self.app)
             .build();
         #[cfg(not(target_os = "android"))]
         let events = winit::event_loop::EventLoop::new();
-        let window = winit::window::WindowBuilder::new()
-            .with_inner_size(winit::dpi::PhysicalSize::new(INITIAL_WIDTH, INITIAL_HEIGHT))
-            .with_title("Shura Game")
-            .build(&events)
-            .unwrap();
+        let window = self.window.build(&events).unwrap();
         let shura_window_id = window.id();
 
         #[cfg(target_arch = "wasm32")]
@@ -75,25 +91,10 @@ impl Shura {
             use winit::platform::web::WindowExtWebSys;
 
             std::panic::set_hook(Box::new(hook));
-            wasm_logger::init(wasm_logger::Config::default().module_prefix("shura"));
-
             let canvas = &web_sys::Element::from(window.canvas());
-            canvas.set_attribute("tabindex", "0").unwrap();
-            canvas
-                .set_attribute("oncontextmenu", "return false;")
-                .unwrap();
-            canvas
-                .set_attribute(
-                    "style",
-                    "
-                    margin: auto;
-                    position: absolute;
-                    top: 0;
-                    bottom: 0;
-                    left: 0;
-                    right: 0;",
-                )
-                .unwrap();
+            for (attr, value) in self.canvas_attrs {
+                canvas.set_attribute(attr, value).unwrap();
+            }
 
             let browser_window = web_sys::window().unwrap();
             let document = browser_window.document().unwrap();
@@ -101,19 +102,7 @@ impl Shura {
             body.append_child(canvas).ok();
         }
 
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            use env_logger::Builder;
-            use log::LevelFilter;
-            Builder::new()
-                .filter_level(LevelFilter::Info)
-                .filter_module("wgpu", LevelFilter::Warn)
-                .filter_module("winit", LevelFilter::Warn)
-                .filter_module("symphonia_core", LevelFilter::Warn)
-                .init();
-        }
-
-        let mut init = Some(creator);
+        let mut init = Some(init);
         let mut window = Some(window);
         let mut shura: Option<Shura> = if cfg!(target_os = "android") {
             None
@@ -121,14 +110,19 @@ impl Shura {
             Some(Shura::new(
                 window.take().unwrap(),
                 &events,
+                self.gpu.clone(),
                 init.take().unwrap(),
+                #[cfg(target_arch = "wasm32")]
+                self.auto_scale_canvas,
             ))
         };
 
         events.run(move |event, _target, control_flow| {
             use winit::event::{Event, WindowEvent};
             if let Some(shura) = &mut shura {
-                shura.global_state.winit_event(&event);
+                for global in shura.states.iter_mut() {
+                    global.winit_event(&event);
+                }
                 if !shura.end {
                     match event {
                         Event::WindowEvent {
@@ -180,7 +174,10 @@ impl Shura {
                                 Err(wgpu::SurfaceError::OutOfMemory) => {
                                     *control_flow = winit::event_loop::ControlFlow::Exit
                                 }
-                                Err(e) => error!("{:?}", e),
+                                Err(_e) => {
+                                    #[cfg(feature = "log")]
+                                    error!("Render Error: {:?}", _e)
+                                }
                             }
 
                             if shura.end {
@@ -204,7 +201,10 @@ impl Shura {
                         shura = Some(Shura::new(
                             window.take().unwrap(),
                             &_target,
+                            self.gpu.clone(),
                             init.take().unwrap(),
+                            #[cfg(target_arch = "wasm32")]
+                            self.auto_scale_canvas,
                         ))
                     }
                     _ => {}
@@ -212,13 +212,36 @@ impl Shura {
             }
         });
     }
+}
 
+pub(crate) struct Shura {
+    pub(crate) end: bool,
+    pub(crate) frame_manager: FrameManager,
+    pub(crate) scene_manager: SceneManager,
+    pub(crate) window: winit::window::Window,
+    pub(crate) input: Input,
+    pub(crate) gpu: Gpu,
+    pub(crate) states: GlobalStateManager,
+    pub(crate) defaults: GpuDefaults,
+    #[cfg(feature = "gui")]
+    pub(crate) gui: Gui,
+    #[cfg(feature = "audio")]
+    pub(crate) audio: rodio::OutputStream,
+    #[cfg(feature = "audio")]
+    pub(crate) audio_handle: rodio::OutputStreamHandle,
+    #[cfg(target_arch = "wasm32")]
+    auto_scale_canvas: bool,
+}
+
+impl Shura {
     fn new<C: SceneCreator>(
         window: winit::window::Window,
         _event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
+        gpu: GpuConfig,
         creator: C,
+        #[cfg(target_arch = "wasm32")] auto_scale_canvas: bool,
     ) -> Self {
-        let gpu = pollster::block_on(Gpu::new(&window));
+        let gpu = pollster::block_on(Gpu::new(&window, gpu));
         let mint: mint::Vector2<u32> = (window.inner_size()).into();
         let window_size: Vector<u32> = mint.into();
         let defaults = GpuDefaults::new(&gpu, window_size);
@@ -228,7 +251,7 @@ impl Shura {
             scene_manager: SceneManager::new(creator.id()),
             frame_manager: FrameManager::new(),
             input: Input::new(),
-            global_state: Box::new(()),
+            states: GlobalStateManager::default(),
             #[cfg(feature = "audio")]
             audio,
             #[cfg(feature = "audio")]
@@ -239,8 +262,10 @@ impl Shura {
             window,
             gpu: gpu,
             defaults,
+            #[cfg(target_arch = "wasm32")]
+            auto_scale_canvas,
         };
-        let scene = creator.create(ShuraFields::from_shura(&mut shura));
+        let scene = creator.scene(ShuraFields::from_shura(&mut shura));
         shura.scene_manager.init(scene);
         return shura;
     }
@@ -248,17 +273,16 @@ impl Shura {
     fn resize(&mut self, new_size: Vector<u32>) {
         let config_size = self.gpu.render_size_no_scale();
         if new_size.x > 0 && new_size.y > 0 && new_size != config_size {
-            let active = self.scene_manager.resize();
+            self.scene_manager.resize();
             self.gpu.resize(new_size);
-            self.defaults
-                .resize(&self.gpu, new_size, &active.screen_config);
+            self.defaults.resize(&self.gpu, new_size);
             #[cfg(feature = "gui")]
             self.gui.resize(&new_size);
         }
     }
 
     #[cfg(feature = "physics")]
-    fn step(ctx: &mut Context) {
+    fn physics_step(ctx: &mut Context) {
         let delta = ctx.frame_time();
         ctx.component_manager.world_mut().step(delta);
         // while let Ok(contact_force_event) = ctx.component_manager.event_receivers.1.try_recv() {
@@ -318,41 +342,63 @@ impl Shura {
     }
 
     fn update(&mut self, scene: &mut Scene) -> Result<(), wgpu::SurfaceError> {
-        #[cfg(target_arch = "wasm32")]
-        {
-            let browser_window = web_sys::window().unwrap();
-            let width: u32 = browser_window.inner_width().unwrap().as_f64().unwrap() as u32;
-            let height: u32 = browser_window.inner_height().unwrap().as_f64().unwrap() as u32;
-            let size = winit::dpi::PhysicalSize::new(width, height);
-            if size != self.window.inner_size().into() {
-                self.window.set_inner_size(size);
-                info!(
-                    "{:?}",
-                    browser_window
-                        .document()
-                        .unwrap()
-                        .body()
-                        .unwrap()
-                        .client_width()
-                );
-                info!("Adjusting canvas to browser window!");
-            }
-        }
+        self.frame_manager.update();
         let mint: mint::Vector2<u32> = self.window.inner_size().into();
         let window_size: Vector<u32> = mint.into();
-        self.frame_manager.update();
+        #[cfg(target_arch = "wasm32")]
+        {
+            if self.auto_scale_canvas {
+                let browser_window = web_sys::window().unwrap();
+                let width: u32 = browser_window.inner_width().unwrap().as_f64().unwrap() as u32;
+                let height: u32 = browser_window.inner_height().unwrap().as_f64().unwrap() as u32;
+                let size = winit::dpi::PhysicalSize::new(width, height);
+                if size != self.window.inner_size().into() {
+                    self.window.set_inner_size(size);
+                    #[cfg(feature = "log")]
+                    {
+                        info!(
+                            "{:?}",
+                            browser_window
+                                .document()
+                                .unwrap()
+                                .body()
+                                .unwrap()
+                                .client_width()
+                        );
+                        info!("Adjusting canvas to browser window!");
+                    }
+                }
+            }
+        }
+        if scene.switched || scene.resized || scene.screen_config.changed {
+            scene.screen_config.changed = false;
+            scene.world_camera.resize(window_size);
+
+            self.gpu.apply_vsync(scene.screen_config.vsync());
+            self.defaults
+                .apply_render_scale(&self.gpu, scene.screen_config.render_scale());
+        }
+        if scene.started {
+            self.input.update();
+            scene.world_camera.apply_target(&scene.component_manager);
+            self.defaults.buffer(
+                &mut scene.world_camera.camera,
+                &self.gpu,
+                self.frame_manager.total_time(),
+                self.frame_manager.frame_time(),
+            );
+            scene
+                .component_manager
+                .update_sets(&self.defaults.world_camera);
+            scene.component_manager.buffer_sets(&self.gpu);
+        }
+        let output = self.gpu.surface.get_current_texture()?;
+
         #[cfg(feature = "gui")]
         self.gui
             .begin(&self.frame_manager.total_time_duration(), &self.window);
 
-        if scene.resized {
-            scene
-                .world_camera
-                .resize(window_size.x as f32 / window_size.y as f32);
-        }
-
         {
-            let state_update = scene.state.get_update();
             let mut ctx = Context::new(self, scene);
             #[cfg(feature = "physics")]
             let (mut done_step, physics_priority) = {
@@ -362,20 +408,27 @@ impl Shura {
                     (true, 0)
                 }
             };
+            let mut prev_priority = i16::MIN;
             let now = ctx.update_time();
             {
                 let sets = ctx.component_manager.copy_active_components();
-                state_update(&mut ctx);
                 for set in sets.values() {
-                    if set.paths().len() == 0 {
-                        continue;
+                    let config = set.config();
+                    for update in ctx
+                        .scene_states
+                        .updates(prev_priority, set.config().priority)
+                    {
+                        update(&mut ctx);
                     }
 
-                    let config = set.config();
                     #[cfg(feature = "physics")]
                     if !done_step && config.priority > physics_priority {
                         done_step = true;
-                        Self::step(&mut ctx);
+                        Self::physics_step(&mut ctx);
+                    }
+
+                    if set.paths().len() == 0 {
+                        continue;
                     }
 
                     match config.update {
@@ -396,12 +449,17 @@ impl Shura {
                     }
 
                     (set.callbacks().call_update)(set.paths(), &mut ctx);
+                    prev_priority = config.priority;
                 }
             }
 
             #[cfg(feature = "physics")]
             if !done_step && ctx.physics_priority().is_some() {
-                Self::step(&mut ctx);
+                Self::physics_step(&mut ctx);
+            }
+
+            for update in ctx.scene_states.updates(prev_priority, i16::MAX) {
+                update(&mut ctx);
             }
         }
 
@@ -409,32 +467,31 @@ impl Shura {
         self.defaults
             .apply_render_scale(&self.gpu, scene.screen_config.render_scale());
         scene.world_camera.apply_target(&scene.component_manager);
-        scene.component_manager.update_sets(&scene.world_camera);
-
-        if !scene.component_manager.render_components() {
-            return Ok(());
-        }
-
-        if scene.switched || scene.resized || scene.screen_config.vsync_changed {
-            scene.screen_config.vsync_changed = false;
-            self.gpu.apply_vsync(scene.screen_config.vsync());
-        }
-
-        scene.component_manager.buffer_sets(&self.gpu);
         self.defaults.buffer(
-            &scene.world_camera,
+            &mut scene.world_camera.camera,
             &self.gpu,
             self.frame_manager.total_time(),
             self.frame_manager.frame_time(),
         );
 
-        let mut encoder = RenderEncoder::new(&self.gpu);
-        if let Some(clear_color) = scene.screen_config.clear_color {
-            encoder.clear_target(&self.defaults.target, clear_color);
+        scene
+            .component_manager
+            .update_sets(&self.defaults.world_camera);
+        if !scene.component_manager.render_components() {
+            scene.resized = false;
+            scene.switched = false;
+            scene.started = false;
+            return Ok(());
+        }
+
+        scene.component_manager.buffer_sets(&self.gpu);
+        let ctx = Context::new(self, scene);
+        let mut encoder = RenderEncoder::new(ctx.gpu, &ctx.defaults);
+        if let Some(clear_color) = ctx.screen_config.clear_color {
+            encoder.clear(RenderConfigTarget::World, clear_color);
         }
 
         {
-            let ctx = Context::new(self, scene);
             for set in ctx.component_manager.copy_active_components().values() {
                 if set.is_empty() {
                     continue;
@@ -443,64 +500,51 @@ impl Shura {
                 if config.render != RenderOperation::Never {
                     match config.render {
                         RenderOperation::EveryFrame => {
-                            for path in set.paths() {
-                                let group = ctx.component_manager.group(path.group_index).unwrap();
-                                let component_type = group.type_ref(path.type_index).unwrap();
-                                let buffer = component_type
-                                    .buffer()
-                                    .unwrap_or(&ctx.defaults.empty_instance);
-                                let config = RenderConfig {
-                                    camera: &ctx.defaults.world_camera,
-                                    instances: buffer,
-                                    target: &ctx.defaults.target,
-                                    gpu: &ctx.gpu,
-                                    defaults: &ctx.defaults,
-                                    msaa: true,
-                                };
-                                if component_type.len() > 0 {
-                                    (set.callbacks().call_render)(
-                                        &[*path],
-                                        &ctx,
-                                        config,
-                                        &mut encoder,
-                                    );
-                                }
-                            }
+                            (set.callbacks().call_render)(&set.paths(), &ctx, &mut encoder);
                         }
                         _ => {}
                     }
                 }
             }
         }
-        let output = self.gpu.surface.get_current_texture()?;
         let output_view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
 
         {
-            let mut renderer = Renderer::output_renderer(
-                &mut encoder.inner,
-                &self.gpu,
-                &self.defaults,
-                &output_view,
-            );
-            renderer.render_sprite_no_msaa(
-                InstanceIndex::new(0),
-                self.defaults.relative_camera.buffer().model(),
-                self.defaults.target.sprite(),
-            );
+            let mut renderer =
+                Renderer::output_renderer(&mut encoder.inner, &output_view, &ctx.defaults);
+            renderer.use_camera(&ctx.defaults.relative_camera.0);
+            renderer.use_instances(&ctx.defaults.single_centered_instance);
+            renderer.use_shader(&ctx.defaults.sprite_no_msaa);
+            renderer.use_model(ctx.defaults.relative_camera.0.model());
+            renderer.use_sprite(ctx.defaults.world_target.sprite(), 1);
+            renderer.draw(0);
         }
 
         #[cfg(feature = "gui")]
-        {
-            self.gui.render(&self.gpu, &mut encoder.inner, &output_view);
-        }
+        ctx.gui.render(&ctx.gpu, &mut encoder.inner, &output_view);
 
-        encoder.submit(&self.gpu);
+        encoder.stage();
+        ctx.gpu.submit_staged_encoders();
         output.present();
 
         scene.resized = false;
         scene.switched = false;
+        scene.started = false;
         Ok(())
+    }
+}
+
+impl Drop for Shura {
+    fn drop(&mut self) {
+        for (_, mut scene) in self.scene_manager.end_scenes() {
+            if let Some(scene) = &mut scene {
+                for end in scene.states.ends() {
+                    let mut ctx = Context::new(self, scene);
+                    end(&mut ctx);
+                }
+            }
+        }
     }
 }

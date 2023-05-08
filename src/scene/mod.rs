@@ -3,4 +3,3 @@ pub mod scene;
 pub mod scene_manager;
 #[cfg(feature = "serde")]
 pub mod scene_serde;
-pub mod state;

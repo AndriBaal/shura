@@ -1,8 +1,9 @@
 use shura::*;
 
-fn main() {
-    Shura::init(NewScene::new(1, |ctx| {
-        ctx.set_camera_vertical_fov(5.0);
+#[shura::main]
+fn shura_main(config: ShuraConfig) {
+    config.init(NewScene::new(1, |ctx| {
+        ctx.set_camera_scale(WorldCameraScale::Min(10.0));
         ctx.add_component(ModelTest::new(
             Vector::new(-3.0, 3.0),
             ctx.create_model(ModelBuilder::cuboid(Vector::new(0.5, 0.5))),
@@ -125,15 +126,9 @@ impl ComponentController for ModelTest {
         buffer: BufferOperation::Manual,
         ..DEFAULT_CONFIG
     };
-    fn render<'a>(
-        active: ComponentPath<Self>,
-        ctx: &'a Context<'a>,
-        config: RenderConfig<'a>,
-        encoder: &mut RenderEncoder,
-    ) {
-        let (_, mut renderer) = encoder.renderer(&config);
-        for (i, c) in &ctx.path_render(&active) {
-            renderer.render_color(i, &c.model, &c.color);
-        }
+    fn render(active: &ActiveComponents<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
+        ctx.render_each(active, encoder, RenderConfig::WORLD, |r, model, index| {
+            r.render_color(index, &model.model, &model.color)
+        })
     }
 }

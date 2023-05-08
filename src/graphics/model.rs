@@ -1,8 +1,19 @@
 #[cfg(feature = "physics")]
 use crate::physics::{Shape, TypedShape};
+use crate::CameraBuffer;
 use crate::{na::Matrix2, Gpu, Index, Isometry, Rotation, Vector, Vertex};
 use std::f32::consts::{FRAC_PI_2, PI};
 use wgpu::util::DeviceExt;
+
+#[derive(Debug)]
+/// Indexbuffer of a [Model]. This is either a 'custom' one for the [Model] or a shared one.
+/// For example all rectangles have the same IndexBuffer, so we don't need to have a seperate one
+/// for every Rectangle.
+pub enum ModelIndexBuffer {
+    Triangle,
+    Cuboid,
+    Custom(wgpu::Buffer),
+}
 
 impl Default for ModelBuilder {
     fn default() -> Self {
@@ -16,6 +27,37 @@ impl Default for ModelBuilder {
             vertex_rotation_axis: Vector::new(0.0, 0.0),
             tex_coord_rotation_axis: Vector::new(0.5, 0.5),
         }
+    }
+}
+
+trait ComputeAABB {
+    fn aabb(&self) -> (Vector<f32>, Vector<f32>);
+}
+
+impl ComputeAABB for [Vertex] {
+    fn aabb(&self) -> (Vector<f32>, Vector<f32>) {
+        let mut min_x = self[0].pos.x;
+        let mut max_x = self[0].pos.x;
+        let mut min_y = self[0].pos.y;
+        let mut max_y = self[0].pos.y;
+        for i in 1..self.len() {
+            let v = self[i];
+            if v.pos.x < min_x {
+                min_x = v.pos.x;
+            }
+            if v.pos.x > max_x {
+                max_x = v.pos.x;
+            }
+
+            if v.pos.y < min_y {
+                min_y = v.pos.y;
+            }
+            if v.pos.y > max_y {
+                max_y = v.pos.y;
+            }
+        }
+
+        return (Vector::new(min_x, min_y), Vector::new(max_x, max_y));
     }
 }
 
@@ -34,6 +76,9 @@ pub struct ModelBuilder {
 }
 
 impl ModelBuilder {
+    pub(crate) const TRIANGLE_INDICES: [Index; 1] = [Index::new(0, 1, 2)];
+    pub(crate) const CUBOID_INDICES: [Index; 2] = [Index::new(0, 1, 2), Index::new(2, 3, 0)];
+
     const DEFAULT_OFFSET: Vector<f32> = Vector::new(0.0, 0.0);
     const DEFAULT_ROTATION: f32 = 0.0;
     const DEFAULT_SCALE: Vector<f32> = Vector::new(1.0, 1.0);
@@ -80,6 +125,9 @@ impl ModelBuilder {
             ..Default::default()
         }
     }
+    pub fn square(half_length: f32) -> Self {
+        Self::cuboid(Vector::new(half_length, half_length))
+    }
     pub fn cuboid(half_extents: Vector<f32>) -> Self {
         let vertices = vec![
             Vertex::new(
@@ -99,7 +147,7 @@ impl ModelBuilder {
                 Vector::new(1.0, 0.0),
             ),
         ];
-        let indices = vec![Index::new(0, 1, 2), Index::new(2, 3, 0)];
+        let indices = Vec::from(Self::CUBOID_INDICES);
         Self {
             vertices,
             indices,
@@ -114,7 +162,7 @@ impl ModelBuilder {
             vec![c, b, a]
         };
         let vertices = Self::create_tex_coords(vertices);
-        let indices = vec![Index::new(0, 1, 2)];
+        let indices = Vec::from(Self::TRIANGLE_INDICES);
         Self {
             vertices,
             indices,
@@ -294,8 +342,8 @@ impl ModelBuilder {
         let mut vertices = vec![];
         let mut indices = vec![];
         let mut offset = 0;
-        for mut shape in shapes {
-            shape.apply_modifiers();
+        for shape in shapes {
+            let shape = shape.apply_modifiers();
             vertices.extend(shape.vertices);
             let len = shape.indices.len() as u32;
             for index in shape.indices {
@@ -418,28 +466,26 @@ impl ModelBuilder {
 
     /// Generates the texture coordinates
     pub fn create_tex_coords(vertices: Vec<Vector<f32>>) -> Vec<Vertex> {
-        use std::cmp::Ordering::Equal;
+        let mut min_x = vertices[0].x;
+        let mut max_x = vertices[0].x;
+        let mut min_y = vertices[0].y;
+        let mut max_y = vertices[0].y;
+        for i in 1..vertices.len() {
+            let v = vertices[i];
+            if v.x < min_x {
+                min_x = v.x;
+            }
+            if v.x > max_x {
+                max_x = v.x;
+            }
 
-        let max_x = vertices
-            .iter()
-            .max_by(|v1, v2| v1.x.partial_cmp(&v2.x).unwrap_or(Equal))
-            .unwrap()
-            .x;
-        let min_x = vertices
-            .iter()
-            .min_by(|v1, v2| v1.x.partial_cmp(&v2.x).unwrap_or(Equal))
-            .unwrap()
-            .x;
-        let max_y = vertices
-            .iter()
-            .max_by(|v1, v2| v1.y.partial_cmp(&v2.y).unwrap_or(Equal))
-            .unwrap()
-            .y;
-        let min_y = vertices
-            .iter()
-            .min_by(|v1, v2| v1.y.partial_cmp(&v2.y).unwrap_or(Equal))
-            .unwrap()
-            .y;
+            if v.y < min_y {
+                min_y = v.y;
+            }
+            if v.y > max_y {
+                max_y = v.y;
+            }
+        }
         let size = Vector::new(max_x - min_x, max_y - min_y);
         let mut result = vec![];
         for v in vertices {
@@ -503,7 +549,7 @@ impl ModelBuilder {
         self
     }
 
-    pub fn apply_modifiers(&mut self) {
+    pub fn apply_modifiers(mut self) -> Self {
         Self::compute_modifed_vertices(
             &mut self.vertices,
             self.vertex_offset,
@@ -512,7 +558,12 @@ impl ModelBuilder {
             self.tex_coord_scale,
             self.vertex_rotation_axis,
             self.tex_coord_rotation_axis,
-        )
+        );
+        Self {
+            vertices: self.vertices,
+            indices: self.indices,
+            ..Default::default()
+        }
     }
 
     pub fn compute_modifed_vertices(
@@ -524,19 +575,6 @@ impl ModelBuilder {
         vertex_rotation_axis: Vector<f32>,
         tex_coord_rotation_axis: Vector<f32>,
     ) {
-        fn rotate_point_around_origin(
-            origin: Vector<f32>,
-            point: Vector<f32>,
-            rot: Rotation<f32>,
-        ) -> Vector<f32> {
-            let sin = rot.sin_angle();
-            let cos = rot.cos_angle();
-            return Vector::new(
-                origin.x + (point.x - origin.x) * cos - (point.y - origin.y) * sin,
-                origin.y + (point.x - origin.x) * sin + (point.y - origin.y) * cos,
-            );
-        }
-
         if vertex_scale != Self::DEFAULT_SCALE {
             for v in vertices.iter_mut() {
                 v.pos.x *= vertex_scale.x;
@@ -546,9 +584,15 @@ impl ModelBuilder {
 
         let angle = vertex_offset.rotation.angle();
         if angle != Self::DEFAULT_ROTATION {
+            let sin = vertex_offset.rotation.sin_angle();
+            let cos = vertex_offset.rotation.cos_angle();
             for v in vertices.iter_mut() {
-                v.pos =
-                    rotate_point_around_origin(vertex_rotation_axis, v.pos, vertex_offset.rotation);
+                let delta = v.pos - vertex_rotation_axis;
+
+                v.pos = Vector::new(
+                    vertex_rotation_axis.x + (delta.x) * cos - (delta.y) * sin,
+                    vertex_rotation_axis.y + (delta.x) * sin + (delta.y) * cos,
+                );
             }
         }
 
@@ -567,11 +611,14 @@ impl ModelBuilder {
 
         let angle = tex_coord_offset.rotation.angle();
         if angle != Self::DEFAULT_ROTATION {
+            let sin = tex_coord_offset.rotation.sin_angle();
+            let cos = tex_coord_offset.rotation.cos_angle();
             for v in vertices.iter_mut() {
-                v.tex_coords = rotate_point_around_origin(
-                    tex_coord_rotation_axis, // Center of Metal Texture
-                    v.tex_coords,
-                    tex_coord_offset.rotation,
+                let delta = v.tex_coords - tex_coord_rotation_axis;
+
+                v.tex_coords = Vector::new(
+                    tex_coord_rotation_axis.x + (delta.x) * cos - (delta.y) * sin,
+                    tex_coord_rotation_axis.y + (delta.x) * sin + (delta.y) * cos,
                 );
             }
         }
@@ -585,6 +632,7 @@ impl ModelBuilder {
 
     pub fn build(self, gpu: &Gpu) -> Model {
         let mut vertices = self.vertices.clone();
+        assert!(vertices.len() >= 3);
         Self::compute_modifed_vertices(
             &mut vertices,
             self.vertex_offset,
@@ -603,19 +651,27 @@ impl ModelBuilder {
                 usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             });
 
-        let index_buffer = gpu
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("index_buffer"),
-                contents: bytemuck::cast_slice(&self.indices[..]),
-                usage: wgpu::BufferUsages::INDEX,
-            });
+        let index_buffer;
+        if self.indices[..] == ModelBuilder::TRIANGLE_INDICES {
+            index_buffer = ModelIndexBuffer::Triangle;
+        } else if self.indices[..] == ModelBuilder::CUBOID_INDICES {
+            index_buffer = ModelIndexBuffer::Cuboid;
+        } else {
+            index_buffer = ModelIndexBuffer::Custom(gpu.device.create_buffer_init(
+                &wgpu::util::BufferInitDescriptor {
+                    label: Some("index_buffer"),
+                    contents: bytemuck::cast_slice(&self.indices[..]),
+                    usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
+                },
+            ));
+        }
 
         Model {
             amount_of_vertices: self.vertices.len() as u32,
             amount_of_indices: self.indices.len() as u32,
             vertex_buffer,
             index_buffer,
+            aabb: vertices.aabb(),
         }
     }
 }
@@ -626,7 +682,8 @@ pub struct Model {
     amount_of_vertices: u32,
     amount_of_indices: u32,
     vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer,
+    index_buffer: ModelIndexBuffer,
+    aabb: (Vector<f32>, Vector<f32>),
 }
 
 impl Model {
@@ -634,28 +691,52 @@ impl Model {
         builder.build(gpu)
     }
 
-    pub fn write(&self, gpu: &Gpu, vertices: &[Vertex], indices: &[Index]) {
-        self.write_indices(gpu, indices);
-        self.write_vertices(gpu, vertices);
+    pub fn intersects_camera(&self, position: Isometry<f32>, camera: &CameraBuffer) -> bool {
+        let model_aabb = self.aabb(position);
+        let camera_aabb = camera.model().aabb(Vector::default().into());
+        return (camera_aabb.0.x < model_aabb.1.x)
+            && (model_aabb.0.x < camera_aabb.1.x)
+            && (camera_aabb.0.y < model_aabb.1.y)
+            && (model_aabb.0.y < camera_aabb.1.y);
     }
 
-    pub fn write_vertices(&self, gpu: &Gpu, vertices: &[Vertex]) {
+    pub fn write(&mut self, gpu: &Gpu, builder: ModelBuilder) {
+        let builder = builder.apply_modifiers();
+        self.write_indices(gpu, &builder.indices);
+        self.write_vertices(gpu, &builder.vertices);
+    }
+
+    pub fn write_indices(&mut self, gpu: &Gpu, indices: &[Index]) {
+        assert_eq!(indices.len(), self.amount_of_indices as usize);
+        match &self.index_buffer {
+            ModelIndexBuffer::Custom(c) => {
+                gpu.queue
+                    .write_buffer(c, 0, bytemuck::cast_slice(&indices[..]));
+            }
+            _ => {
+                self.index_buffer = ModelIndexBuffer::Custom(gpu.device.create_buffer_init(
+                    &wgpu::util::BufferInitDescriptor {
+                        label: Some("index_buffer"),
+                        contents: bytemuck::cast_slice(&indices[..]),
+                        usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
+                    },
+                ));
+            }
+        };
+    }
+
+    pub fn write_vertices(&mut self, gpu: &Gpu, vertices: &[Vertex]) {
         assert_eq!(vertices.len(), self.amount_of_vertices as usize);
+        self.aabb = vertices.aabb();
         gpu.queue
             .write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&vertices[..]));
-    }
-
-    pub fn write_indices(&self, gpu: &Gpu, indices: &[Index]) {
-        assert_eq!(indices.len(), self.amount_of_indices as usize);
-        gpu.queue
-            .write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&indices[..]));
     }
 
     pub fn vertex_buffer(&self) -> &wgpu::Buffer {
         &self.vertex_buffer
     }
 
-    pub fn index_buffer(&self) -> &wgpu::Buffer {
+    pub fn index_buffer(&self) -> &ModelIndexBuffer {
         &self.index_buffer
     }
 
@@ -665,5 +746,49 @@ impl Model {
 
     pub fn amount_of_vertices(&self) -> u32 {
         self.amount_of_vertices
+    }
+
+    pub fn aabb(&self, position: Isometry<f32>) -> (Vector<f32>, Vector<f32>) {
+        let mut model_aabb = self.aabb;
+        model_aabb.0 += position.translation.vector;
+        model_aabb.1 += position.translation.vector;
+
+        if position.rotation.angle() != ModelBuilder::DEFAULT_ROTATION {
+            let sin = position.rotation.sin_angle();
+            let cos = position.rotation.cos_angle();
+            let delta = model_aabb.0 - position.translation.vector;
+            model_aabb.0 = Vector::new(
+                model_aabb.0.x + (delta.x) * cos - (delta.y) * sin,
+                model_aabb.0.y + (delta.x) * sin + (delta.y) * cos,
+            );
+
+            let sin = position.rotation.sin_angle();
+            let cos = position.rotation.cos_angle();
+            let delta = model_aabb.1 - position.translation.vector;
+            model_aabb.1 = Vector::new(
+                model_aabb.1.x + (delta.x) * cos - (delta.y) * sin,
+                model_aabb.1.y + (delta.x) * sin + (delta.y) * cos,
+            );
+
+            let mut xs = [
+                model_aabb.0.x,
+                model_aabb.0.x,
+                model_aabb.1.x,
+                model_aabb.1.x,
+            ];
+            xs.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            let mut ys = [
+                model_aabb.0.y,
+                model_aabb.0.y,
+                model_aabb.1.y,
+                model_aabb.1.y,
+            ];
+            ys.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
+            model_aabb.0 = Vector::new(*xs.first().unwrap(), *ys.first().unwrap());
+            model_aabb.1 = Vector::new(*xs.last().unwrap(), *ys.last().unwrap());
+        }
+
+        return model_aabb;
     }
 }

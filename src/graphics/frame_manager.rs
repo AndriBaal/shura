@@ -1,4 +1,5 @@
 pub use instant::{Duration, Instant};
+#[cfg(feature = "log")]
 use log::info;
 
 /// Acces to various frame informations.
@@ -50,13 +51,12 @@ impl FrameManager {
             self.fps = self.fps_counter;
             self.fps_time = self.total_time;
             self.fps_counter = 0;
+            #[cfg(feature = "log")]
             info!("fps: {}\tdelta: {}", self.fps, self.frame_time());
         }
 
         self.last_time = self.total_time;
     }
-
-    // Getter
 
     pub const fn start_time(&self) -> Instant {
         self.start_time
@@ -80,6 +80,10 @@ impl FrameManager {
 
     pub const fn frame_time_duration(&self) -> Duration {
         self.frame_time
+    }
+
+    pub const fn frames_since_last_seconds(&self) -> u32 {
+        self.fps_counter
     }
 
     pub const fn total_time_duration(&self) -> Duration {

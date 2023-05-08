@@ -12,7 +12,7 @@ pub enum RenderOperation {
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-/// Describes when the [Matrix](crate::RenderMatrix) of the components should be bufferd.
+/// Describes when the [Matrix](crate::Matrix) of the components should be bufferd.
 pub enum BufferOperation {
     /// Manual buffering by calling [force_buffer](`crate::Context::force_buffer()`). This is used when you have component that dont
     /// change their position. If you add a new component, all components of this type from the group will be buffered.

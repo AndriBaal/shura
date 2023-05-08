@@ -1,12 +1,12 @@
 use crate::Gpu;
 
-/// Font that can be rendered onto a [sprite](crate::Sprite).
 pub use wgpu_glyph::BuiltInLineBreaker as DefaultLineBreaker;
 pub use wgpu_glyph::FontId;
 pub use wgpu_glyph::Layout as LineBreaker;
 pub use wgpu_glyph::Text;
 use wgpu_glyph::{ab_glyph, GlyphBrush, GlyphBrushBuilder};
 
+/// Font that can be rendered onto a [RenderTarget](crate::RenderTarget).
 pub struct FontBrush {
     pub brush: GlyphBrush<()>,
 }
@@ -16,7 +16,8 @@ impl FontBrush {
         let font = ab_glyph::FontArc::try_from_slice(bytes).unwrap();
         let brush = GlyphBrushBuilder::using_font(font)
             // .multisample_state(gpu.base.multisample_state)
-            .texture_filter_method(wgpu::FilterMode::Nearest)
+            .initial_cache_size((512, 512))
+            .texture_filter_method(wgpu::FilterMode::Linear)
             .build(&gpu.device, gpu.config.format);
         Self { brush }
     }

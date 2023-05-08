@@ -1,19 +1,21 @@
-use crate::{ComponentHandle, Isometry, Matrix, Rotation, Vector};
+use crate::{ComponentDerive, ComponentHandle, Isometry, Matrix, Rotation, Vector};
 #[cfg(feature = "physics")]
 use std::{
-    cell::{Ref, RefCell, RefMut},
+    cell::{Ref, RefMut},
     ops::{Deref, DerefMut},
-    rc::Rc,
 };
 
 #[cfg(feature = "physics")]
 use crate::{
-    physics::{Collider, ColliderHandle, RigidBody, RigidBodyHandle, World},
+    physics::{Collider, ColliderBuilder, ColliderHandle, RcWorld, RigidBody, RigidBodyHandle},
     ComponentTypeId,
 };
 
+const NO_RIGID_BODY_PANIC: &'static str = "This body has no RigidBody or Collider!";
+
 /// Easily create a [BaseComponent] with a position and render_scale.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone)]
 pub struct PositionBuilder {
     pub render_scale: Vector<f32>,
     pub position: Isometry<f32>,
@@ -52,6 +54,10 @@ impl PositionBuilder {
         self.position = position;
         self
     }
+
+    pub fn build(self) -> BaseComponent {
+        self.into()
+    }
 }
 
 impl Into<BaseComponent> for PositionBuilder {
@@ -61,10 +67,10 @@ impl Into<BaseComponent> for PositionBuilder {
 }
 
 /// Base of a component that is bound to a poisition on the screen, either by a
-/// Position or a RigidBody.
+/// Position or a [RigidBody (physics only)](crate::physics::RigidBody).
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct BaseComponent {
-    handle: Option<ComponentHandle>,
+    handle: ComponentHandle,
     render_scale: Vector<f32>,
     body: BodyStatus,
 }
@@ -75,10 +81,44 @@ impl Default for BaseComponent {
     }
 }
 
+impl Clone for BaseComponent {
+    fn clone(&self) -> Self {
+        Self {
+            handle: ComponentHandle::INVALID,
+            render_scale: self.render_scale.clone(),
+            body: match &self.body {
+                BodyStatus::RigidBody {
+                    world_wrapper,
+                    body_handle,
+                } => {
+                    let body = world_wrapper.body(*body_handle);
+                    let colliders = body
+                        .colliders()
+                        .iter()
+                        .map(|h| world_wrapper.collider(*h).unwrap().clone())
+                        .collect();
+                    BodyStatus::RigidBodyPending {
+                        body: Box::new(body.deref().clone()),
+                        colliders: colliders,
+                    }
+                }
+                BodyStatus::RigidBodyPending { body, colliders } => BodyStatus::RigidBodyPending {
+                    body: body.clone(),
+                    colliders: colliders.clone(),
+                },
+                BodyStatus::Position { position, matrix } => BodyStatus::Position {
+                    position: *position,
+                    matrix: *matrix,
+                },
+            },
+        }
+    }
+}
+
 #[allow(unreachable_patterns)]
 impl BaseComponent {
     pub fn new(pos: PositionBuilder) -> Self {
-        let mut matrix = Matrix::default();
+        let mut matrix = Matrix::NULL_MODEL;
         matrix.translate(pos.position.translation.vector);
         matrix.rotate(pos.render_scale, pos.position.rotation);
         Self {
@@ -92,7 +132,7 @@ impl BaseComponent {
     }
 
     #[cfg(feature = "physics")]
-    pub fn new_rigid_body(body: impl Into<RigidBody>, colliders: Vec<impl Into<Collider>>) -> Self {
+    pub fn new_body(body: impl Into<RigidBody>, colliders: &[ColliderBuilder]) -> Self {
         Self {
             handle: Default::default(),
             render_scale: Vector::new(1.0, 1.0),
@@ -100,20 +140,18 @@ impl BaseComponent {
                 body: Box::new(body.into()),
                 colliders: colliders
                     .into_iter()
-                    .map(|collider| collider.into())
+                    .map(|collider| collider.build())
                     .collect(),
             },
         }
     }
 
     pub(crate) fn init(&mut self, handle: ComponentHandle) {
-        if self.handle.is_none() {
-            self.handle = Some(handle);
-        }
+        self.handle = handle;
     }
 
     pub(crate) fn deinit(&mut self) {
-        self.handle = None;
+        self.handle = ComponentHandle::INVALID;
         #[cfg(feature = "physics")]
         match self.body {
             BodyStatus::RigidBody { .. } => self.remove_from_world(),
@@ -130,18 +168,17 @@ impl BaseComponent {
                 body_handle,
                 ..
             } => Matrix::new(
-                *world_wrapper
-                    .world()
-                    .rigid_body(*body_handle)
-                    .unwrap()
-                    .position(),
+                *world_wrapper.body(*body_handle).position(),
+                Vector::new(1.0, 1.0),
             ),
             #[cfg(feature = "physics")]
-            BodyStatus::RigidBodyPending { body, .. } => Matrix::new(*body.position()),
+            BodyStatus::RigidBodyPending { body, .. } => {
+                Matrix::new(*body.position(), Vector::new(1.0, 1.0))
+            }
         };
     }
 
-    pub fn handle(&self) -> Option<ComponentHandle> {
+    pub fn handle(&self) -> ComponentHandle {
         return self.handle;
     }
 
@@ -157,9 +194,7 @@ impl BaseComponent {
                 body_handle,
                 ..
             } => world_wrapper
-                .world_mut()
-                .rigid_body_mut(*body_handle)
-                .unwrap()
+                .body_mut(*body_handle)
                 .set_rotation(rotation, true),
             #[cfg(feature = "physics")]
             BodyStatus::RigidBodyPending { body, .. } => body.set_rotation(rotation, true),
@@ -178,9 +213,7 @@ impl BaseComponent {
                 body_handle,
                 ..
             } => world_wrapper
-                .world_mut()
-                .rigid_body_mut(*body_handle)
-                .unwrap()
+                .body_mut(*body_handle)
                 .set_translation(translation, true),
             #[cfg(feature = "physics")]
             BodyStatus::RigidBodyPending { body, .. } => body.set_translation(translation, true),
@@ -200,9 +233,7 @@ impl BaseComponent {
                 body_handle,
                 ..
             } => world_wrapper
-                .world_mut()
-                .rigid_body_mut(*body_handle)
-                .unwrap()
+                .body_mut(*body_handle)
                 .set_position(new_position, true),
             #[cfg(feature = "physics")]
             BodyStatus::RigidBodyPending { body, .. } => body.set_position(new_position, true),
@@ -217,11 +248,7 @@ impl BaseComponent {
                 world_wrapper,
                 body_handle,
                 ..
-            } => *world_wrapper
-                .world()
-                .rigid_body(*body_handle)
-                .unwrap()
-                .rotation(),
+            } => *world_wrapper.body(*body_handle).rotation(),
             #[cfg(feature = "physics")]
             BodyStatus::RigidBodyPending { body, .. } => *body.rotation(),
         };
@@ -235,11 +262,7 @@ impl BaseComponent {
                 world_wrapper,
                 body_handle,
                 ..
-            } => *world_wrapper
-                .world()
-                .rigid_body(*body_handle)
-                .unwrap()
-                .translation(),
+            } => *world_wrapper.body(*body_handle).translation(),
             #[cfg(feature = "physics")]
             BodyStatus::RigidBodyPending { body, .. } => *body.translation(),
         };
@@ -253,11 +276,7 @@ impl BaseComponent {
                 world_wrapper,
                 body_handle,
                 ..
-            } => *world_wrapper
-                .world()
-                .rigid_body(*body_handle)
-                .unwrap()
-                .position(),
+            } => *world_wrapper.body(*body_handle).position(),
             #[cfg(feature = "physics")]
             BodyStatus::RigidBodyPending { body, .. } => *body.position(),
         };
@@ -266,8 +285,6 @@ impl BaseComponent {
     pub const fn render_scale(&self) -> &Vector<f32> {
         &self.render_scale
     }
-
-    // Setters
 
     pub fn set_scale(&mut self, render_scale: Vector<f32>) {
         self.render_scale = render_scale;
@@ -280,8 +297,43 @@ impl BaseComponent {
     }
 
     #[cfg(feature = "physics")]
+    pub fn body(&self) -> impl Deref<Target = RigidBody> + '_ {
+        self.try_body().expect(NO_RIGID_BODY_PANIC)
+    }
+
+    #[cfg(feature = "physics")]
+    pub fn body_mut(&mut self) -> impl DerefMut<Target = RigidBody> + '_ {
+        self.try_body_mut().expect(NO_RIGID_BODY_PANIC)
+    }
+
+    #[cfg(feature = "physics")]
+    pub fn collider_handles(&self) -> impl Deref<Target = [ColliderHandle]> + '_ {
+        self.try_collider_handles().expect(NO_RIGID_BODY_PANIC)
+    }
+
+    #[cfg(feature = "physics")]
+    pub fn body_handle(&self) -> RigidBodyHandle {
+        self.try_body_handle().expect(NO_RIGID_BODY_PANIC)
+    }
+
+    #[cfg(feature = "physics")]
+    pub fn collider(&self, collider_handle: ColliderHandle) -> impl Deref<Target = Collider> + '_ {
+        self.try_collider(collider_handle)
+            .expect(NO_RIGID_BODY_PANIC)
+    }
+
+    #[cfg(feature = "physics")]
+    pub fn collider_mut(
+        &mut self,
+        collider_handle: ColliderHandle,
+    ) -> impl DerefMut<Target = Collider> + '_ {
+        self.try_collider_mut(collider_handle)
+            .expect(NO_RIGID_BODY_PANIC)
+    }
+
+    #[cfg(feature = "physics")]
     /// Returns the [RigidBody] if the component has one.
-    pub fn rigid_body(&self) -> Option<impl Deref<Target = RigidBody> + '_> {
+    pub fn try_body(&self) -> Option<impl Deref<Target = RigidBody> + '_> {
         enum BodyWrapper<'a> {
             Owned(&'a Box<RigidBody>),
             Ref(Ref<'a, RigidBody>),
@@ -304,9 +356,7 @@ impl BaseComponent {
                 body_handle,
                 ..
             } => {
-                return Some(BodyWrapper::Ref(Ref::map(world_wrapper.world(), |world| {
-                    world.rigid_body(*body_handle).unwrap()
-                })));
+                return Some(BodyWrapper::Ref(world_wrapper.body(*body_handle)));
             }
             BodyStatus::RigidBodyPending { body, .. } => return Some(BodyWrapper::Owned(body)),
             _ => return None,
@@ -315,7 +365,7 @@ impl BaseComponent {
 
     #[cfg(feature = "physics")]
     /// Returns the [RigidBody] if the component has one.
-    pub fn rigid_body_mut(&mut self) -> Option<impl DerefMut<Target = RigidBody> + '_> {
+    pub fn try_body_mut(&mut self) -> Option<impl DerefMut<Target = RigidBody> + '_> {
         enum BodyWrapperMut<'a> {
             Owned(&'a mut Box<RigidBody>),
             Ref(RefMut<'a, RigidBody>),
@@ -347,10 +397,7 @@ impl BaseComponent {
                 body_handle,
                 ..
             } => {
-                return Some(BodyWrapperMut::Ref(RefMut::map(
-                    world_wrapper.world_mut(),
-                    |world| world.rigid_body_mut(*body_handle).unwrap(),
-                )));
+                return Some(BodyWrapperMut::Ref(world_wrapper.body_mut(*body_handle)));
             }
             BodyStatus::RigidBodyPending { body, .. } => return Some(BodyWrapperMut::Owned(body)),
             _ => return None,
@@ -360,25 +407,27 @@ impl BaseComponent {
     #[cfg(feature = "physics")]
     /// Returns a slice of [ColliderHandles](crate::physics::ColliderHandle) if the component has a [RigidBody](crate::physics::RigidBody) and
     /// the component is added to the [ComponentManager](crate::ComponentManager) of the [Scene](crate::Scene).
-    pub fn collider_handles(&self) -> Option<impl Deref<Target = [ColliderHandle]> + '_> {
+    pub fn try_collider_handles(&self) -> Option<impl Deref<Target = [ColliderHandle]> + '_> {
         match &self.body {
             BodyStatus::RigidBody {
                 world_wrapper,
                 body_handle,
                 ..
             } => {
-                return Some(Ref::map(world_wrapper.world(), |world| {
-                    world.rigid_body(*body_handle).unwrap().colliders()
+                return Some(Ref::map(world_wrapper.body(*body_handle), |body| {
+                    body.colliders()
                 }));
             }
-            _ => return None,
+            _ => {
+                return None;
+            }
         };
     }
 
     #[cfg(feature = "physics")]
     /// Returns the handle of the RigidBody if the component has a [RigidBody] and
     /// the component is added to the [ComponentManager](crate::ComponentManager) of the [Scene](crate::Scene).
-    pub fn rigid_body_handle(&self) -> Option<RigidBodyHandle> {
+    pub fn try_body_handle(&self) -> Option<RigidBodyHandle> {
         return match self.body {
             BodyStatus::RigidBody { body_handle, .. } => Some(body_handle),
             _ => None,
@@ -387,7 +436,7 @@ impl BaseComponent {
 
     #[cfg(feature = "physics")]
     /// Get a [Collider] that is attached to this components [RigidBody].
-    pub fn collider(
+    pub fn try_collider(
         &self,
         collider_handle: ColliderHandle,
     ) -> Option<impl Deref<Target = Collider> + '_> {
@@ -396,15 +445,12 @@ impl BaseComponent {
                 body_handle,
                 world_wrapper,
             } => {
-                return Ref::filter_map(world_wrapper.world(), |world| {
-                    if let Some(collider) = world.collider(collider_handle) {
-                        if collider.parent().unwrap() == *body_handle {
-                            return Some(collider);
-                        }
+                if let Some(collider) = world_wrapper.collider(collider_handle) {
+                    if collider.parent().unwrap() == *body_handle {
+                        return Some(collider);
                     }
-                    None
-                })
-                .ok();
+                }
+                return None;
             }
             _ => (),
         }
@@ -413,7 +459,7 @@ impl BaseComponent {
 
     #[cfg(feature = "physics")]
     /// Get a [Collider] that is attached to this components [RigidBody].
-    pub fn collider_mut(
+    pub fn try_collider_mut(
         &mut self,
         collider_handle: ColliderHandle,
     ) -> Option<impl DerefMut<Target = Collider> + '_> {
@@ -422,15 +468,12 @@ impl BaseComponent {
                 body_handle,
                 world_wrapper,
             } => {
-                return RefMut::filter_map(world_wrapper.world_mut(), |world| {
-                    if let Some(collider) = world.collider_mut(collider_handle) {
-                        if collider.parent().unwrap() == *body_handle {
-                            return Some(collider);
-                        }
+                if let Some(collider) = world_wrapper.collider_mut(collider_handle) {
+                    if collider.parent().unwrap() == *body_handle {
+                        return Some(collider);
                     }
-                    None
-                })
-                .ok();
+                }
+                return None;
             }
             _ => (),
         }
@@ -439,32 +482,19 @@ impl BaseComponent {
 
     #[cfg(feature = "physics")]
     pub(crate) fn remove_from_world(&mut self) {
-        let temp = std::mem::replace(
-            &mut self.body,
-            BodyStatus::Position {
-                position: Default::default(),
-                matrix: Default::default(),
-            },
-        );
-        match temp {
+        match &mut self.body {
             BodyStatus::RigidBody {
-                mut world_wrapper,
+                ref world_wrapper,
                 body_handle,
                 ..
-            } => {
-                let (body, colliders) = world_wrapper.world_mut().remove_body(body_handle);
-                self.body = BodyStatus::RigidBodyPending {
-                    body: Box::new(body),
-                    colliders,
-                }
-            }
-            _ => self.body = temp,
+            } => self.body = world_wrapper.remove_body(*body_handle),
+            _ => (),
         }
     }
 
     /// Check if this component has a [RigidBody].
     #[cfg(feature = "physics")]
-    pub fn is_rigid_body(&self) -> bool {
+    pub fn is_body(&self) -> bool {
         return match &self.body {
             BodyStatus::RigidBody { .. } => true,
             BodyStatus::RigidBodyPending { .. } => true,
@@ -473,17 +503,17 @@ impl BaseComponent {
     }
 
     #[cfg(feature = "physics")]
-    pub(crate) fn add_to_world(&mut self, type_id: ComponentTypeId, world: Rc<RefCell<World>>) {
+    pub(crate) fn add_to_world(&mut self, type_id: ComponentTypeId, world: RcWorld) {
         let temp = std::mem::replace(
             &mut self.body,
             BodyStatus::Position {
                 position: Default::default(),
-                matrix: Default::default(),
+                matrix: Matrix::NULL_MODEL,
             },
         );
         match temp {
             BodyStatus::RigidBodyPending { body, colliders } => {
-                let component_handle = self.handle().unwrap();
+                let component_handle = self.handle();
                 let body_handle = world.borrow_mut().create_body(*body);
                 let mut world_mut = world.borrow_mut();
                 for collider in colliders {
@@ -492,7 +522,7 @@ impl BaseComponent {
                 drop(world_mut);
                 self.body = BodyStatus::RigidBody {
                     body_handle,
-                    world_wrapper: WorldWrapper::new(world),
+                    world_wrapper: WorldWrapper::Rc(world),
                 };
             }
             _ => self.body = temp,
@@ -501,11 +531,9 @@ impl BaseComponent {
 
     #[cfg(all(feature = "physics", feature = "serde"))]
     /// Initialize the [RigidBody] after deserialization.
-    pub fn init_rigid_body(&mut self, world: Rc<RefCell<World>>) {
+    pub fn init_body(&mut self, world: RcWorld) {
         match &mut self.body {
-            BodyStatus::RigidBody { world_wrapper, .. } => {
-                *world_wrapper = WorldWrapper::new(world)
-            }
+            BodyStatus::RigidBody { world_wrapper, .. } => *world_wrapper = WorldWrapper::Rc(world),
             _ => {}
         }
     }
@@ -515,6 +543,7 @@ impl BaseComponent {
 enum BodyStatus {
     #[cfg(feature = "physics")]
     RigidBody {
+        #[cfg_attr(feature = "serde", serde(default))]
         world_wrapper: WorldWrapper,
         body_handle: RigidBodyHandle,
     },
@@ -536,59 +565,89 @@ impl Drop for BaseComponent {
     }
 }
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg(feature = "physics")]
-struct WorldWrapper {
-    #[cfg(feature = "serde")]
-    #[cfg_attr(feature = "serde", serde(skip))]
-    #[cfg_attr(feature = "serde", serde(default))]
-    world: Option<Rc<RefCell<World>>>,
-    #[cfg(not(feature = "serde"))]
-    world: Rc<RefCell<World>>,
+impl ComponentDerive for BaseComponent {
+    fn base(&self) -> &BaseComponent {
+        self
+    }
+
+    fn base_mut(&mut self) -> &mut BaseComponent {
+        self
+    }
 }
 
 #[cfg(feature = "physics")]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+enum WorldWrapper {
+    Rc(RcWorld),
+    None,
+}
+
+impl Default for WorldWrapper {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
 impl WorldWrapper {
-    pub fn new(rc: Rc<RefCell<World>>) -> Self {
-        Self {
-            #[cfg(feature = "serde")]
-            world: Some(rc),
-            #[cfg(not(feature = "serde"))]
-            world: rc,
+    const PANIC: &'static str =
+        "Physic components can not be accessed before init_body was called on base!";
+    pub fn collider(&self, handle: ColliderHandle) -> Option<Ref<Collider>> {
+        match self {
+            WorldWrapper::Rc(rc) => {
+                return Ref::filter_map(rc.borrow(), |world| world.collider(handle)).ok();
+            }
+            _ => {
+                panic!("{}", Self::PANIC)
+            }
         }
     }
-}
 
-#[cfg(all(feature = "physics", feature = "serde"))]
-impl WorldWrapper {
-    pub fn world(&self) -> Ref<World> {
-        return self
-            .world
-            .as_ref()
-            .expect(
-                "Physic components can not be accessed before init_rigid_body was called on base!",
-            )
-            .borrow();
+    pub fn collider_mut(&mut self, handle: ColliderHandle) -> Option<RefMut<Collider>> {
+        match self {
+            WorldWrapper::Rc(rc) => {
+                return RefMut::filter_map(rc.borrow_mut(), |world| world.collider_mut(handle))
+                    .ok();
+            }
+            _ => {
+                panic!("{}", Self::PANIC)
+            }
+        }
     }
 
-    pub fn world_mut(&mut self) -> RefMut<World> {
-        return self
-            .world
-            .as_mut()
-            .expect(
-                "Physic components can not be accessed before init_rigid_body was called on base!",
-            )
-            .borrow_mut();
-    }
-}
-
-#[cfg(not(feature = "serde"))]
-impl WorldWrapper {
-    pub fn world(&self) -> Ref<World> {
-        return self.world.borrow();
+    pub fn body(&self, handle: RigidBodyHandle) -> Ref<RigidBody> {
+        match self {
+            WorldWrapper::Rc(rc) => {
+                return Ref::map(rc.borrow(), |world| world.body(handle).unwrap());
+            }
+            _ => {
+                panic!("{}", Self::PANIC)
+            }
+        }
     }
 
-    pub fn world_mut(&mut self) -> RefMut<World> {
-        return self.world.borrow_mut();
+    pub fn body_mut(&mut self, handle: RigidBodyHandle) -> RefMut<RigidBody> {
+        match self {
+            WorldWrapper::Rc(rc) => {
+                return RefMut::map(rc.borrow_mut(), |world| world.body_mut(handle).unwrap());
+            }
+            _ => {
+                panic!("{}", Self::PANIC)
+            }
+        }
+    }
+
+    pub fn remove_body(&self, handle: RigidBodyHandle) -> BodyStatus {
+        match self {
+            WorldWrapper::Rc(rc) => {
+                let (body, colliders) = rc.borrow_mut().remove_body(handle);
+                return BodyStatus::RigidBodyPending {
+                    body: Box::new(body),
+                    colliders,
+                };
+            }
+            _ => {
+                panic!("{}", Self::PANIC)
+            }
+        }
     }
 }

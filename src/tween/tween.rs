@@ -1,9 +1,38 @@
-use crate::{animation::EaseMethod, Duration, Isometry};
+use crate::{animation::EaseMethod, Duration, Isometry, Rotation, Vector};
 
 // Animations heavily inspired by bevy_tweening
 
+pub trait Stepable: Copy + Clone {
+    fn step(&mut self, end: &Self, factor: f32) -> Self;
+}
+
+impl Stepable for Isometry<f32> {
+    fn step(&mut self, end: &Self, factor: f32) -> Self {
+        self.lerp_slerp(end, factor)
+    }
+}
+
+impl Stepable for f32 {
+    fn step(&mut self, end: &Self, factor: f32) -> Self {
+        *self * (1.0 - factor) + end * factor
+    }
+}
+
+impl Stepable for Vector<f32> {
+    fn step(&mut self, end: &Self, factor: f32) -> Self {
+        self.lerp(end, factor)
+    }
+}
+
+impl Stepable for Rotation<f32> {
+    fn step(&mut self, end: &Self, factor: f32) -> Self {
+        self.slerp(end, factor)
+    }
+}
+
 pub trait Tweenable {
-    fn value(&self) -> Isometry<f32>;
+    type Output: Stepable;
+    fn value(&self) -> &Self::Output;
     fn duration(&self) -> Duration;
     fn total_duration(&self) -> TotalDuration;
     fn set_elapsed(&mut self, elapsed: Duration);
@@ -28,16 +57,16 @@ pub trait Tweenable {
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct TweenSequence {
-    tweens: Vec<Tween>,
+pub struct TweenSequence<T: Stepable> {
+    tweens: Vec<Tween<T>>,
     index: usize,
     duration: Duration,
     elapsed: Duration,
-    value: Isometry<f32>,
+    value: T,
 }
 
-impl TweenSequence {
-    pub fn new(items: impl IntoIterator<Item = Tween>) -> Self {
+impl<T: Stepable> TweenSequence<T> {
+    pub fn new(items: impl IntoIterator<Item = Tween<T>>) -> Self {
         let tweens: Vec<_> = items.into_iter().collect();
         assert!(!tweens.is_empty());
         let duration = tweens.iter().map(Tweenable::duration).sum();
@@ -51,7 +80,7 @@ impl TweenSequence {
     }
 
     #[must_use]
-    pub fn then(mut self, tween: Tween) -> Self {
+    pub fn then(mut self, tween: Tween<T>) -> Self {
         self.duration += tween.duration();
         self.tweens.push(tween);
         self
@@ -63,12 +92,13 @@ impl TweenSequence {
     }
 
     #[must_use]
-    pub fn current(&self) -> &Tween {
+    pub fn current(&self) -> &Tween<T> {
         &self.tweens[self.index()]
     }
 }
 
-impl Tweenable for TweenSequence {
+impl<T: Stepable> Tweenable for TweenSequence<T> {
+    type Output = T;
     fn duration(&self) -> Duration {
         self.duration
     }
@@ -132,31 +162,26 @@ impl Tweenable for TweenSequence {
         }
     }
 
-    fn value(&self) -> Isometry<f32> {
-        self.value
+    fn value(&self) -> &T {
+        &self.value
     }
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Tween {
+pub struct Tween<T: Stepable> {
     ease_function: EaseMethod,
     elapsed: Duration,
     duration: Duration,
     total_duration: TotalDuration,
     strategy: RepeatStrategy,
     direction: TweeningDirection,
-    start: Isometry<f32>,
-    end: Isometry<f32>,
-    value: Isometry<f32>,
+    start: T,
+    end: T,
+    value: T,
 }
 
-impl Tween {
-    pub fn new(
-        ease_function: impl Into<EaseMethod>,
-        duration: Duration,
-        start: Isometry<f32>,
-        end: Isometry<f32>,
-    ) -> Self {
+impl<T: Stepable> Tween<T> {
+    pub fn new(ease_function: impl Into<EaseMethod>, duration: Duration, start: T, end: T) -> Self {
         Self {
             ease_function: ease_function.into(),
 
@@ -177,6 +202,11 @@ impl Tween {
     }
 
     #[must_use]
+    pub fn repeat_strategy(&self) -> RepeatStrategy {
+        self.strategy
+    }
+
+    #[must_use]
     pub fn with_repeat_count(mut self, count: impl Into<RepeatCount>) -> Self {
         self.total_duration = compute_total_duration(self.duration, count.into());
         self
@@ -194,12 +224,27 @@ impl Tween {
         self
     }
 
-    pub fn start(&self) -> Isometry<f32> {
-        self.start
+    #[must_use]
+    pub fn set_repeat_count(&mut self, count: impl Into<RepeatCount>) {
+        self.total_duration = compute_total_duration(self.duration, count.into());
     }
 
-    pub fn end(&self) -> Isometry<f32> {
-        self.end
+    #[must_use]
+    pub fn set_repeat_strategy(&mut self, strategy: RepeatStrategy) {
+        self.strategy = strategy;
+    }
+
+    #[must_use]
+    pub fn set_direction(&mut self, direction: TweeningDirection) {
+        self.direction = direction;
+    }
+
+    pub fn start(&self) -> &T {
+        &self.start
+    }
+
+    pub fn end(&self) -> &T {
+        &self.end
     }
 
     // Clock
@@ -257,9 +302,10 @@ impl Tween {
     }
 }
 
-impl Tweenable for Tween {
-    fn value(&self) -> Isometry<f32> {
-        self.value
+impl<T: Stepable> Tweenable for Tween<T> {
+    type Output = T;
+    fn value(&self) -> &T {
+        &self.value
     }
 
     fn duration(&self) -> Duration {
@@ -302,7 +348,7 @@ impl Tweenable for Tween {
         }
         let factor = self.ease_function.sample(factor);
 
-        self.value = self.start.lerp_slerp(&self.end, factor);
+        self.value = self.start.step(&self.end, factor);
 
         state
     }

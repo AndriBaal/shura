@@ -1,36 +1,78 @@
 use crate::data::arena::{Arena, ArenaIndex, ArenaIterMut};
+#[cfg(feature = "serde")]
+use crate::BoxedComponent;
 use crate::{ComponentController, ComponentType, ComponentTypeId, Vector};
 use rustc_hash::FxHashMap;
 
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+/// Unique Identifier of a [ComponentGroup]
+pub struct ComponentGroupId {
+    pub id: u16,
+}
+
+impl Default for ComponentGroupId {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+impl ComponentGroupId {
+    /// Id of the default [ComponentGroup](crate::ComponentGroup). Components within this group are
+    /// always getting rendered and updated in every cycle.
+    pub const DEFAULT: Self = Self { id: u16::MAX / 2 };
+    pub const INVALID: Self = Self { id: 0 };
+
+    pub fn new(id: u16) -> Self {
+        Self { id }
+    }
+}
+
 /// Helper to create a [ComponentGroup](crate::ComponentGroup).
+#[derive(Debug, Copy, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ComponentGroupDescriptor {
     /// Id of the group.
-    pub id: u32,
+    pub id: ComponentGroupId,
     /// Describes when the ggroup is active.
     pub activation: GroupActivation,
     /// Describes if the group is enabled from the start.
-    pub enabled: bool,
     pub user_data: u64,
 }
 
-/// Id of the default [ComponentGroup](crate::ComponentGroup). Components within this group are
-/// always getting rendered and updated in every cycle.
-pub const DEFAULT_GROUP_ID: u32 = u32::MAX / 2;
-
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Copy, Clone)]
+/// Decides when a group is active.
+///
+/// # Important
+/// Components in a inactive [ComponentGroup] still process the physics
 pub enum GroupActivation {
+    /// Group is only active when it collides with the fov of the [WorldCamera](crate::WorldCamera)
     Position {
         position: Vector<f32>,
         half_extents: Vector<f32>,
     },
+    /// Group is always active
     Always,
 }
 
-/// Every group has a id and a fixed position where it operates. When the camera intersects with
-/// the position and size of the group the group is marked as `active`.It can be used like a chunk
-/// system to make huge 2D worlds possible or to just order your components. The Engine has a
-/// default [ComponentGroup](crate::ComponentGroup) that holds the [DEFAULT_GROUP_ID]. After every update and before rendering, the set of active component groups gets
+impl Into<ComponentGroup> for ComponentGroupDescriptor {
+    fn into(self) -> ComponentGroup {
+        ComponentGroup {
+            id: self.id,
+            activation: self.activation,
+            type_map: Default::default(),
+            types: Default::default(),
+            active: false,
+            user_data: self.user_data,
+        }
+    }
+}
+
+/// Every group has a [id](crate::ComponentGroupId) and a [activation](crate::GroupActivation).
+/// Groups can be used like a chunk system to make huge 2D worlds possible or to just order your components.
+/// The Engine has a default [ComponentGroup](crate::ComponentGroup) with the default [ComponentGroupId] value.
+/// After every update and before rendering, the set of active component groups gets
 /// computed. A group can be accessed with [group](crate::Context::group) or
 /// [group_mut](crate::Context::group_mut). The components of the group can be accessed with
 /// [components](crate::Context::components) or [components_mut](crate::Context::components_mut)
@@ -39,26 +81,13 @@ pub enum GroupActivation {
 pub struct ComponentGroup {
     type_map: FxHashMap<ComponentTypeId, ArenaIndex>,
     types: Arena<ComponentType>,
-    id: u32,
-    enabled: bool,
+    id: ComponentGroupId,
     active: bool,
     pub activation: GroupActivation,
     pub user_data: u64,
 }
 
 impl ComponentGroup {
-    pub(crate) fn new(descriptor: &ComponentGroupDescriptor) -> Self {
-        Self {
-            id: descriptor.id,
-            enabled: descriptor.enabled,
-            activation: descriptor.activation,
-            type_map: Default::default(),
-            types: Default::default(),
-            active: false,
-            user_data: descriptor.user_data,
-        }
-    }
-
     pub(crate) fn intersects_camera(
         &self,
         cam_bottom_left: Vector<f32>,
@@ -82,27 +111,25 @@ impl ComponentGroup {
         }
     }
 
-    // Setters
-
     pub(crate) fn set_active(&mut self, active: bool) {
         self.active = active;
     }
 
-    /// Disable or enable a group
-    ///
-    /// # Warning
-    /// [RigidBody](crate::physics::RigidBody) collisions do not get disabled and must be manually disabled per [RigidBody](crate::physics::RigidBody).
-    pub fn set_enabled(&mut self, enabled: bool) {
-        self.enabled = enabled;
+    pub(crate) fn type_by_id(&self, type_id: ComponentTypeId) -> Option<&ComponentType> {
+        if let Some(type_index) = self.type_map.get(&type_id) {
+            return self.types.get(*type_index);
+        }
+        return None;
     }
 
-    /// Set the activation of this group.
-    pub fn set_activation(&mut self, activation: GroupActivation) {
-        self.activation = activation;
-    }
-
-    pub fn set_user_data(&mut self, user_data: u64) {
-        self.user_data = user_data;
+    pub(crate) fn type_by_id_mut(
+        &mut self,
+        type_id: ComponentTypeId,
+    ) -> Option<&mut ComponentType> {
+        if let Some(type_index) = self.type_map.get(&type_id) {
+            return self.types.get_mut(*type_index);
+        }
+        return None;
     }
 
     pub(crate) fn type_index(&self, type_id: ComponentTypeId) -> Option<&ArenaIndex> {
@@ -117,27 +144,45 @@ impl ComponentGroup {
         self.types.get_mut(index)
     }
 
+    pub(crate) fn add_component_type<C: ComponentController>(
+        &mut self,
+    ) -> (ArenaIndex, &mut ComponentType) {
+        let component_type = ComponentType::new::<C>();
+        let type_index = self.types.insert(component_type);
+        self.type_map.insert(C::IDENTIFIER, type_index);
+        return (type_index, self.types.get_mut(type_index).unwrap());
+    }
+
     pub(crate) fn types(&mut self) -> ArenaIterMut<ComponentType> {
         self.types.iter_mut()
     }
 
-    pub(crate) fn add_component_type<C: ComponentController>(
-        &mut self,
-        component: C,
-    ) -> (ArenaIndex, ArenaIndex) {
-        let (component_index, component_type) = ComponentType::new(component);
-        let type_index = self.types.insert(component_type);
-        self.type_map.insert(C::IDENTIFIER, type_index);
-        return (type_index, component_index);
+    pub(crate) fn remove_type(&mut self, index: ArenaIndex) {
+        let removed = self.types.remove(index).unwrap();
+        self.type_map.remove(&removed.type_id());
     }
 
-    /// Get if the group is enabled
-    pub const fn enabled(&self) -> bool {
-        self.enabled
+    #[cfg(feature = "serde")]
+    pub(crate) fn deserialize_type<C: ComponentController>(
+        &mut self,
+        components: Arena<BoxedComponent>,
+    ) {
+        let type_index = self.type_map.get(&C::IDENTIFIER).unwrap();
+        let ty = &mut self.types[*type_index];
+        *ty = ComponentType::from_arena::<C>(components);
+    }
+
+    /// Set the activation of this group.
+    pub fn set_activation(&mut self, activation: GroupActivation) {
+        self.activation = activation;
+    }
+
+    pub fn set_user_data(&mut self, user_data: u64) {
+        self.user_data = user_data;
     }
 
     /// Get the id of the group.
-    pub const fn id(&self) -> u32 {
+    pub const fn id(&self) -> ComponentGroupId {
         self.id
     }
 

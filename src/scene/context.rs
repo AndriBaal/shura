@@ -1,23 +1,17 @@
 use crate::{
-    Camera, CameraBuffer, Color, ComponentController, ComponentDerive, ComponentGroup,
-    ComponentGroupDescriptor, ComponentHandle, ComponentManager, ComponentPath, ComponentSet,
-    ComponentSetMut, ComponentSetRender, ComponentTypeId, DynamicComponent, FrameManager,
-    GlobalState, Gpu, GpuDefaults, GroupFilter, Input, InputEvent, InputTrigger, InstanceBuffer,
-    Isometry, Matrix, Model, ModelBuilder, Modifier, RenderConfig, RenderEncoder, RenderTarget,
-    Rotation, Scene, SceneCreator, SceneManager, SceneState, ScreenConfig, Shader, ShaderConfig,
-    Shura, Sprite, SpriteSheet, Uniform, Vector, WorldCamera,
+    ActiveComponents, BoxedComponent, Camera, CameraBuffer, Color, ComponentController,
+    ComponentDerive, ComponentFilter, ComponentGroup, ComponentGroupId, ComponentHandle,
+    ComponentManager, ComponentRenderGroup, ComponentSet, ComponentSetMut, Duration, FrameManager,
+    GlobalStateController, GlobalStateManager, Gpu, GpuDefaults, GroupDelta, Input, InputEvent,
+    InputTrigger, InstanceBuffer, InstanceIndex, InstanceIndices, Instant, Isometry, Matrix, Model,
+    ModelBuilder, Modifier, RenderConfig, RenderEncoder, RenderTarget, Renderer, Rotation, Scene,
+    SceneCreator, SceneManager, SceneStateController, SceneStateManager, ScreenConfig, Shader,
+    ShaderConfig, Shura, Sprite, SpriteSheet, StateIdentifier, Uniform, Vector, WorldCamera,
+    WorldCameraScale,
 };
 
-macro_rules! Where {
-    (
-    $a:lifetime >= $b:lifetime $(,)?
-) => {
-        &$b & $a()
-    };
-}
-
 #[cfg(feature = "serde")]
-use crate::SceneSerializer;
+use crate::{SceneSerializer, StateTypeId};
 
 #[cfg(feature = "audio")]
 use crate::audio::{Sink, Sound};
@@ -31,8 +25,11 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
+#[cfg(any(feature = "physics", feature = "physics"))]
+use crate::ComponentTypeId;
+
 #[cfg(feature = "gui")]
-use crate::gui::GuiContext;
+use crate::gui::Gui;
 
 #[cfg(feature = "text")]
 use crate::text::{FontBrush, TextDescriptor};
@@ -41,9 +38,7 @@ use crate::text::{FontBrush, TextDescriptor};
 use crate::gamepad::*;
 
 #[cfg(feature = "animation")]
-use crate::animation::{EaseMethod, Tween, TweenSequence};
-
-use instant::{Duration, Instant};
+use crate::animation::{EaseMethod, Stepable, Tween, TweenSequence};
 
 pub struct ShuraFields<'a> {
     pub frame_manager: &'a FrameManager,
@@ -53,9 +48,9 @@ pub struct ShuraFields<'a> {
     pub end: &'a mut bool,
     pub scene_manager: &'a mut SceneManager,
     pub window: &'a mut winit::window::Window,
-    pub global_state: &'a mut Box<dyn GlobalState>,
+    pub states: &'a mut GlobalStateManager,
     #[cfg(feature = "gui")]
-    pub gui: GuiContext,
+    pub gui: &'a mut Gui,
     #[cfg(feature = "audio")]
     pub audio: &'a mut rodio::OutputStream,
     #[cfg(feature = "audio")]
@@ -63,7 +58,7 @@ pub struct ShuraFields<'a> {
 }
 
 impl<'a> ShuraFields<'a> {
-    pub fn from_shura(shura: &'a mut Shura) -> ShuraFields<'a> {
+    pub(crate) fn from_shura(shura: &'a mut Shura) -> ShuraFields<'a> {
         Self {
             frame_manager: &shura.frame_manager,
             defaults: &shura.defaults,
@@ -72,9 +67,9 @@ impl<'a> ShuraFields<'a> {
             end: &mut shura.end,
             scene_manager: &mut shura.scene_manager,
             window: &mut shura.window,
-            global_state: &mut shura.global_state,
+            states: &mut shura.states,
             #[cfg(feature = "gui")]
-            gui: shura.gui.context(),
+            gui: &mut shura.gui,
             #[cfg(feature = "audio")]
             audio: &mut shura.audio,
             #[cfg(feature = "audio")]
@@ -91,9 +86,9 @@ impl<'a> ShuraFields<'a> {
             end: ctx.end,
             scene_manager: ctx.scene_manager,
             window: ctx.window,
-            global_state: ctx.global_state,
+            states: ctx.global_states,
             #[cfg(feature = "gui")]
-            gui: ctx.gui.clone(),
+            gui: ctx.gui,
             #[cfg(feature = "audio")]
             audio: ctx.audio,
             #[cfg(feature = "audio")]
@@ -102,13 +97,17 @@ impl<'a> ShuraFields<'a> {
     }
 }
 
-/// Context to communicate with the game engine to access components, scenes, camera, physics and many more.
+/// Context to communicate with the game engine to access components, scenes, camera, physics and much more.
+/// The Context provides easy access to the most common methods. Some methods are not present in the 
+/// implementation of the Context, but are inside one of Context's underlying fields (You might also
+/// need to access the underlying fields to avoid borrow issues). 
 pub struct Context<'a> {
     pub scene_id: &'a u32,
     pub scene_resized: &'a bool,
     pub scene_switched: &'a bool,
+    pub scene_started: &'a bool,
     pub screen_config: &'a mut ScreenConfig,
-    pub scene_state: &'a mut Box<dyn SceneState>,
+    pub scene_states: &'a mut SceneStateManager,
     pub world_camera: &'a mut WorldCamera,
     pub component_manager: &'a mut ComponentManager,
 
@@ -120,9 +119,9 @@ pub struct Context<'a> {
     pub end: &'a mut bool,
     pub scene_manager: &'a mut SceneManager,
     pub window: &'a mut winit::window::Window,
-    pub global_state: &'a mut Box<dyn GlobalState>,
+    pub global_states: &'a mut GlobalStateManager,
     #[cfg(feature = "gui")]
-    pub gui: GuiContext,
+    pub gui: &'a mut Gui,
     #[cfg(feature = "audio")]
     pub audio: &'a mut rodio::OutputStream,
     #[cfg(feature = "audio")]
@@ -134,11 +133,12 @@ impl<'a> Context<'a> {
         Self {
             scene_id: &scene.id,
             scene_resized: &scene.resized,
+            scene_started: &scene.started,
             scene_switched: &scene.switched,
             screen_config: &mut scene.screen_config,
             world_camera: &mut scene.world_camera,
             component_manager: &mut scene.component_manager,
-            scene_state: &mut scene.state,
+            scene_states: &mut scene.states,
 
             // Shura
             frame_manager: &shura.frame_manager,
@@ -148,9 +148,9 @@ impl<'a> Context<'a> {
             end: &mut shura.end,
             scene_manager: &mut shura.scene_manager,
             window: &mut shura.window,
-            global_state: &mut shura.global_state,
+            global_states: &mut shura.states,
             #[cfg(feature = "gui")]
-            gui: shura.gui.context(),
+            gui: &mut shura.gui,
             #[cfg(feature = "audio")]
             audio: &mut shura.audio,
             #[cfg(feature = "audio")]
@@ -162,11 +162,12 @@ impl<'a> Context<'a> {
         Self {
             scene_id: &scene.id,
             scene_resized: &scene.resized,
+            scene_started: &scene.started,
             scene_switched: &scene.switched,
             screen_config: &mut scene.screen_config,
             world_camera: &mut scene.world_camera,
             component_manager: &mut scene.component_manager,
-            scene_state: &mut scene.state,
+            scene_states: &mut scene.states,
 
             // Shura
             frame_manager: shura.frame_manager,
@@ -176,7 +177,7 @@ impl<'a> Context<'a> {
             end: shura.end,
             scene_manager: shura.scene_manager,
             window: shura.window,
-            global_state: shura.global_state,
+            global_states: shura.states,
             #[cfg(feature = "gui")]
             gui: shura.gui,
             #[cfg(feature = "audio")]
@@ -196,19 +197,36 @@ impl<'a> Context<'a> {
             .component_from_collider(collider)
     }
 
-    pub fn does_group_exist(&self, group: u32) -> bool {
+    pub fn does_group_exist(&self, group: ComponentGroupId) -> bool {
         self.component_manager.does_group_exist(group)
     }
 
+    // #[cfg(feature = "serde")]
+    // pub fn serialize_group(&self, ) -> Result<Vec<u8>, Box<bincode::ErrorKind>>  {
+
+    // }
+
+    // #[cfg(feature = "serde")]
+    // pub fn deserialize_group(&self, ) {
+
+    // }
+
     #[cfg(feature = "serde")]
-    pub fn serialize(
+    pub fn serialize_scene(
         &mut self,
+        filter: ComponentFilter,
         mut serialize: impl FnMut(&mut SceneSerializer),
     ) -> Result<Vec<u8>, Box<bincode::ErrorKind>> {
+        use rustc_hash::FxHashMap;
+
         let component_manager = &self.component_manager;
 
-        let mut serializer =
-            SceneSerializer::new(component_manager, &self.global_state, &self.scene_state);
+        let mut serializer = SceneSerializer::new(
+            component_manager,
+            &self.global_states,
+            &self.scene_states,
+            filter,
+        );
         (serialize)(&mut serializer);
 
         #[derive(serde::Serialize)]
@@ -216,16 +234,17 @@ impl<'a> Context<'a> {
             id: u32,
             resized: bool,
             switched: bool,
+            started: bool,
             screen_config: &'a ScreenConfig,
             world_camera: &'a WorldCamera,
-            component_manager: &'a mut ComponentManager,
+            component_manager: &'a ComponentManager,
         }
 
         #[cfg(feature = "physics")]
         {
-            use rustc_hash::FxHashMap;
             use std::mem;
-            let (components, body_handles, scene_state, global_state) = serializer.finish();
+            let (groups, ser_components, ser_scene_state, ser_global_state, body_handles) =
+                serializer.finish();
             let mut world = self.component_manager.world.borrow_mut();
             let mut world_cpy = world.clone();
             let mut to_remove = vec![];
@@ -247,16 +266,24 @@ impl<'a> Context<'a> {
                 id: *self.scene_id,
                 resized: true,
                 switched: true,
+                started: true,
                 screen_config: self.screen_config,
                 world_camera: self.world_camera,
                 component_manager: self.component_manager,
             };
             let scene: (
                 &Scene,
-                FxHashMap<ComponentTypeId, Vec<(u32, Vec<Option<(u32, Vec<u8>)>>)>>,
-                Option<Vec<u8>>,
-                Option<Vec<u8>>,
-            ) = (&scene, components, scene_state, global_state);
+                Vec<Option<(&u32, &ComponentGroup)>>,
+                FxHashMap<ComponentTypeId, Vec<(ComponentGroupId, Vec<Option<(u32, Vec<u8>)>>)>>,
+                FxHashMap<StateTypeId, Vec<u8>>,
+                FxHashMap<StateTypeId, Vec<u8>>,
+            ) = (
+                &scene,
+                groups,
+                ser_components,
+                ser_scene_state,
+                ser_global_state,
+            );
             let result = bincode::serialize(&scene);
 
             *self.component_manager.world.borrow_mut() = old_world;
@@ -266,27 +293,33 @@ impl<'a> Context<'a> {
 
         #[cfg(not(feature = "physics"))]
         {
-            let components = serializer.finish();
+            let (groups, ser_components, ser_scene_state, ser_global_state) = serializer.finish();
             let scene = Scene {
                 id: *self.scene_id,
                 resized: true,
                 switched: true,
+                started: true,
                 screen_config: self.screen_config,
                 world_camera: self.world_camera,
                 component_manager: self.component_manager,
             };
             let scene: (
                 &Scene,
-                FxHashMap<ComponentTypeId, Vec<(u32, Vec<Option<(u32, Vec<u8>)>>)>>,
-            ) = (&scene, components);
+                Vec<Option<(&u32, &ComponentGroup)>>,
+                FxHashMap<ComponentTypeId, Vec<(ComponentGroupId, Vec<Option<(u32, Vec<u8>)>>)>>,
+                FxHashMap<StateTypeId, Vec<u8>>,
+                FxHashMap<StateTypeId, Vec<u8>>,
+            ) = (
+                &scene,
+                groups,
+                ser_components,
+                ser_scene_state,
+                ser_global_state,
+            );
             let result = bincode::serialize(&scene);
             return result;
         }
     }
-
-    //////////////////////////////////////////////////////////////////////////////////////////////
-    // Create
-    //////////////////////////////////////////////////////////////////////////////////////////////
 
     #[cfg(feature = "physics")]
     pub fn create_joint(
@@ -298,6 +331,18 @@ impl<'a> Context<'a> {
         self.component_manager
             .world_mut()
             .create_joint(component1, component2, joint)
+    }
+
+    pub fn scene_resized(&self) -> bool {
+        *self.scene_resized
+    }
+
+    pub fn scene_switched(&self) -> bool {
+        *self.scene_switched
+    }
+
+    pub fn scene_started(&self) -> bool {
+        *self.scene_started
     }
 
     #[cfg(feature = "audio")]
@@ -333,13 +378,8 @@ impl<'a> Context<'a> {
         self.gpu.create_empty_sprite(size)
     }
 
-    pub fn create_sprite_sheet(
-        &self,
-        bytes: &[u8],
-        sprites: Vector<u32>,
-        sprite_size: Vector<u32>,
-    ) -> SpriteSheet {
-        self.gpu.create_sprite_sheet(bytes, sprites, sprite_size)
+    pub fn create_sprite_sheet(&self, bytes: &[u8], sprites: Vector<u32>) -> SpriteSheet {
+        self.gpu.create_sprite_sheet(bytes, sprites)
     }
 
     #[cfg(feature = "text")]
@@ -350,10 +390,11 @@ impl<'a> Context<'a> {
     #[cfg(feature = "text")]
     pub fn create_text(
         &mut self,
+        defaults: &GpuDefaults,
         target_size: Vector<u32>,
         descriptor: TextDescriptor,
     ) -> RenderTarget {
-        self.gpu.create_text(self.defaults, target_size, descriptor)
+        self.gpu.create_text(defaults, target_size, descriptor)
     }
 
     pub fn create_uniform<T: bytemuck::Pod>(&self, data: T) -> Uniform<T> {
@@ -367,10 +408,11 @@ impl<'a> Context<'a> {
     pub fn create_computed_target<'caller>(
         &self,
         texture_size: Vector<u32>,
-        compute: impl for<'any> Fn(&mut RenderEncoder, RenderConfig<'any>, [Where!('caller >= 'any); 0]),
+        camera: &CameraBuffer,
+        compute: impl FnMut(RenderConfig, &mut RenderEncoder),
     ) -> RenderTarget {
         self.gpu
-            .create_computed_target(&self.defaults, texture_size, compute)
+            .create_computed_target(self.defaults, texture_size, camera, compute)
     }
 
     #[cfg(feature = "audio")]
@@ -379,18 +421,21 @@ impl<'a> Context<'a> {
     }
 
     #[cfg(feature = "animation")]
-    pub fn create_tween(
+    pub fn create_tween<T: Stepable>(
         &self,
         ease_function: impl Into<EaseMethod>,
         duration: Duration,
-        start: Isometry<f32>,
-        end: Isometry<f32>,
-    ) -> Tween {
+        start: T,
+        end: T,
+    ) -> Tween<T> {
         return Tween::new(ease_function, duration, start, end);
     }
 
     #[cfg(feature = "animation")]
-    pub fn create_tween_sequence(&self, items: impl IntoIterator<Item = Tween>) -> TweenSequence {
+    pub fn create_tween_sequence<T: Stepable>(
+        &self,
+        items: impl IntoIterator<Item = Tween<T>>,
+    ) -> TweenSequence<T> {
         return TweenSequence::new(items);
     }
 
@@ -402,12 +447,13 @@ impl<'a> Context<'a> {
     ) -> ColliderHandle {
         let body_handle = component
             .base()
-            .rigid_body_handle()
+            .try_body_handle()
             .expect("Cannot add a collider to a component with no RigidBody!");
-        let component_handle = component
-            .base()
-            .handle()
-            .expect("Initialize the component before adding additional colliders!");
+        let component_handle = component.base().handle();
+        assert!(
+            component_handle != ComponentHandle::INVALID,
+            "Initialize the component before adding additional colliders!"
+        );
         self.component_manager.world_mut().create_collider(
             body_handle,
             component_handle,
@@ -416,52 +462,146 @@ impl<'a> Context<'a> {
         )
     }
 
-    pub fn add_group(&mut self, descriptor: &ComponentGroupDescriptor) {
-        self.component_manager.add_group(descriptor);
+    pub fn add_group(&mut self, group: impl Into<ComponentGroup>) {
+        self.component_manager.add_group(group);
     }
 
-    pub fn add_component<C: ComponentController>(
+    pub fn add_component_to_group<C: ComponentController>(
         &mut self,
+        group_id: ComponentGroupId,
         component: C,
-    ) -> (&mut C, ComponentHandle) {
+    ) -> ComponentHandle {
+        return self
+            .component_manager
+            .add_component_to_group(group_id, component);
+    }
+
+    pub fn add_component<C: ComponentController>(&mut self, component: C) -> ComponentHandle {
         return self.component_manager.add_component(component);
     }
 
-    pub fn add_component_with_group<C: ComponentController>(
+    pub fn add_components<I, C: ComponentController>(
         &mut self,
-        group: Option<u32>,
-        component: C,
-    ) -> (&mut C, ComponentHandle) {
-        self.component_manager
-            .add_component_with_group(group, component)
+        components: I,
+    ) -> Vec<ComponentHandle>
+    where
+        I: IntoIterator,
+        I::IntoIter: ExactSizeIterator<Item = C>,
+    {
+        return self.component_manager.add_components(components);
+    }
+
+    pub fn add_components_to_group<I, C: ComponentController>(
+        &mut self,
+        group_id: ComponentGroupId,
+        components: I,
+    ) -> Vec<ComponentHandle>
+    where
+        I: IntoIterator,
+        I::IntoIter: ExactSizeIterator<Item = C>,
+    {
+        return self
+            .component_manager
+            .add_components_to_group(group_id, components);
     }
 
     pub fn add_scene(&mut self, scene: impl SceneCreator) {
-        let scene = scene.create(ShuraFields::from_ctx(self));
+        let scene = scene.scene(ShuraFields::from_ctx(self));
         self.scene_manager.add(scene);
+    }
+
+    pub fn group_deltas(&self) -> &[GroupDelta] {
+        self.component_manager.group_deltas()
+    }
+
+    pub fn submit_staged_encoders(&self) {
+        self.gpu.submit_staged_encoders()
     }
 
     /// Remove a scene by its id
     pub fn remove_scene(&mut self, id: u32) -> Option<Scene> {
         if let Some(mut scene) = self.scene_manager.remove(id) {
-            let end = scene.state.get_end();
-            let mut ctx = Context::from_fields(ShuraFields::from_ctx(self), &mut scene);
-            end(&mut ctx);
+            for end in scene.states.ends() {
+                let mut ctx = Context::from_fields(ShuraFields::from_ctx(self), &mut scene);
+                end(&mut ctx);
+            }
             return Some(scene);
         }
         return None;
     }
 
-    pub fn remove_component(&mut self, handle: ComponentHandle) -> Option<DynamicComponent> {
+    pub fn remove_component(&mut self, handle: ComponentHandle) -> Option<BoxedComponent> {
         return self.component_manager.remove_component(handle);
     }
 
-    pub fn remove_components<C: ComponentController>(&mut self, filter: GroupFilter) {
+    pub fn remove_components<C: ComponentController>(&mut self, filter: ComponentFilter) {
         self.component_manager.remove_components::<C>(filter);
     }
 
-    pub fn remove_group(&mut self, group_id: u32) {
+    pub fn remove_group(&mut self, group_id: ComponentGroupId) -> Option<ComponentGroup> {
         self.component_manager.remove_group(group_id)
+    }
+
+    pub fn try_global_state<T: GlobalStateController + StateIdentifier>(&self) -> Option<&T> {
+        self.global_states.try_get::<T>()
+    }
+    pub fn try_global_state_mut<T: GlobalStateController + StateIdentifier>(
+        &mut self,
+    ) -> Option<&mut T> {
+        self.global_states.try_get_mut::<T>()
+    }
+    pub fn try_remove_global_state<T: GlobalStateController + StateIdentifier>(
+        &mut self,
+    ) -> Option<Box<T>> {
+        self.global_states.try_remove::<T>()
+    }
+    pub fn insert_global_state<T: GlobalStateController + StateIdentifier>(&mut self, state: T) {
+        self.global_states.insert(state)
+    }
+    pub fn contains_global_state<T: GlobalStateController + StateIdentifier>(&self) -> bool {
+        self.global_states.contains::<T>()
+    }
+    pub fn remove_global_state<T: GlobalStateController + StateIdentifier>(&mut self) -> Box<T> {
+        self.global_states.remove::<T>()
+    }
+    pub fn global_state<T: GlobalStateController + StateIdentifier>(&self) -> &T {
+        self.global_states.get::<T>()
+    }
+    pub fn global_state_mut<T: GlobalStateController + StateIdentifier>(&mut self) -> &mut T {
+        self.global_states.get_mut::<T>()
+    }
+
+    pub fn try_scene_state<T: SceneStateController + StateIdentifier>(&self) -> Option<&T> {
+        self.scene_states.try_get::<T>()
+    }
+    pub fn try_scene_state_mut<T: SceneStateController + StateIdentifier>(
+        &mut self,
+    ) -> Option<&mut T> {
+        self.scene_states.try_get_mut::<T>()
+    }
+    pub fn try_remove_scene_state<T: SceneStateController + StateIdentifier>(
+        &mut self,
+    ) -> Option<Box<T>> {
+        self.scene_states.try_remove::<T>()
+    }
+    pub fn insert_scene_state<T: SceneStateController + StateIdentifier>(&mut self, state: T) {
+        self.scene_states.insert(state)
+    }
+    pub fn contains_scene_state<T: SceneStateController + StateIdentifier>(&self) -> bool {
+        self.scene_states.contains::<T>()
+    }
+    pub fn remove_scene_state<T: SceneStateController + StateIdentifier>(&mut self) -> Box<T> {
+        self.scene_states.remove::<T>()
+    }
+    pub fn scene_state<T: SceneStateController + StateIdentifier>(&self) -> &T {
+        self.scene_states.get::<T>()
+    }
+    pub fn scene_state_mut<T: SceneStateController + StateIdentifier>(&mut self) -> &mut T {
+        self.scene_states.get_mut::<T>()
+    }
+
+    pub fn render_scale(&self) -> f32 {
+        self.screen_config.render_scale()
     }
 
     #[cfg(feature = "physics")]
@@ -474,40 +614,6 @@ impl<'a> Context<'a> {
         self.component_manager
             .world_mut()
             .remove_collider(collider_handle)
-    }
-
-    //////////////////////////////////////////////////////////////////////////////////////////////
-    // Getter
-    //////////////////////////////////////////////////////////////////////////////////////////////
-
-    pub fn take_global_state<G: GlobalState>(&mut self) -> Option<G> {
-        let state = std::mem::replace(self.global_state, Box::new(()));
-        return state.downcast::<G>().ok().and_then(|s| Some(*s));
-    }
-
-    pub fn global_state<G: GlobalState>(&self) -> Option<&G> {
-        self.global_state.downcast_ref::<G>()
-    }
-
-    pub fn global_state_mut<G: GlobalState>(&mut self) -> Option<&mut G> {
-        self.global_state.downcast_mut::<G>()
-    }
-
-    pub fn take_scene_state<S: SceneState>(&mut self) -> Option<S> {
-        let state = std::mem::replace(self.scene_state, Box::new(()));
-        return state.downcast::<S>().ok().and_then(|s| Some(*s));
-    }
-
-    pub fn scene_state<S: SceneState>(&self) -> Option<&S> {
-        self.scene_state.downcast_ref::<S>()
-    }
-
-    pub fn scene_state_mut<S: SceneState>(&mut self) -> Option<&mut S> {
-        self.scene_state.downcast_mut::<S>()
-    }
-
-    pub fn render_scale(&self) -> f32 {
-        self.screen_config.render_scale()
     }
 
     #[cfg(feature = "physics")]
@@ -552,25 +658,32 @@ impl<'a> Context<'a> {
     }
 
     #[cfg(feature = "physics")]
-    pub fn rigid_body(
+    pub fn body(
         &self,
-        rigid_body_handle: RigidBodyHandle,
+        body_handle: RigidBodyHandle,
     ) -> Option<impl Deref<Target = RigidBody> + '_> {
-        Ref::filter_map(self.component_manager.world(), |w| {
-            w.rigid_body(rigid_body_handle)
+        Ref::filter_map(self.component_manager.world(), |w| w.body(body_handle)).ok()
+    }
+
+    #[cfg(feature = "physics")]
+    pub fn body_mut(
+        &mut self,
+        body_handle: RigidBodyHandle,
+    ) -> Option<impl DerefMut<Target = RigidBody> + '_> {
+        RefMut::filter_map(self.component_manager.world_mut(), |w| {
+            w.body_mut(body_handle)
         })
         .ok()
     }
 
     #[cfg(feature = "physics")]
-    pub fn rigid_body_mut(
-        &mut self,
-        rigid_body_handle: RigidBodyHandle,
-    ) -> Option<impl DerefMut<Target = RigidBody> + '_> {
-        RefMut::filter_map(self.component_manager.world_mut(), |w| {
-            w.rigid_body_mut(rigid_body_handle)
-        })
-        .ok()
+    pub fn bodies(&self) -> impl Deref<Target = RigidBodySet> + '_ {
+        Ref::map(self.component_manager.world(), |w| w.bodies())
+    }
+
+    #[cfg(feature = "physics")]
+    pub fn colliders(&self) -> impl Deref<Target = ColliderSet> + '_ {
+        Ref::map(self.component_manager.world(), |w| w.colliders())
     }
 
     #[cfg(feature = "physics")]
@@ -643,8 +756,6 @@ impl<'a> Context<'a> {
         self.component_manager.render_components()
     }
 
-    /// Returns a dimension with the distance from the center of the camera to the right and from the
-    /// center to the top.
     pub fn camera_fov(&self) -> Vector<f32> {
         self.world_camera.fov()
     }
@@ -679,23 +790,23 @@ impl<'a> Context<'a> {
     }
 
     pub fn cursor_relative(&self) -> Vector<f32> {
-        self.cursor_camera(self.defaults.relative_camera.camera())
+        self.cursor_camera(&self.defaults.relative_camera.1)
     }
 
     pub fn cursor_relative_bottom_left(&self) -> Vector<f32> {
-        self.cursor_camera(self.defaults.relative_bottom_left_camera.camera())
+        self.cursor_camera(&self.defaults.relative_bottom_left_camera.1)
     }
 
     pub fn cursor_relative_bottom_right(&self) -> Vector<f32> {
-        self.cursor_camera(self.defaults.relative_bottom_right_camera.camera())
+        self.cursor_camera(&self.defaults.relative_bottom_right_camera.1)
     }
 
     pub fn cursor_relative_top_left(&self) -> Vector<f32> {
-        self.cursor_camera(self.defaults.relative_top_left_camera.camera())
+        self.cursor_camera(&self.defaults.relative_top_left_camera.1)
     }
 
     pub fn cursor_relative_top_right(&self) -> Vector<f32> {
-        self.cursor_camera(self.defaults.relative_top_right_camera.camera())
+        self.cursor_camera(&self.defaults.relative_top_right_camera.1)
     }
 
     // pub fn cursor_world(&self) -> Vector<f32> {
@@ -874,15 +985,12 @@ impl<'a> Context<'a> {
         &mut self.window
     }
 
-    pub fn group_mut(&mut self, id: u32) -> Option<&mut ComponentGroup> {
+    pub fn group_mut(&mut self, id: ComponentGroupId) -> Option<&mut ComponentGroup> {
         self.component_manager.group_by_id_mut(id)
     }
 
-    pub fn group(&self, id: u32) -> Option<&ComponentGroup> {
-        if let Some(group_index) = self.component_manager.group_index(&id) {
-            return self.component_manager.group(*group_index);
-        }
-        return None;
+    pub fn group(&self, id: ComponentGroupId) -> Option<&ComponentGroup> {
+        self.component_manager.group_by_id(id)
     }
 
     pub fn groups(&self) -> impl Iterator<Item = &ComponentGroup> {
@@ -905,12 +1013,37 @@ impl<'a> Context<'a> {
         self.scene_manager.does_scene_exist(name)
     }
 
-    pub fn active_group_ids(&self) -> &[u32] {
+    pub fn active_group_ids(&self) -> &[ComponentGroupId] {
         self.component_manager.active_group_ids()
     }
 
-    pub fn group_ids(&self) -> impl Iterator<Item = &u32> {
+    pub fn group_ids(&self) -> impl Iterator<Item = &ComponentGroupId> {
         self.component_manager.group_ids()
+    }
+
+    pub fn amount_of_components<C: ComponentController + ComponentDerive>(
+        &self,
+        group_id: ComponentGroupId,
+    ) -> usize {
+        self.component_manager.amount_of_components::<C>(group_id)
+    }
+
+    pub fn component_by_index<C: ComponentController + ComponentDerive>(
+        &self,
+        group_id: ComponentGroupId,
+        index: u32,
+    ) -> Option<&C> {
+        self.component_manager
+            .component_by_index::<C>(group_id, index)
+    }
+
+    pub fn component_by_index_mut<C: ComponentController + ComponentDerive>(
+        &mut self,
+        group_id: ComponentGroupId,
+        index: u32,
+    ) -> Option<&mut C> {
+        self.component_manager
+            .component_by_index_mut::<C>(group_id, index)
     }
 
     pub fn component<C: ComponentDerive>(&self, handle: ComponentHandle) -> Option<&C> {
@@ -921,7 +1054,15 @@ impl<'a> Context<'a> {
         self.component_manager.component_mut::<C>(handle)
     }
 
-    pub fn force_buffer<C: ComponentController>(&mut self, filter: GroupFilter) {
+    pub fn boxed_component(&self, handle: ComponentHandle) -> Option<&BoxedComponent> {
+        self.component_manager.boxed_component(handle)
+    }
+
+    pub fn boxed_component_mut(&mut self, handle: ComponentHandle) -> Option<&mut BoxedComponent> {
+        self.component_manager.boxed_component_mut(handle)
+    }
+
+    pub fn force_buffer<C: ComponentController>(&mut self, filter: ComponentFilter) {
         self.component_manager.force_buffer::<C>(filter)
     }
 
@@ -940,35 +1081,68 @@ impl<'a> Context<'a> {
         self.component_manager.world().physics_priority()
     }
 
-    pub fn path_render<C: ComponentDerive>(
+    pub fn active_render<C: ComponentDerive>(
         &self,
-        path: &ComponentPath<C>,
-    ) -> ComponentSetRender<C> {
-        return self.component_manager.path_render(path);
+        active: &ActiveComponents<C>,
+    ) -> ComponentRenderGroup<C> {
+        return self.component_manager.active_render(active, self.defaults);
     }
 
-    pub fn path<C: ComponentDerive>(&self, path: &ComponentPath<C>) -> ComponentSet<C> {
-        return self.component_manager.path(path);
+    pub fn render_each<C: ComponentDerive>(
+        &'a self,
+        active: &ActiveComponents<C>,
+        encoder: &'a mut RenderEncoder,
+        config: RenderConfig<'a>,
+        mut each: impl FnMut(&mut Renderer<'a>, &'a C, InstanceIndex),
+    ) {
+        let mut renderer = encoder.renderer(config);
+        for (buffer, components) in self.active_render(active) {
+            renderer.use_instances(buffer);
+            for (instance, component) in components {
+                (each)(&mut renderer, component, instance);
+            }
+        }
     }
 
-    pub fn path_mut<C: ComponentDerive>(&mut self, path: &ComponentPath<C>) -> ComponentSetMut<C> {
-        return self.component_manager.path_mut(path);
+    pub fn render_all<C: ComponentDerive>(
+        &'a self,
+        active: &ActiveComponents<C>,
+        encoder: &'a mut RenderEncoder,
+        config: RenderConfig<'a>,
+        mut all: impl FnMut(&mut Renderer<'a>, InstanceIndices),
+    ) {
+        let mut renderer = encoder.renderer(config);
+        for (buffer, _) in self.active_render(active) {
+            renderer.use_instances(buffer);
+            (all)(&mut renderer, buffer.all_instances());
+        }
+    }
+
+    pub fn active<C: ComponentDerive>(&self, active: &ActiveComponents<C>) -> ComponentSet<C> {
+        return self.component_manager.active(active);
+    }
+
+    pub fn active_mut<C: ComponentDerive>(
+        &mut self,
+        active: &ActiveComponents<C>,
+    ) -> ComponentSetMut<C> {
+        return self.component_manager.active_mut(active);
     }
 
     pub fn components_mut<C: ComponentController>(
         &mut self,
-        filter: GroupFilter,
+        filter: ComponentFilter,
     ) -> ComponentSetMut<C> {
         self.component_manager.components_mut::<C>(filter)
     }
 
-    pub fn components<C: ComponentController>(&self, filter: GroupFilter) -> ComponentSet<C> {
+    pub fn components<C: ComponentController>(&self, filter: ComponentFilter) -> ComponentSet<C> {
         self.component_manager.components::<C>(filter)
     }
 
     pub fn instance_buffer<C: ComponentController>(
         &self,
-        group_id: u32,
+        group_id: ComponentGroupId,
     ) -> Option<&InstanceBuffer> {
         self.component_manager.instance_buffer::<C>(group_id)
     }
@@ -981,17 +1155,6 @@ impl<'a> Context<'a> {
     #[cfg(feature = "gamepad")]
     pub fn gamepad(&self, gamepad_id: GamepadId) -> Option<Gamepad> {
         self.input.gamepad(gamepad_id)
-    }
-
-    //////////////////////////////////////////////////////////////////////////////////////////////
-    // Setter
-    //////////////////////////////////////////////////////////////////////////////////////////////
-    pub fn set_global_state<G: GlobalState>(&mut self, state: G) {
-        *self.global_state = Box::new(state);
-    }
-
-    pub fn set_scene_state<S: SceneState>(&mut self, state: S) {
-        *self.scene_state = Box::new(state);
     }
 
     pub fn set_render_scale(&mut self, scale: f32) {
@@ -1033,14 +1196,8 @@ impl<'a> Context<'a> {
         self.window.set_cursor_visible(!hidden);
     }
 
-    /// Set the distance between the center of the camera to the top in world coordinates.
-    pub fn set_camera_vertical_fov(&mut self, fov: f32) {
-        self.world_camera.set_vertical_fov(fov);
-    }
-
-    /// Set the distance between the center of the camera to the right in world coordinates.
-    pub fn set_camera_horizontal_fov(&mut self, fov: f32) {
-        self.world_camera.set_horizontal_fov(fov);
+    pub fn set_camera_scale(&mut self, scale: WorldCameraScale) {
+        self.world_camera.set_fov_scale(scale, self.window_size())
     }
 
     pub fn set_window_size(&mut self, size: Vector<u32>) {
@@ -1064,6 +1221,8 @@ impl<'a> Context<'a> {
 
     pub fn set_window_resizable(&mut self, resizable: bool) {
         self.window.set_resizable(resizable);
+        self.window
+            .set_enabled_buttons(winit::window::WindowButtons::CLOSE)
     }
 
     pub fn set_window_title(&mut self, title: &str) {
@@ -1091,5 +1250,9 @@ impl<'a> Context<'a> {
 
     pub fn set_max_fps(&mut self, max_fps: Option<u32>) {
         self.screen_config.set_max_fps(max_fps);
+    }
+
+    pub const fn frames_since_last_seconds(&self) -> u32 {
+        self.frame_manager.frames_since_last_seconds()
     }
 }
