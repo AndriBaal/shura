@@ -76,7 +76,7 @@ impl SceneStateController for BunnyState {
         let bunny_state = ctx.scene_states.get_mut::<Self>();
         if let Some(screenshot) = bunny_state.screenshot.take() {
             shura::log::info!("Taking Screenshot!");
-            screenshot.sprite().save(&ctx.gpu, "test.png").ok();
+            screenshot.sprite().save(&ctx.gpu, "screenshot.png").ok();
         } else if ctx.input.is_pressed(Key::S) {
             bunny_state.screenshot = Some(ctx.gpu.create_render_target(window_size));
         }

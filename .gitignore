@@ -1,6 +1,7 @@
 **/target
 **/Cargo.lock
 **/data.binc
+**/screenshot.png
 target
 Cargo.lock
 /.vscode
