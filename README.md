@@ -1,14 +1,14 @@
 # shura
 
-shura is a safe, fast and [cross-platform](#Cross-platform) 2D component-based game framework written in rust. shura helps you to manage big games with a component system, scene managing and its group system. See the [features](#Features) section for all of shura's features.
+shura is a safe, fast and [cross-platform](#Cross-platform) 2D component-based game framework written in rust. shura helps you to manage big games with it's scene managing, group system and component system which is designed to easily share components between projects (therefore allowing for a ecosystem of components). shura has everything your 2D game needs such as physics, controller input, audio, easy extensible rendering, serializing, deserializing, text rendering, gui, animations and many more. See the [features](#Features) section for all of shura's features.
 
-shura's component system is built in a way to easily share components between projects and therefore allows for a ecosystem of components.
-
-shura is currently in an early version and things might change in the future or don't work as intended.
+shura is currently in an early version and things might change in the future or don't work as intended. Feel free to create an issue if you encounter bugs, have feedback or have questions.
 
 ## Getting started
 
-Get started by copying the [template](https://github.com/AndriBaal/shura_template). The template includes the library and has some additional configuration to make sure your game runs on all [supported platforms](#Cross-platform).
+To see some examples head to the [/examples](https://github.com/AndriBaal/shura/tree/main/examples) directory or run `cargo run --release --example bunnymark`
+
+Get started by copying the [template](https://github.com/AndriBaal/shura_template). The template includes the library, some introduction and has some additional configuration to make sure your game runs on all [supported platforms](#Cross-platform).
 
 OR:
 
@@ -29,6 +29,8 @@ A good way to learn shura is through the provided examples or through reading th
 - Group system that acts like a chunk system to organize components and manage big worlds
 
 - Support for postprocessing of your renders
+
+- Easy to configure camera scaling
 
 - Physics simulations directly implemented into the component system through [rapier](https://github.com/dimforge/rapier) (feature flag 'physics')
 

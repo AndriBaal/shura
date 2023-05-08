@@ -98,6 +98,9 @@ impl<'a> ShuraFields<'a> {
 }
 
 /// Context to communicate with the game engine to access components, scenes, camera, physics and much more.
+/// The Context provides easy access to the most common methods. Some methods are not present in the 
+/// implementation of the Context, but are inside one of Context's underlying fields (You might also
+/// need to access the underlying fields to avoid borrow issues). 
 pub struct Context<'a> {
     pub scene_id: &'a u32,
     pub scene_resized: &'a bool,
