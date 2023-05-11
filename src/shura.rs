@@ -304,19 +304,20 @@ impl Shura {
                     .collider(collider_handle2)
                     .and_then(|c| Some(c.active_events()))
                 {
-                    let (component_gype_id1, component1) =
+                    let (component_type_id1, component1) =
                         ctx.component_from_collider(&collider_handle1).unwrap();
-                    let (component_gype_id2, component2) =
+                    let (component_type_id2, component2) =
                         ctx.component_from_collider(&collider_handle2).unwrap();
                     if collider1_events == ActiveEvents::COLLISION_EVENTS {
                         let callback = ctx
                             .component_manager
-                            .component_callbacks(&component_gype_id1)
+                            .component_callbacks(&component_type_id1)
                             .call_collision;
                         (callback)(
                             ctx,
                             component1,
                             component2,
+                            component_type_id2,
                             collider_handle1,
                             collider_handle2,
                             collision_type,
@@ -325,12 +326,13 @@ impl Shura {
                     if collider2_events == ActiveEvents::COLLISION_EVENTS {
                         let callback = ctx
                             .component_manager
-                            .component_callbacks(&component_gype_id2)
+                            .component_callbacks(&component_type_id2)
                             .call_collision;
                         (callback)(
                             ctx,
                             component2,
                             component1,
+                            component_type_id1,
                             collider_handle2,
                             collider_handle1,
                             collision_type,

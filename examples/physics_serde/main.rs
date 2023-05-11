@@ -194,6 +194,7 @@ impl ComponentController for Player {
         ctx: &mut Context,
         _self_handle: ComponentHandle,
         other_handle: ComponentHandle,
+        _other_type: ComponentTypeId,
         _self_collider: ColliderHandle,
         _other_collider: ColliderHandle,
         collision_type: CollideType,

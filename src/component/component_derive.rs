@@ -5,7 +5,7 @@ use crate::{
 };
 use crate::{
     ActiveComponents, BaseComponent, ComponentConfig, ComponentControllerCaller,
-    ComponentIdentifier, Context, RenderEncoder, DEFAULT_CONFIG,
+    ComponentIdentifier, Context, RenderEncoder, DEFAULT_CONFIG, ComponentTypeId
 };
 use downcast_rs::*;
 
@@ -57,6 +57,7 @@ where
         ctx: &mut Context,
         self_handle: ComponentHandle,
         other_handle: ComponentHandle,
+        other_type: ComponentTypeId,
         self_collider: ColliderHandle,
         other_collider: ColliderHandle,
         collision_type: CollideType,

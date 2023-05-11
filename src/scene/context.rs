@@ -389,7 +389,7 @@ impl<'a> Context<'a> {
 
     #[cfg(feature = "text")]
     pub fn create_text(
-        &mut self,
+        &self,
         defaults: &GpuDefaults,
         target_size: Vector<u32>,
         descriptor: TextDescriptor,

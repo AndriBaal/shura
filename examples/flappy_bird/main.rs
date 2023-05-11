@@ -184,6 +184,7 @@ impl ComponentController for Bird {
         ctx: &mut Context,
         self_handle: ComponentHandle,
         _other_handle: ComponentHandle,
+        _other_type: ComponentTypeId,
         _self_collider: ColliderHandle,
         _other_collider: ColliderHandle,
         collision_type: CollideType,

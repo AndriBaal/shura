@@ -1,7 +1,7 @@
 #[cfg(feature = "physics")]
 use crate::{
     physics::{CollideType, ColliderHandle},
-    ComponentHandle,
+    ComponentHandle, ComponentTypeId
 };
 use crate::{ActiveComponents, ArenaPath, ComponentController, Context, RenderEncoder};
 
@@ -17,6 +17,7 @@ where
         ctx: &mut Context,
         self_handle: ComponentHandle,
         other_handle: ComponentHandle,
+        other_type: ComponentTypeId,
         self_collider: ColliderHandle,
         other_collider: ColliderHandle,
         collision_type: CollideType,
@@ -38,6 +39,7 @@ impl<C: ComponentController> ComponentControllerCaller for C {
         ctx: &mut Context,
         self_handle: ComponentHandle,
         other_handle: ComponentHandle,
+        other_type: ComponentTypeId,
         self_collider: ColliderHandle,
         other_collider: ColliderHandle,
         collision_type: CollideType,
@@ -46,6 +48,7 @@ impl<C: ComponentController> ComponentControllerCaller for C {
             ctx,
             self_handle,
             other_handle,
+            other_type,
             self_collider,
             other_collider,
             collision_type,
@@ -61,6 +64,7 @@ pub(crate) struct ComponentCallbacks {
         ctx: &mut Context,
         self_handle: ComponentHandle,
         other_handle: ComponentHandle,
+        other_type: ComponentTypeId,
         self_collider: ColliderHandle,
         other_collider: ColliderHandle,
         collision_type: CollideType,
