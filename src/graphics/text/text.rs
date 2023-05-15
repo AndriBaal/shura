@@ -25,6 +25,8 @@ impl<'a> TextSection<'a> {
             text.scale.x *= resolution;
             text.scale.y *= resolution;
         }
+        self.position.x *= resolution;
+        self.position.y *= resolution;
         wgpu_glyph::Section {
             screen_position: (self.position.x, self.position.y),
             bounds: (self.bounds.x, self.bounds.y),

@@ -172,7 +172,7 @@ impl Obstacle {
 
 impl ComponentController for Obstacle {
     const CONFIG: ComponentConfig = ComponentConfig {
-        priority: 2,
+        priority: 5,
         update: UpdateOperation::Never,
         ..DEFAULT_CONFIG
     };
