@@ -5,7 +5,7 @@ use crate::{
     ComponentCallbacks, ComponentCluster, ComponentController, ComponentDerive, ComponentGroup,
     ComponentGroupDescriptor, ComponentGroupId, ComponentHandle, ComponentIterRender,
     ComponentRenderGroup, ComponentSet, ComponentSetMut, ComponentTypeId, Gpu, GpuDefaults,
-    GroupActivation, InstanceBuffer, Vector,
+    GroupActivation, InstanceBuffer, Vector, ComponentType,
 };
 use instant::Instant;
 #[cfg(feature = "log")]
@@ -51,6 +51,14 @@ pub struct ComponentManager {
 
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
+    type_map: FxHashMap<ComponentTypeId, ArenaIndex>,
+
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[cfg_attr(feature = "serde", serde(default))]
+    types: Arena<ComponentType>,
+
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[cfg_attr(feature = "serde", serde(default))]
     group_map: FxHashMap<ComponentGroupId, ArenaIndex>,
 
     #[cfg_attr(feature = "serde", serde(skip))]
@@ -59,19 +67,19 @@ pub struct ComponentManager {
 
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
-    active_groups: FxHashSet<ArenaIndex>,
+    active_groups: Vec<ArenaIndex>,
 
-    #[cfg_attr(feature = "serde", serde(skip))]
-    #[cfg_attr(feature = "serde", serde(default))]
-    active_group_ids: Vec<ComponentGroupId>,
+    // #[cfg_attr(feature = "serde", serde(skip))]
+    // #[cfg_attr(feature = "serde", serde(default))]
+    // active_group_ids: Vec<ComponentGroupId>,
 
-    #[cfg_attr(feature = "serde", serde(skip))]
-    #[cfg_attr(feature = "serde", serde(default))]
-    active_components: Rc<BTreeMap<(i16, ComponentTypeId), ComponentCluster>>,
+    // #[cfg_attr(feature = "serde", serde(skip))]
+    // #[cfg_attr(feature = "serde", serde(default))]
+    // active_components: Rc<BTreeMap<(i16, ComponentTypeId), ComponentCluster>>,
 
-    #[cfg_attr(feature = "serde", serde(skip))]
-    #[cfg_attr(feature = "serde", serde(default))]
-    component_callbacks: FxHashMap<ComponentTypeId, ComponentCallbacks>,
+    // #[cfg_attr(feature = "serde", serde(skip))]
+    // #[cfg_attr(feature = "serde", serde(default))]
+    // component_callbacks: FxHashMap<ComponentTypeId, ComponentCallbacks>,
     #[cfg(feature = "physics")]
     pub(crate) world: RcWorld,
 }

@@ -1,7 +1,7 @@
 use crate::{
     data::arena::{ArenaIter, ArenaIterMut},
     Arena, ArenaIndex, BoxedComponent, BufferOperation, ComponentConfig, ComponentController,
-    ComponentDerive, ComponentHandle, Gpu, InstanceBuffer, Matrix,
+    ComponentDerive, ComponentHandle, Gpu, InstanceBuffer, Matrix, ComponentCallbacks
 };
 
 #[cfg(feature = "physics")]
@@ -33,20 +33,21 @@ pub trait ComponentIdentifier {
     const IDENTIFIER: ComponentTypeId;
 }
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub(crate) struct ComponentTypeGroup {
+    pub components: Arena<BoxedComponent>,
+    pub buffer: Option<InstanceBuffer>,
+    pub last_len: usize,
+}
+
+// #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct ComponentType {
-    #[cfg_attr(feature = "serde", serde(skip))]
-    #[cfg_attr(feature = "serde", serde(default))]
-    components: Arena<BoxedComponent>,
-
-    #[cfg_attr(feature = "serde", serde(skip))]
-    #[cfg_attr(feature = "serde", serde(default))]
-    buffer: Option<InstanceBuffer>,
-
-    type_id: ComponentTypeId,
-    last_len: usize,
-    force_buffer: bool,
-    config: ComponentConfig,
+    // #[cfg_attr(feature = "serde", serde(skip))]
+    // #[cfg_attr(feature = "serde", serde(default))]
+    pub components: Arena<ComponentTypeGroup>,
+    pub type_id: ComponentTypeId,
+    pub force_buffer: bool,
+    pub config: ComponentConfig,
+    pub callbacks: ComponentCallbacks,
 }
 
 impl ComponentType {

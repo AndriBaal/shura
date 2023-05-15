@@ -61,8 +61,6 @@ impl Into<ComponentGroup> for ComponentGroupDescriptor {
         ComponentGroup {
             id: self.id,
             activation: self.activation,
-            type_map: Default::default(),
-            types: Default::default(),
             active: false,
             user_data: self.user_data,
         }
@@ -79,8 +77,6 @@ impl Into<ComponentGroup> for ComponentGroupDescriptor {
 /// from the [context](crate::Context).
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ComponentGroup {
-    type_map: FxHashMap<ComponentTypeId, ArenaIndex>,
-    types: Arena<ComponentType>,
     id: ComponentGroupId,
     active: bool,
     pub activation: GroupActivation,
@@ -115,62 +111,62 @@ impl ComponentGroup {
         self.active = active;
     }
 
-    pub(crate) fn type_by_id(&self, type_id: ComponentTypeId) -> Option<&ComponentType> {
-        if let Some(type_index) = self.type_map.get(&type_id) {
-            return self.types.get(*type_index);
-        }
-        return None;
-    }
+    // pub(crate) fn type_by_id(&self, type_id: ComponentTypeId) -> Option<&ComponentType> {
+    //     if let Some(type_index) = self.type_map.get(&type_id) {
+    //         return self.types.get(*type_index);
+    //     }
+    //     return None;
+    // }
 
-    pub(crate) fn type_by_id_mut(
-        &mut self,
-        type_id: ComponentTypeId,
-    ) -> Option<&mut ComponentType> {
-        if let Some(type_index) = self.type_map.get(&type_id) {
-            return self.types.get_mut(*type_index);
-        }
-        return None;
-    }
+    // pub(crate) fn type_by_id_mut(
+    //     &mut self,
+    //     type_id: ComponentTypeId,
+    // ) -> Option<&mut ComponentType> {
+    //     if let Some(type_index) = self.type_map.get(&type_id) {
+    //         return self.types.get_mut(*type_index);
+    //     }
+    //     return None;
+    // }
 
-    pub(crate) fn type_index(&self, type_id: ComponentTypeId) -> Option<&ArenaIndex> {
-        self.type_map.get(&type_id)
-    }
+    // pub(crate) fn type_index(&self, type_id: ComponentTypeId) -> Option<&ArenaIndex> {
+    //     self.type_map.get(&type_id)
+    // }
 
-    pub(crate) fn type_ref(&self, index: ArenaIndex) -> Option<&ComponentType> {
-        self.types.get(index)
-    }
+    // pub(crate) fn type_ref(&self, index: ArenaIndex) -> Option<&ComponentType> {
+    //     self.types.get(index)
+    // }
 
-    pub(crate) fn type_mut(&mut self, index: ArenaIndex) -> Option<&mut ComponentType> {
-        self.types.get_mut(index)
-    }
+    // pub(crate) fn type_mut(&mut self, index: ArenaIndex) -> Option<&mut ComponentType> {
+    //     self.types.get_mut(index)
+    // }
 
-    pub(crate) fn add_component_type<C: ComponentController>(
-        &mut self,
-    ) -> (ArenaIndex, &mut ComponentType) {
-        let component_type = ComponentType::new::<C>();
-        let type_index = self.types.insert(component_type);
-        self.type_map.insert(C::IDENTIFIER, type_index);
-        return (type_index, self.types.get_mut(type_index).unwrap());
-    }
+    // pub(crate) fn add_component_type<C: ComponentController>(
+    //     &mut self,
+    // ) -> (ArenaIndex, &mut ComponentType) {
+    //     let component_type = ComponentType::new::<C>();
+    //     let type_index = self.types.insert(component_type);
+    //     self.type_map.insert(C::IDENTIFIER, type_index);
+    //     return (type_index, self.types.get_mut(type_index).unwrap());
+    // }
 
-    pub(crate) fn types(&mut self) -> ArenaIterMut<ComponentType> {
-        self.types.iter_mut()
-    }
+    // pub(crate) fn types(&mut self) -> ArenaIterMut<ComponentType> {
+    //     self.types.iter_mut()
+    // }
 
-    pub(crate) fn remove_type(&mut self, index: ArenaIndex) {
-        let removed = self.types.remove(index).unwrap();
-        self.type_map.remove(&removed.type_id());
-    }
+    // pub(crate) fn remove_type(&mut self, index: ArenaIndex) {
+    //     let removed = self.types.remove(index).unwrap();
+    //     self.type_map.remove(&removed.type_id());
+    // }
 
-    #[cfg(feature = "serde")]
-    pub(crate) fn deserialize_type<C: ComponentController>(
-        &mut self,
-        components: Arena<BoxedComponent>,
-    ) {
-        let type_index = self.type_map.get(&C::IDENTIFIER).unwrap();
-        let ty = &mut self.types[*type_index];
-        *ty = ComponentType::from_arena::<C>(components);
-    }
+    // #[cfg(feature = "serde")]
+    // pub(crate) fn deserialize_type<C: ComponentController>(
+    //     &mut self,
+    //     components: Arena<BoxedComponent>,
+    // ) {
+    //     let type_index = self.type_map.get(&C::IDENTIFIER).unwrap();
+    //     let ty = &mut self.types[*type_index];
+    //     *ty = ComponentType::from_arena::<C>(components);
+    // }
 
     /// Set the activation of this group.
     pub fn set_activation(&mut self, activation: GroupActivation) {
@@ -181,7 +177,7 @@ impl ComponentGroup {
         self.user_data = user_data;
     }
 
-    /// Get the id of the group.
+    // Get the id of the group.
     pub const fn id(&self) -> ComponentGroupId {
         self.id
     }

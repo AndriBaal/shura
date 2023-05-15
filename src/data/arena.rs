@@ -259,6 +259,77 @@ impl<T> Arena<T> {
             base: self.items.iter_mut().enumerate(),
         }
     }
+
+    pub fn retain(&mut self, mut predicate: impl FnMut(ArenaIndex, &mut T) -> bool) {
+        for i in 0..self.capacity() {
+            let remove = match &mut self.items[i] {
+                ArenaEntry::Occupied { generation, data } => {
+                    let index = ArenaIndex {
+                        index: i as u32,
+                        generation: *generation,
+                    };
+                    if predicate(index, data) {
+                        None
+                    } else {
+                        Some(index)
+                    }
+                }
+
+                _ => None,
+            };
+            if let Some(index) = remove {
+                self.remove(index);
+            }
+        }
+    }
+
+    pub fn get2_mut(&mut self, i1: ArenaIndex, i2: ArenaIndex) -> (Option<&mut T>, Option<&mut T>) {
+        let len = self.items.len();
+        let i1_index = i1.index as usize;
+        let i2_index = i2.index as usize;
+
+        if i1_index == i2_index {
+            assert!(i1.generation != i2.generation);
+
+            if i1.generation > i2.generation {
+                return (self.get_mut(i1), None);
+            }
+            return (None, self.get_mut(i2));
+        }
+
+        if i1_index >= len {
+            return (None, self.get_mut(i2));
+        } else if i2_index >= len {
+            return (self.get_mut(i1), None);
+        }
+
+        let (raw_item1, raw_item2) = {
+            let (xs, ys) = self.items.split_at_mut(cmp::max(i1_index, i2_index));
+            if i1_index < i2_index {
+                (&mut xs[i1_index], &mut ys[0])
+            } else {
+                (&mut ys[0], &mut xs[i2_index])
+            }
+        };
+
+        let item1 = match raw_item1 {
+            ArenaEntry::Occupied {
+                generation,
+                data,
+            } if *generation == i1.generation => Some(data),
+            _ => None,
+        };
+
+        let item2 = match raw_item2 {
+            ArenaEntry::Occupied {
+                generation,
+                data,
+            } if *generation == i2.generation => Some(data),
+            _ => None,
+        };
+
+        (item1, item2)
+    }
 }
 
 impl<'a, T> IntoIterator for &'a Arena<T> {
