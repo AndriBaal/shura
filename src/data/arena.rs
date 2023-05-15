@@ -5,10 +5,10 @@ use core::ops;
 use core::slice;
 
 pub(crate) struct Arena<T> {
-    pub(super) items: Vec<ArenaEntry<T>>,
-    pub(super) generation: u32,
-    pub(super) free_list_head: Option<u32>,
-    pub(super) len: usize,
+    pub(crate) items: Vec<ArenaEntry<T>>,
+    pub(crate) generation: u32,
+    pub(crate) free_list_head: Option<u32>,
+    pub(crate) len: usize,
 }
 
 pub(crate) enum ArenaEntry<T> {
@@ -18,8 +18,8 @@ pub(crate) enum ArenaEntry<T> {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct ArenaIndex {
-    pub(super) index: u32,
-    pub(super) generation: u32,
+    pub(crate) index: u32,
+    pub(crate) generation: u32,
 }
 
 impl ArenaIndex {
@@ -33,7 +33,7 @@ impl ArenaIndex {
     }
 }
 
-pub(super) const DEFAULT_CAPACITY: usize = 4;
+pub(crate) const DEFAULT_CAPACITY: usize = 4;
 
 impl<T> Default for Arena<T> {
     fn default() -> Arena<T> {
@@ -313,18 +313,12 @@ impl<T> Arena<T> {
         };
 
         let item1 = match raw_item1 {
-            ArenaEntry::Occupied {
-                generation,
-                data,
-            } if *generation == i1.generation => Some(data),
+            ArenaEntry::Occupied { generation, data } if *generation == i1.generation => Some(data),
             _ => None,
         };
 
         let item2 = match raw_item2 {
-            ArenaEntry::Occupied {
-                generation,
-                data,
-            } if *generation == i2.generation => Some(data),
+            ArenaEntry::Occupied { generation, data } if *generation == i2.generation => Some(data),
             _ => None,
         };
 

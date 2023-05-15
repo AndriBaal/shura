@@ -1,7 +1,7 @@
 #[cfg(feature = "physics")]
 use crate::{
     physics::{CollideType, ColliderHandle},
-    ComponentHandle, ComponentTypeId
+    ComponentHandle, ComponentTypeId,
 };
 use crate::{ActiveComponents, ArenaPath, ComponentController, Context, RenderEncoder};
 

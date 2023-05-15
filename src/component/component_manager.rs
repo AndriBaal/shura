@@ -4,8 +4,8 @@ use crate::{
     ActiveComponents, Arena, ArenaEntry, ArenaIndex, ArenaPath, BoxedComponent, CameraBuffer,
     ComponentCallbacks, ComponentCluster, ComponentController, ComponentDerive, ComponentGroup,
     ComponentGroupDescriptor, ComponentGroupId, ComponentHandle, ComponentIterRender,
-    ComponentRenderGroup, ComponentSet, ComponentSetMut, ComponentTypeId, Gpu, GpuDefaults,
-    GroupActivation, InstanceBuffer, Vector, ComponentType,
+    ComponentRenderGroup, ComponentSet, ComponentSetMut, ComponentType, ComponentTypeId, Gpu,
+    GpuDefaults, GroupActivation, InstanceBuffer, Vector,
 };
 use instant::Instant;
 #[cfg(feature = "log")]

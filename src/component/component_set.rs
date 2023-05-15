@@ -1,8 +1,9 @@
 use instant::Instant;
 
 use crate::{
-    ArenaIter, ArenaIterMut, ArenaPath, BoxedComponent, ComponentCallbacks, ComponentConfig,
-    ComponentDerive, InstanceBuffer, InstanceIndex, ComponentType, data::arena::ArenaIndex, ComponentGroupId,
+    data::arena::ArenaIndex, ArenaIter, ArenaIterMut, ArenaPath, BoxedComponent,
+    ComponentCallbacks, ComponentConfig, ComponentDerive, ComponentGroupId, ComponentType,
+    InstanceBuffer, InstanceIndex, ComponentHandle,
 };
 use std::{iter::Enumerate, marker::PhantomData};
 
@@ -10,15 +11,11 @@ use std::{iter::Enumerate, marker::PhantomData};
 pub(crate) struct ComponentCluster {
     paths: Vec<ArenaPath>,
     config: ComponentConfig,
-    last_update: Option<Instant>
+    last_update: Option<Instant>,
 }
 
 impl ComponentCluster {
-    pub fn new(
-        path: ArenaPath,
-        config: ComponentConfig,
-        now: Instant,
-    ) -> Self {
+    pub fn new(path: ArenaPath, config: ComponentConfig, now: Instant) -> Self {
         Self {
             paths: vec![path],
             last_update: match &config.update {
@@ -97,15 +94,15 @@ impl<'a, C: ComponentDerive> ActiveComponents<'a, C> {
 // #[derive(Clone)]
 pub struct ComponentSetMut<'a, C: ComponentDerive> {
     ty: &'a mut ComponentType,
-    groups: Vec<ArenaIndex>,
-    len: usize,
+    groups: &'a [ArenaIndex],
+    // len: usize,
     marker: PhantomData<C>,
 }
 
 impl<'a, C: ComponentDerive> ComponentSetMut<'a, C> {
     fn retain(&mut self, mut keep: impl FnMut(&mut C) -> bool) {
-        for group in &self.groups {
-            if let Some(group) = self.ty.components.get(*group) {
+        for group in self.groups {
+            if let Some(group) = self.ty.groups.get(*group) {
                 group.components.retain(|_, component| {
                     let component = component.downcast_mut::<C>().unwrap();
                     keep(component)
@@ -113,9 +110,19 @@ impl<'a, C: ComponentDerive> ComponentSetMut<'a, C> {
             }
         }
     }
-    fn index(group_id: ComponentGroupId, index: u32);
-    fn component();
-    fn component_mut();
+    fn len(&self) -> usize {
+        self.len()
+    }
+    fn remove(&mut self, handle: ComponentHandle) -> Option<C> {
+        self.ty.remove(handle).and_then(|c| c.downcast::<C>().ok());
+    }
+    fn index(group_id: ComponentGroupId, index: u32) -> Option<&C> {
+        self.ty.remove(handle).and_then(|c| c.downcast::<C>().ok());
+
+    }
+    fn index_mut(group_id: ComponentGroupId, index: u32) -> Option<&mut C> {}
+    fn component() -> Option<&C> {}
+    fn component_mut()  -> Option<&mut C> {}
 }
 
 // /// A set of components that includes all components of a specific type from a variety of

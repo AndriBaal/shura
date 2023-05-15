@@ -1,4 +1,4 @@
-use crate::{ArenaIndex, ComponentGroupId};
+use crate::{ArenaIndex};
 use core::hash::Hash;
 
 /// Handle for a component. Through these handles components can be easily be fetched every frame
@@ -13,7 +13,6 @@ pub struct ComponentHandle {
     type_index: ArenaIndex,
     group_index: ArenaIndex,
     id: u32,
-    group_id: ComponentGroupId,
 }
 
 impl ComponentHandle {
@@ -22,7 +21,6 @@ impl ComponentHandle {
         type_index: ArenaIndex::INVALID,
         group_index: ArenaIndex::INVALID,
         id: 0,
-        group_id: ComponentGroupId::INVALID,
     };
 }
 
@@ -52,14 +50,12 @@ impl ComponentHandle {
         type_index: ArenaIndex,
         group_index: ArenaIndex,
         id: u32,
-        group_id: ComponentGroupId,
     ) -> Self {
         Self {
             id,
             component_index,
             type_index,
             group_index,
-            group_id,
         }
     }
 
@@ -83,9 +79,5 @@ impl ComponentHandle {
 
     pub fn index(&self) -> u32 {
         self.component_index.index()
-    }
-
-    pub fn group_id(&self) -> ComponentGroupId {
-        self.group_id
     }
 }

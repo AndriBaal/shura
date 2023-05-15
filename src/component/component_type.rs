@@ -1,7 +1,8 @@
 use crate::{
-    data::arena::{ArenaIter, ArenaIterMut},
-    Arena, ArenaIndex, BoxedComponent, BufferOperation, ComponentConfig, ComponentController,
-    ComponentDerive, ComponentHandle, Gpu, InstanceBuffer, Matrix, ComponentCallbacks
+    data::arena::{ArenaEntry, ArenaIter, ArenaIterMut},
+    Arena, ArenaIndex, BoxedComponent, BufferOperation, ComponentCallbacks, ComponentConfig,
+    ComponentController, ComponentDerive, ComponentGroup, ComponentHandle, Gpu, InstanceBuffer,
+    Matrix, ComponentGroupId
 };
 
 #[cfg(feature = "physics")]
@@ -37,54 +38,16 @@ pub(crate) struct ComponentTypeGroup {
     pub components: Arena<BoxedComponent>,
     pub buffer: Option<InstanceBuffer>,
     pub last_len: usize,
-}
-
-// #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub(crate) struct ComponentType {
-    // #[cfg_attr(feature = "serde", serde(skip))]
-    // #[cfg_attr(feature = "serde", serde(default))]
-    pub components: Arena<ComponentTypeGroup>,
-    pub type_id: ComponentTypeId,
     pub force_buffer: bool,
-    pub config: ComponentConfig,
-    pub callbacks: ComponentCallbacks,
 }
 
-impl ComponentType {
-    pub fn new<C: ComponentController>() -> Self {
-        return Self::from_arena::<C>(Arena::new());
-    }
-
-    pub fn from_arena<C: ComponentController>(components: Arena<BoxedComponent>) -> Self {
+impl ComponentTypeGroup {
+    pub fn new() -> Self {
         Self {
-            components,
+            components: Arena::new(),
             buffer: None,
-            force_buffer: false,
             last_len: 0,
-            config: C::CONFIG,
-            type_id: C::IDENTIFIER,
-        }
-    }
-
-    pub fn buffer_data(&mut self, gpu: &Gpu) {
-        if self.config.buffer == BufferOperation::Never {
-            return;
-        }
-
-        let new_len = self.components.len();
-        if new_len != self.last_len {
-            // We have to resize the buffer
-            let data = self.data();
-            self.last_len = new_len;
-            self.buffer = Some(InstanceBuffer::new(gpu, &data[..]));
-        } else if self.config.buffer == BufferOperation::EveryFrame || self.force_buffer {
-            let data = self.data();
-            self.force_buffer = false;
-            if let Some(buffer) = &mut self.buffer {
-                buffer.write(gpu, &data[..]);
-            } else {
-                self.buffer = Some(InstanceBuffer::new(gpu, &data));
-            }
+            force_buffer: true,
         }
     }
 
@@ -94,15 +57,85 @@ impl ComponentType {
             .map(|(_, component)| component.base().matrix())
             .collect::<Vec<Matrix>>()
     }
+}
 
-    pub fn add<C: ComponentDerive + ComponentController>(
-        &mut self,
-        mut handle: ComponentHandle,
-        #[cfg(feature = "physics")] world: RcWorld,
-        mut component: C,
-    ) -> ComponentHandle {
-        self.components.insert_with(|idx| {
-            handle.component_index = idx;
+// #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]group
+pub(crate) struct ComponentType {
+    handle: ArenaIndex,
+    type_id: ComponentTypeId,
+    config: ComponentConfig,
+    callbacks: ComponentCallbacks,
+    pub groups: Arena<ComponentTypeGroup>,
+}
+
+impl ComponentType {
+    pub fn new<C: ComponentController>(
+        handle: ArenaIndex,
+        group_structure: &Arena<ComponentGroup>
+    ) -> Self {
+        let groups = Arena {
+            items: group_structure
+                .items
+                .iter()
+                .map(|entry| match *entry {
+                    ArenaEntry::Free { next_free } => ArenaEntry::Free { next_free },
+                    ArenaEntry::Occupied { generation, .. } => ArenaEntry::Occupied {
+                        generation,
+                        data: ComponentTypeGroup::new(),
+                    },
+                })
+                .collect(),
+            generation: group_structure.generation,
+            free_list_head: group_structure.free_list_head,
+            len: group_structure.len(),
+        };
+        Self {
+            handle,
+            groups,
+            config: C::CONFIG,
+            type_id: C::IDENTIFIER,
+            callbacks: ComponentCallbacks::new::<C>()
+        }
+    }
+
+    pub fn buffer_data(&mut self, active: &[ArenaIndex], gpu: &Gpu) {
+        if self.config.buffer == BufferOperation::Never {
+            return;
+        }
+
+        for index in active {
+            let group = &mut self.groups[*index];
+            let new_len = group.components.len();
+            if new_len != group.last_len {
+                // We have to resize the buffer
+                let data = group.data();
+                group.last_len = new_len;
+                group.buffer = Some(InstanceBuffer::new(gpu, &data[..]));
+            } else if self.config.buffer == BufferOperation::EveryFrame || group.force_buffer {
+                let data = group.data();
+                group.force_buffer = false;
+                if let Some(buffer) = &mut group.buffer {
+                    buffer.write(gpu, &data[..]);
+                } else {
+                    group.buffer = Some(InstanceBuffer::new(gpu, &data));
+                }
+            }
+        }
+    }
+
+    pub fn set_force_buffer(&mut self, force_buffer: bool) {
+        for (_, group) in &mut self.groups {
+            group.force_buffer = force_buffer;
+        }
+    }
+
+    pub fn add<C: ComponentDerive + ComponentController>(&mut self, group_handle: ArenaIndex, id: u32, component: C, #[cfg(feature = "physics")]
+    world: RcWorld) -> ComponentHandle {
+        assert_eq!(C::IDENTIFIER, self.type_id);
+        let group = &mut self.groups[group_handle];
+        let mut handle;
+        group.components.insert_with(|idx| {
+            handle = ComponentHandle::new(idx, self.handle, group_handle, id);
             component.base_mut().init(handle);
             #[cfg(feature = "physics")]
             if component.base().is_body() {
@@ -113,78 +146,116 @@ impl ComponentType {
         return handle;
     }
 
-    #[cfg(feature = "serde")]
-    pub fn serialize_components<C: ComponentDerive + serde::Serialize>(
-        &self,
-    ) -> Vec<Option<(u32, Vec<u8>)>> {
-        return self.components.serialize_components::<C>();
-    }
-
     pub fn remove(&mut self, handle: ComponentHandle) -> Option<BoxedComponent> {
-        self.components.remove(handle.component_index())
+        if let Some(group) = self.groups.get(handle.group_index()) {
+            return group.components.remove(handle.component_index());
+        }
+        return None;
     }
 
-    pub fn buffer(&self) -> Option<&InstanceBuffer> {
-        self.buffer.as_ref()
+    pub fn get(&self, handle: ComponentHandle) -> Option<&BoxedComponent> {
+        if let Some(group) = self.groups.get(handle.group_index()) {
+            return group.components.get(handle.component_index());
+        }
+        return None;
     }
 
-    pub const fn config(&self) -> &ComponentConfig {
-        &self.config
+    pub fn get_mut(&mut self, handle: ComponentHandle) -> Option<&mut BoxedComponent> {
+        if let Some(group) = self.groups.get(handle.group_index()) {
+            return group.components.get_mut(handle.component_index());
+        }
+        return None;
     }
 
-    pub const fn type_id(&self) -> ComponentTypeId {
-        self.type_id
-    }
+    // pub fn add<C: ComponentDerive + ComponentController>(
+    //     &mut self,
+    //     mut handle: ComponentHandle,
+    //     mut component: C,
+    //     #[cfg(feature = "physics")] world: RcWorld,
+    // ) -> ComponentHandle {
+    //     assert_eq!(C::IDENTIFIER, self.type_id);
+    //     self.components.insert_with(|idx| {
+    //         handle.component_index = idx;
+    //         component.base_mut().init(handle);
+    //         #[cfg(feature = "physics")]
+    //         if component.base().is_body() {
+    //             component.base_mut().add_to_world(C::IDENTIFIER, world)
+    //         }
+    //         Box::new(component)
+    //     });
+    //     return handle;
+    // }
 
-    pub fn is_empty(&self) -> bool {
-        self.components.is_empty()
-    }
+    // pub fn add<C: ComponentDerive + ComponentController>(
+    //     &mut self,
+    //     mut handle: ComponentHandle,
+    //     #[cfg(feature = "physics")] world: RcWorld,
+    //     mut component: C,
+    // ) -> ComponentHandle {
+    //     self.components.insert_with(|idx| {
+    //         handle.component_index = idx;
+    //         component.base_mut().init(handle);
+    //         #[cfg(feature = "physics")]
+    //         if component.base().is_body() {
+    //             component.base_mut().add_to_world(C::IDENTIFIER, world)
+    //         }
+    //         Box::new(component)
+    //     });
+    //     return handle;
+    // }
 
-    pub fn index(&self, index: usize) -> Option<&BoxedComponent> {
-        self.components.get_unknown_gen(index)
-    }
+    // #[cfg(feature = "serde")]
+    // pub fn serialize_components<C: ComponentDerive + serde::Serialize>(
+    //     &self,
+    // ) -> Vec<Option<(u32, Vec<u8>)>> {
+    //     return self.components.serialize_components::<C>();
+    // }
 
-    pub fn index_mut(&mut self, index: usize) -> Option<&mut BoxedComponent> {
-        self.components.get_unknown_gen_mut(index)
-    }
+    // pub fn remove(&mut self, handle: ComponentHandle) -> Option<BoxedComponent> {
+    //     self.components.remove(handle.component_index())
+    // }
 
-    pub fn component(&self, index: ArenaIndex) -> Option<&BoxedComponent> {
-        self.components.get(index)
-    }
+    // pub fn buffer(&self) -> Option<&InstanceBuffer> {
+    //     self.buffer.as_ref()
+    // }
 
-    pub fn component_mut(&mut self, index: ArenaIndex) -> Option<&mut BoxedComponent> {
-        self.components.get_mut(index)
-    }
+    // pub const fn config(&self) -> &ComponentConfig {
+    //     &self.config
+    // }
 
-    pub fn iter(&self) -> ArenaIter<BoxedComponent> {
-        return self.components.iter();
-    }
+    // pub const fn type_id(&self) -> ComponentTypeId {
+    //     self.type_id
+    // }
 
-    pub fn iter_mut(&mut self) -> ArenaIterMut<BoxedComponent> {
-        return self.components.iter_mut();
-    }
+    // pub fn index(&self, index: usize) -> Option<&BoxedComponent> {
+    //     self.components.get_unknown_gen(index)
+    // }
 
-    pub fn len(&self) -> usize {
-        self.components.len()
-    }
+    // pub fn index_mut(&mut self, index: usize) -> Option<&mut BoxedComponent> {
+    //     self.components.get_unknown_gen_mut(index)
+    // }
 
-    pub fn set_force_buffer(&mut self, force_buffer: bool) {
-        self.force_buffer = force_buffer;
-    }
-}
+    // pub fn component(&self, index: ArenaIndex) -> Option<&BoxedComponent> {
+    //     self.components.get(index)
+    // }
 
-impl<'a> IntoIterator for &'a ComponentType {
-    type Item = (ArenaIndex, &'a BoxedComponent);
-    type IntoIter = ArenaIter<'a, BoxedComponent>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.components.iter()
-    }
-}
+    // pub fn component_mut(&mut self, index: ArenaIndex) -> Option<&mut BoxedComponent> {
+    //     self.components.get_mut(index)
+    // }
 
-impl<'a> IntoIterator for &'a mut ComponentType {
-    type Item = (ArenaIndex, &'a mut BoxedComponent);
-    type IntoIter = ArenaIterMut<'a, BoxedComponent>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.components.iter_mut()
-    }
+    // pub fn iter(&self) -> ArenaIter<BoxedComponent> {
+    //     return self.components.iter();
+    // }
+
+    // pub fn iter_mut(&mut self) -> ArenaIterMut<BoxedComponent> {
+    //     return self.components.iter_mut();
+    // }
+
+    // pub fn len(&self) -> usize {
+    //     self.components.len()
+    // }
+
+    // pub fn set_force_buffer(&mut self, force_buffer: bool) {
+    //     self.force_buffer = force_buffer;
+    // }
 }
