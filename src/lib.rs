@@ -71,22 +71,13 @@ pub mod audio {
 #[cfg(feature = "physics")]
 mod world;
 #[cfg(feature = "physics")]
-/// Access to the relevant items from [rapier2d](https://github.com/dimforge/rapier)
+/// Access to the to [rapier2d](https://github.com/dimforge/rapier)
 pub mod physics {
     pub use crate::world::world::CollideType;
     pub use crate::world::world::{RcWorld, World};
     pub use rapier2d::geometry::*;
     pub use rapier2d::parry;
-    pub use rapier2d::prelude::{
-        ActiveCollisionTypes, ActiveEvents, ActiveHooks, CoefficientCombineRule, Collider,
-        ColliderBroadPhaseData, ColliderBuilder, ColliderChanges, ColliderFlags, ColliderHandle,
-        ColliderMaterial, ColliderParent, ColliderSet, ColliderShape, ColliderType, FixedJoint,
-        FixedJointBuilder, GenericJoint, GenericJointBuilder, Group, ImpulseJoint,
-        ImpulseJointHandle, InteractionGroups, LockedAxes, MassProperties, MotorModel,
-        PrismaticJoint, QueryFilter, QueryFilterFlags, Ray, RayIntersection, RevoluteJoint,
-        RevoluteJointBuilder, RigidBody, RigidBodyActivation, RigidBodyBuilder, RigidBodyHandle,
-        RigidBodySet, RigidBodyType, Shape, ShapeType, SharedShape, SpacialVector, TypedShape, TOI,
-    };
+    pub use rapier2d::prelude::*;
     pub mod rapier {
         pub use rapier2d::*;
     }

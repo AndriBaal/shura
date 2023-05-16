@@ -2,43 +2,7 @@ use crate::data::arena::{Arena, ArenaIndex, ArenaIterMut};
 #[cfg(feature = "serde")]
 use crate::BoxedComponent;
 use crate::{ComponentController, ComponentType, ComponentTypeId, Vector};
-use rustc_hash::FxHashMap;
 
-#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Ord)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-/// Unique Identifier of a [ComponentGroup]
-pub struct ComponentGroupId {
-    pub id: u16,
-}
-
-impl Default for ComponentGroupId {
-    fn default() -> Self {
-        Self::DEFAULT
-    }
-}
-
-impl ComponentGroupId {
-    /// Id of the default [ComponentGroup](crate::ComponentGroup). Components within this group are
-    /// always getting rendered and updated in every cycle.
-    pub const DEFAULT: Self = Self { id: u16::MAX / 2 };
-    pub const INVALID: Self = Self { id: 0 };
-
-    pub fn new(id: u16) -> Self {
-        Self { id }
-    }
-}
-
-/// Helper to create a [ComponentGroup](crate::ComponentGroup).
-#[derive(Debug, Copy, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct ComponentGroupDescriptor {
-    /// Id of the group.
-    pub id: ComponentGroupId,
-    /// Describes when the ggroup is active.
-    pub activation: GroupActivation,
-    /// Describes if the group is enabled from the start.
-    pub user_data: u64,
-}
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Copy, Clone)]
@@ -56,17 +20,6 @@ pub enum GroupActivation {
     Always,
 }
 
-impl Into<ComponentGroup> for ComponentGroupDescriptor {
-    fn into(self) -> ComponentGroup {
-        ComponentGroup {
-            id: self.id,
-            activation: self.activation,
-            active: false,
-            user_data: self.user_data,
-        }
-    }
-}
-
 /// Every group has a [id](crate::ComponentGroupId) and a [activation](crate::GroupActivation).
 /// Groups can be used like a chunk system to make huge 2D worlds possible or to just order your components.
 /// The Engine has a default [ComponentGroup](crate::ComponentGroup) with the default [ComponentGroupId] value.
@@ -77,13 +30,21 @@ impl Into<ComponentGroup> for ComponentGroupDescriptor {
 /// from the [context](crate::Context).
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ComponentGroup {
-    id: ComponentGroupId,
     active: bool,
     pub activation: GroupActivation,
     pub user_data: u64,
 }
 
 impl ComponentGroup {
+    fn new(    activation: GroupActivation,
+        user_data: u64,) -> ComponentGroup {
+        ComponentGroup {
+            activation,
+            user_data,
+            active: false,
+        }
+    }
+
     pub(crate) fn intersects_camera(
         &self,
         cam_bottom_left: Vector<f32>,
@@ -175,11 +136,6 @@ impl ComponentGroup {
 
     pub fn set_user_data(&mut self, user_data: u64) {
         self.user_data = user_data;
-    }
-
-    // Get the id of the group.
-    pub const fn id(&self) -> ComponentGroupId {
-        self.id
     }
 
     /// Get the activation of this Group.

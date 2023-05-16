@@ -1,8 +1,8 @@
 use crate::{
     data::arena::{ArenaEntry, ArenaIter, ArenaIterMut},
     Arena, ArenaIndex, BoxedComponent, BufferOperation, ComponentCallbacks, ComponentConfig,
-    ComponentController, ComponentDerive, ComponentGroup, ComponentGroupId, ComponentHandle, Gpu,
-    InstanceBuffer, Matrix,
+    ComponentController, ComponentDerive, ComponentGroup, ComponentHandle, Gpu,
+    InstanceBuffer, Matrix, ComponentGroupHandle, TypeIndex,
 };
 
 #[cfg(feature = "physics")]
@@ -35,10 +35,10 @@ pub trait ComponentIdentifier {
 }
 
 pub(crate) struct ComponentTypeGroup {
-    pub components: Arena<BoxedComponent>,
-    pub buffer: Option<InstanceBuffer>,
-    pub last_len: usize,
-    pub force_buffer: bool,
+    components: Arena<BoxedComponent>,
+    buffer: Option<InstanceBuffer>,
+    last_len: usize,
+    force_buffer: bool,
 }
 
 impl ComponentTypeGroup {
@@ -57,11 +57,29 @@ impl ComponentTypeGroup {
             .map(|(_, component)| component.base().matrix())
             .collect::<Vec<Matrix>>()
     }
+
+    pub fn buffer(&mut self, every_frame: bool, gpu: &Gpu) {
+        let new_len = self.components.len();
+        if new_len != self.last_len {
+            // We have to resize the buffer
+            let data = self.data();
+            self.last_len = new_len;
+            self.buffer = Some(InstanceBuffer::new(gpu, &data[..]));
+        } else if every_frame || self.force_buffer {
+            let data = self.data();
+            self.force_buffer = false;
+            if let Some(buffer) = &mut self.buffer {
+                buffer.write(gpu, &data[..]);
+            } else {
+                self.buffer = Some(InstanceBuffer::new(gpu, &data));
+            }
+        }
+    }
 }
 
 // #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]group
 pub(crate) struct ComponentType {
-    handle: ArenaIndex,
+    index: TypeIndex,
     type_id: ComponentTypeId,
     config: ComponentConfig,
     callbacks: ComponentCallbacks,
@@ -70,7 +88,7 @@ pub(crate) struct ComponentType {
 
 impl ComponentType {
     pub fn new<C: ComponentController>(
-        handle: ArenaIndex,
+        index: TypeIndex,
         group_structure: &Arena<ComponentGroup>,
     ) -> Self {
         let groups = Arena {
@@ -90,7 +108,7 @@ impl ComponentType {
             len: group_structure.len(),
         };
         Self {
-            handle,
+            index,
             groups,
             config: C::CONFIG,
             type_id: C::IDENTIFIER,
@@ -98,28 +116,15 @@ impl ComponentType {
         }
     }
 
-    pub fn buffer_data(&mut self, active: &[ArenaIndex], gpu: &Gpu) {
+    pub fn buffer(&mut self, active: &[ArenaIndex], gpu: &Gpu) {
         if self.config.buffer == BufferOperation::Never {
             return;
         }
 
+        let every_frame = self.config.buffer == BufferOperation::EveryFrame;
         for index in active {
             let group = &mut self.groups[*index];
-            let new_len = group.components.len();
-            if new_len != group.last_len {
-                // We have to resize the buffer
-                let data = group.data();
-                group.last_len = new_len;
-                group.buffer = Some(InstanceBuffer::new(gpu, &data[..]));
-            } else if self.config.buffer == BufferOperation::EveryFrame || group.force_buffer {
-                let data = group.data();
-                group.force_buffer = false;
-                if let Some(buffer) = &mut group.buffer {
-                    buffer.write(gpu, &data[..]);
-                } else {
-                    group.buffer = Some(InstanceBuffer::new(gpu, &data));
-                }
-            }
+            group.buffer(self.config.buffer == BufferOperation::EveryFrame, gpu);
         }
     }
 
@@ -131,16 +136,15 @@ impl ComponentType {
 
     pub fn add<C: ComponentDerive + ComponentController>(
         &mut self,
-        group_handle: ArenaIndex,
-        id: u32,
+        group_handle: ComponentGroupHandle,
         component: C,
-        // #[cfg(feature = "physics")] world: &mut World,
     ) -> ComponentHandle {
         assert_eq!(C::IDENTIFIER, self.type_id);
+        let group_handle = group_handle.handle;
         let group = &mut self.groups[group_handle];
         let mut handle;
         group.components.insert_with(|idx| {
-            handle = ComponentHandle::new(idx, self.handle, group_handle, id);
+            handle = ComponentHandle::new(idx, self.handle, group_handle);
             component.base_mut().init(handle);
             Box::new(component)
         });
