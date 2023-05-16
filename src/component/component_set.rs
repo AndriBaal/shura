@@ -118,7 +118,6 @@ impl<'a, C: ComponentDerive> ComponentSetMut<'a, C> {
     }
     fn index(group_id: ComponentGroupId, index: u32) -> Option<&C> {
         self.ty.remove(handle).and_then(|c| c.downcast::<C>().ok());
-
     }
     fn index_mut(group_id: ComponentGroupId, index: u32) -> Option<&mut C> {}
     fn component() -> Option<&C> {}

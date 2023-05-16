@@ -1,8 +1,8 @@
 use crate::{
     data::arena::{ArenaEntry, ArenaIter, ArenaIterMut},
     Arena, ArenaIndex, BoxedComponent, BufferOperation, ComponentCallbacks, ComponentConfig,
-    ComponentController, ComponentDerive, ComponentGroup, ComponentHandle, Gpu, InstanceBuffer,
-    Matrix, ComponentGroupId
+    ComponentController, ComponentDerive, ComponentGroup, ComponentGroupId, ComponentHandle, Gpu,
+    InstanceBuffer, Matrix,
 };
 
 #[cfg(feature = "physics")]
@@ -71,7 +71,7 @@ pub(crate) struct ComponentType {
 impl ComponentType {
     pub fn new<C: ComponentController>(
         handle: ArenaIndex,
-        group_structure: &Arena<ComponentGroup>
+        group_structure: &Arena<ComponentGroup>,
     ) -> Self {
         let groups = Arena {
             items: group_structure
@@ -94,7 +94,7 @@ impl ComponentType {
             groups,
             config: C::CONFIG,
             type_id: C::IDENTIFIER,
-            callbacks: ComponentCallbacks::new::<C>()
+            callbacks: ComponentCallbacks::new::<C>(),
         }
     }
 
@@ -129,18 +129,19 @@ impl ComponentType {
         }
     }
 
-    pub fn add<C: ComponentDerive + ComponentController>(&mut self, group_handle: ArenaIndex, id: u32, component: C, #[cfg(feature = "physics")]
-    world: RcWorld) -> ComponentHandle {
+    pub fn add<C: ComponentDerive + ComponentController>(
+        &mut self,
+        group_handle: ArenaIndex,
+        id: u32,
+        component: C,
+        // #[cfg(feature = "physics")] world: &mut World,
+    ) -> ComponentHandle {
         assert_eq!(C::IDENTIFIER, self.type_id);
         let group = &mut self.groups[group_handle];
         let mut handle;
         group.components.insert_with(|idx| {
             handle = ComponentHandle::new(idx, self.handle, group_handle, id);
             component.base_mut().init(handle);
-            #[cfg(feature = "physics")]
-            if component.base().is_body() {
-                component.base_mut().add_to_world(C::IDENTIFIER, world)
-            }
             Box::new(component)
         });
         return handle;

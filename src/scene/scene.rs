@@ -1,6 +1,6 @@
 use crate::{
-    ComponentManager, Context, SceneStateManager, ScreenConfig, ShuraFields, Vector, WorldCamera,
-    WorldCameraScale,
+    physics::World, ComponentManager, Context, SceneStateManager, ScreenConfig, ShuraFields,
+    Vector, WorldCamera, WorldCameraScale,
 };
 
 /// Origin of a [Scene]
@@ -90,6 +90,8 @@ pub struct Scene {
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
     pub states: SceneStateManager,
+    #[cfg(feature = "physics")]
+    pub world: World,
 }
 
 impl Scene {
@@ -108,6 +110,7 @@ impl Scene {
             component_manager: ComponentManager::new(),
             screen_config: ScreenConfig::new(),
             states: SceneStateManager::default(),
+            world: World::new()
         }
     }
 

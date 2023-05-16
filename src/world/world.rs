@@ -144,6 +144,8 @@ pub struct World {
     pub gravity: Vector<f32>,
     bodies: RigidBodySet,
     colliders: ColliderSet,
+    impulse_joints: ImpulseJointSet,
+    multibody_joints: MultibodyJointSet,
     component_mapping: ColliderMapping,
 
     query_pipeline: QueryPipeline,
@@ -151,8 +153,6 @@ pub struct World {
     islands: IslandManager,
     broad_phase: BroadPhase,
     narrow_phase: NarrowPhase,
-    impulse_joints: ImpulseJointSet,
-    multibody_joints: MultibodyJointSet,
     ccd_solver: CCDSolver,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]

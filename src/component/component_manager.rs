@@ -11,8 +11,6 @@ use instant::Instant;
 #[cfg(feature = "log")]
 use log::info;
 use rustc_hash::{FxHashMap, FxHashSet};
-#[cfg(feature = "physics")]
-use std::cell::{Ref, RefCell, RefMut};
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
@@ -80,8 +78,6 @@ pub struct ComponentManager {
     // #[cfg_attr(feature = "serde", serde(skip))]
     // #[cfg_attr(feature = "serde", serde(default))]
     // component_callbacks: FxHashMap<ComponentTypeId, ComponentCallbacks>,
-    #[cfg(feature = "physics")]
-    pub(crate) world: RcWorld,
 }
 
 impl ComponentManager {
