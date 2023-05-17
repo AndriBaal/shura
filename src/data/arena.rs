@@ -7,28 +7,28 @@ use core::slice;
 pub(crate) struct Arena<T> {
     pub(crate) items: Vec<ArenaEntry<T>>,
     pub(crate) generation: u32,
-    pub(crate) free_list_head: Option<u32>,
+    pub(crate) free_list_head: Option<usize>,
     pub(crate) len: usize,
 }
 
 pub(crate) enum ArenaEntry<T> {
-    Free { next_free: Option<u32> },
+    Free { next_free: Option<usize> },
     Occupied { generation: u32, data: T },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct ArenaIndex {
-    pub(crate) index: u32,
+    pub(crate) index: usize,
     pub(crate) generation: u32,
 }
 
 impl ArenaIndex {
     pub const INVALID: Self = Self {
-        index: u32::MAX,
+        index: u32::MAX as usize,
         generation: u32::MAX,
     };
 
-    pub fn index(&self) -> u32 {
+    pub fn index(&self) -> usize {
         self.index
     }
 }
@@ -155,7 +155,7 @@ impl<T> Arena<T> {
     }
 
     pub fn remove(&mut self, i: ArenaIndex) -> Option<T> {
-        if i.index >= self.items.len() as u32 {
+        if i.index >= self.items.len() {
             return None;
         }
 
@@ -181,6 +181,10 @@ impl<T> Arena<T> {
             }
             _ => None,
         }
+    }
+
+    pub fn contains(&self, i: ArenaIndex) -> bool {
+        self.get(i).is_some()
     }
 
     pub fn get(&self, i: ArenaIndex) -> Option<&T> {
@@ -239,11 +243,11 @@ impl<T> Arena<T> {
                 }
             } else {
                 ArenaEntry::Free {
-                    next_free: Some(i as u32 + 1),
+                    next_free: Some(i + 1),
                 }
             }
         }));
-        self.free_list_head = Some(start as u32);
+        self.free_list_head = Some(start);
     }
 
     pub fn iter(&self) -> ArenaIter<T> {
@@ -265,7 +269,7 @@ impl<T> Arena<T> {
             let remove = match &mut self.items[i] {
                 ArenaEntry::Occupied { generation, data } => {
                     let index = ArenaIndex {
-                        index: i as u32,
+                        index: i,
                         generation: *generation,
                     };
                     if predicate(index, data) {
@@ -364,7 +368,7 @@ impl<'a, T> Iterator for ArenaIter<'a, T> {
                 )) => {
                     self.len -= 1;
                     let idx = ArenaIndex {
-                        index: index as u32,
+                        index: index,
                         generation,
                     };
                     return Some((idx, data));
@@ -396,7 +400,7 @@ impl<'a, T> DoubleEndedIterator for ArenaIter<'a, T> {
                 )) => {
                     self.len -= 1;
                     let idx = ArenaIndex {
-                        index: index as u32,
+                        index: index,
                         generation,
                     };
                     return Some((idx, data));
@@ -447,7 +451,7 @@ impl<'a, T> Iterator for ArenaIterMut<'a, T> {
                 )) => {
                     self.len -= 1;
                     let idx = ArenaIndex {
-                        index: index as u32,
+                        index: index,
                         generation,
                     };
                     return Some((idx, data));
@@ -479,7 +483,7 @@ impl<'a, T> DoubleEndedIterator for ArenaIterMut<'a, T> {
                 )) => {
                     self.len -= 1;
                     let idx = ArenaIndex {
-                        index: index as u32,
+                        index: index,
                         generation,
                     };
                     return Some((idx, data));

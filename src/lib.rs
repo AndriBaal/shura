@@ -37,7 +37,7 @@ pub use crate::{
         sprite_sheet::*, uniform::*, vertex::*,
     },
     input::input::*,
-    math::{math::*, matrix::*},
+    math::{math::*, matrix::*, aabb::*},
     scene::{context::Context, scene::*, scene_manager::*},
     shura::*,
     state::{
@@ -64,6 +64,7 @@ mod sound;
 /// Access to [rodio](https://github.com/RustAudio/rodio)
 pub mod audio {
     pub use crate::sound::sound::*;
+    pub use crate::sound::audio_manager::*;
     pub use rodio::*;
 }
 

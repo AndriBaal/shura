@@ -1,8 +1,7 @@
-use crate::data::arena::{Arena, ArenaIndex, ArenaIterMut};
-#[cfg(feature = "serde")]
-use crate::BoxedComponent;
-use crate::{ComponentController, ComponentType, ComponentTypeId, Vector};
-
+use crate::{
+    data::arena::{Arena, ArenaIndex, ArenaIterMut},
+    AABB,
+};
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Copy, Clone)]
@@ -12,10 +11,7 @@ use crate::{ComponentController, ComponentType, ComponentTypeId, Vector};
 /// Components in a inactive [ComponentGroup] still process the physics
 pub enum GroupActivation {
     /// Group is only active when it collides with the fov of the [WorldCamera](crate::WorldCamera)
-    Position {
-        position: Vector<f32>,
-        half_extents: Vector<f32>,
-    },
+    Position { aabb: AABB },
     /// Group is always active
     Always,
 }
@@ -36,8 +32,7 @@ pub struct ComponentGroup {
 }
 
 impl ComponentGroup {
-    fn new(    activation: GroupActivation,
-        user_data: u64,) -> ComponentGroup {
+    fn new(activation: GroupActivation, user_data: u64) -> ComponentGroup {
         ComponentGroup {
             activation,
             user_data,
@@ -45,23 +40,9 @@ impl ComponentGroup {
         }
     }
 
-    pub(crate) fn intersects_camera(
-        &self,
-        cam_bottom_left: Vector<f32>,
-        cam_top_right: Vector<f32>,
-    ) -> bool {
+    pub(crate) fn intersects_camera(&self, cam_aabb: AABB) -> bool {
         match &self.activation {
-            GroupActivation::Position {
-                position,
-                half_extents,
-            } => {
-                let self_bl = Vector::new(position.x - half_extents.x, position.y - half_extents.y);
-                let self_tr = Vector::new(position.x + half_extents.x, position.y + half_extents.y);
-                return (cam_bottom_left.x < self_tr.x)
-                    && (self_bl.x < cam_top_right.x)
-                    && (cam_bottom_left.y < self_tr.y)
-                    && (self_bl.y < cam_top_right.y);
-            }
+            GroupActivation::Position { aabb } => return cam_aabb.intersects(aabb),
             GroupActivation::Always => {
                 return true;
             }
@@ -71,63 +52,6 @@ impl ComponentGroup {
     pub(crate) fn set_active(&mut self, active: bool) {
         self.active = active;
     }
-
-    // pub(crate) fn type_by_id(&self, type_id: ComponentTypeId) -> Option<&ComponentType> {
-    //     if let Some(type_index) = self.type_map.get(&type_id) {
-    //         return self.types.get(*type_index);
-    //     }
-    //     return None;
-    // }
-
-    // pub(crate) fn type_by_id_mut(
-    //     &mut self,
-    //     type_id: ComponentTypeId,
-    // ) -> Option<&mut ComponentType> {
-    //     if let Some(type_index) = self.type_map.get(&type_id) {
-    //         return self.types.get_mut(*type_index);
-    //     }
-    //     return None;
-    // }
-
-    // pub(crate) fn type_index(&self, type_id: ComponentTypeId) -> Option<&ArenaIndex> {
-    //     self.type_map.get(&type_id)
-    // }
-
-    // pub(crate) fn type_ref(&self, index: ArenaIndex) -> Option<&ComponentType> {
-    //     self.types.get(index)
-    // }
-
-    // pub(crate) fn type_mut(&mut self, index: ArenaIndex) -> Option<&mut ComponentType> {
-    //     self.types.get_mut(index)
-    // }
-
-    // pub(crate) fn add_component_type<C: ComponentController>(
-    //     &mut self,
-    // ) -> (ArenaIndex, &mut ComponentType) {
-    //     let component_type = ComponentType::new::<C>();
-    //     let type_index = self.types.insert(component_type);
-    //     self.type_map.insert(C::IDENTIFIER, type_index);
-    //     return (type_index, self.types.get_mut(type_index).unwrap());
-    // }
-
-    // pub(crate) fn types(&mut self) -> ArenaIterMut<ComponentType> {
-    //     self.types.iter_mut()
-    // }
-
-    // pub(crate) fn remove_type(&mut self, index: ArenaIndex) {
-    //     let removed = self.types.remove(index).unwrap();
-    //     self.type_map.remove(&removed.type_id());
-    // }
-
-    // #[cfg(feature = "serde")]
-    // pub(crate) fn deserialize_type<C: ComponentController>(
-    //     &mut self,
-    //     components: Arena<BoxedComponent>,
-    // ) {
-    //     let type_index = self.type_map.get(&C::IDENTIFIER).unwrap();
-    //     let ty = &mut self.types[*type_index];
-    //     *ty = ComponentType::from_arena::<C>(components);
-    // }
 
     /// Set the activation of this group.
     pub fn set_activation(&mut self, activation: GroupActivation) {

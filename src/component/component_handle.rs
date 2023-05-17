@@ -3,13 +3,13 @@ use core::hash::Hash;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub(crate) struct ComponentIndex(ArenaIndex);
+pub(crate) struct ComponentIndex(pub(crate) ArenaIndex);
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub(crate) struct GroupHandle(ArenaIndex);
+pub struct GroupHandle(pub(crate) ArenaIndex);
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub(crate) struct TypeIndex(ArenaIndex);
+pub(crate) struct TypeIndex(pub(crate)ArenaIndex);
 
 impl GroupHandle {
     pub const DEFAULT_GROUP: Self = GroupHandle(ArenaIndex { index: 0, generation: 0 });

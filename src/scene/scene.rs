@@ -86,7 +86,7 @@ pub struct Scene {
     pub(crate) started: bool,
     pub screen_config: ScreenConfig,
     pub world_camera: WorldCamera,
-    pub component_manager: ComponentManager,
+    pub components: ComponentManager,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
     pub states: SceneStateManager,
@@ -107,7 +107,7 @@ impl Scene {
                 WorldCameraScale::Min(Self::DEFAULT_VERTICAL_CAMERA_FOV),
                 window_size,
             ),
-            component_manager: ComponentManager::new(),
+            components: ComponentManager::new(),
             screen_config: ScreenConfig::new(),
             states: SceneStateManager::default(),
             world: World::new()

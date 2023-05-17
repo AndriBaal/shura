@@ -3,69 +3,9 @@ use instant::Instant;
 use crate::{
     data::arena::ArenaIndex, ArenaIter, ArenaIterMut, ArenaPath, BoxedComponent,
     ComponentCallbacks, ComponentConfig, ComponentDerive, ComponentGroupId, ComponentType,
-    InstanceBuffer, InstanceIndex, ComponentHandle,
+    InstanceBuffer, InstanceIndex, ComponentHandle, GroupHandle,
 };
 use std::{iter::Enumerate, marker::PhantomData};
-
-#[derive(Clone)]
-pub(crate) struct ComponentCluster {
-    paths: Vec<ArenaPath>,
-    config: ComponentConfig,
-    last_update: Option<Instant>,
-}
-
-impl ComponentCluster {
-    pub fn new(path: ArenaPath, config: ComponentConfig, now: Instant) -> Self {
-        Self {
-            paths: vec![path],
-            last_update: match &config.update {
-                crate::UpdateOperation::AfterDuration(_) => Some(now),
-                _ => None,
-            },
-            config: config,
-        }
-    }
-
-    pub fn sort(&mut self) {
-        self.paths
-            .sort_by(|a, b| a.group_index.index().cmp(&b.group_index.index()));
-    }
-
-    pub fn clear(&mut self) {
-        self.paths.clear();
-    }
-
-    pub fn add(&mut self, path: ArenaPath) {
-        self.paths.push(path);
-    }
-
-    pub fn last_update(&self) -> Option<Instant> {
-        self.last_update
-    }
-
-    pub fn update_time(&mut self, now: Instant) {
-        match &mut self.config.update {
-            crate::UpdateOperation::AfterDuration(dur) => {
-                if now > self.last_update.unwrap() + *dur {
-                    self.last_update = Some(now);
-                }
-            }
-            _ => {}
-        };
-    }
-
-    pub const fn config(&self) -> &ComponentConfig {
-        &self.config
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.paths.is_empty()
-    }
-
-    pub fn paths(&self) -> &Vec<ArenaPath> {
-        &self.paths
-    }
-}
 
 /// Paths of currently active ComponentGroup's that contain the component type C. This is equal to
 /// [ComponentFilter::Active](crate::ComponentFilter::Active)
@@ -91,37 +31,70 @@ impl<'a, C: ComponentDerive> ActiveComponents<'a, C> {
     }
 }
 
-// #[derive(Clone)]
+#[derive(Clone)]
+pub struct ComponentSet<'a, C: ComponentDerive> {
+    ty: &'a ComponentType,
+    groups: &'a [GroupHandle],
+    marker: PhantomData<C>,
+}
+
+impl<'a, C: ComponentDerive> ComponentSet<'a, C> {
+    pub fn new() {
+        
+    }
+}
+
 pub struct ComponentSetMut<'a, C: ComponentDerive> {
     ty: &'a mut ComponentType,
-    groups: &'a [ArenaIndex],
-    // len: usize,
+    groups: &'a [GroupHandle],
     marker: PhantomData<C>,
 }
 
 impl<'a, C: ComponentDerive> ComponentSetMut<'a, C> {
-    fn retain(&mut self, mut keep: impl FnMut(&mut C) -> bool) {
-        for group in self.groups {
-            if let Some(group) = self.ty.groups.get(*group) {
-                group.components.retain(|_, component| {
-                    let component = component.downcast_mut::<C>().unwrap();
-                    keep(component)
-                });
-            }
-        }
-    }
-    fn len(&self) -> usize {
-        self.len()
-    }
-    fn remove(&mut self, handle: ComponentHandle) -> Option<C> {
-        self.ty.remove(handle).and_then(|c| c.downcast::<C>().ok());
-    }
-    fn index(group_id: ComponentGroupId, index: u32) -> Option<&C> {
-        self.ty.remove(handle).and_then(|c| c.downcast::<C>().ok());
-    }
-    fn index_mut(group_id: ComponentGroupId, index: u32) -> Option<&mut C> {}
-    fn component() -> Option<&C> {}
-    fn component_mut()  -> Option<&mut C> {}
+    // pub fn retain(
+    //     &mut self,
+    //     keep: impl FnMut(&mut C) -> bool,
+    // ) {}
+    // pub fn index(&self) -> Option<&C> {}
+    // pub fn index_mut(&mut self) -> Option<&mut C> {}
+    // pub fn get(&self) -> Option<&C> {}
+    // pub fn get_mut(&mut self) -> Option<&mut C> {}
+    // pub fn get2_mut(&mut self) -> (C, C) {}
+    // pub fn get_boxed(&self, handle: ComponentHandle) -> &BoxedComponent {}
+    // pub fn get_boxed_mut(&mut self, handle: ComponentHandle) -> &mut BoxedComponent {}
+    // pub fn remove_component(&mut self, handle: ComponentHandle) -> Option<C> {}
+    // pub fn add_component(&mut self) -> ComponentHandle {}
+    // pub fn add_components<I>(
+    //     &mut self,
+    //     components: impl Iterator<Item = C>,
+    // ) -> Vec<ComponentHandle> {
+    // }
+    // pub fn force_buffer(&self, filter: ComponentFilter) {}
+    // pub fn len(&self, filter: ComponentFilter) {
+    // }
+    
+    // fn retain(&mut self, mut keep: impl FnMut(&mut C) -> bool) {
+    //     for group in self.groups {
+    //         if let Some(group) = self.ty.groups.get(*group.0) {
+    //             group.components.retain(|_, component| {
+    //                 let component = component.downcast_mut::<C>().unwrap();
+    //                 keep(component)
+    //             });
+    //         }
+    //     }
+    // }
+    // fn len(&self) -> usize {
+    //     self.len()
+    // }
+    // fn remove(&mut self, handle: ComponentHandle) -> Option<C> {
+    //     self.ty.remove(handle).and_then(|c| c.downcast::<C>().ok());
+    // }
+    // fn index(group_id: ComponentGroupId, index: u32) -> Option<&C> {
+    //     self.ty.remove(handle).and_then(|c| c.downcast::<C>().ok());
+    // }
+    // fn index_mut(group_id: ComponentGroupId, index: u32) -> Option<&mut C> {}
+    // fn component() -> Option<&C> {}
+    // fn component_mut()  -> Option<&mut C> {}
 }
 
 // /// A set of components that includes all components of a specific type from a variety of

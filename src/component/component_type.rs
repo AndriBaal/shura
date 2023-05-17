@@ -1,12 +1,10 @@
-use crate::{
-    data::arena::{ArenaEntry, ArenaIter, ArenaIterMut},
-    Arena, ArenaIndex, BoxedComponent, BufferOperation, ComponentCallbacks, ComponentConfig,
-    ComponentController, ComponentDerive, ComponentGroup, ComponentHandle, Gpu,
-    InstanceBuffer, Matrix, ComponentGroupHandle, TypeIndex,
-};
+use instant::Instant;
 
-#[cfg(feature = "physics")]
-use crate::physics::RcWorld;
+use crate::{
+    data::arena::ArenaEntry, Arena, ArenaIndex, BoxedComponent, BufferOperation,
+    ComponentCallbacks, ComponentConfig, ComponentController, ComponentDerive, ComponentGroup,
+    ComponentHandle, ComponentIndex, Gpu, GroupHandle, InstanceBuffer, Matrix, TypeIndex,
+};
 
 #[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -34,11 +32,11 @@ pub trait ComponentIdentifier {
     const IDENTIFIER: ComponentTypeId;
 }
 
-pub(crate) struct ComponentTypeGroup {
-    components: Arena<BoxedComponent>,
+struct ComponentTypeGroup {
+    pub components: Arena<BoxedComponent>,
+    pub force_buffer: bool,
     buffer: Option<InstanceBuffer>,
     last_len: usize,
-    force_buffer: bool,
 }
 
 impl ComponentTypeGroup {
@@ -79,11 +77,12 @@ impl ComponentTypeGroup {
 
 // #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]group
 pub(crate) struct ComponentType {
+    groups: Arena<ComponentTypeGroup>,
     index: TypeIndex,
     type_id: ComponentTypeId,
     config: ComponentConfig,
     callbacks: ComponentCallbacks,
-    pub groups: Arena<ComponentTypeGroup>,
+    last_update: Instant,
 }
 
 impl ComponentType {
@@ -113,6 +112,7 @@ impl ComponentType {
             config: C::CONFIG,
             type_id: C::IDENTIFIER,
             callbacks: ComponentCallbacks::new::<C>(),
+            last_update: Instant::now(),
         }
     }
 
@@ -134,43 +134,191 @@ impl ComponentType {
         }
     }
 
-    pub fn add<C: ComponentDerive + ComponentController>(
+    pub fn add_group(&mut self) -> GroupHandle {
+        let index = self.groups.insert(ComponentTypeGroup::new());
+        return GroupHandle(index);
+    }
+
+    pub fn remove_group(&mut self, handle: GroupHandle) {
+        self.groups.remove(handle.0);
+    }
+
+    pub fn retain<C: ComponentController>(
         &mut self,
-        group_handle: ComponentGroupHandle,
+        groups: &[GroupHandle],
+        mut keep: impl FnMut(&mut C) -> bool,
+    ) {
+        for group in groups {
+            if let Some(group) = self.groups.get_mut(group.0) {
+                group.components.retain(|_, component| {
+                    let component = component.downcast_mut::<C>().unwrap();
+                    keep(component)
+                });
+            }
+        }
+    }
+    pub fn index<C: ComponentController>(&self, group: GroupHandle, index: usize) -> Option<&C> {
+        if let Some(group) = self.groups.get(group.0) {
+            if let Some(component) = group.components.get_unknown_gen(index) {
+                return component.downcast_ref::<C>();
+            }
+        }
+        return None;
+    }
+    pub fn index_mut<C: ComponentController>(
+        &mut self,
+        group: GroupHandle,
+        index: usize,
+    ) -> Option<&mut C> {
+        if let Some(group) = self.groups.get_mut(group.0) {
+            if let Some(component) = group.components.get_unknown_gen_mut(index) {
+                return component.downcast_mut::<C>();
+            }
+        }
+        return None;
+    }
+    pub fn get<C: ComponentController>(&self, handle: ComponentHandle) -> Option<&C> {
+        if let Some(group) = self.groups.get(handle.group_index().0) {
+            if let Some(component) = group.components.get(handle.component_index().0) {
+                return component.downcast_ref::<C>();
+            }
+        }
+        return None;
+    }
+    pub fn get_mut<C: ComponentController>(&mut self, handle: ComponentHandle) -> Option<&mut C> {
+        if let Some(group) = self.groups.get_mut(handle.group_index().0) {
+            if let Some(component) = group.components.get_mut(handle.component_index().0) {
+                return component.downcast_mut::<C>();
+            }
+        }
+        return None;
+    }
+    pub fn get2_mut<C: ComponentController>(
+        &mut self,
+        handle1: ComponentHandle,
+        handle2: ComponentHandle,
+    ) -> (Option<&mut C>, Option<&mut C>) {
+        let mut c1 = None;
+        let mut c2 = None;
+        if handle1.group_index() == handle2.group_index() {
+            if let Some(group) = self.groups.get_mut(handle1.group_index().0) {
+                let result = group
+                    .components
+                    .get2_mut(handle1.component_index().0, handle2.component_index().0);
+                if let Some(component) = result.0 {
+                    c1 = component.downcast_mut::<C>();
+                }
+                if let Some(component) = result.1 {
+                    c2 = component.downcast_mut::<C>();
+                }
+            }
+        } else {
+            let (group1, group2) = self
+                .groups
+                .get2_mut(handle1.group_index().0, handle2.group_index().0);
+            if let Some(group) = group1 {
+                if let Some(component) = group.components.get_mut(handle1.component_index().0) {
+                    c1 = component.downcast_mut::<C>();
+                }
+            }
+
+            if let Some(group) = group2 {
+                if let Some(component) = group.components.get_mut(handle2.component_index().0) {
+                    c2 = component.downcast_mut::<C>();
+                }
+            }
+        }
+        return (c1, c2);
+    }
+    pub fn get_boxed(&self, handle: ComponentHandle) -> Option<&BoxedComponent> {
+        if let Some(group) = self.groups.get(handle.group_index().0) {
+            return group.components.get(handle.component_index().0);
+        }
+        return None;
+    }
+    pub fn get_boxed_mut(&mut self, handle: ComponentHandle) -> Option<&mut BoxedComponent> {
+        if let Some(group) = self.groups.get_mut(handle.group_index().0) {
+            return group.components.get_mut(handle.component_index().0);
+        }
+        return None;
+    }
+    pub fn remove_component<C: ComponentController>(
+        &mut self,
+        handle: ComponentHandle,
+    ) -> Option<Box<C>> {
+        if let Some(group) = self.groups.get_mut(handle.group_index().0) {
+            if let Some(component) = group.components.remove(handle.component_index().0) {
+                return component.downcast::<C>().ok();
+            }
+        }
+        return None;
+    }
+    pub fn add_component<C: ComponentDerive + ComponentController>(
+        &mut self,
+        group_handle: GroupHandle,
         component: C,
     ) -> ComponentHandle {
         assert_eq!(C::IDENTIFIER, self.type_id);
-        let group_handle = group_handle.handle;
-        let group = &mut self.groups[group_handle];
+        let group = &mut self.groups[group_handle.0];
         let mut handle;
         group.components.insert_with(|idx| {
-            handle = ComponentHandle::new(idx, self.handle, group_handle);
+            handle = ComponentHandle::new(ComponentIndex(idx), self.index, group_handle);
             component.base_mut().init(handle);
             Box::new(component)
         });
         return handle;
     }
-
-    pub fn remove(&mut self, handle: ComponentHandle) -> Option<BoxedComponent> {
-        if let Some(group) = self.groups.get(handle.group_index()) {
-            return group.components.remove(handle.component_index());
+    pub fn add_components<I, C: ComponentController>(
+        &mut self,
+        group_handle: GroupHandle,
+        components: impl Iterator<Item = C>,
+    ) -> Vec<ComponentHandle> {
+        let mut handles = Vec::with_capacity(components.size_hint().0);
+        if let Some(group) = self.groups.get_mut(group_handle.0) {
+            for component in components {
+                group.components.insert_with(|idx| {
+                    let handle =
+                        ComponentHandle::new(ComponentIndex(idx), self.index, group_handle);
+                    component.base_mut().init(handle);
+                    handles.push(handle);
+                    Box::new(component)
+                });
+            }
         }
-        return None;
+        return handles;
     }
 
-    pub fn get(&self, handle: ComponentHandle) -> Option<&BoxedComponent> {
-        if let Some(group) = self.groups.get(handle.group_index()) {
-            return group.components.get(handle.component_index());
+    pub fn force_buffer<C: ComponentController>(&mut self, groups: &[GroupHandle]) {
+        for group in groups {
+            if let Some(group) = self.groups.get(group.0) {
+                group.force_buffer = true;
+            }
         }
-        return None;
     }
 
-    pub fn get_mut(&mut self, handle: ComponentHandle) -> Option<&mut BoxedComponent> {
-        if let Some(group) = self.groups.get(handle.group_index()) {
-            return group.components.get_mut(handle.component_index());
+    pub fn len<C: ComponentController>(&self, groups: &[GroupHandle]) -> usize {
+        let mut len = 0;
+        for group in groups {
+            if let Some(group) = self.groups.get(group.0) {
+                len += group.components.len();
+            }
         }
-        return None;
+        return len;
     }
+
+    // pub fn get(&self, handle: ComponentHandle) -> Option<&BoxedComponent> {
+    //     if let Some(group) = self.groups.get(handle.group_index()) {
+    //         return group.components.get(handle.component_index());
+    //     }
+    //     return None;
+    // }
+
+    // pub fn get_mut(&mut self, handle: ComponentHandle) -> Option<&mut BoxedComponent> {
+    //     if let Some(group) = self.groups.get(handle.group_index()) {
+    //         return group.components.get_mut(handle.component_index());
+    //     }
+    //     return None;
+    // }
 
     // pub fn add<C: ComponentDerive + ComponentController>(
     //     &mut self,
