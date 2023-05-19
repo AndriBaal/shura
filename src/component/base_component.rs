@@ -1,6 +1,5 @@
 use crate::{ComponentDerive, ComponentHandle, Isometry, Matrix, Rotation, Vector};
 
-
 /// Easily create a [BaseComponent] with a position and render_scale.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone)]
@@ -134,6 +133,7 @@ impl BaseComponent {
 
     pub fn set_scale(&mut self, render_scale: Vector<f32>) {
         self.render_scale = render_scale;
-        self.matrix.rotate(self.render_scale, self.position.rotation);
+        self.matrix
+            .rotate(self.render_scale, self.position.rotation);
     }
 }

@@ -2,10 +2,9 @@
 use crate::physics::{RcWorld, World};
 use crate::{
     ActiveComponents, Arena, ArenaEntry, ArenaIndex, ArenaPath, BoxedComponent, CameraBuffer,
-    ComponentCallbacks, ComponentCluster, ComponentController, ComponentDerive, ComponentGroup,
-    ComponentGroupDescriptor, ComponentGroupId, ComponentHandle, ComponentIterRender,
-    ComponentRenderGroup, ComponentSet, ComponentSetMut, ComponentType, ComponentTypeId, Gpu,
-    GpuDefaults, GroupActivation, GroupHandle, InstanceBuffer, Vector,
+    ComponentCallbacks, ComponentController, ComponentDerive, ComponentGroup, ComponentHandle,
+    ComponentSet, ComponentSetMut, ComponentType, ComponentTypeId, Gpu, GpuDefaults,
+    GroupActivation, GroupHandle, InstanceBuffer, TypeIndex, Vector, CallableType,
 };
 use instant::Instant;
 #[cfg(feature = "log")]
@@ -14,11 +13,64 @@ use rustc_hash::{FxHashMap, FxHashSet};
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-/// Changed [Groups](crate::ComponentGroup) between frames
-pub enum GroupDelta {
-    Add(ComponentGroupId),
-    Remove(ComponentGroupId),
+// #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+// /// Changed [Groups](crate::ComponentGroup) between frames
+// pub enum GroupDelta {
+//     Add(ComponentGroupId),
+//     Remove(ComponentGroupId),
+// }
+
+const NO_TYPE_ERROR: &'static str = "Type first needs to be registered with .register";
+
+macro_rules! group_filter {
+    ($self:ident, $filter: ident) => {
+        match $filter {
+            ComponentFilter::All => &$self.all_groups,
+            ComponentFilter::Active => &$self.active_groups,
+            ComponentFilter::Specific(h) => h,
+        }
+    };
+}
+
+macro_rules! type_ref {
+    ($self:ident, $C: ident) => {{
+        let key = ($C::CONFIG.priority, $C::IDENTIFIER);
+        let idx = $self
+            .type_map
+            .get(&key)
+            .expect(NO_TYPE_ERROR);
+        let ty = $self.types.get(idx.0).unwrap();
+        ty
+    }};
+}
+
+macro_rules! type_mut {
+    ($self:ident, $C: ident) => {{
+        let key = ($C::CONFIG.priority, $C::IDENTIFIER);
+        let idx = $self
+            .type_map
+            .get(&key)
+            .expect(NO_TYPE_ERROR);
+        let ty = $self.types.get_mut(idx.0).unwrap();
+        ty
+    }};
+}
+
+macro_rules! type2_mut {
+    ($self:ident, $C1: ident, $C2: ident) => {{
+        let key1 = ($C1::CONFIG.priority, $C1::IDENTIFIER);
+        let idx1 = $self
+            .type_map
+            .get(&key1)
+            .expect(NO_TYPE_ERROR);
+        let key2 = ($C2::CONFIG.priority, $C2::IDENTIFIER);
+        let idx2 = $self
+            .type_map
+            .get(&key2)
+            .expect(NO_TYPE_ERROR);
+        let (ty1, ty2) = $self.types.get2_mut(idx1.0, idx2.0);
+        (ty1.unwrap(), ty2.unwrap())
+    }};
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Ord, Eq)]
@@ -26,7 +78,7 @@ pub enum GroupDelta {
 pub enum ComponentFilter<'a> {
     All,
     Active,
-    Specific(&'a [ComponentGroupId]),
+    Specific(&'a [GroupHandle]),
 }
 
 impl<'a> Default for ComponentFilter<'a> {
@@ -36,40 +88,34 @@ impl<'a> Default for ComponentFilter<'a> {
 }
 
 impl ComponentFilter<'static> {
-    pub const DEFAULT_GROUP: Self = ComponentFilter::Specific(&[ComponentGroupId::DEFAULT]);
+    pub const DEFAULT_GROUP: Self = ComponentFilter::Specific(&[GroupHandle::DEFAULT_GROUP]);
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// Access to the component system.
 pub struct ComponentManager {
-    render_components: bool,
-    type_map: FxHashMap<(i16, ComponentTypeId), ArenaIndex>,
+    type_map: FxHashMap<(i16, ComponentTypeId), TypeIndex>,
+    update_callable_types: bool,
+    callable_types: Rc<Vec<CallableType>>,
     types: Arena<ComponentType>,
     groups: Arena<ComponentGroup>,
-    active_groups: Vec<ArenaIndex>,
+    active_groups: Vec<GroupHandle>,
     all_groups: Vec<GroupHandle>,
-    empty_type: ComponentType,
 }
 
 impl ComponentManager {
     pub(crate) fn new() -> Self {
-        let default_component_group = ComponentGroupDescriptor {
-            id: ComponentGroupId::DEFAULT,
-            activation: GroupActivation::Always,
-            user_data: 0,
-        }
-        .into();
+        let default_component_group = ComponentGroup::new(GroupActivation::Always, 0);
         let mut groups = Arena::default();
-        let mut group_map = FxHashMap::default();
         let index = groups.insert(default_component_group);
-        group_map.insert(ComponentGroupId::DEFAULT, index);
         Self {
             types: Default::default(),
             type_map: Default::default(),
             all_groups: Default::default(),
+            callable_types: Default::default(),
+            update_callable_types: true,
+            active_groups: Vec::from_iter([GroupHandle(index)]),
             groups,
-            render_components: true,
-            active_groups: Vec::from_iter([index]),
         }
     }
 
@@ -80,7 +126,7 @@ impl ComponentManager {
         for (index, group) in &mut self.groups {
             if group.intersects_camera(cam_aabb) {
                 group.set_active(true);
-                self.active_groups.push(index);
+                self.active_groups.push(GroupHandle(index));
             }
         }
     }
@@ -91,12 +137,34 @@ impl ComponentManager {
         }
     }
 
-    pub fn set_render_components(&mut self, render_components: bool) {
-        self.render_components = render_components
+    pub(crate) fn callable_types(&mut self) -> Rc<Vec<CallableType>> {
+        if self.update_callable_types {
+            let callables = Rc::get_mut(&mut self.callable_types).unwrap();
+            callables.clear();
+            for (_, ty) in &self.types {
+                callables.push(CallableType::new(ty));
+            }
+        }
+        return self.callable_types.clone();
     }
 
-    pub const fn render_components(&self) -> bool {
-        self.render_components
+    pub fn register<C: ComponentController>(&mut self) {
+        let key = (C::CONFIG.priority, C::IDENTIFIER);
+        if !self.type_map.contains_key(&key) {
+            let index = self
+                .types
+                .insert_with(|idx| ComponentType::new::<C>(TypeIndex(idx), &self.groups));
+            self.type_map.insert(key, TypeIndex(index));
+            self.update_callable_types = true;
+        }
+    }
+
+    pub fn active_groups(&self) -> &[GroupHandle] {
+        &self.active_groups
+    }
+
+    pub fn all_groups(&self) -> &[GroupHandle] {
+        &self.all_groups
     }
 
     pub fn groups(&self) -> impl Iterator<Item = (GroupHandle, &ComponentGroup)> {
@@ -148,9 +216,29 @@ impl ComponentManager {
         &'a self,
         filter: ComponentFilter<'a>,
     ) -> ComponentSet<'a, C> {
+        let groups = group_filter!(self, filter);
+        let ty = type_ref!(self, C);
+        return ComponentSet::new(ty, groups);
     }
-    pub fn get_many_mut<C1: ComponentController, C2: ComponentController>(&mut self) -> todo!() {}
-    pub fn get2_many_mut<C1: ComponentController, C2: ComponentController>(&mut self) -> todo!() {}
+    pub fn get_many_mut<'a, C: ComponentController>(
+        &mut self,
+        filter: ComponentFilter<'a>,
+    ) -> ComponentSetMut<'a, C> {
+        let groups = group_filter!(self, filter);
+        let ty = type_mut!(self, C);
+        return ComponentSetMut::new(ty, groups);
+    }
+    pub fn get2_many_mut<'a, C1: ComponentController, C2: ComponentController>(
+        &mut self,
+        filter1: ComponentFilter<'a>,
+        filter2: ComponentFilter<'a>,
+    ) -> (ComponentSetMut<'a, C1>, ComponentSetMut<'a, C2>) {
+        assert_ne!(C1::IDENTIFIER, C2::IDENTIFIER);
+        let groups1 = group_filter!(self, filter1);
+        let groups2 = group_filter!(self, filter2);
+        let (ty1, ty2) = type2_mut!(self, C1, C2);
+        return (ComponentSetMut::<C1>::new(ty1, groups1), ComponentSetMut::<C2>::new(ty2, groups2))
+    }
 
     // pub fn remove_components(&mut self) {}
     pub fn retain<C: ComponentController>(
@@ -158,43 +246,81 @@ impl ComponentManager {
         filter: ComponentFilter,
         keep: impl FnMut(&mut C) -> bool,
     ) {
+        let groups = group_filter!(self, filter);
+        let ty = type_mut!(self, C);
+        ty.retain(groups, keep);
     }
-    pub fn index<C: ComponentController>(&self, group: GroupHandle, index: usize) -> Option<&C> {}
+    pub fn index<C: ComponentController>(&self, group: GroupHandle, index: usize) -> Option<&C> {
+        let ty = type_mut!(self, C);
+        ty.index(group, index)
+    }
     pub fn index_mut<C: ComponentController>(
         &mut self,
         group: GroupHandle,
         index: usize,
     ) -> Option<&mut C> {
+        let ty = type_mut!(self, C);
+        ty.index_mut(group, index)
     }
-    pub fn get<C: ComponentController>(&self, handle: ComponentHandle) -> Option<&C> {}
-    pub fn get_mut<C: ComponentController>(&mut self, handle: ComponentHandle) -> Option<&mut C> {}
+    pub fn get<C: ComponentController>(&self, handle: ComponentHandle) -> Option<&C> {
+        self.types.get(handle.type_index().0).unwrap().get(handle)
+    }
+    pub fn get_mut<C: ComponentController>(&mut self, handle: ComponentHandle) -> Option<&mut C> {
+        self.types.get_mut(handle.type_index().0).unwrap().get_mut(handle)
+    }
     pub fn get2_mut<C1: ComponentController, C2: ComponentController>(
         &mut self,
         handle1: ComponentHandle,
         handle2: ComponentHandle,
-    ) -> (Option<C1>, Option<C2>) {
+    ) -> (Option<&mut C1>, Option<&mut C2>) {
+        assert_ne!(handle1, handle2);
+        if handle1.type_index() == handle2.type_index() {
+            let ty = type_mut!(self, C1);
+            return ty.get2_mut::<C1, C2>(handle1, handle2);
+        } else {
+            let (ty1, ty2) = type2_mut!(self, C1, C2);
+            return (ty1.get_mut::<C1>(handle1), ty2.get_mut::<C2>(handle2));
+        }
     }
-    pub fn get_boxed(&self, handle: ComponentHandle) -> Option<&BoxedComponent> {}
-    pub fn get_boxed_mut(&mut self, handle: ComponentHandle) -> Option<&mut BoxedComponent> {}
+    pub fn get_boxed(&self, handle: ComponentHandle) -> Option<&BoxedComponent> {
+        self.types.get(handle.type_index().0).unwrap().get_boxed(handle)
+
+    }
+    pub fn get_boxed_mut(&mut self, handle: ComponentHandle) -> Option<&mut BoxedComponent> {
+        self.types.get_mut(handle.type_index().0).unwrap().get_boxed_mut(handle)
+    }
     pub fn remove_component<C: ComponentController>(
         &mut self,
         handle: ComponentHandle,
     ) -> Option<Box<C>> {
+        self.types.get_mut(handle.type_index().0).unwrap().remove_component(handle)
     }
     pub fn add_component<C: ComponentController>(
         &mut self,
         group_handle: GroupHandle,
         component: C,
     ) -> ComponentHandle {
+        let ty = type_mut!(self, C);
+        ty.add_component(group_handle, component)
     }
     pub fn add_components<I, C: ComponentController>(
         &mut self,
         group_handle: GroupHandle,
         components: impl Iterator<Item = C>,
     ) -> Vec<ComponentHandle> {
+        let ty = type_mut!(self, C);
+        ty.add_components::<I, C>(group_handle, components)
     }
-    pub fn force_buffer<C: ComponentController>(&mut self, filter: ComponentFilter) {}
-    pub fn len<C: ComponentController>(&self, filter: ComponentFilter)  -> usize {}
+    pub fn force_buffer<C: ComponentController>(&mut self, filter: ComponentFilter) {
+        let groups = group_filter!(self, filter);
+        let ty = type_mut!(self, C);
+        ty.force_buffer(groups)
+    }
+    pub fn len<C: ComponentController>(&self, filter: ComponentFilter) -> usize {
+        let groups = group_filter!(self, filter);
+        let ty = type_mut!(self, C);
+        ty.len(groups)
+    }
 
     // pub(crate) fn update_sets(&mut self, camera: &CameraBuffer) {
     //     let aabb = camera.model().aabb(Vector::new(0.0, 0.0).into());

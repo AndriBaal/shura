@@ -1,7 +1,7 @@
 #[cfg(feature = "physics")]
 use crate::physics::{Shape, TypedShape};
-use crate::{CameraBuffer, AABB};
 use crate::{na::Matrix2, Gpu, Index, Isometry, Rotation, Vector, Vertex};
+use crate::{CameraBuffer, AABB};
 use std::f32::consts::{FRAC_PI_2, PI};
 use wgpu::util::DeviceExt;
 

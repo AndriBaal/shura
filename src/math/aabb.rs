@@ -1,4 +1,4 @@
-use crate::{Vector, Vertex, Isometry};
+use crate::{Isometry, Vector, Vertex};
 
 #[derive(Debug, Clone, Copy)]
 pub struct AABB {
@@ -39,7 +39,10 @@ impl AABB {
             }
         }
 
-        return Self { min: Vector::new(min_x, min_y), max: Vector::new(max_x, max_y) };
+        return Self {
+            min: Vector::new(min_x, min_y),
+            max: Vector::new(max_x, max_y),
+        };
     }
 
     pub fn rotated(&self, position: Isometry<f32>) -> Self {

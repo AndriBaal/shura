@@ -1,18 +1,21 @@
-use crate::{ArenaIndex};
+use crate::ArenaIndex;
 use core::hash::Hash;
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct ComponentIndex(pub(crate) ArenaIndex);
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GroupHandle(pub(crate) ArenaIndex);
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub(crate) struct TypeIndex(pub(crate)ArenaIndex);
+pub(crate) struct TypeIndex(pub(crate) ArenaIndex);
 
 impl GroupHandle {
-    pub const DEFAULT_GROUP: Self = GroupHandle(ArenaIndex { index: 0, generation: 0 });
+    pub const DEFAULT_GROUP: Self = GroupHandle(ArenaIndex {
+        index: 0,
+        generation: 0,
+    });
 }
 
 impl Default for GroupHandle {
@@ -38,7 +41,7 @@ impl ComponentHandle {
     pub const INVALID: Self = ComponentHandle {
         component_index: ComponentIndex(ArenaIndex::INVALID),
         type_index: TypeIndex(ArenaIndex::INVALID),
-        group_index: GroupHandle(ArenaIndex::INVALID)
+        group_index: GroupHandle(ArenaIndex::INVALID),
     };
 }
 
@@ -73,7 +76,7 @@ impl ComponentHandle {
         self.component_index
     }
 
-    pub fn index(&self) -> u32 {
+    pub fn index(&self) -> usize {
         self.component_index.0.index()
     }
 }

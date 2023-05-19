@@ -194,7 +194,7 @@ impl WorldCamera {
 
     pub fn apply_target(&mut self, man: &ComponentManager) {
         if let Some(target) = self.target() {
-            if let Some(component) = man.boxed_component(target) {
+            if let Some(component) = man.get_boxed(target) {
                 let translation = component.base().translation();
                 self.camera.set_translation(translation);
             } else {

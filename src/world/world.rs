@@ -261,12 +261,10 @@ impl World {
 
     pub fn create_joint(
         &mut self,
-        component1: &BaseComponent,
-        component2: &BaseComponent,
+        body_handle1: RigidBodyHandle,
+        body_handle2: RigidBodyHandle,
         joint: impl Into<GenericJoint>,
     ) -> ImpulseJointHandle {
-        let body_handle1 = component1.body_handle();
-        let body_handle2 = component2.body_handle();
         self.impulse_joints
             .insert(body_handle1, body_handle2, joint, true)
     }

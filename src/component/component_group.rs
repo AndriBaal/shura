@@ -32,7 +32,7 @@ pub struct ComponentGroup {
 }
 
 impl ComponentGroup {
-    fn new(activation: GroupActivation, user_data: u64) -> ComponentGroup {
+    pub fn new(activation: GroupActivation, user_data: u64) -> ComponentGroup {
         ComponentGroup {
             activation,
             user_data,

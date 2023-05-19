@@ -84,6 +84,7 @@ pub struct Scene {
     pub(crate) resized: bool,
     pub(crate) switched: bool,
     pub(crate) started: bool,
+    pub render_components: bool,
     pub screen_config: ScreenConfig,
     pub world_camera: WorldCamera,
     pub components: ComponentManager,
@@ -98,6 +99,7 @@ impl Scene {
     pub const DEFAULT_VERTICAL_CAMERA_FOV: f32 = 3.0;
     pub(crate) fn new(window_size: Vector<u32>, id: u32) -> Self {
         Self {
+            render_components: true,
             id: id,
             switched: true,
             resized: true,
@@ -110,7 +112,7 @@ impl Scene {
             components: ComponentManager::new(),
             screen_config: ScreenConfig::new(),
             states: SceneStateManager::default(),
-            world: World::new()
+            world: World::new(),
         }
     }
 

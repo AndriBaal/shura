@@ -75,14 +75,32 @@ impl ComponentTypeGroup {
     }
 }
 
+pub(crate) struct CallableType {
+    pub config: ComponentConfig,
+    pub callbacks: ComponentCallbacks,
+    pub last_update: Option<Instant>
+}
+
+impl CallableType {
+    pub fn new(ty: &ComponentType) -> CallableType {
+        Self {
+            last_update: match &ty.config.update {
+                crate::UpdateOperation::AfterDuration(_) => Some(Instant::now()),
+                _ => None,
+            },
+            callbacks: ty.callbacks,
+            config: ty.config,
+        }    
+    }
+}
+
 // #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]group
 pub(crate) struct ComponentType {
     groups: Arena<ComponentTypeGroup>,
     index: TypeIndex,
     type_id: ComponentTypeId,
     config: ComponentConfig,
-    callbacks: ComponentCallbacks,
-    last_update: Instant,
+    callbacks: ComponentCallbacks
 }
 
 impl ComponentType {
@@ -112,18 +130,17 @@ impl ComponentType {
             config: C::CONFIG,
             type_id: C::IDENTIFIER,
             callbacks: ComponentCallbacks::new::<C>(),
-            last_update: Instant::now(),
         }
     }
 
-    pub fn buffer(&mut self, active: &[ArenaIndex], gpu: &Gpu) {
+    pub fn buffer(&mut self, active: &[GroupHandle], gpu: &Gpu) {
         if self.config.buffer == BufferOperation::Never {
             return;
         }
 
         let every_frame = self.config.buffer == BufferOperation::EveryFrame;
         for index in active {
-            let group = &mut self.groups[*index];
+            let group = &mut self.groups[index.0];
             group.buffer(self.config.buffer == BufferOperation::EveryFrame, gpu);
         }
     }
@@ -193,11 +210,11 @@ impl ComponentType {
         }
         return None;
     }
-    pub fn get2_mut<C: ComponentController>(
+    pub fn get2_mut<C1: ComponentController, C2: ComponentController>(
         &mut self,
         handle1: ComponentHandle,
         handle2: ComponentHandle,
-    ) -> (Option<&mut C>, Option<&mut C>) {
+    ) -> (Option<&mut C1>, Option<&mut C2>) {
         let mut c1 = None;
         let mut c2 = None;
         if handle1.group_index() == handle2.group_index() {
@@ -206,10 +223,10 @@ impl ComponentType {
                     .components
                     .get2_mut(handle1.component_index().0, handle2.component_index().0);
                 if let Some(component) = result.0 {
-                    c1 = component.downcast_mut::<C>();
+                    c1 = component.downcast_mut::<C1>();
                 }
                 if let Some(component) = result.1 {
-                    c2 = component.downcast_mut::<C>();
+                    c2 = component.downcast_mut::<C2>();
                 }
             }
         } else {
@@ -218,13 +235,13 @@ impl ComponentType {
                 .get2_mut(handle1.group_index().0, handle2.group_index().0);
             if let Some(group) = group1 {
                 if let Some(component) = group.components.get_mut(handle1.component_index().0) {
-                    c1 = component.downcast_mut::<C>();
+                    c1 = component.downcast_mut::<C1>();
                 }
             }
 
             if let Some(group) = group2 {
                 if let Some(component) = group.components.get_mut(handle2.component_index().0) {
-                    c2 = component.downcast_mut::<C>();
+                    c2 = component.downcast_mut::<C2>();
                 }
             }
         }
@@ -288,7 +305,7 @@ impl ComponentType {
         return handles;
     }
 
-    pub fn force_buffer<C: ComponentController>(&mut self, groups: &[GroupHandle]) {
+    pub fn force_buffer(&mut self, groups: &[GroupHandle]) {
         for group in groups {
             if let Some(group) = self.groups.get(group.0) {
                 group.force_buffer = true;
@@ -296,7 +313,7 @@ impl ComponentType {
         }
     }
 
-    pub fn len<C: ComponentController>(&self, groups: &[GroupHandle]) -> usize {
+    pub fn len(&self, groups: &[GroupHandle]) -> usize {
         let mut len = 0;
         for group in groups {
             if let Some(group) = self.groups.get(group.0) {

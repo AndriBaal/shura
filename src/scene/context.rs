@@ -1,8 +1,8 @@
 use crate::{
     ActiveComponents, BoxedComponent, Camera, CameraBuffer, Color, ComponentController,
-    ComponentDerive, ComponentFilter, ComponentGroup, ComponentGroupId, ComponentHandle,
-    ComponentManager, ComponentRenderGroup, ComponentSet, ComponentSetMut, Duration, FrameManager,
-    GlobalStateController, GlobalStateManager, Gpu, GpuDefaults, GroupDelta, Input, InputEvent,
+    ComponentDerive, ComponentFilter, ComponentGroup, ComponentHandle,
+    ComponentManager, ComponentSet, ComponentSetMut, Duration, FrameManager,
+    GlobalStateController, GlobalStateManager, Gpu, GpuDefaults, Input, InputEvent,
     InputTrigger, InstanceBuffer, InstanceIndex, InstanceIndices, Instant, Isometry, Matrix, Model,
     ModelBuilder, Modifier, RenderConfig, RenderEncoder, RenderTarget, Renderer, Rotation, Scene,
     SceneCreator, SceneManager, SceneStateController, SceneStateManager, ScreenConfig, Shader,
@@ -14,7 +14,7 @@ use crate::{
 use crate::{SceneSerializer, StateTypeId};
 
 #[cfg(feature = "audio")]
-use crate::audio::{Sink, Sound, AudioManager};
+use crate::audio::{AudioManager, Sink, Sound};
 
 #[cfg(feature = "physics")]
 use crate::{physics::*, BaseComponent, Point};
@@ -52,7 +52,7 @@ pub struct ShuraFields<'a> {
     #[cfg(feature = "gui")]
     pub gui: &'a mut Gui,
     #[cfg(feature = "audio")]
-    pub audio: &'a mut AudioManager
+    pub audio: &'a mut AudioManager,
 }
 
 impl<'a> ShuraFields<'a> {
@@ -86,7 +86,7 @@ impl<'a> ShuraFields<'a> {
             #[cfg(feature = "gui")]
             gui: ctx.gui,
             #[cfg(feature = "audio")]
-            audio: ctx.audio
+            audio: ctx.audio,
         }
     }
 }
@@ -100,10 +100,13 @@ pub struct Context<'a> {
     pub scene_resized: &'a bool,
     pub scene_switched: &'a bool,
     pub scene_started: &'a bool,
+    pub render_components: &'a mut bool,
     pub screen_config: &'a mut ScreenConfig,
     pub scene_states: &'a mut SceneStateManager,
     pub world_camera: &'a mut WorldCamera,
     pub components: &'a mut ComponentManager,
+    #[cfg(feature = "physics")]
+    pub world: &'a mut World,
 
     // Shura
     pub frame: &'a FrameManager,
@@ -117,7 +120,7 @@ pub struct Context<'a> {
     #[cfg(feature = "gui")]
     pub gui: &'a mut Gui,
     #[cfg(feature = "audio")]
-    pub audio: &'a mut AudioManager
+    pub audio: &'a mut AudioManager,
 }
 
 impl<'a> Context<'a> {
@@ -127,10 +130,13 @@ impl<'a> Context<'a> {
             scene_resized: &scene.resized,
             scene_started: &scene.started,
             scene_switched: &scene.switched,
+            render_components: &mut scene.render_components,
             screen_config: &mut scene.screen_config,
             world_camera: &mut scene.world_camera,
             components: &mut scene.components,
             scene_states: &mut scene.states,
+            #[cfg(feature = "physics")]
+            world: &mut scene.world,
 
             // Shura
             frame: &shura.frame,
@@ -154,10 +160,13 @@ impl<'a> Context<'a> {
             scene_resized: &scene.resized,
             scene_started: &scene.started,
             scene_switched: &scene.switched,
+            render_components: &mut scene.render_components,
             screen_config: &mut scene.screen_config,
             world_camera: &mut scene.world_camera,
             components: &mut scene.components,
             scene_states: &mut scene.states,
+            #[cfg(feature = "physics")]
+            world: &mut scene.world,
 
             // Shura
             frame: shura.frame,
@@ -171,18 +180,9 @@ impl<'a> Context<'a> {
             #[cfg(feature = "gui")]
             gui: shura.gui,
             #[cfg(feature = "audio")]
-            audio: shura.audio
+            audio: shura.audio,
         }
     }
-    // #[cfg(feature = "serde")]
-    // pub fn serialize_group(&self, ) -> Result<Vec<u8>, Box<bincode::ErrorKind>>  {
-
-    // }
-
-    // #[cfg(feature = "serde")]
-    // pub fn deserialize_group(&self, ) {
-
-    // }
 
     #[cfg(feature = "serde")]
     pub fn serialize_scene(
@@ -194,12 +194,8 @@ impl<'a> Context<'a> {
 
         let components = &self.components;
 
-        let mut serializer = SceneSerializer::new(
-            components,
-            &self.global_states,
-            &self.scene_states,
-            filter,
-        );
+        let mut serializer =
+            SceneSerializer::new(components, &self.global_states, &self.scene_states, filter);
         (serialize)(&mut serializer);
 
         #[derive(serde::Serialize)]
@@ -294,7 +290,6 @@ impl<'a> Context<'a> {
         }
     }
 
-
     pub fn remove_scene(&mut self, id: u32) -> Option<Scene> {
         if let Some(mut scene) = self.scenes.remove(id) {
             for end in scene.states.ends() {
@@ -311,36 +306,35 @@ impl<'a> Context<'a> {
         self.scenes.add(scene);
     }
 
+    // pub fn render_each<C: ComponentDerive>(
+    //     &'a self,
+    //     active: &ActiveComponents<C>,
+    //     encoder: &'a mut RenderEncoder,
+    //     config: RenderConfig<'a>,
+    //     mut each: impl FnMut(&mut Renderer<'a>, &'a C, InstanceIndex),
+    // ) {
+    //     let mut renderer = encoder.renderer(config);
+    //     for (buffer, components) in self.active_render(active) {
+    //         renderer.use_instances(buffer);
+    //         for (instance, component) in components {
+    //             (each)(&mut renderer, component, instance);
+    //         }
+    //     }
+    // }
 
-    pub fn render_each<C: ComponentDerive>(
-        &'a self,
-        active: &ActiveComponents<C>,
-        encoder: &'a mut RenderEncoder,
-        config: RenderConfig<'a>,
-        mut each: impl FnMut(&mut Renderer<'a>, &'a C, InstanceIndex),
-    ) {
-        let mut renderer = encoder.renderer(config);
-        for (buffer, components) in self.active_render(active) {
-            renderer.use_instances(buffer);
-            for (instance, component) in components {
-                (each)(&mut renderer, component, instance);
-            }
-        }
-    }
-
-    pub fn render_all<C: ComponentDerive>(
-        &'a self,
-        active: &ActiveComponents<C>,
-        encoder: &'a mut RenderEncoder,
-        config: RenderConfig<'a>,
-        mut all: impl FnMut(&mut Renderer<'a>, InstanceIndices),
-    ) {
-        let mut renderer = encoder.renderer(config);
-        for (buffer, _) in self.active_render(active) {
-            renderer.use_instances(buffer);
-            (all)(&mut renderer, buffer.all_instances());
-        }
-    }
+    // pub fn render_all<C: ComponentDerive>(
+    //     &'a self,
+    //     active: &ActiveComponents<C>,
+    //     encoder: &'a mut RenderEncoder,
+    //     config: RenderConfig<'a>,
+    //     mut all: impl FnMut(&mut Renderer<'a>, InstanceIndices),
+    // ) {
+    //     let mut renderer = encoder.renderer(config);
+    //     for (buffer, _) in self.active_render(active) {
+    //         renderer.use_instances(buffer);
+    //         (all)(&mut renderer, buffer.all_instances());
+    //     }
+    // }
 
     // #[cfg(feature = "physics")]
     // pub fn create_joint(
@@ -526,8 +520,6 @@ impl<'a> Context<'a> {
     //         .add_components_to_group(group_id, components);
     // }
 
-
-
     // pub fn group_deltas(&self) -> &[GroupDelta] {
     //     self.components.group_deltas()
     // }
@@ -535,8 +527,6 @@ impl<'a> Context<'a> {
     // pub fn submit_staged_encoders(&self) {
     //     self.gpu.submit_staged_encoders()
     // }
-
-    /// Remove a scene by its id
 
     // pub fn remove_component(&mut self, handle: ComponentHandle) -> Option<BoxedComponent> {
     //     return self.components.remove_component(handle);

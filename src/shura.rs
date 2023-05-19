@@ -3,9 +3,9 @@ use crate::gui::Gui;
 #[cfg(feature = "physics")]
 use crate::physics::{ActiveEvents, CollideType};
 use crate::{
-    scene::context::ShuraFields, Context, FrameManager, GlobalStateManager, Gpu, GpuConfig,
-    GpuDefaults, Input, RenderConfigTarget, RenderEncoder, RenderOperation, Renderer, Scene,
-    SceneCreator, SceneManager, Vector, sound::audio_manager::AudioManager,
+    scene::context::ShuraFields, sound::audio_manager::AudioManager, Context, FrameManager,
+    GlobalStateManager, Gpu, GpuConfig, GpuDefaults, Input, RenderConfigTarget, RenderEncoder,
+    RenderOperation, Renderer, Scene, SceneCreator, SceneManager, Vector,
 };
 #[cfg(target_arch = "wasm32")]
 use rustc_hash::FxHashMap;
@@ -243,7 +243,7 @@ impl Shura {
         let mint: mint::Vector2<u32> = (window.inner_size()).into();
         let window_size: Vector<u32> = mint.into();
         let defaults = GpuDefaults::new(&gpu, window_size);
-        
+
         let mut shura = Self {
             scenes: SceneManager::new(creator.id()),
             frame: FrameManager::new(),
@@ -278,11 +278,11 @@ impl Shura {
 
     #[cfg(feature = "physics")]
     fn physics_step(ctx: &mut Context) {
-        let delta = ctx.frame_time();
-        ctx.components.world_mut().step(delta);
+        let delta = ctx.frame.frame_time();
+        ctx.world.step(delta);
         // while let Ok(contact_force_event) = ctx.components.event_receivers.1.try_recv() {
         // }
-        while let Ok(collision_event) = ctx.components.collision_event() {
+        while let Ok(collision_event) = ctx.world.collision_event() {
             let collider_handle1 = collision_event.collider1();
             let collider_handle2 = collision_event.collider2();
             let collision_type = if collision_event.started() {
@@ -292,6 +292,7 @@ impl Shura {
             };
 
             if let Some(collider1_events) = ctx
+                .world
                 .collider(collider_handle1)
                 .and_then(|c| Some(c.active_events()))
             {
@@ -384,10 +385,8 @@ impl Shura {
                 self.frame.total_time(),
                 self.frame.frame_time(),
             );
-            scene
-                .components
-                .update_sets(&self.defaults.world_camera);
-            scene.components.buffer_sets(&self.gpu);
+            scene.components.update_sets(&self.defaults.world_camera);
+            scene.components.buffer(&self.gpu);
         }
         let output = self.gpu.surface.get_current_texture()?;
 
@@ -399,42 +398,37 @@ impl Shura {
             let mut ctx = Context::new(self, scene);
             #[cfg(feature = "physics")]
             let (mut done_step, physics_priority) = {
-                if let Some(physics_priority) = ctx.physics_priority() {
+                if let Some(physics_priority) = ctx.world.physics_priority() {
                     (false, physics_priority)
                 } else {
                     (true, 0)
                 }
             };
             let mut prev_priority = i16::MIN;
-            let now = ctx.update_time();
+            let now = ctx.frame.update_time();
             {
-                let sets = ctx.components.copy_active_components();
-                for set in sets.values() {
-                    let config = set.config();
+                let types = ctx.components.callable_types();
+                for ty in types.iter() {
                     for update in ctx
                         .scene_states
-                        .updates(prev_priority, set.config().priority)
+                        .updates(prev_priority, ty.config.priority)
                     {
                         update(&mut ctx);
                     }
 
                     #[cfg(feature = "physics")]
-                    if !done_step && config.priority > physics_priority {
+                    if !done_step && ty.config.priority > physics_priority {
                         done_step = true;
                         Self::physics_step(&mut ctx);
                     }
 
-                    if set.paths().len() == 0 {
-                        continue;
-                    }
-
-                    match config.update {
+                    match ty.config.update {
                         crate::UpdateOperation::EveryFrame => {}
                         crate::UpdateOperation::Never => {
                             continue;
                         }
                         crate::UpdateOperation::EveryNFrame(frames) => {
-                            if ctx.total_frames() % frames != 0 {
+                            if ctx.frame.total_frames() % frames != 0 {
                                 continue;
                             }
                         }
@@ -445,13 +439,13 @@ impl Shura {
                         }
                     }
 
-                    (set.callbacks().call_update)(set.paths(), &mut ctx);
-                    prev_priority = config.priority;
+                    (ty.callbacks.call_update)(set.paths(), &mut ctx);
+                    prev_priority = ty.config.priority;
                 }
             }
 
             #[cfg(feature = "physics")]
-            if !done_step && ctx.physics_priority().is_some() {
+            if !done_step && ctx.world.physics_priority().is_some() {
                 Self::physics_step(&mut ctx);
             }
 
@@ -471,17 +465,15 @@ impl Shura {
             self.frame.frame_time(),
         );
 
-        scene
-            .components
-            .update_sets(&self.defaults.world_camera);
-        if !scene.components.render_components() {
+        scene.components.update_sets(&self.defaults.world_camera);
+        if !scene.render_components {
             scene.resized = false;
             scene.switched = false;
             scene.started = false;
             return Ok(());
         }
 
-        scene.components.buffer_sets(&self.gpu);
+        scene.components.buffer(&self.gpu);
         let ctx = Context::new(self, scene);
         let mut encoder = RenderEncoder::new(ctx.gpu, &ctx.defaults);
         if let Some(clear_color) = ctx.screen_config.clear_color {

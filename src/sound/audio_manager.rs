@@ -1,4 +1,4 @@
-use crate::audio::{Sink, Sound, PlayError};
+use crate::audio::{PlayError, Sink, Sound};
 
 pub struct AudioManager {
     pub output_stream: rodio::OutputStream,

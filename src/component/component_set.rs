@@ -2,8 +2,8 @@ use instant::Instant;
 
 use crate::{
     data::arena::ArenaIndex, ArenaIter, ArenaIterMut, ArenaPath, BoxedComponent,
-    ComponentCallbacks, ComponentConfig, ComponentDerive, ComponentGroupId, ComponentType,
-    InstanceBuffer, InstanceIndex, ComponentHandle, GroupHandle,
+    ComponentCallbacks, ComponentConfig, ComponentDerive, ComponentHandle, ComponentType,
+    GroupHandle, InstanceBuffer, InstanceIndex,
 };
 use std::{iter::Enumerate, marker::PhantomData};
 
@@ -39,8 +39,12 @@ pub struct ComponentSet<'a, C: ComponentDerive> {
 }
 
 impl<'a, C: ComponentDerive> ComponentSet<'a, C> {
-    pub fn new() {
-        
+    pub fn new(ty: &'a ComponentType, groups: &'a [GroupHandle]) -> ComponentSet<'a, C> {
+        Self {
+            ty,
+            groups,
+            marker: PhantomData,
+        }
     }
 }
 
@@ -51,6 +55,13 @@ pub struct ComponentSetMut<'a, C: ComponentDerive> {
 }
 
 impl<'a, C: ComponentDerive> ComponentSetMut<'a, C> {
+    pub fn new(ty: &'a mut ComponentType, groups: &'a [GroupHandle]) -> ComponentSetMut<'a, C> {
+        Self {
+            ty,
+            groups,
+            marker: PhantomData,
+        }
+    }
     // pub fn retain(
     //     &mut self,
     //     keep: impl FnMut(&mut C) -> bool,
@@ -72,7 +83,7 @@ impl<'a, C: ComponentDerive> ComponentSetMut<'a, C> {
     // pub fn force_buffer(&self, filter: ComponentFilter) {}
     // pub fn len(&self, filter: ComponentFilter) {
     // }
-    
+
     // fn retain(&mut self, mut keep: impl FnMut(&mut C) -> bool) {
     //     for group in self.groups {
     //         if let Some(group) = self.ty.groups.get(*group.0) {
