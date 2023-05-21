@@ -1,7 +1,4 @@
-use crate::{
-    data::arena::{Arena, ArenaIndex, ArenaIterMut},
-    AABB,
-};
+use crate::AABB;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Copy, Clone)]

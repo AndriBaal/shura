@@ -1,11 +1,9 @@
-use instant::Instant;
 
 use crate::{
-    data::arena::ArenaIndex, ArenaIter, ArenaIterMut, BoxedComponent, ComponentCallbacks,
-    ComponentConfig, ComponentController, ComponentDerive, ComponentHandle, ComponentType,
-    GroupHandle, InstanceBuffer, InstanceIndex, ComponentIter, ComponentIterMut, ComponentIterRender,
+    ComponentController, ComponentHandle, ComponentIter,BoxedComponent,
+    ComponentIterMut, ComponentIterRender, ComponentType, GroupHandle, 
 };
-use std::{iter::Enumerate, marker::PhantomData};
+use std::{marker::PhantomData};
 
 #[derive(Clone, Copy)]
 pub struct ComponentSet<'a, C: ComponentController> {
@@ -43,10 +41,9 @@ impl<'a, C: ComponentController> ComponentSet<'a, C> {
         self.ty.len(self.groups)
     }
 
-    pub fn iter(&self) -> ComponentIter<C>  {
+    pub fn iter(&self) -> ComponentIter<C> {
         self.ty.iter(self.groups)
     }
-
 }
 
 pub struct ComponentSetMut<'a, C: ComponentController> {
@@ -147,13 +144,11 @@ impl<'a, C: ComponentController> ComponentSetMut<'a, C> {
         self.ty.iter(self.groups)
     }
 
-    pub fn iter_mut(&mut self) -> ComponentIterMut<C>  {
+    pub fn iter_mut(&mut self) -> ComponentIterMut<C> {
         self.ty.iter_mut(self.groups)
     }
 
-    pub fn iter_render(
-        &self,
-    ) -> ComponentIterRender<C> {
+    pub fn iter_render(&self) -> ComponentIterRender<C> {
         self.ty.iter_render(self.groups)
     }
 }

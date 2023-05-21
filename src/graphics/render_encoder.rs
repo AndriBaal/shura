@@ -1,7 +1,8 @@
 #[cfg(feature = "text")]
 use crate::text::TextDescriptor;
 use crate::{
-    CameraBuffer, Color, Gpu, GpuDefaults, InstanceBuffer, RenderTarget, Renderer, Sprite, ComponentController, InstanceIndex, Context, InstanceIndices, ComponentFilter,
+    CameraBuffer, Color, ComponentController, ComponentFilter, Context, Gpu, GpuDefaults,
+    InstanceBuffer, InstanceIndex, InstanceIndices, RenderTarget, Renderer, Sprite,
 };
 
 #[derive(Clone, Copy)]
@@ -182,11 +183,11 @@ impl<'a> RenderEncoder<'a> {
         renderer.draw(0);
     }
 
-    pub fn render_each<C: ComponentController>(
-        &'a mut self,
-        ctx: &'a Context<'a>,
-        config: RenderConfig<'a>,
-        mut each: impl FnMut(&mut Renderer<'a>, &'a C, InstanceIndex),
+    pub fn render_each<'b, C: ComponentController>(
+        &'b mut self,
+        ctx: &'b Context<'b>,
+        config: RenderConfig<'b>,
+        mut each: impl FnMut(&mut Renderer<'b>, &'b C, InstanceIndex),
     ) {
         let mut renderer = self.renderer(config);
         for (buffer, components) in ctx.components.iter_render::<C>(ComponentFilter::Active) {
@@ -197,11 +198,11 @@ impl<'a> RenderEncoder<'a> {
         }
     }
 
-    pub fn render_all<C: ComponentController>(
-        &'a mut self,
-        ctx: &'a Context<'a>,
-        config: RenderConfig<'a>,
-        mut all: impl FnMut(&mut Renderer<'a>, InstanceIndices),
+    pub fn render_all<'b, C: ComponentController>(
+        &'b mut self,
+        ctx: &'b Context<'b>,
+        config: RenderConfig<'b>,
+        mut all: impl FnMut(&mut Renderer<'b>, InstanceIndices),
     ) {
         let mut renderer = self.renderer(config);
         for (buffer, _) in ctx.components.iter_render::<C>(ComponentFilter::Active) {
@@ -213,5 +214,4 @@ impl<'a> RenderEncoder<'a> {
     pub fn finish(self) {
         self.gpu.commands.write().unwrap().push(self.inner.finish())
     }
-    
 }

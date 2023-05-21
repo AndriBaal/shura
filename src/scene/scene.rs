@@ -1,9 +1,9 @@
 #[cfg(feature = "physics")]
-use physics::World;
+use crate::physics::World;
 
 use crate::{
-    ComponentManager, Context, SceneStateManager, ScreenConfig, ShuraFields,
-    Vector, WorldCamera, WorldCameraScale,
+    ComponentManager, Context, SceneStateManager, ScreenConfig, ShuraFields, Vector, WorldCamera,
+    WorldCameraScale,
 };
 
 /// Origin of a [Scene]

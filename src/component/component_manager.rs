@@ -1,18 +1,13 @@
-use crate::data::arena::ArenaIter;
 #[cfg(feature = "physics")]
-use crate::physics::{RcWorld, World};
+use crate::ComponentCallbacks;
 use crate::{
-    Arena, ArenaEntry, ArenaIndex, BoxedComponent, CallableType, CameraBuffer, ComponentCallbacks,
-    ComponentController, ComponentDerive, ComponentGroup, ComponentHandle, ComponentIter,
-    ComponentIterMut, ComponentSet, ComponentSetMut, ComponentType, ComponentTypeId, Gpu,
-    GpuDefaults, GroupActivation, GroupHandle, InstanceBuffer, TypeIndex, Vector, ComponentIterRender,
+    Arena, BoxedComponent, CallableType, CameraBuffer, ComponentController, ComponentGroup,
+    ComponentHandle, ComponentIter, ComponentIterMut, ComponentIterRender, ComponentSet,
+    ComponentSetMut, ComponentType, ComponentTypeId, Gpu, GroupActivation, GroupHandle, TypeIndex,
+    Vector,
 };
-use instant::Instant;
-#[cfg(feature = "log")]
-use log::info;
-use rustc_hash::{FxHashMap, FxHashSet};
+use rustc_hash::FxHashMap;
 use std::cell::RefCell;
-use std::collections::BTreeMap;
 use std::rc::Rc;
 
 // #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -98,20 +93,20 @@ impl ComponentManager {
         let default_component_group = ComponentGroup::new(GroupActivation::Always, 0);
         let mut groups = Arena::default();
         let index = groups.insert(default_component_group);
+        let group_handle = GroupHandle(index);
         Self {
             types: Default::default(),
             type_map: Default::default(),
-            all_groups: Default::default(),
             callable_types: Default::default(),
             update_callable_types: true,
-            active_groups: Vec::from_iter([GroupHandle(index)]),
+            all_groups: Vec::from_iter([group_handle]),
+            active_groups: Vec::from_iter([group_handle]),
             groups,
         }
     }
 
     pub(crate) fn update_sets(&mut self, camera: &CameraBuffer) {
         let cam_aabb = camera.model().aabb(Vector::new(0.0, 0.0).into()); // Translation is already applied
-        let now = Instant::now();
         self.active_groups.clear();
         for (index, group) in &mut self.groups {
             if group.intersects_camera(cam_aabb) {
@@ -142,8 +137,8 @@ impl ComponentManager {
     pub(crate) fn callbacks(&self, priority: i16, type_id: ComponentTypeId) -> &ComponentCallbacks {
         let key = (priority, type_id);
         let idx = self.type_map.get(&key).expect(NO_TYPE_ERROR);
-        let ty = self.types.get_mut(idx.0).unwrap();
-        &ty.callbacks
+        let ty = self.types.get(idx.0).unwrap();
+        ty.callbacks()
     }
 
     pub fn register<C: ComponentController>(&mut self) {

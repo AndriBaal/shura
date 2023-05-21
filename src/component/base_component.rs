@@ -1,4 +1,4 @@
-use crate::{ComponentDerive, ComponentHandle, Isometry, Matrix, Rotation, Vector};
+use crate::{ComponentHandle, Isometry, Matrix, Rotation, Vector};
 
 /// Easily create a [BaseComponent] with a position and render_scale.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

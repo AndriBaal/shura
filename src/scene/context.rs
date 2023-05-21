@@ -1,43 +1,20 @@
 use crate::{
-    BoxedComponent, Camera, CameraBuffer, Color, ComponentController, ComponentDerive,
-    ComponentFilter, ComponentGroup, ComponentHandle, ComponentManager, ComponentSet,
-    ComponentSetMut, Duration, FrameManager, GlobalStateController, GlobalStateManager, Gpu,
-    GpuDefaults, Input, InputEvent, InputTrigger, InstanceBuffer, InstanceIndex, InstanceIndices,
-    Instant, Isometry, Matrix, Model, ModelBuilder, Modifier, RenderConfig, RenderEncoder,
-    RenderTarget, Renderer, Rotation, Scene, SceneCreator, SceneManager, SceneStateController,
-    SceneStateManager, ScreenConfig, Shader, ShaderConfig, Shura, Sprite, SpriteSheet,
-    StateIdentifier, Uniform, Vector, WorldCamera, WorldCameraScale,
+    ComponentManager, FrameManager, 
+    GlobalStateManager, Gpu, GpuDefaults, Input, Scene,
+    SceneCreator, SceneManager, SceneStateManager, ScreenConfig, Shura, Vector, WorldCamera,
 };
 
 #[cfg(feature = "serde")]
 use crate::{SceneSerializer, StateTypeId};
 
 #[cfg(feature = "audio")]
-use crate::audio::{AudioManager, Sink, Sound};
+use crate::audio::AudioManager;
 
 #[cfg(feature = "physics")]
-use crate::{physics::*, BaseComponent, Point};
-
-#[cfg(feature = "physics")]
-use std::{
-    cell::{Ref, RefMut},
-    ops::{Deref, DerefMut},
-};
-
-#[cfg(any(feature = "physics", feature = "physics"))]
-use crate::ComponentTypeId;
+use crate::{physics::World};
 
 #[cfg(feature = "gui")]
 use crate::gui::Gui;
-
-#[cfg(feature = "text")]
-use crate::text::{FontBrush, TextDescriptor};
-
-#[cfg(feature = "gamepad")]
-use crate::gamepad::*;
-
-#[cfg(feature = "animation")]
-use crate::animation::{EaseMethod, Stepable, Tween, TweenSequence};
 
 pub struct ShuraFields<'a> {
     pub frame: &'a FrameManager,
@@ -159,7 +136,7 @@ impl<'a> Context<'a> {
             audio: &mut shura.audio,
 
             // Misc
-            window_size
+            window_size,
         }
     }
 
@@ -193,7 +170,7 @@ impl<'a> Context<'a> {
             #[cfg(feature = "audio")]
             audio: shura.audio,
 
-            window_size
+            window_size,
         }
     }
 
@@ -319,20 +296,33 @@ impl<'a> Context<'a> {
         self.scenes.add(scene);
     }
 
-    pub fn set_window_size(&mut self, size: Vector<u32>) {
-        let mint: mint::Vector2<u32> = size.into();
-        let size: winit::dpi::PhysicalSize<u32> = mint.into();
-        self.window.set_inner_size(size);
-    }
+    // pub fn render_each<C: ComponentController>(
+    //     &'a self,
+    //     encoder: &'a mut RenderEncoder,
+    //     config: RenderConfig<'a>,
+    //     mut each: impl FnMut(&mut Renderer<'a>, &'a C, InstanceIndex),
+    // ) {
+    //     let mut renderer = encoder.renderer(config);
+    //     for (buffer, components) in self.components.iter_render::<C>(ComponentFilter::Active) {
+    //         renderer.use_instances(buffer);
+    //         for (instance, component) in components {
+    //             (each)(&mut renderer, component, instance);
+    //         }
+    //     }
+    // }
 
-    pub fn set_fullscreen(&mut self, fullscreen: bool) {
-        if fullscreen {
-            let f = winit::window::Fullscreen::Borderless(None);
-            self.window.set_fullscreen(Some(f));
-        } else {
-            self.window.set_fullscreen(None);
-        }
-    }
+    // pub fn render_all<C: ComponentController>(
+    //     &'a self,
+    //     encoder: &'a mut RenderEncoder,
+    //     config: RenderConfig<'a>,
+    //     mut all: impl FnMut(&mut Renderer<'a>, InstanceIndices),
+    // ) {
+    //     let mut renderer = encoder.renderer(config);
+    //     for (buffer, _) in self.components.iter_render::<C>(ComponentFilter::Active) {
+    //         renderer.use_instances(buffer);
+    //         (all)(&mut renderer, buffer.all_instances());
+    //     }
+    // }
 
     // #[cfg(feature = "physics")]
     // pub fn create_joint(

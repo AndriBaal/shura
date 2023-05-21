@@ -580,7 +580,6 @@ impl<T> ExactSizeIterator for ArenaIntoIter<T> {
 
 impl<T> FusedIterator for ArenaIntoIter<T> {}
 
-
 impl<T> IntoIterator for Arena<T> {
     type Item = T;
     type IntoIter = ArenaIntoIter<T>;

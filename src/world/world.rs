@@ -1,11 +1,11 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::{BaseComponent, ComponentHandle, ComponentTypeId};
+use crate::{BaseComponent, ComponentHandle, ComponentTypeId, ComponentController};
 use rapier2d::prelude::*;
 use rustc_hash::FxHashMap;
 
 type EventReceiver<T> = crossbeam::channel::Receiver<T>;
-pub(crate) type ColliderMapping = FxHashMap<ColliderHandle, (ComponentTypeId, ComponentHandle)>;
+pub(crate) type ColliderMapping = FxHashMap<ColliderHandle, ((i16, ComponentTypeId), ComponentHandle)>;
 
 pub type RcWorld = Rc<RefCell<World>>;
 
@@ -211,28 +211,6 @@ impl World {
         self.bodies.insert(builder)
     }
 
-    pub fn create_collider(
-        &mut self,
-        body_handle: RigidBodyHandle,
-        component_handle: ComponentHandle,
-        type_id: ComponentTypeId,
-        collider: impl Into<Collider>,
-    ) -> ColliderHandle {
-        let collider_handle =
-            self.colliders
-                .insert_with_parent(collider, body_handle, &mut self.bodies);
-
-        self.component_mapping
-            .insert(collider_handle, (type_id, component_handle));
-        return collider_handle;
-    }
-
-    pub fn remove_collider(&mut self, handle: ColliderHandle) -> Option<Collider> {
-        self.component_mapping.remove(&handle);
-        self.colliders
-            .remove(handle, &mut self.islands, &mut self.bodies, true)
-    }
-
     pub(crate) fn remove_body(&mut self, handle: RigidBodyHandle) -> (RigidBody, Vec<Collider>) {
         let colliders = self.bodies.get(handle).unwrap().colliders().to_vec();
         let collider = colliders
@@ -258,6 +236,45 @@ impl World {
             .unwrap();
         return (body, collider);
     }
+
+    pub(crate) fn step(&mut self, delta: f32) {
+        self.integration_parameters.dt = delta * self.time_scale;
+        self.physics_pipeline.step(
+            &self.gravity,
+            &self.integration_parameters,
+            &mut self.islands,
+            &mut self.broad_phase,
+            &mut self.narrow_phase,
+            &mut self.bodies,
+            &mut self.colliders,
+            &mut self.impulse_joints,
+            &mut self.multibody_joints,
+            &mut self.ccd_solver,
+            Some(&mut self.query_pipeline),
+            &(),
+            self.events.collector(),
+        );
+    }
+
+    // pub fn attach_collider<C: ComponentController>(
+    //     &mut self,
+    //     component: &C,
+    //     collider: impl Into<Collider>,
+    // ) -> ColliderHandle {
+    //     let collider_handle =
+    //         self.colliders
+    //             .insert_with_parent(collider, body_handle, &mut self.bodies);
+
+    //     self.component_mapping
+    //         .insert(collider_handle, (type_id, component_handle));
+    //     return collider_handle;
+    // }
+
+    // pub fn remove_collider<C: ComponentController>(&mut self, component: &C, handle: ColliderHandle) -> Option<Collider> {
+    //     self.component_mapping.remove(&handle);
+    //     self.colliders
+    //         .remove(handle, &mut self.islands, &mut self.bodies, true)
+    // }
 
     pub fn create_joint(
         &mut self,
@@ -448,25 +465,6 @@ impl World {
         );
     }
 
-    pub(crate) fn step(&mut self, delta: f32) {
-        self.integration_parameters.dt = delta * self.time_scale;
-        self.physics_pipeline.step(
-            &self.gravity,
-            &self.integration_parameters,
-            &mut self.islands,
-            &mut self.broad_phase,
-            &mut self.narrow_phase,
-            &mut self.bodies,
-            &mut self.colliders,
-            &mut self.impulse_joints,
-            &mut self.multibody_joints,
-            &mut self.ccd_solver,
-            Some(&mut self.query_pipeline),
-            &(),
-            self.events.collector(),
-        );
-    }
-
     pub fn body(&self, body_handle: RigidBodyHandle) -> Option<&RigidBody> {
         return self.bodies.get(body_handle);
     }
@@ -508,7 +506,7 @@ impl World {
     pub fn component_from_collider(
         &self,
         collider_handle: &ColliderHandle,
-    ) -> Option<(ComponentTypeId, ComponentHandle)> {
+    ) -> Option<((i16, ComponentTypeId), ComponentHandle)> {
         self.component_mapping.get(collider_handle).cloned()
     }
 

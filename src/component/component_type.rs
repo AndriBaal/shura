@@ -204,7 +204,14 @@ impl ComponentType {
     }
 
     pub(crate) fn remove_group(&mut self, handle: GroupHandle) {
-        self.groups.remove(handle.0);
+        let group = self.groups.remove(handle.0).unwrap();
+        for mut component in group.components {
+            component.base_mut().deinit();
+        }
+    }
+
+    pub(crate) fn callbacks(&self) -> &ComponentCallbacks {
+        &self.callbacks
     }
 
     pub fn each<C: ComponentController>(&self, groups: &[GroupHandle], mut each: impl FnMut(&C)) {
@@ -240,7 +247,12 @@ impl ComponentType {
             if let Some(group) = self.groups.get_mut(group.0) {
                 group.components.retain(|_, component| {
                     let component = component.downcast_mut::<C>().unwrap();
-                    keep(component)
+                    if keep(component) {
+                        true
+                    } else {
+                        component.base_mut().deinit();
+                        false
+                    }
                 });
             }
         }
@@ -340,7 +352,8 @@ impl ComponentType {
 
     pub fn remove<C: ComponentController>(&mut self, handle: ComponentHandle) -> Option<C> {
         if let Some(group) = self.groups.get_mut(handle.group_index().0) {
-            if let Some(component) = group.components.remove(handle.component_index().0) {
+            if let Some(mut component) = group.components.remove(handle.component_index().0) {
+                component.base_mut().deinit();
                 return component.downcast::<C>().ok().and_then(|b| Some(*b));
             }
         }
@@ -363,7 +376,8 @@ impl ComponentType {
             if let Some(group) = self.groups.get_mut(group_handle.0) {
                 let components = std::mem::replace(&mut group.components, Default::default());
                 let mut casted = Vec::with_capacity(components.len());
-                for component in components {
+                for mut component in components {
+                    component.base_mut().deinit();
                     casted.push(*component.downcast::<C>().ok().unwrap())
                 }
                 result.push((*group_handle, casted));
@@ -435,7 +449,9 @@ impl ComponentType {
             |(_, c)| c.downcast_ref::<C>().unwrap();
         for group in groups {
             if let Some(group) = self.groups.get(group.0) {
-                iters.push(group.components.iter().map(cast));
+                if !group.components.is_empty() {
+                    iters.push(group.components.iter().map(cast));
+                }
             }
         }
         return iters.into_iter().flatten();
@@ -460,18 +476,11 @@ impl ComponentType {
             offset += split.0.len();
             match split.0.last_mut().unwrap() {
                 ArenaEntry::Occupied { data, generation } => {
-                    if *generation == index.0.generation() {
+                    if !data.components.is_empty() && *generation == index.0.generation() {
                         iters.push(data.components.iter_mut().map(cast));
                     }
-                    // if let Some(type_index) = data.type_index(type_id) {
-                    //     let component_type = data.type_mut(*type_index).unwrap();
-                    //     let type_len = component_type.len();
-                    //     if type_len > 0 {
-                    //         iters.push(group.components.iter().map(|(_, c)| c.downcast_ref::<C>().unwrap()));
-                    //     }
-                    // }
                 }
-                _ => unreachable!(),
+                _ => (),
             };
         }
 
@@ -487,10 +496,14 @@ impl ComponentType {
             |(i, (_, c))| (InstanceIndex::new(i as u32), c.downcast_ref::<C>().unwrap());
         for group in groups {
             if let Some(group) = self.groups.get(group.0) {
-                iters.push((
-                    group.buffer.as_ref().unwrap(),
-                    group.components.iter().enumerate().map(cast),
-                ));
+                if !group.components.is_empty() {
+                    iters.push((
+                        group.buffer.as_ref().expect(
+                            "This component's buffer is either not initialized or disabled.",
+                        ),
+                        group.components.iter().enumerate().map(cast),
+                    ));
+                }
             }
         }
         return iters.into_iter();

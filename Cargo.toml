@@ -41,7 +41,7 @@ default = [
     "gamepad",
     "text",
     "audio",
-    # "physics",
+    "physics",
     "gui",
     # "serde",
     "log",

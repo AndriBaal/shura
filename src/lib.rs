@@ -74,7 +74,6 @@ pub mod physics {
     pub use crate::world::world::CollideType;
     pub use crate::world::world::{RcWorld, World};
     pub use rapier2d::geometry::*;
-    pub use rapier2d::parry;
     pub use rapier2d::prelude::*;
     pub mod rapier {
         pub use rapier2d::*;

@@ -1,11 +1,10 @@
 #[cfg(feature = "physics")]
 use crate::{
-    physics::{CollideType, ColliderHandle},
-    ComponentHandle,
+    physics::{CollideType, ColliderHandle, RigidBodyHandle},
+    ComponentHandle, ComponentTypeId 
 };
 use crate::{
-    BaseComponent, ComponentConfig, ComponentIdentifier, ComponentTypeId, Context, RenderEncoder,
-    DEFAULT_CONFIG,
+    BaseComponent, ComponentConfig, ComponentIdentifier, Context, RenderEncoder, DEFAULT_CONFIG,
 };
 use downcast_rs::*;
 
@@ -31,6 +30,10 @@ pub type BoxedComponent = Box<dyn ComponentDerive>;
 pub trait ComponentDerive: Downcast {
     fn base(&self) -> &BaseComponent;
     fn base_mut(&mut self) -> &mut BaseComponent;
+//     #[cfg(feature = "physics")]
+//     fn collider(&self) -> Option<ColliderHandle>;
+//     #[cfg(feature = "physics")]
+//     fn rigid_body(&self) -> Option<RigidBodyHandle>;
 }
 impl_downcast!(ComponentDerive);
 
@@ -80,6 +83,16 @@ impl<C: ComponentDerive + ?Sized> ComponentDerive for Box<C> {
     fn base_mut(&mut self) -> &mut BaseComponent {
         (**self).base_mut()
     }
+
+    // #[cfg(feature = "physics")]
+    // fn collider(&self) -> Option<ColliderHandle> {
+    //     (**self).collider()
+    // }
+
+    // #[cfg(feature = "physics")]
+    // fn rigid_body(&self) -> Option<RigidBodyHandle> {
+    //     (**self).rigid_body()
+    // }
 }
 
 impl ComponentDerive for BaseComponent {
@@ -91,3 +104,4 @@ impl ComponentDerive for BaseComponent {
         self
     }
 }
+

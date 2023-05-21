@@ -297,18 +297,19 @@ impl Shura {
                 .and_then(|c| Some(c.active_events()))
             {
                 if let Some(collider2_events) = ctx
+                    .world
                     .collider(collider_handle2)
                     .and_then(|c| Some(c.active_events()))
                 {
-                    let (component_type_id1, component1) =
-                        ctx.component_from_collider(&collider_handle1).unwrap();
-                    let (component_type_id2, component2) =
-                        ctx.component_from_collider(&collider_handle2).unwrap();
+                    let ((priority1, component_type_id1), component1) =
+                        ctx.world.component_from_collider(&collider_handle1).unwrap();
+                    let ((priority2, component_type_id2), component2) =
+                        ctx.world.component_from_collider(&collider_handle2).unwrap();
                     if collider1_events == ActiveEvents::COLLISION_EVENTS {
                         let callback = ctx
                             .components
-                            .component_callbacks(&component_type_id1)
-                            .call_collision;
+                            .callbacks(priority1, component_type_id1)
+                            .collision;
                         (callback)(
                             ctx,
                             component1,
@@ -322,8 +323,8 @@ impl Shura {
                     if collider2_events == ActiveEvents::COLLISION_EVENTS {
                         let callback = ctx
                             .components
-                            .component_callbacks(&component_type_id2)
-                            .call_collision;
+                            .callbacks(priority2, component_type_id2)
+                            .collision;
                         (callback)(
                             ctx,
                             component2,
@@ -410,10 +411,7 @@ impl Shura {
                 let types = ctx.components.callable_types();
                 let mut types = types.borrow_mut();
                 for ty in types.iter_mut() {
-                    for update in ctx
-                        .scene_states
-                        .updates(prev_priority, ty.config.priority)
-                    {
+                    for update in ctx.scene_states.updates(prev_priority, ty.config.priority) {
                         update(&mut ctx);
                     }
 
