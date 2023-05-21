@@ -1,5 +1,8 @@
+#[cfg(feature = "physics")]
+use physics::World;
+
 use crate::{
-    physics::World, ComponentManager, Context, SceneStateManager, ScreenConfig, ShuraFields,
+    ComponentManager, Context, SceneStateManager, ScreenConfig, ShuraFields,
     Vector, WorldCamera, WorldCameraScale,
 };
 
@@ -112,6 +115,7 @@ impl Scene {
             components: ComponentManager::new(),
             screen_config: ScreenConfig::new(),
             states: SceneStateManager::default(),
+            #[cfg(feature = "physics")]
             world: World::new(),
         }
     }

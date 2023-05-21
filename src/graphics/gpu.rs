@@ -201,7 +201,7 @@ impl Gpu {
         let target = self.create_render_target(texture_size);
         let mut encoder = RenderEncoder::new(self, defaults);
         encoder.render_text(RenderConfigTarget::Custom(&target), self, descriptor);
-        encoder.stage();
+        encoder.finish();
         return target;
     }
 
@@ -223,7 +223,7 @@ impl Gpu {
         return RenderTarget::computed(self, defaults, texture_size, camera, compute);
     }
 
-    pub fn submit_staged_encoders(&self) {
+    pub fn submit_encoders(&self) {
         let mut commands_ref = self.commands.write().unwrap();
         let commands = std::mem::replace(commands_ref.deref_mut(), vec![]);
         self.queue.submit(commands);

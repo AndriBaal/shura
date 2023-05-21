@@ -1,4 +1,4 @@
-use crate::audio::{PlayError, Sink, Sound};
+use crate::audio::{Sink, Sound};
 
 pub struct AudioManager {
     pub output_stream: rodio::OutputStream,
@@ -15,7 +15,6 @@ impl AudioManager {
     }
 
     pub fn create_sink(&self) -> Sink {
-        let s = Sink::try_new(&self.output_handle).unwrap();
         Sink::try_new(&self.output_handle).unwrap()
     }
 

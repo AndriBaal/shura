@@ -12,10 +12,7 @@ pub struct GroupHandle(pub(crate) ArenaIndex);
 pub(crate) struct TypeIndex(pub(crate) ArenaIndex);
 
 impl GroupHandle {
-    pub const DEFAULT_GROUP: Self = GroupHandle(ArenaIndex {
-        index: 0,
-        generation: 0,
-    });
+    pub const DEFAULT_GROUP: Self = GroupHandle(ArenaIndex::FIRST);
 }
 
 impl Default for GroupHandle {

@@ -1,112 +1,359 @@
 use instant::Instant;
 
 use crate::{
-    data::arena::ArenaIndex, ArenaIter, ArenaIterMut, ArenaPath, BoxedComponent,
-    ComponentCallbacks, ComponentConfig, ComponentDerive, ComponentHandle, ComponentType,
-    GroupHandle, InstanceBuffer, InstanceIndex,
+    data::arena::ArenaIndex, ArenaIter, ArenaIterMut, BoxedComponent, ComponentCallbacks,
+    ComponentConfig, ComponentController, ComponentDerive, ComponentHandle, ComponentType,
+    GroupHandle, InstanceBuffer, InstanceIndex, ComponentIter, ComponentIterMut, ComponentIterRender,
 };
 use std::{iter::Enumerate, marker::PhantomData};
 
-/// Paths of currently active ComponentGroup's that contain the component type C. This is equal to
-/// [ComponentFilter::Active](crate::ComponentFilter::Active)
-pub struct ActiveComponents<'a, C: ComponentDerive> {
-    paths: &'a [ArenaPath],
-    marker: PhantomData<C>,
-}
-
-impl<'a, C: ComponentDerive> ActiveComponents<'a, C> {
-    pub(crate) fn new(paths: &'a [ArenaPath]) -> Self {
-        Self {
-            paths,
-            marker: PhantomData,
-        }
-    }
-
-    pub(crate) fn paths(&self) -> &[ArenaPath] {
-        self.paths
-    }
-
-    pub fn amount_of_groups(&self) -> usize {
-        self.paths.len()
-    }
-}
-
-#[derive(Clone)]
-pub struct ComponentSet<'a, C: ComponentDerive> {
+#[derive(Clone, Copy)]
+pub struct ComponentSet<'a, C: ComponentController> {
     ty: &'a ComponentType,
     groups: &'a [GroupHandle],
     marker: PhantomData<C>,
 }
 
-impl<'a, C: ComponentDerive> ComponentSet<'a, C> {
-    pub fn new(ty: &'a ComponentType, groups: &'a [GroupHandle]) -> ComponentSet<'a, C> {
+impl<'a, C: ComponentController> ComponentSet<'a, C> {
+    pub(crate) fn new(ty: &'a ComponentType, groups: &'a [GroupHandle]) -> ComponentSet<'a, C> {
         Self {
             ty,
             groups,
             marker: PhantomData,
         }
     }
+
+    pub fn each(&mut self, each: impl FnMut(&C)) {
+        self.ty.each(self.groups, each);
+    }
+
+    pub fn index(&self, group: GroupHandle, index: usize) -> Option<&C> {
+        self.ty.index(group, index)
+    }
+
+    pub fn get(&self, handle: ComponentHandle) -> Option<&C> {
+        self.ty.get(handle)
+    }
+
+    pub fn get_boxed(&self, handle: ComponentHandle) -> Option<&BoxedComponent> {
+        self.ty.get_boxed(handle)
+    }
+
+    pub fn len(&self) -> usize {
+        self.ty.len(self.groups)
+    }
+
+    pub fn iter(&self) -> ComponentIter<C>  {
+        self.ty.iter(self.groups)
+    }
+
 }
 
-pub struct ComponentSetMut<'a, C: ComponentDerive> {
+pub struct ComponentSetMut<'a, C: ComponentController> {
     ty: &'a mut ComponentType,
     groups: &'a [GroupHandle],
     marker: PhantomData<C>,
 }
 
-impl<'a, C: ComponentDerive> ComponentSetMut<'a, C> {
-    pub fn new(ty: &'a mut ComponentType, groups: &'a [GroupHandle]) -> ComponentSetMut<'a, C> {
+impl<'a, C: ComponentController> ComponentSetMut<'a, C> {
+    pub(crate) fn new(
+        ty: &'a mut ComponentType,
+        groups: &'a [GroupHandle],
+    ) -> ComponentSetMut<'a, C> {
         Self {
             ty,
             groups,
             marker: PhantomData,
         }
     }
-    // pub fn retain(
-    //     &mut self,
-    //     keep: impl FnMut(&mut C) -> bool,
-    // ) {}
-    // pub fn index(&self) -> Option<&C> {}
-    // pub fn index_mut(&mut self) -> Option<&mut C> {}
-    // pub fn get(&self) -> Option<&C> {}
-    // pub fn get_mut(&mut self) -> Option<&mut C> {}
-    // pub fn get2_mut(&mut self) -> (C, C) {}
-    // pub fn get_boxed(&self, handle: ComponentHandle) -> &BoxedComponent {}
-    // pub fn get_boxed_mut(&mut self, handle: ComponentHandle) -> &mut BoxedComponent {}
-    // pub fn remove_component(&mut self, handle: ComponentHandle) -> Option<C> {}
-    // pub fn add_component(&mut self) -> ComponentHandle {}
-    // pub fn add_components<I>(
-    //     &mut self,
-    //     components: impl Iterator<Item = C>,
-    // ) -> Vec<ComponentHandle> {
-    // }
-    // pub fn force_buffer(&self, filter: ComponentFilter) {}
-    // pub fn len(&self, filter: ComponentFilter) {
-    // }
 
-    // fn retain(&mut self, mut keep: impl FnMut(&mut C) -> bool) {
-    //     for group in self.groups {
-    //         if let Some(group) = self.ty.groups.get(*group.0) {
-    //             group.components.retain(|_, component| {
-    //                 let component = component.downcast_mut::<C>().unwrap();
-    //                 keep(component)
-    //             });
-    //         }
-    //     }
-    // }
-    // fn len(&self) -> usize {
-    //     self.len()
-    // }
-    // fn remove(&mut self, handle: ComponentHandle) -> Option<C> {
-    //     self.ty.remove(handle).and_then(|c| c.downcast::<C>().ok());
-    // }
-    // fn index(group_id: ComponentGroupId, index: u32) -> Option<&C> {
-    //     self.ty.remove(handle).and_then(|c| c.downcast::<C>().ok());
-    // }
-    // fn index_mut(group_id: ComponentGroupId, index: u32) -> Option<&mut C> {}
-    // fn component() -> Option<&C> {}
-    // fn component_mut()  -> Option<&mut C> {}
+    pub fn each(&self, each: impl FnMut(&C)) {
+        self.ty.each(self.groups, each);
+    }
+
+    pub fn each_mut(&mut self, each: impl FnMut(&mut C)) {
+        self.ty.each_mut(self.groups, each);
+    }
+
+    pub fn retain(&mut self, keep: impl FnMut(&mut C) -> bool) {
+        self.ty.retain(self.groups, keep);
+    }
+
+    pub fn index(&self, group: GroupHandle, index: usize) -> Option<&C> {
+        self.ty.index(group, index)
+    }
+
+    pub fn index_mut(&mut self, group: GroupHandle, index: usize) -> Option<&mut C> {
+        self.ty.index_mut(group, index)
+    }
+
+    pub fn get(&self, handle: ComponentHandle) -> Option<&C> {
+        self.ty.get(handle)
+    }
+
+    pub fn get_mut(&mut self, handle: ComponentHandle) -> Option<&mut C> {
+        self.ty.get_mut(handle)
+    }
+
+    pub fn get2_mut(
+        &mut self,
+        handle1: ComponentHandle,
+        handle2: ComponentHandle,
+    ) -> (Option<&mut C>, Option<&mut C>) {
+        self.ty.get2_mut::<C, C>(handle1, handle2)
+    }
+
+    pub fn get_boxed(&self, handle: ComponentHandle) -> Option<&BoxedComponent> {
+        self.ty.get_boxed(handle)
+    }
+
+    pub fn get_boxed_mut(&mut self, handle: ComponentHandle) -> Option<&mut BoxedComponent> {
+        self.ty.get_boxed_mut(handle)
+    }
+
+    pub fn remove(&mut self, handle: ComponentHandle) -> Option<C> {
+        self.ty.remove(handle)
+    }
+
+    pub fn remove_boxed(&mut self, handle: ComponentHandle) -> Option<BoxedComponent> {
+        self.ty.remove_boxed(handle)
+    }
+
+    pub fn remove_all(&mut self) -> Vec<(GroupHandle, Vec<C>)> {
+        self.ty.remove_all(self.groups)
+    }
+
+    pub fn add(&mut self, group_handle: GroupHandle, component: C) -> ComponentHandle {
+        self.ty.add(group_handle, component)
+    }
+
+    pub fn add_many<I>(
+        &mut self,
+        group_handle: GroupHandle,
+        components: impl Iterator<Item = C>,
+    ) -> Vec<ComponentHandle> {
+        self.ty.add_many::<I, C>(group_handle, components)
+    }
+
+    pub fn force_buffer(&mut self) {
+        self.ty.force_buffer(self.groups)
+    }
+
+    pub fn len(&self) -> usize {
+        self.ty.len(self.groups)
+    }
+
+    pub fn iter(&self) -> ComponentIter<C> {
+        self.ty.iter(self.groups)
+    }
+
+    pub fn iter_mut(&mut self) -> ComponentIterMut<C>  {
+        self.ty.iter_mut(self.groups)
+    }
+
+    pub fn iter_render(
+        &self,
+    ) -> ComponentIterRender<C> {
+        self.ty.iter_render(self.groups)
+    }
 }
+
+// impl<'a, C> IntoIterator for &'a mut ComponentSetMut<'a, C>
+// where
+//     C: ComponentController,
+// {
+//     type Item = &'a C;
+//     type IntoIter = impl Iterator<Item = &mut C>;
+
+//     fn into_iter(self) -> Self::IntoIter {
+//         return self.iter();
+//     }
+// }
+
+// impl<'a, C> IntoIterator for &'a ComponentSetMut<'a, C>
+// where
+//     C: ComponentController,
+// {
+//     type Item = &'a C;
+//     type IntoIter = ComponentSetIter<'a, C>;
+
+//     fn into_iter(self) -> Self::IntoIter {
+//         return self.iter();
+//     }
+// }
+
+// impl<'a, C> IntoIterator for &'a ComponentSet<'a, C>
+// where
+//     C: ComponentController,
+// {
+//     type Item = &'a C;
+//     type IntoIter = ComponentSetIter<'a, C>;
+
+//     fn into_iter(self) -> Self::IntoIter {
+//         return self.iter();
+//     }
+// }
+
+// /// Iterator over a [ComponentSet], which holds components from multiple [ComponentGroups](crate::ComponentGroup).
+// pub struct ComponentSetIter<'a, C>
+// where
+//     C: ComponentController,
+// {
+//     ty: &'a ComponentType,
+//     groups: &'a [GroupHandle],
+//     group_index: usize,
+//     component_index: usize,
+//     marker: PhantomData<C>,
+// }
+
+// impl<'a, C> ComponentSetIter<'a, C>
+// where
+//     C: ComponentController,
+// {
+//     pub(crate) fn new(ty: &'a ComponentType, groups: &'a [GroupHandle]) -> ComponentSetIter<'a, C> {
+//         ComponentSetIter {
+//             ty,
+//             groups,
+//             group_index: 0,
+//             component_index: 0,
+//             marker: PhantomData::<C>,
+//         }
+//     }
+// }
+
+// impl<'a, C> Iterator for ComponentSetIter<'a, C>
+// where
+//     C: ComponentController,
+// {
+//     type Item = &'a C;
+//     fn next(&mut self) -> Option<Self::Item> {
+//         if let Some(group) = self.ty.group(self.groups[self.group_index]) {
+//             if let Some(component) = group.components.get_unknown_gen(self.component_index) {
+//                 self.component_index += 1;
+//                 return component.as_ref().downcast_ref::<C>();
+//             } else {
+//                 self.component_index = 0;
+//                 self.group_index = 0;
+//                 return self.next();
+//             }
+//         }
+//         return None;
+//     }
+// }
+
+// impl<'a, C> ExactSizeIterator for ComponentSetIter<'a, C>
+// where
+//     C: ComponentController,
+// {
+//     fn len(&self) -> usize {
+//         self.ty.len(self.groups)
+//     }
+// }
+
+// impl<'a, C> DoubleEndedIterator for ComponentSetIter<'a, C>
+// where
+//     C: ComponentController,
+// {
+//     fn next_back(&mut self) -> Option<Self::Item> {
+//         if let Some(group) = self
+//             .ty
+//             .group(self.groups[self.groups.len() - 1 - self.group_index])
+//         {
+//             if let Some(component) = group
+//                 .components
+//                 .get_unknown_gen(group.components.len() - 1 - self.component_index)
+//             {
+//                 self.component_index += 1;
+//                 return component.as_ref().downcast_ref::<C>();
+//             } else {
+//                 self.component_index = 0;
+//                 self.group_index = 0;
+//                 return self.next_back();
+//             }
+//         }
+//         return None;
+//     }
+// }
+
+// pub struct ComponentSetIterMut<'a, C>
+// where
+//     C: ComponentController,
+// {
+//     ty: &'a mut ComponentType,
+//     groups: &'a [GroupHandle],
+//     group_index: usize,
+//     component_index: usize,
+//     marker: PhantomData<C>,
+// }
+
+// impl<'a, C> ComponentSetIterMut<'a, C>
+// where
+//     C: ComponentController,
+// {
+//     pub(crate) fn new(ty: &'a mut ComponentType, groups: &'a [GroupHandle]) -> ComponentSetIterMut<'a, C> {
+//         ComponentSetIterMut {
+//             ty,
+//             groups,
+//             group_index: 0,
+//             component_index: 0,
+//             marker: PhantomData::<C>,
+//         }
+//     }
+// }
+
+// impl<'a, C> Iterator for ComponentSetIterMut<'a, C>
+// where
+//     C: ComponentController,
+// {
+//     type Item = &'a mut C;
+//     fn next(&mut self) -> Option<Self::Item> {
+//         if let Some(group) = self.ty.group_mut(self.groups[self.group_index]) {
+//             if let Some(component) = group.components.get_unknown_gen(self.component_index) {
+//                 self.component_index += 1;
+//                 return component.as_mut().downcast_mut::<C>();
+//             } else {
+//                 self.component_index = 0;
+//                 self.group_index = 0;
+//                 return self.next();
+//             }
+//         }
+//         return None;
+//     }
+// }
+
+// impl<'a, C> ExactSizeIterator for ComponentSetIterMut<'a, C>
+// where
+//     C: ComponentController,
+// {
+//     fn len(&self) -> usize {
+//         self.ty.len(self.groups)
+//     }
+// }
+
+// impl<'a, C> DoubleEndedIterator for ComponentSetIterMut<'a, C>
+// where
+//     C: ComponentController,
+// {
+//     fn next_back(&mut self) -> Option<Self::Item> {
+//         if let Some(group) = self
+//             .ty
+//             .group_mut(self.groups[self.groups.len() - 1 - self.group_index])
+//         {
+//             if let Some(component) = group
+//                 .components
+//                 .get_unknown_gen_mut(group.components.len() - 1 - self.component_index)
+//             {
+//                 self.component_index += 1;
+//                 return component.as_mut().downcast_mut::<C>();
+//             } else {
+//                 self.component_index = 0;
+//                 self.group_index = 0;
+//                 return self.next_back();
+//             }
+//         }
+//         return None;
+//     }
+// }
 
 // /// A set of components that includes all components of a specific type from a variety of
 // /// [ComponentGroups](crate::ComponentGroup).

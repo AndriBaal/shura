@@ -1,13 +1,12 @@
 use crate::{
-    ActiveComponents, BoxedComponent, Camera, CameraBuffer, Color, ComponentController,
-    ComponentDerive, ComponentFilter, ComponentGroup, ComponentHandle,
-    ComponentManager, ComponentSet, ComponentSetMut, Duration, FrameManager,
-    GlobalStateController, GlobalStateManager, Gpu, GpuDefaults, Input, InputEvent,
-    InputTrigger, InstanceBuffer, InstanceIndex, InstanceIndices, Instant, Isometry, Matrix, Model,
-    ModelBuilder, Modifier, RenderConfig, RenderEncoder, RenderTarget, Renderer, Rotation, Scene,
-    SceneCreator, SceneManager, SceneStateController, SceneStateManager, ScreenConfig, Shader,
-    ShaderConfig, Shura, Sprite, SpriteSheet, StateIdentifier, Uniform, Vector, WorldCamera,
-    WorldCameraScale,
+    BoxedComponent, Camera, CameraBuffer, Color, ComponentController, ComponentDerive,
+    ComponentFilter, ComponentGroup, ComponentHandle, ComponentManager, ComponentSet,
+    ComponentSetMut, Duration, FrameManager, GlobalStateController, GlobalStateManager, Gpu,
+    GpuDefaults, Input, InputEvent, InputTrigger, InstanceBuffer, InstanceIndex, InstanceIndices,
+    Instant, Isometry, Matrix, Model, ModelBuilder, Modifier, RenderConfig, RenderEncoder,
+    RenderTarget, Renderer, Rotation, Scene, SceneCreator, SceneManager, SceneStateController,
+    SceneStateManager, ScreenConfig, Shader, ShaderConfig, Shura, Sprite, SpriteSheet,
+    StateIdentifier, Uniform, Vector, WorldCamera, WorldCameraScale,
 };
 
 #[cfg(feature = "serde")]
@@ -96,6 +95,7 @@ impl<'a> ShuraFields<'a> {
 /// implementation of the Context, but are inside one of Context's underlying fields (You might also
 /// need to access the underlying fields to avoid borrow issues).
 pub struct Context<'a> {
+    // Scene
     pub scene_id: &'a u32,
     pub scene_resized: &'a bool,
     pub scene_switched: &'a bool,
@@ -121,11 +121,17 @@ pub struct Context<'a> {
     pub gui: &'a mut Gui,
     #[cfg(feature = "audio")]
     pub audio: &'a mut AudioManager,
+
+    // Misc
+    pub window_size: Vector<u32>,
 }
 
 impl<'a> Context<'a> {
     pub(crate) fn new(shura: &'a mut Shura, scene: &'a mut Scene) -> Context<'a> {
+        let mint: mint::Vector2<u32> = shura.window.inner_size().into();
+        let window_size = mint.into();
         Self {
+            // Scene
             scene_id: &scene.id,
             scene_resized: &scene.resized,
             scene_started: &scene.started,
@@ -151,10 +157,15 @@ impl<'a> Context<'a> {
             gui: &mut shura.gui,
             #[cfg(feature = "audio")]
             audio: &mut shura.audio,
+
+            // Misc
+            window_size
         }
     }
 
     pub(crate) fn from_fields(shura: ShuraFields<'a>, scene: &'a mut Scene) -> Context<'a> {
+        let mint: mint::Vector2<u32> = shura.window.inner_size().into();
+        let window_size = mint.into();
         Self {
             scene_id: &scene.id,
             scene_resized: &scene.resized,
@@ -181,6 +192,8 @@ impl<'a> Context<'a> {
             gui: shura.gui,
             #[cfg(feature = "audio")]
             audio: shura.audio,
+
+            window_size
         }
     }
 
@@ -306,35 +319,20 @@ impl<'a> Context<'a> {
         self.scenes.add(scene);
     }
 
-    // pub fn render_each<C: ComponentDerive>(
-    //     &'a self,
-    //     active: &ActiveComponents<C>,
-    //     encoder: &'a mut RenderEncoder,
-    //     config: RenderConfig<'a>,
-    //     mut each: impl FnMut(&mut Renderer<'a>, &'a C, InstanceIndex),
-    // ) {
-    //     let mut renderer = encoder.renderer(config);
-    //     for (buffer, components) in self.active_render(active) {
-    //         renderer.use_instances(buffer);
-    //         for (instance, component) in components {
-    //             (each)(&mut renderer, component, instance);
-    //         }
-    //     }
-    // }
+    pub fn set_window_size(&mut self, size: Vector<u32>) {
+        let mint: mint::Vector2<u32> = size.into();
+        let size: winit::dpi::PhysicalSize<u32> = mint.into();
+        self.window.set_inner_size(size);
+    }
 
-    // pub fn render_all<C: ComponentDerive>(
-    //     &'a self,
-    //     active: &ActiveComponents<C>,
-    //     encoder: &'a mut RenderEncoder,
-    //     config: RenderConfig<'a>,
-    //     mut all: impl FnMut(&mut Renderer<'a>, InstanceIndices),
-    // ) {
-    //     let mut renderer = encoder.renderer(config);
-    //     for (buffer, _) in self.active_render(active) {
-    //         renderer.use_instances(buffer);
-    //         (all)(&mut renderer, buffer.all_instances());
-    //     }
-    // }
+    pub fn set_fullscreen(&mut self, fullscreen: bool) {
+        if fullscreen {
+            let f = winit::window::Fullscreen::Borderless(None);
+            self.window.set_fullscreen(Some(f));
+        } else {
+            self.window.set_fullscreen(None);
+        }
+    }
 
     // #[cfg(feature = "physics")]
     // pub fn create_joint(
@@ -524,8 +522,8 @@ impl<'a> Context<'a> {
     //     self.components.group_deltas()
     // }
 
-    // pub fn submit_staged_encoders(&self) {
-    //     self.gpu.submit_staged_encoders()
+    // pub fn submit_encoders(&self) {
+    //     self.gpu.submit_encoders()
     // }
 
     // pub fn remove_component(&mut self, handle: ComponentHandle) -> Option<BoxedComponent> {

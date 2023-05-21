@@ -408,7 +408,8 @@ impl Shura {
             let now = ctx.frame.update_time();
             {
                 let types = ctx.components.callable_types();
-                for ty in types.iter() {
+                let mut types = types.borrow_mut();
+                for ty in types.iter_mut() {
                     for update in ctx
                         .scene_states
                         .updates(prev_priority, ty.config.priority)
@@ -433,13 +434,15 @@ impl Shura {
                             }
                         }
                         crate::UpdateOperation::AfterDuration(dur) => {
-                            if now < set.last_update().unwrap() + dur {
+                            if now < ty.last_update.unwrap() + dur {
                                 continue;
+                            } else {
+                                ty.last_update = Some(now);
                             }
                         }
                     }
 
-                    (ty.callbacks.call_update)(set.paths(), &mut ctx);
+                    (ty.callbacks.update)(&mut ctx);
                     prev_priority = ty.config.priority;
                 }
             }
@@ -481,15 +484,11 @@ impl Shura {
         }
 
         {
-            for set in ctx.components.copy_active_components().values() {
-                if set.is_empty() {
-                    continue;
-                }
-                let config = set.config();
-                if config.render != RenderOperation::Never {
-                    match config.render {
+            for ty in ctx.components.callable_types().borrow().iter() {
+                if ty.config.render != RenderOperation::Never {
+                    match ty.config.render {
                         RenderOperation::EveryFrame => {
-                            (set.callbacks().call_render)(&set.paths(), &ctx, &mut encoder);
+                            (ty.callbacks.render)(&ctx, &mut encoder);
                         }
                         _ => {}
                     }
@@ -514,8 +513,8 @@ impl Shura {
         #[cfg(feature = "gui")]
         ctx.gui.render(&ctx.gpu, &mut encoder.inner, &output_view);
 
-        encoder.stage();
-        ctx.gpu.submit_staged_encoders();
+        encoder.finish();
+        ctx.gpu.submit_encoders();
         output.present();
 
         scene.resized = false;

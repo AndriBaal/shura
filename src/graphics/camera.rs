@@ -224,7 +224,7 @@ impl WorldCamera {
         self.scale
     }
 
-    pub fn set_fov_scale(&mut self, scale: WorldCameraScale, window_size: Vector<u32>) {
+    pub fn set_scaling(&mut self, scale: WorldCameraScale, window_size: Vector<u32>) {
         self.scale = scale;
         self.compute_fov(window_size);
     }

@@ -59,7 +59,7 @@ pub enum PostproccessOperation {
 
 /// The configuration of a component type. This configuration is used to statically define
 /// behaviour of a component type for perfomance and utility reason.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ComponentConfig {
     /// Describes the order in which components are processed

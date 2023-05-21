@@ -11,15 +11,16 @@ pub(crate) struct Arena<T> {
     pub(crate) len: usize,
 }
 
+#[derive(Clone, Debug)]
 pub(crate) enum ArenaEntry<T> {
     Free { next_free: Option<usize> },
     Occupied { generation: u32, data: T },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(crate) struct ArenaIndex {
-    pub(crate) index: usize,
-    pub(crate) generation: u32,
+pub struct ArenaIndex {
+    index: usize,
+    generation: u32,
 }
 
 impl ArenaIndex {
@@ -28,8 +29,17 @@ impl ArenaIndex {
         generation: u32::MAX,
     };
 
+    pub const FIRST: Self = Self {
+        index: 0,
+        generation: 0,
+    };
+
     pub fn index(&self) -> usize {
         self.index
+    }
+
+    pub fn generation(&self) -> u32 {
+        self.generation
     }
 }
 
@@ -338,7 +348,7 @@ impl<'a, T> IntoIterator for &'a Arena<T> {
     }
 }
 
-pub(crate) struct ArenaIter<'a, T> {
+pub struct ArenaIter<'a, T> {
     len: usize,
     base: iter::Enumerate<slice::Iter<'a, ArenaEntry<T>>>,
 }
@@ -431,7 +441,7 @@ impl<'a, T> IntoIterator for &'a mut Arena<T> {
     }
 }
 
-pub(crate) struct ArenaIterMut<'a, T> {
+pub struct ArenaIterMut<'a, T> {
     len: usize,
     base: iter::Enumerate<slice::IterMut<'a, ArenaEntry<T>>>,
 }
@@ -510,6 +520,74 @@ impl<T> Extend<T> for Arena<T> {
     fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
         for t in iter {
             self.insert(t);
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct ArenaIntoIter<T> {
+    len: usize,
+    inner: std::vec::IntoIter<ArenaEntry<T>>,
+}
+
+impl<T> Iterator for ArenaIntoIter<T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.inner.next() {
+                Some(ArenaEntry::Free { .. }) => continue,
+                Some(ArenaEntry::Occupied { data, .. }) => {
+                    self.len -= 1;
+                    return Some(data);
+                }
+                None => {
+                    debug_assert_eq!(self.len, 0);
+                    return None;
+                }
+            }
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.len, Some(self.len))
+    }
+}
+
+impl<T> DoubleEndedIterator for ArenaIntoIter<T> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.inner.next_back() {
+                Some(ArenaEntry::Free { .. }) => continue,
+                Some(ArenaEntry::Occupied { data, .. }) => {
+                    self.len -= 1;
+                    return Some(data);
+                }
+                None => {
+                    debug_assert_eq!(self.len, 0);
+                    return None;
+                }
+            }
+        }
+    }
+}
+
+impl<T> ExactSizeIterator for ArenaIntoIter<T> {
+    fn len(&self) -> usize {
+        self.len
+    }
+}
+
+impl<T> FusedIterator for ArenaIntoIter<T> {}
+
+
+impl<T> IntoIterator for Arena<T> {
+    type Item = T;
+    type IntoIter = ArenaIntoIter<T>;
+    fn into_iter(self) -> Self::IntoIter {
+        ArenaIntoIter {
+            len: self.len,
+            inner: self.items.into_iter(),
         }
     }
 }

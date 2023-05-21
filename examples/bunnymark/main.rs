@@ -5,10 +5,14 @@ fn shura_main(config: ShuraConfig) {
     config.init(NewScene {
         id: 1,
         init: |ctx| {
-            ctx.insert_scene_state(BunnyState::new(ctx));
-            ctx.set_clear_color(Some(Color::new_rgba(220, 220, 220, 255)));
-            ctx.set_camera_scale(WorldCameraScale::Min(3.0));
-            ctx.add_component(Bunny::new(&ctx));
+            ctx.components.register::<Bunny>();
+            ctx.scene_states.insert(BunnyState::new(ctx));
+            ctx.screen_config
+                .set_clear_color(Some(Color::new_rgba(220, 220, 220, 255)));
+            ctx.world_camera
+                .set_scaling(WorldCameraScale::Min(3.0), ctx.window_size);
+            ctx.components
+                .add(GroupHandle::DEFAULT_GROUP, Bunny::new(&ctx));
         },
     });
 }
@@ -22,8 +26,10 @@ struct BunnyState {
 
 impl BunnyState {
     pub fn new(ctx: &Context) -> Self {
-        let bunny_model = ctx.create_model(ModelBuilder::cuboid(Vector::new(0.06, 0.09)));
-        let bunny_sprite = ctx.create_sprite(include_bytes!("./img/wabbit.png"));
+        let bunny_model = ctx
+            .gpu
+            .create_model(ModelBuilder::cuboid(Vector::new(0.06, 0.09)));
+        let bunny_sprite = ctx.gpu.create_sprite(include_bytes!("./img/wabbit.png"));
         BunnyState {
             screenshot: None,
             bunny_model,
@@ -40,45 +46,45 @@ impl SceneStateController for BunnyState {
             .resizable(false)
             .collapsible(false)
             .show(&ctx.gui.clone(), |ui| {
-                ui.label(&format!("FPS: {}", ctx.fps()));
+                ui.label(&format!("FPS: {}", ctx.frame.fps()));
                 ui.label(format!(
                     "Bunnies: {}",
-                    ctx.components::<Bunny>(ComponentFilter::All).len()
+                    ctx.components.len::<Bunny>(ComponentFilter::All)
                 ));
                 if ui.button("Clear Bunnies").clicked() {
-                    ctx.remove_components::<Bunny>(Default::default());
+                    ctx.components.remove_all::<Bunny>(ComponentFilter::All);
                 }
             });
 
-        if ctx.is_held(MouseButton::Left) || ctx.is_held(ScreenTouch) {
+        if ctx.input.is_held(MouseButton::Left) || ctx.input.is_held(ScreenTouch) {
             for _ in 0..MODIFY_STEP {
-                ctx.add_component(Bunny::new(&ctx));
+                ctx.components
+                    .add(GroupHandle::DEFAULT_GROUP, Bunny::new(&ctx));
             }
         }
-        if ctx.is_held(MouseButton::Right) {
+        if ctx.input.is_held(MouseButton::Right) {
             let mut dead: Vec<ComponentHandle> = vec![];
-            let bunnies = ctx.components::<Bunny>(Default::default());
+            let bunnies = ctx.components.set::<Bunny>(Default::default());
             if bunnies.len() == 1 {
                 return;
             }
-            for bunny in bunnies.rev() {
+            for bunny in bunnies.iter().rev() {
                 if dead.len() == MODIFY_STEP {
                     break;
                 }
                 dead.push(bunny.base().handle());
             }
             for handle in dead {
-                ctx.remove_component(handle);
+                ctx.components.remove_boxed(handle);
             }
         }
 
-        let window_size = ctx.window_size();
         let bunny_state = ctx.scene_states.get_mut::<Self>();
         if let Some(screenshot) = bunny_state.screenshot.take() {
             shura::log::info!("Taking Screenshot!");
             screenshot.sprite().save(&ctx.gpu, "screenshot.png").ok();
         } else if ctx.input.is_pressed(Key::S) {
-            bunny_state.screenshot = Some(ctx.gpu.create_render_target(window_size));
+            bunny_state.screenshot = Some(ctx.gpu.create_render_target(ctx.window_size));
         }
     }
 }
@@ -92,7 +98,7 @@ struct Bunny {
 impl Bunny {
     pub fn new(ctx: &Context) -> Bunny {
         let base = PositionBuilder::new()
-            .translation(ctx.cursor_camera(&ctx.world_camera))
+            .translation(ctx.input.cursor_camera(ctx.window_size, &ctx.world_camera))
             .into();
         let linvel = Vector::new(gen_range(-2.5..2.5), gen_range(-7.5..7.5));
         Bunny { base, linvel }
@@ -104,11 +110,11 @@ impl ComponentController for Bunny {
         priority: 2,
         ..DEFAULT_CONFIG
     };
-    fn update(active: &ActiveComponents<Self>, ctx: &mut Context) {
+    fn update(ctx: &mut Context) {
         const GRAVITY: f32 = -2.5;
-        let frame = ctx.frame_time();
-        let fov = ctx.camera_fov();
-        for bunny in ctx.active_mut(&active) {
+        let frame = ctx.frame.frame_time();
+        let fov = ctx.world_camera.fov();
+        for bunny in ctx.components.iter_mut::<Self>(ComponentFilter::Active) {
             let mut linvel = bunny.linvel;
             let mut translation = bunny.base.translation();
 
@@ -134,9 +140,9 @@ impl ComponentController for Bunny {
         }
     }
 
-    fn render(active: &ActiveComponents<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
-        let scene = ctx.scene_state::<BunnyState>();
-        ctx.render_all(active, encoder, RenderConfig::WORLD, |r, instances| {
+    fn render(ctx: &Context, encoder: &mut RenderEncoder) {
+        let scene = ctx.scene_states.get::<BunnyState>();
+        encoder.render_all::<Self>(ctx, RenderConfig::WORLD, |r, instances| {
             r.render_sprite(instances, &scene.bunny_model, &scene.bunny_sprite)
         });
         if let Some(screenshot) = &scene.screenshot {
