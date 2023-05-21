@@ -17,7 +17,7 @@ use std::rc::Rc;
 //     Remove(ComponentGroupId),
 // }
 
-const NO_TYPE_ERROR: &'static str = "Type first needs to be registered with .register";
+const NO_TYPE_ERROR: &'static str = "Type first needs to be registered!";
 
 macro_rules! group_filter {
     ($self:ident, $filter: ident) => {
