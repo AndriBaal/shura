@@ -56,13 +56,13 @@ env_logger = "0.10"
 delaunator = "1"
 mint = { version = "0.5" }
 nalgebra = { version = "0.32", features = ["convert-bytemuck", "mint"] }
-wgpu_glyph = { version = "0.19", optional = true }
+wgpu_glyph = { version = "0.20", optional = true }
 gilrs = { version = "0.10", optional = true }
-naga = "0.11"
-egui-wgpu = { version = "0.21", features = ["winit"], optional = true }
-egui = { version = "0.21", default-features = false, optional = true, features = [
+naga = "0.12"
+egui-wgpu = { version = "0.22", features = ["winit"], optional = true }
+egui = { version = "0.22", default-features = false, optional = true, features = [
     "bytemuck",
-    "tracing",
+    # "tracing",
     "default_fonts",
     "mint",
 ] }
@@ -74,7 +74,7 @@ futures-intrusive = "0.5.0"
 pollster = "0.3.0"
 bytemuck = { version = "1.12.2", features = ["derive"] }
 instant = "0.1.12"
-shura_proc = { path = "../shura_proc"}
+shura_proc = { path = "../shura_proc" }
 crossbeam = "0.8.2"
 image = { version = "0.23.14", default-features = false, features = [
     "png",
@@ -85,22 +85,24 @@ bincode = { version = "1.3.3", optional = true }
 rand = "0.8.5"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-egui-winit = { version = "0.21", optional = true }
-wgpu = { version = "0.15", features = ["glsl"] }
+egui-winit = { version = "0.22", features = ["links"], optional = true }
+wgpu = { version = "0.16", features = ["glsl"] }
 rodio = { version = "0.17", default-features = false, optional = true, features = [
     "symphonia-all",
 ] }
 
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-egui-winit = { version = "0.21", optional = true, default-features = false}
+egui-winit = { version = "0.22", features = [
+    "links",
+], optional = true, default-features = false }
 rodio = { version = "0.17", features = [
     "wasm-bindgen",
     "symphonia-all",
 ], default-features = false, optional = true }
 getrandom = { version = "0.2", features = ["js"] }
 console_error_panic_hook = "0.1"
-wgpu = { version = "0.15", features = ["webgl", "glsl"] }
+wgpu = { version = "0.16", features = ["webgl", "glsl"] }
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 web-sys = { version = "0.3", features = [
@@ -108,11 +110,11 @@ web-sys = { version = "0.3", features = [
     "Window",
     "Element",
     "console",
-    "Clipboard"
+    "Clipboard",
 ] }
 
 [dev-dependencies]
-egui_demo_lib = "0.21"
+egui_demo_lib = "0.22"
 
 [target.'cfg(target_os = "android")'.dependencies]
 winit = { version = "0.28", features = ["mint", "android-native-activity"] }

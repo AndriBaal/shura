@@ -89,10 +89,11 @@ pub struct Input {
     wheel_delta: f32,
     #[cfg(feature = "gamepad")]
     game_pad_manager: Option<Gilrs>,
+    window_size: Vector<f32>
 }
 
 impl Input {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(window_size: Vector<u32>) -> Self {
         Self {
             cursor_raw: Vector::new(0, 0),
             touches: Default::default(),
@@ -101,7 +102,12 @@ impl Input {
             wheel_delta: 0.0,
             #[cfg(feature = "gamepad")]
             game_pad_manager: Gilrs::new().ok(),
+            window_size: window_size.cast()
         }
+    }
+
+    pub(crate) fn resize(&mut self, window_size: Vector<u32>) {
+        self.window_size = window_size.cast()
     }
 
     pub(crate) fn on_event(&mut self, event: &WindowEvent) {
@@ -246,33 +252,30 @@ impl Input {
 
     pub fn compute_cursor(
         &self,
-        window_size: Vector<u32>,
         cursor: Vector<u32>,
         camera: &Camera,
     ) -> Vector<f32> {
         let fov = camera.fov() * 2.0;
         let camera_translation = camera.translation();
-        let window_size = Vector::new(window_size.x as f32, window_size.y as f32);
         let cursor: Vector<f32> = Vector::new(cursor.x as f32, cursor.y as f32);
         camera_translation
             + Vector::new(
-                cursor.x / window_size.x * fov.x - fov.x / 2.0,
-                cursor.y / window_size.y * -fov.y + fov.y / 2.0,
+                cursor.x / self.window_size.x * fov.x - fov.x / 2.0,
+                cursor.y / self.window_size.y * -fov.y + fov.y / 2.0,
             )
     }
 
-    pub fn cursor_camera(&self, window_size: Vector<u32>, camera: &Camera) -> Vector<f32> {
-        self.compute_cursor(window_size, self.cursor_raw, camera)
+    pub fn cursor(&self, camera: &Camera) -> Vector<f32> {
+        self.compute_cursor(self.cursor_raw, camera)
     }
 
-    pub fn touches_camera(
+    pub fn touches(
         &self,
-        window_size: Vector<u32>,
         camera: &Camera,
     ) -> Vec<(u64, Vector<f32>)> {
         let mut touches = vec![];
         for (id, raw) in &self.touches {
-            touches.push((*id, self.compute_cursor(window_size, *raw, camera)));
+            touches.push((*id, self.compute_cursor(*raw, camera)));
         }
         return touches;
     }

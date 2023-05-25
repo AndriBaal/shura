@@ -1,10 +1,11 @@
+use crate::{
+    ComponentConfig, ComponentIdentifier, ComponentTypeId, Context, Matrix, RenderEncoder,
+    DEFAULT_CONFIG,
+};
 #[cfg(feature = "physics")]
 use crate::{
-    physics::{CollideType, ColliderHandle, RigidBodyHandle},
-    ComponentHandle, ComponentTypeId 
-};
-use crate::{
-    BaseComponent, ComponentConfig, ComponentIdentifier, Context, RenderEncoder, DEFAULT_CONFIG,
+    physics::{CollideType, ColliderHandle, World},
+    ComponentHandle,
 };
 use downcast_rs::*;
 
@@ -17,6 +18,11 @@ pub trait FieldNames {
 /// using downcast_ref or downcast_mut.
 pub type BoxedComponent = Box<dyn ComponentDerive>;
 
+pub trait BaseComponent: Downcast {
+    fn matrix(&self, #[cfg(feature = "physics")] world: &World) -> Matrix;
+}
+impl_downcast!(BaseComponent);
+
 /// All components need to implement from this trait. This is not done manually, but with the derive macro [Component](crate::Component).
 ///
 /// # Example
@@ -28,12 +34,8 @@ pub type BoxedComponent = Box<dyn ComponentDerive>;
 /// }
 /// ```
 pub trait ComponentDerive: Downcast {
-    fn base(&self) -> &BaseComponent;
-    fn base_mut(&mut self) -> &mut BaseComponent;
-    #[cfg(feature = "physics")]
-    fn collider(&self) -> Option<ColliderHandle>;
-    #[cfg(feature = "physics")]
-    fn rigid_body(&self) -> Option<RigidBodyHandle>;
+    fn base(&self) -> &dyn BaseComponent;
+    fn component_type_id(&self) -> ComponentTypeId;
 }
 impl_downcast!(ComponentDerive);
 
@@ -59,7 +61,6 @@ where
         ctx: &mut Context,
         self_handle: ComponentHandle,
         other_handle: ComponentHandle,
-        other_type: ComponentTypeId,
         self_collider: ColliderHandle,
         other_collider: ColliderHandle,
         collision_type: CollideType,
@@ -76,22 +77,11 @@ where
 }
 
 impl<C: ComponentDerive + ?Sized> ComponentDerive for Box<C> {
-    fn base(&self) -> &BaseComponent {
+    fn base(&self) -> &dyn BaseComponent {
         (**self).base()
     }
 
-    fn base_mut(&mut self) -> &mut BaseComponent {
-        (**self).base_mut()
-    }
-
-    #[cfg(feature = "physics")]
-    fn collider(&self) -> Option<ColliderHandle> {
-        (**self).collider()
-    }
-
-    #[cfg(feature = "physics")]
-    fn rigid_body(&self) -> Option<RigidBodyHandle> {
-        (**self).rigid_body()
+    fn component_type_id(&self) -> ComponentTypeId {
+        (**self).component_type_id()
     }
 }
-

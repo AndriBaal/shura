@@ -1,6 +1,9 @@
-use crate::{ComponentHandle, Isometry, Matrix, Rotation, Vector};
+use crate::{Isometry, Matrix, Rotation, Vector, BaseComponent};
 
-/// Easily create a [BaseComponent] with a position and render_scale.
+#[cfg(feature="physics")]
+use crate::physics::World;
+
+/// Easily create a [PositionComponent] with a position and render_scale.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone)]
 pub struct PositionBuilder {
@@ -42,14 +45,14 @@ impl PositionBuilder {
         self
     }
 
-    pub fn build(self) -> BaseComponent {
+    pub fn build(self) -> PositionComponent {
         self.into()
     }
 }
 
-impl Into<BaseComponent> for PositionBuilder {
-    fn into(self) -> BaseComponent {
-        return BaseComponent::new(self);
+impl Into<PositionComponent> for PositionBuilder {
+    fn into(self) -> PositionComponent {
+        return PositionComponent::new(self);
     }
 }
 
@@ -57,49 +60,35 @@ impl Into<BaseComponent> for PositionBuilder {
 /// Position or a [RigidBody (physics only)](crate::physics::RigidBody).
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone)]
-pub struct BaseComponent {
-    handle: ComponentHandle,
+pub struct PositionComponent {
     render_scale: Vector<f32>,
     position: Isometry<f32>,
     matrix: Matrix,
 }
 
-impl Default for BaseComponent {
+impl Default for PositionComponent {
     fn default() -> Self {
         Self::new(Default::default())
     }
 }
 
 #[allow(unreachable_patterns)]
-impl BaseComponent {
+impl PositionComponent {
     pub fn new(pos: PositionBuilder) -> Self {
         let mut matrix = Matrix::NULL_MODEL;
         matrix.translate(pos.position.translation.vector);
         matrix.rotate(pos.render_scale, pos.position.rotation);
         Self {
-            handle: Default::default(),
             render_scale: pos.render_scale,
             matrix: matrix,
             position: pos.position,
         }
     }
 
-    pub(crate) fn init(&mut self, handle: ComponentHandle) {
-        self.handle = handle;
-    }
-
-    pub(crate) fn deinit(&mut self) {
-        self.handle = ComponentHandle::INVALID;
-    }
-
     pub fn matrix(&self) -> Matrix {
         self.matrix
     }
-
-    pub fn handle(&self) -> ComponentHandle {
-        return self.handle;
-    }
-
+    
     pub fn set_rotation(&mut self, rotation: Rotation<f32>) {
         self.matrix.rotate(self.render_scale, rotation);
         self.position.rotation = rotation;
@@ -135,5 +124,11 @@ impl BaseComponent {
         self.render_scale = render_scale;
         self.matrix
             .rotate(self.render_scale, self.position.rotation);
+    }
+}
+
+impl BaseComponent for PositionComponent {
+    fn matrix(&self, #[cfg(feature="physics")] world: &World) -> Matrix {
+        self.matrix
     }
 }

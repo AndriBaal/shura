@@ -247,7 +247,7 @@ impl Shura {
         let mut shura = Self {
             scenes: SceneManager::new(creator.id()),
             frame: FrameManager::new(),
-            input: Input::new(),
+            input: Input::new(window_size),
             states: GlobalStateManager::default(),
             #[cfg(feature = "audio")]
             audio: AudioManager::new(),
@@ -269,6 +269,7 @@ impl Shura {
         let config_size = self.gpu.render_size_no_scale();
         if new_size.x > 0 && new_size.y > 0 && new_size != config_size {
             self.scenes.resize();
+            self.input.resize(new_size);
             self.gpu.resize(new_size);
             self.defaults.resize(&self.gpu, new_size);
             #[cfg(feature = "gui")]
@@ -301,39 +302,39 @@ impl Shura {
                     .collider(collider_handle2)
                     .and_then(|c| Some(c.active_events()))
                 {
-                    let ((priority1, component_type_id1), component1) =
-                        ctx.world.component_from_collider(&collider_handle1).unwrap();
-                    let ((priority2, component_type_id2), component2) =
-                        ctx.world.component_from_collider(&collider_handle2).unwrap();
-                    if collider1_events == ActiveEvents::COLLISION_EVENTS {
-                        let callback = ctx
-                            .components
-                            .callbacks(priority1, component_type_id1)
-                            .collision;
-                        (callback)(
-                            ctx,
-                            component1,
-                            component2,
-                            component_type_id2,
-                            collider_handle1,
-                            collider_handle2,
-                            collision_type,
-                        )
-                    }
-                    if collider2_events == ActiveEvents::COLLISION_EVENTS {
-                        let callback = ctx
-                            .components
-                            .callbacks(priority2, component_type_id2)
-                            .collision;
-                        (callback)(
-                            ctx,
-                            component2,
-                            component1,
-                            component_type_id1,
-                            collider_handle2,
-                            collider_handle1,
-                            collision_type,
-                        )
+                    if let Some(component1) = ctx
+                        .world
+                        .component_from_collider(&collider_handle1)
+                        .copied()
+                    {
+                        if let Some(component2) = ctx
+                            .world
+                            .component_from_collider(&collider_handle2)
+                            .copied()
+                        {
+                            if collider1_events == ActiveEvents::COLLISION_EVENTS {
+                                let callback = ctx.components.callbacks(component1).collision;
+                                (callback)(
+                                    ctx,
+                                    component1,
+                                    component2,
+                                    collider_handle1,
+                                    collider_handle2,
+                                    collision_type,
+                                )
+                            }
+                            if collider2_events == ActiveEvents::COLLISION_EVENTS {
+                                let callback = ctx.components.callbacks(component2).collision;
+                                (callback)(
+                                    ctx,
+                                    component2,
+                                    component1,
+                                    collider_handle2,
+                                    collider_handle1,
+                                    collision_type,
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -379,7 +380,11 @@ impl Shura {
         }
         if scene.started {
             self.input.update();
-            scene.world_camera.apply_target(&scene.components);
+            scene.world_camera.apply_target(
+                #[cfg(feature = "physics")]
+                &scene.world,
+                &scene.components,
+            );
             self.defaults.buffer(
                 &mut scene.world_camera.camera,
                 &self.gpu,
@@ -387,7 +392,11 @@ impl Shura {
                 self.frame.frame_time(),
             );
             scene.components.update_sets(&self.defaults.world_camera);
-            scene.components.buffer(&self.gpu);
+            scene.components.buffer(
+                #[cfg(feature = "physics")]
+                &mut scene.world,
+                &self.gpu,
+            );
         }
         let output = self.gpu.surface.get_current_texture()?;
 
@@ -458,7 +467,11 @@ impl Shura {
         self.input.update();
         self.defaults
             .apply_render_scale(&self.gpu, scene.screen_config.render_scale());
-        scene.world_camera.apply_target(&scene.components);
+        scene.world_camera.apply_target(
+            #[cfg(feature = "physics")]
+            &scene.world,
+            &scene.components,
+        );
         self.defaults.buffer(
             &mut scene.world_camera.camera,
             &self.gpu,
@@ -474,7 +487,11 @@ impl Shura {
             return Ok(());
         }
 
-        scene.components.buffer(&self.gpu);
+        scene.components.buffer(
+            #[cfg(feature = "physics")]
+            &mut scene.world,
+            &self.gpu,
+        );
         let ctx = Context::new(self, scene);
         let mut encoder = RenderEncoder::new(ctx.gpu, &ctx.defaults);
         if let Some(clear_color) = ctx.screen_config.clear_color {

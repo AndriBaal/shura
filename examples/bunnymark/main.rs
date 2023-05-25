@@ -9,10 +9,11 @@ fn shura_main(config: ShuraConfig) {
             ctx.scene_states.insert(BunnyState::new(ctx));
             ctx.screen_config
                 .set_clear_color(Some(Color::new_rgba(220, 220, 220, 255)));
-            ctx.world_camera
-                .set_scaling(WorldCameraScale::Min(3.0), ctx.window_size);
+            ctx.world_camera.set_scaling(WorldCameraScale::Min(3.0));
             ctx.components
-                .add(GroupHandle::DEFAULT_GROUP, Bunny::new(&ctx));
+                .add_with(ctx.world, GroupHandle::DEFAULT_GROUP, |handle| {
+                    Bunny::new(Vector::new(0.0, 0.0), handle)
+                });
         },
     });
 }
@@ -52,14 +53,18 @@ impl SceneStateController for BunnyState {
                     ctx.components.len::<Bunny>(ComponentFilter::All)
                 ));
                 if ui.button("Clear Bunnies").clicked() {
-                    ctx.components.remove_all::<Bunny>(ComponentFilter::All);
+                    ctx.components
+                        .remove_all::<Bunny>(ctx.world, ComponentFilter::All);
                 }
             });
 
         if ctx.input.is_held(MouseButton::Left) || ctx.input.is_held(ScreenTouch) {
+            let cursor = ctx.input.cursor(&ctx.world_camera);
             for _ in 0..MODIFY_STEP {
                 ctx.components
-                    .add(GroupHandle::DEFAULT_GROUP, Bunny::new(&ctx));
+                    .add_with(ctx.world, GroupHandle::DEFAULT_GROUP, |handle| {
+                        Bunny::new(cursor, handle)
+                    });
             }
         }
         if ctx.input.is_held(MouseButton::Right) {
@@ -72,10 +77,10 @@ impl SceneStateController for BunnyState {
                 if dead.len() == MODIFY_STEP {
                     break;
                 }
-                dead.push(bunny.base().handle());
+                dead.push(bunny.handle);
             }
             for handle in dead {
-                ctx.components.remove_boxed(handle);
+                ctx.components.remove_boxed(ctx.world, handle);
             }
         }
 
@@ -92,16 +97,19 @@ impl SceneStateController for BunnyState {
 #[derive(Component)]
 struct Bunny {
     #[base]
-    base: BaseComponent,
+    base: PositionComponent,
     linvel: Vector<f32>,
+    handle: ComponentHandle,
 }
 impl Bunny {
-    pub fn new(ctx: &Context) -> Bunny {
-        let base = PositionBuilder::new()
-            .translation(ctx.input.cursor_camera(ctx.window_size, &ctx.world_camera))
-            .into();
+    pub fn new(translation: Vector<f32>, handle: ComponentHandle) -> Bunny {
+        let base = PositionBuilder::new().translation(translation).into();
         let linvel = Vector::new(gen_range(-2.5..2.5), gen_range(-7.5..7.5));
-        Bunny { base, linvel }
+        Bunny {
+            base,
+            linvel,
+            handle,
+        }
     }
 }
 
@@ -136,7 +144,7 @@ impl ComponentController for Bunny {
                 translation.y = fov.y;
             }
             bunny.linvel = linvel;
-            bunny.set_translation(translation);
+            bunny.base.set_translation(translation);
         }
     }
 
@@ -145,8 +153,8 @@ impl ComponentController for Bunny {
         encoder.render_all::<Self>(ctx, RenderConfig::WORLD, |r, instances| {
             r.render_sprite(instances, &scene.bunny_model, &scene.bunny_sprite)
         });
-        if let Some(screenshot) = &scene.screenshot {
-            encoder.copy_to_target(&ctx.defaults.world_target, &screenshot);
-        }
+        // if let Some(screenshot) = &scene.screenshot {
+        //     encoder.copy_to_target(&ctx.defaults.world_target, &screenshot);
+        // }
     }
 }

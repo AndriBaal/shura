@@ -94,7 +94,7 @@ impl SceneStateController for PhysicsState {
         }
 
         if ctx.is_held(MouseButton::Right) {
-            let cursor = ctx.cursor_camera(&ctx.world_camera);
+            let cursor = ctx.cursor(&ctx.world_camera);
             let cursor_pos = Isometry::new(cursor, 0.0);
             if ctx
                 .intersection_with_shape(
@@ -302,7 +302,7 @@ impl ComponentController for PhysicsBox {
     }
 
     fn update(active: &ActiveComponents<Self>, ctx: &mut Context) {
-        let cursor_world: Point<f32> = (ctx.cursor_camera(&ctx.world_camera)).into();
+        let cursor_world: Point<f32> = (ctx.cursor(&ctx.world_camera)).into();
         let remove = ctx.is_held(MouseButton::Left) || ctx.is_pressed(ScreenTouch);
         for physics_box in &mut ctx.active_mut(&active) {
             physics_box.hovered = false;

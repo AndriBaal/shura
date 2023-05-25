@@ -1,10 +1,10 @@
 #[cfg(feature = "physics")]
-use crate::ComponentCallbacks;
+use crate::{physics::World, ComponentCallbacks};
 use crate::{
-    Arena, BoxedComponent, CallableType, CameraBuffer, ComponentController, ComponentGroup,
-    ComponentHandle, ComponentIter, ComponentIterMut, ComponentIterRender, ComponentSet,
-    ComponentSetMut, ComponentType, ComponentTypeId, Gpu, GroupActivation, GroupHandle, TypeIndex,
-    Vector,
+    Arena, BoxedComponent, CallableType, CameraBuffer, ComponentConfig, ComponentController,
+    ComponentGroup, ComponentHandle, ComponentIter, ComponentIterMut, ComponentIterRender,
+    ComponentSet, ComponentSetMut, ComponentType, ComponentTypeId, Gpu, GroupActivation,
+    GroupHandle, TypeIndex, Vector,
 };
 use rustc_hash::FxHashMap;
 use std::cell::RefCell;
@@ -17,7 +17,9 @@ use std::rc::Rc;
 //     Remove(ComponentGroupId),
 // }
 
-const NO_TYPE_ERROR: &'static str = "Type first needs to be registered!";
+fn no_type_error<C: ComponentController>() -> String {
+    format!("The type '{}' first needs to be registered!", C::TYPE_NAME)
+}
 
 macro_rules! group_filter {
     ($self:ident, $filter: ident) => {
@@ -32,7 +34,7 @@ macro_rules! group_filter {
 macro_rules! type_ref {
     ($self:ident, $C: ident) => {{
         let key = ($C::CONFIG.priority, $C::IDENTIFIER);
-        let idx = $self.type_map.get(&key).expect(NO_TYPE_ERROR);
+        let idx = $self.type_map.get(&key).expect(&no_type_error::<$C>());
         let ty = $self.types.get(idx.0).unwrap();
         ty
     }};
@@ -41,7 +43,7 @@ macro_rules! type_ref {
 macro_rules! type_mut {
     ($self:ident, $C: ident) => {{
         let key = ($C::CONFIG.priority, $C::IDENTIFIER);
-        let idx = $self.type_map.get(&key).expect(NO_TYPE_ERROR);
+        let idx = $self.type_map.get(&key).expect(&no_type_error::<$C>());
         let ty = $self.types.get_mut(idx.0).unwrap();
         ty
     }};
@@ -50,9 +52,9 @@ macro_rules! type_mut {
 macro_rules! type2_mut {
     ($self:ident, $C1: ident, $C2: ident) => {{
         let key1 = ($C1::CONFIG.priority, $C1::IDENTIFIER);
-        let idx1 = $self.type_map.get(&key1).expect(NO_TYPE_ERROR);
+        let idx1 = $self.type_map.get(&key1).expect(&no_type_error::<$C1>());
         let key2 = ($C2::CONFIG.priority, $C2::IDENTIFIER);
-        let idx2 = $self.type_map.get(&key2).expect(NO_TYPE_ERROR);
+        let idx2 = $self.type_map.get(&key2).expect(&no_type_error::<$C2>());
         let (ty1, ty2) = $self.types.get2_mut(idx1.0, idx2.0);
         (ty1.unwrap(), ty2.unwrap())
     }};
@@ -116,9 +118,14 @@ impl ComponentManager {
         }
     }
 
-    pub(crate) fn buffer(&mut self, gpu: &Gpu) {
+    pub(crate) fn buffer(&mut self, #[cfg(feature = "physics")] world: &mut World, gpu: &Gpu) {
         for (_, ty) in &mut self.types {
-            ty.buffer(&self.active_groups, gpu);
+            ty.buffer(
+                #[cfg(feature = "physics")]
+                world,
+                &self.active_groups,
+                gpu,
+            );
         }
     }
 
@@ -134,19 +141,21 @@ impl ComponentManager {
     }
 
     #[cfg(feature = "physics")]
-    pub(crate) fn callbacks(&self, priority: i16, type_id: ComponentTypeId) -> &ComponentCallbacks {
-        let key = (priority, type_id);
-        let idx = self.type_map.get(&key).expect(NO_TYPE_ERROR);
-        let ty = self.types.get(idx.0).unwrap();
+    pub(crate) fn callbacks(&self, component: ComponentHandle) -> &ComponentCallbacks {
+        let ty = self.types.get(component.type_index().0).unwrap();
         ty.callbacks()
     }
 
     pub fn register<C: ComponentController>(&mut self) {
+        self.register_with_config::<C>(C::CONFIG);
+    }
+
+    pub fn register_with_config<C: ComponentController>(&mut self, config: ComponentConfig) {
         let key = (C::CONFIG.priority, C::IDENTIFIER);
         if !self.type_map.contains_key(&key) {
-            let index = self
-                .types
-                .insert_with(|idx| ComponentType::new::<C>(TypeIndex(idx), &self.groups));
+            let index = self.types.insert_with(|idx| {
+                ComponentType::with_config::<C>(config, TypeIndex(idx), &self.groups)
+            });
             self.type_map.insert(key, TypeIndex(index));
             self.update_callable_types = true;
         }
@@ -196,10 +205,18 @@ impl ComponentManager {
         return handle;
     }
 
-    pub fn remove_group(&mut self, handle: GroupHandle) -> Option<ComponentGroup> {
+    pub fn remove_group(
+        &mut self,
+        #[cfg(feature = "physics")] world: &mut World,
+        handle: GroupHandle,
+    ) -> Option<ComponentGroup> {
         let group = self.groups.remove(handle.0);
         for (_, ty) in &mut self.types {
-            ty.remove_group(handle);
+            ty.remove_group(
+                #[cfg(feature = "physics")]
+                world,
+                handle,
+            );
         }
         self.all_groups.retain(|h| *h != handle);
         return group;
@@ -256,12 +273,19 @@ impl ComponentManager {
 
     pub fn retain<C: ComponentController>(
         &mut self,
+        #[cfg(feature = "physics")] world: &mut World,
         filter: ComponentFilter,
-        keep: impl FnMut(&mut C) -> bool,
+        #[cfg(feature = "physics")] keep: impl FnMut(&mut C) -> bool,
+        #[cfg(not(feature = "physics"))] keep: impl FnMut(&mut C, &mut World) -> bool,
     ) {
         let groups = group_filter!(self, filter);
         let ty = type_mut!(self, C);
-        ty.retain(groups, keep);
+        ty.retain(
+            #[cfg(feature = "physics")]
+            world,
+            groups,
+            keep,
+        );
     }
 
     pub fn index<C: ComponentController>(&self, group: GroupHandle, index: usize) -> Option<&C> {
@@ -318,45 +342,90 @@ impl ComponentManager {
             .get_boxed_mut(handle)
     }
 
-    pub fn remove<C: ComponentController>(&mut self, handle: ComponentHandle) -> Option<C> {
-        self.types
-            .get_mut(handle.type_index().0)
-            .unwrap()
-            .remove(handle)
+    pub fn remove<C: ComponentController>(
+        &mut self,
+        #[cfg(feature = "physics")] world: &mut World,
+        handle: ComponentHandle,
+    ) -> Option<C> {
+        self.types.get_mut(handle.type_index().0).unwrap().remove(
+            #[cfg(feature = "physics")]
+            world,
+            handle,
+        )
     }
 
-    pub fn remove_boxed(&mut self, handle: ComponentHandle) -> Option<BoxedComponent> {
+    pub fn remove_boxed(
+        &mut self,
+        #[cfg(feature = "physics")] world: &mut World,
+        handle: ComponentHandle,
+    ) -> Option<BoxedComponent> {
         self.types
             .get_mut(handle.type_index().0)
             .unwrap()
-            .remove_boxed(handle)
+            .remove_boxed(
+                #[cfg(feature = "physics")]
+                world,
+                handle,
+            )
     }
 
     pub fn remove_all<C: ComponentController>(
         &mut self,
+        #[cfg(feature = "physics")] world: &mut World,
         filter: ComponentFilter,
     ) -> Vec<(GroupHandle, Vec<C>)> {
         let groups = group_filter!(self, filter);
         let ty = type_mut!(self, C);
-        ty.remove_all(groups)
+        ty.remove_all(
+            #[cfg(feature = "physics")]
+            world,
+            groups,
+        )
     }
 
     pub fn add<C: ComponentController>(
         &mut self,
+        #[cfg(feature = "physics")] world: &mut World,
         group_handle: GroupHandle,
         component: C,
     ) -> ComponentHandle {
         let ty = type_mut!(self, C);
-        ty.add(group_handle, component)
+        ty.add(
+            #[cfg(feature = "physics")]
+            world,
+            group_handle,
+            component,
+        )
     }
 
     pub fn add_many<I, C: ComponentController>(
         &mut self,
+        #[cfg(feature = "physics")] world: &mut World,
         group_handle: GroupHandle,
         components: impl Iterator<Item = C>,
     ) -> Vec<ComponentHandle> {
         let ty = type_mut!(self, C);
-        ty.add_many::<I, C>(group_handle, components)
+        ty.add_many::<I, C>(
+            #[cfg(feature = "physics")]
+            world,
+            group_handle,
+            components,
+        )
+    }
+
+    pub fn add_with<C: ComponentController + ComponentController>(
+        &mut self,
+        #[cfg(feature = "physics")] world: &mut World,
+        group_handle: GroupHandle,
+        create: impl FnOnce(ComponentHandle) -> C,
+    ) -> ComponentHandle {
+        let ty = type_mut!(self, C);
+        ty.add_with::<C>(
+            #[cfg(feature = "physics")]
+            world,
+            group_handle,
+            create,
+        )
     }
 
     pub fn force_buffer<C: ComponentController>(&mut self, filter: ComponentFilter) {

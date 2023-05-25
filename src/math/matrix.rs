@@ -151,3 +151,9 @@ impl Into<Matrix> for Isometry<f32> {
         Matrix::new(self, Vector::new(1.0, 1.0))
     }
 }
+
+impl Default for Matrix {
+    fn default() -> Self {
+        Self::NULL_MODEL
+    }
+}
