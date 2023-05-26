@@ -6,7 +6,6 @@ fn shura_main(config: ShuraConfig) {
         ctx.world_camera.set_scaling(WorldCameraScale::Min(10.0));
         ctx.components.register::<ModelTest>();
         ctx.components.add(
-            ctx.world,
             GroupHandle::DEFAULT_GROUP,
             ModelTest::new(
                 Vector::new(-3.0, 3.0),
@@ -17,7 +16,6 @@ fn shura_main(config: ShuraConfig) {
         );
 
         ctx.components.add(
-            ctx.world,
             GroupHandle::DEFAULT_GROUP,
             ModelTest::new(
                 Vector::new(-1.0, 3.0),
@@ -31,7 +29,6 @@ fn shura_main(config: ShuraConfig) {
         );
 
         ctx.components.add(
-            ctx.world,
             GroupHandle::DEFAULT_GROUP,
             ModelTest::new(
                 Vector::new(1.0, 3.0),
@@ -45,7 +42,6 @@ fn shura_main(config: ShuraConfig) {
         );
 
         ctx.components.add(
-            ctx.world,
             GroupHandle::DEFAULT_GROUP,
             ModelTest::new(
                 Vector::new(3.0, 3.0),
@@ -63,7 +59,6 @@ fn shura_main(config: ShuraConfig) {
         );
 
         ctx.components.add(
-            ctx.world,
             GroupHandle::DEFAULT_GROUP,
             ModelTest::new(
                 Vector::new(-3.0, 1.0),
@@ -73,7 +68,6 @@ fn shura_main(config: ShuraConfig) {
         );
 
         ctx.components.add(
-            ctx.world,
             GroupHandle::DEFAULT_GROUP,
             ModelTest::new(
                 Vector::new(-1.0, 1.0),
@@ -87,7 +81,6 @@ fn shura_main(config: ShuraConfig) {
         );
 
         ctx.components.add(
-            ctx.world,
             GroupHandle::DEFAULT_GROUP,
             ModelTest::new(
                 Vector::new(1.0, 1.0),
@@ -101,7 +94,6 @@ fn shura_main(config: ShuraConfig) {
         );
 
         ctx.components.add(
-            ctx.world,
             GroupHandle::DEFAULT_GROUP,
             ModelTest::new(
                 Vector::new(3.0, 1.0),
@@ -115,7 +107,6 @@ fn shura_main(config: ShuraConfig) {
         );
 
         ctx.components.add(
-            ctx.world,
             GroupHandle::DEFAULT_GROUP,
             ModelTest::new(
                 Vector::new(-3.0, -1.0),
@@ -132,7 +123,6 @@ fn shura_main(config: ShuraConfig) {
         );
 
         ctx.components.add(
-            ctx.world,
             GroupHandle::DEFAULT_GROUP,
             ModelTest::new(
                 Vector::new(-1.0, -1.0),

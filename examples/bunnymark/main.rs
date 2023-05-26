@@ -11,7 +11,7 @@ fn shura_main(config: ShuraConfig) {
                 .set_clear_color(Some(Color::new_rgba(220, 220, 220, 255)));
             ctx.world_camera.set_scaling(WorldCameraScale::Min(3.0));
             ctx.components
-                .add_with(ctx.world, GroupHandle::DEFAULT_GROUP, |handle| {
+                .add_with(GroupHandle::DEFAULT_GROUP, |handle| {
                     Bunny::new(Vector::new(0.0, 0.0), handle)
                 });
         },
@@ -53,8 +53,7 @@ impl SceneStateController for BunnyState {
                     ctx.components.len::<Bunny>(ComponentFilter::All)
                 ));
                 if ui.button("Clear Bunnies").clicked() {
-                    ctx.components
-                        .remove_all::<Bunny>(ctx.world, ComponentFilter::All);
+                    ctx.components.remove_all::<Bunny>(ComponentFilter::All);
                 }
             });
 
@@ -62,7 +61,7 @@ impl SceneStateController for BunnyState {
             let cursor = ctx.input.cursor(&ctx.world_camera);
             for _ in 0..MODIFY_STEP {
                 ctx.components
-                    .add_with(ctx.world, GroupHandle::DEFAULT_GROUP, |handle| {
+                    .add_with(GroupHandle::DEFAULT_GROUP, |handle| {
                         Bunny::new(cursor, handle)
                     });
             }
@@ -80,7 +79,7 @@ impl SceneStateController for BunnyState {
                 dead.push(bunny.handle);
             }
             for handle in dead {
-                ctx.components.remove_boxed(ctx.world, handle);
+                ctx.components.remove_boxed(handle);
             }
         }
 

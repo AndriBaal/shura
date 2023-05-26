@@ -209,40 +209,46 @@ impl World {
         }
     }
 
-    pub(crate) fn register_component(
+    pub(crate) fn register_collider(
         &mut self,
-        handle: ComponentHandle,
-        component: &dyn ComponentDerive,
+        component_handle: ComponentHandle,
+        collider_handle: ColliderHandle,
     ) {
-        if let Some(component) = component.base().downcast_ref::<RigidBodyComponent>() {
-            if let Some(body) = self.bodies.get(component.handle) {
-                for collider_handle in body.colliders() {
-                    self.component_mapping.insert(*collider_handle, handle);
-                }
+        self.component_mapping
+            .insert(collider_handle, component_handle);
+    }
+
+    pub(crate) fn register_rigid_body(
+        &mut self,
+        component_handle: ComponentHandle,
+        rigid_body_handle: RigidBodyHandle,
+    ) {
+        if let Some(body) = self.bodies.get(rigid_body_handle) {
+            for collider_handle in body.colliders() {
+                self.component_mapping
+                    .insert(*collider_handle, component_handle);
             }
-        } else if let Some(component) = component.base().downcast_ref::<ColliderComponent>() {
-            self.component_mapping.insert(component.handle, handle);
         }
     }
 
-    pub(crate) fn unregister_component(&mut self, component: &dyn ComponentDerive) {
-        if let Some(component) = component.base().downcast_ref::<RigidBodyComponent>() {
-            if let Some(body) = self.bodies.remove(
-                component.handle,
-                &mut self.islands,
-                &mut self.colliders,
-                &mut self.impulse_joints,
-                &mut self.multibody_joints,
-                true,
-            ) {
-                for collider_handle in body.colliders() {
-                    self.component_mapping.remove(collider_handle);
-                }
+    pub(crate) fn unregister_collider(&mut self, collider_handle: ColliderHandle) {
+        self.colliders
+            .remove(collider_handle, &mut self.islands, &mut self.bodies, false);
+        self.component_mapping.remove(&collider_handle);
+    }
+
+    pub(crate) fn unregister_rigid_body(&mut self, rigid_body_handle: RigidBodyHandle) {
+        if let Some(body) = self.bodies.remove(
+            rigid_body_handle,
+            &mut self.islands,
+            &mut self.colliders,
+            &mut self.impulse_joints,
+            &mut self.multibody_joints,
+            true,
+        ) {
+            for collider_handle in body.colliders() {
+                self.component_mapping.remove(collider_handle);
             }
-        } else if let Some(component) = component.base().downcast_ref::<ColliderComponent>() {
-            self.colliders
-                .remove(component.handle, &mut self.islands, &mut self.bodies, false);
-            self.component_mapping.remove(&component.handle);
         }
     }
 
@@ -251,12 +257,12 @@ impl World {
         rigid_body: impl Into<RigidBody>,
         colliders: impl IntoIterator<Item = impl Into<Collider>>,
     ) -> RigidBodyComponent {
-        let handle = self.bodies.insert(rigid_body);
+        let rigid_body_handle = self.bodies.insert(rigid_body);
         for collider in colliders {
             self.colliders
-                .insert_with_parent(collider, handle, &mut self.bodies);
+                .insert_with_parent(collider, rigid_body_handle, &mut self.bodies);
         }
-        RigidBodyComponent { handle }
+        RigidBodyComponent { rigid_body_handle }
     }
 
     pub fn create_collider_component(
@@ -264,7 +270,7 @@ impl World {
         collider: impl Into<Collider>,
     ) -> ColliderComponent {
         ColliderComponent {
-            handle: self.colliders.insert(collider),
+            collider_handle: self.colliders.insert(collider),
         }
     }
 

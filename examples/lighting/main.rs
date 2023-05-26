@@ -54,71 +54,101 @@ fn shura_main(config: ShuraConfig) {
                     write_mask: ColorWrites::ALL,
                 }),
             });
-            Obstacle::add(
-                ctx,
-                ColliderBuilder::cuboid(1.0, 1.0).translation(Vector::new(3.0, 3.0)),
-                Color::GREEN,
+            ctx.components.add(
+                GroupHandle::DEFAULT_GROUP,
+                Obstacle::new(
+                    ctx.world,
+                    ctx.gpu,
+                    ColliderBuilder::cuboid(1.0, 1.0).translation(Vector::new(3.0, 3.0)),
+                    Color::GREEN,
+                ),
             );
 
-            Obstacle::add(
-                ctx,
-                ColliderBuilder::triangle(
-                    Point::new(-1.5, 1.0),
-                    Point::new(1.0, 1.5),
-                    Point::new(1.5, 1.0),
-                )
-                .translation(Vector::new(-3.0, 2.5)),
-                Color::BLUE,
+            ctx.components.add(
+                GroupHandle::DEFAULT_GROUP,
+                Obstacle::new(
+                    ctx.world,
+                    ctx.gpu,
+                    ColliderBuilder::triangle(
+                        Point::new(-1.5, 1.0),
+                        Point::new(1.0, 1.5),
+                        Point::new(1.5, 1.0),
+                    )
+                    .translation(Vector::new(-3.0, 2.5)),
+                    Color::BLUE,
+                ),
             );
 
             for i in 0..4 {
-                Obstacle::add(
-                    ctx,
-                    ColliderBuilder::cuboid(0.04, 0.4)
-                        .translation(Vector::new(-6.0, i as f32 * 1.0)),
-                    Color::BLUE,
+                ctx.components.add(
+                    GroupHandle::DEFAULT_GROUP,
+                    Obstacle::new(
+                        ctx.world,
+                        ctx.gpu,
+                        ColliderBuilder::cuboid(0.04, 0.4)
+                            .translation(Vector::new(-6.0, i as f32 * 1.0)),
+                        Color::BLUE,
+                    ),
                 );
             }
 
-            Obstacle::add(
-                ctx,
-                ColliderBuilder::ball(1.0).translation(Vector::new(6.0, 0.0)),
-                Color::BLUE,
+            ctx.components.add(
+                GroupHandle::DEFAULT_GROUP,
+                Obstacle::new(
+                    ctx.world,
+                    ctx.gpu,
+                    ColliderBuilder::ball(1.0).translation(Vector::new(6.0, 0.0)),
+                    Color::BLUE,
+                ),
             );
 
-            Obstacle::add(
-                ctx,
-                ColliderBuilder::cuboid(0.5, 1.5).translation(Vector::new(-3.0, -3.0)),
-                Color::BLUE,
+            ctx.components.add(
+                GroupHandle::DEFAULT_GROUP,
+                Obstacle::new(
+                    ctx.world,
+                    ctx.gpu,
+                    ColliderBuilder::cuboid(0.5, 1.5).translation(Vector::new(-3.0, -3.0)),
+                    Color::BLUE,
+                ),
             );
 
-            Obstacle::add(
-                ctx,
-                ColliderBuilder::round_cuboid(0.5, 1.5, 0.4)
-                    .translation(Vector::new(3.0, -3.0)),
-                Color::BLUE,
+            ctx.components.add(
+                GroupHandle::DEFAULT_GROUP,
+                Obstacle::new(
+                    ctx.world,
+                    ctx.gpu,
+                    ColliderBuilder::round_cuboid(0.5, 1.5, 0.4)
+                        .translation(Vector::new(3.0, -3.0)),
+                    Color::BLUE,
+                ),
             );
 
-            Light::add(
-                ctx,
-                Vector::new(0.0, 0.0),
-                7.0,
-                Color {
-                    a: 1.0,
-                    ..Color::RED
-                },
-                true,
+            ctx.components.add(
+                GroupHandle::DEFAULT_GROUP,
+                Light::new(
+                    ctx.gpu,
+                    Vector::new(0.0, 0.0),
+                    7.0,
+                    Color {
+                        a: 1.0,
+                        ..Color::RED
+                    },
+                    true,
+                ),
             );
-            
-            Light::add(
-                ctx,
-                Vector::new(0.0, 1.0),
-                5.0,
-                Color {
-                    a: 1.0,
-                    ..Color::GREEN
-                },
-                false,
+
+            ctx.components.add(
+                GroupHandle::DEFAULT_GROUP,
+                Light::new(
+                    ctx.gpu,
+                    Vector::new(0.0, 1.0),
+                    5.0,
+                    Color {
+                        a: 1.0,
+                        ..Color::GREEN
+                    },
+                    false,
+                ),
             );
         },
     });
@@ -151,23 +181,27 @@ struct Obstacle {
 }
 
 impl Obstacle {
-    pub fn new(ctx: &mut Context, collider: ColliderBuilder, color: Color) -> ComponentHandle {
-        let obstacle = Self {
-            model: ctx.gpu.create_model(ModelBuilder::from_collider_shape(
+    pub fn new(
+        world: &mut World,
+        gpu: &Gpu,
+        collider: ColliderBuilder,
+        color: Color,
+    ) -> Self {
+        Self {
+            color: gpu.create_uniform(color),
+            model: gpu.create_model(ModelBuilder::from_collider_shape(
                 collider.shape.as_ref(),
                 24,
                 2.0,
             )),
-            collider: ColliderComponent::new(ctx.world, collider),
-            color: ctx.gpu.create_uniform(color),
-        };
-        ctx.components.add(ctx.world, GroupHandle::DEFAULT_GROUP, obstacle)
+            collider: ColliderComponent::new(world, collider),
+        }
     }
 }
 
 impl ComponentController for Obstacle {
     const CONFIG: ComponentConfig = ComponentConfig {
-        priority: 5,
+        priority: 2,
         update: UpdateOperation::Never,
         ..DEFAULT_CONFIG
     };
@@ -195,30 +229,29 @@ struct Light {
 impl Light {
     const RESOLUTION: u32 = 64;
     pub fn new(
-        ctx: &mut Context,
+        gpu: &Gpu,
         position: Vector<f32>,
         radius: f32,
         color: Color,
         follow_cursor: bool,
-    ) -> ComponentHandle {
+    ) -> Self {
         let model_builder = ModelBuilder::ball(radius, Self::RESOLUTION);
-        let light = Self {
+        Self {
             radius,
             follow_mouse: follow_cursor,
             vertices: model_builder.vertices.clone(),
-            light_model: ctx.gpu.create_model(model_builder),
-            light_color: ctx.gpu.create_uniform(color),
+            light_model: gpu.create_model(model_builder),
+            light_color: gpu.create_uniform(color),
             shape: Ball::new(radius),
             base: PositionComponent::new(PositionBuilder::new().translation(position)),
             shadows: vec![],
-        };
-        ctx.components.add(ctx.world, GroupHandle::DEFAULT_GROUP, light)
+        }
     }
 }
 
 impl ComponentController for Light {
     const CONFIG: ComponentConfig = ComponentConfig {
-        priority: i16::MAX,
+        priority: 1,
         ..DEFAULT_CONFIG
     };
 

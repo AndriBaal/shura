@@ -280,6 +280,7 @@ impl Shura {
     #[cfg(feature = "physics")]
     fn physics_step(ctx: &mut Context) {
         let delta = ctx.frame.frame_time();
+        ctx.components.apply_world_mapping(ctx.world);
         ctx.world.step(delta);
         // while let Ok(contact_force_event) = ctx.components.event_receivers.1.try_recv() {
         // }
@@ -291,7 +292,6 @@ impl Shura {
             } else {
                 CollideType::Stopped
             };
-
             if let Some(collider1_events) = ctx
                 .world
                 .collider(collider_handle1)
@@ -458,12 +458,10 @@ impl Shura {
             if !done_step && ctx.world.physics_priority().is_some() {
                 Self::physics_step(&mut ctx);
             }
-
             for update in ctx.scene_states.updates(prev_priority, i16::MAX) {
                 update(&mut ctx);
             }
         }
-
         self.input.update();
         self.defaults
             .apply_render_scale(&self.gpu, scene.screen_config.render_scale());

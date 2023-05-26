@@ -26,18 +26,18 @@ fn shura_main(config: ShuraConfig) {
                             y as f32 * (PhysicsBox::HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING * 2.0),
                         ),
                     );
-                    ctx.components.add(ctx.world, GroupHandle::DEFAULT_GROUP, b);
+                    ctx.components.add(GroupHandle::DEFAULT_GROUP, b);
                 }
             }
 
             let player = Player::new(ctx);
             let player_handle = ctx
                 .components
-                .add(ctx.world, GroupHandle::DEFAULT_GROUP, player);
+                .add(GroupHandle::DEFAULT_GROUP, player);
             ctx.world_camera.set_target(Some(player_handle));
             let floor = Floor::new(ctx);
             ctx.components
-                .add(ctx.world, GroupHandle::DEFAULT_GROUP, floor);
+                .add(GroupHandle::DEFAULT_GROUP, floor);
         },
     })
 }
@@ -103,7 +103,7 @@ impl SceneStateController for PhysicsState {
                 .is_none()
             {
                 let b = PhysicsBox::new(ctx, cursor);
-                ctx.components.add(ctx.world, GroupHandle::DEFAULT_GROUP, b);
+                ctx.components.add(GroupHandle::DEFAULT_GROUP, b);
             }
         }
 
@@ -311,7 +311,7 @@ impl ComponentController for PhysicsBox {
             if let Some(physics_box) = ctx.components.get_mut::<Self>(handle) {
                 physics_box.hovered = true;
                 if remove {
-                    ctx.components.remove_boxed(ctx.world, handle);
+                    ctx.components.remove_boxed(handle);
                 }
             }
         }

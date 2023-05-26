@@ -76,11 +76,10 @@ impl<'a, C: ComponentController> ComponentSetMut<'a, C> {
 
     pub fn retain(
         &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
         #[cfg(feature = "physics")] keep: impl FnMut(&mut C) -> bool,
         #[cfg(not(feature = "physics"))] keep: impl FnMut(&mut C, &mut World) -> bool,
     ) {
-        self.ty.retain(#[cfg(feature = "physics")] world, self.groups, keep);
+        self.ty.retain(self.groups, keep);
     }
 
     pub fn index(&self, group: GroupHandle, index: usize) -> Option<&C> {
@@ -117,52 +116,46 @@ impl<'a, C: ComponentController> ComponentSetMut<'a, C> {
 
     pub fn remove(
         &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
         handle: ComponentHandle,
     ) -> Option<C> {
-        self.ty.remove(#[cfg(feature = "physics")] world, handle)
+        self.ty.remove(handle)
     }
 
     pub fn remove_boxed(
         &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
         handle: ComponentHandle,
     ) -> Option<BoxedComponent> {
-        self.ty.remove_boxed(#[cfg(feature = "physics")] world, handle)
+        self.ty.remove_boxed(handle)
     }
 
     pub fn remove_all(
         &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
     ) -> Vec<(GroupHandle, Vec<C>)> {
-        self.ty.remove_all(#[cfg(feature = "physics")] world, self.groups)
+        self.ty.remove_all(self.groups)
     }
 
     pub fn add(
         &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
         group_handle: GroupHandle,
         component: C,
     ) -> ComponentHandle {
-        self.ty.add(#[cfg(feature = "physics")] world, group_handle, component)
+        self.ty.add(group_handle, component)
     }
 
     pub fn add_many<I>(
         &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
         group_handle: GroupHandle,
         components: impl Iterator<Item = C>,
     ) -> Vec<ComponentHandle> {
-        self.ty.add_many::<I, C>(#[cfg(feature = "physics")] world, group_handle, components)
+        self.ty.add_many::<I, C>(group_handle, components)
     }
 
     pub fn add_with(
         &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
         group_handle: GroupHandle,
         create: impl FnOnce(ComponentHandle) -> C,
     ) -> ComponentHandle {
-        self.ty.add_with(#[cfg(feature = "physics")] world, group_handle, create)
+        self.ty.add_with(group_handle, create)
     }
 
     pub fn force_buffer(&mut self) {

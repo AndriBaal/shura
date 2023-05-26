@@ -1,12 +1,12 @@
 use std::{
     iter::{Enumerate, Flatten, Map},
-    vec::IntoIter,
+    vec::IntoIter, fmt::{Display, Formatter, Result},
 };
 
 use instant::Instant;
 
 #[cfg(feature = "physics")]
-use crate::physics::{CollideType, ColliderHandle, World};
+use crate::physics::{CollideType, ColliderHandle, World, WorldChanges};
 
 use crate::{
     data::arena::{ArenaEntry, ArenaIndex, ArenaIter, ArenaIterMut},
@@ -77,19 +77,12 @@ impl ComponentTypeId {
     }
 }
 
-#[cfg(feature = "physics")]
-pub(crate) enum WorldChange {
-    AddCollider {
-        component_handle: ComponentHandle,
-        collider_handle: ColliderHandle
-    },
-    RemoveCollider {
-        collider_handle: ColliderHandle
-    },
-    RemoveRigidBody {
-        rigid_body_handle: ColliderHandle
+impl Display for ComponentTypeId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        write!(f, "{}", self.id)
     }
 }
+
 
 /// Trait to identify a struct that derives from  the [Component](crate::Component) macro using
 /// a [ComponentTypeId]
@@ -102,9 +95,7 @@ pub(crate) struct ComponentTypeGroup {
     pub components: Arena<BoxedComponent>,
     pub force_buffer: bool,
     buffer: Option<InstanceBuffer>,
-    last_len: usize,
-    #[cfg(feature = "physics")]
-    world_changes: WorldChange
+    last_len: usize
 }
 
 impl ComponentTypeGroup {
@@ -113,8 +104,7 @@ impl ComponentTypeGroup {
             components: Arena::new(),
             buffer: None,
             last_len: 0,
-            force_buffer: true,
-            world_changes: vec![]
+            force_buffer: true
         }
     }
 
@@ -186,6 +176,8 @@ pub(crate) struct ComponentType {
     type_id: ComponentTypeId,
     config: ComponentConfig,
     callbacks: ComponentCallbacks,
+    #[cfg(feature = "physics")]
+    world_changes: WorldChanges
 }
 
 impl ComponentType {
@@ -216,6 +208,7 @@ impl ComponentType {
             config,
             type_id: C::IDENTIFIER,
             callbacks: ComponentCallbacks::new::<C>(),
+            world_changes: WorldChanges::new()
         }
     }
 
@@ -250,10 +243,10 @@ impl ComponentType {
         &mut self,
         handle: GroupHandle,
     ) {
-        let group = self.groups.remove(handle.0).unwrap();
-        for mut component in group.components {
-            #[cfg(feature = "physics")]
-            world.unregister_component(&component);
+        let _group = self.groups.remove(handle.0).unwrap();
+        #[cfg(feature = "physics")]
+        for component in _group.components {
+            self.world_changes.register_remove(&component);
         }
     }
 
@@ -262,7 +255,9 @@ impl ComponentType {
     }
 
     #[cfg(feature = "physics")]
-    pub fn apply_world_mapping(&mut self, );
+    pub fn apply_world_mapping(&mut self, world: &mut World) {
+        self.world_changes.apply(world)
+    }
 
     pub fn each<C: ComponentController>(&self, groups: &[GroupHandle], mut each: impl FnMut(&C)) {
         for group in groups {
@@ -301,7 +296,7 @@ impl ComponentType {
                         true
                     } else {
                         #[cfg(feature = "physics")]
-                        world.unregister_component(component);
+                        self.world_changes.register_remove(component);
                         false
                     }
                 });
@@ -408,7 +403,7 @@ impl ComponentType {
         if let Some(group) = self.groups.get_mut(handle.group_index().0) {
             if let Some(component) = group.components.remove(handle.component_index().0) {
                 #[cfg(feature = "physics")]
-                world.unregister_component(&component);
+                self.world_changes.register_remove(&component);
                 return component.downcast::<C>().ok().and_then(|b| Some(*b));
             }
         }
@@ -422,7 +417,7 @@ impl ComponentType {
         if let Some(group) = self.groups.get_mut(handle.group_index().0) {
             if let Some(component) = group.components.remove(handle.component_index().0) {
                 #[cfg(feature = "physics")]
-                world.unregister_component(&component);
+                self.world_changes.register_remove(&component);
                 return Some(component);
             }
         }
@@ -440,7 +435,7 @@ impl ComponentType {
                 let mut casted = Vec::with_capacity(components.len());
                 for component in components {
                     #[cfg(feature = "physics")]
-                    world.unregister_component(&component);
+                    self.world_changes.register_remove(&component);
                     casted.push(*component.downcast::<C>().ok().unwrap())
                 }
                 result.push((*group_handle, casted));
@@ -460,7 +455,7 @@ impl ComponentType {
         group.components.insert_with(|idx| {
             handle = ComponentHandle::new(ComponentIndex(idx), self.index, group_handle);
             #[cfg(feature = "physics")]
-            world.register_component(handle, &component);
+            self.world_changes.register_add(handle, &component);
             Box::new(component)
         });
         return handle;
@@ -478,7 +473,7 @@ impl ComponentType {
                     let handle =
                         ComponentHandle::new(ComponentIndex(idx), self.index, group_handle);
                     #[cfg(feature = "physics")]
-                    world.register_component(handle, &component);
+                    self.world_changes.register_add(handle, &component);
                     handles.push(handle);
                     Box::new(component)
                 });
@@ -499,7 +494,7 @@ impl ComponentType {
             handle = ComponentHandle::new(ComponentIndex(idx), self.index, group_handle);
             let component = create(handle);
             #[cfg(feature = "physics")]
-            world.register_component(handle, &component);
+            self.world_changes.register_add(handle, &component);
             Box::new(component)
         });
         return handle;

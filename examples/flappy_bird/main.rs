@@ -1,18 +1,31 @@
-use rodio::Sink;
-use shura::{audio::Sound, log::info, physics::*, rand::gen_range, *};
+use shura::{
+    audio::{AudioManager, Sink, Sound},
+    log::info,
+    physics::*,
+    rand::gen_range,
+    *,
+};
 
 const GAME_SIZE: Vector<f32> = Vector::new(11.25, 5.0);
 
 #[shura::main]
 fn shura_main(config: ShuraConfig) {
     config.init(NewScene::new(1, |ctx| {
-        ctx.insert_scene_state(FlappyState::new(ctx));
-        ctx.add_component(Background::new(ctx));
-        ctx.add_component(Ground::new(ctx));
-        ctx.add_component(Bird::new(ctx));
-        ctx.set_physics_priority(Some(10));
-        ctx.set_camera_scale(WorldCameraScale::Vertical(GAME_SIZE.y));
-        ctx.set_gravity(Vector::new(0.0, -15.0));
+        register!(ctx, [Background, Ground, Pipe, Bird]);
+        ctx.scene_states
+            .insert(FlappyState::new(ctx.gpu, ctx.audio));
+        ctx.components
+            .add(GroupHandle::DEFAULT_GROUP, Background::new(ctx));
+        ctx.components
+            .add(GroupHandle::DEFAULT_GROUP, Ground::new(ctx.world, ctx.gpu));
+        ctx.components.add(
+            GroupHandle::DEFAULT_GROUP,
+            Bird::new(ctx.world, ctx.gpu, ctx.audio),
+        );
+        ctx.world.set_physics_priority(Some(10));
+        ctx.world.set_gravity(Vector::new(0.0, -15.0));
+        ctx.world_camera
+            .set_scaling(WorldCameraScale::Vertical(GAME_SIZE.y));
     }))
 }
 
@@ -30,9 +43,9 @@ struct FlappyState {
 }
 
 impl FlappyState {
-    pub fn new(ctx: &Context) -> Self {
+    pub fn new(gpu: &Gpu, audio: &AudioManager) -> Self {
         return Self {
-            top_pipe_model: ctx.gpu.create_model(
+            top_pipe_model: gpu.create_model(
                 ModelBuilder::cuboid(Pipe::HALF_EXTENTS)
                     .vertex_translation(Vector::new(
                         0.0,
@@ -40,17 +53,15 @@ impl FlappyState {
                     ))
                     .tex_coord_rotation(Rotation::new(180.0_f32.to_radians())),
             ),
-            bottom_pipe_model: ctx.gpu.create_model(
+            bottom_pipe_model: gpu.create_model(
                 ModelBuilder::cuboid(Pipe::HALF_EXTENTS).vertex_translation(Vector::new(
                     0.0,
                     -Pipe::HALF_HOLE_SIZE - Pipe::HALF_EXTENTS.y,
                 )),
             ),
-            point_sink: ctx.gpu.create_sink(),
-            point_sound: ctx.gpu.create_sound(include_bytes!("./audio/point.wav")),
-            pipe_sprite: ctx
-                .gpu
-                .create_sprite(include_bytes!("./sprites/pipe-green.png")),
+            point_sink: audio.create_sink(),
+            point_sound: audio.create_sound(include_bytes!("./audio/point.wav")),
+            pipe_sprite: gpu.create_sprite(include_bytes!("./sprites/pipe-green.png")),
             spawn_timer: Pipe::SPAWN_TIME,
             score: 0,
             high_score: 0,
@@ -61,20 +72,17 @@ impl FlappyState {
 
 impl SceneStateController for FlappyState {
     fn update(ctx: &mut Context) {
-        let fps = ctx.fps();
+        let fps = ctx.frame.fps();
+        let delta = ctx.frame.frame_time();
         let scene = ctx.scene_states.get_mut::<Self>();
-        let delta = ctx.frame_manager.frame_time();
         if !scene.started
             && (ctx.input.is_pressed(Key::Space)
                 || ctx.input.is_pressed(MouseButton::Left)
                 || ctx.input.is_pressed(ScreenTouch))
         {
             scene.started = true;
-            for bird in ctx
-                .component_manager
-                .components_mut::<Bird>(ComponentFilter::All)
-            {
-                bird.body_mut().set_gravity_scale(1.0, true);
+            for bird in ctx.components.iter_mut::<Bird>(ComponentFilter::All) {
+                bird.body.get_mut(ctx.world).set_gravity_scale(1.0, true);
             }
         }
 
@@ -86,7 +94,8 @@ impl SceneStateController for FlappyState {
 
             if scene.spawn_timer >= Pipe::SPAWN_TIME {
                 scene.spawn_timer = 0.0;
-                Pipe::add(ctx.wo);
+                ctx.components
+                    .add(GroupHandle::DEFAULT_GROUP, Pipe::new(ctx.world));
                 info!("Spawning new pipe!");
             }
         }
@@ -116,10 +125,10 @@ struct Bird {
 
 impl Bird {
     const HALF_EXTENTS: Vector<f32> = Vector::new(0.3, 0.21176472);
-    pub fn new(ctx: &mut Context) -> Self {
-        let bird = Self {
+    pub fn new(world: &mut World, gpu: &Gpu, audio: &AudioManager) -> Self {
+        Self {
             body: RigidBodyComponent::new(
-                ctx.world,
+                world,
                 RigidBodyBuilder::dynamic()
                     .locked_axes(LockedAxes::TRANSLATION_LOCKED_X)
                     .lock_rotations()
@@ -131,19 +140,15 @@ impl Bird {
                 ],
             ),
 
-            model: ctx
-                .gpu
-                .create_model(ModelBuilder::cuboid(Self::HALF_EXTENTS)),
-            sprite: ctx.gpu.create_sprite_sheet(
+            model: gpu.create_model(ModelBuilder::cuboid(Self::HALF_EXTENTS)),
+            sprite: gpu.create_sprite_sheet(
                 include_bytes!("./sprites/yellowbird.png"),
                 Vector::new(3, 1),
             ),
-            sink: ctx.audio.create_sink(),
-            hit_sound: ctx.audio.create_sound(include_bytes!("./audio/hit.wav")),
-            wing_sound: ctx.audio.create_sound(include_bytes!("./audio/wing.wav")),
+            sink: audio.create_sink(),
+            hit_sound: audio.create_sound(include_bytes!("./audio/hit.wav")),
+            wing_sound: audio.create_sound(include_bytes!("./audio/wing.wav")),
         }
-
-        return ctx.components.add
     }
 }
 
@@ -156,17 +161,16 @@ impl ComponentController for Bird {
     }
 
     fn update(ctx: &mut Context) {
-        for bird in ctx
-            .components
-            .iter_mut::<Self>(ComponentFilter::Active)
-        {
+        for bird in ctx.components.iter_mut::<Self>(ComponentFilter::Active) {
             if ctx.input.is_pressed(Key::Space)
                 || ctx.input.is_pressed(MouseButton::Left)
                 || ctx.input.is_pressed(ScreenTouch)
             {
                 bird.sink = ctx.audio.create_sink();
                 bird.sink.append(bird.wing_sound.decode());
-                bird.body.get_mut(ctx.world).set_linvel(Vector::new(0.0, 5.0), true);
+                bird.body
+                    .get_mut(ctx.world)
+                    .set_linvel(Vector::new(0.0, 5.0), true);
             }
         }
     }
@@ -180,15 +184,12 @@ impl ComponentController for Bird {
         collision_type: CollideType,
     ) {
         if collision_type == CollideType::Started {
-            ctx.components.remove_all::<Pipe>(ctx.world, ComponentFilter::All);
+            ctx.components.remove_all::<Pipe>(ComponentFilter::All);
             {
-                let bird = ctx
-                    .components
-                    .get_mut::<Self>(self_handle)
-                    .unwrap();
+                let bird = ctx.components.get_mut::<Self>(self_handle).unwrap();
                 bird.sink = ctx.audio.create_sink();
                 bird.sink.append(bird.hit_sound.decode());
-                let mut bird_body = bird.body.get_mut(ctx.world);
+                let bird_body = bird.body.get_mut(ctx.world);
                 bird_body.set_linvel(Default::default(), true);
                 bird_body.set_translation(Default::default(), true);
                 bird_body.set_gravity_scale(0.0, true);
@@ -212,38 +213,29 @@ struct Ground {
 
 impl Ground {
     const HALF_EXTENTS: Vector<f32> = Vector::new(GAME_SIZE.data.0[0][0], 0.9375);
-    pub fn new(ctx: &mut Context) -> ComponentHandle {
-        let ground = Self {
-            model: ctx
-                .gpu
-                .create_model(ModelBuilder::cuboid(Self::HALF_EXTENTS)),
-            sprite: ctx.gpu.create_sprite(include_bytes!("./sprites/base.png")),
+    pub fn new(world: &mut World, gpu: &Gpu) -> Self {
+        let pos = Vector::new(0.0, -GAME_SIZE.y + Self::HALF_EXTENTS.y);
+        Self {
+            model: gpu
+                .create_model(ModelBuilder::cuboid(Self::HALF_EXTENTS).vertex_translation(pos)),
+            sprite: gpu.create_sprite(include_bytes!("./sprites/base.png")),
             collider: ColliderComponent::new(
-                ctx.world,
+                world,
                 ColliderBuilder::compound(vec![
                     (
-                        Vector::new(0.0, -GAME_SIZE.y + Self::HALF_EXTENTS.y).into(),
+                        pos.into(),
                         SharedShape::cuboid(Self::HALF_EXTENTS.x, Self::HALF_EXTENTS.y),
                     ),
                     (
                         Vector::new(0.0, GAME_SIZE.y).into(),
                         SharedShape::segment(
-                            Point::new(
-                                -GAME_SIZE.x,
-                                GAME_SIZE.y + GAME_SIZE.y - Self::HALF_EXTENTS.y,
-                            ),
-                            Point::new(
-                                GAME_SIZE.x,
-                                GAME_SIZE.y + GAME_SIZE.y - Self::HALF_EXTENTS.y,
-                            ),
+                            Point::new(-GAME_SIZE.x, 0.0),
+                            Point::new(GAME_SIZE.x, 0.0),
                         ),
                     ),
                 ]),
             ),
-        };
-        return ctx
-            .components
-            .add(ctx.world, GroupHandle::DEFAULT_GROUP, ground);
+        }
     }
 }
 
@@ -283,7 +275,7 @@ impl Background {
 impl ComponentController for Background {
     const CONFIG: ComponentConfig = ComponentConfig {
         priority: 1,
-        buffer: BufferOperation::Never,
+        buffer: BufferOperation::Manual,
         ..DEFAULT_CONFIG
     };
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {
@@ -306,12 +298,12 @@ impl Pipe {
     const HALF_HOLE_SIZE: f32 = 1.1;
     const MIN_PIPE_Y: f32 = 0.25;
     const SPAWN_TIME: f32 = 3.0;
-    pub fn new(world: &mut World, components: &mut ComponentManager) -> ComponentHandle {
+    pub fn new(world: &mut World) -> Self {
         let y = gen_range(
             -GAME_SIZE.y + Self::MIN_PIPE_Y + Pipe::HALF_HOLE_SIZE + Ground::HALF_EXTENTS.y * 2.0
                 ..GAME_SIZE.y - Self::MIN_PIPE_Y - Pipe::HALF_HOLE_SIZE,
         );
-        let pipe = Self {
+        Self {
             point_awarded: false,
             body: RigidBodyComponent::new(
                 world,
@@ -331,9 +323,7 @@ impl Pipe {
                         )),
                 ],
             ),
-        };
-
-        components.add(world, GroupHandle::DEFAULT_GROUP, pipe)
+        }
     }
 }
 
@@ -344,19 +334,20 @@ impl ComponentController for Pipe {
     };
     fn update(ctx: &mut Context) {
         let state = ctx.scene_states.get_mut::<FlappyState>();
-        for pipe in ctx.components.retain::<Self>(ctx.world, active, |world, pipe| {
-            let x = pipe.base.translation().x;
-            if !pipe.point_awarded && x < 0.0 {
-                pipe.point_awarded = true;
-                state.score += 1;
-                state.point_sink.append(state.point_sound.decode())
-            }
-            if x <= -GAME_SIZE.x {
-                info!("Removing Pipe with id: {}", handle.id());
-                false
-            }
-            true
-        });
+        ctx.components
+            .retain::<Self>(ComponentFilter::Active, |pipe| {
+                let x = pipe.body.get(ctx.world).translation().x;
+                if !pipe.point_awarded && x < 0.0 {
+                    pipe.point_awarded = true;
+                    state.score += 1;
+                    state.point_sink.append(state.point_sound.decode())
+                }
+                if x <= -GAME_SIZE.x {
+                    info!("Removing Pipe!");
+                    return false;
+                }
+                return true;
+            });
     }
 
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {

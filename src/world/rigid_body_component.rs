@@ -1,7 +1,7 @@
 use crate::{physics::{RigidBody, RigidBodyHandle, World, Collider}, Vector, BaseComponent, Matrix};
 
 pub struct RigidBodyComponent {
-    pub handle: RigidBodyHandle,
+    pub rigid_body_handle: RigidBodyHandle,
 }
 
 impl RigidBodyComponent {
@@ -10,18 +10,18 @@ impl RigidBodyComponent {
     }
 
     pub fn get<'a>(&self, world: &'a World) -> &'a RigidBody {
-        world.rigid_body(self.handle).unwrap()
+        world.rigid_body(self.rigid_body_handle).unwrap()
     }
 
     pub fn get_mut<'a>(&self, world: &'a mut World) -> &'a mut RigidBody {
-        world.rigid_body_mut(self.handle).unwrap()
+        world.rigid_body_mut(self.rigid_body_handle).unwrap()
     }
 
 }
 
 impl BaseComponent for RigidBodyComponent {
     fn matrix(&self, world: &World) -> crate::Matrix {
-        if let Some(collider) = world.rigid_body(self.handle) {
+        if let Some(collider) = world.rigid_body(self.rigid_body_handle) {
             return Matrix::new(*collider.position(), Vector::new(1.0, 1.0));
         }
         return Matrix::default();

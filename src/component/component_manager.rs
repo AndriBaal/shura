@@ -1,3 +1,5 @@
+#[cfg(feature = "log")]
+use crate::log::info;
 #[cfg(feature = "physics")]
 use crate::{physics::World, ComponentCallbacks};
 use crate::{
@@ -6,16 +8,20 @@ use crate::{
     ComponentSet, ComponentSetMut, ComponentType, ComponentTypeId, Gpu, GroupActivation,
     GroupHandle, TypeIndex, Vector,
 };
-use rustc_hash::FxHashMap;
 use std::cell::RefCell;
+use std::collections::BTreeMap;
 use std::rc::Rc;
 
-// #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-// /// Changed [Groups](crate::ComponentGroup) between frames
-// pub enum GroupDelta {
-//     Add(ComponentGroupId),
-//     Remove(ComponentGroupId),
-// }
+#[macro_export]
+macro_rules! register {
+    ($ctx: expr,[$($k:ty),*]) => {
+        {
+            $(
+                $ctx.components.register::<$k>();
+            )*
+        }
+    };
+}
 
 fn no_type_error<C: ComponentController>() -> String {
     format!("The type '{}' first needs to be registered!", C::TYPE_NAME)
@@ -81,7 +87,7 @@ impl ComponentFilter<'static> {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// Access to the component system.
 pub struct ComponentManager {
-    type_map: FxHashMap<(i16, ComponentTypeId), TypeIndex>,
+    type_map: BTreeMap<(i16, ComponentTypeId), TypeIndex>,
     update_callable_types: bool,
     callable_types: Rc<RefCell<Vec<CallableType>>>,
     types: Arena<ComponentType>,
@@ -133,8 +139,8 @@ impl ComponentManager {
         if self.update_callable_types {
             let mut callables = self.callable_types.borrow_mut();
             callables.clear();
-            for (_, ty) in &self.types {
-                callables.push(CallableType::new(ty));
+            for (key, index) in self.type_map.iter() {
+                callables.push(CallableType::new(&self.types[index.0]));
             }
         }
         return self.callable_types.clone();
@@ -144,6 +150,13 @@ impl ComponentManager {
     pub(crate) fn callbacks(&self, component: ComponentHandle) -> &ComponentCallbacks {
         let ty = self.types.get(component.type_index().0).unwrap();
         ty.callbacks()
+    }
+
+    #[cfg(feature = "physics")]
+    pub fn apply_world_mapping(&mut self, world: &mut World) {
+        for (_, ty) in &mut self.types {
+            ty.apply_world_mapping(world)
+        }
     }
 
     pub fn register<C: ComponentController>(&mut self) {
@@ -156,6 +169,13 @@ impl ComponentManager {
             let index = self.types.insert_with(|idx| {
                 ComponentType::with_config::<C>(config, TypeIndex(idx), &self.groups)
             });
+            #[cfg(feature = "log")]
+            info!(
+                "Register component '{}' with priority {} and ID '{}'",
+                C::TYPE_NAME,
+                C::CONFIG.priority,
+                C::IDENTIFIER
+            );
             self.type_map.insert(key, TypeIndex(index));
             self.update_callable_types = true;
         }
@@ -205,18 +225,10 @@ impl ComponentManager {
         return handle;
     }
 
-    pub fn remove_group(
-        &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
-        handle: GroupHandle,
-    ) -> Option<ComponentGroup> {
+    pub fn remove_group(&mut self, handle: GroupHandle) -> Option<ComponentGroup> {
         let group = self.groups.remove(handle.0);
         for (_, ty) in &mut self.types {
-            ty.remove_group(
-                #[cfg(feature = "physics")]
-                world,
-                handle,
-            );
+            ty.remove_group(handle);
         }
         self.all_groups.retain(|h| *h != handle);
         return group;
@@ -273,19 +285,13 @@ impl ComponentManager {
 
     pub fn retain<C: ComponentController>(
         &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
         filter: ComponentFilter,
         #[cfg(feature = "physics")] keep: impl FnMut(&mut C) -> bool,
         #[cfg(not(feature = "physics"))] keep: impl FnMut(&mut C, &mut World) -> bool,
     ) {
         let groups = group_filter!(self, filter);
         let ty = type_mut!(self, C);
-        ty.retain(
-            #[cfg(feature = "physics")]
-            world,
-            groups,
-            keep,
-        );
+        ty.retain(groups, keep);
     }
 
     pub fn index<C: ComponentController>(&self, group: GroupHandle, index: usize) -> Option<&C> {
@@ -342,90 +348,54 @@ impl ComponentManager {
             .get_boxed_mut(handle)
     }
 
-    pub fn remove<C: ComponentController>(
-        &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
-        handle: ComponentHandle,
-    ) -> Option<C> {
-        self.types.get_mut(handle.type_index().0).unwrap().remove(
-            #[cfg(feature = "physics")]
-            world,
-            handle,
-        )
-    }
-
-    pub fn remove_boxed(
-        &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
-        handle: ComponentHandle,
-    ) -> Option<BoxedComponent> {
+    pub fn remove<C: ComponentController>(&mut self, handle: ComponentHandle) -> Option<C> {
         self.types
             .get_mut(handle.type_index().0)
             .unwrap()
-            .remove_boxed(
-                #[cfg(feature = "physics")]
-                world,
-                handle,
-            )
+            .remove(handle)
+    }
+
+    pub fn remove_boxed(&mut self, handle: ComponentHandle) -> Option<BoxedComponent> {
+        self.types
+            .get_mut(handle.type_index().0)
+            .unwrap()
+            .remove_boxed(handle)
     }
 
     pub fn remove_all<C: ComponentController>(
         &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
         filter: ComponentFilter,
     ) -> Vec<(GroupHandle, Vec<C>)> {
         let groups = group_filter!(self, filter);
         let ty = type_mut!(self, C);
-        ty.remove_all(
-            #[cfg(feature = "physics")]
-            world,
-            groups,
-        )
+        ty.remove_all(groups)
     }
 
     pub fn add<C: ComponentController>(
         &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
         group_handle: GroupHandle,
         component: C,
     ) -> ComponentHandle {
         let ty = type_mut!(self, C);
-        ty.add(
-            #[cfg(feature = "physics")]
-            world,
-            group_handle,
-            component,
-        )
+        ty.add(group_handle, component)
     }
 
     pub fn add_many<I, C: ComponentController>(
         &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
         group_handle: GroupHandle,
         components: impl Iterator<Item = C>,
     ) -> Vec<ComponentHandle> {
         let ty = type_mut!(self, C);
-        ty.add_many::<I, C>(
-            #[cfg(feature = "physics")]
-            world,
-            group_handle,
-            components,
-        )
+        ty.add_many::<I, C>(group_handle, components)
     }
 
     pub fn add_with<C: ComponentController + ComponentController>(
         &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
         group_handle: GroupHandle,
         create: impl FnOnce(ComponentHandle) -> C,
     ) -> ComponentHandle {
         let ty = type_mut!(self, C);
-        ty.add_with::<C>(
-            #[cfg(feature = "physics")]
-            world,
-            group_handle,
-            create,
-        )
+        ty.add_with::<C>(group_handle, create)
     }
 
     pub fn force_buffer<C: ComponentController>(&mut self, filter: ComponentFilter) {
