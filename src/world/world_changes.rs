@@ -5,6 +5,7 @@ use crate::{
      ComponentDerive, ComponentHandle,
 };
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 enum WorldChange {
     AddCollider {
         component_handle: ComponentHandle,
@@ -22,6 +23,7 @@ enum WorldChange {
     },
 }
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct WorldChanges {
     changes: Vec<WorldChange>,
 }

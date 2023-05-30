@@ -1,11 +1,13 @@
+use std::{rc::Rc, cell::RefCell};
+
 #[cfg(feature = "gui")]
 use crate::gui::Gui;
 #[cfg(feature = "physics")]
 use crate::physics::{ActiveEvents, CollideType};
 use crate::{
-    scene::context::ShuraFields, sound::audio_manager::AudioManager, Context, FrameManager,
-    GlobalStateManager, Gpu, GpuConfig, GpuDefaults, Input, RenderConfigTarget, RenderEncoder,
-    RenderOperation, Renderer, Scene, SceneCreator, SceneManager, Vector,
+    audio::AudioManager, Context, FrameManager, GlobalStateManager, Gpu, GpuConfig,
+    GpuDefaults, Input, RenderConfigTarget, RenderEncoder, RenderOperation, Renderer, Scene,
+    SceneCreator, SceneManager, Vector,
 };
 #[cfg(target_arch = "wasm32")]
 use rustc_hash::FxHashMap;
@@ -152,18 +154,33 @@ impl ShuraConfig {
                             }
                         }
                         Event::RedrawRequested(window_id) if window_id == shura_window_id => {
-                            let mut scene = shura.scenes.borrow_active_scene();
+                            while let Some(remove) = shura.scenes.remove.pop() {
+                                if let Some(removed) = shura.scenes.scenes.remove(&remove) {
+                                    let mut removed = removed.borrow_mut();
+                                    for end in removed.states.ends() {
+                                        let mut ctx = Context::new(shura, &mut removed);
+                                        end(&mut ctx);
+                                    }
+                                }
+                            }
+                    
+                            while let Some(add) = shura.scenes.add.pop() {
+                                let id = add.new_id();
+                                let scene = add.create(shura);
+                                shura.scenes.scenes.insert(id, Rc::new(RefCell::new(scene)));
+                            }
+
+                            let scene = shura.scenes.get_active_scene();
+                            let mut scene = scene.borrow_mut();
                             if let Some(max_frame_time) = scene.screen_config.max_frame_time() {
                                 let now = shura.frame.now();
                                 let update_time = shura.frame.update_time();
                                 if now < update_time + max_frame_time {
-                                    shura.scenes.return_active_scene(scene);
                                     return;
                                 }
                             }
 
                             let update_status = shura.update(&mut scene);
-                            shura.scenes.return_active_scene(scene);
                             match update_status {
                                 Ok(_) => {}
                                 Err(wgpu::SurfaceError::Lost) => {
@@ -214,25 +231,25 @@ impl ShuraConfig {
     }
 }
 
-pub(crate) struct Shura {
-    pub(crate) end: bool,
-    pub(crate) frame: FrameManager,
-    pub(crate) scenes: SceneManager,
-    pub(crate) window: winit::window::Window,
-    pub(crate) input: Input,
-    pub(crate) gpu: Gpu,
-    pub(crate) states: GlobalStateManager,
-    pub(crate) defaults: GpuDefaults,
+pub struct Shura {
+    pub end: bool,
+    pub frame: FrameManager,
+    pub scenes: SceneManager,
+    pub window: winit::window::Window,
+    pub input: Input,
+    pub gpu: Gpu,
+    pub states: GlobalStateManager,
+    pub defaults: GpuDefaults,
     #[cfg(feature = "gui")]
-    pub(crate) gui: Gui,
+    pub gui: Gui,
     #[cfg(feature = "audio")]
-    pub(crate) audio: AudioManager,
+    pub audio: AudioManager,
     #[cfg(target_arch = "wasm32")]
-    auto_scale_canvas: bool,
+    pub auto_scale_canvas: bool,
 }
 
 impl Shura {
-    fn new<C: SceneCreator>(
+    fn new<C: SceneCreator + 'static>(
         window: winit::window::Window,
         _event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
         gpu: GpuConfig,
@@ -244,8 +261,8 @@ impl Shura {
         let window_size: Vector<u32> = mint.into();
         let defaults = GpuDefaults::new(&gpu, window_size);
 
-        let mut shura = Self {
-            scenes: SceneManager::new(creator.id()),
+        Self {
+            scenes: SceneManager::new(creator.new_id(), creator),
             frame: FrameManager::new(),
             input: Input::new(window_size),
             states: GlobalStateManager::default(),
@@ -259,10 +276,7 @@ impl Shura {
             defaults,
             #[cfg(target_arch = "wasm32")]
             auto_scale_canvas,
-        };
-        let scene = creator.scene(ShuraFields::from_shura(&mut shura));
-        shura.scenes.init(scene);
-        return shura;
+        }
     }
 
     fn resize(&mut self, new_size: Vector<u32>) {
@@ -313,7 +327,11 @@ impl Shura {
                             .copied()
                         {
                             if collider1_events == ActiveEvents::COLLISION_EVENTS {
-                                let callback = ctx.components.callbacks(component1).collision;
+                                let callback = ctx
+                                    .components
+                                    .callable(&component1.type_index())
+                                    .callbacks
+                                    .collision;
                                 (callback)(
                                     ctx,
                                     component1,
@@ -324,7 +342,11 @@ impl Shura {
                                 )
                             }
                             if collider2_events == ActiveEvents::COLLISION_EVENTS {
-                                let callback = ctx.components.callbacks(component2).collision;
+                                let callback = ctx
+                                    .components
+                                    .callable(&component2.type_index())
+                                    .callbacks
+                                    .collision;
                                 (callback)(
                                     ctx,
                                     component2,
@@ -417,19 +439,20 @@ impl Shura {
             let mut prev_priority = i16::MIN;
             let now = ctx.frame.update_time();
             {
-                let types = ctx.components.callable_types();
-                let mut types = types.borrow_mut();
-                for ty in types.iter_mut() {
-                    for update in ctx.scene_states.updates(prev_priority, ty.config.priority) {
+                // let types = ctx.components.callable_types();
+                // let mut types = types.borrow_mut();
+                for ((priority, _), type_index) in ctx.components.priorities().borrow().iter() {
+                    for update in ctx.scene_states.updates(prev_priority, *priority) {
                         update(&mut ctx);
                     }
 
                     #[cfg(feature = "physics")]
-                    if !done_step && ty.config.priority > physics_priority {
+                    if !done_step && *priority > physics_priority {
                         done_step = true;
                         Self::physics_step(&mut ctx);
                     }
 
+                    let ty = ctx.components.callable(type_index);
                     match ty.config.update {
                         crate::UpdateOperation::EveryFrame => {}
                         crate::UpdateOperation::Never => {
@@ -450,7 +473,7 @@ impl Shura {
                     }
 
                     (ty.callbacks.update)(&mut ctx);
-                    prev_priority = ty.config.priority;
+                    prev_priority = *priority;
                 }
             }
 
@@ -497,7 +520,8 @@ impl Shura {
         }
 
         {
-            for ty in ctx.components.callable_types().borrow().iter() {
+            for type_index in ctx.components.priorities().borrow().values() {
+                let ty = ctx.components.callable(type_index);
                 if ty.config.render != RenderOperation::Never {
                     match ty.config.render {
                         RenderOperation::EveryFrame => {
@@ -539,12 +563,11 @@ impl Shura {
 
 impl Drop for Shura {
     fn drop(&mut self) {
-        for (_, mut scene) in self.scenes.end_scenes() {
-            if let Some(scene) = &mut scene {
-                for end in scene.states.ends() {
-                    let mut ctx = Context::new(self, scene);
-                    end(&mut ctx);
-                }
+        for (_, scene) in self.scenes.end_scenes() {
+            let mut scene = scene.borrow_mut();
+            for end in scene.states.ends() {
+                let mut ctx = Context::new(self, &mut scene);
+                end(&mut ctx);
             }
         }
     }

@@ -1,7 +1,9 @@
+use rustc_hash::FxHashMap;
+
 #[cfg(feature = "log")]
 use crate::log::info;
 #[cfg(feature = "physics")]
-use crate::{physics::World, ComponentCallbacks};
+use crate::physics::World;
 use crate::{
     Arena, BoxedComponent, CallableType, CameraBuffer, ComponentConfig, ComponentController,
     ComponentGroup, ComponentHandle, ComponentIter, ComponentIterMut, ComponentIterRender,
@@ -39,8 +41,10 @@ macro_rules! group_filter {
 
 macro_rules! type_ref {
     ($self:ident, $C: ident) => {{
-        let key = ($C::CONFIG.priority, $C::IDENTIFIER);
-        let idx = $self.type_map.get(&key).expect(&no_type_error::<$C>());
+        let idx = $self
+            .type_map
+            .get(&$C::IDENTIFIER)
+            .expect(&no_type_error::<$C>());
         let ty = $self.types.get(idx.0).unwrap();
         ty
     }};
@@ -48,8 +52,10 @@ macro_rules! type_ref {
 
 macro_rules! type_mut {
     ($self:ident, $C: ident) => {{
-        let key = ($C::CONFIG.priority, $C::IDENTIFIER);
-        let idx = $self.type_map.get(&key).expect(&no_type_error::<$C>());
+        let idx = $self
+            .type_map
+            .get(&$C::IDENTIFIER)
+            .expect(&no_type_error::<$C>());
         let ty = $self.types.get_mut(idx.0).unwrap();
         ty
     }};
@@ -57,10 +63,14 @@ macro_rules! type_mut {
 
 macro_rules! type2_mut {
     ($self:ident, $C1: ident, $C2: ident) => {{
-        let key1 = ($C1::CONFIG.priority, $C1::IDENTIFIER);
-        let idx1 = $self.type_map.get(&key1).expect(&no_type_error::<$C1>());
-        let key2 = ($C2::CONFIG.priority, $C2::IDENTIFIER);
-        let idx2 = $self.type_map.get(&key2).expect(&no_type_error::<$C2>());
+        let idx1 = $self
+            .type_map
+            .get(&$C1::IDENTIFIER)
+            .expect(&no_type_error::<$C1>());
+        let idx2 = $self
+            .type_map
+            .get(&$C2::IDENTIFIER)
+            .expect(&no_type_error::<$C2>());
         let (ty1, ty2) = $self.types.get2_mut(idx1.0, idx2.0);
         (ty1.unwrap(), ty2.unwrap())
     }};
@@ -87,10 +97,18 @@ impl ComponentFilter<'static> {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// Access to the component system.
 pub struct ComponentManager {
-    type_map: BTreeMap<(i16, ComponentTypeId), TypeIndex>,
-    update_callable_types: bool,
-    callable_types: Rc<RefCell<Vec<CallableType>>>,
+    type_map: FxHashMap<ComponentTypeId, TypeIndex>,
     types: Arena<ComponentType>,
+
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[cfg_attr(feature = "serde", serde(default))]
+    callables: FxHashMap<TypeIndex, CallableType>,
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[cfg_attr(feature = "serde", serde(default))]
+    priorities: Rc<RefCell<BTreeMap<(i16, ComponentTypeId), TypeIndex>>>,
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[cfg_attr(feature = "serde", serde(default))]
+    new_priorities: Vec<(i16, ComponentTypeId, TypeIndex)>,
     groups: Arena<ComponentGroup>,
     active_groups: Vec<GroupHandle>,
     all_groups: Vec<GroupHandle>,
@@ -105,8 +123,9 @@ impl ComponentManager {
         Self {
             types: Default::default(),
             type_map: Default::default(),
-            callable_types: Default::default(),
-            update_callable_types: true,
+            callables: Default::default(),
+            priorities: Default::default(),
+            new_priorities: Default::default(),
             all_groups: Vec::from_iter([group_handle]),
             active_groups: Vec::from_iter([group_handle]),
             groups,
@@ -135,21 +154,39 @@ impl ComponentManager {
         }
     }
 
-    pub(crate) fn callable_types(&mut self) -> Rc<RefCell<Vec<CallableType>>> {
-        if self.update_callable_types {
-            let mut callables = self.callable_types.borrow_mut();
-            callables.clear();
-            for (key, index) in self.type_map.iter() {
-                callables.push(CallableType::new(&self.types[index.0]));
+    pub(crate) fn priorities(
+        &mut self,
+    ) -> Rc<RefCell<BTreeMap<(i16, ComponentTypeId), TypeIndex>>> {
+        if self.new_priorities.len() > 0 {
+            let mut priorities = self.priorities.borrow_mut();
+            println!("{}", self.new_priorities.len());
+            for (priority, type_id, index) in self.new_priorities.drain(..) {
+                priorities.insert((priority, type_id), index);
             }
         }
-        return self.callable_types.clone();
+        return self.priorities.clone();
     }
 
-    #[cfg(feature = "physics")]
-    pub(crate) fn callbacks(&self, component: ComponentHandle) -> &ComponentCallbacks {
-        let ty = self.types.get(component.type_index().0).unwrap();
-        ty.callbacks()
+    pub(crate) fn callable(&mut self, t: &TypeIndex) -> &mut CallableType {
+        self.callables.get_mut(t).unwrap()
+    }
+
+    #[cfg(feature = "serde")]
+    pub(crate) fn reregister<C: ComponentController>(&mut self) {
+        let index = *self.type_map.get(&C::IDENTIFIER).unwrap();
+        self.new_priorities
+            .push((C::CONFIG.priority, C::IDENTIFIER, index));
+        self.callables.insert(index, CallableType::new::<C>());
+    }
+
+    #[cfg(feature = "serde")]
+    pub(crate) fn type_ref<C: ComponentController>(&self) -> &ComponentType {
+        type_ref!(self, C)
+    }
+
+    #[cfg(feature = "serde")]
+    pub(crate) fn type_mut<C: ComponentController>(&mut self) -> &mut ComponentType {
+        type_mut!(self, C)
     }
 
     #[cfg(feature = "physics")]
@@ -164,8 +201,7 @@ impl ComponentManager {
     }
 
     pub fn register_with_config<C: ComponentController>(&mut self, config: ComponentConfig) {
-        let key = (C::CONFIG.priority, C::IDENTIFIER);
-        if !self.type_map.contains_key(&key) {
+        if !self.type_map.contains_key(&C::IDENTIFIER) {
             let index = self.types.insert_with(|idx| {
                 ComponentType::with_config::<C>(config, TypeIndex(idx), &self.groups)
             });
@@ -176,8 +212,11 @@ impl ComponentManager {
                 C::CONFIG.priority,
                 C::IDENTIFIER
             );
-            self.type_map.insert(key, TypeIndex(index));
-            self.update_callable_types = true;
+            self.type_map.insert(C::IDENTIFIER, TypeIndex(index));
+            self.new_priorities
+                .push((C::CONFIG.priority, C::IDENTIFIER, TypeIndex(index)));
+            self.callables
+                .insert(TypeIndex(index), CallableType::new::<C>());
         }
     }
 
@@ -433,682 +472,4 @@ impl ComponentManager {
         let ty = type_ref!(self, C);
         ty.iter_render(groups)
     }
-
-    // pub(crate) fn update_sets(&mut self, camera: &CameraBuffer) {
-    //     let aabb = camera.model().aabb(Vector::new(0.0, 0.0).into());
-    //     let active_components = Rc::get_mut(&mut self.active_components).unwrap();
-    //     let now = Instant::now();
-    //     let mut groups_changed = false;
-    //     self.group_deltas.clear();
-    //     for (index, group) in &mut self.groups {
-    //         if group.intersects_camera(aabb.0, aabb.1) {
-    //             group.set_active(true);
-    //             if self.active_groups.insert(index) {
-    //                 self.group_deltas.push(GroupDelta::Add(group.id()));
-    //                 groups_changed = true;
-    //             }
-    //         } else {
-    //             group.set_active(false);
-    //             if self.active_groups.remove(&index) {
-    //                 self.group_deltas.push(GroupDelta::Remove(group.id()));
-    //                 groups_changed = true;
-    //             }
-    //         }
-    //     }
-
-    //     if self.force_update_sets || groups_changed {
-    //         #[cfg(feature = "log")]
-    //         {
-    //             info!("Rebuilding Active Components");
-    //             info!("Now processing {} group(s)", self.active_groups.len());
-    //         }
-    //         self.force_update_sets = false;
-    //         for set in active_components.values_mut() {
-    //             set.clear();
-    //         }
-    //         for index in &self.active_groups {
-    //             let group = self.groups.get_mut(*index).unwrap();
-    //             for (type_index, component_type) in group.types() {
-    //                 if component_type.is_empty() {
-    //                     continue;
-    //                 }
-    //                 let type_id = component_type.type_id();
-    //                 let priority = component_type.config().priority;
-    //                 let key = (priority, type_id);
-    //                 let path = ArenaPath {
-    //                     group_index: *index,
-    //                     type_index,
-    //                 };
-    //                 if let Some(active_component) = active_components.get_mut(&key) {
-    //                     active_component.add(path);
-    //                     active_component.update_time(now);
-    //                 } else {
-    //                     let config = component_type.config();
-    //                     active_components.insert(
-    //                         key,
-    //                         ComponentCluster::new(
-    //                             path,
-    //                             self.component_callbacks.get(&type_id).unwrap().clone(),
-    //                             config.clone(),
-    //                             now,
-    //                         ),
-    //                     );
-    //                 }
-    //             }
-    //         }
-    //         for cluster in active_components.values_mut() {
-    //             cluster.sort(); // Sorting needed for components_mut
-    //         }
-    //         self.active_group_ids = self
-    //             .active_groups
-    //             .iter()
-    //             .map(|i| self.groups[*i].id())
-    //             .collect();
-    //     }
-    // }
-
-    // pub(crate) fn buffer_sets(&mut self, gpu: &Gpu) {
-    //     for group in &self.active_groups {
-    //         if let Some(group) = self.groups.get_mut(*group) {
-    //             for (_, t) in group.types() {
-    //                 t.buffer_data(gpu);
-    //             }
-    //         }
-    //     }
-    // }
-
-    // pub fn force_buffer<C: ComponentController>(&mut self, filter: ComponentFilter) {
-    //     let type_id = C::IDENTIFIER;
-    //     match filter {
-    //         ComponentFilter::All => {
-    //             for group in &mut self.groups {
-    //                 if let Some(component_type) = group.1.type_by_id_mut(type_id) {
-    //                     component_type.set_force_buffer(true);
-    //                 }
-    //             }
-    //         }
-    //         ComponentFilter::Active => {
-    //             for group in self.active_groups.iter() {
-    //                 if let Some(group) = self.groups.get_mut(*group) {
-    //                     if let Some(component_type) = group.type_by_id_mut(type_id) {
-    //                         component_type.set_force_buffer(true);
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //         ComponentFilter::Specific(groups) => {
-    //             for group_id in groups {
-    //                 if let Some(group_index) = self.group_map.get(group_id) {
-    //                     let group = &mut self.groups[*group_index];
-    //                     if let Some(component_type) = group.type_by_id_mut(type_id) {
-    //                         component_type.set_force_buffer(true);
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
-
-    // pub fn add_to_group<C: ComponentController>(
-    //     &mut self,
-    //     group_id: ComponentGroupId,
-    //     component: C,
-    // ) -> ComponentHandle {
-    //     return self.add_components_to_group(group_id, std::iter::once(component))[0];
-    // }
-
-    // pub fn add<C: ComponentController>(&mut self, component: C) -> ComponentHandle {
-    //     return self.add_component_to_group(ComponentGroupId::DEFAULT, component);
-    // }
-
-    // pub fn add_many<I, C: ComponentController>(
-    //     &mut self,
-    //     components: I,
-    // ) -> Vec<ComponentHandle>
-    // where
-    //     I: IntoIterator,
-    //     I::IntoIter: ExactSizeIterator<Item = C>,
-    // {
-    //     return self.add_components_to_group(ComponentGroupId::DEFAULT, components);
-    // }
-
-    // pub fn add_many_to_group<I, C: ComponentController>(
-    //     &mut self,
-    //     group_id: ComponentGroupId,
-    //     components: I,
-    // ) -> Vec<ComponentHandle>
-    // where
-    //     I: IntoIterator,
-    //     I::IntoIter: ExactSizeIterator<Item = C>,
-    // {
-    //     let type_id = C::IDENTIFIER;
-    //     let group_index = self
-    //         .group_map
-    //         .get(&group_id)
-    //         .expect(format!("Group {} does not exist!", group_id.id).as_str());
-    //     let group = &mut self.groups[*group_index];
-
-    //     self.component_callbacks
-    //         .entry(type_id)
-    //         .or_insert_with(|| ComponentCallbacks::new::<C>());
-
-    //     let (type_index, component_type) = if let Some(type_index) = group.type_index(type_id) {
-    //         (*type_index, group.type_mut(*type_index).unwrap())
-    //     } else {
-    //         self.force_update_sets = true;
-    //         group.add_component_type::<C>()
-    //     };
-
-    //     let iter = components.into_iter();
-    //     let mut handles = Vec::with_capacity(iter.len());
-    //     for component in iter {
-    //         self.id_counter += 1;
-    //         let incomplete_handle = ComponentHandle::new(
-    //             ArenaIndex::INVALID,
-    //             type_index,
-    //             *group_index,
-    //             self.id_counter,
-    //             group_id,
-    //         );
-    //         let handle = component_type.add(
-    //             incomplete_handle,
-    //             #[cfg(feature = "physics")]
-    //             self.world.clone(),
-    //             component,
-    //         );
-    //         handles.push(handle);
-    //     }
-
-    //     return handles;
-    // }
-
-    // pub fn add_group(&mut self, group: impl Into<ComponentGroup>) {
-    //     #[allow(unused_mut)]
-    //     let mut group = group.into();
-    //     let group_id = group.id();
-    //     assert_ne!(group_id.id, 0);
-    //     assert!(self.group_map.contains_key(&group_id) == false);
-    //     #[cfg(feature = "physics")]
-    //     for (_, component_type) in group.types() {
-    //         let type_id = component_type.type_id();
-    //         for (_, component) in component_type {
-    //             component
-    //                 .base_mut()
-    //                 .add_to_world(type_id, self.world.clone())
-    //         }
-    //     }
-    //     let index = self.groups.insert(group);
-    //     self.force_update_sets = true;
-    //     self.group_map.insert(group_id, index);
-    // }
-
-    // pub fn remove(&mut self, handle: ComponentHandle) -> Option<BoxedComponent> {
-    //     if let Some(group) = self.groups.get_mut(handle.group_index()) {
-    //         let type_index = handle.type_index();
-    //         if let Some(component_type) = group.type_mut(type_index) {
-    //             if let Some(mut to_remove) = component_type.remove(handle) {
-    //                 to_remove.base_mut().deinit();
-    //                 if component_type.len() == 0 {
-    //                     self.force_update_sets = false;
-    //                     group.remove_type(type_index);
-    //                 }
-    //                 return Some(to_remove);
-    //             }
-    //         }
-    //     }
-    //     return None;
-    // }
-
-    // pub fn remove_all<C: ComponentController>(&mut self, filter: ComponentFilter) {
-    //     let type_id = C::IDENTIFIER;
-
-    //     fn remove(rewrite: &mut bool, group: &mut ComponentGroup, type_id: ComponentTypeId) {
-    //         if let Some(type_index) = group.type_index(type_id).cloned() {
-    //             let component_type = group.type_mut(type_index).unwrap();
-    //             for (_, c) in component_type.iter_mut() {
-    //                 c.base_mut().deinit();
-    //             }
-    //             if component_type.len() == 0 {
-    //                 group.remove_type(type_index);
-    //                 *rewrite = true;
-    //             }
-
-    //             group.remove_type(type_index)
-    //         }
-    //     }
-
-    //     match filter {
-    //         ComponentFilter::All => {
-    //             for (_index, group) in &mut self.groups {
-    //                 remove(&mut self.force_update_sets, group, type_id)
-    //             }
-    //         }
-    //         ComponentFilter::Active => {
-    //             for index in &self.active_groups {
-    //                 if let Some(group) = self.groups.get_mut(*index) {
-    //                     remove(&mut self.force_update_sets, group, type_id)
-    //                 }
-    //             }
-    //         }
-    //         ComponentFilter::Specific(group_ids) => {
-    //             for group_id in group_ids {
-    //                 if let Some(index) = self.group_map.get(&group_id) {
-    //                     let group = self.groups.get_mut(*index).unwrap();
-    //                     remove(&mut self.force_update_sets, group, type_id)
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
-
-    // pub fn remove_group(&mut self, group_id: ComponentGroupId) -> Option<ComponentGroup> {
-    //     if group_id == ComponentGroupId::DEFAULT {
-    //         return None;
-    //     }
-
-    //     if let Some(index) = self.group_map.remove(&group_id) {
-    //         #[cfg(feature = "physics")]
-    //         if let Some(mut group) = self.groups.remove(index) {
-    //             for (_, component_type) in group.types() {
-    //                 for (_, c) in component_type.iter_mut() {
-    //                     c.base_mut().deinit();
-    //                 }
-    //             }
-    //         }
-
-    //         self.force_update_sets = true;
-    //         self.active_groups.remove(&index);
-    //         return self.groups.remove(index);
-    //     }
-    //     return None;
-    // }
-
-    // pub fn active_render<'a, C: ComponentDerive>(
-    //     &'a self,
-    //     active: &ActiveComponents<C>,
-    //     defaults: &'a GpuDefaults,
-    // ) -> ComponentRenderGroup<'a, C> {
-    //     let mut iters = vec![];
-    //     let mut len = 0;
-
-    //     for path in active.paths() {
-    //         if let Some(group) = self.group(path.group_index) {
-    //             if let Some(component_type) = group.type_ref(path.type_index) {
-    //                 let type_len = component_type.len();
-    //                 if type_len > 0 {
-    //                     len += type_len;
-    //                     iters.push((
-    //                         component_type.buffer().unwrap_or(&defaults.empty_instance),
-    //                         ComponentIterRender::new(component_type.iter().enumerate()),
-    //                     ));
-    //                 }
-    //             }
-    //         }
-    //     }
-
-    //     return ComponentRenderGroup::new(iters, len);
-    // }
-
-    // pub fn active<'a, C: ComponentDerive>(
-    //     &'a self,
-    //     active: &ActiveComponents<C>,
-    // ) -> ComponentSet<'a, C> {
-    //     let mut iters = vec![];
-    //     let mut len = 0;
-
-    //     for path in active.paths() {
-    //         if let Some(group) = self.group(path.group_index) {
-    //             if let Some(component_type) = group.type_ref(path.type_index) {
-    //                 let type_len = component_type.len();
-    //                 if type_len > 0 {
-    //                     len += type_len;
-    //                     iters.push(component_type.iter());
-    //                 }
-    //             }
-    //         }
-    //     }
-
-    //     return ComponentSet::new(iters, len);
-    // }
-
-    // pub fn active_mut<'a, C: ComponentDerive>(
-    //     &'a mut self,
-    //     active: &ActiveComponents<C>,
-    // ) -> ComponentSetMut<'a, C> {
-    //     let mut iters = vec![];
-    //     let mut len = 0;
-
-    //     let mut head: &mut [ArenaEntry<_>] = self.groups.as_slice();
-    //     let mut offset = 0;
-    //     for path in active.paths() {
-    //         let split = head.split_at_mut(path.group_index.index() as usize + 1 - offset);
-    //         head = split.1;
-    //         offset += split.0.len();
-    //         match split.0.last_mut().unwrap() {
-    //             ArenaEntry::Occupied { data, .. } => {
-    //                 if let Some(component_type) = data.type_mut(path.type_index) {
-    //                     let type_len = component_type.len();
-    //                     if type_len > 0 {
-    //                         len += type_len;
-    //                         iters.push(component_type.iter_mut());
-    //                     }
-    //                 }
-    //             }
-    //             _ => unreachable!(),
-    //         };
-    //     }
-
-    //     return ComponentSetMut::new(iters, len);
-    // }
-
-    // pub fn components<'a, C: ComponentController>(
-    //     &'a self,
-    //     filter: ComponentFilter,
-    // ) -> ComponentSet<'a, C> {
-    //     let type_id = C::IDENTIFIER;
-    //     let mut iters = vec![];
-    //     let mut len = 0;
-
-    //     match filter {
-    //         ComponentFilter::All => {
-    //             for (_, group) in &self.groups {
-    //                 if let Some(type_index) = group.type_index(type_id) {
-    //                     let component_type = group.type_ref(*type_index).unwrap();
-    //                     let type_len = component_type.len();
-    //                     if type_len > 0 {
-    //                         len += type_len;
-    //                         iters.push(component_type.iter());
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //         ComponentFilter::Active => {
-    //             let key = (C::CONFIG.priority, C::IDENTIFIER);
-    //             if let Some(cluster) = self.active_components.get(&key) {
-    //                 return self.active(&ActiveComponents::new(cluster.paths()));
-    //             }
-    //         }
-    //         ComponentFilter::Specific(group_ids) => {
-    //             for group_id in group_ids {
-    //                 if let Some(index) = self.group_map.get(&group_id) {
-    //                     let group = self.groups.get(*index).unwrap();
-
-    //                     if let Some(type_index) = group.type_index(type_id) {
-    //                         let component_type = group.type_ref(*type_index).unwrap();
-    //                         let type_len = component_type.len();
-    //                         if type_len > 0 {
-    //                             len += type_len;
-    //                             iters.push(component_type.iter());
-    //                         }
-    //                     };
-    //                 }
-    //             }
-    //         }
-    //     };
-
-    //     return ComponentSet::new(iters, len);
-    // }
-
-    // pub fn components_mut<C: ComponentController>(
-    //     &mut self,
-    //     filter: ComponentFilter,
-    // ) -> ComponentSetMut<C> {
-    //     let type_id = C::IDENTIFIER;
-    //     let mut iters = vec![];
-    //     let mut len = 0;
-
-    //     match filter {
-    //         ComponentFilter::All => {
-    //             for (_, group) in &mut self.groups {
-    //                 if let Some(type_index) = group.type_index(type_id) {
-    //                     let component_type = group.type_mut(*type_index).unwrap();
-    //                     let type_len = component_type.len();
-    //                     if type_len > 0 {
-    //                         len += type_len;
-    //                         iters.push(component_type.iter_mut());
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //         ComponentFilter::Active => {
-    //             let key = (C::CONFIG.priority, C::IDENTIFIER);
-    //             if let Some(cluster) = self.active_components.get(&key).cloned() {
-    //                 return self.active_mut(&ActiveComponents::new(&cluster.paths()));
-    //             }
-    //         }
-    //         ComponentFilter::Specific(group_ids) => {
-    //             let mut indices: Vec<ArenaIndex> = group_ids
-    //                 .iter()
-    //                 .filter_map(|group_id| self.group_index(group_id).cloned())
-    //                 .collect();
-    //             indices.sort_by(|a, b| a.index().cmp(&b.index()));
-    //             let mut head: &mut [ArenaEntry<_>] = self.groups.as_slice();
-    //             let mut offset = 0;
-    //             for index in &indices {
-    //                 let split = head.split_at_mut(index.index() as usize + 1 - offset);
-    //                 head = split.1;
-    //                 offset += split.0.len();
-    //                 match split.0.last_mut().unwrap() {
-    //                     ArenaEntry::Occupied { data, .. } => {
-    //                         if let Some(type_index) = data.type_index(type_id) {
-    //                             let component_type = data.type_mut(*type_index).unwrap();
-    //                             let type_len = component_type.len();
-    //                             if type_len > 0 {
-    //                                 len += type_len;
-    //                                 iters.push(component_type.iter_mut());
-    //                             }
-    //                         }
-    //                     }
-    //                     _ => unreachable!(),
-    //                 };
-    //             }
-    //         }
-    //     };
-
-    //     return ComponentSetMut::new(iters, len);
-    // }
-
-    // pub fn boxed_component(&self, handle: ComponentHandle) -> Option<&BoxedComponent> {
-    //     if let Some(group) = self.groups.get(handle.group_index()) {
-    //         if let Some(component_type) = group.type_ref(handle.type_index()) {
-    //             return component_type.component(handle.component_index());
-    //         }
-    //     }
-    //     return None;
-    // }
-
-    // pub fn boxed_component_mut(&mut self, handle: ComponentHandle) -> Option<&mut BoxedComponent> {
-    //     if let Some(group) = self.groups.get_mut(handle.group_index()) {
-    //         if let Some(component_type) = group.type_mut(handle.type_index()) {
-    //             return component_type.component_mut(handle.component_index());
-    //         }
-    //     }
-    //     return None;
-    // }
-
-    // pub fn amount_of_components<C: ComponentController + ComponentDerive>(
-    //     &self,
-    //     group_id: ComponentGroupId,
-    // ) -> usize {
-    //     if let Some(group) = self.group_by_id(group_id) {
-    //         if let Some(component_type) = group.type_by_id(C::IDENTIFIER) {
-    //             return component_type.len();
-    //         }
-    //     }
-    //     return 0;
-    // }
-
-    // pub fn component_by_index<C: ComponentController + ComponentDerive>(
-    //     &self,
-    //     group_id: ComponentGroupId,
-    //     index: u32,
-    // ) -> Option<&C> {
-    //     if let Some(group) = self.group_by_id(group_id) {
-    //         if let Some(component_type) = group.type_by_id(C::IDENTIFIER) {
-    //             if let Some(component) = component_type.index(index as usize) {
-    //                 return component.as_ref().downcast_ref();
-    //             }
-    //         }
-    //     }
-    //     return None;
-    // }
-
-    // pub fn component_by_index_mut<C: ComponentController + ComponentDerive>(
-    //     &mut self,
-    //     group_id: ComponentGroupId,
-    //     index: u32,
-    // ) -> Option<&mut C> {
-    //     if let Some(group) = self.group_by_id_mut(group_id) {
-    //         if let Some(component_type) = group.type_by_id_mut(C::IDENTIFIER) {
-    //             if let Some(component) = component_type.index_mut(index as usize) {
-    //                 return component.as_mut().downcast_mut();
-    //             }
-    //         }
-    //     }
-    //     return None;
-    // }
-
-    // pub fn component<C: ComponentDerive>(&self, handle: ComponentHandle) -> Option<&C> {
-    //     if let Some(group) = self.groups.get(handle.group_index()) {
-    //         if let Some(component_type) = group.type_ref(handle.type_index()) {
-    //             if let Some(component) = component_type.component(handle.component_index()) {
-    //                 return component.as_ref().downcast_ref();
-    //             }
-    //         }
-    //     }
-    //     return None;
-    // }
-
-    // pub fn component_mut<C: ComponentDerive>(&mut self, handle: ComponentHandle) -> Option<&mut C> {
-    //     if let Some(group) = self.groups.get_mut(handle.group_index()) {
-    //         if let Some(component_type) = group.type_mut(handle.type_index()) {
-    //             if let Some(component) = component_type.component_mut(handle.component_index()) {
-    //                 return component.as_mut().downcast_mut();
-    //             }
-    //         }
-    //     }
-    //     return None;
-    // }
-
-    // pub fn does_group_exist(&self, group: ComponentGroupId) -> bool {
-    //     self.group_map.contains_key(&group)
-    // }
-
-    // pub(crate) fn group_mut(&mut self, index: ArenaIndex) -> Option<&mut ComponentGroup> {
-    //     self.groups.get_mut(index)
-    // }
-
-    // pub(crate) fn group(&self, index: ArenaIndex) -> Option<&ComponentGroup> {
-    //     self.groups.get(index)
-    // }
-
-    // pub(crate) fn group_index(&self, id: &ComponentGroupId) -> Option<&ArenaIndex> {
-    //     return self.group_map.get(id);
-    // }
-
-    // pub fn active_group_ids(&self) -> &[ComponentGroupId] {
-    //     return &self.active_group_ids;
-    // }
-
-    // pub fn group_ids(&self) -> impl Iterator<Item = &ComponentGroupId> {
-    //     self.group_map.keys()
-    // }
-
-    // pub fn groups(&self) -> impl Iterator<Item = &ComponentGroup> {
-    //     self.groups.iter().map(|(_, group)| group)
-    // }
-
-    // pub fn groups_mut(&mut self) -> impl Iterator<Item = &mut ComponentGroup> {
-    //     self.groups.iter_mut().map(|(_, group)| group)
-    // }
-
-    // pub fn group_by_id(&self, id: ComponentGroupId) -> Option<&ComponentGroup> {
-    //     if let Some(group_index) = self.group_index(&id) {
-    //         return self.group(*group_index);
-    //     }
-    //     return None;
-    // }
-
-    // pub fn group_by_id_mut(&mut self, id: ComponentGroupId) -> Option<&mut ComponentGroup> {
-    //     if let Some(group_index) = self.group_index(&id) {
-    //         return self.group_mut(*group_index);
-    //     }
-    //     return None;
-    // }
-
-    // #[cfg(feature = "physics")]
-    // pub(crate) fn component_callbacks(&self, type_id: &ComponentTypeId) -> &ComponentCallbacks {
-    //     return self.component_callbacks.get(&type_id).unwrap();
-    // }
-
-    // pub(crate) fn copy_active_components(
-    //     &self,
-    // ) -> Rc<BTreeMap<(i16, ComponentTypeId), ComponentCluster>> {
-    //     return self.active_components.clone();
-    // }
-
-    // pub fn group_deltas(&self) -> &[GroupDelta] {
-    //     &self.group_deltas
-    // }
-
-    // pub fn instance_buffer<C: ComponentController>(
-    //     &self,
-    //     group_id: ComponentGroupId,
-    // ) -> Option<&InstanceBuffer> {
-    //     if let Some(group_index) = self.group_map.get(&group_id) {
-    //         let group = self.groups.get(*group_index).unwrap();
-    //         if let Some(component_type_index) = group.type_index(C::IDENTIFIER) {
-    //             let component_type = group.type_ref(*component_type_index).unwrap();
-    //             return component_type.buffer();
-    //         }
-    //     }
-    //     return None;
-    // }
-
-    // #[cfg(feature = "physics")]
-    // pub(crate) fn collision_event(
-    //     &mut self,
-    // ) -> Result<rapier2d::prelude::CollisionEvent, crossbeam::channel::TryRecvError> {
-    //     self.world.borrow_mut().collision_event()
-    // }
-
-    // #[cfg(feature = "serde")]
-    // pub(crate) fn register_callbacks<C: ComponentController>(&mut self) {
-    //     self.component_callbacks
-    //         .insert(C::IDENTIFIER, ComponentCallbacks::new::<C>());
-    // }
-
-    // #[cfg(feature = "serde")]
-    // pub(crate) fn serialize_groups(
-    //     &self,
-    //     filter: ComponentFilter,
-    // ) -> Vec<Option<(&u32, &ComponentGroup)>> {
-    //     let mut ids = FxHashSet::default();
-    //     match filter {
-    //         ComponentFilter::All => {
-    //             for group_id in self.group_ids() {
-    //                 ids.insert(*group_id);
-    //             }
-    //         }
-    //         ComponentFilter::Active => {
-    //             for group_id in self.active_group_ids() {
-    //                 ids.insert(*group_id);
-    //             }
-    //         }
-    //         ComponentFilter::Specific(group_ids) => {
-    //             for group_id in group_ids {
-    //                 ids.insert(*group_id);
-    //             }
-    //         }
-    //     }
-    //     return self.groups.serialize_groups(ids);
-    // }
-
-    // #[cfg(feature = "serde")]
-    // pub(crate) fn deserialize_groups(&mut self, groups: Arena<ComponentGroup>) {
-    //     for (index, group) in &groups {
-    //         self.group_map.insert(group.id(), index);
-    //     }
-    //     self.groups = groups;
-    // }
 }

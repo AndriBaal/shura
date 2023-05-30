@@ -21,7 +21,7 @@ pub use shura_proc::*;
 #[cfg(target_os = "android")]
 pub use ::winit::platform::android::activity::AndroidApp;
 
-pub(crate) use {data::arena::*, scene::context::ShuraFields};
+pub(crate) use {data::arena::*};
 
 pub use crate::{
     component::{

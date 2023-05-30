@@ -1,54 +1,40 @@
+use crate::{Scene, SceneCreator, Shura};
 use core::panic;
 use rustc_hash::FxHashMap;
-
-use crate::Scene;
+use std::{sync::RwLock, cell::RefCell, rc::Rc};
 
 /// Access to the scenes. [Removing](crate::Context::remove_scene) and [creating](crate::Context::add_scene)
 /// scenes must be done from the [Context](crate::Context).
 pub struct SceneManager {
-    scenes: FxHashMap<u32, Option<Scene>>,
+    pub(crate) scenes: FxHashMap<u32, Rc<RefCell<Scene>>>,
+    pub(crate) remove: Vec<u32>,
+    pub(crate) add: Vec<Box<dyn SceneCreator>>,
     active_scene: u32,
 }
 
 impl SceneManager {
-    pub(crate) fn new(active_scene: u32) -> Self {
-        let mut scenes = FxHashMap::default();
-        scenes.insert(active_scene, None);
+    pub(crate) fn new(active_scene: u32, creator: impl SceneCreator + 'static) -> Self {
         Self {
-            scenes,
             active_scene,
+            remove: Default::default(),
+            scenes: Default::default(),
+            add: vec![Box::new(creator)],
         }
     }
 
-    pub(crate) fn init(&mut self, scene: Scene) {
-        let scene_id = scene.id;
-        self.scenes.insert(scene_id, Some(scene));
+    pub(crate) fn end_scenes(&mut self) -> impl Iterator<Item = (u32, Rc<RefCell<Scene>>)> {
+        std::mem::take(&mut self.scenes).into_iter()
     }
 
-    pub fn does_scene_exist(&self, id: u32) -> bool {
-        self.scenes.contains_key(&id)
-    }
-
-    pub(crate) fn add(&mut self, scene: Scene) {
-        let scene_id = scene.id;
-        if self.scenes.contains_key(&scene_id) {
-            panic!("Scene {} does already exist!", scene_id);
+    pub(crate) fn resize(&mut self) {
+        for scene in self.scenes.values_mut() {
+            let mut scene = scene.borrow_mut();
+            scene.resized = true;
         }
-        self.scenes.insert(scene_id, Some(scene));
     }
 
-    /// Remove a scene by its id.
-    ///
-    /// # Panics
-    /// Panics if the current scene is equal to the removed scene
-    pub(crate) fn remove(&mut self, scene_id: u32) -> Option<Scene> {
-        if let Some(scene) = self.scenes.remove(&scene_id) {
-            if scene.is_none() {
-                panic!("Cannot remove the currently active scene {}!", scene_id);
-            }
-            return scene;
-        }
-        return None;
+    pub fn set_active_scene(&mut self, active_scene: u32) {
+        self.active_scene = active_scene;
     }
 
     pub fn scene_ids(&self) -> impl Iterator<Item = &u32> {
@@ -59,31 +45,24 @@ impl SceneManager {
         self.active_scene
     }
 
-    pub(crate) fn end_scenes(&mut self) -> impl Iterator<Item = (u32, Option<Scene>)> {
-        std::mem::take(&mut self.scenes).into_iter()
+    pub fn does_scene_exist(&self, id: u32) -> bool {
+        self.scenes.contains_key(&id)
     }
 
-    pub(crate) fn resize(&mut self) {
-        for scene in self.scenes.values_mut() {
-            scene.as_mut().unwrap().resized = true;
-        }
+    pub fn add(&mut self, scene: impl SceneCreator + 'static) {
+        self.add.push(Box::new(scene))
     }
 
-    pub fn set_active_scene(&mut self, active_scene: u32) {
-        self.active_scene = active_scene;
+    /// Remove a scene by its id.
+    pub fn remove(&mut self, scene_id: u32) {
+        self.remove.push(scene_id)
     }
 
-    pub(crate) fn borrow_active_scene(&mut self) -> Scene {
-        let active_scene = self.active_scene;
-        if let Some(scene) = self.scenes.get_mut(&active_scene) {
-            return std::mem::replace(scene, None).unwrap();
+    pub(crate) fn get_active_scene(&mut self) -> Rc<RefCell<Scene>> {
+        if let Some(scene) = self.scenes.get(&self.active_scene) {
+            return scene.clone();
         } else {
-            panic!("Cannot find the currently active scene {}!", active_scene);
+            panic!("Cannot find the currently active scene {}!", self.active_scene);
         }
-    }
-
-    pub(crate) fn return_active_scene(&mut self, scene: Scene) {
-        let scene_id = scene.id();
-        let _ = std::mem::replace(self.scenes.get_mut(&scene_id).unwrap(), Some(scene));
     }
 }

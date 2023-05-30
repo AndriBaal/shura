@@ -1,5 +1,6 @@
 use crate::{physics::{RigidBody, RigidBodyHandle, World, Collider}, Vector, BaseComponent, Matrix};
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RigidBodyComponent {
     pub rigid_body_handle: RigidBodyHandle,
 }

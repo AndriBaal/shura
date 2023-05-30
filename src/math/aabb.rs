@@ -1,6 +1,7 @@
 use crate::{Isometry, Vector, Vertex};
 
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct AABB {
     pub min: Vector<f32>,
     pub max: Vector<f32>,

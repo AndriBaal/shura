@@ -1,71 +1,70 @@
 use crate::{
-    ComponentManager, FrameManager, 
-    GlobalStateManager, Gpu, GpuDefaults, Input, Scene,
+    ComponentManager, FrameManager, GlobalStateManager, Gpu, GpuDefaults, Input, Scene,
     SceneCreator, SceneManager, SceneStateManager, ScreenConfig, Shura, Vector, WorldCamera,
 };
 
 #[cfg(feature = "serde")]
-use crate::{SceneSerializer, StateTypeId};
+use crate::{SceneSerializer, StateTypeId, GroupHandle, ComponentTypeId};
 
 #[cfg(feature = "audio")]
 use crate::audio::AudioManager;
 
 #[cfg(feature = "physics")]
-use crate::{physics::World};
+use crate::physics::World;
 
 #[cfg(feature = "gui")]
 use crate::gui::Gui;
 
-pub struct ShuraFields<'a> {
-    pub frame: &'a FrameManager,
-    pub defaults: &'a GpuDefaults,
-    pub input: &'a Input,
-    pub gpu: &'a Gpu,
-    pub end: &'a mut bool,
-    pub scenes: &'a mut SceneManager,
-    pub window: &'a mut winit::window::Window,
-    pub states: &'a mut GlobalStateManager,
-    #[cfg(feature = "gui")]
-    pub gui: &'a mut Gui,
-    #[cfg(feature = "audio")]
-    pub audio: &'a mut AudioManager,
-}
+// pub struct ShuraFields<'a> {
+//     pub frame: &'a FrameManager,
+//     pub defaults: &'a GpuDefaults,
+//     pub input: &'a Input,
+//     pub gpu: &'a Gpu,
+//     pub end: &'a mut bool,
+//     pub scenes: &'a mut SceneManager,
+//     pub window: &'a mut winit::window::Window,
+//     pub states: &'a mut GlobalStateManager,
+//     #[cfg(feature = "gui")]
+//     pub gui: &'a mut Gui,
+//     #[cfg(feature = "audio")]
+//     pub audio: &'a mut AudioManager,
+// }
 
-impl<'a> ShuraFields<'a> {
-    pub(crate) fn from_shura(shura: &'a mut Shura) -> ShuraFields<'a> {
-        Self {
-            frame: &shura.frame,
-            defaults: &shura.defaults,
-            input: &shura.input,
-            gpu: &shura.gpu,
-            end: &mut shura.end,
-            scenes: &mut shura.scenes,
-            window: &mut shura.window,
-            states: &mut shura.states,
-            #[cfg(feature = "gui")]
-            gui: &mut shura.gui,
-            #[cfg(feature = "audio")]
-            audio: &mut shura.audio,
-        }
-    }
+// impl<'a> ShuraFields<'a> {
+//     pub(crate) fn from_shura(shura: &'a mut Shura) -> ShuraFields<'a> {
+//         Self {
+//             frame: &shura.frame,
+//             defaults: &shura.defaults,
+//             input: &shura.input,
+//             gpu: &shura.gpu,
+//             end: &mut shura.end,
+//             scenes: &mut shura.scenes,
+//             window: &mut shura.window,
+//             states: &mut shura.states,
+//             #[cfg(feature = "gui")]
+//             gui: &mut shura.gui,
+//             #[cfg(feature = "audio")]
+//             audio: &mut shura.audio,
+//         }
+//     }
 
-    pub fn from_ctx(ctx: &'a mut Context) -> ShuraFields<'a> {
-        Self {
-            frame: ctx.frame,
-            defaults: ctx.defaults,
-            input: ctx.input,
-            gpu: ctx.gpu,
-            end: ctx.end,
-            scenes: ctx.scenes,
-            window: ctx.window,
-            states: ctx.global_states,
-            #[cfg(feature = "gui")]
-            gui: ctx.gui,
-            #[cfg(feature = "audio")]
-            audio: ctx.audio,
-        }
-    }
-}
+//     pub fn from_ctx(ctx: &'a mut Context) -> ShuraFields<'a> {
+//         Self {
+//             frame: ctx.frame,
+//             defaults: ctx.defaults,
+//             input: ctx.input,
+//             gpu: ctx.gpu,
+//             end: ctx.end,
+//             scenes: ctx.scenes,
+//             window: ctx.window,
+//             states: ctx.global_states,
+//             #[cfg(feature = "gui")]
+//             gui: ctx.gui,
+//             #[cfg(feature = "audio")]
+//             audio: ctx.audio,
+//         }
+//     }
+// }
 
 /// Context to communicate with the game engine to access components, scenes, camera, physics and much more.
 /// The Context provides easy access to the most common methods. Some methods are not present in the
@@ -140,44 +139,43 @@ impl<'a> Context<'a> {
         }
     }
 
-    pub(crate) fn from_fields(shura: ShuraFields<'a>, scene: &'a mut Scene) -> Context<'a> {
-        let mint: mint::Vector2<u32> = shura.window.inner_size().into();
-        let window_size = mint.into();
-        Self {
-            scene_id: &scene.id,
-            scene_resized: &scene.resized,
-            scene_started: &scene.started,
-            scene_switched: &scene.switched,
-            render_components: &mut scene.render_components,
-            screen_config: &mut scene.screen_config,
-            world_camera: &mut scene.world_camera,
-            components: &mut scene.components,
-            scene_states: &mut scene.states,
-            #[cfg(feature = "physics")]
-            world: &mut scene.world,
+    // pub(crate) fn from_fields(shura: ShuraFields<'a>, scene: &'a mut Scene) -> Context<'a> {
+    //     let mint: mint::Vector2<u32> = shura.window.inner_size().into();
+    //     let window_size = mint.into();
+    //     Self {
+    //         scene_id: &scene.id,
+    //         scene_resized: &scene.resized,
+    //         scene_started: &scene.started,
+    //         scene_switched: &scene.switched,
+    //         render_components: &mut scene.render_components,
+    //         screen_config: &mut scene.screen_config,
+    //         world_camera: &mut scene.world_camera,
+    //         components: &mut scene.components,
+    //         scene_states: &mut scene.states,
+    //         #[cfg(feature = "physics")]
+    //         world: &mut scene.world,
 
-            // Shura
-            frame: shura.frame,
-            defaults: shura.defaults,
-            input: shura.input,
-            gpu: shura.gpu,
-            end: shura.end,
-            scenes: shura.scenes,
-            window: shura.window,
-            global_states: shura.states,
-            #[cfg(feature = "gui")]
-            gui: shura.gui,
-            #[cfg(feature = "audio")]
-            audio: shura.audio,
+    //         // Shura
+    //         frame: shura.frame,
+    //         defaults: shura.defaults,
+    //         input: shura.input,
+    //         gpu: shura.gpu,
+    //         end: shura.end,
+    //         scenes: shura.scenes,
+    //         window: shura.window,
+    //         global_states: shura.states,
+    //         #[cfg(feature = "gui")]
+    //         gui: shura.gui,
+    //         #[cfg(feature = "audio")]
+    //         audio: shura.audio,
 
-            window_size,
-        }
-    }
+    //         window_size,
+    //     }
+    // }
 
     #[cfg(feature = "serde")]
     pub fn serialize_scene(
         &mut self,
-        filter: ComponentFilter,
         mut serialize: impl FnMut(&mut SceneSerializer),
     ) -> Result<Vec<u8>, Box<bincode::ErrorKind>> {
         use rustc_hash::FxHashMap;
@@ -185,7 +183,7 @@ impl<'a> Context<'a> {
         let components = &self.components;
 
         let mut serializer =
-            SceneSerializer::new(components, &self.global_states, &self.scene_states, filter);
+            SceneSerializer::new(components, &self.global_states, &self.scene_states);
         (serialize)(&mut serializer);
 
         #[derive(serde::Serialize)]
@@ -194,59 +192,56 @@ impl<'a> Context<'a> {
             resized: bool,
             switched: bool,
             started: bool,
+            render_components: bool,
             screen_config: &'a ScreenConfig,
             world_camera: &'a WorldCamera,
             components: &'a ComponentManager,
+            #[cfg(feature = "physics")]
+            world: &'a World
         }
 
         #[cfg(feature = "physics")]
         {
-            use std::mem;
-            let (groups, ser_components, ser_scene_state, ser_global_state, body_handles) =
+            let (ser_components, ser_scene_state, ser_global_state, body_handles, collider_handles) =
                 serializer.finish();
-            let mut world = self.components.world.borrow_mut();
-            let mut world_cpy = world.clone();
-            let mut to_remove = vec![];
-            for (body_handle, _body) in world.bodies().iter() {
-                if !body_handles.contains(&body_handle) {
-                    to_remove.push(body_handle);
-                }
-            }
+            let mut world_cpy = self.world.clone();
+            // let mut to_remove = vec![];
+            // for (body_handle, _body) in self.world.bodies().iter() {
+            //     if !body_handles.contains(&body_handle) {
+            //         to_remove.push(body_handle);
+            //     }
+            // }
 
-            for to_remove in to_remove {
-                world_cpy.remove_body(to_remove);
-            }
+            // for to_remove in to_remove {
+            //     world_cpy.remove_body(to_remove);
+            // }
 
-            let old_world = mem::replace(world.deref_mut(), world_cpy);
+            // let old_world = mem::replace(world.deref_mut(), world_cpy);
 
-            drop(world);
 
             let scene = Scene {
                 id: *self.scene_id,
                 resized: true,
                 switched: true,
                 started: true,
+                render_components: *self.render_components,
                 screen_config: self.screen_config,
                 world_camera: self.world_camera,
                 components: self.components,
+                world: &world_cpy
             };
             let scene: (
                 &Scene,
-                Vec<Option<(&u32, &ComponentGroup)>>,
-                FxHashMap<ComponentTypeId, Vec<(ComponentGroupId, Vec<Option<(u32, Vec<u8>)>>)>>,
+                FxHashMap<ComponentTypeId, Vec<(GroupHandle, Vec<Option<(u32, Vec<u8>)>>)>>,
                 FxHashMap<StateTypeId, Vec<u8>>,
                 FxHashMap<StateTypeId, Vec<u8>>,
             ) = (
                 &scene,
-                groups,
                 ser_components,
                 ser_scene_state,
                 ser_global_state,
             );
             let result = bincode::serialize(&scene);
-
-            *self.components.world.borrow_mut() = old_world;
-
             return result;
         }
 
@@ -264,13 +259,11 @@ impl<'a> Context<'a> {
             };
             let scene: (
                 &Scene,
-                Vec<Option<(&u32, &ComponentGroup)>>,
                 FxHashMap<ComponentTypeId, Vec<(ComponentGroupId, Vec<Option<(u32, Vec<u8>)>>)>>,
                 FxHashMap<StateTypeId, Vec<u8>>,
                 FxHashMap<StateTypeId, Vec<u8>>,
             ) = (
                 &scene,
-                groups,
                 ser_components,
                 ser_scene_state,
                 ser_global_state,
@@ -280,20 +273,19 @@ impl<'a> Context<'a> {
         }
     }
 
-    pub fn remove_scene(&mut self, id: u32) -> Option<Scene> {
-        if let Some(mut scene) = self.scenes.remove(id) {
-            for end in scene.states.ends() {
-                let mut ctx = Context::from_fields(ShuraFields::from_ctx(self), &mut scene);
-                end(&mut ctx);
-            }
-            return Some(scene);
-        }
-        return None;
-    }
+    // pub fn remove_scene(&mut self, id: u32) -> Option<Scene> {
+    //     if let Some(mut scene) = self.scenes.remove(id) {
+    //         for end in scene.states.ends() {
+    //             let mut ctx = Context::from_fields(ShuraFields::from_ctx(self), &mut scene);
+    //             end(&mut ctx);
+    //         }
+    //         return Some(scene);
+    //     }
+    //     return None;
+    // }
 
-    pub fn add_scene(&mut self, scene: impl SceneCreator) {
-        let scene = scene.scene(ShuraFields::from_ctx(self));
-        self.scenes.add(scene);
-    }
-
+    // pub fn add_scene(&mut self, scene: impl SceneCreator) {
+    //     let scene = scene.scene(ShuraFields::from_ctx(self));
+    //     self.scenes.add(scene);
+    // }
 }

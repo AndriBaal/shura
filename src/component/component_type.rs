@@ -91,9 +91,14 @@ pub trait ComponentIdentifier {
     const IDENTIFIER: ComponentTypeId;
 }
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct ComponentTypeGroup {
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[cfg_attr(feature = "serde", serde(default))]
     pub components: Arena<BoxedComponent>,
     pub force_buffer: bool,
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[cfg_attr(feature = "serde", serde(default))]
     buffer: Option<InstanceBuffer>,
     last_len: usize
 }
@@ -157,25 +162,25 @@ pub(crate) struct CallableType {
 }
 
 impl CallableType {
-    pub fn new(ty: &ComponentType) -> CallableType {
+    pub fn new<C: ComponentController>() -> CallableType {
         Self {
-            last_update: match &ty.config.update {
+            last_update: match &C::CONFIG.update {
                 crate::UpdateOperation::AfterDuration(_) => Some(Instant::now()),
                 _ => None,
             },
-            callbacks: ty.callbacks,
-            config: ty.config,
+            callbacks: ComponentCallbacks::new::<C>(),
+            config: C::CONFIG,
         }
     }
 }
 
-// #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]group
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct ComponentType {
     pub groups: Arena<ComponentTypeGroup>,
+    // callbacks: ComponentCallbacks,
     index: TypeIndex,
     type_id: ComponentTypeId,
     config: ComponentConfig,
-    callbacks: ComponentCallbacks,
     #[cfg(feature = "physics")]
     world_changes: WorldChanges
 }
@@ -207,7 +212,6 @@ impl ComponentType {
             groups,
             config,
             type_id: C::IDENTIFIER,
-            callbacks: ComponentCallbacks::new::<C>(),
             world_changes: WorldChanges::new()
         }
     }
@@ -248,10 +252,6 @@ impl ComponentType {
         for component in _group.components {
             self.world_changes.register_remove(&component);
         }
-    }
-
-    pub(crate) fn callbacks(&self) -> &ComponentCallbacks {
-        &self.callbacks
     }
 
     #[cfg(feature = "physics")]

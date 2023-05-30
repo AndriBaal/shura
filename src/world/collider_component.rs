@@ -3,6 +3,7 @@ use crate::{
     BaseComponent, Matrix, Vector,
 };
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ColliderComponent {
     pub collider_handle: ColliderHandle,
 }

@@ -2,26 +2,14 @@
 use crate::physics::World;
 
 use crate::{
-    ComponentManager, Context, SceneStateManager, ScreenConfig, ShuraFields, Vector, WorldCamera,
-    WorldCameraScale,
+    ComponentManager, Context, SceneStateManager, ScreenConfig, Vector, WorldCamera,
+    WorldCameraScale, Shura,
 };
 
 /// Origin of a [Scene]
 pub trait SceneCreator {
-    fn id(&self) -> u32;
-    fn create(self, shura: ShuraFields) -> Scene;
-    fn scene(self, shura: ShuraFields) -> Scene
-    where
-        Self: Sized,
-    {
-        let id = self.id();
-        let mut scene = self.create(shura);
-        scene.id = id;
-        scene.started = true;
-        scene.resized = true;
-        scene.switched = true;
-        return scene;
-    }
+    fn new_id(&self) -> u32;
+    fn create(self: Box<Self>, shura: &mut Shura) -> Scene;
 }
 
 /// Create a new [Scene] from scratch
@@ -37,15 +25,19 @@ impl<N: 'static + FnMut(&mut Context)> NewScene<N> {
 }
 
 impl<N: 'static + FnMut(&mut Context)> SceneCreator for NewScene<N> {
-    fn id(&self) -> u32 {
+    fn new_id(&self) -> u32 {
         self.id
     }
 
-    fn create(mut self, shura: ShuraFields) -> Scene {
+    fn create(mut self: Box<Self>, shura: &mut Shura) -> Scene {
         let mint: mint::Vector2<u32> = shura.window.inner_size().into();
         let window_size: Vector<u32> = mint.into();
         let mut scene = Scene::new(window_size, self.id);
-        let mut ctx = Context::from_fields(shura, &mut scene);
+        scene.id = self.id;
+        scene.started = true;
+        scene.resized = true;
+        scene.switched = true;
+        let mut ctx = Context::new(shura, &mut scene);
         (self.init)(&mut ctx);
         return scene;
     }
@@ -65,15 +57,19 @@ impl<N: 'static + FnMut(&mut Context)> RecycleScene<N> {
 }
 
 impl<N: 'static + FnMut(&mut Context)> SceneCreator for RecycleScene<N> {
-    fn id(&self) -> u32 {
+    fn new_id(&self) -> u32 {
         self.id
     }
 
-    fn create(mut self, shura: ShuraFields) -> Scene {
+    fn create(mut self: Box<Self>, shura: &mut Shura) -> Scene {
         let mint: mint::Vector2<u32> = shura.window.inner_size().into();
         let window_size: Vector<u32> = mint.into();
         self.scene.world_camera.resize(window_size);
-        let mut ctx = Context::from_fields(shura, &mut self.scene);
+        self.scene.id = self.id;
+        self.scene.started = true;
+        self.scene.resized = true;
+        self.scene.switched = true;
+        let mut ctx = Context::new(shura, &mut self.scene);
         (self.init)(&mut ctx);
         return self.scene;
     }
