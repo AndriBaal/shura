@@ -4,8 +4,6 @@ use crate::{
 };
 use std::marker::PhantomData;
 
-#[cfg(feature = "physics")]
-use crate::physics::World;
 
 #[derive(Clone, Copy)]
 pub struct ComponentSet<'a, C: ComponentController> {
@@ -76,8 +74,7 @@ impl<'a, C: ComponentController> ComponentSetMut<'a, C> {
 
     pub fn retain(
         &mut self,
-        #[cfg(feature = "physics")] keep: impl FnMut(&mut C) -> bool,
-        #[cfg(not(feature = "physics"))] keep: impl FnMut(&mut C, &mut World) -> bool,
+        keep: impl FnMut(&mut C) -> bool
     ) {
         self.ty.retain(self.groups, keep);
     }

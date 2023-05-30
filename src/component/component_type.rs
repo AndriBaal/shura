@@ -176,13 +176,12 @@ impl CallableType {
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct ComponentType {
-    pub groups: Arena<ComponentTypeGroup>,
-    // callbacks: ComponentCallbacks,
     index: TypeIndex,
     type_id: ComponentTypeId,
     config: ComponentConfig,
+    pub groups: Arena<ComponentTypeGroup>,
     #[cfg(feature = "physics")]
-    world_changes: WorldChanges
+    pub world_changes: WorldChanges
 }
 
 impl ComponentType {
@@ -212,6 +211,7 @@ impl ComponentType {
             groups,
             config,
             type_id: C::IDENTIFIER,
+            #[cfg(feature = "physics")]
             world_changes: WorldChanges::new()
         }
     }
@@ -252,6 +252,11 @@ impl ComponentType {
         for component in _group.components {
             self.world_changes.register_remove(&component);
         }
+    }
+
+    #[cfg(all(feature = "serde", feature = "physics"))]
+    pub fn type_id(&self) -> ComponentTypeId {
+        self.type_id
     }
 
     #[cfg(feature = "physics")]

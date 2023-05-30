@@ -1,9 +1,6 @@
-use std::{cell::RefCell, rc::Rc};
-
 use crate::{
     physics::{ColliderComponent, RigidBodyComponent},
-    BaseComponent, BoxedComponent, ComponentController, ComponentDerive, ComponentHandle,
-    ComponentManager, ComponentTypeId,
+    ComponentHandle,
 };
 use rapier2d::prelude::*;
 use rustc_hash::FxHashMap;
@@ -276,20 +273,11 @@ impl World {
 
     pub fn attach_collider(
         &mut self,
-        components: &ComponentManager,
-        component_handle: ComponentHandle,
-        colliders: impl IntoIterator<Item = impl Into<Collider>>,
-    ) {
-        todo!();
-    }
-
-    pub fn remove_attached_colliders(
-        &mut self,
-        components: &ComponentManager,
-        component_handle: ComponentHandle,
-        collider_handles: &[ColliderHandle],
-    ) {
-        todo!();
+        rigid_body_handle: RigidBodyHandle,
+        collider: impl Into<Collider>,
+    ) -> ColliderHandle {
+        self.colliders
+            .insert_with_parent(collider, rigid_body_handle, &mut self.bodies)
     }
 
     pub(crate) fn step(&mut self, delta: f32) {

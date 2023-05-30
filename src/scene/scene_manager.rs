@@ -1,7 +1,7 @@
-use crate::{Scene, SceneCreator, Shura};
+use crate::{Scene, SceneCreator};
 use core::panic;
 use rustc_hash::FxHashMap;
-use std::{sync::RwLock, cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 
 /// Access to the scenes. [Removing](crate::Context::remove_scene) and [creating](crate::Context::add_scene)
 /// scenes must be done from the [Context](crate::Context).

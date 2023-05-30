@@ -128,7 +128,7 @@ impl PositionComponent {
 }
 
 impl BaseComponent for PositionComponent {
-    fn matrix(&self, #[cfg(feature="physics")] world: &World) -> Matrix {
+    fn matrix(&self, #[cfg(feature="physics")] _world: &World) -> Matrix {
         self.matrix
     }
 }

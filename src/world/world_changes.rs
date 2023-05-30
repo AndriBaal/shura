@@ -24,6 +24,7 @@ enum WorldChange {
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Default)]
 pub(crate) struct WorldChanges {
     changes: Vec<WorldChange>,
 }

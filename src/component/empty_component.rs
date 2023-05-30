@@ -6,7 +6,7 @@ use crate::physics::World;
 pub struct EmptyComponent;
 
 impl BaseComponent for EmptyComponent {
-    fn matrix(&self, #[cfg(feature="physics")] world: &World) -> Matrix {
+    fn matrix(&self, #[cfg(feature="physics")] _world: &World) -> Matrix {
         Matrix::default()
     }
 }

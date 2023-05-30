@@ -1,12 +1,10 @@
 use super::arena::{Arena, ArenaEntry, ArenaIndex, DEFAULT_CAPACITY};
 use crate::BoxedComponent;
 use crate::ComponentDerive;
-use crate::ComponentGroup;
 use core::cmp;
 use core::fmt;
 use core::iter;
 use core::marker::PhantomData;
-use rustc_hash::FxHashSet;
 use serde::de::{Deserialize, Deserializer, SeqAccess, Visitor};
 use serde::ser::Serializer;
 use serde::Serialize;

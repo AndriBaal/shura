@@ -21,7 +21,7 @@ pub use shura_proc::*;
 #[cfg(target_os = "android")]
 pub use ::winit::platform::android::activity::AndroidApp;
 
-pub(crate) use {data::arena::*};
+pub(crate) use data::arena::*;
 
 pub use crate::{
     component::{
@@ -71,9 +71,8 @@ mod world;
 #[cfg(feature = "physics")]
 /// Access to the to [rapier2d](https://github.com/dimforge/rapier)
 pub mod physics {
-    pub use crate::world::{
-        collider_component::*, rigid_body_component::*, world::*, world_changes::*,
-    };
+    pub(crate) use crate::world::world_changes::*;
+    pub use crate::world::{collider_component::*, rigid_body_component::*, world::*};
     pub use rapier2d::geometry::*;
     pub use rapier2d::parry;
     pub use rapier2d::prelude::{

@@ -1,10 +1,10 @@
 use crate::{
     ComponentManager, FrameManager, GlobalStateManager, Gpu, GpuDefaults, Input, Scene,
-    SceneCreator, SceneManager, SceneStateManager, ScreenConfig, Shura, Vector, WorldCamera,
+    SceneManager, SceneStateManager, ScreenConfig, Shura, Vector, WorldCamera,
 };
 
 #[cfg(feature = "serde")]
-use crate::{SceneSerializer, StateTypeId, GroupHandle, ComponentTypeId};
+use crate::{ComponentTypeId, GroupHandle, SceneSerializer, StateTypeId};
 
 #[cfg(feature = "audio")]
 use crate::audio::AudioManager;
@@ -197,27 +197,26 @@ impl<'a> Context<'a> {
             world_camera: &'a WorldCamera,
             components: &'a ComponentManager,
             #[cfg(feature = "physics")]
-            world: &'a World
+            world: &'a World,
         }
 
         #[cfg(feature = "physics")]
         {
-            let (ser_components, ser_scene_state, ser_global_state, body_handles, collider_handles) =
-                serializer.finish();
+            use crate::physics::WorldChanges;
+            let (ser_components, ser_scene_state, ser_global_state) = serializer.finish();
             let mut world_cpy = self.world.clone();
-            // let mut to_remove = vec![];
-            // for (body_handle, _body) in self.world.bodies().iter() {
-            //     if !body_handles.contains(&body_handle) {
-            //         to_remove.push(body_handle);
-            //     }
-            // }
+            let mut changes = WorldChanges::default();
 
-            // for to_remove in to_remove {
-            //     world_cpy.remove_body(to_remove);
-            // }
-
-            // let old_world = mem::replace(world.deref_mut(), world_cpy);
-
+            for (_, ty) in self.components.types() {
+                if !ser_components.contains_key(&ty.type_id()) {
+                    for (_, group) in &ty.groups {
+                        for (_, component) in &group.components {
+                            changes.register_remove(component);
+                        }
+                    }
+                }
+            }
+            changes.apply(&mut world_cpy);
 
             let scene = Scene {
                 id: *self.scene_id,
@@ -228,26 +227,21 @@ impl<'a> Context<'a> {
                 screen_config: self.screen_config,
                 world_camera: self.world_camera,
                 components: self.components,
-                world: &world_cpy
+                world: &world_cpy,
             };
             let scene: (
                 &Scene,
                 FxHashMap<ComponentTypeId, Vec<(GroupHandle, Vec<Option<(u32, Vec<u8>)>>)>>,
                 FxHashMap<StateTypeId, Vec<u8>>,
                 FxHashMap<StateTypeId, Vec<u8>>,
-            ) = (
-                &scene,
-                ser_components,
-                ser_scene_state,
-                ser_global_state,
-            );
+            ) = (&scene, ser_components, ser_scene_state, ser_global_state);
             let result = bincode::serialize(&scene);
             return result;
         }
 
         #[cfg(not(feature = "physics"))]
         {
-            let (groups, ser_components, ser_scene_state, ser_global_state) = serializer.finish();
+            let (ser_components, ser_scene_state, ser_global_state) = serializer.finish();
             let scene = Scene {
                 id: *self.scene_id,
                 resized: true,
@@ -256,18 +250,14 @@ impl<'a> Context<'a> {
                 screen_config: self.screen_config,
                 world_camera: self.world_camera,
                 components: self.components,
+                render_components: *self.render_components
             };
             let scene: (
                 &Scene,
-                FxHashMap<ComponentTypeId, Vec<(ComponentGroupId, Vec<Option<(u32, Vec<u8>)>>)>>,
+                FxHashMap<ComponentTypeId, Vec<(GroupHandle, Vec<Option<(u32, Vec<u8>)>>)>>,
                 FxHashMap<StateTypeId, Vec<u8>>,
                 FxHashMap<StateTypeId, Vec<u8>>,
-            ) = (
-                &scene,
-                ser_components,
-                ser_scene_state,
-                ser_global_state,
-            );
+            ) = (&scene, ser_components, ser_scene_state, ser_global_state);
             let result = bincode::serialize(&scene);
             return result;
         }

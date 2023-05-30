@@ -159,7 +159,6 @@ impl ComponentManager {
     ) -> Rc<RefCell<BTreeMap<(i16, ComponentTypeId), TypeIndex>>> {
         if self.new_priorities.len() > 0 {
             let mut priorities = self.priorities.borrow_mut();
-            println!("{}", self.new_priorities.len());
             for (priority, type_id, index) in self.new_priorities.drain(..) {
                 priorities.insert((priority, type_id), index);
             }
@@ -187,6 +186,11 @@ impl ComponentManager {
     #[cfg(feature = "serde")]
     pub(crate) fn type_mut<C: ComponentController>(&mut self) -> &mut ComponentType {
         type_mut!(self, C)
+    }
+
+    #[cfg(all(feature = "serde", feature = "physics"))]
+    pub(crate) fn types(&self) -> &Arena<ComponentType> {
+        &self.types
     }
 
     #[cfg(feature = "physics")]
@@ -325,8 +329,7 @@ impl ComponentManager {
     pub fn retain<C: ComponentController>(
         &mut self,
         filter: ComponentFilter,
-        #[cfg(feature = "physics")] keep: impl FnMut(&mut C) -> bool,
-        #[cfg(not(feature = "physics"))] keep: impl FnMut(&mut C, &mut World) -> bool,
+        keep: impl FnMut(&mut C) -> bool,
     ) {
         let groups = group_filter!(self, filter);
         let ty = type_mut!(self, C);

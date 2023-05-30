@@ -1,22 +1,16 @@
-#[cfg(feature = "physics")]
-use crate::physics::RigidBodyHandle;
 use bincode::{
     config::{AllowTrailing, FixintEncoding, WithOtherIntEncoding, WithOtherTrailing},
     de::read::SliceReader,
     DefaultOptions, Options,
 };
-use rapier2d::prelude::ColliderHandle;
 use rustc_hash::FxHashMap;
-#[cfg(feature = "physics")]
-use rustc_hash::FxHashSet;
 use serde::{de::Visitor, Deserializer, Serialize};
 use std::{cmp, marker::PhantomData};
 
 use crate::{
-    Arena, ArenaEntry, BoxedComponent, ComponentController, ComponentFilter, ComponentGroup,
-    ComponentManager, ComponentTypeId, Context, FieldNames, GlobalStateController,
-    GlobalStateManager, GroupHandle, Scene, SceneCreator, SceneStateController, SceneStateManager,
-    StateIdentifier, StateTypeId, Shura,
+    Arena, ArenaEntry, BoxedComponent, ComponentController, ComponentManager, ComponentTypeId,
+    Context, FieldNames, GlobalStateController, GlobalStateManager, GroupHandle, Scene,
+    SceneCreator, SceneStateController, SceneStateManager, Shura, StateIdentifier, StateTypeId,
 };
 
 /// Helper to serialize [Components](crate::Component) and [States](crate::State) of a [Scene]
@@ -27,11 +21,7 @@ pub struct SceneSerializer<'a> {
 
     ser_components: FxHashMap<ComponentTypeId, Vec<(GroupHandle, Vec<Option<(u32, Vec<u8>)>>)>>,
     ser_scene_states: FxHashMap<StateTypeId, Vec<u8>>,
-    ser_global_states: FxHashMap<StateTypeId, Vec<u8>>,
-    #[cfg(feature = "physics")]
-    body_handles: FxHashSet<RigidBodyHandle>,
-    #[cfg(feature = "physics")]
-    collider_handles: FxHashSet<ColliderHandle>,
+    ser_global_states: FxHashMap<StateTypeId, Vec<u8>>
 }
 
 impl<'a> SceneSerializer<'a> {
@@ -46,47 +36,24 @@ impl<'a> SceneSerializer<'a> {
             scene_states,
             ser_components: Default::default(),
             ser_scene_states: Default::default(),
-            ser_global_states: Default::default(),
-            #[cfg(feature = "physics")]
-            body_handles: Default::default(),
-            #[cfg(feature = "physics")]
-            collider_handles: Default::default(),
+            ser_global_states: Default::default()
         }
     }
 
-    #[cfg(feature = "physics")]
     pub(crate) fn finish(
         self,
     ) -> (
         FxHashMap<ComponentTypeId, Vec<(GroupHandle, Vec<Option<(u32, Vec<u8>)>>)>>,
         FxHashMap<StateTypeId, Vec<u8>>,
         FxHashMap<StateTypeId, Vec<u8>>,
-        FxHashSet<RigidBodyHandle>,
-        FxHashSet<ColliderHandle>,
     ) {
         (
             self.ser_components,
             self.ser_scene_states,
             self.ser_global_states,
-            self.body_handles,
-            self.collider_handles,
         )
     }
 
-    #[cfg(not(feature = "physics"))]
-    pub(crate) fn finish(
-        self,
-    ) -> (
-        FxHashMap<ComponentTypeId, Vec<(GroupHandle, Vec<Option<(u32, Vec<u8>)>>)>>,
-        FxHashMap<StateTypeId, Vec<u8>>,
-        FxHashMap<StateTypeId, Vec<u8>>,
-    ) {
-        (
-            self.ser_components,
-            self.ser_scene_state,
-            self.ser_global_state,
-        )
-    }
 
     pub fn serialize_components<C: ComponentController + serde::Serialize>(&mut self) {
         let ty = self.components.type_ref::<C>();
