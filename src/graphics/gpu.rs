@@ -200,7 +200,7 @@ impl Gpu {
 
         let target = self.create_render_target(texture_size);
         let mut encoder = RenderEncoder::new(self, defaults);
-        encoder.render_text(RenderConfigTarget::Custom(&target), self, descriptor);
+        encoder.render_text(RenderConfigTarget::Custom(&target), descriptor);
         encoder.finish();
         return target;
     }

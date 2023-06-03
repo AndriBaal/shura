@@ -49,6 +49,10 @@ impl Camera {
         self.proj
     }
 
+    pub fn view_proj(&self) -> Matrix {
+        self.view() * self.proj()
+    }
+
     pub fn rotation(&self) -> &Rotation<f32> {
         &self.position.rotation
     }

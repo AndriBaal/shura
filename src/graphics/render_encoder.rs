@@ -130,12 +130,8 @@ impl<'a> RenderEncoder<'a> {
     pub fn render_text(
         &mut self,
         target: RenderConfigTarget,
-        gpu: &Gpu,
         descriptor: TextDescriptor,
     ) {
-        if let Some(color) = descriptor.clear_color {
-            self.clear(target, color);
-        }
         let target = match target {
             crate::RenderConfigTarget::World => &self.defaults.world_target,
             crate::RenderConfigTarget::Custom(c) => c,
@@ -153,12 +149,64 @@ impl<'a> RenderEncoder<'a> {
             .font
             .brush
             .draw_queued(
-                &gpu.device,
+                &self.gpu.device,
                 &mut staging_belt,
                 &mut self.inner,
                 target.view(),
                 (descriptor.resolution * target_size.x as f32) as u32,
                 (descriptor.resolution * target_size.y as f32) as u32,
+            )
+            .expect("Draw queued");
+
+        staging_belt.finish();
+    }
+
+
+    #[cfg(feature = "text")]
+    pub fn render_text_test(
+        &mut self,
+        config: RenderConfig,
+        descriptor: TextDescriptor,
+        camera: &crate::Camera,
+        offset: crate::Vector<f32>
+    ) {
+        if let Some(color) = config.clear_color {
+            self.clear(config.target, color);
+        }
+
+        let target = match config.target {
+            RenderConfigTarget::World => &self.defaults.world_target,
+            RenderConfigTarget::Custom(c) => c,
+        };
+        let mut staging_belt = wgpu::util::StagingBelt::new(1024);
+        for section in descriptor.sections {
+            descriptor
+                .font
+                .brush
+                .queue(section.to_glyph_section(descriptor.resolution));
+        }
+
+        // let mut matrix = wgpu_glyph::orthographic_projection(100, 100);
+        // let rotation = crate::Rotation::new(1.0_f32.to_radians());
+        // let s = rotation.sin_angle();
+        // let c = rotation.cos_angle();
+        // matrix[0] = c;
+        // matrix[1] = s;
+        // matrix[4] = -s;
+        // matrix[5] = c;
+        descriptor
+            .font
+            .brush
+            .draw_queued(
+                &self.gpu.device,
+                &mut staging_belt,
+                &mut self.inner,
+                target.view(),
+                (descriptor.resolution * target.size().x as f32) as u32,
+                (descriptor.resolution * target.size().y as f32) as u32,
+                // matrix
+                // crate::Matrix::new(crate::Isometry::new(crate::Vector::default(), 0.0), crate::Vector::new(1.0, 1.0)).into()
+                // (camera.view_proj() * crate::Matrix::NULL_MODEL * crate::Vector4::new(offset.x, offset.y, -1.0, 1.0)).into()
             )
             .expect("Draw queued");
 

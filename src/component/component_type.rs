@@ -1,6 +1,7 @@
 use std::{
+    fmt::{Display, Formatter, Result},
     iter::{Enumerate, Flatten, Map},
-    vec::IntoIter, fmt::{Display, Formatter, Result},
+    vec::IntoIter,
 };
 
 use instant::Instant;
@@ -14,23 +15,32 @@ use crate::{
     ComponentGroup, ComponentHandle, ComponentIndex, Context, Gpu, GroupHandle, InstanceBuffer,
     InstanceIndex, Matrix, RenderEncoder, TypeIndex,
 };
-
-pub type ComponentIterSingleGroup<'a, C> =
-    IntoIter<Map<ArenaIter<'a, BoxedComponent>, fn((ArenaIndex, &'a BoxedComponent)) -> &'a C>>;
-
-pub type ComponentIterSingleGroupMut<'a, C> = IntoIter<
-    Map<ArenaIterMut<'a, BoxedComponent>, fn((ArenaIndex, &'a mut BoxedComponent)) -> &'a mut C>,
->;
-
-pub type ComponentIter<'a, C> = Flatten<ComponentIterSingleGroup<'a, C>>;
-pub type ComponentIterMut<'a, C> = Flatten<ComponentIterSingleGroupMut<'a, C>>;
-pub type ComponentIterRender<'a, C> = IntoIter<(
-    &'a InstanceBuffer,
-    Map<
-        Enumerate<ArenaIter<'a, BoxedComponent>>,
-        fn((usize, (ArenaIndex, &'a Box<dyn ComponentDerive>))) -> (InstanceIndex, &'a C),
-    >,
-)>;
+// pub type ComponentIterHandle<'a, C> = Flatten<
+//     IntoIter<
+//         Map<
+//             ArenaIter<'a, BoxedComponent>,
+//             fn((ArenaIndex, &'a BoxedComponent)) -> (ComponentHandle, &'a C),
+//         >,
+//     >,
+// >;
+// pub type ComponentIter<'a, C> = Flatten<
+//     IntoIter<Map<ArenaIter<'a, BoxedComponent>, fn((ArenaIndex, &'a BoxedComponent)) -> &'a C>>,
+// >;
+// pub type ComponentIterMut<'a, C> = Flatten<
+//     IntoIter<
+//         Map<
+//             ArenaIterMut<'a, BoxedComponent>,
+//             fn((ArenaIndex, &'a mut BoxedComponent)) -> &'a mut C,
+//         >,
+//     >,
+// >;
+// pub type , C> = IntoIter<(
+//     &'a InstanceBuffer,
+//     Map<
+//         Enumerate<ArenaIter<'a, BoxedComponent>>,
+//         fn((usize, (ArenaIndex, &'a Box<dyn ComponentDerive>))) -> (InstanceIndex, &'a C),
+//     >,
+// )>;
 
 #[derive(Clone, Copy)]
 pub(crate) struct ComponentCallbacks {
@@ -83,7 +93,6 @@ impl Display for ComponentTypeId {
     }
 }
 
-
 /// Trait to identify a struct that derives from  the [Component](crate::Component) macro using
 /// a [ComponentTypeId]
 pub trait ComponentIdentifier {
@@ -100,7 +109,7 @@ pub(crate) struct ComponentTypeGroup {
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
     buffer: Option<InstanceBuffer>,
-    last_len: usize
+    last_len: usize,
 }
 
 impl ComponentTypeGroup {
@@ -109,7 +118,7 @@ impl ComponentTypeGroup {
             components: Arena::new(),
             buffer: None,
             last_len: 0,
-            force_buffer: true
+            force_buffer: true,
         }
     }
 
@@ -181,7 +190,7 @@ pub(crate) struct ComponentType {
     config: ComponentConfig,
     pub groups: Arena<ComponentTypeGroup>,
     #[cfg(feature = "physics")]
-    pub world_changes: WorldChanges
+    pub world_changes: WorldChanges,
 }
 
 impl ComponentType {
@@ -212,7 +221,7 @@ impl ComponentType {
             config,
             type_id: C::IDENTIFIER,
             #[cfg(feature = "physics")]
-            world_changes: WorldChanges::new()
+            world_changes: WorldChanges::new(),
         }
     }
 
@@ -243,10 +252,7 @@ impl ComponentType {
         return GroupHandle(index);
     }
 
-    pub(crate) fn remove_group(
-        &mut self,
-        handle: GroupHandle,
-    ) {
+    pub(crate) fn remove_group(&mut self, handle: GroupHandle) {
         let _group = self.groups.remove(handle.0).unwrap();
         #[cfg(feature = "physics")]
         for component in _group.components {
@@ -387,6 +393,34 @@ impl ComponentType {
         return (c1, c2);
     }
 
+    pub fn get2_mut_boxed(
+        &mut self,
+        handle1: ComponentHandle,
+        handle2: ComponentHandle,
+    ) -> (Option<&mut BoxedComponent>, Option<&mut BoxedComponent>) {
+        let mut c1 = None;
+        let mut c2 = None;
+        if handle1.group_index() == handle2.group_index() {
+            if let Some(group) = self.groups.get_mut(handle1.group_index().0) {
+                (c1, c2) = group
+                    .components
+                    .get2_mut(handle1.component_index().0, handle2.component_index().0);
+            }
+        } else {
+            let (group1, group2) = self
+                .groups
+                .get2_mut(handle1.group_index().0, handle2.group_index().0);
+            if let Some(group) = group1 {
+                c1 = group.components.get_mut(handle1.component_index().0);
+            }
+
+            if let Some(group) = group2 {
+                c2 = group.components.get_mut(handle2.component_index().0);
+            }
+        }
+        return (c1, c2);
+    }
+
     pub fn get_boxed(&self, handle: ComponentHandle) -> Option<&BoxedComponent> {
         if let Some(group) = self.groups.get(handle.group_index().0) {
             return group.components.get(handle.component_index().0);
@@ -401,10 +435,7 @@ impl ComponentType {
         return None;
     }
 
-    pub fn remove<C: ComponentController>(
-        &mut self,
-        handle: ComponentHandle,
-    ) -> Option<C> {
+    pub fn remove<C: ComponentController>(&mut self, handle: ComponentHandle) -> Option<C> {
         if let Some(group) = self.groups.get_mut(handle.group_index().0) {
             if let Some(component) = group.components.remove(handle.component_index().0) {
                 #[cfg(feature = "physics")]
@@ -415,10 +446,7 @@ impl ComponentType {
         return None;
     }
 
-    pub fn remove_boxed(
-        &mut self,
-        handle: ComponentHandle,
-    ) -> Option<BoxedComponent> {
+    pub fn remove_boxed(&mut self, handle: ComponentHandle) -> Option<BoxedComponent> {
         if let Some(group) = self.groups.get_mut(handle.group_index().0) {
             if let Some(component) = group.components.remove(handle.component_index().0) {
                 #[cfg(feature = "physics")]
@@ -526,28 +554,85 @@ impl ComponentType {
     pub fn iter<'a, C: ComponentController>(
         &'a self,
         groups: &[GroupHandle],
-    ) -> ComponentIter<'a, C> {
+    ) -> impl DoubleEndedIterator<Item = &'a C> {
         let mut iters = Vec::with_capacity(groups.len());
-        let cast: fn((ArenaIndex, &'a BoxedComponent)) -> &'a C =
-            |(_, c)| c.downcast_ref::<C>().unwrap();
         for group in groups {
             if let Some(group) = self.groups.get(group.0) {
                 if !group.components.is_empty() {
-                    iters.push(group.components.iter().map(cast));
+                    iters.push(
+                        group
+                            .components
+                            .iter()
+                            .map(|(_, c)| c.downcast_ref::<C>().unwrap()),
+                    );
                 }
             }
         }
         return iters.into_iter().flatten();
     }
 
+    pub fn iter_with_handles<'a, C: ComponentController>(
+        &'a self,
+        groups: &'a [GroupHandle],
+    ) -> impl DoubleEndedIterator<Item = (ComponentHandle, &'a C)> {
+        let mut iters = Vec::with_capacity(groups.len());
+        for group_handle in groups {
+            if let Some(group) = self.groups.get(group_handle.0) {
+                if !group.components.is_empty() {
+                    iters.push(group.components.iter().map(|(idx, c)| {
+                        (
+                            ComponentHandle::new(ComponentIndex(idx), self.index, *group_handle),
+                            c.downcast_ref::<C>().unwrap(),
+                        )
+                    }));
+                }
+            }
+        }
+        return iters.into_iter().flatten();
+    }
+
+    pub fn iter_mut_with_handles<'a, C: ComponentController>(
+        &'a mut self,
+        groups: &'a [GroupHandle],
+    ) -> impl DoubleEndedIterator<Item = (ComponentHandle, &'a mut C)> {
+        let mut iters = Vec::with_capacity(groups.len());
+        let mut sorted = groups.to_vec();
+        sorted.sort_by(|a, b| a.0.index().cmp(&b.0.index()));
+
+        let mut head: &mut [ArenaEntry<ComponentTypeGroup>] = self.groups.as_slice();
+        let mut offset = 0;
+        let type_index = &self.index;
+        for group_handle in sorted {
+            let split = head.split_at_mut(group_handle.0.index() as usize + 1 - offset);
+            head = split.1;
+            offset += split.0.len();
+            match split.0.last_mut().unwrap() {
+                ArenaEntry::Occupied { data, generation } => {
+                    if !data.components.is_empty() && *generation == group_handle.0.generation() {
+                        iters.push(data.components.iter_mut().map(move |(idx, c)| {
+                            (
+                                ComponentHandle::new(
+                                    ComponentIndex(idx),
+                                    *type_index,
+                                    group_handle,
+                                ),
+                                c.downcast_mut::<C>().unwrap(),
+                            )
+                        }));
+                    }
+                }
+                _ => (),
+            };
+        }
+
+        return iters.into_iter().flatten();
+    }
+
     pub fn iter_mut<'a, C: ComponentController>(
         &'a mut self,
         groups: &[GroupHandle],
-    ) -> ComponentIterMut<'a, C> {
+    ) -> impl DoubleEndedIterator<Item = &'a mut C> {
         let mut iters = Vec::with_capacity(groups.len());
-        let cast: fn((ArenaIndex, &'a mut BoxedComponent)) -> &'a mut C =
-            |(_, c)| c.downcast_mut::<C>().unwrap();
-
         let mut sorted = groups.to_vec();
         sorted.sort_by(|a, b| a.0.index().cmp(&b.0.index()));
 
@@ -560,7 +645,11 @@ impl ComponentType {
             match split.0.last_mut().unwrap() {
                 ArenaEntry::Occupied { data, generation } => {
                     if !data.components.is_empty() && *generation == index.0.generation() {
-                        iters.push(data.components.iter_mut().map(cast));
+                        iters.push(
+                            data.components
+                                .iter_mut()
+                                .map(|(_, c)| c.downcast_mut::<C>().unwrap()),
+                        );
                     }
                 }
                 _ => (),
@@ -573,10 +662,13 @@ impl ComponentType {
     pub fn iter_render<C: ComponentController>(
         &self,
         groups: &[GroupHandle],
-    ) -> ComponentIterRender<C> {
+    ) -> impl DoubleEndedIterator<
+        Item = (
+            &InstanceBuffer,
+            impl DoubleEndedIterator<Item = (InstanceIndex, &C)> + Clone,
+        ),
+    > {
         let mut iters = Vec::with_capacity(groups.len());
-        let cast: fn((usize, (ArenaIndex, &BoxedComponent))) -> (InstanceIndex, &C) =
-            |(i, (_, c))| (InstanceIndex::new(i as u32), c.downcast_ref::<C>().unwrap());
         for group in groups {
             if let Some(group) = self.groups.get(group.0) {
                 if !group.components.is_empty() {
@@ -584,7 +676,9 @@ impl ComponentType {
                         group.buffer.as_ref().expect(
                             "This component's buffer is either not initialized or disabled.",
                         ),
-                        group.components.iter().enumerate().map(cast),
+                        group.components.iter().enumerate().map(|(i, (_, c))| {
+                            (InstanceIndex::new(i as u32), c.downcast_ref::<C>().unwrap())
+                        }),
                     ));
                 }
             }

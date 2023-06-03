@@ -113,6 +113,12 @@ impl AsMut<[f32; 16]> for Matrix {
     }
 }
 
+impl Into<[f32; 16]> for Matrix {
+    fn into(self) -> [f32; 16] {
+        unsafe { mem::transmute(self) }
+    }
+}
+
 impl Index<usize> for Matrix {
     type Output = f32;
 

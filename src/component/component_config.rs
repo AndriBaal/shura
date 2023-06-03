@@ -64,6 +64,8 @@ pub enum PostproccessOperation {
 pub struct ComponentConfig {
     /// Describes the order in which components are processed
     pub priority: i16,
+    // /// When this flag is set, the component is automatically registered when adding one
+    // pub auto_register: bool,
     pub update: UpdateOperation,
     pub render: RenderOperation,
     pub buffer: BufferOperation,

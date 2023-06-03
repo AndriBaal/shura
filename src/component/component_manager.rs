@@ -6,9 +6,8 @@ use crate::log::info;
 use crate::physics::World;
 use crate::{
     Arena, BoxedComponent, CallableType, CameraBuffer, ComponentConfig, ComponentController,
-    ComponentGroup, ComponentHandle, ComponentIter, ComponentIterMut, ComponentIterRender,
-    ComponentSet, ComponentSetMut, ComponentType, ComponentTypeId, Gpu, GroupActivation,
-    GroupHandle, TypeIndex, Vector,
+    ComponentGroup, ComponentHandle, ComponentSet, ComponentSetMut, ComponentType, ComponentTypeId,
+    Gpu, GroupActivation, GroupHandle, InstanceBuffer, InstanceIndex, TypeIndex, Vector,
 };
 use std::cell::RefCell;
 use std::collections::BTreeMap;
@@ -232,7 +231,7 @@ impl ComponentManager {
         &self.all_groups
     }
 
-    pub fn groups(&self) -> impl Iterator<Item = (GroupHandle, &ComponentGroup)> {
+    pub fn groups(&self) -> impl Iterator<Item = (GroupHandle, &ComponentGroup)> + Clone {
         return self
             .groups
             .iter()
@@ -368,11 +367,36 @@ impl ComponentManager {
     ) -> (Option<&mut C1>, Option<&mut C2>) {
         assert_ne!(handle1, handle2);
         if handle1.type_index() == handle2.type_index() {
-            let ty = type_mut!(self, C1);
+            let ty = self.types.get_mut(handle1.type_index().0).unwrap();
             return ty.get2_mut::<C1, C2>(handle1, handle2);
         } else {
-            let (ty1, ty2) = type2_mut!(self, C1, C2);
-            return (ty1.get_mut::<C1>(handle1), ty2.get_mut::<C2>(handle2));
+            let (ty1, ty2) = self
+                .types
+                .get2_mut(handle1.type_index().0, handle2.type_index().0);
+            return (
+                ty1.unwrap().get_mut::<C1>(handle1),
+                ty2.unwrap().get_mut::<C2>(handle2),
+            );
+        }
+    }
+
+    pub fn get2_mut_boxed(
+        &mut self,
+        handle1: ComponentHandle,
+        handle2: ComponentHandle,
+    ) -> (Option<&mut BoxedComponent>, Option<&mut BoxedComponent>) {
+        assert_ne!(handle1, handle2);
+        if handle1.type_index() == handle2.type_index() {
+            let ty = self.types.get_mut(handle1.type_index().0).unwrap();
+            return ty.get2_mut_boxed(handle1, handle2);
+        } else {
+            let (ty1, ty2) = self
+                .types
+                .get2_mut(handle1.type_index().0, handle2.type_index().0);
+            return (
+                ty1.unwrap().get_boxed_mut(handle1),
+                ty2.unwrap().get_boxed_mut(handle2),
+            );
         }
     }
 
@@ -452,7 +476,10 @@ impl ComponentManager {
         ty.len(groups)
     }
 
-    pub fn iter<C: ComponentController>(&self, filter: ComponentFilter) -> ComponentIter<C> {
+    pub fn iter<C: ComponentController>(
+        &self,
+        filter: ComponentFilter,
+    ) -> impl DoubleEndedIterator<Item = &C> {
         let groups = group_filter!(self, filter);
         let ty = type_ref!(self, C);
         ty.iter(groups)
@@ -461,18 +488,58 @@ impl ComponentManager {
     pub fn iter_mut<C: ComponentController>(
         &mut self,
         filter: ComponentFilter,
-    ) -> ComponentIterMut<C> {
+    ) -> impl DoubleEndedIterator<Item = &mut C> {
         let groups = group_filter!(self, filter);
         let ty = type_mut!(self, C);
         ty.iter_mut(groups)
     }
 
+    pub fn iter_mut_and_groups<C: ComponentController>(
+        &mut self,
+        filter: ComponentFilter,
+    ) -> (
+        impl DoubleEndedIterator<Item = &mut C>,
+        impl Iterator<Item = (GroupHandle, &ComponentGroup)> + Clone,
+    ) {
+        let groups = group_filter!(self, filter);
+        let ty = type_mut!(self, C);
+        (
+            ty.iter_mut(groups),
+            self.groups
+                .iter()
+                .map(|(index, group)| (GroupHandle(index), group)),
+        )
+    }
+
     pub fn iter_render<C: ComponentController>(
         &self,
         filter: ComponentFilter,
-    ) -> ComponentIterRender<C> {
+    ) -> impl DoubleEndedIterator<
+        Item = (
+            &InstanceBuffer,
+            impl DoubleEndedIterator<Item = (InstanceIndex, &C)> + Clone,
+        ),
+    > {
         let groups = group_filter!(self, filter);
         let ty = type_ref!(self, C);
         ty.iter_render(groups)
+    }
+
+    pub fn iter_with_handles<'a, C: ComponentController>(
+        &'a self,
+        filter: ComponentFilter<'a>,
+    ) -> impl DoubleEndedIterator<Item = (ComponentHandle, &'a C)> {
+        let groups = group_filter!(self, filter);
+        let ty = type_ref!(self, C);
+        ty.iter_with_handles(groups)
+    }
+
+    pub fn iter_mut_with_handles<'a, C: ComponentController>(
+        &'a mut self,
+        filter: ComponentFilter<'a>,
+    ) -> impl DoubleEndedIterator<Item = (ComponentHandle, &'a mut C)> {
+        let groups = group_filter!(self, filter);
+        let ty = type_mut!(self, C);
+        ty.iter_mut_with_handles(groups)
     }
 }

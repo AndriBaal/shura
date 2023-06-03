@@ -12,6 +12,18 @@ impl AABB {
         Self { min, max }
     }
 
+    pub fn center(&self) -> Vector<f32> {
+        (self.min + self.max) / 2.0
+    }
+
+    pub fn half_extents(&self) -> Vector<f32> {
+        (self.max - self.min) / 2.0
+    }
+
+    pub fn dim(&self) -> Vector<f32> {
+        self.max - self.min
+    }
+
     pub fn from_center(center: Vector<f32>, half_extents: Vector<f32>) -> Self {
         let min = center - half_extents;
         let max = center + half_extents;

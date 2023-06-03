@@ -1,9 +1,8 @@
 use crate::{
-    BoxedComponent, ComponentController, ComponentHandle, ComponentIter, ComponentIterMut,
-    ComponentIterRender, ComponentType, GroupHandle,
+    BoxedComponent, ComponentController, ComponentHandle, ComponentType, GroupHandle,
+    InstanceBuffer, InstanceIndex,
 };
 use std::marker::PhantomData;
-
 
 #[derive(Clone, Copy)]
 pub struct ComponentSet<'a, C: ComponentController> {
@@ -41,7 +40,7 @@ impl<'a, C: ComponentController> ComponentSet<'a, C> {
         self.ty.len(self.groups)
     }
 
-    pub fn iter(&self) -> ComponentIter<C> {
+    pub fn iter(&self) -> impl DoubleEndedIterator<Item = &C> {
         self.ty.iter(self.groups)
     }
 }
@@ -72,10 +71,7 @@ impl<'a, C: ComponentController> ComponentSetMut<'a, C> {
         self.ty.each_mut(self.groups, each);
     }
 
-    pub fn retain(
-        &mut self,
-        keep: impl FnMut(&mut C) -> bool
-    ) {
+    pub fn retain(&mut self, keep: impl FnMut(&mut C) -> bool) {
         self.ty.retain(self.groups, keep);
     }
 
@@ -111,31 +107,19 @@ impl<'a, C: ComponentController> ComponentSetMut<'a, C> {
         self.ty.get_boxed_mut(handle)
     }
 
-    pub fn remove(
-        &mut self,
-        handle: ComponentHandle,
-    ) -> Option<C> {
+    pub fn remove(&mut self, handle: ComponentHandle) -> Option<C> {
         self.ty.remove(handle)
     }
 
-    pub fn remove_boxed(
-        &mut self,
-        handle: ComponentHandle,
-    ) -> Option<BoxedComponent> {
+    pub fn remove_boxed(&mut self, handle: ComponentHandle) -> Option<BoxedComponent> {
         self.ty.remove_boxed(handle)
     }
 
-    pub fn remove_all(
-        &mut self,
-    ) -> Vec<(GroupHandle, Vec<C>)> {
+    pub fn remove_all(&mut self) -> Vec<(GroupHandle, Vec<C>)> {
         self.ty.remove_all(self.groups)
     }
 
-    pub fn add(
-        &mut self,
-        group_handle: GroupHandle,
-        component: C,
-    ) -> ComponentHandle {
+    pub fn add(&mut self, group_handle: GroupHandle, component: C) -> ComponentHandle {
         self.ty.add(group_handle, component)
     }
 
@@ -163,16 +147,33 @@ impl<'a, C: ComponentController> ComponentSetMut<'a, C> {
         self.ty.len(self.groups)
     }
 
-    pub fn iter(&self) -> ComponentIter<C> {
+    pub fn iter(&self) -> impl DoubleEndedIterator<Item = &C> {
         self.ty.iter(self.groups)
     }
 
-    pub fn iter_mut(&mut self) -> ComponentIterMut<C> {
+    pub fn iter_mut(&mut self) -> impl DoubleEndedIterator<Item = &mut C> {
         self.ty.iter_mut(self.groups)
     }
 
-    pub fn iter_render(&self) -> ComponentIterRender<C> {
+    pub fn iter_render(
+        &self,
+    ) -> impl DoubleEndedIterator<
+        Item = (
+            &InstanceBuffer,
+            impl DoubleEndedIterator<Item = (InstanceIndex, &C)> + Clone,
+        ),
+    > {
         self.ty.iter_render(self.groups)
+    }
+
+    pub fn iter_with_handles(&self) -> impl DoubleEndedIterator<Item = (ComponentHandle, &C)> {
+        self.ty.iter_with_handles(self.groups)
+    }
+
+    pub fn iter_mut_with_handles(
+        &mut self,
+    ) -> impl DoubleEndedIterator<Item = (ComponentHandle, &mut C)> {
+        self.ty.iter_mut_with_handles(self.groups)
     }
 }
 

@@ -13,7 +13,6 @@ pub struct TextSection<'a> {
 
 /// Descriptor for rendering a Text onto a [RenderTarget](crate::RenderTarget)
 pub struct TextDescriptor<'a> {
-    pub clear_color: Option<Color>,
     pub sections: Vec<TextSection<'a>>,
     pub font: &'a mut FontBrush,
     pub resolution: f32,

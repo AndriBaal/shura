@@ -251,11 +251,8 @@ struct Floor {
 
 impl Floor {
     const FLOOR_RESOLUTION: u32 = 12;
-    const FLOOR_SHAPE: RoundCuboid = RoundCuboid {
-        inner_shape: Cuboid {
-            half_extents: Vector::new(20.0, 0.4),
-        },
-        border_radius: 0.1,
+    const FLOOR_SHAPE: Cuboid = Cuboid {
+        half_extents: Vector::new(20.0, 0.4),
     };
     pub fn new(ctx: &mut Context) -> Self {
         let collider = ColliderBuilder::new(SharedShape::new(Self::FLOOR_SHAPE))
