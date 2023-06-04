@@ -1,7 +1,7 @@
 #[cfg(feature = "log")]
 use crate::log::info;
 #[cfg(feature = "text")]
-use crate::text::{FontBrush, TextDescriptor};
+use crate::text::{Font, TextDescriptor};
 use crate::{
     Camera, CameraBuffer, ColorWrites, InstanceBuffer, Isometry, Matrix, Model, ModelBuilder,
     RenderConfig, RenderEncoder, RenderTarget, Shader, ShaderConfig, ShaderField, ShaderLang,
@@ -185,8 +185,8 @@ impl Gpu {
     }
 
     #[cfg(feature = "text")]
-    pub fn create_font(&self, bytes: &'static [u8]) -> FontBrush {
-        FontBrush::new(self, bytes)
+    pub fn create_font(&self, bytes: &'static [u8]) -> Font {
+        Font::new(self, bytes)
     }
 
     // #[cfg(feature = "text")]
@@ -233,8 +233,8 @@ impl Gpu {
 /// Base Wgpu objects needed to create any further graphics object.
 pub struct WgpuBase {
     pub sample_count: u32,
-    pub multisample_state: wgpu::MultisampleState,
-    pub no_multisample_state: wgpu::MultisampleState,
+    pub multisample: wgpu::MultisampleState,
+    pub no_multisample: wgpu::MultisampleState,
     pub sprite_uniform: wgpu::BindGroupLayout,
     pub vertex_uniform: wgpu::BindGroupLayout,
     pub fragment_uniform: wgpu::BindGroupLayout,
@@ -318,12 +318,12 @@ impl WgpuBase {
             ..Default::default()
         });
 
-        let multisample_state = wgpu::MultisampleState {
+        let multisample = wgpu::MultisampleState {
             count: sample_count,
             mask: !0,
             alpha_to_coverage_enabled: false,
         };
-        let no_multisample_state = wgpu::MultisampleState {
+        let no_multisample = wgpu::MultisampleState {
             count: 1,
             mask: !0,
             alpha_to_coverage_enabled: false,
@@ -331,8 +331,8 @@ impl WgpuBase {
 
         Self {
             sample_count: sample_count,
-            multisample_state,
-            no_multisample_state,
+            multisample,
+            no_multisample,
             sprite_uniform,
             vertex_uniform,
             fragment_uniform,

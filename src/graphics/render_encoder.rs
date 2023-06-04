@@ -67,7 +67,7 @@ pub enum RenderConfigCamera<'a> {
     Custom(&'a CameraBuffer),
 }
 
-impl <'a>RenderConfigCamera<'a> {
+impl<'a> RenderConfigCamera<'a> {
     pub fn camera(self, defaults: &'a GpuDefaults) -> &'a CameraBuffer {
         return match self {
             RenderConfigCamera::WordCamera => &defaults.world_camera,
@@ -82,7 +82,7 @@ impl <'a>RenderConfigCamera<'a> {
             RenderConfigCamera::Custom(c) => c,
         };
     }
-} 
+}
 
 #[derive(Clone, Copy)]
 pub enum RenderConfigInstances<'a> {
@@ -91,7 +91,7 @@ pub enum RenderConfigInstances<'a> {
     Custom(&'a InstanceBuffer),
 }
 
-impl <'a>RenderConfigInstances<'a> {
+impl<'a> RenderConfigInstances<'a> {
     pub fn instances(self, defaults: &'a GpuDefaults) -> &'a InstanceBuffer {
         return match self {
             RenderConfigInstances::Empty => &defaults.empty_instance,
@@ -99,7 +99,7 @@ impl <'a>RenderConfigInstances<'a> {
             RenderConfigInstances::Custom(c) => c,
         };
     }
-} 
+}
 
 #[derive(Clone, Copy)]
 pub enum RenderConfigTarget<'a> {
@@ -107,16 +107,14 @@ pub enum RenderConfigTarget<'a> {
     Custom(&'a RenderTarget),
 }
 
-
-impl <'a>RenderConfigTarget<'a> {
+impl<'a> RenderConfigTarget<'a> {
     pub fn target(self, defaults: &'a GpuDefaults) -> &'a RenderTarget {
         return match self {
             RenderConfigTarget::World => &defaults.world_target,
             RenderConfigTarget::Custom(c) => c,
         };
     }
-} 
-
+}
 
 /// Encoder of [Renderers](crate::Renderer) and utilities to copy, clear and render text onto [RenderTargets](crate::RenderTarget)
 pub struct RenderEncoder<'a> {
@@ -161,53 +159,14 @@ impl<'a> RenderEncoder<'a> {
     }
 
     pub fn renderer<'b>(&'b mut self, config: RenderConfig<'b>) -> Renderer<'b> {
-        Renderer::new(&mut self.inner, self.defaults, config)
-    }
-
-    #[cfg(feature = "text")]
-    pub fn render_text(
-        &mut self,
-        config: RenderConfig,
-        descriptor: TextDescriptor,
-    ) {
-        if let Some(color) = config.clear_color {
-            self.clear(config.target, color);
-        }
-
-        let target = config.target.target(self.defaults);
-        let camera = config.camera.camera(self.defaults);
-        let fov = camera.model().aabb(Default::default()).dim();
-        
-        let mut staging_belt = wgpu::util::StagingBelt::new(1024);
-
-        let resolution = target.size().x as f32 / fov.x;
-        for section in descriptor.sections {
-            descriptor
-                .font
-                .brush
-                .queue(section.to_glyph_section(resolution));
-        }
-
-        descriptor
-            .font
-            .brush
-            .draw_queued(
-                &self.gpu.device,
-                &mut staging_belt,
-                &mut self.inner,
-                target.view(),
-                target.size().x,
-                target.size().y
-            )
-            .expect("Draw queued");
-
-        staging_belt.finish();
+        Renderer::new(&mut self.inner, self.defaults, self.gpu, config)
     }
 
     pub fn copy_to_target(&mut self, src: &Sprite, target: &RenderTarget) {
         let mut renderer = Renderer::new(
             &mut self.inner,
             self.defaults,
+            self.gpu,
             RenderConfig {
                 target: RenderConfigTarget::Custom(target),
                 camera: RenderConfigCamera::RelativeCamera,

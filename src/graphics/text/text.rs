@@ -1,31 +1,35 @@
-use crate::{
-    text::{DefaultLineBreaker, FontBrush, LineBreaker, Text},
-    Color, Vector,
-};
+use crate::{ Vector, text::Font};
+use wgpu_text::section::Section;
+
+pub use wgpu_text::section::{BuiltInLineBreaker, Layout, OwnedText, Text, VerticalAlign};
 
 /// Section of Text
 pub struct TextSection<'a> {
     pub position: Vector<f32>,
     pub bounds: Vector<f32>,
-    pub layout: LineBreaker<DefaultLineBreaker>,
+    pub layout: Layout<BuiltInLineBreaker>,
     pub text: Vec<Text<'a>>,
 }
 
 /// Descriptor for rendering a Text onto a [RenderTarget](crate::RenderTarget)
 pub struct TextDescriptor<'a> {
     pub sections: Vec<TextSection<'a>>,
-    pub font: &'a mut FontBrush,
+    pub font: &'a mut Font,
 }
 
 impl<'a> TextSection<'a> {
-    pub fn to_glyph_section(mut self, resolution: f32) -> wgpu_glyph::Section<'a> {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn to_glyph_section(mut self, resolution: f32) -> Section<'a> {
         for text in &mut self.text {
             text.scale.x *= resolution;
             text.scale.y *= resolution;
         }
         self.position.x *= resolution;
         self.position.y *= resolution;
-        wgpu_glyph::Section {
+        Section {
             screen_position: (self.position.x, self.position.y),
             bounds: (self.bounds.x, self.bounds.y),
             layout: self.layout,

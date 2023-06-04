@@ -30,7 +30,7 @@ impl RigidBodyComponent {
         world: &mut World,
         collider: impl Into<Collider>,
     ) -> ColliderHandle {
-        if  world.rigid_body(self.rigid_body_handle).is_some() {
+        if world.rigid_body(self.rigid_body_handle).is_some() {
             return world.attach_collider(self.rigid_body_handle, collider);
         }
         panic!("This RigidBodyComponent is not initailized")

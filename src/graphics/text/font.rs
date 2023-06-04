@@ -1,29 +1,26 @@
 use crate::Gpu;
+use wgpu_text::{BrushBuilder, TextBrush, font::FontRef};
+use std::{sync::RwLock, ops::DerefMut};
 
-pub use wgpu_glyph::BuiltInLineBreaker as DefaultLineBreaker;
-pub use wgpu_glyph::FontId;
-pub use wgpu_glyph::Layout as LineBreaker;
-pub use wgpu_glyph::Text;
-use wgpu_glyph::{ab_glyph, GlyphBrush, GlyphBrushBuilder};
-
-/// Font that can be rendered onto a [RenderTarget](crate::RenderTarget).
-pub struct FontBrush {
-    pub brush: GlyphBrush<()>,
+pub struct Font {
+    // brush: RwLock<TextBrush<FontRef<'static>>>
+    pub(crate) brush: TextBrush<FontRef<'static>>
 }
 
-impl FontBrush {
-    pub fn new(gpu: &Gpu, bytes: &'static [u8]) -> FontBrush {
-        let font = ab_glyph::FontArc::try_from_slice(bytes).unwrap();
-        let brush = GlyphBrushBuilder::using_font(font)
-            // .multisample_state(gpu.base.multisample_state)
+impl Font {
+    pub fn new(gpu: &Gpu, bytes: &'static [u8]) -> Font {
+        let brush = BrushBuilder::using_font_bytes(bytes)
+            .unwrap()
             .initial_cache_size((512, 512))
-            .texture_filter_method(wgpu::FilterMode::Linear)
-            .build(&gpu.device, gpu.config.format);
-        Self { brush }
+            .with_multisample(gpu.base.multisample)
+            // .texture_filter_method(wgpu::FilterMode::Linear)
+            .build(&gpu.device,  gpu.config.width,  gpu.config.height, gpu.config.format);
+
+        Self {brush}
+        // Self { brush: Rmutlisample_statemutlisample_statewLock::new(brush) }
     }
 
-    pub fn add_font(&mut self, bytes: &'static [u8]) -> FontId {
-        let font = ab_glyph::FontArc::try_from_slice(bytes).unwrap();
-        self.brush.add_font(font)
-    }
+    // pub(crate) fn get(&self) -> impl DerefMut<Target=TextBrush<FontRef<'static>>> + '_ {
+    //     self.brush.write().ok().unwrap()
+    // }
 }

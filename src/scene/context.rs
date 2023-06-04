@@ -250,7 +250,7 @@ impl<'a> Context<'a> {
                 screen_config: self.screen_config,
                 world_camera: self.world_camera,
                 components: self.components,
-                render_components: *self.render_components
+                render_components: *self.render_components,
             };
             let scene: (
                 &Scene,

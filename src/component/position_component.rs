@@ -1,6 +1,6 @@
-use crate::{Isometry, Matrix, Rotation, Vector, BaseComponent};
+use crate::{BaseComponent, Isometry, Matrix, Rotation, Vector};
 
-#[cfg(feature="physics")]
+#[cfg(feature = "physics")]
 use crate::physics::World;
 
 /// Easily create a [PositionComponent] with a position and render_scale.
@@ -88,7 +88,7 @@ impl PositionComponent {
     pub fn matrix(&self) -> Matrix {
         self.matrix
     }
-    
+
     pub fn set_rotation(&mut self, rotation: Rotation<f32>) {
         self.matrix.rotate(self.render_scale, rotation);
         self.position.rotation = rotation;
@@ -128,7 +128,7 @@ impl PositionComponent {
 }
 
 impl BaseComponent for PositionComponent {
-    fn matrix(&self, #[cfg(feature="physics")] _world: &World) -> Matrix {
+    fn matrix(&self, #[cfg(feature = "physics")] _world: &World) -> Matrix {
         self.matrix
     }
 }

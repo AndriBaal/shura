@@ -89,7 +89,7 @@ pub struct Input {
     wheel_delta: f32,
     #[cfg(feature = "gamepad")]
     game_pad_manager: Option<Gilrs>,
-    window_size: Vector<f32>
+    window_size: Vector<f32>,
 }
 
 impl Input {
@@ -102,7 +102,7 @@ impl Input {
             wheel_delta: 0.0,
             #[cfg(feature = "gamepad")]
             game_pad_manager: Gilrs::new().ok(),
-            window_size: window_size.cast()
+            window_size: window_size.cast(),
         }
     }
 
@@ -250,11 +250,7 @@ impl Input {
         self.touches.iter()
     }
 
-    pub fn compute_cursor(
-        &self,
-        cursor: Vector<u32>,
-        camera: &Camera,
-    ) -> Vector<f32> {
+    pub fn compute_cursor(&self, cursor: Vector<u32>, camera: &Camera) -> Vector<f32> {
         let fov = camera.fov() * 2.0;
         let camera_translation = camera.translation();
         let cursor: Vector<f32> = Vector::new(cursor.x as f32, cursor.y as f32);
@@ -269,10 +265,7 @@ impl Input {
         self.compute_cursor(self.cursor_raw, camera)
     }
 
-    pub fn touches(
-        &self,
-        camera: &Camera,
-    ) -> Vec<(u64, Vector<f32>)> {
+    pub fn touches(&self, camera: &Camera) -> Vec<(u64, Vector<f32>)> {
         let mut touches = vec![];
         for (id, raw) in &self.touches {
             touches.push((*id, self.compute_cursor(*raw, camera)));

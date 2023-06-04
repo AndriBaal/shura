@@ -21,7 +21,7 @@ pub struct SceneSerializer<'a> {
 
     ser_components: FxHashMap<ComponentTypeId, Vec<(GroupHandle, Vec<Option<(u32, Vec<u8>)>>)>>,
     ser_scene_states: FxHashMap<StateTypeId, Vec<u8>>,
-    ser_global_states: FxHashMap<StateTypeId, Vec<u8>>
+    ser_global_states: FxHashMap<StateTypeId, Vec<u8>>,
 }
 
 impl<'a> SceneSerializer<'a> {
@@ -36,7 +36,7 @@ impl<'a> SceneSerializer<'a> {
             scene_states,
             ser_components: Default::default(),
             ser_scene_states: Default::default(),
-            ser_global_states: Default::default()
+            ser_global_states: Default::default(),
         }
     }
 
@@ -53,7 +53,6 @@ impl<'a> SceneSerializer<'a> {
             self.ser_global_states,
         )
     }
-
 
     pub fn serialize_components<C: ComponentController + serde::Serialize>(&mut self) {
         let ty = self.components.type_ref::<C>();

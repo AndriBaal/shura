@@ -29,7 +29,7 @@ struct BunnyState {
     screenshot: Option<RenderTarget>,
     bunny_model: Model,
     bunny_sprite: Sprite,
-    font: RwLock<text::FontBrush>,
+    font: text::Font,
 }
 
 impl BunnyState {
@@ -42,7 +42,7 @@ impl BunnyState {
             screenshot: None,
             bunny_model,
             bunny_sprite,
-            font: RwLock::new(ctx.gpu.create_font(include_bytes!("./img/novem.ttf"))),
+            font: ctx.gpu.create_font(include_bytes!("./img/novem.ttf")),
         }
     }
 }
@@ -50,20 +50,20 @@ impl BunnyState {
 impl SceneStateController for BunnyState {
     fn update(ctx: &mut Context) {
         const MODIFY_STEP: usize = 1500;
-        // gui::Window::new("bunnymark")
-        //     .anchor(gui::Align2::LEFT_TOP, gui::Vec2::default())
-        //     .resizable(false)
-        //     .collapsible(false)
-        //     .show(&ctx.gui.clone(), |ui| {
-        //         ui.label(&format!("FPS: {}", ctx.frame.fps()));
-        //         ui.label(format!(
-        //             "Bunnies: {}",
-        //             ctx.components.len::<Bunny>(ComponentFilter::All)
-        //         ));
-        //         if ui.button("Clear Bunnies").clicked() {
-        //             ctx.components.remove_all::<Bunny>(ComponentFilter::All);
-        //         }
-        //     });
+        gui::Window::new("bunnymark")
+            .anchor(gui::Align2::LEFT_TOP, gui::Vec2::default())
+            .resizable(false)
+            .collapsible(false)
+            .show(&ctx.gui.clone(), |ui| {
+                ui.label(&format!("FPS: {}", ctx.frame.fps()));
+                ui.label(format!(
+                    "Bunnies: {}",
+                    ctx.components.len::<Bunny>(ComponentFilter::All)
+                ));
+                if ui.button("Clear Bunnies").clicked() {
+                    ctx.components.remove_all::<Bunny>(ComponentFilter::All);
+                }
+            });
 
         if ctx.input.is_held(MouseButton::Left) || ctx.input.is_held(ScreenTouch) {
             let cursor = ctx.input.cursor(&ctx.world_camera);
@@ -158,21 +158,22 @@ impl ComponentController for Bunny {
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {
         let scene = ctx.scene_states.get::<BunnyState>();
         encoder.render_all::<Self>(ctx, RenderConfig::WORLD, |r, instances| {
-            r.render_sprite(instances, &scene.bunny_model, &scene.bunny_sprite)
+            let font_ptr = &scene.font as *const _;
+            let font_mut = font_ptr as *mut _;
+            let font = unsafe { &mut *font_mut };
+            r.render_sprite(instances, &scene.bunny_model, &scene.bunny_sprite);
+            r.render_text(
+                // RenderConfigTarget::World,
+                TextDescriptor {
+                    sections: vec![TextSection {
+                        position: Vector::new(0.0, 00.0),
+                        text: vec![text::Text::new("hgfhgf").with_scale(1.0)],
+                        ..Default::default()
+                    }],
+                    font
+                }
+            );
         });
-
-        encoder.render_text(
-            // RenderConfigTarget::World,
-            RenderConfig::WORLD,
-            TextDescriptor {
-                sections: vec![TextSection {
-                    position: Vector::new(0.0, 00.0),
-                    text: vec![text::Text::new("hgfhgf").with_scale(1.0)],
-                    ..Default::default()
-                }],
-                font: &mut scene.font.write().ok().unwrap(),
-            }
-        );
         // if let Some(screenshot) = &scene.screenshot {
         //     encoder.copy_to_target(&ctx.defaults.world_target, &screenshot);
         // }

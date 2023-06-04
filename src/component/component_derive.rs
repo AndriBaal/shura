@@ -1,11 +1,11 @@
-use crate::{
-    ComponentConfig, ComponentIdentifier, ComponentTypeId, Context, Matrix, RenderEncoder,
-    DEFAULT_CONFIG,
-};
 #[cfg(feature = "physics")]
 use crate::{
     physics::{CollideType, ColliderHandle, World},
     ComponentHandle,
+};
+use crate::{
+    ComponentConfig, ComponentIdentifier, ComponentTypeId, Context, Matrix, RenderEncoder,
+    DEFAULT_CONFIG,
 };
 use downcast_rs::*;
 

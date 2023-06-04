@@ -181,12 +181,7 @@ struct Obstacle {
 }
 
 impl Obstacle {
-    pub fn new(
-        world: &mut World,
-        gpu: &Gpu,
-        collider: ColliderBuilder,
-        color: Color,
-    ) -> Self {
+    pub fn new(world: &mut World, gpu: &Gpu, collider: ColliderBuilder, color: Color) -> Self {
         Self {
             color: gpu.create_uniform(color),
             model: gpu.create_model(ModelBuilder::from_collider_shape(

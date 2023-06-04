@@ -1,13 +1,13 @@
-use std::{rc::Rc, cell::RefCell};
+use std::{cell::RefCell, rc::Rc};
 
 #[cfg(feature = "gui")]
 use crate::gui::Gui;
 #[cfg(feature = "physics")]
 use crate::physics::{ActiveEvents, CollideType};
 use crate::{
-    audio::AudioManager, Context, FrameManager, GlobalStateManager, Gpu, GpuConfig,
-    GpuDefaults, Input, RenderConfigTarget, RenderEncoder, RenderOperation, Renderer, Scene,
-    SceneCreator, SceneManager, Vector,
+    audio::AudioManager, Context, FrameManager, GlobalStateManager, Gpu, GpuConfig, GpuDefaults,
+    Input, RenderConfigTarget, RenderEncoder, RenderOperation, Renderer, Scene, SceneCreator,
+    SceneManager, Vector,
 };
 #[cfg(target_arch = "wasm32")]
 use rustc_hash::FxHashMap;
@@ -163,7 +163,7 @@ impl ShuraConfig {
                                     }
                                 }
                             }
-                    
+
                             while let Some(add) = shura.scenes.add.pop() {
                                 let id = add.new_id();
                                 let scene = add.create(shura);
@@ -538,7 +538,7 @@ impl Shura {
 
         {
             let mut renderer =
-                Renderer::output_renderer(&mut encoder.inner, &output_view, &ctx.defaults);
+                Renderer::output_renderer(&mut encoder.inner, &output_view, ctx.defaults, ctx.gpu);
             renderer.use_camera(&ctx.defaults.relative_camera.0);
             renderer.use_instances(&ctx.defaults.single_centered_instance);
             renderer.use_shader(&ctx.defaults.sprite_no_msaa);

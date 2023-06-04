@@ -18,10 +18,13 @@ const AMOUNT_BIRDS: u32 = 1000;
 fn shura_main(config: ShuraConfig) {
     config.init(NewScene::new(1, |ctx| {
         register!(ctx, [Background, Ground, Pipe, Bird]);
-        ctx.world_camera.set_scaling(WorldCameraScale::Vertical(GAME_SIZE.y));
+        ctx.world_camera
+            .set_scaling(WorldCameraScale::Vertical(GAME_SIZE.y));
         ctx.scene_states.insert(BirdSimulation::new(ctx));
-        ctx.components.add(GroupHandle::DEFAULT_GROUP, Background::new(ctx));
-        ctx.components.add(GroupHandle::DEFAULT_GROUP, Ground::new(ctx));
+        ctx.components
+            .add(GroupHandle::DEFAULT_GROUP, Background::new(ctx));
+        ctx.components
+            .add(GroupHandle::DEFAULT_GROUP, Ground::new(ctx));
         ctx.window.set_resizable(false);
         ctx.window.set_enabled_buttons(WindowButtons::empty());
         for _ in 0..AMOUNT_BIRDS {
@@ -45,8 +48,12 @@ struct BirdSimulation {
 impl BirdSimulation {
     pub fn new(ctx: &Context) -> Self {
         return Self {
-            bird_model: ctx.gpu.create_model(ModelBuilder::cuboid(Bird::HALF_EXTENTS)),
-            bird_sprite: ctx.gpu.create_sprite(include_bytes!("./sprites/yellowbird-downflap.png")),
+            bird_model: ctx
+                .gpu
+                .create_model(ModelBuilder::cuboid(Bird::HALF_EXTENTS)),
+            bird_sprite: ctx
+                .gpu
+                .create_sprite(include_bytes!("./sprites/yellowbird-downflap.png")),
             top_pipe_model: ctx.gpu.create_model(
                 ModelBuilder::cuboid(Pipe::HALF_EXTENTS)
                     .vertex_translation(Vector::new(
@@ -61,7 +68,9 @@ impl BirdSimulation {
                     -Pipe::HALF_HOLE_SIZE - Pipe::HALF_EXTENTS.y,
                 )),
             ),
-            pipe_sprite: ctx.gpu.create_sprite(include_bytes!("./sprites/pipe-green.png")),
+            pipe_sprite: ctx
+                .gpu
+                .create_sprite(include_bytes!("./sprites/pipe-green.png")),
             spawn_timer: Pipe::SPAWN_TIME,
             generation: 0,
             high_score: 0,
@@ -70,7 +79,9 @@ impl BirdSimulation {
 
     fn spawn_pipes(&mut self, components: &mut ComponentManager) {
         self.spawn_timer = 0.0;
-        let pipe = components.components.add(GroupHandle::DEFAULT_GROUP, Pipe::new());
+        let pipe = components
+            .components
+            .add(GroupHandle::DEFAULT_GROUP, Pipe::new());
         info!("Spawning new pipes with id: {}]", pipe.id());
     }
 }
@@ -96,9 +107,7 @@ impl SceneStateController for BirdSimulation {
             scene.spawn_pipes(ctx.components);
         }
 
-        let pipes = ctx
-            .components
-            .components::<Pipe>(ComponentFilter::All);
+        let pipes = ctx.components.components::<Pipe>(ComponentFilter::All);
         let mut closest = Vector::new(GAME_SIZE.x, 0.0);
         for pipe in pipes {
             let translation = pipe.translation();
@@ -177,10 +186,7 @@ impl SceneStateController for BirdSimulation {
             let mut max_fitness = 0.0;
             let mut weights = Vec::new();
 
-            for b in ctx
-                .components
-                .components::<Bird>(ComponentFilter::All)
-            {
+            for b in ctx.components.components::<Bird>(ComponentFilter::All) {
                 if b.score > max_fitness {
                     max_fitness = b.score;
                 }
@@ -228,11 +234,8 @@ impl SceneStateController for BirdSimulation {
                 ui.label(format!("High Score: {}", scene.high_score));
                 ui.label(format!("Birds: {}", dead_count as u32));
                 ui.add(
-                    gui::Slider::new(
-                        &mut ctx.components.world_mut().time_scale,
-                        0.1..=20.0,
-                    )
-                    .text("Speed"),
+                    gui::Slider::new(&mut ctx.components.world_mut().time_scale, 0.1..=20.0)
+                        .text("Speed"),
                 );
             });
     }
@@ -272,15 +275,11 @@ impl Bird {
 impl ComponentController for Bird {
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {
         let scene = ctx.scene_state::<BirdSimulation>();
-        encoder.render_each(
-            ctx,
-            RenderConfig::default(),
-            |r, bird, instance| {
-                if bird.body().is_enabled() {
-                    r.render_sprite(instance, &scene.bird_model, &scene.bird_sprite)
-                }
-            },
-        );
+        encoder.render_each(ctx, RenderConfig::default(), |r, bird, instance| {
+            if bird.body().is_enabled() {
+                r.render_sprite(instance, &scene.bird_model, &scene.bird_sprite)
+            }
+        });
     }
 }
 
@@ -296,7 +295,9 @@ impl Ground {
     const HALF_EXTENTS: Vector<f32> = Vector::new(GAME_SIZE.data.0[0][0], 0.9375);
     pub fn new(ctx: &Context) -> Self {
         Self {
-            model: ctx.gpu.create_model(ModelBuilder::cuboid(Self::HALF_EXTENTS)),
+            model: ctx
+                .gpu
+                .create_model(ModelBuilder::cuboid(Self::HALF_EXTENTS)),
             sprite: ctx.gpu.create_sprite(include_bytes!("./sprites/base.png")),
             pos: PositionComponent::new(
                 PositionBuilder::new()
@@ -312,11 +313,9 @@ impl ComponentController for Ground {
         ..DEFAULT_CONFIG
     };
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {
-        encoder.render_each::<Self>(
-            ctx,
-            RenderConfig::default(),
-            |r, ground, instance| r.render_sprite(instance, &ground.model, &ground.sprite),
-        );
+        encoder.render_each::<Self>(ctx, RenderConfig::default(), |r, ground, instance| {
+            r.render_sprite(instance, &ground.model, &ground.sprite)
+        });
     }
 }
 
@@ -330,7 +329,9 @@ struct Background {
 
 impl Background {
     pub fn new(ctx: &Context) -> Self {
-        let sprite = ctx.gpu.create_sprite(include_bytes!("./sprites/background-night.png"));
+        let sprite = ctx
+            .gpu
+            .create_sprite(include_bytes!("./sprites/background-night.png"));
         Self {
             model: ctx.gpu.create_model(ModelBuilder::cuboid(GAME_SIZE)),
             sprite,
@@ -346,13 +347,9 @@ impl ComponentController for Background {
         ..DEFAULT_CONFIG
     };
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {
-        encoder.render_each::<Self>(
-            ctx,
-            RenderConfig::default(),
-            |r, background, instance| {
-                r.render_sprite(instance, &background.model, &background.sprite)
-            },
-        );
+        encoder.render_each::<Self>(ctx, RenderConfig::default(), |r, background, instance| {
+            r.render_sprite(instance, &background.model, &background.sprite)
+        });
     }
 }
 

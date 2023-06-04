@@ -2,7 +2,7 @@ use rapier2d::prelude::{ColliderHandle, RigidBodyHandle};
 
 use crate::{
     physics::{ColliderComponent, RigidBodyComponent, World},
-     ComponentDerive, ComponentHandle,
+    ComponentDerive, ComponentHandle,
 };
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

@@ -62,7 +62,10 @@ impl SceneManager {
         if let Some(scene) = self.scenes.get(&self.active_scene) {
             return scene.clone();
         } else {
-            panic!("Cannot find the currently active scene {}!", self.active_scene);
+            panic!(
+                "Cannot find the currently active scene {}!",
+                self.active_scene
+            );
         }
     }
 }

@@ -1,7 +1,9 @@
 use crate::{
     CameraBuffer, Color, GpuDefaults, InstanceBuffer, InstanceIndices, Model, ModelIndexBuffer,
-    RenderConfig, RenderConfigCamera, RenderConfigInstances, Shader, Sprite, Uniform,
+    RenderConfig, RenderConfigCamera, RenderConfigInstances, Shader, Sprite, Uniform, Gpu, Vector
 };
+#[cfg(feature = "text")]
+use crate::text::TextDescriptor;
 use std::ptr::null;
 
 struct RenderCache {
@@ -32,14 +34,17 @@ pub struct Renderer<'a> {
     pub render_pass: wgpu::RenderPass<'a>,
     pub indices: u32,
     pub msaa: bool,
+    pub gpu: &'a Gpu,
     pub defaults: &'a GpuDefaults,
+    target_size: Vector<u32>,
     cache: RenderCache,
 }
 
 impl<'a> Renderer<'a> {
-    pub(crate) fn new(
+    pub fn new(
         render_encoder: &'a mut wgpu::CommandEncoder,
         defaults: &'a GpuDefaults,
+        gpu: &'a Gpu,
         config: RenderConfig<'a>,
     ) -> Renderer<'a> {
         let target = config.target.target(defaults);
@@ -77,6 +82,8 @@ impl<'a> Renderer<'a> {
             msaa: config.msaa,
             cache: Default::default(),
             defaults: defaults,
+            target_size: *target.size(),
+            gpu
         };
 
         renderer.use_camera(camera);
@@ -93,6 +100,7 @@ impl<'a> Renderer<'a> {
         encoder: &'a mut wgpu::CommandEncoder,
         output: &'a wgpu::TextureView,
         defaults: &'a GpuDefaults,
+        gpu: &'a Gpu,
     ) -> Renderer<'a> {
         let render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("render_pass"),
@@ -114,6 +122,8 @@ impl<'a> Renderer<'a> {
             msaa: false,
             cache: Default::default(),
             defaults,
+            target_size: Vector::default(),
+            gpu
         };
         renderer.use_uniform(defaults.relative_camera.0.uniform(), 0);
         renderer.use_instances(&defaults.single_centered_instance);
@@ -206,6 +216,55 @@ impl<'a> Renderer<'a> {
 
     pub fn render_pass(&mut self) -> &mut wgpu::RenderPass<'a> {
         &mut self.render_pass
+    }
+
+    
+    #[cfg(feature = "text")]
+    pub fn render_text(&mut self, descriptor: TextDescriptor<'a>) {
+        let fov = unsafe { (&*self.cache.bound_camera).model().aabb(Default::default()).dim() };
+        let target = self.target_size.cast::<f32>();
+        let font = &mut descriptor.font.brush;
+        let resolution = target.x / fov.x;
+        let sections = descriptor.sections.into_iter().map(|s| s.to_glyph_section(resolution)).collect();
+
+
+        self.cache = Default::default();
+        font.resize_view(target.x, target.y, &self.gpu.queue);
+        font.queue(&self.gpu.device, &self.gpu.queue, sections).unwrap();
+        font.draw(&mut self.render_pass);
+        
+        // if let Some(color) = config.clear_color {
+        //     self.clear(config.target, color);
+        // }
+
+        // let target = config.target.target(self.defaults);
+        // let camera = config.camera.camera(self.defaults);
+        // let fov = camera.model().aabb(Default::default()).dim();
+
+        // let mut staging_belt = wgpu::util::StagingBelt::new(1024);
+
+        // let resolution = target.size().x as f32 / fov.x;
+        // for section in descriptor.sections {
+        //     descriptor
+        //         .font
+        //         .brush
+        //         .queue(section.to_glyph_section(resolution));
+        // }
+
+        // descriptor
+        //     .font
+        //     .brush
+        //     .draw_queued(
+        //         &self.gpu.device,
+        //         &mut staging_belt,
+        //         &mut self.inner,
+        //         target.view(),
+        //         target.size().x,
+        //         target.size().y,
+        //     )
+        //     .expect("Draw queued");
+
+        // staging_belt.finish();
     }
 
     pub fn render_sprite(

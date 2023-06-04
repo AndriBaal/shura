@@ -177,9 +177,9 @@ impl Shader {
                 },
                 depth_stencil: None,
                 multisample: if config.msaa {
-                    gpu.base.multisample_state
+                    gpu.base.multisample
                 } else {
-                    gpu.base.no_multisample_state
+                    gpu.base.no_multisample
                 },
                 multiview: None,
             });
