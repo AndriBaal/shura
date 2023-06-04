@@ -67,6 +67,23 @@ pub enum RenderConfigCamera<'a> {
     Custom(&'a CameraBuffer),
 }
 
+impl <'a>RenderConfigCamera<'a> {
+    pub fn camera(self, defaults: &'a GpuDefaults) -> &'a CameraBuffer {
+        return match self {
+            RenderConfigCamera::WordCamera => &defaults.world_camera,
+            RenderConfigCamera::UnitCamera => &defaults.unit_camera.0,
+            RenderConfigCamera::RelativeCamera => &defaults.relative_camera.0,
+            RenderConfigCamera::RelativeCameraBottomLeft => &defaults.relative_bottom_left_camera.0,
+            RenderConfigCamera::RelativeCameraBottomRight => {
+                &defaults.relative_bottom_right_camera.0
+            }
+            RenderConfigCamera::RelativeCameraTopLeft => &defaults.relative_top_left_camera.0,
+            RenderConfigCamera::RelativeCameraTopRight => &defaults.relative_top_right_camera.0,
+            RenderConfigCamera::Custom(c) => c,
+        };
+    }
+} 
+
 #[derive(Clone, Copy)]
 pub enum RenderConfigInstances<'a> {
     Empty,
@@ -74,11 +91,32 @@ pub enum RenderConfigInstances<'a> {
     Custom(&'a InstanceBuffer),
 }
 
+impl <'a>RenderConfigInstances<'a> {
+    pub fn instances(self, defaults: &'a GpuDefaults) -> &'a InstanceBuffer {
+        return match self {
+            RenderConfigInstances::Empty => &defaults.empty_instance,
+            RenderConfigInstances::SingleCenteredInstance => &defaults.single_centered_instance,
+            RenderConfigInstances::Custom(c) => c,
+        };
+    }
+} 
+
 #[derive(Clone, Copy)]
 pub enum RenderConfigTarget<'a> {
     World,
     Custom(&'a RenderTarget),
 }
+
+
+impl <'a>RenderConfigTarget<'a> {
+    pub fn target(self, defaults: &'a GpuDefaults) -> &'a RenderTarget {
+        return match self {
+            RenderConfigTarget::World => &defaults.world_target,
+            RenderConfigTarget::Custom(c) => c,
+        };
+    }
+} 
+
 
 /// Encoder of [Renderers](crate::Renderer) and utilities to copy, clear and render text onto [RenderTargets](crate::RenderTarget)
 pub struct RenderEncoder<'a> {
@@ -129,71 +167,27 @@ impl<'a> RenderEncoder<'a> {
     #[cfg(feature = "text")]
     pub fn render_text(
         &mut self,
-        target: RenderConfigTarget,
-        descriptor: TextDescriptor,
-    ) {
-        let target = match target {
-            crate::RenderConfigTarget::World => &self.defaults.world_target,
-            crate::RenderConfigTarget::Custom(c) => c,
-        };
-        let target_size = target.size();
-        let mut staging_belt = wgpu::util::StagingBelt::new(1024);
-        for section in descriptor.sections {
-            descriptor
-                .font
-                .brush
-                .queue(section.to_glyph_section(descriptor.resolution));
-        }
-
-        descriptor
-            .font
-            .brush
-            .draw_queued(
-                &self.gpu.device,
-                &mut staging_belt,
-                &mut self.inner,
-                target.view(),
-                (descriptor.resolution * target_size.x as f32) as u32,
-                (descriptor.resolution * target_size.y as f32) as u32,
-            )
-            .expect("Draw queued");
-
-        staging_belt.finish();
-    }
-
-
-    #[cfg(feature = "text")]
-    pub fn render_text_test(
-        &mut self,
         config: RenderConfig,
         descriptor: TextDescriptor,
-        camera: &crate::Camera,
-        offset: crate::Vector<f32>
     ) {
         if let Some(color) = config.clear_color {
             self.clear(config.target, color);
         }
 
-        let target = match config.target {
-            RenderConfigTarget::World => &self.defaults.world_target,
-            RenderConfigTarget::Custom(c) => c,
-        };
+        let target = config.target.target(self.defaults);
+        let camera = config.camera.camera(self.defaults);
+        let fov = camera.model().aabb(Default::default()).dim();
+        
         let mut staging_belt = wgpu::util::StagingBelt::new(1024);
+
+        let resolution = target.size().x as f32 / fov.x;
         for section in descriptor.sections {
             descriptor
                 .font
                 .brush
-                .queue(section.to_glyph_section(descriptor.resolution));
+                .queue(section.to_glyph_section(resolution));
         }
 
-        // let mut matrix = wgpu_glyph::orthographic_projection(100, 100);
-        // let rotation = crate::Rotation::new(1.0_f32.to_radians());
-        // let s = rotation.sin_angle();
-        // let c = rotation.cos_angle();
-        // matrix[0] = c;
-        // matrix[1] = s;
-        // matrix[4] = -s;
-        // matrix[5] = c;
         descriptor
             .font
             .brush
@@ -202,11 +196,8 @@ impl<'a> RenderEncoder<'a> {
                 &mut staging_belt,
                 &mut self.inner,
                 target.view(),
-                (descriptor.resolution * target.size().x as f32) as u32,
-                (descriptor.resolution * target.size().y as f32) as u32,
-                // matrix
-                // crate::Matrix::new(crate::Isometry::new(crate::Vector::default(), 0.0), crate::Vector::new(1.0, 1.0)).into()
-                // (camera.view_proj() * crate::Matrix::NULL_MODEL * crate::Vector4::new(offset.x, offset.y, -1.0, 1.0)).into()
+                target.size().x,
+                target.size().y
             )
             .expect("Draw queued");
 

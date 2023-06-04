@@ -15,7 +15,6 @@ pub struct TextSection<'a> {
 pub struct TextDescriptor<'a> {
     pub sections: Vec<TextSection<'a>>,
     pub font: &'a mut FontBrush,
-    pub resolution: f32,
 }
 
 impl<'a> TextSection<'a> {

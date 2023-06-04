@@ -127,7 +127,7 @@ impl Sprite {
     }
 
     /// Overwrite with an image of the same dimension
-    pub fn write(&mut self, gpu: &Gpu, rgba: &image::RgbaImage) {
+    pub fn write(&self, gpu: &Gpu, rgba: &image::RgbaImage) {
         gpu.queue.write_texture(
             self.texture.as_image_copy(),
             rgba,

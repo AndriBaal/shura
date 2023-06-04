@@ -42,10 +42,8 @@ impl<'a> Renderer<'a> {
         defaults: &'a GpuDefaults,
         config: RenderConfig<'a>,
     ) -> Renderer<'a> {
-        let target = match config.target {
-            crate::RenderConfigTarget::World => &defaults.world_target,
-            crate::RenderConfigTarget::Custom(c) => c,
-        };
+        let target = config.target.target(defaults);
+        let camera = config.camera.camera(defaults);
 
         let render_pass = render_encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("render_pass"),
@@ -81,26 +79,10 @@ impl<'a> Renderer<'a> {
             defaults: defaults,
         };
 
-        let camera = match config.camera {
-            RenderConfigCamera::WordCamera => &defaults.world_camera,
-            RenderConfigCamera::UnitCamera => &defaults.unit_camera.0,
-            RenderConfigCamera::RelativeCamera => &defaults.relative_camera.0,
-            RenderConfigCamera::RelativeCameraBottomLeft => &defaults.relative_bottom_left_camera.0,
-            RenderConfigCamera::RelativeCameraBottomRight => {
-                &defaults.relative_bottom_right_camera.0
-            }
-            RenderConfigCamera::RelativeCameraTopLeft => &defaults.relative_top_left_camera.0,
-            RenderConfigCamera::RelativeCameraTopRight => &defaults.relative_top_right_camera.0,
-            RenderConfigCamera::Custom(c) => c,
-        };
         renderer.use_camera(camera);
 
         if let Some(instances) = config.intances {
-            let instances = match instances {
-                RenderConfigInstances::Empty => &defaults.empty_instance,
-                RenderConfigInstances::SingleCenteredInstance => &defaults.single_centered_instance,
-                RenderConfigInstances::Custom(c) => c,
-            };
+            let instances = instances.instances(defaults);
             renderer.use_instances(instances);
         }
 

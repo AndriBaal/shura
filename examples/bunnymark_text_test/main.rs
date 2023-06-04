@@ -161,20 +161,17 @@ impl ComponentController for Bunny {
             r.render_sprite(instances, &scene.bunny_model, &scene.bunny_sprite)
         });
 
-        encoder.render_text_test(
+        encoder.render_text(
             // RenderConfigTarget::World,
             RenderConfig::WORLD,
             TextDescriptor {
                 sections: vec![TextSection {
-                    position: Vector::new(10.0, 10.0),
-                    text: vec![text::Text::new("tesajskdgaskdfhkasdfhilt").with_scale(180.0)],
+                    position: Vector::new(0.0, 00.0),
+                    text: vec![text::Text::new("hgfhgf").with_scale(1.0)],
                     ..Default::default()
                 }],
                 font: &mut scene.font.write().ok().unwrap(),
-                resolution: 1.0,
-            },
-            ctx.world_camera,
-            Vector::default(),
+            }
         );
         // if let Some(screenshot) = &scene.screenshot {
         //     encoder.copy_to_target(&ctx.defaults.world_target, &screenshot);

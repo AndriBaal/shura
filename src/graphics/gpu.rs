@@ -189,21 +189,21 @@ impl Gpu {
         FontBrush::new(self, bytes)
     }
 
-    #[cfg(feature = "text")]
-    pub fn create_text(
-        &self,
-        defaults: &GpuDefaults,
-        texture_size: Vector<u32>,
-        descriptor: TextDescriptor,
-    ) -> RenderTarget {
-        use crate::RenderConfigTarget;
+    // #[cfg(feature = "text")]
+    // pub fn create_text_sprite(
+    //     &self,
+    //     defaults: &GpuDefaults,
+    //     texture_size: Vector<u32>,
+    //     descriptor: TextDescriptor,
+    // ) -> RenderTarget {
+    //     use crate::RenderConfigTarget;
 
-        let target = self.create_render_target(texture_size);
-        let mut encoder = RenderEncoder::new(self, defaults);
-        encoder.render_text(RenderConfigTarget::Custom(&target), descriptor);
-        encoder.finish();
-        return target;
-    }
+    //     let target = self.create_render_target(texture_size);
+    //     let mut encoder = RenderEncoder::new(self, defaults);
+    //     encoder.render_text(RenderConfigTarget::Custom(&target), descriptor);
+    //     encoder.finish();
+    //     return target;
+    // }
 
     pub fn create_uniform<T: bytemuck::Pod>(&self, data: T) -> Uniform<T> {
         Uniform::new(self, data)
