@@ -1,7 +1,7 @@
 #[cfg(feature = "log")]
 use crate::log::info;
 #[cfg(feature = "text")]
-use crate::text::Font;
+use crate::text::{TextPipeline, FontBrush};
 use crate::{
     Camera, CameraBuffer, ColorWrites, InstanceBuffer, Isometry, Matrix, Model, ModelBuilder,
     RenderConfig, RenderEncoder, RenderTarget, Shader, ShaderConfig, ShaderField, ShaderLang,
@@ -9,6 +9,7 @@ use crate::{
 };
 use std::{borrow::Cow, ops::DerefMut, sync::RwLock};
 use wgpu::{util::DeviceExt, BlendState};
+
 pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 0.5;
 
 #[derive(Clone)]
@@ -92,7 +93,7 @@ impl Gpu {
             }
         };
 
-        let base = WgpuBase::new(&device, sample_count);
+        let base = WgpuBase::new(&device, config.format, sample_count);
 
         surface.configure(&device, &config);
 
@@ -185,8 +186,8 @@ impl Gpu {
     }
 
     #[cfg(feature = "text")]
-    pub fn create_font(&self, bytes: &'static [u8]) -> Font {
-        Font::new(self, bytes)
+    pub fn create_font(&self, bytes: &'static [u8]) -> FontBrush {
+        FontBrush::new(self, bytes).unwrap()
     }
 
     // #[cfg(feature = "text")]
@@ -241,10 +242,12 @@ pub struct WgpuBase {
     pub vertex_wgsl: wgpu::ShaderModule,
     pub vertex_glsl: wgpu::ShaderModule,
     pub texture_sampler: wgpu::Sampler,
+    #[cfg(feature = "text")]
+    pub text_pipeline: TextPipeline,
 }
 
 impl WgpuBase {
-    pub fn new(device: &wgpu::Device, sample_count: u32) -> Self {
+    pub fn new(device: &wgpu::Device, format: wgpu::TextureFormat, sample_count: u32) -> Self {
         let sprite_uniform = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[
                 wgpu::BindGroupLayoutEntry {
@@ -329,6 +332,9 @@ impl WgpuBase {
             alpha_to_coverage_enabled: false,
         };
 
+        #[cfg(feature = "text")]
+        let text_pipeline = TextPipeline::new(device, format, multisample);
+
         Self {
             sample_count: sample_count,
             multisample,
@@ -339,6 +345,8 @@ impl WgpuBase {
             vertex_wgsl,
             vertex_glsl,
             texture_sampler,
+            #[cfg(feature = "text")]
+            text_pipeline,
         }
     }
 }

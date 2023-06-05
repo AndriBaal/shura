@@ -23,7 +23,7 @@ struct BunnyState {
     screenshot: Option<RenderTarget>,
     bunny_model: Model,
     bunny_sprite: Sprite,
-    font: text::Font,
+    font: text::FontBrush,
 }
 
 impl BunnyState {
@@ -106,7 +106,7 @@ impl SceneStateController for BunnyState {
             }],
             RenderConfig::WORLD,
         );
-        bunny_state.font.buffer(ctx.gpu);
+        bunny_state.font.buffer(ctx.gpu).unwrap();
         if let Some(screenshot) = bunny_state.screenshot.take() {
             shura::log::info!("Taking Screenshot!");
             screenshot.sprite().save(&ctx.gpu, "screenshot.png").ok();

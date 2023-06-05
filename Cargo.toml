@@ -20,7 +20,7 @@ exclude = ["arch_android_setup.sh", "docs"]
 [features]
 animation = []
 gamepad = ["dep:gilrs"]
-text = ["dep:wgpu_text"]
+text = ["dep:glyph_brush"]
 audio = ["dep:rodio"]
 physics = ["dep:rapier2d", "shura_proc/physics"]
 gui = ["dep:egui", "dep:egui-wgpu", "dep:egui-winit"]
@@ -56,7 +56,7 @@ env_logger = "0.10"
 delaunator = "1"
 mint = { version = "0.5" }
 nalgebra = { version = "0.32", features = ["convert-bytemuck", "mint"] }
-wgpu_text = { path="../wgpu-text" , optional = true }
+glyph_brush = { version = "0.7", optional = true }
 gilrs = { version = "0.10", optional = true }
 naga = "0.12"
 egui-wgpu = { version = "0.22", features = ["winit"], optional = true }

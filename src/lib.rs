@@ -103,7 +103,11 @@ pub mod gui {
 #[cfg(feature = "text")]
 /// Abstraction of [wgpu_glyph](https://github.com/hecrj/wgpu_glyph) to render text onto [sprites](crate::Sprite).
 pub mod text {
-    pub use crate::graphics::text::{font::*, text::*};
+    pub use crate::graphics::text::{font::*, text_pipeline::*, text::*};
+    pub use glyph_brush::{
+        BuiltInLineBreaker, Color, FontId, GlyphCruncher, HorizontalAlign, Layout, LineBreak,
+        OwnedSection, OwnedText, Section, SectionGlyphIter, SectionText, Text, VerticalAlign,
+    };
 }
 
 // gamepad

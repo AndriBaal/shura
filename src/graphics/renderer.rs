@@ -1,8 +1,11 @@
 use crate::{
-    CameraBuffer, Color, GpuDefaults, InstanceBuffer, InstanceIndices, Model, ModelIndexBuffer,
-    RenderConfig, RenderConfigCamera, RenderConfigInstances, Shader, Sprite, Uniform, Gpu, Vector
+    CameraBuffer, Color, Gpu, GpuDefaults, InstanceBuffer, InstanceIndices, Model,
+    ModelIndexBuffer, RenderConfig, Shader, Sprite, Uniform, Vector,
 };
 use std::ptr::null;
+
+#[cfg(feature = "text")]
+use crate::text::FontBrush;
 
 struct RenderCache {
     pub bound_shader: *const Shader,
@@ -81,7 +84,7 @@ impl<'a> Renderer<'a> {
             cache: Default::default(),
             defaults: defaults,
             target_size: *target.size(),
-            gpu
+            gpu,
         };
 
         renderer.use_camera(camera);
@@ -121,7 +124,7 @@ impl<'a> Renderer<'a> {
             cache: Default::default(),
             defaults,
             target_size: Vector::default(),
-            gpu
+            gpu,
         };
         renderer.use_uniform(defaults.relative_camera.0.uniform(), 0);
         renderer.use_instances(&defaults.single_centered_instance);
@@ -216,12 +219,15 @@ impl<'a> Renderer<'a> {
         &mut self.render_pass
     }
 
-    
     #[cfg(feature = "text")]
-    pub fn render_text(&mut self, font: &'a crate::text::Font) {
+    pub fn render_text(&mut self, font: &'a FontBrush) {
         self.cache = Default::default();
-        font.render(self.gpu, &mut self.render_pass, self.target_size.cast::<f32>())
-        
+        font.render(
+            self.gpu,
+            &mut self.render_pass,
+            self.target_size.cast::<f32>(),
+        )
+
         // if let Some(color) = config.clear_color {
         //     self.clear(config.target, color);
         // }

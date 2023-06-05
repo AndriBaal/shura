@@ -1,6 +1,5 @@
 use crate::Vector;
-use wgpu_text::section::Section;
-pub use wgpu_text::section::*;
+use crate::text::*;
 
 /// Section of Text
 pub struct TextSection<'a> {

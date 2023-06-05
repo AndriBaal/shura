@@ -99,6 +99,15 @@ impl Matrix {
 
         return result;
     }
+
+    pub fn ortho(dim: Vector<f32>) -> Matrix {
+        Matrix::raw(
+            Vector4::new(2.0 / dim.x, 0.0, 0.0, 0.0),
+            Vector4::new(0.0, -2.0 / dim.y, 0.0, 0.0),
+            Vector4::new(0.0, 0.0, 1.0, 0.0),
+            Vector4::new(-1.0, 1.0, 0.0, 1.),
+        )
+    }
 }
 
 impl AsRef<[f32; 16]> for Matrix {
