@@ -2,8 +2,6 @@ use crate::{
     CameraBuffer, Color, GpuDefaults, InstanceBuffer, InstanceIndices, Model, ModelIndexBuffer,
     RenderConfig, RenderConfigCamera, RenderConfigInstances, Shader, Sprite, Uniform, Gpu, Vector
 };
-#[cfg(feature = "text")]
-use crate::text::TextDescriptor;
 use std::ptr::null;
 
 struct RenderCache {
@@ -220,18 +218,9 @@ impl<'a> Renderer<'a> {
 
     
     #[cfg(feature = "text")]
-    pub fn render_text(&mut self, descriptor: TextDescriptor<'a>) {
-        let fov = unsafe { (&*self.cache.bound_camera).model().aabb(Default::default()).dim() };
-        let target = self.target_size.cast::<f32>();
-        let font = &mut descriptor.font.brush;
-        let resolution = target.x / fov.x;
-        let sections = descriptor.sections.into_iter().map(|s| s.to_glyph_section(resolution)).collect();
-
-
+    pub fn render_text(&mut self, font: &'a crate::text::Font) {
         self.cache = Default::default();
-        font.resize_view(target.x, target.y, &self.gpu.queue);
-        font.queue(&self.gpu.device, &self.gpu.queue, sections).unwrap();
-        font.draw(&mut self.render_pass);
+        font.render(self.gpu, &mut self.render_pass, self.target_size.cast::<f32>())
         
         // if let Some(color) = config.clear_color {
         //     self.clear(config.target, color);

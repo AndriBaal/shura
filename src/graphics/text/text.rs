@@ -1,7 +1,6 @@
-use crate::{ Vector, text::Font};
+use crate::Vector;
 use wgpu_text::section::Section;
-
-pub use wgpu_text::section::{BuiltInLineBreaker, Layout, OwnedText, Text, VerticalAlign};
+pub use wgpu_text::section::*;
 
 /// Section of Text
 pub struct TextSection<'a> {
@@ -9,12 +8,6 @@ pub struct TextSection<'a> {
     pub bounds: Vector<f32>,
     pub layout: Layout<BuiltInLineBreaker>,
     pub text: Vec<Text<'a>>,
-}
-
-/// Descriptor for rendering a Text onto a [RenderTarget](crate::RenderTarget)
-pub struct TextDescriptor<'a> {
-    pub sections: Vec<TextSection<'a>>,
-    pub font: &'a mut Font,
 }
 
 impl<'a> TextSection<'a> {

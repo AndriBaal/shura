@@ -1,5 +1,3 @@
-#[cfg(feature = "text")]
-use crate::text::TextDescriptor;
 use crate::{
     CameraBuffer, Color, ComponentController, ComponentFilter, Context, Gpu, GpuDefaults,
     InstanceBuffer, InstanceIndex, InstanceIndices, RenderTarget, Renderer, Sprite,

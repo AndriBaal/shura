@@ -1,7 +1,7 @@
 #[cfg(feature = "log")]
 use crate::log::info;
 #[cfg(feature = "text")]
-use crate::text::{Font, TextDescriptor};
+use crate::text::Font;
 use crate::{
     Camera, CameraBuffer, ColorWrites, InstanceBuffer, Isometry, Matrix, Model, ModelBuilder,
     RenderConfig, RenderEncoder, RenderTarget, Shader, ShaderConfig, ShaderField, ShaderLang,
