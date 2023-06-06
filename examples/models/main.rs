@@ -161,6 +161,6 @@ impl ComponentController for ModelTest {
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {
         encoder.render_each::<Self>(ctx, RenderConfig::WORLD, |r, model, index| {
             r.render_color(index, &model.model, &model.color)
-        })
+        });
     }
 }

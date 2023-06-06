@@ -1,8 +1,4 @@
-use std::{
-    fmt::{Display, Formatter, Result},
-    iter::{Enumerate, Flatten, Map},
-    vec::IntoIter,
-};
+use std::fmt::{Display, Formatter, Result};
 
 use instant::Instant;
 
@@ -10,10 +6,9 @@ use instant::Instant;
 use crate::physics::{CollideType, ColliderHandle, World, WorldChanges};
 
 use crate::{
-    data::arena::{ArenaEntry, ArenaIndex, ArenaIter, ArenaIterMut},
-    Arena, BoxedComponent, BufferOperation, ComponentConfig, ComponentController, ComponentDerive,
-    ComponentGroup, ComponentHandle, ComponentIndex, Context, Gpu, GroupHandle, InstanceBuffer,
-    InstanceIndex, Matrix, RenderEncoder, TypeIndex,
+    data::arena::ArenaEntry, Arena, BoxedComponent, BufferOperation, ComponentConfig,
+    ComponentController, ComponentDerive, ComponentGroup, ComponentHandle, ComponentIndex, Context,
+    Gpu, GroupHandle, InstanceBuffer, InstanceIndex, Matrix, RenderEncoder, TypeIndex,
 };
 // pub type ComponentIterHandle<'a, C> = Flatten<
 //     IntoIter<

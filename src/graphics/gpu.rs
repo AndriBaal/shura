@@ -7,7 +7,7 @@ use crate::{
     RenderConfig, RenderEncoder, RenderTarget, Shader, ShaderConfig, ShaderField, ShaderLang,
     Sprite, SpriteSheet, Uniform, Vector,
 };
-use std::{borrow::Cow, ops::DerefMut, sync::RwLock};
+use std::{borrow::Cow, ops::DerefMut, sync::Mutex};
 use wgpu::{util::DeviceExt, BlendState};
 
 pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 0.5;
@@ -42,7 +42,7 @@ pub struct Gpu {
     pub surface: wgpu::Surface,
     pub config: wgpu::SurfaceConfiguration,
     pub adapter: wgpu::Adapter,
-    pub commands: RwLock<Vec<wgpu::CommandBuffer>>,
+    pub commands: Mutex<Vec<wgpu::CommandBuffer>>,
     pub(crate) base: WgpuBase,
 }
 
@@ -107,7 +107,7 @@ impl Gpu {
         }
 
         let gpu = Self {
-            commands: RwLock::new(vec![]),
+            commands: Mutex::new(vec![]),
             instance,
             queue,
             surface,
@@ -186,8 +186,8 @@ impl Gpu {
     }
 
     #[cfg(feature = "text")]
-    pub fn create_font(&self, bytes: &'static [u8]) -> FontBrush {
-        FontBrush::new(self, bytes).unwrap()
+    pub fn create_font(&self, bytes: &'static [u8], max_chars: u64) -> FontBrush {
+        FontBrush::new(self, bytes, max_chars).unwrap()
     }
 
     // #[cfg(feature = "text")]
@@ -225,7 +225,7 @@ impl Gpu {
     }
 
     pub fn submit_encoders(&self) {
-        let mut commands_ref = self.commands.write().unwrap();
+        let mut commands_ref = self.commands.lock().unwrap();
         let commands = std::mem::replace(commands_ref.deref_mut(), vec![]);
         self.queue.submit(commands);
     }

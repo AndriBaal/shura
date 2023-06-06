@@ -5,7 +5,7 @@ use crate::{
 use std::ptr::null;
 
 #[cfg(feature = "text")]
-use crate::text::FontBrush;
+use crate::text::{FontBrush, TextSection};
 
 struct RenderCache {
     pub bound_shader: *const Shader,
@@ -37,6 +37,7 @@ pub struct Renderer<'a> {
     pub msaa: bool,
     pub gpu: &'a Gpu,
     pub defaults: &'a GpuDefaults,
+    pub config: RenderConfig<'a>,
     target_size: Vector<u32>,
     cache: RenderCache,
 }
@@ -84,6 +85,7 @@ impl<'a> Renderer<'a> {
             cache: Default::default(),
             defaults: defaults,
             target_size: *target.size(),
+            config,
             gpu,
         };
 
@@ -124,6 +126,7 @@ impl<'a> Renderer<'a> {
             cache: Default::default(),
             defaults,
             target_size: Vector::default(),
+            config: RenderConfig::WORLD,
             gpu,
         };
         renderer.use_uniform(defaults.relative_camera.0.uniform(), 0);
@@ -227,39 +230,11 @@ impl<'a> Renderer<'a> {
             &mut self.render_pass,
             self.target_size.cast::<f32>(),
         )
+    }
 
-        // if let Some(color) = config.clear_color {
-        //     self.clear(config.target, color);
-        // }
-
-        // let target = config.target.target(self.defaults);
-        // let camera = config.camera.camera(self.defaults);
-        // let fov = camera.model().aabb(Default::default()).dim();
-
-        // let mut staging_belt = wgpu::util::StagingBelt::new(1024);
-
-        // let resolution = target.size().x as f32 / fov.x;
-        // for section in descriptor.sections {
-        //     descriptor
-        //         .font
-        //         .brush
-        //         .queue(section.to_glyph_section(resolution));
-        // }
-
-        // descriptor
-        //     .font
-        //     .brush
-        //     .draw_queued(
-        //         &self.gpu.device,
-        //         &mut staging_belt,
-        //         &mut self.inner,
-        //         target.view(),
-        //         target.size().x,
-        //         target.size().y,
-        //     )
-        //     .expect("Draw queued");
-
-        // staging_belt.finish();
+    #[cfg(feature = "text")]
+    pub fn queue_text(&mut self, font: &'a FontBrush, sections: Vec<TextSection>) {
+        font.queue(self.defaults, sections, self.config);
     }
 
     pub fn render_sprite(

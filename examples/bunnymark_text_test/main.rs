@@ -36,7 +36,7 @@ impl BunnyState {
             screenshot: None,
             bunny_model,
             bunny_sprite,
-            font: ctx.gpu.create_font(include_bytes!("./img/novem.ttf")),
+            font: ctx.gpu.create_font(include_bytes!("./img/novem.ttf"), 1000),
         }
     }
 }
@@ -86,27 +86,6 @@ impl SceneStateController for BunnyState {
         }
 
         let bunny_state = ctx.scene_states.get_mut::<Self>();
-        bunny_state.font.queue(
-            ctx.defaults,
-            vec![TextSection {
-                position: Vector::new(0.0, 0.0),
-                text: vec![text::Text::new("hgfhgf").with_scale(1.0)],
-                ..Default::default()
-            }],
-            RenderConfig::WORLD,
-        );
-        bunny_state.font.queue(
-            ctx.defaults,
-            vec![TextSection {
-                position: Vector::new(0.0, 3.0),
-                text: vec![text::Text::new("hgfhgf")
-                    .with_scale(1.0)
-                    .with_color(Color::RED)],
-                ..Default::default()
-            }],
-            RenderConfig::WORLD,
-        );
-        bunny_state.font.buffer(ctx.gpu).unwrap();
         if let Some(screenshot) = bunny_state.screenshot.take() {
             shura::log::info!("Taking Screenshot!");
             screenshot.sprite().save(&ctx.gpu, "screenshot.png").ok();
@@ -174,6 +153,16 @@ impl ComponentController for Bunny {
         let scene = ctx.scene_states.get::<BunnyState>();
         encoder.render_all::<Self>(ctx, RenderConfig::WORLD, |r, instances| {
             r.render_sprite(instances, &scene.bunny_model, &scene.bunny_sprite);
+            r.queue_text(
+                &scene.font,
+                vec![TextSection {
+                    position: Vector::new(0.0, 3.0),
+                    text: vec![text::Text::new("hgfhgf")
+                        .with_scale(1.0)
+                        .with_color(Color::RED)],
+                    ..Default::default()
+                }],
+            );
             r.render_text(&scene.font);
         });
         // if let Some(screenshot) = &scene.screenshot {

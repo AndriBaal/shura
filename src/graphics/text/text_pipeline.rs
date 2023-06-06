@@ -108,12 +108,12 @@ impl TextPipeline {
         cache: &'pass TextCache,
         rpass: &mut wgpu::RenderPass<'pass>,
     ) {
-        if cache.vertices != 0 {
+        let vertices = cache.vertices();
+        if vertices != 0 {
             rpass.set_pipeline(&self.inner);
             rpass.set_vertex_buffer(0, cache.vertex_buffer.slice(..));
             rpass.set_bind_group(0, &cache.bind_group, &[]);
-
-            rpass.draw(0..4, 0..cache.vertices);
+            rpass.draw(0..4, 0..vertices);
         }
     }
 }
