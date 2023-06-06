@@ -16,7 +16,8 @@ pub struct TextSection<'a> {
     pub position: Vector<f32>,
     pub bounds: Vector<f32>,
     pub layout: Layout<BuiltInLineBreaker>,
-    pub text: Vec<Text<'a>>
+    pub text: Vec<Text<'a>>,
+    pub offset_camera: bool
 }
 
 impl<'a> TextSection<'a> {
@@ -35,11 +36,14 @@ impl<'a> TextSection<'a> {
             text.scale.y *= resolution;
         }
 
-        // if self.center_in_camera {
-        //     self.position += camera_aabb.dim() / 2.0;
-        // }
+        self.position.y = -self.position.y;
+        if !self.offset_camera {
+            self.position += camera_aabb.dim() / 2.0;
+        }
 
-        self.position += camera_aabb.center();
+        let center = camera_aabb.center();
+        self.position.x -= center.x;
+        self.position.y += center.y;
         self.position *= resolution;
         let mut section = Section {
             screen_position: (self.position.x, self.position.y),
@@ -84,7 +88,8 @@ impl<'a> Default for TextSection<'a> {
             position: Vector::new(0.0, 0.0),
             bounds: Vector::new(f32::INFINITY, f32::INFINITY),
             layout: Default::default(),
-            text: vec![]
+            text: vec![],
+            offset_camera: false
         }
     }
 }
