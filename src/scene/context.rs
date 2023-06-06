@@ -208,7 +208,7 @@ impl<'a> Context<'a> {
             let mut changes = WorldChanges::default();
 
             for (_, ty) in self.components.types() {
-                if !ser_components.contains_key(&ty.type_id()) {
+                if !ser_components.contains_key(&ty.component_type_id()) {
                     for (_, group) in &ty.groups {
                         for (_, component) in &group.components {
                             changes.register_remove(component);

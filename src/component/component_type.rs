@@ -255,8 +255,7 @@ impl ComponentType {
         }
     }
 
-    #[cfg(all(feature = "serde", feature = "physics"))]
-    pub fn type_id(&self) -> ComponentTypeId {
+    pub fn component_type_id(&self) -> ComponentTypeId {
         self.type_id
     }
 

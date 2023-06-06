@@ -257,6 +257,17 @@ impl ComponentManager {
         return self.groups.get_mut(handle.0);
     }
 
+    pub fn is_type_of<C: ComponentController>(&self, component: ComponentHandle) -> bool {
+        if let Some(ty) = self.type_map.get(&C::IDENTIFIER) {
+            return component.type_index() == *ty;
+        }
+        return false;
+    }
+
+    pub fn type_id_of(&self, component: ComponentHandle) -> ComponentTypeId {
+        return self.types[component.type_index().0].component_type_id();
+    }
+
     pub fn add_group(&mut self, group: ComponentGroup) -> GroupHandle {
         let handle = GroupHandle(self.groups.insert(group));
         for (_, ty) in &mut self.types {

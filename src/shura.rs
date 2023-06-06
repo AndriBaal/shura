@@ -520,7 +520,11 @@ impl Shura {
         }
 
         {
-            for type_index in ctx.components.priorities().borrow().values() {
+            let mut prev_priority = i16::MIN;
+            for ((priority, _), type_index) in ctx.components.priorities().borrow().iter() {
+                for render in ctx.scene_states.renders(prev_priority, *priority) {
+                    render(&ctx, &mut encoder);
+                }
                 let ty = ctx.components.callable(type_index);
                 if ty.config.render != RenderOperation::Never {
                     match ty.config.render {
@@ -530,6 +534,7 @@ impl Shura {
                         _ => {}
                     }
                 }
+                prev_priority = *priority;
             }
         }
         let output_view = output

@@ -30,7 +30,7 @@ A good way to learn shura is through the provided examples or through reading th
 
 - Support for postprocessing of your renders
 
-- Easy to configure camera scaling
+- Easy to configure camera scaling, to ensure your game is responsive and works on all sort of screens
 
 - Physics simulations directly implemented into the component system through [rapier](https://github.com/dimforge/rapier) (feature flag 'physics')
 
@@ -40,7 +40,7 @@ A good way to learn shura is through the provided examples or through reading th
 
 - Input handling for touch, mouse and keyboard and controller with [gilrs](https://gitlab.com/gilrs-project/gilrs) (feature flag 'gamepad')
 
-- Text rendering with [wgpu_glyph](https://github.com/hecrj/wgpu_glyph) (feature flag 'text')
+- Text rendering inspired by [wgpu_text](https://github.com/Blatko1/wgpu-text) (feature flag 'text')
 
 - Audio playback with [rodio](https://github.com/RustAudio/rodio) (feature flag 'audio')
 

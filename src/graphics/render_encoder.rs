@@ -179,6 +179,16 @@ impl<'a> RenderEncoder<'a> {
         renderer.draw(0);
     }
 
+    pub fn render<'b>(
+        &'b mut self,
+        config: RenderConfig<'b>,
+        render: impl FnOnce(&mut Renderer<'b>),
+    ) -> Renderer<'b> {
+        let mut renderer = self.renderer(config);
+        (render)(&mut renderer);
+        return renderer;
+    }
+
     pub fn render_each<'b, C: ComponentController>(
         &'b mut self,
         ctx: &'b Context<'b>,

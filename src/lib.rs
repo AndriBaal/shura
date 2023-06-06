@@ -27,6 +27,7 @@ pub use crate::{
     component::{
         component_config::*, component_derive::*, component_group::*, component_handle::*,
         component_manager::*, component_set::*, component_type::*, position_component::*,
+        empty_component::*
     },
     graphics::{
         camera::*, color::*, frame_manager::*, gpu::*, instance_buffer::*, model::*,
@@ -101,11 +102,11 @@ pub mod gui {
 
 // text
 #[cfg(feature = "text")]
-/// Abstraction of [wgpu_glyph](https://github.com/hecrj/wgpu_glyph) to render text onto [sprites](crate::Sprite).
+/// Text rendering inspired by [wgpu_text](https://github.com/Blatko1/wgpu-text)
 pub mod text {
     pub use crate::graphics::text::{font::*, text_pipeline::*, text::*};
     pub use glyph_brush::{
-        BuiltInLineBreaker, Color, FontId, GlyphCruncher, HorizontalAlign, Layout, LineBreak,
+        BuiltInLineBreaker, FontId, GlyphCruncher, HorizontalAlign, Layout, LineBreak,
         OwnedSection, OwnedText, Section, SectionGlyphIter, SectionText, Text, VerticalAlign,
     };
 }

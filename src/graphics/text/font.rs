@@ -1,13 +1,16 @@
 use super::{text::TextSection, text_cache::TextCache};
 use crate::{text::TextVertex, Gpu, GpuDefaults, Matrix, RenderConfig, Vector};
 use glyph_brush::{
-    ab_glyph::{FontArc, InvalidFont, Rect},
-    BrushAction, DefaultSectionHasher, Extra, GlyphCruncher, Section,
+    ab_glyph::{FontArc, InvalidFont},
+    BrushAction, DefaultSectionHasher, Extra,
 };
 use std::sync::Mutex;
 
+pub(crate) type GlyphBrush =
+    glyph_brush::GlyphBrush<TextVertex, Extra, FontArc, DefaultSectionHasher>;
+
 pub struct FontBrush {
-    inner: Mutex<glyph_brush::GlyphBrush<TextVertex, Extra, FontArc, DefaultSectionHasher>>,
+    inner: Mutex<GlyphBrush>,
     cache: TextCache,
 }
 
@@ -28,12 +31,12 @@ impl FontBrush {
     pub fn queue(&self, defaults: &GpuDefaults, sections: Vec<TextSection>, config: RenderConfig) {
         let cam = config.camera.camera(defaults);
         let target = config.target.target(defaults);
-        let resolution = target.size().x as f32 / cam.model().aabb(Default::default()).dim().x;
+        let cam_aabb = cam.model().aabb(Default::default());
+        let resolution = target.size().x as f32 / cam_aabb.dim().x;
+        let mut inner = self.inner.lock().unwrap();
         for s in sections {
-            self.inner
-                .lock()
-                .unwrap()
-                .queue(s.to_glyph_section(resolution));
+            let section = s.to_glyph_section(&mut inner, resolution, cam_aabb);
+            inner.queue(section);
         }
     }
 
@@ -60,6 +63,7 @@ impl FontBrush {
                         BrushAction::Draw(vertices) => {
                             self.cache.update_vertex_buffer(gpu, vertices);
                             self.cache.update_matrix(gpu, Matrix::ortho(target_size));
+                            pipeline.draw(&self.cache, pass);
                         }
                         BrushAction::ReDraw => pipeline.draw(&self.cache, pass),
                     }
@@ -73,44 +77,27 @@ impl FontBrush {
                             panic!("Font texture size surpasses limit!");
                         }
                     }
-                } // Err(glyph_brush::BrushError::TextureTooSmall { suggested }) => {
-                  //     if log::log_enabled!(log::Level::Warn) {
-                  //         log::warn!(
-                  //             "Resizing cache texture! This should be avoided \
-                  //                     by building TextBrush with BrushBuilder::initial_cache_size() \
-                  //                     and providing bigger cache texture dimensions."
-                  //         );
-                  //     }
-                  //     // Texture resizing:
-                  //     let max_image_dimension = gpu.device.limits().max_texture_dimension_2d;
-                  //     let (width, height) =
-                  //         if suggested.0 > max_image_dimension || suggested.1 > max_image_dimension {
-                  //             if self.inner.texture_dimensions().0 < max_image_dimension
-                  //                 || self.inner.texture_dimensions().1 < max_image_dimension
-                  //             {
-                  //                 (max_image_dimension, max_image_dimension)
-                  //             } else {
-                  //                 return Err(BrushError::TooBigCacheTexture(max_image_dimension));
-                  //             }
-                  //         } else {
-                  //             suggested
-                  //         };
-                  //     self.cache.recreate_texture(gpu, Vector::new(width, height));
-                  //     self.inner.resize_texture(width, height);
-                  // }
+                }
             }
         }
     }
 
-    #[inline]
-    pub fn glyph_bounds<'a, S>(&mut self, section: S) -> Option<Rect>
-    where
-        S: Into<std::borrow::Cow<'a, Section<'a>>>,
-    {
-        self.inner.lock().unwrap().glyph_bounds(section)
-    }
-
     // #[inline]
+    // pub(crate) fn glyph_bounds(&mut self, resolution: f32, section: TextSection) -> Option<AABB> {
+    //     if let Some(rect) = self
+    //         .inner
+    //         .lock()
+    //         .unwrap()
+    //         .glyph_bounds(section.to_glyph_section(resolution))
+    //     {
+    //         return Some(AABB::new(
+    //             Vector::new(rect.min.x, rect.min.y),
+    //             Vector::new(rect.max.x, rect.max.y),
+    //         ));
+    //     }
+    //     return None;
+    // }
+
     // pub fn glyphs_iter<'a, 'b, S>(&'b mut self, section: TextSection) -> SectionGlyphIter<'b>
     // {
     //     self.inner.lock().unwrap().glyphs(section.to_glyph_section(resolution))

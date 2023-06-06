@@ -128,8 +128,8 @@ impl TextCache {
         //     return;
         // }
 
-        *self.vertices.lock().unwrap() = vertices.len() as u32;
         let data: &[u8] = bytemuck::cast_slice(&vertices);
+        *self.vertices.lock().unwrap() = vertices.len() as u32;
         gpu.queue.write_buffer(&self.vertex_buffer, 0, data);
     }
 
