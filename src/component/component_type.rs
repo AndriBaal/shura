@@ -7,7 +7,7 @@ use crate::physics::{CollideType, ColliderHandle, World, WorldChanges};
 
 use crate::{
     data::arena::ArenaEntry, Arena, BoxedComponent, BufferOperation, ComponentConfig,
-    ComponentController, ComponentDerive, ComponentGroup, ComponentHandle, ComponentIndex, Context,
+    ComponentController, ComponentDerive, Group, ComponentHandle, ComponentIndex, Context,
     Gpu, GroupHandle, InstanceBuffer, InstanceIndex, Matrix, RenderEncoder, TypeIndex,
 };
 // pub type ComponentIterHandle<'a, C> = Flatten<
@@ -192,7 +192,7 @@ impl ComponentType {
     pub(crate) fn with_config<C: ComponentController>(
         config: ComponentConfig,
         index: TypeIndex,
-        group_structure: &Arena<ComponentGroup>,
+        group_structure: &Arena<Group>,
     ) -> Self {
         let groups = Arena {
             items: group_structure

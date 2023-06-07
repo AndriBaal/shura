@@ -213,7 +213,7 @@ impl<'a, C: ComponentController> ComponentSetMut<'a, C> {
 //     }
 // }
 
-// /// Iterator over a [ComponentSet], which holds components from multiple [ComponentGroups](crate::ComponentGroup).
+// /// Iterator over a [ComponentSet], which holds components from multiple [Groups](crate::Group).
 // pub struct ComponentSetIter<'a, C>
 // where
 //     C: ComponentController,
@@ -375,7 +375,7 @@ impl<'a, C: ComponentController> ComponentSetMut<'a, C> {
 // }
 
 // /// A set of components that includes all components of a specific type from a variety of
-// /// [ComponentGroups](crate::ComponentGroup).
+// /// [Groups](crate::Group).
 // /// A [ComponentSet] can be retrieved from the [Context](crate::Context) with
 // /// [components](crate::Context::components) or [components_mut](crate::Context::components_mut).
 // pub struct ComponentSet<'a, C: ComponentDerive> {
@@ -448,7 +448,7 @@ impl<'a, C: ComponentController> ComponentSetMut<'a, C> {
 // }
 
 // /// A set of components that includes all components of a specific type from a variety of
-// /// [ComponentGroups](crate::ComponentGroup).
+// /// [Groups](crate::Group).
 // /// A [ComponentSet] can be retrieved from the [Context](crate::Context) with
 // /// [components](crate::Context::components) or [components_mut](crate::Context::components_mut).
 // pub struct ComponentSetMut<'a, C: ComponentDerive> {
@@ -508,7 +508,7 @@ impl<'a, C: ComponentController> ComponentSetMut<'a, C> {
 //     }
 // }
 
-// /// Iterator that yields all components from a given [ComponentGroup](crate::ComponentGroup) and the
+// /// Iterator that yields all components from a given [Group](crate::Group) and the
 // /// corresponding [InstanceBuffer]
 // pub struct ComponentRenderGroup<'a, C: ComponentDerive> {
 //     iters: Vec<(&'a InstanceBuffer, ComponentIterRender<'a, C>)>,

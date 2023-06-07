@@ -198,14 +198,14 @@ impl SceneStateController for BirdSimulation {
 
             let gene_pool = WeightedIndex::new(&weights).expect("Failed to generate gene pool");
 
-            let amount = ctx.components.len::<Bird>(ComponentGroupId::DEFAULT);
+            let amount = ctx.components.len::<Bird>(GroupId::DEFAULT);
             let mut rng = thread_rng();
             let mut new_birds = Vec::with_capacity(amount);
             for _ in 0..amount {
                 let index = gene_pool.sample(&mut rng);
                 let rand_bird = ctx
                     .components
-                    .component_by_index_mut::<Bird>(ComponentGroupId::DEFAULT, index as u32)
+                    .component_by_index_mut::<Bird>(GroupId::DEFAULT, index as u32)
                     .unwrap();
 
                 let mut new_bird = Bird::with_brain(&rand_bird);

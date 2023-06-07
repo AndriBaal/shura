@@ -25,7 +25,7 @@ pub(crate) use data::arena::*;
 
 pub use crate::{
     component::{
-        component_config::*, component_derive::*, component_group::*, component_handle::*,
+        component_config::*, component_derive::*, group::*, component_handle::*,
         component_manager::*, component_set::*, component_type::*, position_component::*,
         empty_component::*
     },

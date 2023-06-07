@@ -64,11 +64,11 @@ impl Arena<BoxedComponent> {
     }
 }
 
-// impl Arena<ComponentGroup> {
+// impl Arena<Group> {
 //     pub fn serialize_groups(
 //         &self,
-//         ids: FxHashSet<ComponentGroupId>,
-//     ) -> Vec<Option<(&u32, &ComponentGroup)>> {
+//         ids: FxHashSet<GroupId>,
+//     ) -> Vec<Option<(&u32, &Group)>> {
 //         let e = self
 //             .items
 //             .iter()

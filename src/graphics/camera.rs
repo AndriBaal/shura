@@ -115,8 +115,8 @@ impl Camera {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone)]
 /// Limits a [Camera] to always maintain the aspect ratio of the window. This behaviour can be controlled
-/// through the [WorldCameraScale]. This camera is also in charge of deciding which [ComponentGroups](crate::ComponentGroup)
-/// is active based on if the [ComponentGroups](crate::ComponentGroup) intersects with the camera.
+/// through the [WorldCameraScale]. This camera is also in charge of deciding which [Groups](crate::Group)
+/// is active based on if the [Groups](crate::Group) intersects with the camera.
 pub struct WorldCamera {
     pub(crate) camera: Camera,
     target: Option<ComponentHandle>,

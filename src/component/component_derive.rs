@@ -47,7 +47,7 @@ where
     Self: Sized,
 {
     const CONFIG: ComponentConfig = DEFAULT_CONFIG;
-    /// This component gets updated if the component's [group](crate::ComponentGroup) is active and enabled.
+    /// This component gets updated if the component's [group](crate::Group) is active and enabled.
     /// Through the [context](crate::Context) you have access to all other scenes, groups,
     /// components with the matching controller and all data from the engine.
     fn update(ctx: &mut Context) {}
@@ -56,7 +56,7 @@ where
     /// Collision Event between 2 components. It requires that
     /// this component has the [ActiveEvents::COLLISION_EVENTS](crate::physics::ActiveEvents::COLLISION_EVENTS)
     /// flag set on its [RigidBody](crate::physics::RigidBody). Collisions still get processed even if
-    /// the [ComponentGroup](crate::ComponentGroup) is inactive or disabled.
+    /// the [Group](crate::Group) is inactive or disabled.
     fn collision(
         ctx: &mut Context,
         self_handle: ComponentHandle,
