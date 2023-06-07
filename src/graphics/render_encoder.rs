@@ -205,6 +205,24 @@ impl<'a> RenderEncoder<'a> {
         return renderer;
     }
 
+    pub fn render_each_prepare<'b, C: ComponentController>(
+        &'b mut self,
+        ctx: &'b Context<'b>,
+        config: RenderConfig<'b>,
+        prepare: impl FnOnce(&mut Renderer<'b>),
+        mut each: impl FnMut(&mut Renderer<'b>, &'b C, InstanceIndex),
+    ) -> Renderer<'b> {
+        let mut renderer = self.renderer(config);
+        prepare(&mut renderer);
+        for (buffer, components) in ctx.components.iter_render::<C>(ComponentFilter::Active) {
+            renderer.use_instances(buffer);
+            for (instance, component) in components {
+                (each)(&mut renderer, component, instance);
+            }
+        }
+        return renderer;
+    }
+
     pub fn render_all<'b, C: ComponentController>(
         &'b mut self,
         ctx: &'b Context<'b>,

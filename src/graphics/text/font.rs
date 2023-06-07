@@ -1,5 +1,8 @@
 use super::{text::TextSection, text_cache::TextCache};
-use crate::{text::TextVertex, Gpu, GpuDefaults, Matrix, RenderConfig, Vector};
+use crate::{
+    text::TextVertex, Gpu, GpuDefaults, Matrix, RenderConfig, RenderConfigTarget, RenderEncoder,
+    Vector,
+};
 use glyph_brush::{
     ab_glyph::{FontArc, InvalidFont},
     BrushAction, DefaultSectionHasher, Extra,
@@ -40,7 +43,27 @@ impl FontBrush {
         }
     }
 
-    pub fn render<'a>(
+    pub fn submit(&self, encoder: &mut RenderEncoder, target: RenderConfigTarget) {
+        let target = target.target(encoder.defaults);
+        let mut pass = encoder
+            .inner
+            .begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("render_pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: target.msaa(),
+                    resolve_target: Some(target.view()),
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: true,
+                    },
+                })],
+
+                depth_stencil_attachment: None,
+            });
+        self.render(encoder.gpu, &mut pass, target.size().cast::<f32>())
+    }
+
+    pub(crate) fn render<'a>(
         &'a self,
         gpu: &'a Gpu,
         pass: &mut wgpu::RenderPass<'a>,
