@@ -293,73 +293,147 @@ impl Shura {
 
     #[cfg(feature = "physics")]
     fn physics_step(ctx: &mut Context) {
+        macro_rules! skip_fail {
+            ($res:expr) => {
+                match $res {
+                    Some(val) => val,
+                    None => {
+                        info!("ululul");
+                        continue
+                    },
+                }
+            };
+        }
+
         let delta = ctx.frame.frame_time();
         ctx.components.apply_world_mapping(ctx.world);
         ctx.world.step(delta);
         // while let Ok(contact_force_event) = ctx.components.event_receivers.1.try_recv() {
         // }
         while let Ok(collision_event) = ctx.world.collision_event() {
-            let collider_handle1 = collision_event.collider1();
-            let collider_handle2 = collision_event.collider2();
             let collision_type = if collision_event.started() {
                 CollideType::Started
             } else {
                 CollideType::Stopped
             };
-            if let Some(collider1_events) = ctx
-                .world
-                .collider(collider_handle1)
-                .and_then(|c| Some(c.active_events()))
-            {
-                if let Some(collider2_events) = ctx
-                    .world
-                    .collider(collider_handle2)
-                    .and_then(|c| Some(c.active_events()))
-                {
-                    if let Some(component1) = ctx
-                        .world
-                        .component_from_collider(&collider_handle1)
-                        .copied()
-                    {
-                        if let Some(component2) = ctx
-                            .world
-                            .component_from_collider(&collider_handle2)
-                            .copied()
-                        {
-                            if collider1_events == ActiveEvents::COLLISION_EVENTS {
-                                let callback = ctx
-                                    .components
-                                    .callable(&component1.type_index())
-                                    .callbacks
-                                    .collision;
-                                (callback)(
-                                    ctx,
-                                    component1,
-                                    component2,
-                                    collider_handle1,
-                                    collider_handle2,
-                                    collision_type,
-                                )
-                            }
-                            if collider2_events == ActiveEvents::COLLISION_EVENTS {
-                                let callback = ctx
-                                    .components
-                                    .callable(&component2.type_index())
-                                    .callbacks
-                                    .collision;
-                                (callback)(
-                                    ctx,
-                                    component2,
-                                    component1,
-                                    collider_handle2,
-                                    collider_handle1,
-                                    collision_type,
-                                )
-                            }
-                        }
-                    }
-                }
+            let collider_handle1 = collision_event.collider1();
+            let collider_handle2 = collision_event.collider2();
+            let component1 = *skip_fail!(ctx.world.component_from_collider(&collider_handle1));
+            let component2 = *skip_fail!(ctx.world.component_from_collider(&collider_handle2));
+            let collider1_events = skip_fail!(ctx.world.collider(collider_handle1)).active_events();
+            let collider2_events = skip_fail!(ctx.world.collider(collider_handle2)).active_events();
+
+            let callable1 = ctx.components.callable(&component1.type_index());
+            let callable2 = ctx.components.callable(&component2.type_index());
+            let callback1 = callable1.callbacks.collision;
+            let callback2 = callable2.callbacks.collision;
+
+            if collider1_events == ActiveEvents::COLLISION_EVENTS {
+                (callback1)(
+                    ctx,
+                    component1,
+                    component2,
+                    collider_handle1,
+                    collider_handle2,
+                    collision_type,
+                );
             }
+
+            if collider2_events == ActiveEvents::COLLISION_EVENTS {
+                (callback2)(
+                    ctx,
+                    component2,
+                    component1,
+                    collider_handle2,
+                    collider_handle1,
+                    collision_type,
+                );
+            }
+
+            // if let Some(collider1_events) = ctx
+            //     .world
+            //     .collider(collider_handle1)
+            //     .and_then(|c| Some(c.active_events()))
+            // {
+            //     if let Some(collider2_events) = ctx
+            //         .world
+            //         .collider(collider_handle2)
+            //         .and_then(|c| Some(c.active_events()))
+            //     {
+
+            // let callback = ctx
+            //     .components
+            //     .callable(&component2.type_index())
+            //     .callbacks
+            //     .collision;
+            // (callback)(
+            //     ctx,
+            //     component2,
+            //     component1,
+            //     collider_handle2,
+            //     collider_handle1,
+            //     collision_type,
+            // )
+
+            // let collision_type = if collision_event.started() {
+            //     CollideType::Started
+            // } else {
+            //     CollideType::Stopped
+            // };
+            // if let Some(collider1_events) = ctx
+            //     .world
+            //     .collider(collider_handle1)
+            //     .and_then(|c| Some(c.active_events()))
+            // {
+            //     if let Some(collider2_events) = ctx
+            //         .world
+            //         .collider(collider_handle2)
+            //         .and_then(|c| Some(c.active_events()))
+            //     {
+            //         if let Some(component1) = ctx
+            //             .world
+            //             .component_from_collider(&collider_handle1)
+            //             .copied()
+            //         {
+            //             if let Some(component2) = ctx
+            //                 .world
+            //                 .component_from_collider(&collider_handle2)
+            //                 .copied()
+            //             {
+            //                 if collider1_events == ActiveEvents::COLLISION_EVENTS {
+            //                     let callback = ctx
+            //                         .components
+            //                         .callable(&component1.type_index())
+            //                         .callbacks
+            //                         .collision;
+            //                     (callback)(
+            //                         ctx,
+            //                         component1,
+            //                         component2,
+            //                         collider_handle1,
+            //                         collider_handle2,
+            //                         collision_type,
+            //                     )
+            //                 }
+            //                 if collider2_events == ActiveEvents::COLLISION_EVENTS {
+            //                     let callback = ctx
+            //                         .components
+            //                         .callable(&component2.type_index())
+            //                         .callbacks
+            //                         .collision;
+            //                     (callback)(
+            //                         ctx,
+            //                         component2,
+            //                         component1,
+            //                         collider_handle2,
+            //                         collider_handle1,
+            //                         collision_type,
+            //                     )
+            //                 }
+            //             }
+            //         }
+            //     }
+            // }
         }
     }
 
@@ -452,7 +526,7 @@ impl Shura {
                         Self::physics_step(&mut ctx);
                     }
 
-                    let ty = ctx.components.callable(type_index);
+                    let ty = ctx.components.callable_mut(type_index);
                     match ty.config.update {
                         crate::UpdateOperation::EveryFrame => {}
                         crate::UpdateOperation::Never => {

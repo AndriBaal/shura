@@ -165,7 +165,12 @@ impl ComponentManager {
         return self.priorities.clone();
     }
 
-    pub(crate) fn callable(&mut self, t: &TypeIndex) -> &mut CallableType {
+    #[cfg(feature = "physics")]
+    pub(crate) fn callable(&self, t: &TypeIndex) -> &CallableType {
+        self.callables.get(t).unwrap()
+    }
+
+    pub(crate) fn callable_mut(&mut self, t: &TypeIndex) -> &mut CallableType {
         self.callables.get_mut(t).unwrap()
     }
 
