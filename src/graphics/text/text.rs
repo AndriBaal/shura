@@ -1,4 +1,3 @@
-use crate::AABB;
 use crate::text::*;
 use crate::Vector;
 
@@ -17,7 +16,6 @@ pub struct TextSection<'a> {
     pub bounds: Vector<f32>,
     pub layout: Layout<BuiltInLineBreaker>,
     pub text: Vec<Text<'a>>,
-    pub offset_camera: bool
 }
 
 impl<'a> TextSection<'a> {
@@ -29,7 +27,8 @@ impl<'a> TextSection<'a> {
         mut self,
         font: &mut GlyphBrush,
         resolution: f32,
-        camera_aabb: AABB
+        camera_pos: Vector<f32>,
+        offset: Vector<f32>,
     ) -> Section<'a> {
         for text in &mut self.text {
             text.scale.x *= resolution;
@@ -37,13 +36,10 @@ impl<'a> TextSection<'a> {
         }
 
         self.position.y = -self.position.y;
-        if !self.offset_camera {
-            self.position += camera_aabb.dim() / 2.0;
-        }
+        self.position += offset;
 
-        let center = camera_aabb.center();
-        self.position.x -= center.x;
-        self.position.y += center.y;
+        self.position.x -= camera_pos.x;
+        self.position.y += camera_pos.y;
         self.position *= resolution;
         let mut section = Section {
             screen_position: (self.position.x, self.position.y),
@@ -89,7 +85,6 @@ impl<'a> Default for TextSection<'a> {
             bounds: Vector::new(f32::INFINITY, f32::INFINITY),
             layout: Default::default(),
             text: vec![],
-            offset_camera: false
         }
     }
 }

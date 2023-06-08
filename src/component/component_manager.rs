@@ -509,17 +509,16 @@ impl ComponentManager {
         &'a mut self,
         filter1: ComponentFilter<'a>,
         filter2: ComponentFilter<'a>,
-    ) -> (impl DoubleEndedIterator<Item = &mut C1>, impl DoubleEndedIterator<Item = &mut C2>){
+    ) -> (
+        impl DoubleEndedIterator<Item = &mut C1>,
+        impl DoubleEndedIterator<Item = &mut C2>,
+    ) {
         assert_ne!(C1::IDENTIFIER, C2::IDENTIFIER);
         let groups1 = group_filter!(self, filter1);
         let groups2 = group_filter!(self, filter2);
         let (ty1, ty2) = type2_mut!(self, C1, C2);
-        return (
-            ty1.iter_mut(groups1),
-            ty2.iter_mut(groups2)
-        );
+        return (ty1.iter_mut(groups1), ty2.iter_mut(groups2));
     }
-
 
     pub fn iter_mut_and_groups<C: ComponentController>(
         &mut self,

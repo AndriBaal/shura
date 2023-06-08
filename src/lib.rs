@@ -25,9 +25,8 @@ pub(crate) use data::arena::*;
 
 pub use crate::{
     component::{
-        component_config::*, component_derive::*, group::*, component_handle::*,
-        component_manager::*, component_set::*, component_type::*, position_component::*,
-        empty_component::*
+        component_config::*, component_derive::*, component_handle::*, component_manager::*,
+        component_set::*, component_type::*, empty_component::*, group::*, position_component::*,
     },
     graphics::{
         camera::*, color::*, frame_manager::*, gpu::*, instance_buffer::*, model::*,
@@ -104,7 +103,7 @@ pub mod gui {
 #[cfg(feature = "text")]
 /// Text rendering inspired by [wgpu_text](https://github.com/Blatko1/wgpu-text)
 pub mod text {
-    pub use crate::graphics::text::{font::*, text_pipeline::*, text::*};
+    pub use crate::graphics::text::{font::*, text::*, text_pipeline::*};
     pub use glyph_brush::{
         BuiltInLineBreaker, FontId, GlyphCruncher, HorizontalAlign, Layout, LineBreak,
         OwnedSection, OwnedText, Section, SectionGlyphIter, SectionText, Text, VerticalAlign,

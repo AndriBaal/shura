@@ -35,10 +35,13 @@ impl FontBrush {
         let cam = config.camera.camera(defaults);
         let target = config.target.target(defaults);
         let cam_aabb = cam.model().aabb(Default::default());
+        let camera_pos = cam_aabb.center();
+        let dim = cam_aabb.dim();
         let resolution = target.size().x as f32 / cam_aabb.dim().x;
+        let offset = dim / 2.0;
         let mut inner = self.inner.lock().unwrap();
         for s in sections {
-            let section = s.to_glyph_section(&mut inner, resolution, cam_aabb);
+            let section = s.to_glyph_section(&mut inner, resolution, camera_pos, offset);
             inner.queue(section);
         }
     }

@@ -80,6 +80,27 @@ impl<'a> RenderConfigCamera<'a> {
             RenderConfigCamera::Custom(c) => c,
         };
     }
+
+    // pub fn camera_with_offset(self, defaults: &'a GpuDefaults) -> (Vector<f32>, &'a CameraBuffer) {
+    //     return match self {
+    //         RenderConfigCamera::WordCamera => (defaults.world_camera.model().aabb(position), &defaults.world_camera),
+    //         RenderConfigCamera::UnitCamera => (Vector::default(), &defaults.unit_camera.0),
+    //         RenderConfigCamera::RelativeCamera => (Vector::default(), &defaults.relative_camera.0),
+    //         RenderConfigCamera::RelativeCameraBottomLeft => {
+    //             (Vector::default(), &defaults.relative_bottom_left_camera.0)
+    //         }
+    //         RenderConfigCamera::RelativeCameraBottomRight => {
+    //             (Vector::default(), &defaults.relative_bottom_right_camera.0)
+    //         }
+    //         RenderConfigCamera::RelativeCameraTopLeft => {
+    //             (Vector::default(), &defaults.relative_top_left_camera.0)
+    //         }
+    //         RenderConfigCamera::RelativeCameraTopRight => {
+    //             (Vector::default(), &defaults.relative_top_right_camera.0)
+    //         }
+    //         RenderConfigCamera::Custom(c) => (Vector::default(), c),
+    //     };
+    // }
 }
 
 #[derive(Clone, Copy)]

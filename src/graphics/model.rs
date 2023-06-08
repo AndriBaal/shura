@@ -640,7 +640,7 @@ impl ModelBuilder {
             amount_of_indices: self.indices.len() as u32,
             vertex_buffer,
             index_buffer,
-            aabb: AABB::from_vertices(&self.vertices),
+            aabb: AABB::from_vertices(&vertices),
         }
     }
 }

@@ -7,8 +7,8 @@ use crate::physics::{CollideType, ColliderHandle, World, WorldChanges};
 
 use crate::{
     data::arena::ArenaEntry, Arena, BoxedComponent, BufferOperation, ComponentConfig,
-    ComponentController, ComponentDerive, Group, ComponentHandle, ComponentIndex, Context,
-    Gpu, GroupHandle, InstanceBuffer, InstanceIndex, Matrix, RenderEncoder, TypeIndex,
+    ComponentController, ComponentDerive, ComponentHandle, ComponentIndex, Context, Gpu, Group,
+    GroupHandle, InstanceBuffer, InstanceIndex, Matrix, RenderEncoder, TypeIndex,
 };
 // pub type ComponentIterHandle<'a, C> = Flatten<
 //     IntoIter<

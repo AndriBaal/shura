@@ -106,7 +106,6 @@ impl TextCache {
         )
     }
 
-
     pub fn update_matrix(&self, gpu: &Gpu, matrix: Matrix) {
         gpu.queue
             .write_buffer(&self.matrix_buffer, 0, bytemuck::cast_slice(&[matrix]));

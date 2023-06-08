@@ -1,6 +1,4 @@
-use glyph_brush::{
-    ab_glyph::{point, Rect},
-};
+use glyph_brush::ab_glyph::{point, Rect};
 
 use super::text_cache::TextCache;
 
@@ -50,7 +48,8 @@ impl TextPipeline {
             ],
         });
 
-        let shader = device.create_shader_module(wgpu::include_wgsl!("../../../res/shader/text.wgsl"));
+        let shader =
+            device.create_shader_module(wgpu::include_wgsl!("../../../res/shader/text.wgsl"));
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("wgpu-text Render Pipeline Layout"),
