@@ -63,6 +63,7 @@ pub mod audio {
     pub use crate::sound::audio_manager::*;
     pub use crate::sound::sound::*;
     pub use rodio::*;
+    pub use rodio::Sink as AudioSink;
 }
 
 // Rapier2d

@@ -1,4 +1,4 @@
-use crate::audio::{Sink, Sound};
+use crate::audio::{AudioSink, Sound};
 
 pub struct AudioManager {
     pub output_stream: rodio::OutputStream,
@@ -14,8 +14,8 @@ impl AudioManager {
         };
     }
 
-    pub fn create_sink(&self) -> Sink {
-        Sink::try_new(&self.output_handle).unwrap()
+    pub fn create_sink(&self) -> AudioSink {
+        AudioSink::try_new(&self.output_handle).unwrap()
     }
 
     pub fn create_sound(&self, bytes: &'static [u8]) -> Sound {

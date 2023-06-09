@@ -1,4 +1,4 @@
-use shura::{rand::gen_range, text::TextSection, *};
+use shura::{rand::gen_range, text::*, *};
 
 #[shura::main]
 fn shura_main(config: ShuraConfig) {
@@ -36,7 +36,9 @@ impl BunnyState {
             screenshot: None,
             bunny_model,
             bunny_sprite,
-            font: ctx.gpu.create_font(include_bytes!("./img/novem.ttf"), 1000),
+            font: ctx
+                .gpu
+                .create_font(include_bytes!("./font/novem.ttf"), 1000),
         }
     }
 }
@@ -44,21 +46,6 @@ impl BunnyState {
 impl SceneStateController for BunnyState {
     fn update(ctx: &mut Context) {
         const MODIFY_STEP: usize = 1500;
-        // gui::Window::new("bunnymark")
-        //     .anchor(gui::Align2::LEFT_TOP, gui::Vec2::default())
-        //     .resizable(false)
-        //     .collapsible(false)
-        //     .show(&ctx.gui.clone(), |ui| {
-        //         ui.label(&format!("FPS: {}", ctx.frame.fps()));
-        //         ui.label(format!(
-        //             "Bunnies: {}",
-        //             ctx.components.len::<Bunny>(ComponentFilter::All)
-        //         ));
-        //         if ui.button("Clear Bunnies").clicked() {
-        //             ctx.components.remove_all::<Bunny>(ComponentFilter::All);
-        //         }
-        //     });
-
         if ctx.input.is_held(MouseButton::Left) || ctx.input.is_held(ScreenTouch) {
             let cursor = ctx.input.cursor(&ctx.world_camera);
             for _ in 0..MODIFY_STEP {
@@ -153,20 +140,24 @@ impl ComponentController for Bunny {
         let scene = ctx.scene_states.get::<BunnyState>();
         encoder.render_all::<Self>(ctx, RenderConfig::WORLD, |r, instances| {
             r.render_sprite(instances, &scene.bunny_model, &scene.bunny_sprite);
-            r.queue_text(
-                &scene.font,
-                vec![TextSection {
-                    position: Vector::new(0.0, 3.0),
-                    text: vec![text::Text::new("hgfhgf")
-                        .with_scale(1.0)
-                        .with_color(Color::RED)],
-                    ..Default::default()
-                }],
-            );
-            r.render_text(&scene.font);
         });
-        // if let Some(screenshot) = &scene.screenshot {
-        //     encoder.copy_to_target(&ctx.defaults.world_target, &screenshot);
-        // }
+
+        scene.font.queue(
+            ctx.defaults,
+            RenderConfig::RELATIVE_TOP_RIGHT_WORLD,
+            vec![TextSection {
+                position: Vector::new(0.0, 0.0),
+                text: vec![Text::new(&format!(
+                    "FPS: {}\nBunnies: {}",
+                    ctx.frame.fps(),
+                    ctx.components.len::<Bunny>(ComponentFilter::All)
+                ))
+                .with_scale(0.05)
+                .with_color(Color::RED)],
+                alignment: TextAlignment::TopRight,
+                ..Default::default()
+            }],
+        );
+        scene.font.submit(encoder, RenderConfigTarget::World);
     }
 }

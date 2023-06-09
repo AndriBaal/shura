@@ -52,20 +52,6 @@ A good way to learn shura is through the provided examples or through reading th
 
 - Logging on all Platforms with [env_logger](https://github.com/rust-cli/env_logger) and a modified verison of [wasm_logger](https://gitlab.com/limira-rs/wasm-logger) (feature flag 'log')
 
-## Future features (TODO):
-
-- Serialization of Groups
-
-- Expand SpriteSheet
-
-- Built in AABB for simple collision detection (apart from physics)
-
-- Refactor of rounded Models
-
-- Tutorials and in depth documentation
-
-- More Examples
-
 ## Cross-platform
 
 shura is currently only tested on Windows 10 / 11, Linux, Android and on the web with WASM. macOS and iOS are currently untested, but are likely to work.

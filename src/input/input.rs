@@ -14,6 +14,20 @@ pub use winit::event::VirtualKeyCode as Key;
 /// Indicates if the screen is touched anywhere.
 pub struct ScreenTouch;
 
+#[cfg(feature = "gamepad")]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub struct GamepadButton {
+    pub gamepad: GamepadId,
+    pub button: Button,
+}
+
+#[cfg(feature = "gamepad")]
+impl From<GamepadButton> for InputTrigger {
+    fn from(k: GamepadButton) -> Self {
+        Self::GamepadButton(k)
+    }
+}
+
 impl From<Key> for InputTrigger {
     fn from(k: Key) -> Self {
         Self::Key(k)
@@ -38,6 +52,8 @@ pub enum InputTrigger {
     Key(Key),
     MouseButton(MouseButton),
     ScreenTouch(ScreenTouch),
+    #[cfg(feature = "gamepad")]
+    GamepadButton(GamepadButton),
 }
 
 /// Event of a [InputTrigger] that holds the trigger and the time of the event.
@@ -46,16 +62,23 @@ pub struct InputEvent {
     pressed: bool,
     start: Instant,
     frames: u32,
+    pressure: f32,
 }
 
 impl InputEvent {
-    pub fn new(trigger: InputTrigger) -> Self {
+    pub fn new(trigger: InputTrigger, pressure: f32) -> Self {
         Self {
             trigger,
             pressed: true,
             start: Instant::now(),
             frames: 1,
+            pressure,
         }
+    }
+
+    // Value between 0 and 1 of how much a analog key is pressed
+    pub fn pressure(&self) -> f32 {
+        self.pressure
     }
 
     pub fn update(&mut self) {
@@ -88,7 +111,7 @@ pub struct Input {
     modifiers: Modifier,
     wheel_delta: f32,
     #[cfg(feature = "gamepad")]
-    game_pad_manager: Option<Gilrs>,
+    game_pad_manager: Gilrs,
     window_size: Vector<f32>,
 }
 
@@ -101,7 +124,14 @@ impl Input {
             modifiers: Default::default(),
             wheel_delta: 0.0,
             #[cfg(feature = "gamepad")]
-            game_pad_manager: Gilrs::new().ok(),
+            game_pad_manager: match Gilrs::new() {
+                Ok(ok) => ok,
+                Err(err) => match err {
+                    Error::NotImplemented(gilrs) => gilrs,
+                    Error::InvalidAxisToBtn => panic!("Gamepad Error: Invalid Axis To Button!"),
+                    Error::Other(err) => panic!("Gamepad Error: {}", err),
+                },
+            },
             window_size: window_size.cast(),
         }
     }
@@ -122,7 +152,7 @@ impl Input {
                     TouchPhase::Started => {
                         let trigger = ScreenTouch.into();
                         self.touches.insert(touch.id, pos);
-                        self.events.insert(trigger, InputEvent::new(trigger));
+                        self.events.insert(trigger, InputEvent::new(trigger, 1.0));
                     }
                     TouchPhase::Ended | TouchPhase::Cancelled => {
                         let trigger = ScreenTouch.into();
@@ -142,7 +172,7 @@ impl Input {
                     match input.state {
                         ElementState::Pressed => {
                             if !self.events.contains_key(&trigger) {
-                                self.events.insert(trigger, InputEvent::new(trigger));
+                                self.events.insert(trigger, InputEvent::new(trigger, 1.0));
                             }
                         }
                         ElementState::Released => {
@@ -156,7 +186,7 @@ impl Input {
                 let trigger = (*button).into();
                 match state {
                     ElementState::Pressed => {
-                        self.events.insert(trigger, InputEvent::new(trigger));
+                        self.events.insert(trigger, InputEvent::new(trigger, 1.0));
                     }
                     ElementState::Released => {
                         self.events.remove(&trigger);
@@ -219,19 +249,50 @@ impl Input {
     }
 
     #[cfg(feature = "gamepad")]
-    pub fn gamepads(&self) -> Option<ConnectedGamepadsIterator> {
-        if let Some(game_pad_manager) = &self.game_pad_manager {
-            return Some(game_pad_manager.gamepads());
+    // Syncs the gamepad inputs to the inputs of the controller. This is automatically done once every update cycle.
+    pub fn sync_controller(&mut self) {
+        while let Some(event) = self.game_pad_manager.next_event() {
+            let gamepad = event.id;
+            match event.event {
+                EventType::ButtonPressed(button, _) => {
+                    let trigger = GamepadButton { gamepad, button };
+                    self.events
+                        .insert(trigger.into(), InputEvent::new(trigger.into(), 1.0));
+                }
+                EventType::ButtonChanged(button, pressure, _) => {
+                    let trigger = GamepadButton { gamepad, button };
+                    if pressure == 0.0 {
+                        self.events.remove(&trigger.into());
+                    } else {
+                        self.events
+                            .insert(trigger.into(), InputEvent::new(trigger.into(), pressure));
+                    }
+                }
+                EventType::ButtonReleased(button, _) => {
+                    let trigger = GamepadButton { gamepad, button };
+                    self.events.remove(&trigger.into());
+                },
+                EventType::Disconnected => self.events.retain(|trigger, _| match trigger {
+                    InputTrigger::GamepadButton(c) => c.gamepad != gamepad,
+                    _ => true,
+                }),
+                // TODO: Maybe support this
+                EventType::ButtonRepeated(_, _) => {},
+                EventType::Dropped => {}
+                EventType::Connected => {}
+                EventType::AxisChanged(_, _, _) => {}
+            }
         }
-        return None;
+    }
+
+    #[cfg(feature = "gamepad")]
+    pub fn gamepads(&self) -> ConnectedGamepadsIterator {
+        return self.game_pad_manager.gamepads();
     }
 
     #[cfg(feature = "gamepad")]
     pub fn gamepad(&self, gamepad_id: GamepadId) -> Option<Gamepad> {
-        if let Some(game_pad_manager) = &self.game_pad_manager {
-            return game_pad_manager.connected_gamepad(gamepad_id);
-        }
-        return None;
+        return self.game_pad_manager.connected_gamepad(gamepad_id);
     }
 
     pub const fn modifiers(&self) -> Modifier {

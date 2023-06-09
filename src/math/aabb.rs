@@ -64,21 +64,11 @@ impl AABB {
         model_aabb.max += position.translation.vector;
 
         if position.rotation.angle() != 0.0 {
-            let sin = position.rotation.sin_angle();
-            let cos = position.rotation.cos_angle();
             let delta = model_aabb.min - position.translation.vector;
-            model_aabb.min = Vector::new(
-                model_aabb.min.x + (delta.x) * cos - (delta.y) * sin,
-                model_aabb.min.y + (delta.x) * sin + (delta.y) * cos,
-            );
+            model_aabb.min = position.translation.vector + position.rotation * delta;
 
-            let sin = position.rotation.sin_angle();
-            let cos = position.rotation.cos_angle();
             let delta = model_aabb.max - position.translation.vector;
-            model_aabb.max = Vector::new(
-                model_aabb.max.x + (delta.x) * cos - (delta.y) * sin,
-                model_aabb.max.y + (delta.x) * sin + (delta.y) * cos,
-            );
+            model_aabb.max = position.translation.vector + position.rotation * delta;
 
             let mut xs = [
                 model_aabb.min.x,

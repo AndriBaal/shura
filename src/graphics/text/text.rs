@@ -1,7 +1,7 @@
 use crate::text::*;
 use crate::Vector;
 
-pub enum Alignment {
+pub enum TextAlignment {
     TopLeft,
     TopRight,
     BottomRight,
@@ -11,7 +11,7 @@ pub enum Alignment {
 
 /// Section of Text
 pub struct TextSection<'a> {
-    pub alignment: Alignment,
+    pub alignment: TextAlignment,
     pub position: Vector<f32>,
     pub bounds: Vector<f32>,
     pub layout: Layout<BuiltInLineBreaker>,
@@ -48,25 +48,24 @@ impl<'a> TextSection<'a> {
             text: self.text,
         };
         match self.alignment {
-            Alignment::TopLeft => {}
-            Alignment::TopRight => {
+            TextAlignment::TopLeft => {}
+            TextAlignment::TopRight => {
                 if let Some(bounds) = font.glyph_bounds(&section) {
                     section.screen_position.0 -= bounds.width();
-                    section.screen_position.1 += bounds.height();
                 }
             }
-            Alignment::BottomRight => {
+            TextAlignment::BottomRight => {
                 if let Some(bounds) = font.glyph_bounds(&section) {
                     section.screen_position.0 -= bounds.width();
                     section.screen_position.1 -= bounds.height();
                 }
             }
-            Alignment::BottomLeft => {
+            TextAlignment::BottomLeft => {
                 if let Some(bounds) = font.glyph_bounds(&section) {
                     section.screen_position.1 -= bounds.height();
                 }
             }
-            Alignment::Center => {
+            TextAlignment::Center => {
                 if let Some(bounds) = font.glyph_bounds(&section) {
                     section.screen_position.0 -= bounds.width() / 2.0;
                     section.screen_position.1 -= bounds.height() / 2.0;
@@ -80,7 +79,7 @@ impl<'a> TextSection<'a> {
 impl<'a> Default for TextSection<'a> {
     fn default() -> Self {
         Self {
-            alignment: Alignment::Center,
+            alignment: TextAlignment::Center,
             position: Vector::new(0.0, 0.0),
             bounds: Vector::new(f32::INFINITY, f32::INFINITY),
             layout: Default::default(),

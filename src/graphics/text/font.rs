@@ -1,6 +1,6 @@
 use super::{text::TextSection, text_cache::TextCache};
 use crate::{
-    text::TextVertex, Gpu, GpuDefaults, Matrix, RenderConfig, RenderConfigTarget, RenderEncoder,
+    text::TextVertex, Gpu, GpuDefaults, Matrix, RenderConfig,   RenderConfigTarget, RenderEncoder,
     Vector,
 };
 use glyph_brush::{
@@ -31,7 +31,7 @@ impl FontBrush {
         })
     }
 
-    pub fn queue(&self, defaults: &GpuDefaults, sections: Vec<TextSection>, config: RenderConfig) {
+    pub fn queue(&self, defaults: &GpuDefaults, config: RenderConfig, sections: Vec<TextSection>) {
         let cam = config.camera.camera(defaults);
         let target = config.target.target(defaults);
         let cam_aabb = cam.model().aabb(Default::default());

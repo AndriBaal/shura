@@ -234,7 +234,7 @@ impl<'a> Renderer<'a> {
 
     #[cfg(feature = "text")]
     pub fn queue_text(&mut self, font: &'a FontBrush, sections: Vec<TextSection>) {
-        font.queue(self.defaults, sections, self.config);
+        font.queue(self.defaults, self.config, sections);
     }
 
     pub fn render_sprite(

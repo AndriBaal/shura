@@ -79,24 +79,21 @@ impl BirdSimulation {
 
     fn spawn_pipes(&mut self, components: &mut ComponentManager) {
         self.spawn_timer = 0.0;
-        let pipe = components
-            .components
-            .add(GroupHandle::DEFAULT_GROUP, Pipe::new());
-        info!("Spawning new pipes with id: {}]", pipe.id());
+        let pipe = components.add(GroupHandle::DEFAULT_GROUP, Pipe::new());
     }
 }
 
 impl SceneStateController for BirdSimulation {
     fn update(ctx: &mut Context) {
-        let fps = ctx.fps();
+        let fps = ctx.frame.fps();
         let scene = ctx.scene_states.get_mut::<Self>();
-        let time_scale = ctx.components.world_mut().time_scale;
-        let delta = ctx.frame_manager.frame_time() * time_scale;
+        let time_scale = ctx.world.time_scale;
+        let delta = ctx.frame.frame_time() * time_scale;
         scene.spawn_timer += delta;
         let score = ctx
             .components
-            .components::<Bird>(ComponentFilter::All)
-            .find(|b| b.body().is_enabled())
+            .iter::<Bird>(ComponentFilter::All)
+            .find(|b| !b.dead)
             .unwrap()
             .score as u32;
         if score > scene.high_score {
@@ -107,10 +104,10 @@ impl SceneStateController for BirdSimulation {
             scene.spawn_pipes(ctx.components);
         }
 
-        let pipes = ctx.components.components::<Pipe>(ComponentFilter::All);
+        let pipes = ctx.components.iter::<Pipe>(ComponentFilter::All);
         let mut closest = Vector::new(GAME_SIZE.x, 0.0);
         for pipe in pipes {
-            let translation = pipe.translation();
+            let translation = pipe.pos.translation();
             if translation.x >= 0.0 && translation.x < closest.x {
                 closest = translation;
             }
@@ -119,74 +116,60 @@ impl SceneStateController for BirdSimulation {
         let bottom_y = closest.y - Pipe::HALF_HOLE_SIZE;
         let top_y = closest.y + Pipe::HALF_HOLE_SIZE;
 
-        let bottom_aabb = Aabb::new(
-            (closest
-                - Vector::new(
-                    Pipe::HALF_EXTENTS.x,
-                    Pipe::HALF_HOLE_SIZE + Pipe::HALF_EXTENTS.y * 2.0,
-                ))
-            .into(),
-            (closest + Vector::new(Pipe::HALF_EXTENTS.x, -Pipe::HALF_HOLE_SIZE)).into(),
+        let top_aabb = AABB::from_center(
+            closest + Vector::new(0.0, Pipe::HALF_HOLE_SIZE + Pipe::HALF_EXTENTS.y),
+            Pipe::HALF_EXTENTS,
         );
-        let top_aabb = Aabb::new(
-            (closest - Vector::new(Pipe::HALF_EXTENTS.x, -Pipe::HALF_HOLE_SIZE)).into(),
-            (closest
-                + Vector::new(
-                    Pipe::HALF_EXTENTS.x,
-                    Pipe::HALF_HOLE_SIZE + Pipe::HALF_EXTENTS.y * 2.0,
-                ))
-            .into(),
+        let bottom_aabb = AABB::from_center(
+            closest - Vector::new(0.0, Pipe::HALF_HOLE_SIZE + Pipe::HALF_EXTENTS.y),
+            Pipe::HALF_EXTENTS,
         );
         let x = closest.x;
         assert!(x >= 0.0);
 
-        for bird in ctx
-            .components
-            .components_mut::<Bird>(ComponentFilter::Active)
-        {
-            let mut body = bird.pos.body_mut();
-            let pos = *body.translation();
-            let bl = pos - Bird::HALF_EXTENTS;
-            let tr = pos + Bird::HALF_EXTENTS;
-            let bird_aabb = Aabb::new(bl.into(), tr.into());
-            assert!(bird_aabb.maxs > bird_aabb.mins);
-            if bl.y < -GAME_SIZE.y + Ground::HALF_EXTENTS.y * 2.0 || tr.y > GAME_SIZE.y {
-                body.set_enabled(false);
+        for bird in ctx.components.iter_mut::<Bird>(ComponentFilter::Active) {
+            bird.linvel += delta * Bird::GRAVITY;
+            let new_pos = bird.pos.translation() + delta * bird.linvel;
+            bird.pos.set_translation(new_pos);
+
+            let bird_aabb = AABB::from_center(bird.pos.translation(), Bird::HALF_EXTENTS);
+            if bird_aabb.min.y < -GAME_SIZE.y + Ground::HALF_EXTENTS.y * 2.0
+                || bird_aabb.max.y > GAME_SIZE.y
+                || bird_aabb.intersects(&bottom_aabb)
+                || bird_aabb.intersects(&top_aabb)
+            {
+                bird.dead = true;
             }
 
-            if bird_aabb.intersects(&bottom_aabb) || bird_aabb.intersects(&top_aabb) {
-                body.set_enabled(false);
-            }
-
-            if !body.is_enabled() {
+            if !bird.dead {
                 continue;
             }
 
             bird.score += delta * 1.0;
             let out = bird.brain.predict(&vec![
-                body.translation().y as f64,
+                bird.pos.translation().y as f64,
                 bottom_y as f64,
                 top_y as f64,
                 x as f64,
-                body.linvel().y as f64,
+                bird.linvel.y as f64,
             ])[0];
 
             if out >= 0.5 {
-                body.set_linvel(Vector::new(0.0, 5.0), true);
+                bird.linvel.y = 5.0;
             }
         }
 
         let dead_count = ctx
             .components
-            .components::<Bird>(ComponentFilter::All)
-            .filter(|b| b.body().is_enabled())
+            .iter::<Bird>(ComponentFilter::All)
+            .filter(|b| !b.dead)
             .count();
 
         if dead_count == 0 {
             let mut max_fitness = 0.0;
             let mut weights = Vec::new();
 
-            for b in ctx.components.components::<Bird>(ComponentFilter::All) {
+            for b in ctx.components.iter::<Bird>(ComponentFilter::All) {
                 if b.score > max_fitness {
                     max_fitness = b.score;
                 }
@@ -198,29 +181,29 @@ impl SceneStateController for BirdSimulation {
 
             let gene_pool = WeightedIndex::new(&weights).expect("Failed to generate gene pool");
 
-            let amount = ctx.components.len::<Bird>(GroupId::DEFAULT);
+            let amount = ctx.components.len::<Bird>(ComponentFilter::All);
             let mut rng = thread_rng();
-            let mut new_birds = Vec::with_capacity(amount);
-            for _ in 0..amount {
-                let index = gene_pool.sample(&mut rng);
-                let rand_bird = ctx
-                    .components
-                    .component_by_index_mut::<Bird>(GroupId::DEFAULT, index as u32)
-                    .unwrap();
+            // let mut new_birds = Vec::with_capacity(amount);
+            // for _ in 0..amount {
+            //     let index = gene_pool.sample(&mut rng);
+            //     let rand_bird = ctx
+            //         .components
+            //         .index_mut::<Bird>(GroupHandle::DEFAULT_GROUP, index)
+            //         .unwrap();
 
-                let mut new_bird = Bird::with_brain(&rand_bird);
-                new_bird.brain.mutate();
-                new_birds.push(new_bird);
-            }
-            ctx.components
-                .remove_components::<Bird>(ComponentFilter::All);
-            ctx.components.add_components(new_birds);
+            //     let mut new_bird = Bird::with_brain(&rand_bird);
+            //     new_bird.brain.mutate();
+            //     new_birds.push(new_bird);
+            // }
+            // ctx.components
+            //     .remove_components::<Bird>(ComponentFilter::All);
+            // ctx.components.add_components(new_birds);
 
-            scene.generation += 1;
-            info!("Now at generation {}!", scene.generation);
-            ctx.components
-                .remove_components::<Pipe>(ComponentFilter::All);
-            scene.spawn_pipes(ctx.components);
+            // scene.generation += 1;
+            // info!("Now at generation {}!", scene.generation);
+            // ctx.components
+            //     .remove_components::<Pipe>(ComponentFilter::All);
+            // scene.spawn_pipes(ctx.components);
         }
 
         gui::Window::new("Flappy Bird")
@@ -233,10 +216,7 @@ impl SceneStateController for BirdSimulation {
                 ui.label(format!("Score: {}", score));
                 ui.label(format!("High Score: {}", scene.high_score));
                 ui.label(format!("Birds: {}", dead_count as u32));
-                ui.add(
-                    gui::Slider::new(&mut ctx.components.world_mut().time_scale, 0.1..=20.0)
-                        .text("Speed"),
-                );
+                ui.add(gui::Slider::new(&mut ctx.world.time_scale, 0.1..=20.0).text("Speed"));
             });
     }
 }
@@ -247,21 +227,20 @@ struct Bird {
     pos: PositionComponent,
     brain: NeuralNetwork,
     score: f32,
+    dead: bool,
+    linvel: Vector<f32>,
 }
 
 impl Bird {
     const HALF_EXTENTS: Vector<f32> = Vector::new(0.3, 0.21176472);
+    const GRAVITY: Vector<f32> = Vector::new(0.0, -1.0);
     pub fn new() -> Self {
         Self {
-            pos: BaseComponent::new_body(
-                RigidBodyBuilder::dynamic()
-                    .locked_axes(LockedAxes::TRANSLATION_LOCKED_X)
-                    .lock_rotations()
-                    .additional_mass(3.0),
-                &[],
-            ),
+            pos: PositionComponent::new(Default::default()),
             score: 0.0,
             brain: NeuralNetwork::new(vec![5, 8, 1]),
+            dead: false,
+            linvel: Vector::default(),
         }
     }
 
@@ -274,9 +253,9 @@ impl Bird {
 
 impl ComponentController for Bird {
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {
-        let scene = ctx.scene_state::<BirdSimulation>();
-        encoder.render_each(ctx, RenderConfig::default(), |r, bird, instance| {
-            if bird.body().is_enabled() {
+        let scene = ctx.scene_states.get::<BirdSimulation>();
+        encoder.render_each::<Self>(ctx, RenderConfig::default(), |r, bird, instance| {
+            if !bird.dead {
                 r.render_sprite(instance, &scene.bird_model, &scene.bird_sprite)
             }
         });
@@ -357,11 +336,10 @@ impl ComponentController for Background {
 struct Pipe {
     #[base]
     pos: PositionComponent,
-    linvel: Vector<f32>,
 }
 
 impl Pipe {
-    const PIPE_SPEED: f32 = -3.0;
+    const PIPE_VEL: Vector<f32> = Vector::new(0.0, -3.0);
     const HALF_EXTENTS: Vector<f32> = Vector::new(0.65, 4.0);
     const HALF_HOLE_SIZE: f32 = 1.1;
     const MIN_PIPE_Y: f32 = 0.25;
@@ -375,7 +353,6 @@ impl Pipe {
             pos: PositionComponent::new(
                 PositionBuilder::new().translation(Vector::new(GAME_SIZE.x, y)),
             ),
-            linvel: Vector::new(Self::PIPE_SPEED, 0.0),
         };
     }
 }
@@ -389,13 +366,9 @@ impl ComponentController for Pipe {
         let frame_time = ctx.frame.frame_time();
         ctx.components
             .retain::<Self>(ComponentFilter::Active, |pipe| {
-                let x = pipe
-                    .pos
-                    .set_translation(pipe.pos.translation().x + frame_time * pipe.linvel.x);
-                let x = pipe.pos.translation().x;
-                if x <= -GAME_SIZE.x {
-                    let handle = pipe.pos.handle();
-                    info!("Removing Pipe with id: {}", handle.id());
+                let new_pos = pipe.pos.translation() + frame_time * Self::PIPE_VEL;
+                pipe.pos.set_translation(new_pos);
+                if new_pos.x <= -GAME_SIZE.x {
                     return false;
                 }
                 return true;
@@ -403,7 +376,7 @@ impl ComponentController for Pipe {
     }
 
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {
-        let scene = ctx.scene_state::<BirdSimulation>();
+        let scene = ctx.scene_states.get::<BirdSimulation>();
         encoder.render_all::<Self>(ctx, RenderConfig::default(), |r, instances| {
             r.render_sprite(instances.clone(), &scene.top_pipe_model, &scene.pipe_sprite);
             r.render_sprite(instances, &scene.bottom_pipe_model, &scene.pipe_sprite);

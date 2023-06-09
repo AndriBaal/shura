@@ -553,15 +553,9 @@ impl ModelBuilder {
 
         let angle = vertex_offset.rotation.angle();
         if angle != Self::DEFAULT_ROTATION {
-            let sin = vertex_offset.rotation.sin_angle();
-            let cos = vertex_offset.rotation.cos_angle();
             for v in vertices.iter_mut() {
                 let delta = v.pos - vertex_rotation_axis;
-
-                v.pos = Vector::new(
-                    vertex_rotation_axis.x + (delta.x) * cos - (delta.y) * sin,
-                    vertex_rotation_axis.y + (delta.x) * sin + (delta.y) * cos,
-                );
+                v.pos = vertex_rotation_axis + vertex_offset.rotation * delta;
             }
         }
 
@@ -580,15 +574,9 @@ impl ModelBuilder {
 
         let angle = tex_coord_offset.rotation.angle();
         if angle != Self::DEFAULT_ROTATION {
-            let sin = tex_coord_offset.rotation.sin_angle();
-            let cos = tex_coord_offset.rotation.cos_angle();
             for v in vertices.iter_mut() {
                 let delta = v.tex_coords - tex_coord_rotation_axis;
-
-                v.tex_coords = Vector::new(
-                    tex_coord_rotation_axis.x + (delta.x) * cos - (delta.y) * sin,
-                    tex_coord_rotation_axis.y + (delta.x) * sin + (delta.y) * cos,
-                );
+                v.tex_coords = tex_coord_rotation_axis + tex_coord_offset.rotation * delta;
             }
         }
 

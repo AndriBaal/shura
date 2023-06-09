@@ -1,5 +1,5 @@
 use shura::{
-    audio::{AudioManager, Sink, Sound},
+    audio::{AudioManager, AudioSink, Sound},
     log::info,
     physics::*,
     rand::gen_range,
@@ -38,7 +38,7 @@ struct FlappyState {
     score: u32,
     spawn_timer: f32,
     started: bool,
-    point_sink: Sink,
+    point_sink: AudioSink,
     point_sound: Sound,
 }
 
@@ -118,7 +118,7 @@ struct Bird {
     body: RigidBodyComponent,
     model: Model,
     sprite: SpriteSheet,
-    sink: Sink,
+    sink: AudioSink,
     hit_sound: Sound,
     wing_sound: Sound,
 }

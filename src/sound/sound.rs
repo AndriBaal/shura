@@ -9,7 +9,7 @@ impl Sound {
         return Self(sound);
     }
 
-    /// Decode the sound so it can be played by a [sink](crate::audio::Sink).
+    /// Decode the sound so it can be played by a [sink](crate::audio::AudioSink).
     pub fn decode(&self) -> Decoder<std::io::Cursor<&'static [u8]>> {
         let cursor = std::io::Cursor::new(self.0);
         Decoder::new(cursor).unwrap()
