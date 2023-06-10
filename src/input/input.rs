@@ -271,13 +271,13 @@ impl Input {
                 EventType::ButtonReleased(button, _) => {
                     let trigger = GamepadButton { gamepad, button };
                     self.events.remove(&trigger.into());
-                },
+                }
                 EventType::Disconnected => self.events.retain(|trigger, _| match trigger {
                     InputTrigger::GamepadButton(c) => c.gamepad != gamepad,
                     _ => true,
                 }),
                 // TODO: Maybe support this
-                EventType::ButtonRepeated(_, _) => {},
+                EventType::ButtonRepeated(_, _) => {}
                 EventType::Dropped => {}
                 EventType::Connected => {}
                 EventType::AxisChanged(_, _, _) => {}

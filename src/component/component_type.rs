@@ -488,11 +488,12 @@ impl ComponentType {
         return handle;
     }
 
-    pub fn add_many<I, C: ComponentController>(
+    pub fn add_many<C: ComponentController>(
         &mut self,
         group_handle: GroupHandle,
-        components: impl Iterator<Item = C>,
+        components: impl IntoIterator<Item = C>,
     ) -> Vec<ComponentHandle> {
+        let components = components.into_iter();
         let mut handles = Vec::with_capacity(components.size_hint().0);
         if let Some(group) = self.groups.get_mut(group_handle.0) {
             for component in components {

@@ -123,12 +123,12 @@ impl<'a, C: ComponentController> ComponentSetMut<'a, C> {
         self.ty.add(group_handle, component)
     }
 
-    pub fn add_many<I>(
+    pub fn add_many(
         &mut self,
         group_handle: GroupHandle,
-        components: impl Iterator<Item = C>,
+        components: impl IntoIterator<Item = C>,
     ) -> Vec<ComponentHandle> {
-        self.ty.add_many::<I, C>(group_handle, components)
+        self.ty.add_many::<C>(group_handle, components)
     }
 
     pub fn add_with(

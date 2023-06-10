@@ -462,13 +462,13 @@ impl ComponentManager {
         ty.add(group_handle, component)
     }
 
-    pub fn add_many<I, C: ComponentController>(
+    pub fn add_many<C: ComponentController>(
         &mut self,
         group_handle: GroupHandle,
-        components: impl Iterator<Item = C>,
+        components: impl IntoIterator<Item = C>,
     ) -> Vec<ComponentHandle> {
         let ty = type_mut!(self, C);
-        ty.add_many::<I, C>(group_handle, components)
+        ty.add_many::<C>(group_handle, components)
     }
 
     pub fn add_with<C: ComponentController + ComponentController>(

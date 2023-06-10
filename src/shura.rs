@@ -299,8 +299,8 @@ impl Shura {
                     Some(val) => val,
                     None => {
                         info!("ululul");
-                        continue
-                    },
+                        continue;
+                    }
                 }
             };
         }
