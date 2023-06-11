@@ -16,6 +16,7 @@ pub struct ScreenTouch;
 
 #[cfg(feature = "gamepad")]
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
+/// Button on a GamePad
 pub struct GamepadButton {
     pub gamepad: GamepadId,
     pub button: Button,
@@ -286,6 +287,11 @@ impl Input {
     }
 
     #[cfg(feature = "gamepad")]
+    pub fn first_gamepad(&self) -> Option<(GamepadId, Gamepad)> {
+        return self.game_pad_manager.gamepads().next();
+    }
+
+    #[cfg(feature = "gamepad")]
     pub fn gamepads(&self) -> ConnectedGamepadsIterator {
         return self.game_pad_manager.gamepads();
     }
@@ -342,31 +348,27 @@ impl Input {
         self.events.get(&trigger.into())
     }
 
-    //
-    // #[cfg(feature = "gamepad")]
-    // pub fn set_gamepad_mapping(
-    //     &mut self,
-    //     gamepad_id: GamepadId,
-    //     mapping: &Mapping,
-    //     name: Option<&str>,
-    // ) -> Result<String, MappingError> {
-    //     if let Some(game_pad_manager) = &mut self.game_pad_manager {
-    //         return game_pad_manager.set_mapping(gamepad_id.into(), mapping, name);
-    //     }
-    //     return Err(MappingError::NotConnected);
-    // }
+    #[cfg(feature = "gamepad")]
+    pub fn set_gamepad_mapping(
+        &mut self,
+        gamepad_id: GamepadId,
+        mapping: &Mapping,
+        name: Option<&str>,
+    ) -> Result<String, MappingError> {
+        return self
+            .game_pad_manager
+            .set_mapping(gamepad_id.into(), mapping, name);
+    }
 
-    //
-    // #[cfg(feature = "gamepad")]
-    // pub fn set_gamepad_mapping_strict(
-    //     &mut self,
-    //     gamepad_id: GamepadId,
-    //     mapping: &Mapping,
-    //     name: Option<&str>,
-    // ) -> Result<String, MappingError> {
-    //     if let Some(game_pad_manager) = &mut self.game_pad_manager {
-    //         return game_pad_manager.set_mapping_strict(gamepad_id.into(), mapping, name);
-    //     }
-    //     return Err(MappingError::NotConnected);
-    // }
+    #[cfg(feature = "gamepad")]
+    pub fn set_gamepad_mapping_strict(
+        &mut self,
+        gamepad_id: GamepadId,
+        mapping: &Mapping,
+        name: Option<&str>,
+    ) -> Result<String, MappingError> {
+        return self
+            .game_pad_manager
+            .set_mapping_strict(gamepad_id.into(), mapping, name);
+    }
 }

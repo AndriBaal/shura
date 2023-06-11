@@ -14,13 +14,21 @@ use std::collections::BTreeMap;
 use std::rc::Rc;
 
 #[macro_export]
+/// Register multiple components at once
 macro_rules! register {
-    ($ctx: expr,[$($k:ty),*]) => {
+    ($components: expr,[$($k:ty),*]) => {
         {
             $(
-                $ctx.components.register::<$k>();
+                $components.register::<$k>();
             )*
         }
+    };
+}
+
+#[macro_export]
+macro_rules! sets {
+    ($components: expr, [$($k:ty),*]) => {
+        [$($k::IDENTIFIER,)*];
     };
 }
 
@@ -76,7 +84,7 @@ macro_rules! type2_mut {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Ord, Eq)]
-/// Filter to query which components should be in a [ComponentSet]
+/// Filter components by groups
 pub enum ComponentFilter<'a> {
     All,
     Active,
@@ -94,7 +102,7 @@ impl ComponentFilter<'static> {
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-/// Access to the component system.
+/// Access to the component system
 pub struct ComponentManager {
     type_map: FxHashMap<ComponentTypeId, TypeIndex>,
     types: Arena<ComponentType>,
@@ -324,6 +332,10 @@ impl ComponentManager {
             ComponentSetMut::<C2>::new(ty2, groups2),
         );
     }
+
+    // pub fn sets(&mut self, identifiers: &[]) {
+
+    // }
 
     pub fn each<C: ComponentController>(&self, filter: ComponentFilter, each: impl FnMut(&C)) {
         let groups = group_filter!(self, filter);

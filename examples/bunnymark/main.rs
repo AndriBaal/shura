@@ -115,7 +115,7 @@ impl Bunny {
 impl ComponentController for Bunny {
     const CONFIG: ComponentConfig = ComponentConfig {
         priority: 2,
-        ..DEFAULT_CONFIG
+        ..ComponentConfig::DEFAULT
     };
     fn update(ctx: &mut Context) {
         const GRAVITY: f32 = -2.5;
@@ -152,8 +152,8 @@ impl ComponentController for Bunny {
         encoder.render_all::<Self>(ctx, RenderConfig::WORLD, |r, instances| {
             r.render_sprite(instances, &scene.bunny_model, &scene.bunny_sprite)
         });
-        // if let Some(screenshot) = &scene.screenshot {
-        //     encoder.copy_to_target(&ctx.defaults.world_target, &screenshot);
-        // }
+        if let Some(screenshot) = &scene.screenshot {
+            encoder.copy_to_target(&ctx.defaults.world_target, &screenshot);
+        }
     }
 }

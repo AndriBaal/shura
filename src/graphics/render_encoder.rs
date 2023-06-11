@@ -54,6 +54,8 @@ impl<'a> RenderConfig<'a> {
 }
 
 #[derive(Clone, Copy)]
+/// Camera used for rendering. Allow to easily select a default camera from shura or
+/// to use a custom camera. All default cameras are living inside the [GpuDefaults](crate::GpuDefaults).
 pub enum RenderConfigCamera<'a> {
     WordCamera,
     UnitCamera,
@@ -80,30 +82,10 @@ impl<'a> RenderConfigCamera<'a> {
             RenderConfigCamera::Custom(c) => c,
         };
     }
-
-    // pub fn camera_with_offset(self, defaults: &'a GpuDefaults) -> (Vector<f32>, &'a CameraBuffer) {
-    //     return match self {
-    //         RenderConfigCamera::WordCamera => (defaults.world_camera.model().aabb(position), &defaults.world_camera),
-    //         RenderConfigCamera::UnitCamera => (Vector::default(), &defaults.unit_camera.0),
-    //         RenderConfigCamera::RelativeCamera => (Vector::default(), &defaults.relative_camera.0),
-    //         RenderConfigCamera::RelativeCameraBottomLeft => {
-    //             (Vector::default(), &defaults.relative_bottom_left_camera.0)
-    //         }
-    //         RenderConfigCamera::RelativeCameraBottomRight => {
-    //             (Vector::default(), &defaults.relative_bottom_right_camera.0)
-    //         }
-    //         RenderConfigCamera::RelativeCameraTopLeft => {
-    //             (Vector::default(), &defaults.relative_top_left_camera.0)
-    //         }
-    //         RenderConfigCamera::RelativeCameraTopRight => {
-    //             (Vector::default(), &defaults.relative_top_right_camera.0)
-    //         }
-    //         RenderConfigCamera::Custom(c) => (Vector::default(), c),
-    //     };
-    // }
 }
 
 #[derive(Clone, Copy)]
+/// Instances used for rendering
 pub enum RenderConfigInstances<'a> {
     Empty,
     SingleCenteredInstance,
@@ -121,6 +103,7 @@ impl<'a> RenderConfigInstances<'a> {
 }
 
 #[derive(Clone, Copy)]
+/// Target to render onto
 pub enum RenderConfigTarget<'a> {
     World,
     Custom(&'a RenderTarget),

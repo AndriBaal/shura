@@ -156,7 +156,7 @@ impl ComponentController for ModelTest {
         update: UpdateOperation::Never,
         render: RenderOperation::EveryFrame,
         buffer: BufferOperation::Manual,
-        ..DEFAULT_CONFIG
+        ..ComponentConfig::DEFAULT
     };
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {
         encoder.render_each::<Self>(ctx, RenderConfig::WORLD, |r, model, index| {

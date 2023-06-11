@@ -198,7 +198,7 @@ impl ComponentController for Obstacle {
     const CONFIG: ComponentConfig = ComponentConfig {
         priority: 2,
         update: UpdateOperation::Never,
-        ..DEFAULT_CONFIG
+        ..ComponentConfig::DEFAULT
     };
 
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {
@@ -247,7 +247,7 @@ impl Light {
 impl ComponentController for Light {
     const CONFIG: ComponentConfig = ComponentConfig {
         priority: 1,
-        ..DEFAULT_CONFIG
+        ..ComponentConfig::DEFAULT
     };
 
     fn update(ctx: &mut Context) {

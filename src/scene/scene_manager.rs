@@ -3,8 +3,7 @@ use core::panic;
 use rustc_hash::FxHashMap;
 use std::{cell::RefCell, rc::Rc};
 
-/// Access to the scenes. [Removing](crate::Context::remove_scene) and [creating](crate::Context::add_scene)
-/// scenes must be done from the [Context](crate::Context).
+/// Access to the scenes.
 pub struct SceneManager {
     pub(crate) scenes: FxHashMap<u32, Rc<RefCell<Scene>>>,
     pub(crate) remove: Vec<u32>,

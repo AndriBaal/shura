@@ -247,7 +247,7 @@ pub struct WgpuBase {
 }
 
 impl WgpuBase {
-    pub fn new(device: &wgpu::Device, format: wgpu::TextureFormat, sample_count: u32) -> Self {
+    pub fn new(device: &wgpu::Device, _format: wgpu::TextureFormat, sample_count: u32) -> Self {
         let sprite_uniform = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[
                 wgpu::BindGroupLayoutEntry {
@@ -333,7 +333,7 @@ impl WgpuBase {
         };
 
         #[cfg(feature = "text")]
-        let text_pipeline = TextPipeline::new(device, format, multisample);
+        let text_pipeline = TextPipeline::new(device, _format, multisample);
 
         Self {
             sample_count: sample_count,

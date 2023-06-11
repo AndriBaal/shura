@@ -5,7 +5,6 @@ use crate::{
 };
 use crate::{
     ComponentConfig, ComponentIdentifier, ComponentTypeId, Context, Matrix, RenderEncoder,
-    DEFAULT_CONFIG,
 };
 use downcast_rs::*;
 
@@ -46,7 +45,7 @@ pub trait ComponentController: ComponentDerive + ComponentIdentifier
 where
     Self: Sized,
 {
-    const CONFIG: ComponentConfig = DEFAULT_CONFIG;
+    const CONFIG: ComponentConfig = ComponentConfig::DEFAULT;
     /// This component gets updated if the component's [group](crate::Group) is active and enabled.
     /// Through the [context](crate::Context) you have access to all other scenes, groups,
     /// components with the matching controller and all data from the engine.

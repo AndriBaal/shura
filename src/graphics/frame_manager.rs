@@ -2,7 +2,7 @@ pub use instant::{Duration, Instant};
 #[cfg(feature = "log")]
 use log::info;
 
-/// Acces to various frame informations.
+/// Acces to various frame information.
 pub struct FrameManager {
     frame_time: Duration,
     total_time: Duration,

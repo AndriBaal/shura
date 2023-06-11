@@ -56,8 +56,7 @@ impl Into<PositionComponent> for PositionBuilder {
     }
 }
 
-/// Base of a component that is bound to a poisition on the screen, either by a
-/// Position or a [RigidBody (physics only)](crate::physics::RigidBody).
+/// Component that is rendered to the screen by its given position and scale.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone)]
 pub struct PositionComponent {

@@ -1,6 +1,5 @@
 use shura::{
     log::info,
-    physics::{parry::bounding_volume::BoundingVolume, Aabb, LockedAxes, RigidBodyBuilder},
     rand::{
         distributions::{Distribution, WeightedIndex},
         gen_range, thread_rng,
@@ -17,7 +16,7 @@ const AMOUNT_BIRDS: u32 = 1000;
 #[shura::main]
 fn shura_main(config: ShuraConfig) {
     config.init(NewScene::new(1, |ctx| {
-        register!(ctx, [Background, Ground, Pipe, Bird]);
+        register!(ctx.components, [Background, Ground, Pipe, Bird]);
         ctx.world_camera
             .set_scaling(WorldCameraScale::Vertical(GAME_SIZE.y));
         ctx.scene_states.insert(BirdSimulation::new(ctx));
@@ -202,8 +201,7 @@ impl SceneStateController for BirdSimulation {
 
             scene.generation += 1;
             info!("Now at generation {}!", scene.generation);
-            ctx.components
-                .remove_all::<Pipe>(ComponentFilter::All);
+            ctx.components.remove_all::<Pipe>(ComponentFilter::All);
             scene.spawn_pipes(ctx.components);
         }
 
@@ -290,7 +288,7 @@ impl Ground {
 impl ComponentController for Ground {
     const CONFIG: ComponentConfig = ComponentConfig {
         priority: 2,
-        ..DEFAULT_CONFIG
+        ..ComponentConfig::DEFAULT
     };
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {
         encoder.render_each::<Self>(ctx, RenderConfig::default(), |r, ground, instance| {
@@ -324,7 +322,7 @@ impl ComponentController for Background {
     const CONFIG: ComponentConfig = ComponentConfig {
         priority: 1,
         buffer: BufferOperation::Manual,
-        ..DEFAULT_CONFIG
+        ..ComponentConfig::DEFAULT
     };
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {
         encoder.render_each::<Self>(ctx, RenderConfig::default(), |r, background, instance| {
@@ -361,7 +359,7 @@ impl Pipe {
 impl ComponentController for Pipe {
     const CONFIG: ComponentConfig = ComponentConfig {
         priority: 3,
-        ..DEFAULT_CONFIG
+        ..ComponentConfig::DEFAULT
     };
     fn update(ctx: &mut Context) {
         let scene = ctx.scene_states.get_mut::<BirdSimulation>();

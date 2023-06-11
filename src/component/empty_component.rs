@@ -4,6 +4,7 @@ use crate::{BaseComponent, Matrix};
 use crate::physics::World;
 
 #[derive(Copy, Clone, Default)]
+/// Dummy component that should not be rendered to the screen
 pub struct EmptyComponent;
 
 impl EmptyComponent {

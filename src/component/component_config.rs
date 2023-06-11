@@ -71,15 +71,17 @@ pub struct ComponentConfig {
     pub buffer: BufferOperation,
 }
 
-pub const DEFAULT_CONFIG: ComponentConfig = ComponentConfig {
-    buffer: BufferOperation::EveryFrame,
-    update: UpdateOperation::EveryFrame,
-    render: RenderOperation::EveryFrame,
-    priority: 16,
-};
+impl ComponentConfig {
+    pub const DEFAULT: ComponentConfig = ComponentConfig {
+        buffer: BufferOperation::EveryFrame,
+        update: UpdateOperation::EveryFrame,
+        render: RenderOperation::EveryFrame,
+        priority: 16,
+    };
+}
 
 impl Default for ComponentConfig {
     fn default() -> Self {
-        DEFAULT_CONFIG
+        Self::DEFAULT
     }
 }

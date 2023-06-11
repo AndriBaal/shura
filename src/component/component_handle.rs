@@ -22,10 +22,10 @@ impl Default for GroupHandle {
 }
 
 /// Handle for a component. Through these handles components can be easily be fetched every frame
-/// with a specific type through the [component](crate::Context::component) or
-/// [component_mut](crate::Context::component_mut) method or without a specific type through the
-/// [boxed_component](crate::Context::boxed_component) or
-/// [boxed_component_mut](crate::Context::boxed_component_mut) method from the [context](crate::Context)
+/// with a specific type through the [component](crate::ComponentManager::get) or
+/// [component_mut](crate::ComponentManager::get_mut) method or without a specific type through the
+/// [boxed_component](crate::ComponentManager::get_boxed) or
+/// [boxed_component_mut](crate::ComponentManager::get_boxed_mut) method from the [context](crate::Context)
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ComponentHandle {

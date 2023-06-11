@@ -134,6 +134,10 @@ impl<'a> Renderer<'a> {
         return renderer;
     }
 
+    pub fn target_size(&self) -> Vector<u32> {
+        self.target_size
+    }
+
     /// Sets the instance buffer at the position 1
     pub fn use_instances(&mut self, buffer: &'a InstanceBuffer) {
         let ptr = buffer as *const _;

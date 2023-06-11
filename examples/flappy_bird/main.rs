@@ -11,7 +11,7 @@ const GAME_SIZE: Vector<f32> = Vector::new(11.25, 5.0);
 #[shura::main]
 fn shura_main(config: ShuraConfig) {
     config.init(NewScene::new(1, |ctx| {
-        register!(ctx, [Background, Ground, Pipe, Bird]);
+        register!(ctx.components, [Background, Ground, Pipe, Bird]);
         ctx.scene_states
             .insert(FlappyState::new(ctx.gpu, ctx.audio));
         ctx.components
@@ -242,7 +242,7 @@ impl Ground {
 impl ComponentController for Ground {
     const CONFIG: ComponentConfig = ComponentConfig {
         priority: 2,
-        ..DEFAULT_CONFIG
+        ..ComponentConfig::DEFAULT
     };
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {
         encoder.render_each::<Self>(ctx, RenderConfig::default(), |r, ground, instance| {
@@ -276,7 +276,7 @@ impl ComponentController for Background {
     const CONFIG: ComponentConfig = ComponentConfig {
         priority: 1,
         buffer: BufferOperation::Manual,
-        ..DEFAULT_CONFIG
+        ..ComponentConfig::DEFAULT
     };
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {
         encoder.render_each::<Self>(ctx, RenderConfig::default(), |r, background, instance| {
@@ -330,7 +330,7 @@ impl Pipe {
 impl ComponentController for Pipe {
     const CONFIG: ComponentConfig = ComponentConfig {
         priority: 3,
-        ..DEFAULT_CONFIG
+        ..ComponentConfig::DEFAULT
     };
     fn update(ctx: &mut Context) {
         let state = ctx.scene_states.get_mut::<FlappyState>();

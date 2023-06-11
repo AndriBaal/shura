@@ -1,7 +1,6 @@
 use rodio::Decoder;
 
 /// Sound ressource which can be loaded from a static source using [include_bytes!](include_bytes!)
-/// You can create one by calling [create_sound](crate::Context::create_sound) from the [context](crate::Context).
 pub struct Sound(&'static [u8]);
 
 impl Sound {

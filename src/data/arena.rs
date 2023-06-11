@@ -302,21 +302,10 @@ impl<T> Arena<T> {
         let i1_index = i1.index as usize;
         let i2_index = i2.index as usize;
 
-        if i1_index == i2_index {
-            assert!(i1.generation != i2.generation);
-
-            if i1.generation > i2.generation {
-                return (self.get_mut(i1), None);
-            }
-            return (None, self.get_mut(i2));
-        }
-
-        if i1_index >= len {
-            return (None, self.get_mut(i2));
-        } else if i2_index >= len {
-            return (self.get_mut(i1), None);
-        }
-
+        assert!(i1_index != i2_index);
+        assert!(i1_index < len);
+        assert!(i2_index < len);
+        
         let (raw_item1, raw_item2) = {
             let (xs, ys) = self.items.split_at_mut(cmp::max(i1_index, i2_index));
             if i1_index < i2_index {

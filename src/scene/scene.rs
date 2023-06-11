@@ -43,7 +43,7 @@ impl<N: 'static + FnMut(&mut Context)> SceneCreator for NewScene<N> {
     }
 }
 
-/// Add a [Scene] that previously has been removed by calling [remove_scene](crate::Context::remove_scene)
+/// Add a [Scene] that previously has been removed.
 pub struct RecycleScene<N: 'static + FnMut(&mut Context)> {
     pub id: u32,
     pub scene: Scene,
