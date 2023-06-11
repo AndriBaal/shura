@@ -41,15 +41,15 @@ fn shura_main(config: ShuraConfig) {
                                     * (PhysicsBox::HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING * 2.0),
                             ),
                         );
-                        ctx.components.add(GroupHandle::DEFAULT_GROUP, b);
+                        ctx.components.add(b);
                     }
                 }
 
                 let player = Player::new(ctx);
-                let player_handle = ctx.components.add(GroupHandle::DEFAULT_GROUP, player);
+                let player_handle = ctx.components.add(player);
                 ctx.world_camera.set_target(Some(player_handle));
                 let floor = Floor::new(ctx);
-                ctx.components.add(GroupHandle::DEFAULT_GROUP, floor);
+                ctx.components.add(floor);
             },
         })
     };
@@ -120,7 +120,7 @@ impl SceneStateController for PhysicsState {
                 .is_none()
             {
                 let b = PhysicsBox::new(ctx, cursor);
-                ctx.components.add(GroupHandle::DEFAULT_GROUP, b);
+                ctx.components.add(b);
             }
         }
 
@@ -195,7 +195,7 @@ impl ComponentController for Player {
         let delta = ctx.frame.frame_time();
         let input = &mut ctx.input;
 
-        for player in &mut ctx.components.iter_mut::<Self>(ComponentFilter::Active) {
+        for player in &mut ctx.components.iter_mut::<Self>() {
             let body = player.body.get_mut(ctx.world);
             let mut linvel = *body.linvel();
 
@@ -309,7 +309,7 @@ impl ComponentController for PhysicsBox {
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {
         let mut renderer = encoder.renderer(RenderConfig::WORLD);
         let state = ctx.scene_states.get::<PhysicsState>();
-        for (buffer, boxes) in ctx.components.iter_render::<Self>(ComponentFilter::Active) {
+        for (buffer, boxes) in ctx.components.iter_render::<Self>() {
             let mut ranges = vec![];
             let mut last = 0;
             for (i, b) in boxes.clone() {
@@ -334,7 +334,7 @@ impl ComponentController for PhysicsBox {
     fn update(ctx: &mut Context) {
         let cursor_world: Point<f32> = (ctx.input.cursor(&ctx.world_camera)).into();
         let remove = ctx.input.is_held(MouseButton::Left) || ctx.input.is_pressed(ScreenTouch);
-        for physics_box in ctx.components.iter_mut::<Self>(ComponentFilter::Active) {
+        for physics_box in ctx.components.iter_mut::<Self>() {
             physics_box.hovered = false;
         }
         let mut component: Option<ComponentHandle> = None;

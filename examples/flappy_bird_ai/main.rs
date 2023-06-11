@@ -20,14 +20,12 @@ fn shura_main(config: ShuraConfig) {
         ctx.world_camera
             .set_scaling(WorldCameraScale::Vertical(GAME_SIZE.y));
         ctx.scene_states.insert(BirdSimulation::new(ctx));
-        ctx.components
-            .add(GroupHandle::DEFAULT_GROUP, Background::new(ctx));
-        ctx.components
-            .add(GroupHandle::DEFAULT_GROUP, Ground::new(ctx));
+        ctx.components.add(Background::new(ctx));
+        ctx.components.add(Ground::new(ctx));
         ctx.window.set_resizable(false);
         ctx.window.set_enabled_buttons(WindowButtons::CLOSE);
         for _ in 0..AMOUNT_BIRDS {
-            ctx.components.add(GroupHandle::DEFAULT_GROUP, Bird::new());
+            ctx.components.add(Bird::new());
         }
     }))
 }
@@ -80,7 +78,7 @@ impl BirdSimulation {
 
     fn spawn_pipes(&mut self, components: &mut ComponentManager) {
         self.spawn_timer = 0.0;
-        components.add(GroupHandle::DEFAULT_GROUP, Pipe::new());
+        components.add(Pipe::new());
     }
 }
 
@@ -92,7 +90,7 @@ impl SceneStateController for BirdSimulation {
         scene.spawn_timer += delta;
         let score = ctx
             .components
-            .iter::<Bird>(ComponentFilter::All)
+            .iter::<Bird>()
             .find(|b| !b.dead)
             .unwrap()
             .score as u32;
@@ -104,7 +102,7 @@ impl SceneStateController for BirdSimulation {
             scene.spawn_pipes(ctx.components);
         }
 
-        let pipes = ctx.components.iter::<Pipe>(ComponentFilter::All);
+        let pipes = ctx.components.iter::<Pipe>();
         let mut closest = Vector::new(GAME_SIZE.x, 0.0);
         for pipe in pipes {
             let translation = pipe.pos.translation();
@@ -127,7 +125,7 @@ impl SceneStateController for BirdSimulation {
         let x = closest.x;
         assert!(x >= 0.0);
 
-        for bird in ctx.components.iter_mut::<Bird>(ComponentFilter::Active) {
+        for bird in ctx.components.iter_mut::<Bird>() {
             bird.linvel += delta * Bird::GRAVITY;
             let new_pos = bird.pos.translation() + delta * bird.linvel;
             bird.pos.set_translation(new_pos);
@@ -159,17 +157,13 @@ impl SceneStateController for BirdSimulation {
             }
         }
 
-        let dead_count = ctx
-            .components
-            .iter::<Bird>(ComponentFilter::All)
-            .filter(|b| !b.dead)
-            .count();
+        let dead_count = ctx.components.iter::<Bird>().filter(|b| !b.dead).count();
 
         if dead_count == 0 {
             let mut max_fitness = 0.0;
             let mut weights = Vec::new();
 
-            for b in ctx.components.iter::<Bird>(ComponentFilter::All) {
+            for b in ctx.components.iter::<Bird>() {
                 if b.score > max_fitness {
                     max_fitness = b.score;
                 }
@@ -181,7 +175,7 @@ impl SceneStateController for BirdSimulation {
 
             let gene_pool = WeightedIndex::new(&weights).expect("Failed to generate gene pool");
 
-            let amount = ctx.components.len::<Bird>(ComponentFilter::All);
+            let amount = ctx.components.len::<Bird>();
             let mut rng = thread_rng();
             let mut new_birds = Vec::with_capacity(amount);
             for _ in 0..amount {
@@ -195,13 +189,12 @@ impl SceneStateController for BirdSimulation {
                 new_bird.brain.mutate();
                 new_birds.push(new_bird);
             }
-            ctx.components.remove_all::<Bird>(ComponentFilter::All);
-            ctx.components
-                .add_many(GroupHandle::DEFAULT_GROUP, new_birds);
+            ctx.components.remove_all::<Bird>();
+            ctx.components.add_many(new_birds);
 
             scene.generation += 1;
             info!("Now at generation {}!", scene.generation);
-            ctx.components.remove_all::<Pipe>(ComponentFilter::All);
+            ctx.components.remove_all::<Pipe>();
             scene.spawn_pipes(ctx.components);
         }
 
@@ -364,15 +357,14 @@ impl ComponentController for Pipe {
     fn update(ctx: &mut Context) {
         let scene = ctx.scene_states.get_mut::<BirdSimulation>();
         let step = ctx.frame.frame_time() * scene.time_scale * Self::PIPE_VEL;
-        ctx.components
-            .retain::<Self>(ComponentFilter::Active, |pipe| {
-                let new_pos = pipe.pos.translation() + step;
-                pipe.pos.set_translation(new_pos);
-                if new_pos.x <= -GAME_SIZE.x {
-                    return false;
-                }
-                return true;
-            });
+        ctx.components.retain::<Self>(|pipe| {
+            let new_pos = pipe.pos.translation() + step;
+            pipe.pos.set_translation(new_pos);
+            if new_pos.x <= -GAME_SIZE.x {
+                return false;
+            }
+            return true;
+        });
     }
 
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {

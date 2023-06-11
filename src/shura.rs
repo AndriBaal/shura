@@ -430,8 +430,6 @@ impl Shura {
             let mut prev_priority = i16::MIN;
             let now = ctx.frame.update_time();
             {
-                // let types = ctx.components.callable_types();
-                // let mut types = types.borrow_mut();
                 for ((priority, _), type_index) in ctx.components.priorities().borrow().iter() {
                     for update in ctx.scene_states.updates(prev_priority, *priority) {
                         update(&mut ctx);

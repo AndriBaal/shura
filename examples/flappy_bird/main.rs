@@ -14,14 +14,9 @@ fn shura_main(config: ShuraConfig) {
         register!(ctx.components, [Background, Ground, Pipe, Bird]);
         ctx.scene_states
             .insert(FlappyState::new(ctx.gpu, ctx.audio));
-        ctx.components
-            .add(GroupHandle::DEFAULT_GROUP, Background::new(ctx));
-        ctx.components
-            .add(GroupHandle::DEFAULT_GROUP, Ground::new(ctx.world, ctx.gpu));
-        ctx.components.add(
-            GroupHandle::DEFAULT_GROUP,
-            Bird::new(ctx.world, ctx.gpu, ctx.audio),
-        );
+        ctx.components.add(Background::new(ctx));
+        ctx.components.add(Ground::new(ctx.world, ctx.gpu));
+        ctx.components.add(Bird::new(ctx.world, ctx.gpu, ctx.audio));
         ctx.world.set_physics_priority(Some(10));
         ctx.world.set_gravity(Vector::new(0.0, -15.0));
         ctx.world_camera
@@ -81,7 +76,7 @@ impl SceneStateController for FlappyState {
                 || ctx.input.is_pressed(ScreenTouch))
         {
             scene.started = true;
-            for bird in ctx.components.iter_mut::<Bird>(ComponentFilter::All) {
+            for bird in ctx.components.iter_mut::<Bird>() {
                 bird.body.get_mut(ctx.world).set_gravity_scale(1.0, true);
             }
         }
@@ -94,8 +89,7 @@ impl SceneStateController for FlappyState {
 
             if scene.spawn_timer >= Pipe::SPAWN_TIME {
                 scene.spawn_timer = 0.0;
-                ctx.components
-                    .add(GroupHandle::DEFAULT_GROUP, Pipe::new(ctx.world));
+                ctx.components.add(Pipe::new(ctx.world));
                 info!("Spawning new pipe!");
             }
         }
@@ -161,7 +155,7 @@ impl ComponentController for Bird {
     }
 
     fn update(ctx: &mut Context) {
-        for bird in ctx.components.iter_mut::<Self>(ComponentFilter::Active) {
+        for bird in ctx.components.iter_mut::<Self>() {
             if ctx.input.is_pressed(Key::Space)
                 || ctx.input.is_pressed(MouseButton::Left)
                 || ctx.input.is_pressed(ScreenTouch)
@@ -184,7 +178,7 @@ impl ComponentController for Bird {
         collision_type: CollideType,
     ) {
         if collision_type == CollideType::Started {
-            ctx.components.remove_all::<Pipe>(ComponentFilter::All);
+            ctx.components.remove_all::<Pipe>();
             {
                 let bird = ctx.components.get_mut::<Self>(self_handle).unwrap();
                 bird.sink = ctx.audio.create_sink();
@@ -334,20 +328,19 @@ impl ComponentController for Pipe {
     };
     fn update(ctx: &mut Context) {
         let state = ctx.scene_states.get_mut::<FlappyState>();
-        ctx.components
-            .retain::<Self>(ComponentFilter::Active, |pipe| {
-                let x = pipe.body.get(ctx.world).translation().x;
-                if !pipe.point_awarded && x < 0.0 {
-                    pipe.point_awarded = true;
-                    state.score += 1;
-                    state.point_sink.append(state.point_sound.decode())
-                }
-                if x <= -GAME_SIZE.x {
-                    info!("Removing Pipe!");
-                    return false;
-                }
-                return true;
-            });
+        ctx.components.retain::<Self>(|pipe| {
+            let x = pipe.body.get(ctx.world).translation().x;
+            if !pipe.point_awarded && x < 0.0 {
+                pipe.point_awarded = true;
+                state.score += 1;
+                state.point_sink.append(state.point_sound.decode())
+            }
+            if x <= -GAME_SIZE.x {
+                info!("Removing Pipe!");
+                return false;
+            }
+            return true;
+        });
     }
 
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {

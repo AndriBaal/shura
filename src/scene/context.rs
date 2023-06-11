@@ -15,57 +15,6 @@ use crate::physics::World;
 #[cfg(feature = "gui")]
 use crate::gui::Gui;
 
-// pub struct ShuraFields<'a> {
-//     pub frame: &'a FrameManager,
-//     pub defaults: &'a GpuDefaults,
-//     pub input: &'a Input,
-//     pub gpu: &'a Gpu,
-//     pub end: &'a mut bool,
-//     pub scenes: &'a mut SceneManager,
-//     pub window: &'a mut winit::window::Window,
-//     pub states: &'a mut GlobalStateManager,
-//     #[cfg(feature = "gui")]
-//     pub gui: &'a mut Gui,
-//     #[cfg(feature = "audio")]
-//     pub audio: &'a mut AudioManager,
-// }
-
-// impl<'a> ShuraFields<'a> {
-//     pub(crate) fn from_shura(shura: &'a mut Shura) -> ShuraFields<'a> {
-//         Self {
-//             frame: &shura.frame,
-//             defaults: &shura.defaults,
-//             input: &shura.input,
-//             gpu: &shura.gpu,
-//             end: &mut shura.end,
-//             scenes: &mut shura.scenes,
-//             window: &mut shura.window,
-//             states: &mut shura.states,
-//             #[cfg(feature = "gui")]
-//             gui: &mut shura.gui,
-//             #[cfg(feature = "audio")]
-//             audio: &mut shura.audio,
-//         }
-//     }
-
-//     pub fn from_ctx(ctx: &'a mut Context) -> ShuraFields<'a> {
-//         Self {
-//             frame: ctx.frame,
-//             defaults: ctx.defaults,
-//             input: ctx.input,
-//             gpu: ctx.gpu,
-//             end: ctx.end,
-//             scenes: ctx.scenes,
-//             window: ctx.window,
-//             states: ctx.global_states,
-//             #[cfg(feature = "gui")]
-//             gui: ctx.gui,
-//             #[cfg(feature = "audio")]
-//             audio: ctx.audio,
-//         }
-//     }
-// }
-
 /// Context to communicate with the game engine to access components, scenes, camera, physics and much more.
 pub struct Context<'a> {
     // Scene
@@ -136,39 +85,6 @@ impl<'a> Context<'a> {
         }
     }
 
-    // pub(crate) fn from_fields(shura: ShuraFields<'a>, scene: &'a mut Scene) -> Context<'a> {
-    //     let mint: mint::Vector2<u32> = shura.window.inner_size().into();
-    //     let window_size = mint.into();
-    //     Self {
-    //         scene_id: &scene.id,
-    //         scene_resized: &scene.resized,
-    //         scene_started: &scene.started,
-    //         scene_switched: &scene.switched,
-    //         render_components: &mut scene.render_components,
-    //         screen_config: &mut scene.screen_config,
-    //         world_camera: &mut scene.world_camera,
-    //         components: &mut scene.components,
-    //         scene_states: &mut scene.states,
-    //         #[cfg(feature = "physics")]
-    //         world: &mut scene.world,
-
-    //         // Shura
-    //         frame: shura.frame,
-    //         defaults: shura.defaults,
-    //         input: shura.input,
-    //         gpu: shura.gpu,
-    //         end: shura.end,
-    //         scenes: shura.scenes,
-    //         window: shura.window,
-    //         global_states: shura.states,
-    //         #[cfg(feature = "gui")]
-    //         gui: shura.gui,
-    //         #[cfg(feature = "audio")]
-    //         audio: shura.audio,
-
-    //         window_size,
-    //     }
-    // }
 
     #[cfg(feature = "serde")]
     pub fn serialize_scene(

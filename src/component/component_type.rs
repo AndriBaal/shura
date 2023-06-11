@@ -10,32 +10,6 @@ use crate::{
     ComponentController, ComponentDerive, ComponentHandle, ComponentIndex, Context, Gpu, Group,
     GroupHandle, InstanceBuffer, InstanceIndex, Matrix, RenderEncoder, TypeIndex,
 };
-// pub type ComponentIterHandle<'a, C> = Flatten<
-//     IntoIter<
-//         Map<
-//             ArenaIter<'a, BoxedComponent>,
-//             fn((ArenaIndex, &'a BoxedComponent)) -> (ComponentHandle, &'a C),
-//         >,
-//     >,
-// >;
-// pub type ComponentIter<'a, C> = Flatten<
-//     IntoIter<Map<ArenaIter<'a, BoxedComponent>, fn((ArenaIndex, &'a BoxedComponent)) -> &'a C>>,
-// >;
-// pub type ComponentIterMut<'a, C> = Flatten<
-//     IntoIter<
-//         Map<
-//             ArenaIterMut<'a, BoxedComponent>,
-//             fn((ArenaIndex, &'a mut BoxedComponent)) -> &'a mut C,
-//         >,
-//     >,
-// >;
-// pub type , C> = IntoIter<(
-//     &'a InstanceBuffer,
-//     Map<
-//         Enumerate<ArenaIter<'a, BoxedComponent>>,
-//         fn((usize, (ArenaIndex, &'a Box<dyn ComponentDerive>))) -> (InstanceIndex, &'a C),
-//     >,
-// )>;
 
 #[derive(Clone, Copy)]
 pub(crate) struct ComponentCallbacks {
@@ -589,35 +563,30 @@ impl ComponentType {
     pub fn iter_mut_with_handles<'a, C: ComponentController>(
         &'a mut self,
         groups: &'a [GroupHandle],
+        check: bool,
     ) -> impl DoubleEndedIterator<Item = (ComponentHandle, &'a mut C)> {
         let mut iters = Vec::with_capacity(groups.len());
-        let mut sorted = groups.to_vec();
-        sorted.sort_by(|a, b| a.0.index().cmp(&b.0.index()));
-
-        let mut head: &mut [ArenaEntry<ComponentTypeGroup>] = self.groups.as_slice();
-        let mut offset = 0;
-        let type_index = &self.index;
-        for group_handle in sorted {
-            let split = head.split_at_mut(group_handle.0.index() as usize + 1 - offset);
-            head = split.1;
-            offset += split.0.len();
-            match split.0.last_mut().unwrap() {
-                ArenaEntry::Occupied { data, generation } => {
-                    if !data.components.is_empty() && *generation == group_handle.0.generation() {
-                        iters.push(data.components.iter_mut().map(move |(idx, c)| {
-                            (
-                                ComponentHandle::new(
-                                    ComponentIndex(idx),
-                                    *type_index,
-                                    group_handle,
-                                ),
-                                c.downcast_mut::<C>().unwrap(),
-                            )
-                        }));
-                    }
+        let ptr: *mut Arena<ComponentTypeGroup> = &mut self.groups as *mut _;
+        if check && groups.len() > 1 {
+            for (index, value) in groups.iter().enumerate() {
+                for other in groups.iter().skip(index + 1) {
+                    assert_ne!(value.0.index(), other.0.index(), "Duplicate GroupHandle!");
                 }
-                _ => (),
-            };
+            }
+        }
+        unsafe {
+            for group_handle in groups {
+                if let Some(group) = (&mut *ptr).get_mut(group_handle.0) {
+                    let type_index = &self.index;
+
+                    iters.push(group.components.iter_mut().map(move |(idx, c)| {
+                        (
+                            ComponentHandle::new(ComponentIndex(idx), *type_index, *group_handle),
+                            c.downcast_mut::<C>().unwrap(),
+                        )
+                    }));
+                };
+            }
         }
 
         return iters.into_iter().flatten();
@@ -626,29 +595,28 @@ impl ComponentType {
     pub fn iter_mut<'a, C: ComponentController>(
         &'a mut self,
         groups: &[GroupHandle],
+        check: bool,
     ) -> impl DoubleEndedIterator<Item = &'a mut C> {
-        let mut iters = Vec::with_capacity(groups.len());
-        let mut sorted = groups.to_vec();
-        sorted.sort_by(|a, b| a.0.index().cmp(&b.0.index()));
-
-        let mut head: &mut [ArenaEntry<ComponentTypeGroup>] = self.groups.as_slice();
-        let mut offset = 0;
-        for index in sorted {
-            let split = head.split_at_mut(index.0.index() as usize + 1 - offset);
-            head = split.1;
-            offset += split.0.len();
-            match split.0.last_mut().unwrap() {
-                ArenaEntry::Occupied { data, generation } => {
-                    if !data.components.is_empty() && *generation == index.0.generation() {
-                        iters.push(
-                            data.components
-                                .iter_mut()
-                                .map(|(_, c)| c.downcast_mut::<C>().unwrap()),
-                        );
-                    }
+        if check && groups.len() > 1 {
+            for (index, value) in groups.iter().enumerate() {
+                for other in groups.iter().skip(index + 1) {
+                    assert_ne!(value.0.index(), other.0.index(), "Duplicate GroupHandle!");
                 }
-                _ => (),
-            };
+            }
+        }
+        let mut iters = Vec::with_capacity(groups.len());
+        let ptr: *mut Arena<ComponentTypeGroup> = &mut self.groups as *mut _;
+        unsafe {
+            for group_handle in groups {
+                if let Some(group) = (&mut *ptr).get_mut(group_handle.0) {
+                    iters.push(
+                        group
+                            .components
+                            .iter_mut()
+                            .map(|(_, c)| c.downcast_mut::<C>().unwrap()),
+                    );
+                };
+            }
         }
 
         return iters.into_iter().flatten();

@@ -51,16 +51,19 @@ pub struct ComponentSetMut<'a, C: ComponentController> {
     ty: &'a mut ComponentType,
     groups: &'a [GroupHandle],
     marker: PhantomData<C>,
+    check: bool,
 }
 
 impl<'a, C: ComponentController> ComponentSetMut<'a, C> {
     pub(crate) fn new(
         ty: &'a mut ComponentType,
         groups: &'a [GroupHandle],
+        check: bool,
     ) -> ComponentSetMut<'a, C> {
         Self {
             ty,
             groups,
+            check,
             marker: PhantomData,
         }
     }
@@ -154,7 +157,7 @@ impl<'a, C: ComponentController> ComponentSetMut<'a, C> {
     }
 
     pub fn iter_mut(&mut self) -> impl DoubleEndedIterator<Item = &mut C> {
-        self.ty.iter_mut(self.groups)
+        self.ty.iter_mut(self.groups, self.check)
     }
 
     pub fn iter_render(
@@ -175,6 +178,6 @@ impl<'a, C: ComponentController> ComponentSetMut<'a, C> {
     pub fn iter_mut_with_handles(
         &mut self,
     ) -> impl DoubleEndedIterator<Item = (ComponentHandle, &mut C)> {
-        self.ty.iter_mut_with_handles(self.groups)
+        self.ty.iter_mut_with_handles(self.groups, self.check)
     }
 }

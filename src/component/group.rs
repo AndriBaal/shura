@@ -18,6 +18,7 @@ pub enum GroupActivation {
 /// After every update and before rendering, the set of active groups gets
 /// computed.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Copy, Clone)]
 pub struct Group {
     active: bool,
     pub activation: GroupActivation,

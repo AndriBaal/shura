@@ -111,22 +111,7 @@ impl TextCache {
             .write_buffer(&self.matrix_buffer, 0, bytemuck::cast_slice(&[matrix]));
     }
 
-    // TODO look into preallocating the vertex buffer instead of constantly reallocating
     pub fn update_vertex_buffer(&self, gpu: &Gpu, vertices: Vec<TextVertex>) {
-        // self.vertices = vertices.len() as u32;
-        // if vertices.len() > self.vertex_buffer_len {
-        //     self.vertex_buffer_len = vertices.len();
-        //     self.vertex_buffer = gpu
-        //         .device
-        //         .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-        //             label: Some("wgpu-text Vertex Buffer"),
-        //             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-        //             contents: data,
-        //         });
-
-        //     return;
-        // }
-
         let data: &[u8] = bytemuck::cast_slice(&vertices);
         *self.vertices.lock().unwrap() = vertices.len() as u32;
         gpu.queue.write_buffer(&self.vertex_buffer, 0, data);
@@ -135,49 +120,4 @@ impl TextCache {
     pub fn vertices(&self) -> u32 {
         *self.vertices.lock().unwrap()
     }
-
-    // pub fn recreate_texture(&mut self, gpu: &Gpu, dim: Vector<u32>) {
-    //     let pipeline = &gpu.base.text_pipeline;
-    //     self.texture = Self::create_cache_texture(gpu, dim);
-    //     self.bind_group = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
-    //         label: Some("wgpu-text Bind Group"),
-    //         layout: &pipeline.bind_group_layout,
-    //         entries: &[
-    //             wgpu::BindGroupEntry {
-    //                 binding: 0,
-    //                 resource: self.matrix_buffer.as_entire_binding(),
-    //             },
-    //             wgpu::BindGroupEntry {
-    //                 binding: 1,
-    //                 resource: wgpu::BindingResource::TextureView(
-    //                     &self
-    //                         .texture
-    //                         .create_view(&wgpu::TextureViewDescriptor::default()),
-    //                 ),
-    //             },
-    //             wgpu::BindGroupEntry {
-    //                 binding: 2,
-    //                 resource: wgpu::BindingResource::Sampler(&pipeline.sampler),
-    //             },
-    //         ],
-    //     });
-    // }
-
-    // pub fn create_cache_texture(gpu: &Gpu, dimensions: Vector<u32>) -> wgpu::Texture {
-    //     let size = wgpu::Extent3d {
-    //         width: dimensions.x,
-    //         height: dimensions.y,
-    //         depth_or_array_layers: 1,
-    //     };
-    //     gpu.device.create_texture(&wgpu::TextureDescriptor {
-    //         label: Some("wgpu-text Cache Texture"),
-    //         size,
-    //         mip_level_count: 1,
-    //         sample_count: 1,
-    //         dimension: wgpu::TextureDimension::D2,
-    //         format: wgpu::TextureFormat::R8Unorm,
-    //         usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-    //         view_formats: &[],
-    //     })
-    // }
 }

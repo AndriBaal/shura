@@ -191,15 +191,6 @@ impl Shader {
         }
     }
 
-    // pub fn new_custom(
-    //     gpu: &Gpu,
-    //     lang: ShaderLang,
-    //     descriptor: &wgpu::RenderPipelineDescriptor,
-    // ) -> Self {
-    //     let pipeline = gpu.device.create_render_pipeline(descriptor);
-    //     Shader { pipeline, lang }
-    // }
-
     pub fn pipeline(&self) -> &wgpu::RenderPipeline {
         &self.pipeline
     }

@@ -56,10 +56,6 @@ impl<T> Arena<T> {
         Arena::with_capacity(DEFAULT_CAPACITY)
     }
 
-    pub fn as_slice(&mut self) -> &mut [ArenaEntry<T>] {
-        &mut self.items
-    }
-
     pub fn with_capacity(n: usize) -> Arena<T> {
         let n = cmp::max(n, 1);
         let mut arena = Arena {
@@ -305,7 +301,7 @@ impl<T> Arena<T> {
         assert!(i1_index != i2_index);
         assert!(i1_index < len);
         assert!(i2_index < len);
-        
+
         let (raw_item1, raw_item2) = {
             let (xs, ys) = self.items.split_at_mut(cmp::max(i1_index, i2_index));
             if i1_index < i2_index {

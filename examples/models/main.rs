@@ -5,131 +5,101 @@ fn shura_main(config: ShuraConfig) {
     config.init(NewScene::new(1, |ctx| {
         ctx.world_camera.set_scaling(WorldCameraScale::Min(10.0));
         ctx.components.register::<ModelTest>();
-        ctx.components.add(
-            GroupHandle::DEFAULT_GROUP,
-            ModelTest::new(
-                Vector::new(-3.0, 3.0),
-                ctx.gpu
-                    .create_model(ModelBuilder::cuboid(Vector::new(0.5, 0.5))),
-                ctx.gpu.create_uniform(Color::BLUE),
-            ),
-        );
+        ctx.components.add(ModelTest::new(
+            Vector::new(-3.0, 3.0),
+            ctx.gpu
+                .create_model(ModelBuilder::cuboid(Vector::new(0.5, 0.5))),
+            ctx.gpu.create_uniform(Color::BLUE),
+        ));
 
-        ctx.components.add(
-            GroupHandle::DEFAULT_GROUP,
-            ModelTest::new(
-                Vector::new(-1.0, 3.0),
-                ctx.gpu.create_model(ModelBuilder::rounded(
-                    ModelBuilder::cuboid(Vector::new(0.5, 0.5)),
-                    0.25,
-                    10,
-                )),
-                ctx.gpu.create_uniform(Color::CYAN),
-            ),
-        );
+        ctx.components.add(ModelTest::new(
+            Vector::new(-1.0, 3.0),
+            ctx.gpu.create_model(ModelBuilder::rounded(
+                ModelBuilder::cuboid(Vector::new(0.5, 0.5)),
+                0.25,
+                10,
+            )),
+            ctx.gpu.create_uniform(Color::CYAN),
+        ));
 
-        ctx.components.add(
-            GroupHandle::DEFAULT_GROUP,
-            ModelTest::new(
-                Vector::new(1.0, 3.0),
-                ctx.gpu.create_model(ModelBuilder::triangle(
-                    Vector::new(0.0, 0.5),
-                    Vector::new(-0.5, -0.5),
-                    Vector::new(0.5, -0.5),
-                )),
-                ctx.gpu.create_uniform(Color::BROWN),
-            ),
-        );
+        ctx.components.add(ModelTest::new(
+            Vector::new(1.0, 3.0),
+            ctx.gpu.create_model(ModelBuilder::triangle(
+                Vector::new(0.0, 0.5),
+                Vector::new(-0.5, -0.5),
+                Vector::new(0.5, -0.5),
+            )),
+            ctx.gpu.create_uniform(Color::BROWN),
+        ));
 
-        ctx.components.add(
-            GroupHandle::DEFAULT_GROUP,
-            ModelTest::new(
-                Vector::new(3.0, 3.0),
-                ctx.gpu.create_model(ModelBuilder::rounded(
-                    ModelBuilder::triangle(
-                        Vector::new(0.5, 0.5),
-                        Vector::new(-0.5, -0.5),
-                        Vector::new(0.5, -0.5),
-                    ),
-                    0.15,
-                    10,
-                )),
-                ctx.gpu.create_uniform(Color::LIME),
-            ),
-        );
-
-        ctx.components.add(
-            GroupHandle::DEFAULT_GROUP,
-            ModelTest::new(
-                Vector::new(-3.0, 1.0),
-                ctx.gpu.create_model(ModelBuilder::regular_polygon(0.5, 32)),
-                ctx.gpu.create_uniform(Color::NAVY),
-            ),
-        );
-
-        ctx.components.add(
-            GroupHandle::DEFAULT_GROUP,
-            ModelTest::new(
-                Vector::new(-1.0, 1.0),
-                ctx.gpu.create_model(ModelBuilder::rounded(
-                    ModelBuilder::regular_polygon(0.5, 5),
-                    0.15,
-                    5,
-                )),
-                ctx.gpu.create_uniform(Color::SILVER),
-            ),
-        );
-
-        ctx.components.add(
-            GroupHandle::DEFAULT_GROUP,
-            ModelTest::new(
-                Vector::new(1.0, 1.0),
-                ctx.gpu.create_model(ModelBuilder::segment(
+        ctx.components.add(ModelTest::new(
+            Vector::new(3.0, 3.0),
+            ctx.gpu.create_model(ModelBuilder::rounded(
+                ModelBuilder::triangle(
                     Vector::new(0.5, 0.5),
                     Vector::new(-0.5, -0.5),
-                    0.2,
-                )),
-                ctx.gpu.create_uniform(Color::GRAY),
-            ),
-        );
+                    Vector::new(0.5, -0.5),
+                ),
+                0.15,
+                10,
+            )),
+            ctx.gpu.create_uniform(Color::LIME),
+        ));
 
-        ctx.components.add(
-            GroupHandle::DEFAULT_GROUP,
-            ModelTest::new(
-                Vector::new(3.0, 1.0),
-                ctx.gpu.create_model(ModelBuilder::rounded(
+        ctx.components.add(ModelTest::new(
+            Vector::new(-3.0, 1.0),
+            ctx.gpu.create_model(ModelBuilder::regular_polygon(0.5, 32)),
+            ctx.gpu.create_uniform(Color::NAVY),
+        ));
+
+        ctx.components.add(ModelTest::new(
+            Vector::new(-1.0, 1.0),
+            ctx.gpu.create_model(ModelBuilder::rounded(
+                ModelBuilder::regular_polygon(0.5, 5),
+                0.15,
+                5,
+            )),
+            ctx.gpu.create_uniform(Color::SILVER),
+        ));
+
+        ctx.components.add(ModelTest::new(
+            Vector::new(1.0, 1.0),
+            ctx.gpu.create_model(ModelBuilder::segment(
+                Vector::new(0.5, 0.5),
+                Vector::new(-0.5, -0.5),
+                0.2,
+            )),
+            ctx.gpu.create_uniform(Color::GRAY),
+        ));
+
+        ctx.components.add(ModelTest::new(
+            Vector::new(3.0, 1.0),
+            ctx.gpu.create_model(ModelBuilder::rounded(
+                ModelBuilder::segment(Vector::new(-0.5, 0.5), Vector::new(0.5, -0.5), 0.2),
+                0.2,
+                5,
+            )),
+            ctx.gpu.create_uniform(Color::PURPLE),
+        ));
+
+        ctx.components.add(ModelTest::new(
+            Vector::new(-3.0, -1.0),
+            ctx.gpu.create_model(ModelBuilder::compound(vec![
+                ModelBuilder::segment(Vector::new(0.5, 0.5), Vector::new(-0.5, -0.5), 0.2),
+                ModelBuilder::rounded(
                     ModelBuilder::segment(Vector::new(-0.5, 0.5), Vector::new(0.5, -0.5), 0.2),
                     0.2,
                     5,
-                )),
-                ctx.gpu.create_uniform(Color::PURPLE),
-            ),
-        );
+                ),
+            ])),
+            ctx.gpu.create_uniform(Color::PINK),
+        ));
 
-        ctx.components.add(
-            GroupHandle::DEFAULT_GROUP,
-            ModelTest::new(
-                Vector::new(-3.0, -1.0),
-                ctx.gpu.create_model(ModelBuilder::compound(vec![
-                    ModelBuilder::segment(Vector::new(0.5, 0.5), Vector::new(-0.5, -0.5), 0.2),
-                    ModelBuilder::rounded(
-                        ModelBuilder::segment(Vector::new(-0.5, 0.5), Vector::new(0.5, -0.5), 0.2),
-                        0.2,
-                        5,
-                    ),
-                ])),
-                ctx.gpu.create_uniform(Color::PINK),
-            ),
-        );
-
-        ctx.components.add(
-            GroupHandle::DEFAULT_GROUP,
-            ModelTest::new(
-                Vector::new(-1.0, -1.0),
-                ctx.gpu.create_model(ModelBuilder::star(5, 0.2, 0.8)),
-                ctx.gpu.create_uniform(Color::RED),
-            ),
-        );
+        ctx.components.add(ModelTest::new(
+            Vector::new(-1.0, -1.0),
+            ctx.gpu.create_model(ModelBuilder::star(5, 0.2, 0.8)),
+            ctx.gpu.create_uniform(Color::RED),
+        ));
     }))
 }
 

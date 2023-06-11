@@ -11,9 +11,7 @@ fn shura_main(config: ShuraConfig) {
                 .set_clear_color(Some(Color::new_rgba(220, 220, 220, 255)));
             ctx.world_camera.set_scaling(WorldCameraScale::Min(3.0));
             ctx.components
-                .add_with(GroupHandle::DEFAULT_GROUP, |handle| {
-                    Bunny::new(Vector::new(0.0, 0.0), handle)
-                });
+                .add_with(|handle| Bunny::new(Vector::new(0.0, 0.0), handle));
         },
     });
 }
@@ -48,27 +46,21 @@ impl SceneStateController for BunnyState {
             .collapsible(false)
             .show(&ctx.gui.clone(), |ui| {
                 ui.label(&format!("FPS: {}", ctx.frame.fps()));
-                ui.label(format!(
-                    "Bunnies: {}",
-                    ctx.components.len::<Bunny>(ComponentFilter::All)
-                ));
+                ui.label(format!("Bunnies: {}", ctx.components.len::<Bunny>()));
                 if ui.button("Clear Bunnies").clicked() {
-                    ctx.components.remove_all::<Bunny>(ComponentFilter::All);
+                    ctx.components.remove_all::<Bunny>();
                 }
             });
 
         if ctx.input.is_held(MouseButton::Left) || ctx.input.is_held(ScreenTouch) {
             let cursor = ctx.input.cursor(&ctx.world_camera);
             for _ in 0..MODIFY_STEP {
-                ctx.components
-                    .add_with(GroupHandle::DEFAULT_GROUP, |handle| {
-                        Bunny::new(cursor, handle)
-                    });
+                ctx.components.add_with(|handle| Bunny::new(cursor, handle));
             }
         }
         if ctx.input.is_held(MouseButton::Right) {
             let mut dead: Vec<ComponentHandle> = vec![];
-            let bunnies = ctx.components.set::<Bunny>(Default::default());
+            let bunnies = ctx.components.set::<Bunny>();
             if bunnies.len() == 1 {
                 return;
             }
@@ -121,7 +113,7 @@ impl ComponentController for Bunny {
         const GRAVITY: f32 = -2.5;
         let frame = ctx.frame.frame_time();
         let fov = ctx.world_camera.fov();
-        for bunny in ctx.components.iter_mut::<Self>(ComponentFilter::Active) {
+        for bunny in ctx.components.iter_mut::<Self>() {
             let mut linvel = bunny.linvel;
             let mut translation = bunny.base.translation();
 

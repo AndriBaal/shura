@@ -54,102 +54,77 @@ fn shura_main(config: ShuraConfig) {
                     write_mask: ColorWrites::ALL,
                 }),
             });
-            ctx.components.add(
-                GroupHandle::DEFAULT_GROUP,
-                Obstacle::new(
-                    ctx.world,
-                    ctx.gpu,
-                    ColliderBuilder::cuboid(1.0, 1.0).translation(Vector::new(3.0, 3.0)),
-                    Color::GREEN,
-                ),
-            );
+            ctx.components.add(Obstacle::new(
+                ctx.world,
+                ctx.gpu,
+                ColliderBuilder::cuboid(1.0, 1.0).translation(Vector::new(3.0, 3.0)),
+                Color::GREEN,
+            ));
 
-            ctx.components.add(
-                GroupHandle::DEFAULT_GROUP,
-                Obstacle::new(
-                    ctx.world,
-                    ctx.gpu,
-                    ColliderBuilder::triangle(
-                        Point::new(-1.5, 1.0),
-                        Point::new(1.0, 1.5),
-                        Point::new(1.5, 1.0),
-                    )
-                    .translation(Vector::new(-3.0, 2.5)),
-                    Color::BLUE,
-                ),
-            );
+            ctx.components.add(Obstacle::new(
+                ctx.world,
+                ctx.gpu,
+                ColliderBuilder::triangle(
+                    Point::new(-1.5, 1.0),
+                    Point::new(1.0, 1.5),
+                    Point::new(1.5, 1.0),
+                )
+                .translation(Vector::new(-3.0, 2.5)),
+                Color::BLUE,
+            ));
 
             for i in 0..4 {
-                ctx.components.add(
-                    GroupHandle::DEFAULT_GROUP,
-                    Obstacle::new(
-                        ctx.world,
-                        ctx.gpu,
-                        ColliderBuilder::cuboid(0.04, 0.4)
-                            .translation(Vector::new(-6.0, i as f32 * 1.0)),
-                        Color::BLUE,
-                    ),
-                );
+                ctx.components.add(Obstacle::new(
+                    ctx.world,
+                    ctx.gpu,
+                    ColliderBuilder::cuboid(0.04, 0.4)
+                        .translation(Vector::new(-6.0, i as f32 * 1.0)),
+                    Color::BLUE,
+                ));
             }
 
-            ctx.components.add(
-                GroupHandle::DEFAULT_GROUP,
-                Obstacle::new(
-                    ctx.world,
-                    ctx.gpu,
-                    ColliderBuilder::ball(1.0).translation(Vector::new(6.0, 0.0)),
-                    Color::BLUE,
-                ),
-            );
+            ctx.components.add(Obstacle::new(
+                ctx.world,
+                ctx.gpu,
+                ColliderBuilder::ball(1.0).translation(Vector::new(6.0, 0.0)),
+                Color::BLUE,
+            ));
 
-            ctx.components.add(
-                GroupHandle::DEFAULT_GROUP,
-                Obstacle::new(
-                    ctx.world,
-                    ctx.gpu,
-                    ColliderBuilder::cuboid(0.5, 1.5).translation(Vector::new(-3.0, -3.0)),
-                    Color::BLUE,
-                ),
-            );
+            ctx.components.add(Obstacle::new(
+                ctx.world,
+                ctx.gpu,
+                ColliderBuilder::cuboid(0.5, 1.5).translation(Vector::new(-3.0, -3.0)),
+                Color::BLUE,
+            ));
 
-            ctx.components.add(
-                GroupHandle::DEFAULT_GROUP,
-                Obstacle::new(
-                    ctx.world,
-                    ctx.gpu,
-                    ColliderBuilder::round_cuboid(0.5, 1.5, 0.4)
-                        .translation(Vector::new(3.0, -3.0)),
-                    Color::BLUE,
-                ),
-            );
+            ctx.components.add(Obstacle::new(
+                ctx.world,
+                ctx.gpu,
+                ColliderBuilder::round_cuboid(0.5, 1.5, 0.4).translation(Vector::new(3.0, -3.0)),
+                Color::BLUE,
+            ));
 
-            ctx.components.add(
-                GroupHandle::DEFAULT_GROUP,
-                Light::new(
-                    ctx.gpu,
-                    Vector::new(0.0, 0.0),
-                    7.0,
-                    Color {
-                        a: 1.0,
-                        ..Color::RED
-                    },
-                    true,
-                ),
-            );
+            ctx.components.add(Light::new(
+                ctx.gpu,
+                Vector::new(0.0, 0.0),
+                7.0,
+                Color {
+                    a: 1.0,
+                    ..Color::RED
+                },
+                true,
+            ));
 
-            ctx.components.add(
-                GroupHandle::DEFAULT_GROUP,
-                Light::new(
-                    ctx.gpu,
-                    Vector::new(0.0, 1.0),
-                    5.0,
-                    Color {
-                        a: 1.0,
-                        ..Color::GREEN
-                    },
-                    false,
-                ),
-            );
+            ctx.components.add(Light::new(
+                ctx.gpu,
+                Vector::new(0.0, 1.0),
+                5.0,
+                Color {
+                    a: 1.0,
+                    ..Color::GREEN
+                },
+                false,
+            ));
         },
     });
 }
@@ -255,7 +230,7 @@ impl ComponentController for Light {
             return v1.x * v2.y - v1.y * v2.x;
         }
         let cursor_pos = ctx.input.cursor(&ctx.world_camera);
-        for light in ctx.components.iter_mut::<Self>(ComponentFilter::Active) {
+        for light in ctx.components.iter_mut::<Self>() {
             if light.follow_mouse {
                 light.base.set_translation(cursor_pos);
             }
@@ -381,7 +356,7 @@ impl ComponentController for Light {
                 clear_color: Some(Color::TRANSPARENT),
                 ..RenderConfig::WORLD
             });
-            for (buffer, lights) in ctx.components.iter_render::<Self>(ComponentFilter::Active) {
+            for (buffer, lights) in ctx.components.iter_render::<Self>() {
                 renderer.use_instances(buffer);
                 for (i, light) in lights {
                     renderer.use_shader(&state.light_shader);

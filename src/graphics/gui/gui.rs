@@ -8,7 +8,6 @@ use winit::window::Window;
 
 pub struct Gui {
     state: State,
-    // TODO: Maybe move to scene
     context: GuiContext,
     renderer: Renderer,
     screen_descriptor: ScreenDescriptor,
