@@ -224,34 +224,34 @@ impl Input {
         }
     }
 
-    pub fn are_pressed(&self, trigger: &[InputTrigger]) -> bool {
+    pub fn are_pressed(&self, trigger: &[impl Into<InputTrigger> + Copy]) -> bool {
         trigger
             .iter()
-            .all(|trigger| match self.events.get(trigger) {
+            .all(|trigger| match self.events.get(&(*trigger).into()) {
                 Some(i) => return i.is_pressed(),
                 None => false,
             })
     }
 
-    pub fn are_held(&self, trigger: &[InputTrigger]) -> bool {
+    pub fn are_held(&self, trigger: &[impl Into<InputTrigger> + Copy]) -> bool {
         trigger
             .iter()
-            .all(|trigger| self.events.contains_key(trigger))
+            .all(|trigger| self.events.contains_key(&(*trigger).into()))
     }
 
-    pub fn any_pressed(&self, trigger: &[InputTrigger]) -> bool {
+    pub fn any_pressed(&self, trigger: &[impl Into<InputTrigger> + Copy]) -> bool {
         trigger
             .iter()
-            .any(|trigger| match self.events.get(trigger) {
+            .any(|trigger| match self.events.get(&(*trigger).into()) {
                 Some(i) => return i.is_pressed(),
                 None => false,
             })
     }
 
-    pub fn any_held(&self, trigger: &[InputTrigger]) -> bool {
+    pub fn any_held(&self, trigger: &[impl Into<InputTrigger> + Copy]) -> bool {
         trigger
             .iter()
-            .any(|trigger| self.events.contains_key(trigger))
+            .any(|trigger| self.events.contains_key(&(*trigger).into()))
     }
 
     pub fn events(&self) -> impl Iterator<Item = (&InputTrigger, &InputEvent)> {
