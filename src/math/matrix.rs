@@ -99,6 +99,15 @@ impl Matrix {
 
         return result;
     }
+
+    pub fn ortho(dim: Vector<f32>) -> Matrix {
+        Matrix::raw(
+            Vector4::new(2.0 / dim.x, 0.0, 0.0, 0.0),
+            Vector4::new(0.0, -2.0 / dim.y, 0.0, 0.0),
+            Vector4::new(0.0, 0.0, 1.0, 0.0),
+            Vector4::new(-1.0, 1.0, 0.0, 1.),
+        )
+    }
 }
 
 impl AsRef<[f32; 16]> for Matrix {
@@ -109,6 +118,12 @@ impl AsRef<[f32; 16]> for Matrix {
 
 impl AsMut<[f32; 16]> for Matrix {
     fn as_mut(&mut self) -> &mut [f32; 16] {
+        unsafe { mem::transmute(self) }
+    }
+}
+
+impl Into<[f32; 16]> for Matrix {
+    fn into(self) -> [f32; 16] {
         unsafe { mem::transmute(self) }
     }
 }
@@ -149,5 +164,11 @@ impl Mul for Matrix {
 impl Into<Matrix> for Isometry<f32> {
     fn into(self) -> Matrix {
         Matrix::new(self, Vector::new(1.0, 1.0))
+    }
+}
+
+impl Default for Matrix {
+    fn default() -> Self {
+        Self::NULL_MODEL
     }
 }

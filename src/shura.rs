@@ -1,22 +1,26 @@
+use std::{cell::RefCell, ops::DerefMut, rc::Rc};
+
 #[cfg(feature = "gui")]
 use crate::gui::Gui;
 #[cfg(feature = "physics")]
 use crate::physics::{ActiveEvents, CollideType};
+#[cfg(feature = "log")]
 use crate::{
-    scene::context::ShuraFields, Context, FrameManager, GlobalStateManager, Gpu, GpuConfig,
-    GpuDefaults, Input, RenderConfigTarget, RenderEncoder, RenderOperation, Renderer, Scene,
-    SceneCreator, SceneManager, Vector,
+    log::{error, info, LoggerBuilder},
+    VERSION,
+};
+use crate::{
+    Context, FrameManager, GlobalStateManager, Gpu, GpuConfig, GpuDefaults, Input,
+    RenderConfigTarget, RenderEncoder, RenderOperation, Renderer, SceneCreator, SceneManager,
+    Vector,
 };
 #[cfg(target_arch = "wasm32")]
 use rustc_hash::FxHashMap;
 #[cfg(target_os = "android")]
 use winit::platform::android::activity::AndroidApp;
 
-#[cfg(feature = "log")]
-use crate::{
-    log::{error, info, LoggerBuilder},
-    VERSION,
-};
+#[cfg(feature = "audio")]
+use crate::audio::AudioManager;
 
 /// Configuration for the base of the game engine
 pub struct ShuraConfig {
@@ -152,18 +156,7 @@ impl ShuraConfig {
                             }
                         }
                         Event::RedrawRequested(window_id) if window_id == shura_window_id => {
-                            let mut scene = shura.scene_manager.borrow_active_scene();
-                            if let Some(max_frame_time) = scene.screen_config.max_frame_time() {
-                                let now = shura.frame_manager.now();
-                                let update_time = shura.frame_manager.update_time();
-                                if now < update_time + max_frame_time {
-                                    shura.scene_manager.return_active_scene(scene);
-                                    return;
-                                }
-                            }
-
-                            let update_status = shura.update(&mut scene);
-                            shura.scene_manager.return_active_scene(scene);
+                            let update_status = shura.update();
                             match update_status {
                                 Ok(_) => {}
                                 Err(wgpu::SurfaceError::Lost) => {
@@ -214,27 +207,26 @@ impl ShuraConfig {
     }
 }
 
-pub(crate) struct Shura {
-    pub(crate) end: bool,
-    pub(crate) frame_manager: FrameManager,
-    pub(crate) scene_manager: SceneManager,
-    pub(crate) window: winit::window::Window,
-    pub(crate) input: Input,
-    pub(crate) gpu: Gpu,
-    pub(crate) states: GlobalStateManager,
-    pub(crate) defaults: GpuDefaults,
+/// Core of the game engine.
+pub struct Shura {
+    pub end: bool,
+    pub frame: FrameManager,
+    pub scenes: SceneManager,
+    pub window: winit::window::Window,
+    pub input: Input,
+    pub gpu: Gpu,
+    pub states: GlobalStateManager,
+    pub defaults: GpuDefaults,
     #[cfg(feature = "gui")]
-    pub(crate) gui: Gui,
+    pub gui: Gui,
     #[cfg(feature = "audio")]
-    pub(crate) audio: rodio::OutputStream,
-    #[cfg(feature = "audio")]
-    pub(crate) audio_handle: rodio::OutputStreamHandle,
+    pub audio: AudioManager,
     #[cfg(target_arch = "wasm32")]
-    auto_scale_canvas: bool,
+    pub auto_scale_canvas: bool,
 }
 
 impl Shura {
-    fn new<C: SceneCreator>(
+    fn new<C: SceneCreator + 'static>(
         window: winit::window::Window,
         _event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
         gpu: GpuConfig,
@@ -245,17 +237,14 @@ impl Shura {
         let mint: mint::Vector2<u32> = (window.inner_size()).into();
         let window_size: Vector<u32> = mint.into();
         let defaults = GpuDefaults::new(&gpu, window_size);
-        #[cfg(feature = "audio")]
-        let (audio, audio_handle) = rodio::OutputStream::try_default().unwrap();
-        let mut shura = Self {
-            scene_manager: SceneManager::new(creator.id()),
-            frame_manager: FrameManager::new(),
-            input: Input::new(),
+
+        Self {
+            scenes: SceneManager::new(creator.new_id(), creator),
+            frame: FrameManager::new(),
+            input: Input::new(window_size),
             states: GlobalStateManager::default(),
             #[cfg(feature = "audio")]
-            audio,
-            #[cfg(feature = "audio")]
-            audio_handle,
+            audio: AudioManager::new(),
             end: false,
             #[cfg(feature = "gui")]
             gui: Gui::new(_event_loop, &gpu),
@@ -264,16 +253,27 @@ impl Shura {
             defaults,
             #[cfg(target_arch = "wasm32")]
             auto_scale_canvas,
-        };
-        let scene = creator.scene(ShuraFields::from_shura(&mut shura));
-        shura.scene_manager.init(scene);
-        return shura;
+        }
     }
 
     fn resize(&mut self, new_size: Vector<u32>) {
-        let config_size = self.gpu.render_size_no_scale();
-        if new_size.x > 0 && new_size.y > 0 && new_size != config_size {
-            self.scene_manager.resize();
+        if new_size.x > 0 && new_size.y > 0 {
+            // #[cfg(target_os = "android")]
+            // let new_size = {
+            //     match self.window.config().orientation() {
+            //         Orientation::Port => {
+            //             Vector::new(new_size.x.min(new_size.y), new_size.x.max(new_size.y))
+            //         },
+            //         Orientation::Land => {
+            //             Vector::new(new_size.x.max(new_size.y), new_size.x.min(new_size.y))
+            //         },
+            //         _ => new_size
+            //     }
+            // };
+            #[cfg(feature = "log")]
+            info!("Resizing window to: {} x {}", new_size.x, new_size.y,);
+            self.scenes.resize();
+            self.input.resize(new_size);
             self.gpu.resize(new_size);
             self.defaults.resize(&self.gpu, new_size);
             #[cfg(feature = "gui")]
@@ -283,68 +283,98 @@ impl Shura {
 
     #[cfg(feature = "physics")]
     fn physics_step(ctx: &mut Context) {
-        let delta = ctx.frame_time();
-        ctx.component_manager.world_mut().step(delta);
-        // while let Ok(contact_force_event) = ctx.component_manager.event_receivers.1.try_recv() {
+        macro_rules! skip_fail {
+            ($res:expr) => {
+                match $res {
+                    Some(val) => val,
+                    None => {
+                        continue;
+                    }
+                }
+            };
+        }
+
+        let delta = ctx.frame.frame_time();
+        ctx.components.apply_world_mapping(ctx.world);
+        ctx.world.step(delta);
+        // while let Ok(contact_force_event) = ctx.components.event_receivers.1.try_recv() {
         // }
-        while let Ok(collision_event) = ctx.component_manager.collision_event() {
-            let collider_handle1 = collision_event.collider1();
-            let collider_handle2 = collision_event.collider2();
+        while let Ok(collision_event) = ctx.world.collision_event() {
             let collision_type = if collision_event.started() {
                 CollideType::Started
             } else {
                 CollideType::Stopped
             };
+            let collider_handle1 = collision_event.collider1();
+            let collider_handle2 = collision_event.collider2();
+            let component1 = *skip_fail!(ctx.world.component_from_collider(&collider_handle1));
+            let component2 = *skip_fail!(ctx.world.component_from_collider(&collider_handle2));
+            let collider1_events = skip_fail!(ctx.world.collider(collider_handle1)).active_events();
+            let collider2_events = skip_fail!(ctx.world.collider(collider_handle2)).active_events();
 
-            if let Some(collider1_events) = ctx
-                .collider(collider_handle1)
-                .and_then(|c| Some(c.active_events()))
-            {
-                if let Some(collider2_events) = ctx
-                    .collider(collider_handle2)
-                    .and_then(|c| Some(c.active_events()))
-                {
-                    let (component_gype_id1, component1) =
-                        ctx.component_from_collider(&collider_handle1).unwrap();
-                    let (component_gype_id2, component2) =
-                        ctx.component_from_collider(&collider_handle2).unwrap();
-                    if collider1_events == ActiveEvents::COLLISION_EVENTS {
-                        let callback = ctx
-                            .component_manager
-                            .component_callbacks(&component_gype_id1)
-                            .call_collision;
-                        (callback)(
-                            ctx,
-                            component1,
-                            component2,
-                            collider_handle1,
-                            collider_handle2,
-                            collision_type,
-                        )
-                    }
-                    if collider2_events == ActiveEvents::COLLISION_EVENTS {
-                        let callback = ctx
-                            .component_manager
-                            .component_callbacks(&component_gype_id2)
-                            .call_collision;
-                        (callback)(
-                            ctx,
-                            component2,
-                            component1,
-                            collider_handle2,
-                            collider_handle1,
-                            collision_type,
-                        )
-                    }
-                }
+            let callable1 = ctx.components.callable(&component1.type_index());
+            let callable2 = ctx.components.callable(&component2.type_index());
+            let callback1 = callable1.callbacks.collision;
+            let callback2 = callable2.callbacks.collision;
+
+            if collider1_events == ActiveEvents::COLLISION_EVENTS {
+                (callback1)(
+                    ctx,
+                    component1,
+                    component2,
+                    collider_handle1,
+                    collider_handle2,
+                    collision_type,
+                );
+            }
+
+            if collider2_events == ActiveEvents::COLLISION_EVENTS {
+                (callback2)(
+                    ctx,
+                    component2,
+                    component1,
+                    collider_handle2,
+                    collider_handle1,
+                    collision_type,
+                );
             }
         }
     }
 
-    fn update(&mut self, scene: &mut Scene) -> Result<(), wgpu::SurfaceError> {
-        self.frame_manager.update();
+    fn update(&mut self) -> Result<(), wgpu::SurfaceError> {
+        let output = self.gpu.surface.get_current_texture()?;
+        while let Some(remove) = self.scenes.remove.pop() {
+            if let Some(removed) = self.scenes.scenes.remove(&remove) {
+                let mut removed = removed.borrow_mut();
+                for end in removed.states.ends() {
+                    let mut ctx = Context::new(self, &mut removed);
+                    end(&mut ctx);
+                }
+            }
+        }
+
+        while let Some(add) = self.scenes.add.pop() {
+            let id = add.new_id();
+            let scene = add.create(self);
+            self.scenes.scenes.insert(id, Rc::new(RefCell::new(scene)));
+        }
+
+        let scene = self.scenes.get_active_scene();
+        let mut scene = scene.borrow_mut();
+        let mut scene = scene.deref_mut();
+        if let Some(max_frame_time) = scene.screen_config.max_frame_time() {
+            let now = self.frame.now();
+            let update_time = self.frame.update_time();
+            if now < update_time + max_frame_time {
+                return Ok(());
+            }
+        }
+
         let mint: mint::Vector2<u32> = self.window.inner_size().into();
         let window_size: Vector<u32> = mint.into();
+        self.frame.update();
+        #[cfg(feature = "gamepad")]
+        self.input.sync_controller();
         #[cfg(target_arch = "wasm32")]
         {
             if self.auto_scale_canvas {
@@ -370,121 +400,115 @@ impl Shura {
                 }
             }
         }
-        if scene.switched || scene.resized || scene.screen_config.changed {
-            scene.screen_config.changed = false;
-            scene.world_camera.resize(window_size);
-
-            self.gpu.apply_vsync(scene.screen_config.vsync());
-            self.defaults
-                .apply_render_scale(&self.gpu, scene.screen_config.render_scale());
-        }
         if scene.started {
             self.input.update();
-            scene.world_camera.apply_target(&scene.component_manager);
+            scene.world_camera.apply_target(
+                #[cfg(feature = "physics")]
+                &scene.world,
+                &scene.components,
+            );
             self.defaults.buffer(
                 &mut scene.world_camera.camera,
                 &self.gpu,
-                self.frame_manager.total_time(),
-                self.frame_manager.frame_time(),
+                self.frame.total_time(),
+                self.frame.frame_time(),
             );
-            scene
-                .component_manager
-                .update_sets(&self.defaults.world_camera);
-            scene.component_manager.buffer_sets(&self.gpu);
+            scene.components.update_sets(&self.defaults.world_camera);
+            scene.components.buffer(
+                #[cfg(feature = "physics")]
+                &mut scene.world,
+                &self.gpu,
+            );
         }
-        let output = self.gpu.surface.get_current_texture()?;
 
         #[cfg(feature = "gui")]
         self.gui
-            .begin(&self.frame_manager.total_time_duration(), &self.window);
+            .begin(&self.frame.total_time_duration(), &self.window);
 
         {
             let mut ctx = Context::new(self, scene);
             #[cfg(feature = "physics")]
             let (mut done_step, physics_priority) = {
-                if let Some(physics_priority) = ctx.physics_priority() {
+                if let Some(physics_priority) = ctx.world.physics_priority() {
                     (false, physics_priority)
                 } else {
                     (true, 0)
                 }
             };
             let mut prev_priority = i16::MIN;
-            let now = ctx.update_time();
+            let now = ctx.frame.update_time();
             {
-                let sets = ctx.component_manager.copy_active_components();
-                for set in sets.values() {
-                    let config = set.config();
-                    for update in ctx
-                        .scene_states
-                        .updates(prev_priority, set.config().priority)
-                    {
+                for ((priority, _), type_index) in ctx.components.priorities().borrow().iter() {
+                    for update in ctx.scene_states.updates(prev_priority, *priority) {
                         update(&mut ctx);
                     }
 
                     #[cfg(feature = "physics")]
-                    if !done_step && config.priority > physics_priority {
+                    if !done_step && *priority > physics_priority {
                         done_step = true;
                         Self::physics_step(&mut ctx);
                     }
 
-                    if set.paths().len() == 0 {
-                        continue;
-                    }
-
-                    match config.update {
+                    let ty = ctx.components.callable_mut(type_index);
+                    match ty.config.update {
                         crate::UpdateOperation::EveryFrame => {}
                         crate::UpdateOperation::Never => {
                             continue;
                         }
                         crate::UpdateOperation::EveryNFrame(frames) => {
-                            if ctx.total_frames() % frames != 0 {
+                            if ctx.frame.total_frames() % frames != 0 {
                                 continue;
                             }
                         }
                         crate::UpdateOperation::AfterDuration(dur) => {
-                            if now < set.last_update().unwrap() + dur {
+                            if now < ty.last_update.unwrap() + dur {
                                 continue;
+                            } else {
+                                ty.last_update = Some(now);
                             }
                         }
                     }
 
-                    (set.callbacks().call_update)(set.paths(), &mut ctx);
-                    prev_priority = config.priority;
+                    (ty.callbacks.update)(&mut ctx);
+                    prev_priority = *priority;
                 }
             }
 
             #[cfg(feature = "physics")]
-            if !done_step && ctx.physics_priority().is_some() {
+            if !done_step && ctx.world.physics_priority().is_some() {
                 Self::physics_step(&mut ctx);
             }
-
             for update in ctx.scene_states.updates(prev_priority, i16::MAX) {
                 update(&mut ctx);
             }
         }
-
         self.input.update();
         self.defaults
             .apply_render_scale(&self.gpu, scene.screen_config.render_scale());
-        scene.world_camera.apply_target(&scene.component_manager);
+        scene.world_camera.apply_target(
+            #[cfg(feature = "physics")]
+            &scene.world,
+            &scene.components,
+        );
         self.defaults.buffer(
             &mut scene.world_camera.camera,
             &self.gpu,
-            self.frame_manager.total_time(),
-            self.frame_manager.frame_time(),
+            self.frame.total_time(),
+            self.frame.frame_time(),
         );
 
-        scene
-            .component_manager
-            .update_sets(&self.defaults.world_camera);
-        if !scene.component_manager.render_components() {
-            scene.resized = false;
+        scene.components.update_sets(&self.defaults.world_camera);
+        if !scene.render_components {
             scene.switched = false;
             scene.started = false;
             return Ok(());
         }
 
-        scene.component_manager.buffer_sets(&self.gpu);
+        scene.components.buffer(
+            #[cfg(feature = "physics")]
+            &mut scene.world,
+            &self.gpu,
+        );
         let ctx = Context::new(self, scene);
         let mut encoder = RenderEncoder::new(ctx.gpu, &ctx.defaults);
         if let Some(clear_color) = ctx.screen_config.clear_color {
@@ -492,19 +516,21 @@ impl Shura {
         }
 
         {
-            for set in ctx.component_manager.copy_active_components().values() {
-                if set.is_empty() {
-                    continue;
+            let mut prev_priority = i16::MIN;
+            for ((priority, _), type_index) in ctx.components.priorities().borrow().iter() {
+                for render in ctx.scene_states.renders(prev_priority, *priority) {
+                    render(&ctx, &mut encoder);
                 }
-                let config = set.config();
-                if config.render != RenderOperation::Never {
-                    match config.render {
+                let ty = ctx.components.callable(type_index);
+                if ty.config.render != RenderOperation::Never {
+                    match ty.config.render {
                         RenderOperation::EveryFrame => {
-                            (set.callbacks().call_render)(&set.paths(), &ctx, &mut encoder);
+                            (ty.callbacks.render)(&ctx, &mut encoder);
                         }
                         _ => {}
                     }
                 }
+                prev_priority = *priority;
             }
         }
         let output_view = output
@@ -513,7 +539,7 @@ impl Shura {
 
         {
             let mut renderer =
-                Renderer::output_renderer(&mut encoder.inner, &output_view, &ctx.defaults);
+                Renderer::output_renderer(&mut encoder.inner, &output_view, ctx.defaults, ctx.gpu);
             renderer.use_camera(&ctx.defaults.relative_camera.0);
             renderer.use_instances(&ctx.defaults.single_centered_instance);
             renderer.use_shader(&ctx.defaults.sprite_no_msaa);
@@ -525,11 +551,28 @@ impl Shura {
         #[cfg(feature = "gui")]
         ctx.gui.render(&ctx.gpu, &mut encoder.inner, &output_view);
 
-        encoder.stage();
-        ctx.gpu.submit_staged_encoders();
+        encoder.finish();
         output.present();
+        if scene.switched || scene.resized || scene.screen_config.changed {
+            scene.screen_config.changed = false;
+            scene.resized = false;
+            #[cfg(feature = "log")]
+            {
+                let size = self.gpu.render_size(scene.screen_config.render_scale());
+                info!(
+                    "Resizing render target to: {} x {} using VSYNC: {}",
+                    size.x,
+                    size.y,
+                    scene.screen_config.vsync()
+                );
+            }
+            scene.world_camera.resize(window_size);
 
-        scene.resized = false;
+            self.gpu.apply_vsync(scene.screen_config.vsync());
+            self.defaults
+                .apply_render_scale(&self.gpu, scene.screen_config.render_scale());
+        }
+
         scene.switched = false;
         scene.started = false;
         Ok(())
@@ -538,12 +581,11 @@ impl Shura {
 
 impl Drop for Shura {
     fn drop(&mut self) {
-        for (_, mut scene) in self.scene_manager.end_scenes() {
-            if let Some(scene) = &mut scene {
-                for end in scene.states.ends() {
-                    let mut ctx = Context::new(self, scene);
-                    end(&mut ctx);
-                }
+        for (_, scene) in self.scenes.end_scenes() {
+            let mut scene = scene.borrow_mut();
+            for end in scene.states.ends() {
+                let mut ctx = Context::new(self, &mut scene);
+                end(&mut ctx);
             }
         }
     }

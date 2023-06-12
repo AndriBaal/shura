@@ -1,43 +1,46 @@
-use crate::{ArenaIndex, ComponentGroupId};
+use crate::ArenaIndex;
 use core::hash::Hash;
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub(crate) struct ComponentIndex(pub(crate) ArenaIndex);
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+/// Unique identifier of a group
+pub struct GroupHandle(pub(crate) ArenaIndex);
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub(crate) struct TypeIndex(pub(crate) ArenaIndex);
+
+impl GroupHandle {
+    pub const DEFAULT_GROUP: Self = GroupHandle(ArenaIndex::FIRST);
+}
+
+impl Default for GroupHandle {
+    fn default() -> Self {
+        Self::DEFAULT_GROUP
+    }
+}
+
 /// Handle for a component. Through these handles components can be easily be fetched every frame
-/// with a specific type through the [component](crate::Context::component) or
-/// [component_mut](crate::Context::component_mut) method or without a specific type through the
-/// [boxed_component](crate::Context::boxed_component) or
-/// [boxed_component_mut](crate::Context::boxed_component_mut) method from the [context](crate::Context)
-#[derive(Copy, Clone, Debug)]
+/// with a specific type through the [component](crate::ComponentManager::get) or
+/// [component_mut](crate::ComponentManager::get_mut) method or without a specific type through the
+/// [boxed_component](crate::ComponentManager::get_boxed) or
+/// [boxed_component_mut](crate::ComponentManager::get_boxed_mut) method from the [context](crate::Context)
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ComponentHandle {
-    pub(crate) component_index: ArenaIndex,
-    type_index: ArenaIndex,
-    group_index: ArenaIndex,
-    id: u32,
-    group_id: ComponentGroupId,
+    component_index: ComponentIndex,
+    type_index: TypeIndex,
+    group_handle: GroupHandle,
 }
 
 impl ComponentHandle {
     pub const INVALID: Self = ComponentHandle {
-        component_index: ArenaIndex::INVALID,
-        type_index: ArenaIndex::INVALID,
-        group_index: ArenaIndex::INVALID,
-        id: 0,
-        group_id: ComponentGroupId::INVALID,
+        component_index: ComponentIndex(ArenaIndex::INVALID),
+        type_index: TypeIndex(ArenaIndex::INVALID),
+        group_handle: GroupHandle(ArenaIndex::INVALID),
     };
-}
-
-impl Hash for ComponentHandle {
-    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
-        // The id is unique per ComponentHandle, so hashing only the id is faster
-        self.id.hash(state)
-    }
-}
-
-impl Eq for ComponentHandle {}
-impl PartialEq for ComponentHandle {
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-    }
 }
 
 impl Default for ComponentHandle {
@@ -48,44 +51,30 @@ impl Default for ComponentHandle {
 
 impl ComponentHandle {
     pub(crate) const fn new(
-        component_index: ArenaIndex,
-        type_index: ArenaIndex,
-        group_index: ArenaIndex,
-        id: u32,
-        group_id: ComponentGroupId,
+        component_index: ComponentIndex,
+        type_index: TypeIndex,
+        group_handle: GroupHandle,
     ) -> Self {
         Self {
-            id,
             component_index,
             type_index,
-            group_index,
-            group_id,
+            group_handle,
         }
     }
 
-    pub(crate) fn type_index(&self) -> ArenaIndex {
+    pub(crate) fn type_index(&self) -> TypeIndex {
         self.type_index
     }
 
-    pub(crate) fn group_index(&self) -> ArenaIndex {
-        self.group_index
+    pub fn group_handle(&self) -> GroupHandle {
+        self.group_handle
     }
 
-    pub(crate) fn component_index(&self) -> ArenaIndex {
+    pub(crate) fn component_index(&self) -> ComponentIndex {
         self.component_index
     }
 
-    /// Unique if of the handle and its component
-
-    pub fn id(&self) -> u32 {
-        self.id
-    }
-
-    pub fn index(&self) -> u32 {
-        self.component_index.index()
-    }
-
-    pub fn group_id(&self) -> ComponentGroupId {
-        self.group_id
+    pub fn index(&self) -> usize {
+        self.component_index.0.index()
     }
 }

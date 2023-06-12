@@ -15,7 +15,7 @@ OR:
 Add the following to your `Cargo.toml`:
 ```
 [dependencies]
-shura = "0.2.0"
+shura = "0.3.0"
 ```
 
 A good way to learn shura is through the provided examples or through reading the code [documentation](https://docs.rs/shura).
@@ -30,7 +30,7 @@ A good way to learn shura is through the provided examples or through reading th
 
 - Support for postprocessing of your renders
 
-- Easy to configure camera scaling
+- Easy to configure camera scaling, to ensure your game is responsive and works on all sort of screens
 
 - Physics simulations directly implemented into the component system through [rapier](https://github.com/dimforge/rapier) (feature flag 'physics')
 
@@ -40,7 +40,7 @@ A good way to learn shura is through the provided examples or through reading th
 
 - Input handling for touch, mouse and keyboard and controller with [gilrs](https://gitlab.com/gilrs-project/gilrs) (feature flag 'gamepad')
 
-- Text rendering with [wgpu_glyph](https://github.com/hecrj/wgpu_glyph) (feature flag 'text')
+- Text rendering inspired by [wgpu_text](https://github.com/Blatko1/wgpu-text) (feature flag 'text')
 
 - Audio playback with [rodio](https://github.com/RustAudio/rodio) (feature flag 'audio')
 
@@ -51,20 +51,6 @@ A good way to learn shura is through the provided examples or through reading th
 - Animations inspired by [bevy_tweening](https://github.com/djeedai/bevy_tweening) (feature flag 'animation')
 
 - Logging on all Platforms with [env_logger](https://github.com/rust-cli/env_logger) and a modified verison of [wasm_logger](https://gitlab.com/limira-rs/wasm-logger) (feature flag 'log')
-
-## Future features (TODO):
-
-- Serialization of Groups
-
-- Expand SpriteSheet
-
-- Built in AABB for simple collision detection (apart from physics)
-
-- Refactor of rounded Models
-
-- Tutorials and in depth documentation
-
-- More Examples
 
 ## Cross-platform
 

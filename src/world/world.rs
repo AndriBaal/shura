@@ -1,13 +1,12 @@
-use std::{cell::RefCell, rc::Rc};
-
-use crate::{BaseComponent, ComponentHandle, ComponentTypeId};
+use crate::{
+    physics::{ColliderComponent, RigidBodyComponent},
+    ComponentHandle,
+};
 use rapier2d::prelude::*;
 use rustc_hash::FxHashMap;
 
 type EventReceiver<T> = crossbeam::channel::Receiver<T>;
-pub(crate) type ColliderMapping = FxHashMap<ColliderHandle, (ComponentTypeId, ComponentHandle)>;
-
-pub type RcWorld = Rc<RefCell<World>>;
+pub(crate) type ColliderMapping = FxHashMap<ColliderHandle, ComponentHandle>;
 
 struct WorldEvents {
     collision: EventReceiver<CollisionEvent>,
@@ -144,6 +143,8 @@ pub struct World {
     pub gravity: Vector<f32>,
     bodies: RigidBodySet,
     colliders: ColliderSet,
+    impulse_joints: ImpulseJointSet,
+    multibody_joints: MultibodyJointSet,
     component_mapping: ColliderMapping,
 
     query_pipeline: QueryPipeline,
@@ -151,8 +152,6 @@ pub struct World {
     islands: IslandManager,
     broad_phase: BroadPhase,
     narrow_phase: NarrowPhase,
-    impulse_joints: ImpulseJointSet,
-    multibody_joints: MultibodyJointSet,
     ccd_solver: CCDSolver,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
@@ -207,66 +206,112 @@ impl World {
         }
     }
 
-    pub(crate) fn create_body(&mut self, builder: RigidBody) -> RigidBodyHandle {
-        self.bodies.insert(builder)
+    pub(crate) fn register_collider(
+        &mut self,
+        component_handle: ComponentHandle,
+        collider_handle: ColliderHandle,
+    ) {
+        self.component_mapping
+            .insert(collider_handle, component_handle);
     }
 
-    pub fn create_collider(
+    pub(crate) fn register_rigid_body(
         &mut self,
-        body_handle: RigidBodyHandle,
         component_handle: ComponentHandle,
-        type_id: ComponentTypeId,
+        rigid_body_handle: RigidBodyHandle,
+    ) {
+        if let Some(body) = self.bodies.get(rigid_body_handle) {
+            for collider_handle in body.colliders() {
+                self.component_mapping
+                    .insert(*collider_handle, component_handle);
+            }
+        }
+    }
+
+    pub(crate) fn unregister_collider(&mut self, collider_handle: ColliderHandle) {
+        self.colliders
+            .remove(collider_handle, &mut self.islands, &mut self.bodies, false);
+        self.component_mapping.remove(&collider_handle);
+    }
+
+    pub(crate) fn unregister_rigid_body(&mut self, rigid_body_handle: RigidBodyHandle) {
+        if let Some(body) = self.bodies.remove(
+            rigid_body_handle,
+            &mut self.islands,
+            &mut self.colliders,
+            &mut self.impulse_joints,
+            &mut self.multibody_joints,
+            true,
+        ) {
+            for collider_handle in body.colliders() {
+                self.component_mapping.remove(collider_handle);
+            }
+        }
+    }
+
+    pub fn create_rigid_body_component(
+        &mut self,
+        rigid_body: impl Into<RigidBody>,
+        colliders: impl IntoIterator<Item = impl Into<Collider>>,
+    ) -> RigidBodyComponent {
+        let rigid_body_handle = self.bodies.insert(rigid_body);
+        for collider in colliders {
+            self.colliders
+                .insert_with_parent(collider, rigid_body_handle, &mut self.bodies);
+        }
+        RigidBodyComponent { rigid_body_handle }
+    }
+
+    pub fn create_collider_component(
+        &mut self,
+        collider: impl Into<Collider>,
+    ) -> ColliderComponent {
+        ColliderComponent {
+            collider_handle: self.colliders.insert(collider),
+        }
+    }
+
+    pub fn attach_collider(
+        &mut self,
+        rigid_body_handle: RigidBodyHandle,
         collider: impl Into<Collider>,
     ) -> ColliderHandle {
-        let collider_handle =
-            self.colliders
-                .insert_with_parent(collider, body_handle, &mut self.bodies);
-
-        self.component_mapping
-            .insert(collider_handle, (type_id, component_handle));
-        return collider_handle;
-    }
-
-    pub fn remove_collider(&mut self, handle: ColliderHandle) -> Option<Collider> {
-        self.component_mapping.remove(&handle);
         self.colliders
-            .remove(handle, &mut self.islands, &mut self.bodies, true)
+            .insert_with_parent(collider, rigid_body_handle, &mut self.bodies)
     }
 
-    pub(crate) fn remove_body(&mut self, handle: RigidBodyHandle) -> (RigidBody, Vec<Collider>) {
-        let colliders = self.bodies.get(handle).unwrap().colliders().to_vec();
-        let collider = colliders
-            .iter()
-            .map(|collider_handle| {
-                self.component_mapping.remove(collider_handle);
-                self.colliders
-                    .remove(*collider_handle, &mut self.islands, &mut self.bodies, false)
-                    .unwrap()
-            })
-            .collect();
+    pub(crate) fn step(&mut self, delta: f32) {
+        self.integration_parameters.dt = delta * self.time_scale;
+        self.physics_pipeline.step(
+            &self.gravity,
+            &self.integration_parameters,
+            &mut self.islands,
+            &mut self.broad_phase,
+            &mut self.narrow_phase,
+            &mut self.bodies,
+            &mut self.colliders,
+            &mut self.impulse_joints,
+            &mut self.multibody_joints,
+            &mut self.ccd_solver,
+            Some(&mut self.query_pipeline),
+            &(),
+            self.events.collector(),
+        );
+    }
 
-        let body = self
-            .bodies
-            .remove(
-                handle,
-                &mut self.islands,
-                &mut self.colliders,
-                &mut self.impulse_joints,
-                &mut self.multibody_joints,
-                true,
-            )
-            .unwrap();
-        return (body, collider);
+    pub fn component_from_collider(
+        &self,
+        collider_handle: &ColliderHandle,
+    ) -> Option<&ComponentHandle> {
+        self.component_mapping.get(collider_handle)
     }
 
     pub fn create_joint(
         &mut self,
-        component1: &BaseComponent,
-        component2: &BaseComponent,
+        body_handle1: RigidBodyHandle,
+        body_handle2: RigidBodyHandle,
         joint: impl Into<GenericJoint>,
     ) -> ImpulseJointHandle {
-        let body_handle1 = component1.body_handle();
-        let body_handle2 = component2.body_handle();
         self.impulse_joints
             .insert(body_handle1, body_handle2, joint, true)
     }
@@ -286,11 +331,9 @@ impl World {
             self.query_pipeline
                 .cast_ray(&self.bodies, &self.colliders, ray, max_toi, solid, filter)
         {
-            return Some((
-                self.component_from_collider(&collider.0).unwrap().1,
-                collider.0,
-                collider.1,
-            ));
+            if let Some(component) = self.component_from_collider(&collider.0) {
+                return Some((*component, collider.0, collider.1));
+            }
         }
         return None;
     }
@@ -314,11 +357,9 @@ impl World {
             stop_at_penetration,
             filter,
         ) {
-            return Some((
-                self.component_from_collider(&collider.0).unwrap().1,
-                collider.0,
-                collider.1,
-            ));
+            if let Some(component) = self.component_from_collider(&collider.0) {
+                return Some((*component, collider.0, collider.1));
+            }
         }
         return None;
     }
@@ -338,11 +379,9 @@ impl World {
             solid,
             filter,
         ) {
-            return Some((
-                self.component_from_collider(&collider.0).unwrap().1,
-                collider.0,
-                collider.1,
-            ));
+            if let Some(component) = self.component_from_collider(&collider.0) {
+                return Some((*component, collider.0, collider.1));
+            }
         }
         return None;
     }
@@ -390,11 +429,10 @@ impl World {
             solid,
             filter,
             |collider, ray| {
-                callback(
-                    self.component_from_collider(&collider).unwrap().1,
-                    collider,
-                    ray,
-                )
+                if let Some(component) = self.component_from_collider(&collider) {
+                    return callback(*component, collider, ray);
+                }
+                return true;
             },
         );
     }
@@ -412,7 +450,12 @@ impl World {
             shape_pos,
             shape,
             filter,
-            |collider| callback(self.component_from_collider(&collider).unwrap().1, collider),
+            |collider| {
+                if let Some(component) = self.component_from_collider(&collider) {
+                    return callback(*component, collider);
+                }
+                return true;
+            },
         );
     }
 
@@ -429,8 +472,9 @@ impl World {
             shape,
             filter,
         ) {
-            let component = self.component_from_collider(&collider).unwrap().1;
-            return Some((component, collider));
+            if let Some(component) = self.component_from_collider(&collider) {
+                return Some((*component, collider));
+            }
         }
         return None;
     }
@@ -446,34 +490,20 @@ impl World {
             &self.colliders,
             point,
             filter,
-            |collider| callback(self.component_from_collider(&collider).unwrap().1, collider),
+            |collider| {
+                if let Some(component) = self.component_from_collider(&collider) {
+                    return callback(*component, collider);
+                }
+                return true;
+            },
         );
     }
 
-    pub(crate) fn step(&mut self, delta: f32) {
-        self.integration_parameters.dt = delta * self.time_scale;
-        self.physics_pipeline.step(
-            &self.gravity,
-            &self.integration_parameters,
-            &mut self.islands,
-            &mut self.broad_phase,
-            &mut self.narrow_phase,
-            &mut self.bodies,
-            &mut self.colliders,
-            &mut self.impulse_joints,
-            &mut self.multibody_joints,
-            &mut self.ccd_solver,
-            Some(&mut self.query_pipeline),
-            &(),
-            self.events.collector(),
-        );
-    }
-
-    pub fn body(&self, body_handle: RigidBodyHandle) -> Option<&RigidBody> {
+    pub fn rigid_body(&self, body_handle: RigidBodyHandle) -> Option<&RigidBody> {
         return self.bodies.get(body_handle);
     }
 
-    pub fn body_mut(&mut self, body_handle: RigidBodyHandle) -> Option<&mut RigidBody> {
+    pub fn rigid_body_mut(&mut self, body_handle: RigidBodyHandle) -> Option<&mut RigidBody> {
         return self.bodies.get_mut(body_handle);
     }
 
@@ -485,7 +515,7 @@ impl World {
         self.colliders.get_mut(collider_handle)
     }
 
-    pub fn bodies(&self) -> &RigidBodySet {
+    pub fn rigid_bodies(&self) -> &RigidBodySet {
         &self.bodies
     }
 
@@ -505,13 +535,6 @@ impl World {
 
     pub fn joint_mut(&mut self, joint: ImpulseJointHandle) -> Option<&mut ImpulseJoint> {
         self.impulse_joints.get_mut(joint)
-    }
-
-    pub fn component_from_collider(
-        &self,
-        collider_handle: &ColliderHandle,
-    ) -> Option<(ComponentTypeId, ComponentHandle)> {
-        self.component_mapping.get(collider_handle).cloned()
     }
 
     pub fn gravity(&self) -> Vector<f32> {

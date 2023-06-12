@@ -1,8 +1,7 @@
-// TODO: Doc
-
 #![crate_type = "lib"]
 #![crate_name = "shura"]
 
+/// Shura version
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 mod component;
@@ -21,15 +20,12 @@ pub use shura_proc::*;
 #[cfg(target_os = "android")]
 pub use ::winit::platform::android::activity::AndroidApp;
 
-pub(crate) use {
-    component::controller_caller::*, data::arena::*, data::arena_path::*,
-    scene::context::ShuraFields,
-};
+pub(crate) use data::arena::*;
 
 pub use crate::{
     component::{
-        base_component::*, component_config::*, component_derive::*, component_group::*,
-        component_handle::*, component_manager::*, component_set::*, component_type::*,
+        component_config::*, component_derive::*, component_handle::*, component_manager::*,
+        component_set::*, component_type::*, empty_component::*, group::*, position_component::*,
     },
     graphics::{
         camera::*, color::*, frame_manager::*, gpu::*, instance_buffer::*, model::*,
@@ -37,7 +33,7 @@ pub use crate::{
         sprite_sheet::*, uniform::*, vertex::*,
     },
     input::input::*,
-    math::{math::*, matrix::*},
+    math::{aabb::*, math::*, matrix::*},
     scene::{context::Context, scene::*, scene_manager::*},
     shura::*,
     state::{
@@ -63,7 +59,9 @@ mod sound;
 #[cfg(feature = "audio")]
 /// Access to [rodio](https://github.com/RustAudio/rodio)
 pub mod audio {
+    pub use crate::sound::audio_manager::*;
     pub use crate::sound::sound::*;
+    pub use rodio::Sink as AudioSink;
     pub use rodio::*;
 }
 
@@ -71,10 +69,10 @@ pub mod audio {
 #[cfg(feature = "physics")]
 mod world;
 #[cfg(feature = "physics")]
-/// Access to the relevant items from [rapier2d](https://github.com/dimforge/rapier)
+/// Access to the to [rapier2d](https://github.com/dimforge/rapier)
 pub mod physics {
-    pub use crate::world::world::CollideType;
-    pub use crate::world::world::{RcWorld, World};
+    pub(crate) use crate::world::world_changes::*;
+    pub use crate::world::{collider_component::*, rigid_body_component::*, world::*};
     pub use rapier2d::geometry::*;
     pub use rapier2d::parry;
     pub use rapier2d::prelude::{
@@ -103,9 +101,13 @@ pub mod gui {
 
 // text
 #[cfg(feature = "text")]
-/// Abstraction of [wgpu_glyph](https://github.com/hecrj/wgpu_glyph) to render text onto [sprites](crate::Sprite).
+/// Text rendering inspired by [wgpu_text](https://github.com/Blatko1/wgpu-text)
 pub mod text {
-    pub use crate::graphics::text::{font::*, text::*};
+    pub use crate::graphics::text::{font::*, text::*, text_pipeline::*};
+    pub use glyph_brush::{
+        BuiltInLineBreaker, FontId, GlyphCruncher, HorizontalAlign, Layout, LineBreak,
+        OwnedSection, OwnedText, Section, SectionGlyphIter, SectionText, Text, VerticalAlign,
+    };
 }
 
 // gamepad
@@ -125,8 +127,8 @@ pub use crate::scene::scene_serde::*;
 // animation
 #[cfg(feature = "animation")]
 mod tween;
-/// Access to animations
-#[cfg(feature = "animation")]
+/// Access to animations inspired by [bevy_tweening](https://github.com/djeedai/bevy_tweening)
+#[cfg(feature = "animation")] 
 pub mod animation {
     pub use crate::tween::{ease::*, tween::*};
 }

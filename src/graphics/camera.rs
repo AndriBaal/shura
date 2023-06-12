@@ -5,7 +5,10 @@ use crate::{
     Uniform, Vector,
 };
 
-const MINIMAL_FOV: f32 = 0.0000001;
+#[cfg(feature = "physics")]
+use crate::physics::World;
+
+const MINIMAL_FOV: f32 = 5.4E-079;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone)]
@@ -44,6 +47,10 @@ impl Camera {
 
     pub fn proj(&self) -> Matrix {
         self.proj
+    }
+
+    pub fn view_proj(&self) -> Matrix {
+        self.view() * self.proj()
     }
 
     pub fn rotation(&self) -> &Rotation<f32> {
@@ -108,94 +115,40 @@ impl Camera {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone)]
 /// Limits a [Camera] to always maintain the aspect ratio of the window. This behaviour can be controlled
-/// through the [WorldCameraScale]. This camera is also in charge of deciding which [ComponentGroups](crate::ComponentGroup)
-/// is active based on if the [ComponentGroups](crate::ComponentGroup) intersects with the camera.
+/// through the [WorldCameraScale]. This camera is also in charge of deciding which [Groups](crate::Group)
+/// is active based on if the [Groups](crate::Group) intersects with the camera.
 pub struct WorldCamera {
     pub(crate) camera: Camera,
     target: Option<ComponentHandle>,
     scale: WorldCameraScale,
-}
-
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Clone, Copy)]
-pub enum WorldCameraScale {
-    Max(f32),
-    Horizontal(f32),
-    Vertical(f32),
-    Min(f32),
-}
-
-impl WorldCameraScale {
-    pub fn value(&self) -> f32 {
-        match self {
-            WorldCameraScale::Max(max) => *max,
-            WorldCameraScale::Min(min) => *min,
-            WorldCameraScale::Vertical(vertical) => *vertical,
-            WorldCameraScale::Horizontal(horizontal) => *horizontal,
-        }
-    }
-
-    pub fn fov(&self, window_size: Vector<u32>) -> Vector<f32> {
-        match self {
-            WorldCameraScale::Max(mut max) => {
-                if max < MINIMAL_FOV {
-                    max = MINIMAL_FOV;
-                }
-
-                return if window_size.x > window_size.y {
-                    Vector::new(max, window_size.y as f32 / window_size.x as f32 * max)
-                } else {
-                    Vector::new(window_size.x as f32 / window_size.y as f32 * max, max)
-                };
-            }
-            WorldCameraScale::Min(mut min) => {
-                if min < MINIMAL_FOV {
-                    min = MINIMAL_FOV;
-                }
-
-                let yx = window_size.y as f32 / window_size.x as f32;
-                let xy = window_size.x as f32 / window_size.y as f32;
-                let scale = yx.max(xy);
-                return if window_size.x > window_size.y {
-                    Vector::new(scale * min, min)
-                } else {
-                    Vector::new(min, scale * min)
-                };
-            }
-            WorldCameraScale::Horizontal(mut horizontal) => {
-                if horizontal < MINIMAL_FOV {
-                    horizontal = MINIMAL_FOV;
-                }
-
-                let yx = window_size.y as f32 / window_size.x as f32 * horizontal;
-                Vector::new(horizontal, yx)
-            }
-            WorldCameraScale::Vertical(mut vertical) => {
-                if vertical < MINIMAL_FOV {
-                    vertical = MINIMAL_FOV;
-                }
-
-                let xy = window_size.x as f32 / window_size.y as f32 * vertical;
-                Vector::new(xy, vertical)
-            }
-        }
-    }
+    window_size: Vector<f32>,
 }
 
 impl WorldCamera {
     pub fn new(position: Isometry<f32>, scale: WorldCameraScale, window_size: Vector<u32>) -> Self {
+        let window_size = window_size.cast();
         let fov = scale.fov(window_size);
         Self {
             camera: Camera::new(position, fov),
             target: None,
+            window_size,
             scale,
         }
     }
 
-    pub fn apply_target(&mut self, man: &ComponentManager) {
+    pub fn apply_target(
+        &mut self,
+        #[cfg(feature = "physics")] world: &World,
+        man: &ComponentManager,
+    ) {
         if let Some(target) = self.target() {
-            if let Some(component) = man.boxed_component(target) {
-                let translation = component.base().translation();
+            if let Some(component) = man.get_boxed(target) {
+                // TODO: Maybe change this to not read from the matrix
+                let matrix = component.base().matrix(
+                    #[cfg(feature = "physics")]
+                    world,
+                );
+                let translation = Vector::new(matrix[12], matrix[13]);
                 self.camera.set_translation(translation);
             } else {
                 self.set_target(None);
@@ -211,22 +164,23 @@ impl WorldCamera {
         self.target = target;
     }
 
-    pub(crate) fn compute_fov(&mut self, window_size: Vector<u32>) {
-        let fov = self.scale.fov(window_size);
+    pub(crate) fn compute_fov(&mut self) {
+        let fov = self.scale.fov(self.window_size);
         self.camera.set_fov(fov);
     }
 
-    pub(crate) fn resize(&mut self, compute_fov: Vector<u32>) {
-        self.compute_fov(compute_fov);
+    pub(crate) fn resize(&mut self, window_size: Vector<u32>) {
+        self.window_size = window_size.cast();
+        self.compute_fov();
     }
 
     pub fn fov_scale(&self) -> WorldCameraScale {
         self.scale
     }
 
-    pub fn set_fov_scale(&mut self, scale: WorldCameraScale, window_size: Vector<u32>) {
+    pub fn set_scaling(&mut self, scale: WorldCameraScale) {
         self.scale = scale;
-        self.compute_fov(window_size);
+        self.compute_fov();
     }
 
     pub fn set_rotation(&mut self, rotation: Rotation<f32>) {
@@ -247,6 +201,74 @@ impl Deref for WorldCamera {
 
     fn deref(&self) -> &Self::Target {
         &self.camera
+    }
+}
+
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy)]
+/// Defines how the [WorldCamera] gets scaled. This ensures that your game is responsive on various
+/// screens.
+pub enum WorldCameraScale {
+    Max(f32),
+    Horizontal(f32),
+    Vertical(f32),
+    Min(f32),
+}
+
+impl WorldCameraScale {
+    pub fn value(&self) -> f32 {
+        match self {
+            WorldCameraScale::Max(max) => *max,
+            WorldCameraScale::Min(min) => *min,
+            WorldCameraScale::Vertical(vertical) => *vertical,
+            WorldCameraScale::Horizontal(horizontal) => *horizontal,
+        }
+    }
+
+    pub fn fov(&self, window_size: Vector<f32>) -> Vector<f32> {
+        match self {
+            WorldCameraScale::Max(mut max) => {
+                if max < MINIMAL_FOV {
+                    max = MINIMAL_FOV;
+                }
+
+                return if window_size.x > window_size.y {
+                    Vector::new(max, window_size.y / window_size.x * max)
+                } else {
+                    Vector::new(window_size.x / window_size.y * max, max)
+                };
+            }
+            WorldCameraScale::Min(mut min) => {
+                if min < MINIMAL_FOV {
+                    min = MINIMAL_FOV;
+                }
+
+                let yx = window_size.y / window_size.x;
+                let xy = window_size.x / window_size.y;
+                let scale = yx.max(xy);
+                return if window_size.x > window_size.y {
+                    Vector::new(scale * min, min)
+                } else {
+                    Vector::new(min, scale * min)
+                };
+            }
+            WorldCameraScale::Horizontal(mut horizontal) => {
+                if horizontal < MINIMAL_FOV {
+                    horizontal = MINIMAL_FOV;
+                }
+
+                let yx = window_size.y / window_size.x * horizontal;
+                Vector::new(horizontal, yx)
+            }
+            WorldCameraScale::Vertical(mut vertical) => {
+                if vertical < MINIMAL_FOV {
+                    vertical = MINIMAL_FOV;
+                }
+
+                let xy = window_size.x / window_size.y * vertical;
+                Vector::new(xy, vertical)
+            }
+        }
     }
 }
 

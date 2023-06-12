@@ -40,7 +40,7 @@ impl SpriteSheet {
         self.sprites.len()
     }
 
-    pub fn into_vec(self) -> Vec<Sprite> {
+    pub fn to_vec(self) -> Vec<Sprite> {
         self.sprites
     }
 

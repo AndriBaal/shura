@@ -9,6 +9,9 @@ fn shura_main(config: ShuraConfig) {
     config.init(NewScene {
         id: 1,
         init: |ctx| {
+            ctx.components.register::<Obstacle>();
+            ctx.components.register::<Light>();
+
             let blend = BlendState {
                 color: BlendComponent {
                     src_factor: BlendFactor::SrcAlpha,
@@ -21,12 +24,12 @@ fn shura_main(config: ShuraConfig) {
                     operation: BlendOperation::ReverseSubtract,
                 },
             };
-            ctx.set_camera_scale(WorldCameraScale::Max(10.0));
-            // ctx.add_component(Background::new(ctx));
-            ctx.insert_scene_state(LightingState {
-                light_layer: ctx.create_render_target(Vector::new(1, 1)),
-                shadow_color: ctx.create_uniform(Color::BLACK),
-                light_shader: ctx.create_shader(ShaderConfig {
+            ctx.world_camera.set_scaling(WorldCameraScale::Max(10.0));
+            // ctx.components.add(ctx.world, GroupHandle::DEFAULT_GROUP, Background::new(ctx));
+            ctx.scene_states.insert(LightingState {
+                light_layer: ctx.gpu.create_render_target(Vector::new(1, 1)),
+                shadow_color: ctx.gpu.create_uniform(Color::BLACK),
+                light_shader: ctx.gpu.create_shader(ShaderConfig {
                     fragment_source: include_str!("./light.glsl"),
                     shader_lang: ShaderLang::GLSL,
                     shader_fields: &[ShaderField::Uniform],
@@ -34,7 +37,7 @@ fn shura_main(config: ShuraConfig) {
                     msaa: true,
                     write_mask: ColorWrites::ALL,
                 }),
-                shadow_shader: ctx.create_shader(ShaderConfig {
+                shadow_shader: ctx.gpu.create_shader(ShaderConfig {
                     fragment_source: include_str!("./light.glsl"),
                     shader_lang: ShaderLang::GLSL,
                     shader_fields: &[ShaderField::Uniform],
@@ -42,7 +45,7 @@ fn shura_main(config: ShuraConfig) {
                     msaa: true,
                     write_mask: ColorWrites::ALL,
                 }),
-                present_shader: ctx.create_shader(ShaderConfig {
+                present_shader: ctx.gpu.create_shader(ShaderConfig {
                     fragment_source: include_str!("./present.glsl"),
                     shader_lang: ShaderLang::GLSL,
                     shader_fields: &[ShaderField::Sprite, ShaderField::Uniform],
@@ -51,54 +54,58 @@ fn shura_main(config: ShuraConfig) {
                     write_mask: ColorWrites::ALL,
                 }),
             });
-            ctx.add_component(Obstacle::new(
-                ctx,
-                Vector::new(3.0, 3.0),
-                ColliderBuilder::cuboid(1.0, 1.0),
+            ctx.components.add(Obstacle::new(
+                ctx.world,
+                ctx.gpu,
+                ColliderBuilder::cuboid(1.0, 1.0).translation(Vector::new(3.0, 3.0)),
                 Color::GREEN,
             ));
 
-            ctx.add_component(Obstacle::new(
-                ctx,
-                Vector::new(-3.0, 2.5),
+            ctx.components.add(Obstacle::new(
+                ctx.world,
+                ctx.gpu,
                 ColliderBuilder::triangle(
                     Point::new(-1.5, 1.0),
                     Point::new(1.0, 1.5),
                     Point::new(1.5, 1.0),
-                ),
+                )
+                .translation(Vector::new(-3.0, 2.5)),
                 Color::BLUE,
             ));
 
             for i in 0..4 {
-                ctx.add_component(Obstacle::new(
-                    ctx,
-                    Vector::new(-6.0, i as f32 * 1.0),
-                    ColliderBuilder::cuboid(0.04, 0.4),
+                ctx.components.add(Obstacle::new(
+                    ctx.world,
+                    ctx.gpu,
+                    ColliderBuilder::cuboid(0.04, 0.4)
+                        .translation(Vector::new(-6.0, i as f32 * 1.0)),
                     Color::BLUE,
                 ));
             }
 
-            ctx.add_component(Obstacle::new(
-                ctx,
-                Vector::new(6.0, 0.0),
-                ColliderBuilder::ball(1.0),
+            ctx.components.add(Obstacle::new(
+                ctx.world,
+                ctx.gpu,
+                ColliderBuilder::ball(1.0).translation(Vector::new(6.0, 0.0)),
                 Color::BLUE,
             ));
 
-            ctx.add_component(Obstacle::new(
-                ctx,
-                Vector::new(-3.0, -3.0),
-                ColliderBuilder::cuboid(0.5, 1.5),
+            ctx.components.add(Obstacle::new(
+                ctx.world,
+                ctx.gpu,
+                ColliderBuilder::cuboid(0.5, 1.5).translation(Vector::new(-3.0, -3.0)),
                 Color::BLUE,
             ));
-            ctx.add_component(Obstacle::new(
-                ctx,
-                Vector::new(3.0, -3.0),
-                ColliderBuilder::round_cuboid(0.5, 1.5, 0.4),
+
+            ctx.components.add(Obstacle::new(
+                ctx.world,
+                ctx.gpu,
+                ColliderBuilder::round_cuboid(0.5, 1.5, 0.4).translation(Vector::new(3.0, -3.0)),
                 Color::BLUE,
             ));
-            ctx.add_component(Light::new(
-                ctx,
+
+            ctx.components.add(Light::new(
+                ctx.gpu,
                 Vector::new(0.0, 0.0),
                 7.0,
                 Color {
@@ -107,8 +114,9 @@ fn shura_main(config: ShuraConfig) {
                 },
                 true,
             ));
-            ctx.add_component(Light::new(
-                ctx,
+
+            ctx.components.add(Light::new(
+                ctx.gpu,
                 Vector::new(0.0, 1.0),
                 5.0,
                 Color {
@@ -132,10 +140,9 @@ struct LightingState {
 
 impl SceneStateController for LightingState {
     fn update(ctx: &mut Context) {
-        if ctx.scene_resized() {
-            let window_size = ctx.window_size();
+        if *ctx.scene_resized {
             let state = ctx.scene_states.get_mut::<Self>();
-            state.light_layer = ctx.gpu.create_render_target(window_size);
+            state.light_layer = ctx.gpu.create_render_target(ctx.window_size);
         }
     }
 }
@@ -143,29 +150,21 @@ impl SceneStateController for LightingState {
 #[derive(Component)]
 struct Obstacle {
     #[base]
-    base: BaseComponent,
+    collider: ColliderComponent,
     model: Model,
     color: Uniform<Color>,
 }
 
 impl Obstacle {
-    pub fn new(
-        ctx: &Context,
-        position: Vector<f32>,
-        collider: ColliderBuilder,
-        color: Color,
-    ) -> Self {
+    pub fn new(world: &mut World, gpu: &Gpu, collider: ColliderBuilder, color: Color) -> Self {
         Self {
-            model: ctx.create_model(ModelBuilder::from_collider_shape(
+            color: gpu.create_uniform(color),
+            model: gpu.create_model(ModelBuilder::from_collider_shape(
                 collider.shape.as_ref(),
                 24,
                 2.0,
             )),
-            base: BaseComponent::new_body(
-                RigidBodyBuilder::fixed().translation(position),
-                &[collider],
-            ),
-            color: ctx.create_uniform(color),
+            collider: ColliderComponent::new(world, collider),
         }
     }
 }
@@ -174,20 +173,20 @@ impl ComponentController for Obstacle {
     const CONFIG: ComponentConfig = ComponentConfig {
         priority: 2,
         update: UpdateOperation::Never,
-        ..DEFAULT_CONFIG
+        ..ComponentConfig::DEFAULT
     };
 
-    fn render(active: &ActiveComponents<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
-        ctx.render_each(active, encoder, RenderConfig::WORLD, |renderer, o, i| {
+    fn render(ctx: &Context, encoder: &mut RenderEncoder) {
+        encoder.render_each::<Self>(ctx, RenderConfig::WORLD, |renderer, o, i| {
             renderer.render_color(i, &o.model, &o.color)
-        })
+        });
     }
 }
 
 #[derive(Component)]
 struct Light {
     #[base]
-    base: BaseComponent,
+    base: PositionComponent,
     radius: f32,
     vertices: Vec<Vertex>,
     light_color: Uniform<Color>,
@@ -200,7 +199,7 @@ struct Light {
 impl Light {
     const RESOLUTION: u32 = 64;
     pub fn new(
-        ctx: &Context,
+        gpu: &Gpu,
         position: Vector<f32>,
         radius: f32,
         color: Color,
@@ -211,10 +210,10 @@ impl Light {
             radius,
             follow_mouse: follow_cursor,
             vertices: model_builder.vertices.clone(),
-            light_model: ctx.create_model(model_builder),
-            light_color: ctx.create_uniform(color),
+            light_model: gpu.create_model(model_builder),
+            light_color: gpu.create_uniform(color),
             shape: Ball::new(radius),
-            base: BaseComponent::new(PositionBuilder::new().translation(position)),
+            base: PositionComponent::new(PositionBuilder::new().translation(position)),
             shadows: vec![],
         }
     }
@@ -222,18 +221,16 @@ impl Light {
 
 impl ComponentController for Light {
     const CONFIG: ComponentConfig = ComponentConfig {
-        priority: i16::MAX,
-        ..DEFAULT_CONFIG
+        priority: 1,
+        ..ComponentConfig::DEFAULT
     };
 
-    fn update(active: &ActiveComponents<Self>, ctx: &mut Context) {
+    fn update(ctx: &mut Context) {
         fn det(v1: Vector<f32>, v2: Vector<f32>) -> f32 {
             return v1.x * v2.y - v1.y * v2.x;
         }
-        let cursor_pos = ctx.cursor_camera(&ctx.world_camera);
-        let rc = ctx.component_manager.world_rc();
-        let world = rc.borrow_mut();
-        for light in ctx.component_manager.active_mut(&active) {
+        let cursor_pos = ctx.input.cursor(&ctx.world_camera);
+        for light in ctx.components.iter_mut::<Self>() {
             if light.follow_mouse {
                 light.base.set_translation(cursor_pos);
             }
@@ -241,12 +238,12 @@ impl ComponentController for Light {
             let light_position = light.base.position();
             let light_translation = light.base.translation();
             light.shadows.clear();
-            world.intersections_with_shape(
+            ctx.world.intersections_with_shape(
                 &light_position,
                 &light.shape,
                 QueryFilter::new(),
                 |_component, collider_handle| {
-                    let obstacle_collider = world.collider(collider_handle).unwrap();
+                    let obstacle_collider = ctx.world.collider(collider_handle).unwrap();
                     let obstacle_shape = obstacle_collider.shape();
                     let collider_vertices =
                         ModelBuilder::from_collider_shape(obstacle_shape, 24, 2.0)
@@ -350,8 +347,8 @@ impl ComponentController for Light {
         }
     }
 
-    fn render(active: &ActiveComponents<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
-        let state = ctx.scene_state::<LightingState>();
+    fn render(ctx: &Context, encoder: &mut RenderEncoder) {
+        let state = ctx.scene_states.get::<LightingState>();
 
         {
             let mut renderer = encoder.renderer(RenderConfig {
@@ -359,7 +356,7 @@ impl ComponentController for Light {
                 clear_color: Some(Color::TRANSPARENT),
                 ..RenderConfig::WORLD
             });
-            for (buffer, lights) in ctx.active_render(&active) {
+            for (buffer, lights) in ctx.components.iter_render::<Self>() {
                 renderer.use_instances(buffer);
                 for (i, light) in lights {
                     renderer.use_shader(&state.light_shader);

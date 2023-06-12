@@ -1,113 +1,67 @@
-#[cfg(feature = "physics")]
-use crate::physics::RigidBodyHandle;
 use bincode::{
     config::{AllowTrailing, FixintEncoding, WithOtherIntEncoding, WithOtherTrailing},
     de::read::SliceReader,
     DefaultOptions, Options,
 };
 use rustc_hash::FxHashMap;
-#[cfg(feature = "physics")]
-use rustc_hash::FxHashSet;
 use serde::{de::Visitor, Deserializer, Serialize};
 use std::{cmp, marker::PhantomData};
 
 use crate::{
-    Arena, ArenaEntry, BoxedComponent, ComponentController, ComponentFilter, ComponentGroup,
-    ComponentGroupId, ComponentManager, ComponentTypeId, Context, FieldNames,
-    GlobalStateController, GlobalStateManager, Scene, SceneCreator, SceneStateController,
-    SceneStateManager, ShuraFields, StateIdentifier, StateTypeId,
+    Arena, ArenaEntry, BoxedComponent, ComponentController, ComponentManager, ComponentTypeId,
+    Context, FieldNames, GlobalStateController, GlobalStateManager, GroupHandle, Scene,
+    SceneCreator, SceneStateController, SceneStateManager, Shura, StateIdentifier, StateTypeId,
 };
 
 /// Helper to serialize [Components](crate::Component) and [States](crate::State) of a [Scene]
 pub struct SceneSerializer<'a> {
+    components: &'a ComponentManager,
     global_states: &'a GlobalStateManager,
     scene_states: &'a SceneStateManager,
 
-    groups: Vec<Option<(&'a u32, &'a ComponentGroup)>>,
-    ser_components:
-        FxHashMap<ComponentTypeId, Vec<(ComponentGroupId, Vec<Option<(u32, Vec<u8>)>>)>>,
+    ser_components: FxHashMap<ComponentTypeId, Vec<(GroupHandle, Vec<Option<(u32, Vec<u8>)>>)>>,
     ser_scene_states: FxHashMap<StateTypeId, Vec<u8>>,
     ser_global_states: FxHashMap<StateTypeId, Vec<u8>>,
-
-    #[cfg(feature = "physics")]
-    body_handles: FxHashSet<RigidBodyHandle>,
 }
 
 impl<'a> SceneSerializer<'a> {
     pub(crate) fn new(
-        component_manager: &'a ComponentManager,
+        components: &'a ComponentManager,
         global_states: &'a GlobalStateManager,
         scene_states: &'a SceneStateManager,
-        filter: ComponentFilter,
     ) -> Self {
-        let groups = component_manager.serialize_groups(filter);
         Self {
-            groups,
+            components,
             global_states,
             scene_states,
             ser_components: Default::default(),
             ser_scene_states: Default::default(),
             ser_global_states: Default::default(),
-            #[cfg(feature = "physics")]
-            body_handles: Default::default(),
         }
     }
 
-    #[cfg(feature = "physics")]
     pub(crate) fn finish(
         self,
     ) -> (
-        Vec<Option<(&'a u32, &'a ComponentGroup)>>,
-        FxHashMap<ComponentTypeId, Vec<(ComponentGroupId, Vec<Option<(u32, Vec<u8>)>>)>>,
+        FxHashMap<ComponentTypeId, Vec<(GroupHandle, Vec<Option<(u32, Vec<u8>)>>)>>,
         FxHashMap<StateTypeId, Vec<u8>>,
         FxHashMap<StateTypeId, Vec<u8>>,
-        FxHashSet<RigidBodyHandle>,
     ) {
         (
-            self.groups,
             self.ser_components,
             self.ser_scene_states,
             self.ser_global_states,
-            self.body_handles,
-        )
-    }
-
-    #[cfg(not(feature = "physics"))]
-    pub(crate) fn finish(
-        self,
-    ) -> (
-        Vec<Option<(&'a u32, &'a ComponentGroup)>>,
-        FxHashMap<ComponentTypeId, Vec<(ComponentGroupId, Vec<Option<(u32, Vec<u8>)>>)>>,
-        FxHashMap<StateTypeId, Vec<u8>>,
-        FxHashMap<StateTypeId, Vec<u8>>,
-    ) {
-        (
-            self.groups,
-            self.ser_components,
-            self.ser_scene_state,
-            self.ser_global_state,
         )
     }
 
     pub fn serialize_components<C: ComponentController + serde::Serialize>(&mut self) {
-        let type_id = C::IDENTIFIER;
-        self.ser_components.insert(type_id, vec![]);
-        let ty = self.ser_components.get_mut(&type_id).unwrap();
-        for group in &self.groups {
-            if let Some((_, group)) = group {
-                if let Some(type_index) = group.type_index(type_id) {
-                    let type_ref = group.type_ref(*type_index).unwrap();
-                    let ser_components = type_ref.serialize_components::<C>();
-                    ty.push((group.id(), ser_components));
-                    #[cfg(feature = "physics")]
-                    for (_, component) in type_ref {
-                        if let Some(body_handle) = component.base().try_body_handle() {
-                            self.body_handles.insert(body_handle);
-                        }
-                    }
-                }
-            }
+        let ty = self.components.type_ref::<C>();
+        let mut group_data = vec![];
+        for (group_handle, group) in &ty.groups {
+            let ser_components = group.components.serialize_components::<C>();
+            group_data.push((GroupHandle(group_handle), ser_components));
         }
+        self.ser_components.insert(C::IDENTIFIER, group_data);
     }
 
     pub fn serialize_global_state<G: GlobalStateController + StateIdentifier + Serialize>(
@@ -141,21 +95,20 @@ impl<N: 'static + FnMut(&mut Context, &mut SceneDeserializer)> SerializedScene<N
 }
 
 impl<N: 'static + FnMut(&mut Context, &mut SceneDeserializer)> SceneCreator for SerializedScene<N> {
-    fn id(&self) -> u32 {
+    fn new_id(&self) -> u32 {
         self.id
     }
 
-    fn create(mut self, shura: ShuraFields) -> Scene {
-        let (mut scene, groups, ser_components, ser_scene_state, ser_global_state): (
+    fn create(mut self: Box<Self>, shura: &mut Shura) -> Scene {
+        let (mut scene, ser_components, ser_scene_state, ser_global_state): (
             Scene,
-            Arena<ComponentGroup>,
-            FxHashMap<ComponentTypeId, Vec<(ComponentGroupId, Vec<Option<(u32, Vec<u8>)>>)>>,
+            FxHashMap<ComponentTypeId, Vec<(GroupHandle, Vec<Option<(u32, Vec<u8>)>>)>>,
             FxHashMap<StateTypeId, Vec<u8>>,
             FxHashMap<StateTypeId, Vec<u8>>,
         ) = bincode::deserialize(&self.scene).unwrap();
-        scene.component_manager.deserialize_groups(groups);
+        scene.id = self.id;
         let mut de = SceneDeserializer::new(ser_components, ser_scene_state, ser_global_state);
-        let mut ctx = Context::from_fields(shura, &mut scene);
+        let mut ctx = Context::new(shura, &mut scene);
         (self.init)(&mut ctx, &mut de);
         return scene;
     }
@@ -164,18 +117,14 @@ impl<N: 'static + FnMut(&mut Context, &mut SceneDeserializer)> SceneCreator for 
 #[derive(serde::Deserialize)]
 /// Helper to deserialize [Components](crate::Component) and [States](crate::State) of a serialized [Scene]
 pub struct SceneDeserializer {
-    ser_components:
-        FxHashMap<ComponentTypeId, Vec<(ComponentGroupId, Vec<Option<(u32, Vec<u8>)>>)>>,
+    ser_components: FxHashMap<ComponentTypeId, Vec<(GroupHandle, Vec<Option<(u32, Vec<u8>)>>)>>,
     ser_scene_states: FxHashMap<StateTypeId, Vec<u8>>,
     ser_global_states: FxHashMap<StateTypeId, Vec<u8>>,
 }
 
 impl SceneDeserializer {
     pub(crate) fn new(
-        ser_components: FxHashMap<
-            ComponentTypeId,
-            Vec<(ComponentGroupId, Vec<Option<(u32, Vec<u8>)>>)>,
-        >,
+        ser_components: FxHashMap<ComponentTypeId, Vec<(GroupHandle, Vec<Option<(u32, Vec<u8>)>>)>>,
         ser_scene_states: FxHashMap<StateTypeId, Vec<u8>>,
         ser_global_states: FxHashMap<StateTypeId, Vec<u8>>,
     ) -> Self {
@@ -190,8 +139,9 @@ impl SceneDeserializer {
         &mut self,
         ctx: &mut Context,
     ) {
+        ctx.components.reregister::<C>();
         let type_id = C::IDENTIFIER;
-        ctx.component_manager.register_callbacks::<C>();
+        let ty = ctx.components.type_mut::<C>();
         if let Some(components) = self.ser_components.remove(&type_id) {
             for (group_id, components) in components {
                 let mut items: Vec<ArenaEntry<BoxedComponent>> =
@@ -201,18 +151,9 @@ impl SceneDeserializer {
                     let item = match component {
                         Some((gen, data)) => {
                             generation = cmp::max(generation, gen);
-                            #[allow(unused_mut)]
-                            let mut component: BoxedComponent =
+                            let component: BoxedComponent =
                                 Box::new(bincode::deserialize::<C>(&data).unwrap());
 
-                            #[cfg(feature = "physics")]
-                            {
-                                if component.base().is_body() {
-                                    component
-                                        .base_mut()
-                                        .init_body(ctx.component_manager.world.clone());
-                                }
-                            }
                             ArenaEntry::Occupied {
                                 generation: gen,
                                 data: component,
@@ -223,9 +164,8 @@ impl SceneDeserializer {
                     items.push(item);
                 }
 
-                let group = ctx.group_mut(group_id).unwrap();
                 let components = Arena::from_items(items, generation);
-                group.deserialize_type::<C>(components);
+                ty.groups[group_id.0].components = components;
             }
         }
     }
@@ -235,9 +175,8 @@ impl SceneDeserializer {
         ctx: &mut Context,
         mut de: impl for<'de> FnMut(DeserializeWrapper<'de, C>, &'de Context<'de>) -> C,
     ) {
+        ctx.components.reregister::<C>();
         let type_id = C::IDENTIFIER;
-        ctx.component_manager.register_callbacks::<C>();
-
         if let Some(components) = self.ser_components.remove(&type_id) {
             for (group_id, components) in components {
                 let mut items: Vec<ArenaEntry<BoxedComponent>> =
@@ -248,14 +187,11 @@ impl SceneDeserializer {
                         Some((gen, data)) => {
                             generation = cmp::max(generation, gen);
                             let wrapper = DeserializeWrapper::new(&data);
-                            #[allow(unused_mut)]
-                            let mut component: BoxedComponent = Box::new((de)(wrapper, ctx));
-                            #[cfg(feature = "physics")]
-                            if component.base().is_body() {
-                                component
-                                    .base_mut()
-                                    .init_body(ctx.component_manager.world.clone());
-                            }
+                            let component: BoxedComponent = Box::new((de)(wrapper, ctx));
+                            // #[cfg(feature = "physics")]
+                            // if component.base().is_body() {
+                            //     component.base_mut().init_body(ctx.components.world.clone());
+                            // }
                             ArenaEntry::Occupied {
                                 generation: gen,
                                 data: component,
@@ -266,9 +202,9 @@ impl SceneDeserializer {
                     items.push(item);
                 }
 
-                let group = ctx.group_mut(group_id).unwrap();
+                let ty = ctx.components.type_mut::<C>();
                 let components = Arena::from_items(items, generation);
-                group.deserialize_type::<C>(components);
+                ty.groups[group_id.0].components = components;
             }
         }
     }
@@ -281,7 +217,7 @@ impl SceneDeserializer {
     ) {
         if let Some(ser_global_state) = self.ser_global_states.get(&G::IDENTIFIER) {
             let de: G = bincode::deserialize(&ser_global_state).unwrap();
-            ctx.insert_global_state(de);
+            ctx.global_states.insert(de);
         }
     }
 
@@ -293,7 +229,7 @@ impl SceneDeserializer {
     ) {
         if let Some(ser_scene_state) = self.ser_scene_states.get(&S::IDENTIFIER) {
             let de: S = bincode::deserialize(&ser_scene_state).unwrap();
-            ctx.insert_scene_state(de);
+            ctx.scene_states.insert(de);
         }
     }
 
@@ -307,7 +243,7 @@ impl SceneDeserializer {
         if let Some(ser_global_state) = self.ser_global_states.get(&G::IDENTIFIER) {
             let wrapper = DeserializeWrapper::new(&ser_global_state);
             let state: G = (de)(wrapper, ctx);
-            ctx.insert_global_state(state);
+            ctx.global_states.insert(state);
         }
     }
     pub fn deserialize_scene_state_with<S: SceneStateController + StateIdentifier + FieldNames>(
@@ -318,7 +254,7 @@ impl SceneDeserializer {
         if let Some(ser_scene_state) = self.ser_scene_states.get(&S::IDENTIFIER) {
             let wrapper = DeserializeWrapper::new(&ser_scene_state);
             let state: S = (de)(wrapper, ctx);
-            ctx.insert_scene_state(state);
+            ctx.scene_states.insert(state);
         }
     }
 }

@@ -4,8 +4,10 @@ pub use nalgebra::Translation2 as Translation;
 pub use nalgebra::UnitComplex as Rotation;
 pub use nalgebra::UnitVector2 as UnitVector;
 pub use nalgebra::Vector2 as Vector;
-pub use nalgebra::Vector3 as SpacialVector;
+pub use nalgebra::Vector3;
+pub use nalgebra::Vector4;
 
+/// Create a 2D vector
 pub const fn vector<T>(x: T, y: T) -> Vector<T> {
     return Vector::new(x, y);
 }

@@ -1,6 +1,5 @@
 use crate::{Gpu, Vector};
 use image::GenericImageView;
-use std::num::NonZeroU32;
 
 /// 2D Sprite used for rendering
 #[derive(Debug)]
@@ -47,8 +46,8 @@ impl Sprite {
                     &image,
                     wgpu::ImageDataLayout {
                         offset: 0,
-                        bytes_per_row: NonZeroU32::new(4 * image.width()),
-                        rows_per_image: NonZeroU32::new(image.height()),
+                        bytes_per_row: Some(4 * image.width()),
+                        rows_per_image: Some(image.height()),
                     },
                     wgpu::Extent3d {
                         width: size.x,
@@ -64,8 +63,8 @@ impl Sprite {
                     &image,
                     wgpu::ImageDataLayout {
                         offset: 0,
-                        bytes_per_row: NonZeroU32::new(4 * image.width()),
-                        rows_per_image: NonZeroU32::new(image.height()),
+                        bytes_per_row: Some(4 * image.width()),
+                        rows_per_image: Some(image.height()),
                     },
                     wgpu::Extent3d {
                         width: size.x,
@@ -128,14 +127,14 @@ impl Sprite {
     }
 
     /// Overwrite with an image of the same dimension
-    pub fn write(&mut self, gpu: &Gpu, rgba: &image::RgbaImage) {
+    pub fn write(&self, gpu: &Gpu, rgba: &image::RgbaImage) {
         gpu.queue.write_texture(
             self.texture.as_image_copy(),
             rgba,
             wgpu::ImageDataLayout {
                 offset: 0,
-                bytes_per_row: NonZeroU32::new(4 * self.size.x),
-                rows_per_image: NonZeroU32::new(self.size.y),
+                bytes_per_row: Some(4 * self.size.x),
+                rows_per_image: Some(self.size.y),
             },
             wgpu::Extent3d {
                 width: self.size.x,
@@ -181,8 +180,8 @@ impl Sprite {
                 buffer: &output_buffer,
                 layout: wgpu::ImageDataLayout {
                     offset: 0,
-                    bytes_per_row: NonZeroU32::new(4 * texture_width),
-                    rows_per_image: NonZeroU32::new(texture_height),
+                    bytes_per_row: Some(4 * texture_width),
+                    rows_per_image: Some(texture_height),
                 },
             },
             wgpu::Extent3d {

@@ -3,36 +3,38 @@ use shura::*;
 #[shura::main]
 fn shura_main(config: ShuraConfig) {
     config.init(NewScene::new(1, |ctx| {
-        ctx.set_camera_scale(WorldCameraScale::Min(10.0));
-        ctx.add_component(ModelTest::new(
+        ctx.world_camera.set_scaling(WorldCameraScale::Min(10.0));
+        ctx.components.register::<ModelTest>();
+        ctx.components.add(ModelTest::new(
             Vector::new(-3.0, 3.0),
-            ctx.create_model(ModelBuilder::cuboid(Vector::new(0.5, 0.5))),
-            ctx.create_uniform(Color::BLUE),
+            ctx.gpu
+                .create_model(ModelBuilder::cuboid(Vector::new(0.5, 0.5))),
+            ctx.gpu.create_uniform(Color::BLUE),
         ));
 
-        ctx.add_component(ModelTest::new(
+        ctx.components.add(ModelTest::new(
             Vector::new(-1.0, 3.0),
-            ctx.create_model(ModelBuilder::rounded(
+            ctx.gpu.create_model(ModelBuilder::rounded(
                 ModelBuilder::cuboid(Vector::new(0.5, 0.5)),
                 0.25,
                 10,
             )),
-            ctx.create_uniform(Color::CYAN),
+            ctx.gpu.create_uniform(Color::CYAN),
         ));
 
-        ctx.add_component(ModelTest::new(
+        ctx.components.add(ModelTest::new(
             Vector::new(1.0, 3.0),
-            ctx.create_model(ModelBuilder::triangle(
+            ctx.gpu.create_model(ModelBuilder::triangle(
                 Vector::new(0.0, 0.5),
                 Vector::new(-0.5, -0.5),
                 Vector::new(0.5, -0.5),
             )),
-            ctx.create_uniform(Color::BROWN),
+            ctx.gpu.create_uniform(Color::BROWN),
         ));
 
-        ctx.add_component(ModelTest::new(
+        ctx.components.add(ModelTest::new(
             Vector::new(3.0, 3.0),
-            ctx.create_model(ModelBuilder::rounded(
+            ctx.gpu.create_model(ModelBuilder::rounded(
                 ModelBuilder::triangle(
                     Vector::new(0.5, 0.5),
                     Vector::new(-0.5, -0.5),
@@ -41,48 +43,48 @@ fn shura_main(config: ShuraConfig) {
                 0.15,
                 10,
             )),
-            ctx.create_uniform(Color::LIME),
+            ctx.gpu.create_uniform(Color::LIME),
         ));
 
-        ctx.add_component(ModelTest::new(
+        ctx.components.add(ModelTest::new(
             Vector::new(-3.0, 1.0),
-            ctx.create_model(ModelBuilder::regular_polygon(0.5, 32)),
-            ctx.create_uniform(Color::NAVY),
+            ctx.gpu.create_model(ModelBuilder::regular_polygon(0.5, 32)),
+            ctx.gpu.create_uniform(Color::NAVY),
         ));
 
-        ctx.add_component(ModelTest::new(
+        ctx.components.add(ModelTest::new(
             Vector::new(-1.0, 1.0),
-            ctx.create_model(ModelBuilder::rounded(
+            ctx.gpu.create_model(ModelBuilder::rounded(
                 ModelBuilder::regular_polygon(0.5, 5),
                 0.15,
                 5,
             )),
-            ctx.create_uniform(Color::SILVER),
+            ctx.gpu.create_uniform(Color::SILVER),
         ));
 
-        ctx.add_component(ModelTest::new(
+        ctx.components.add(ModelTest::new(
             Vector::new(1.0, 1.0),
-            ctx.create_model(ModelBuilder::segment(
+            ctx.gpu.create_model(ModelBuilder::segment(
                 Vector::new(0.5, 0.5),
                 Vector::new(-0.5, -0.5),
                 0.2,
             )),
-            ctx.create_uniform(Color::GRAY),
+            ctx.gpu.create_uniform(Color::GRAY),
         ));
 
-        ctx.add_component(ModelTest::new(
+        ctx.components.add(ModelTest::new(
             Vector::new(3.0, 1.0),
-            ctx.create_model(ModelBuilder::rounded(
+            ctx.gpu.create_model(ModelBuilder::rounded(
                 ModelBuilder::segment(Vector::new(-0.5, 0.5), Vector::new(0.5, -0.5), 0.2),
                 0.2,
                 5,
             )),
-            ctx.create_uniform(Color::PURPLE),
+            ctx.gpu.create_uniform(Color::PURPLE),
         ));
 
-        ctx.add_component(ModelTest::new(
+        ctx.components.add(ModelTest::new(
             Vector::new(-3.0, -1.0),
-            ctx.create_model(ModelBuilder::compound(vec![
+            ctx.gpu.create_model(ModelBuilder::compound(vec![
                 ModelBuilder::segment(Vector::new(0.5, 0.5), Vector::new(-0.5, -0.5), 0.2),
                 ModelBuilder::rounded(
                     ModelBuilder::segment(Vector::new(-0.5, 0.5), Vector::new(0.5, -0.5), 0.2),
@@ -90,13 +92,13 @@ fn shura_main(config: ShuraConfig) {
                     5,
                 ),
             ])),
-            ctx.create_uniform(Color::PINK),
+            ctx.gpu.create_uniform(Color::PINK),
         ));
 
-        ctx.add_component(ModelTest::new(
+        ctx.components.add(ModelTest::new(
             Vector::new(-1.0, -1.0),
-            ctx.create_model(ModelBuilder::star(5, 0.2, 0.8)),
-            ctx.create_uniform(Color::RED),
+            ctx.gpu.create_model(ModelBuilder::star(5, 0.2, 0.8)),
+            ctx.gpu.create_uniform(Color::RED),
         ));
     }))
 }
@@ -106,7 +108,7 @@ struct ModelTest {
     model: Model,
     color: Uniform<Color>,
     #[base]
-    base: BaseComponent,
+    base: PositionComponent,
 }
 
 impl ModelTest {
@@ -114,7 +116,7 @@ impl ModelTest {
         Self {
             model,
             color,
-            base: BaseComponent::new(PositionBuilder::new().translation(translation)),
+            base: PositionComponent::new(PositionBuilder::new().translation(translation)),
         }
     }
 }
@@ -124,11 +126,11 @@ impl ComponentController for ModelTest {
         update: UpdateOperation::Never,
         render: RenderOperation::EveryFrame,
         buffer: BufferOperation::Manual,
-        ..DEFAULT_CONFIG
+        ..ComponentConfig::DEFAULT
     };
-    fn render(active: &ActiveComponents<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
-        ctx.render_each(active, encoder, RenderConfig::WORLD, |r, model, index| {
+    fn render(ctx: &Context, encoder: &mut RenderEncoder) {
+        encoder.render_each::<Self>(ctx, RenderConfig::WORLD, |r, model, index| {
             r.render_color(index, &model.model, &model.color)
-        })
+        });
     }
 }

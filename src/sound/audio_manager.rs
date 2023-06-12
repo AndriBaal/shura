@@ -1,0 +1,24 @@
+use crate::audio::{AudioSink, Sound};
+
+pub struct AudioManager {
+    pub output_stream: rodio::OutputStream,
+    pub output_handle: rodio::OutputStreamHandle,
+}
+
+impl AudioManager {
+    pub(crate) fn new() -> Self {
+        let (output_stream, output_handle) = rodio::OutputStream::try_default().unwrap();
+        return Self {
+            output_stream,
+            output_handle,
+        };
+    }
+
+    pub fn create_sink(&self) -> AudioSink {
+        AudioSink::try_new(&self.output_handle).unwrap()
+    }
+
+    pub fn create_sound(&self, bytes: &'static [u8]) -> Sound {
+        return Sound::new(bytes);
+    }
+}

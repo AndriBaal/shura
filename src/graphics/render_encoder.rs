@@ -1,7 +1,6 @@
-#[cfg(feature = "text")]
-use crate::text::TextDescriptor;
 use crate::{
-    CameraBuffer, Color, Gpu, GpuDefaults, InstanceBuffer, RenderTarget, Renderer, Sprite,
+    CameraBuffer, Color, ComponentController, Context, Gpu, GpuDefaults, InstanceBuffer,
+    InstanceIndex, InstanceIndices, RenderTarget, Renderer, Sprite,
 };
 
 #[derive(Clone, Copy)]
@@ -55,6 +54,8 @@ impl<'a> RenderConfig<'a> {
 }
 
 #[derive(Clone, Copy)]
+/// Camera used for rendering. Allow to easily select a default camera from shura or
+/// to use a custom camera. All default cameras are living inside the [GpuDefaults](crate::GpuDefaults).
 pub enum RenderConfigCamera<'a> {
     WordCamera,
     UnitCamera,
@@ -66,17 +67,55 @@ pub enum RenderConfigCamera<'a> {
     Custom(&'a CameraBuffer),
 }
 
+impl<'a> RenderConfigCamera<'a> {
+    pub fn camera(self, defaults: &'a GpuDefaults) -> &'a CameraBuffer {
+        return match self {
+            RenderConfigCamera::WordCamera => &defaults.world_camera,
+            RenderConfigCamera::UnitCamera => &defaults.unit_camera.0,
+            RenderConfigCamera::RelativeCamera => &defaults.relative_camera.0,
+            RenderConfigCamera::RelativeCameraBottomLeft => &defaults.relative_bottom_left_camera.0,
+            RenderConfigCamera::RelativeCameraBottomRight => {
+                &defaults.relative_bottom_right_camera.0
+            }
+            RenderConfigCamera::RelativeCameraTopLeft => &defaults.relative_top_left_camera.0,
+            RenderConfigCamera::RelativeCameraTopRight => &defaults.relative_top_right_camera.0,
+            RenderConfigCamera::Custom(c) => c,
+        };
+    }
+}
+
 #[derive(Clone, Copy)]
+/// Instances used for rendering
 pub enum RenderConfigInstances<'a> {
     Empty,
     SingleCenteredInstance,
     Custom(&'a InstanceBuffer),
 }
 
+impl<'a> RenderConfigInstances<'a> {
+    pub fn instances(self, defaults: &'a GpuDefaults) -> &'a InstanceBuffer {
+        return match self {
+            RenderConfigInstances::Empty => &defaults.empty_instance,
+            RenderConfigInstances::SingleCenteredInstance => &defaults.single_centered_instance,
+            RenderConfigInstances::Custom(c) => c,
+        };
+    }
+}
+
 #[derive(Clone, Copy)]
+/// Target to render onto
 pub enum RenderConfigTarget<'a> {
     World,
     Custom(&'a RenderTarget),
+}
+
+impl<'a> RenderConfigTarget<'a> {
+    pub fn target(self, defaults: &'a GpuDefaults) -> &'a RenderTarget {
+        return match self {
+            RenderConfigTarget::World => &defaults.world_target,
+            RenderConfigTarget::Custom(c) => c,
+        };
+    }
 }
 
 /// Encoder of [Renderers](crate::Renderer) and utilities to copy, clear and render text onto [RenderTargets](crate::RenderTarget)
@@ -87,7 +126,7 @@ pub struct RenderEncoder<'a> {
 }
 
 impl<'a> RenderEncoder<'a> {
-    pub(crate) fn new(gpu: &'a Gpu, defaults: &'a GpuDefaults) -> Self {
+    pub fn new(gpu: &'a Gpu, defaults: &'a GpuDefaults) -> Self {
         let encoder = gpu
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -122,52 +161,14 @@ impl<'a> RenderEncoder<'a> {
     }
 
     pub fn renderer<'b>(&'b mut self, config: RenderConfig<'b>) -> Renderer<'b> {
-        Renderer::new(&mut self.inner, self.defaults, config)
-    }
-
-    #[cfg(feature = "text")]
-    pub fn render_text(
-        &mut self,
-        target: RenderConfigTarget,
-        gpu: &Gpu,
-        descriptor: TextDescriptor,
-    ) {
-        if let Some(color) = descriptor.clear_color {
-            self.clear(target, color);
-        }
-        let target = match target {
-            crate::RenderConfigTarget::World => &self.defaults.world_target,
-            crate::RenderConfigTarget::Custom(c) => c,
-        };
-        let target_size = target.size();
-        let mut staging_belt = wgpu::util::StagingBelt::new(1024);
-        for section in descriptor.sections {
-            descriptor
-                .font
-                .brush
-                .queue(section.to_glyph_section(descriptor.resolution));
-        }
-
-        descriptor
-            .font
-            .brush
-            .draw_queued(
-                &gpu.device,
-                &mut staging_belt,
-                &mut self.inner,
-                target.view(),
-                (descriptor.resolution * target_size.x as f32) as u32,
-                (descriptor.resolution * target_size.y as f32) as u32,
-            )
-            .expect("Draw queued");
-
-        staging_belt.finish();
+        Renderer::new(&mut self.inner, self.defaults, self.gpu, config)
     }
 
     pub fn copy_to_target(&mut self, src: &Sprite, target: &RenderTarget) {
         let mut renderer = Renderer::new(
             &mut self.inner,
             self.defaults,
+            self.gpu,
             RenderConfig {
                 target: RenderConfigTarget::Custom(target),
                 camera: RenderConfigCamera::RelativeCamera,
@@ -182,7 +183,65 @@ impl<'a> RenderEncoder<'a> {
         renderer.draw(0);
     }
 
-    pub fn stage(self) {
-        self.gpu.commands.write().unwrap().push(self.inner.finish())
+    pub fn render<'b>(
+        &'b mut self,
+        config: RenderConfig<'b>,
+        render: impl FnOnce(&mut Renderer<'b>),
+    ) -> Renderer<'b> {
+        let mut renderer = self.renderer(config);
+        (render)(&mut renderer);
+        return renderer;
+    }
+
+    pub fn render_each<'b, C: ComponentController>(
+        &'b mut self,
+        ctx: &'b Context<'b>,
+        config: RenderConfig<'b>,
+        mut each: impl FnMut(&mut Renderer<'b>, &'b C, InstanceIndex),
+    ) -> Renderer<'b> {
+        let mut renderer = self.renderer(config);
+        for (buffer, components) in ctx.components.iter_render::<C>() {
+            renderer.use_instances(buffer);
+            for (instance, component) in components {
+                (each)(&mut renderer, component, instance);
+            }
+        }
+        return renderer;
+    }
+
+    pub fn render_each_prepare<'b, C: ComponentController>(
+        &'b mut self,
+        ctx: &'b Context<'b>,
+        config: RenderConfig<'b>,
+        prepare: impl FnOnce(&mut Renderer<'b>),
+        mut each: impl FnMut(&mut Renderer<'b>, &'b C, InstanceIndex),
+    ) -> Renderer<'b> {
+        let mut renderer = self.renderer(config);
+        prepare(&mut renderer);
+        for (buffer, components) in ctx.components.iter_render::<C>() {
+            renderer.use_instances(buffer);
+            for (instance, component) in components {
+                (each)(&mut renderer, component, instance);
+            }
+        }
+        return renderer;
+    }
+
+    pub fn render_all<'b, C: ComponentController>(
+        &'b mut self,
+        ctx: &'b Context<'b>,
+        config: RenderConfig<'b>,
+        mut all: impl FnMut(&mut Renderer<'b>, InstanceIndices),
+    ) -> Renderer<'b> {
+        let mut renderer = self.renderer(config);
+        for (buffer, _) in ctx.components.iter_render::<C>() {
+            renderer.use_instances(buffer);
+            (all)(&mut renderer, buffer.all_instances());
+        }
+        return renderer;
+    }
+
+    pub fn finish(self) {
+        self.gpu.queue.submit(Some(self.inner.finish()));
     }
 }

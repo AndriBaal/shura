@@ -95,7 +95,7 @@ impl RenderTarget {
             clear_color: None,
         };
         compute(config, &mut encoder);
-        encoder.stage();
+        encoder.finish();
     }
 
     pub fn compute_target_size(

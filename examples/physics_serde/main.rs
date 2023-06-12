@@ -24,22 +24,32 @@ fn shura_main(config: ShuraConfig) {
             init: |ctx| {
                 const PYRAMID_ELEMENTS: i32 = 8;
                 const MINIMAL_SPACING: f32 = 0.1;
-                ctx.set_camera_scale(WorldCameraScale::Max(5.0));
-                ctx.set_gravity(Vector::new(0.00, -9.81));
-                ctx.insert_scene_state(PhysicsState::new(ctx));
+                ctx.components.register::<PhysicsBox>();
+                ctx.components.register::<Player>();
+                ctx.components.register::<Floor>();
+                ctx.world_camera.set_scaling(WorldCameraScale::Max(5.0));
+                ctx.world.set_gravity(Vector::new(0.00, -9.81));
+                ctx.scene_states.insert(PhysicsState::new(ctx));
 
                 for x in -PYRAMID_ELEMENTS..PYRAMID_ELEMENTS {
                     for y in 0..(PYRAMID_ELEMENTS - x.abs()) {
-                        ctx.add_component(PhysicsBox::new(Vector::new(
-                            x as f32 * (PhysicsBox::HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING),
-                            y as f32 * (PhysicsBox::HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING * 2.0),
-                        )));
+                        let b = PhysicsBox::new(
+                            ctx,
+                            Vector::new(
+                                x as f32 * (PhysicsBox::HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING),
+                                y as f32
+                                    * (PhysicsBox::HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING * 2.0),
+                            ),
+                        );
+                        ctx.components.add(b);
                     }
                 }
 
-                let player_handle = ctx.add_component(Player::new(ctx));
-                ctx.set_camera_target(Some(player_handle));
-                ctx.add_component(Floor::new(ctx));
+                let player = Player::new(ctx);
+                let player_handle = ctx.components.add(player);
+                ctx.world_camera.set_target(Some(player_handle));
+                let floor = Floor::new(ctx);
+                ctx.components.add(floor);
             },
         })
     };
@@ -60,10 +70,10 @@ struct PhysicsState {
 impl PhysicsState {
     pub fn new(ctx: &Context) -> Self {
         Self {
-            default_color: ctx.create_uniform(Color::new_rgba(0, 255, 0, 255)),
-            collision_color: ctx.create_uniform(Color::new_rgba(255, 0, 0, 255)),
-            hover_color: ctx.create_uniform(Color::new_rgba(0, 0, 255, 255)),
-            box_model: ctx.create_model(ModelBuilder::from_collider_shape(
+            default_color: ctx.gpu.create_uniform(Color::new_rgba(0, 255, 0, 255)),
+            collision_color: ctx.gpu.create_uniform(Color::new_rgba(255, 0, 0, 255)),
+            hover_color: ctx.gpu.create_uniform(Color::new_rgba(0, 0, 255, 255)),
+            box_model: ctx.gpu.create_model(ModelBuilder::from_collider_shape(
                 &PhysicsBox::BOX_SHAPE,
                 0,
                 0.0,
@@ -74,7 +84,7 @@ impl PhysicsState {
     fn serialize_scene(ctx: &mut Context) {
         info!("Serializing scene!");
         let ser = ctx
-            .serialize_scene(ComponentFilter::All, |s| {
+            .serialize_scene(|s| {
                 s.serialize_scene_state::<Self>();
                 s.serialize_components::<Floor>();
                 s.serialize_components::<Player>();
@@ -87,16 +97,18 @@ impl PhysicsState {
 
 impl SceneStateController for PhysicsState {
     fn update(ctx: &mut Context) {
-        let scroll = ctx.wheel_delta();
-        let fov = ctx.camera_fov();
+        let scroll = ctx.input.wheel_delta();
+        let fov = ctx.world_camera.fov();
         if scroll != 0.0 {
-            ctx.set_camera_scale(WorldCameraScale::Max(fov.x + scroll / 5.0));
+            ctx.world_camera
+                .set_scaling(WorldCameraScale::Max(fov.x + scroll / 5.0));
         }
 
-        if ctx.is_held(MouseButton::Right) {
-            let cursor = ctx.cursor_camera(&ctx.world_camera);
+        if ctx.input.is_held(MouseButton::Right) {
+            let cursor = ctx.input.cursor(&ctx.world_camera);
             let cursor_pos = Isometry::new(cursor, 0.0);
             if ctx
+                .world
                 .intersection_with_shape(
                     &cursor_pos,
                     &Cuboid::new(Vector::new(
@@ -107,12 +119,34 @@ impl SceneStateController for PhysicsState {
                 )
                 .is_none()
             {
-                ctx.add_component(PhysicsBox::new(cursor));
+                let b = PhysicsBox::new(ctx, cursor);
+                ctx.components.add(b);
             }
         }
 
-        if ctx.is_pressed(Key::Z) {
+        if ctx.input.is_pressed(Key::Z) {
             Self::serialize_scene(ctx);
+        }
+
+        if ctx.input.is_pressed(Key::R) {
+            if let Some(save_game) = fs::read("data.binc").ok() {
+                ctx.scenes.add(SerializedScene {
+                    id: 1,
+                    scene: save_game,
+                    init: |ctx, s| {
+                        s.deserialize_components_with(ctx, |w, ctx| {
+                            w.deserialize(FloorVisitor { ctx })
+                        });
+                        s.deserialize_components_with(ctx, |w, ctx| {
+                            w.deserialize(PlayerVisitor { ctx })
+                        });
+                        s.deserialize_components::<PhysicsBox>(ctx);
+                        s.deserialize_scene_state_with(ctx, |w, ctx| {
+                            w.deserialize(PhysicsStateVisitor { ctx })
+                        });
+                    },
+                });
+            }
         }
     }
 
@@ -128,7 +162,7 @@ struct Player {
     #[serde(skip)]
     model: Model,
     #[base]
-    base: BaseComponent,
+    body: RigidBodyComponent,
 }
 
 impl Player {
@@ -137,31 +171,32 @@ impl Player {
     const SHAPE: Ball = Ball {
         radius: Self::RADIUS,
     };
-    pub fn new(ctx: &Context) -> Self {
+    pub fn new(ctx: &mut Context) -> Self {
         let collider = ColliderBuilder::new(SharedShape::new(Self::SHAPE))
             .active_events(ActiveEvents::COLLISION_EVENTS);
         Self {
-            sprite: ctx.create_sprite(include_bytes!("./img/burger.png")),
-            model: ctx.create_model(ModelBuilder::from_collider_shape(
+            sprite: ctx.gpu.create_sprite(include_bytes!("./img/burger.png")),
+            model: ctx.gpu.create_model(ModelBuilder::from_collider_shape(
                 collider.shape.as_ref(),
                 Self::RESOLUTION,
                 0.0,
             )),
-            base: BaseComponent::new_body(
+            body: RigidBodyComponent::new(
+                ctx.world,
                 RigidBodyBuilder::dynamic().translation(Vector::new(5.0, 4.0)),
-                &[collider],
+                [collider],
             ),
         }
     }
 }
 
 impl ComponentController for Player {
-    fn update(active: &ActiveComponents<Self>, ctx: &mut Context) {
-        let delta = ctx.frame_time();
+    fn update(ctx: &mut Context) {
+        let delta = ctx.frame.frame_time();
         let input = &mut ctx.input;
 
-        for player in &mut ctx.component_manager.active_mut(&active) {
-            let mut body = player.body_mut();
+        for player in &mut ctx.components.iter_mut::<Self>() {
+            let body = player.body.get_mut(ctx.world);
             let mut linvel = *body.linvel();
 
             if input.is_held(Key::D) {
@@ -184,10 +219,10 @@ impl ComponentController for Player {
         }
     }
 
-    fn render(active: &ActiveComponents<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
-        ctx.render_each(active, encoder, RenderConfig::WORLD, |r, player, index| {
+    fn render(ctx: &Context, encoder: &mut RenderEncoder) {
+        encoder.render_each::<Self>(ctx, RenderConfig::WORLD, |r, player, index| {
             r.render_sprite(index, &player.model, &player.sprite)
-        })
+        });
     }
 
     fn collision(
@@ -198,7 +233,7 @@ impl ComponentController for Player {
         _other_collider: ColliderHandle,
         collision_type: CollideType,
     ) {
-        if let Some(b) = ctx.component_mut::<PhysicsBox>(other_handle) {
+        if let Some(b) = ctx.components.get_mut::<PhysicsBox>(other_handle) {
             b.collided = collision_type == CollideType::Started;
         }
     }
@@ -211,39 +246,34 @@ struct Floor {
     #[serde(skip)]
     model: Model,
     #[base]
-    base: BaseComponent,
+    collider: ColliderComponent,
 }
 
 impl Floor {
     const FLOOR_RESOLUTION: u32 = 12;
-    const FLOOR_SHAPE: RoundCuboid = RoundCuboid {
-        inner_shape: Cuboid {
-            half_extents: Vector::new(20.0, 0.4),
-        },
-        border_radius: 0.1,
+    const FLOOR_SHAPE: Cuboid = Cuboid {
+        half_extents: Vector::new(20.0, 0.4),
     };
-    pub fn new(ctx: &Context) -> Self {
-        let collider = ColliderBuilder::new(SharedShape::new(Self::FLOOR_SHAPE));
+    pub fn new(ctx: &mut Context) -> Self {
+        let collider = ColliderBuilder::new(SharedShape::new(Self::FLOOR_SHAPE))
+            .translation(Vector::new(0.0, -1.0));
         Self {
-            color: ctx.create_uniform(Color::new_rgba(0, 0, 255, 255)),
-            model: ctx.create_model(ModelBuilder::from_collider_shape(
+            color: ctx.gpu.create_uniform(Color::new_rgba(0, 0, 255, 255)),
+            model: ctx.gpu.create_model(ModelBuilder::from_collider_shape(
                 collider.shape.as_ref(),
                 Self::FLOOR_RESOLUTION,
                 0.0,
             )),
-            base: BaseComponent::new_body(
-                RigidBodyBuilder::fixed().translation(Vector::new(0.0, -1.0)),
-                &[collider],
-            ),
+            collider: ColliderComponent::new(ctx.world, collider),
         }
     }
 }
 
 impl ComponentController for Floor {
-    fn render(active: &ActiveComponents<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
-        ctx.render_each(active, encoder, RenderConfig::WORLD, |r, floor, index| {
+    fn render(ctx: &Context, encoder: &mut RenderEncoder) {
+        encoder.render_each::<Self>(ctx, RenderConfig::WORLD, |r, floor, index| {
             r.render_color(index, &floor.model, &floor.color)
-        })
+        });
     }
 }
 
@@ -252,7 +282,7 @@ struct PhysicsBox {
     collided: bool,
     hovered: bool,
     #[base]
-    base: BaseComponent,
+    body: RigidBodyComponent,
 }
 
 impl PhysicsBox {
@@ -260,13 +290,14 @@ impl PhysicsBox {
     const BOX_SHAPE: Cuboid = Cuboid {
         half_extents: Vector::new(PhysicsBox::HALF_BOX_SIZE, PhysicsBox::HALF_BOX_SIZE),
     };
-    pub fn new(position: Vector<f32>) -> Self {
+    pub fn new(ctx: &mut Context, position: Vector<f32>) -> Self {
         Self {
             collided: false,
             hovered: false,
-            base: BaseComponent::new_body(
+            body: RigidBodyComponent::new(
+                ctx.world,
                 RigidBodyBuilder::dynamic().translation(position),
-                &[ColliderBuilder::new(SharedShape::new(
+                [ColliderBuilder::new(SharedShape::new(
                     PhysicsBox::BOX_SHAPE,
                 ))],
             ),
@@ -275,10 +306,10 @@ impl PhysicsBox {
 }
 
 impl ComponentController for PhysicsBox {
-    fn render(active: &ActiveComponents<Self>, ctx: &Context, encoder: &mut RenderEncoder) {
+    fn render(ctx: &Context, encoder: &mut RenderEncoder) {
         let mut renderer = encoder.renderer(RenderConfig::WORLD);
-        let state = ctx.scene_state::<PhysicsState>();
-        for (buffer, boxes) in ctx.active_render(&active) {
+        let state = ctx.scene_states.get::<PhysicsState>();
+        for (buffer, boxes) in ctx.components.iter_render::<Self>() {
             let mut ranges = vec![];
             let mut last = 0;
             for (i, b) in boxes.clone() {
@@ -300,22 +331,26 @@ impl ComponentController for PhysicsBox {
         }
     }
 
-    fn update(active: &ActiveComponents<Self>, ctx: &mut Context) {
-        let cursor_world: Point<f32> = (ctx.cursor_camera(&ctx.world_camera)).into();
-        let remove = ctx.is_held(MouseButton::Left) || ctx.is_pressed(ScreenTouch);
-        for physics_box in &mut ctx.active_mut(&active) {
+    fn update(ctx: &mut Context) {
+        let cursor_world: Point<f32> = (ctx.input.cursor(&ctx.world_camera)).into();
+        let remove = ctx.input.is_held(MouseButton::Left) || ctx.input.is_pressed(ScreenTouch);
+        for physics_box in ctx.components.iter_mut::<Self>() {
             physics_box.hovered = false;
         }
         let mut component: Option<ComponentHandle> = None;
-        ctx.intersections_with_point(&cursor_world, Default::default(), |component_handle, _| {
-            component = Some(component_handle);
-            false
-        });
+        ctx.world.intersections_with_point(
+            &cursor_world,
+            Default::default(),
+            |component_handle, _| {
+                component = Some(component_handle);
+                false
+            },
+        );
         if let Some(handle) = component {
-            if let Some(physics_box) = ctx.component_mut::<Self>(handle) {
+            if let Some(physics_box) = ctx.components.get_mut::<Self>(handle) {
                 physics_box.hovered = true;
                 if remove {
-                    ctx.remove_component(handle);
+                    ctx.components.remove_boxed(handle);
                 }
             }
         }
@@ -333,13 +368,13 @@ impl<'de, 'a> serde::de::Visitor<'de> for FloorVisitor<'a> {
     }
 
     fn visit_seq<V: serde::de::SeqAccess<'de>>(self, mut seq: V) -> Result<Floor, V::Error> {
-        let base: BaseComponent = seq
+        let collider: ColliderComponent = seq
             .next_element()?
             .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
         Ok(Floor {
-            base,
-            color: self.ctx.create_uniform(Color::new_rgba(0, 0, 255, 255)),
-            model: self.ctx.create_model(ModelBuilder::from_collider_shape(
+            collider,
+            color: self.ctx.gpu.create_uniform(Color::new_rgba(0, 0, 255, 255)),
+            model: self.ctx.gpu.create_model(ModelBuilder::from_collider_shape(
                 &Floor::FLOOR_SHAPE,
                 Floor::FLOOR_RESOLUTION,
                 0.0,
@@ -359,13 +394,16 @@ impl<'de, 'a> serde::de::Visitor<'de> for PlayerVisitor<'a> {
     }
 
     fn visit_seq<V: serde::de::SeqAccess<'de>>(self, mut seq: V) -> Result<Player, V::Error> {
-        let base: BaseComponent = seq
+        let body: RigidBodyComponent = seq
             .next_element()?
             .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
         Ok(Player {
-            base,
-            sprite: self.ctx.create_sprite(include_bytes!("./img/burger.png")),
-            model: self.ctx.create_model(ModelBuilder::from_collider_shape(
+            body,
+            sprite: self
+                .ctx
+                .gpu
+                .create_sprite(include_bytes!("./img/burger.png")),
+            model: self.ctx.gpu.create_model(ModelBuilder::from_collider_shape(
                 &Player::SHAPE,
                 Player::RESOLUTION,
                 0.0,
@@ -386,10 +424,10 @@ impl<'de, 'a> serde::de::Visitor<'de> for PhysicsStateVisitor<'a> {
 
     fn visit_seq<V: serde::de::SeqAccess<'de>>(self, _seq: V) -> Result<PhysicsState, V::Error> {
         Ok(PhysicsState {
-            default_color: self.ctx.create_uniform(Color::new_rgba(0, 255, 0, 255)),
-            collision_color: self.ctx.create_uniform(Color::new_rgba(255, 0, 0, 255)),
-            hover_color: self.ctx.create_uniform(Color::new_rgba(0, 0, 255, 255)),
-            box_model: self.ctx.create_model(ModelBuilder::from_collider_shape(
+            default_color: self.ctx.gpu.create_uniform(Color::new_rgba(0, 255, 0, 255)),
+            collision_color: self.ctx.gpu.create_uniform(Color::new_rgba(255, 0, 0, 255)),
+            hover_color: self.ctx.gpu.create_uniform(Color::new_rgba(0, 0, 255, 255)),
+            box_model: self.ctx.gpu.create_model(ModelBuilder::from_collider_shape(
                 &PhysicsBox::BOX_SHAPE,
                 0,
                 0.0,

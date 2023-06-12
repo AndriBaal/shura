@@ -1,8 +1,11 @@
 use crate::{
-    CameraBuffer, Color, GpuDefaults, InstanceBuffer, InstanceIndices, Model, ModelIndexBuffer,
-    RenderConfig, RenderConfigCamera, RenderConfigInstances, Shader, Sprite, Uniform,
+    CameraBuffer, Color, Gpu, GpuDefaults, InstanceBuffer, InstanceIndices, Model,
+    ModelIndexBuffer, RenderConfig, Shader, Sprite, Uniform, Vector,
 };
 use std::ptr::null;
+
+#[cfg(feature = "text")]
+use crate::text::{FontBrush, TextSection};
 
 struct RenderCache {
     pub bound_shader: *const Shader,
@@ -32,20 +35,22 @@ pub struct Renderer<'a> {
     pub render_pass: wgpu::RenderPass<'a>,
     pub indices: u32,
     pub msaa: bool,
+    pub gpu: &'a Gpu,
     pub defaults: &'a GpuDefaults,
+    pub config: RenderConfig<'a>,
+    target_size: Vector<u32>,
     cache: RenderCache,
 }
 
 impl<'a> Renderer<'a> {
-    pub(crate) fn new(
+    pub fn new(
         render_encoder: &'a mut wgpu::CommandEncoder,
         defaults: &'a GpuDefaults,
+        gpu: &'a Gpu,
         config: RenderConfig<'a>,
     ) -> Renderer<'a> {
-        let target = match config.target {
-            crate::RenderConfigTarget::World => &defaults.world_target,
-            crate::RenderConfigTarget::Custom(c) => c,
-        };
+        let target = config.target.target(defaults);
+        let camera = config.camera.camera(defaults);
 
         let render_pass = render_encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("render_pass"),
@@ -79,28 +84,15 @@ impl<'a> Renderer<'a> {
             msaa: config.msaa,
             cache: Default::default(),
             defaults: defaults,
+            target_size: *target.size(),
+            config,
+            gpu,
         };
 
-        let camera = match config.camera {
-            RenderConfigCamera::WordCamera => &defaults.world_camera,
-            RenderConfigCamera::UnitCamera => &defaults.unit_camera.0,
-            RenderConfigCamera::RelativeCamera => &defaults.relative_camera.0,
-            RenderConfigCamera::RelativeCameraBottomLeft => &defaults.relative_bottom_left_camera.0,
-            RenderConfigCamera::RelativeCameraBottomRight => {
-                &defaults.relative_bottom_right_camera.0
-            }
-            RenderConfigCamera::RelativeCameraTopLeft => &defaults.relative_top_left_camera.0,
-            RenderConfigCamera::RelativeCameraTopRight => &defaults.relative_top_right_camera.0,
-            RenderConfigCamera::Custom(c) => c,
-        };
         renderer.use_camera(camera);
 
         if let Some(instances) = config.intances {
-            let instances = match instances {
-                RenderConfigInstances::Empty => &defaults.empty_instance,
-                RenderConfigInstances::SingleCenteredInstance => &defaults.single_centered_instance,
-                RenderConfigInstances::Custom(c) => c,
-            };
+            let instances = instances.instances(defaults);
             renderer.use_instances(instances);
         }
 
@@ -111,6 +103,7 @@ impl<'a> Renderer<'a> {
         encoder: &'a mut wgpu::CommandEncoder,
         output: &'a wgpu::TextureView,
         defaults: &'a GpuDefaults,
+        gpu: &'a Gpu,
     ) -> Renderer<'a> {
         let render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("render_pass"),
@@ -132,10 +125,17 @@ impl<'a> Renderer<'a> {
             msaa: false,
             cache: Default::default(),
             defaults,
+            target_size: Vector::default(),
+            config: RenderConfig::WORLD,
+            gpu,
         };
         renderer.use_uniform(defaults.relative_camera.0.uniform(), 0);
         renderer.use_instances(&defaults.single_centered_instance);
         return renderer;
+    }
+
+    pub fn target_size(&self) -> Vector<u32> {
+        self.target_size
     }
 
     /// Sets the instance buffer at the position 1
@@ -224,6 +224,21 @@ impl<'a> Renderer<'a> {
 
     pub fn render_pass(&mut self) -> &mut wgpu::RenderPass<'a> {
         &mut self.render_pass
+    }
+
+    #[cfg(feature = "text")]
+    pub fn render_text(&mut self, font: &'a FontBrush) {
+        self.cache = Default::default();
+        font.render(
+            self.gpu,
+            &mut self.render_pass,
+            self.target_size.cast::<f32>(),
+        )
+    }
+
+    #[cfg(feature = "text")]
+    pub fn queue_text(&mut self, font: &'a FontBrush, sections: Vec<TextSection>) {
+        font.queue(self.defaults, self.config, sections);
     }
 
     pub fn render_sprite(

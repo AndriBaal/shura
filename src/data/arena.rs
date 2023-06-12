@@ -5,35 +5,45 @@ use core::ops;
 use core::slice;
 
 pub(crate) struct Arena<T> {
-    pub(super) items: Vec<ArenaEntry<T>>,
-    pub(super) generation: u32,
-    pub(super) free_list_head: Option<u32>,
-    pub(super) len: usize,
+    pub(crate) items: Vec<ArenaEntry<T>>,
+    pub(crate) generation: u32,
+    pub(crate) free_list_head: Option<usize>,
+    pub(crate) len: usize,
 }
 
+#[derive(Clone, Debug)]
 pub(crate) enum ArenaEntry<T> {
-    Free { next_free: Option<u32> },
+    Free { next_free: Option<usize> },
     Occupied { generation: u32, data: T },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(crate) struct ArenaIndex {
-    pub(super) index: u32,
+pub struct ArenaIndex {
+    pub(super) index: usize,
     pub(super) generation: u32,
 }
 
 impl ArenaIndex {
     pub const INVALID: Self = Self {
-        index: u32::MAX,
+        index: u32::MAX as usize,
         generation: u32::MAX,
     };
 
-    pub fn index(&self) -> u32 {
+    pub const FIRST: Self = Self {
+        index: 0,
+        generation: 0,
+    };
+
+    pub fn index(&self) -> usize {
         self.index
+    }
+
+    pub fn generation(&self) -> u32 {
+        self.generation
     }
 }
 
-pub(super) const DEFAULT_CAPACITY: usize = 4;
+pub(crate) const DEFAULT_CAPACITY: usize = 4;
 
 impl<T> Default for Arena<T> {
     fn default() -> Arena<T> {
@@ -44,10 +54,6 @@ impl<T> Default for Arena<T> {
 impl<T> Arena<T> {
     pub fn new() -> Arena<T> {
         Arena::with_capacity(DEFAULT_CAPACITY)
-    }
-
-    pub fn as_slice(&mut self) -> &mut [ArenaEntry<T>] {
-        &mut self.items
     }
 
     pub fn with_capacity(n: usize) -> Arena<T> {
@@ -155,7 +161,7 @@ impl<T> Arena<T> {
     }
 
     pub fn remove(&mut self, i: ArenaIndex) -> Option<T> {
-        if i.index >= self.items.len() as u32 {
+        if i.index >= self.items.len() {
             return None;
         }
 
@@ -181,6 +187,10 @@ impl<T> Arena<T> {
             }
             _ => None,
         }
+    }
+
+    pub fn contains(&self, i: ArenaIndex) -> bool {
+        self.get(i).is_some()
     }
 
     pub fn get(&self, i: ArenaIndex) -> Option<&T> {
@@ -239,11 +249,11 @@ impl<T> Arena<T> {
                 }
             } else {
                 ArenaEntry::Free {
-                    next_free: Some(i as u32 + 1),
+                    next_free: Some(i + 1),
                 }
             }
         }));
-        self.free_list_head = Some(start as u32);
+        self.free_list_head = Some(start);
     }
 
     pub fn iter(&self) -> ArenaIter<T> {
@@ -259,6 +269,60 @@ impl<T> Arena<T> {
             base: self.items.iter_mut().enumerate(),
         }
     }
+
+    pub fn retain(&mut self, mut predicate: impl FnMut(ArenaIndex, &mut T) -> bool) {
+        for i in 0..self.capacity() {
+            let remove = match &mut self.items[i] {
+                ArenaEntry::Occupied { generation, data } => {
+                    let index = ArenaIndex {
+                        index: i,
+                        generation: *generation,
+                    };
+                    if predicate(index, data) {
+                        None
+                    } else {
+                        Some(index)
+                    }
+                }
+
+                _ => None,
+            };
+            if let Some(index) = remove {
+                self.remove(index);
+            }
+        }
+    }
+
+    pub fn get2_mut(&mut self, i1: ArenaIndex, i2: ArenaIndex) -> (Option<&mut T>, Option<&mut T>) {
+        let len = self.items.len();
+        let i1_index = i1.index as usize;
+        let i2_index = i2.index as usize;
+
+        assert!(i1_index != i2_index);
+        assert!(i1_index < len);
+        assert!(i2_index < len);
+
+        let (raw_item1, raw_item2) = {
+            let (xs, ys) = self.items.split_at_mut(cmp::max(i1_index, i2_index));
+            if i1_index < i2_index {
+                (&mut xs[i1_index], &mut ys[0])
+            } else {
+                (&mut ys[0], &mut xs[i2_index])
+            }
+        };
+
+        let item1 = match raw_item1 {
+            ArenaEntry::Occupied { generation, data } if *generation == i1.generation => Some(data),
+            _ => None,
+        };
+
+        let item2 = match raw_item2 {
+            ArenaEntry::Occupied { generation, data } if *generation == i2.generation => Some(data),
+            _ => None,
+        };
+
+        (item1, item2)
+    }
 }
 
 impl<'a, T> IntoIterator for &'a Arena<T> {
@@ -269,7 +333,7 @@ impl<'a, T> IntoIterator for &'a Arena<T> {
     }
 }
 
-pub(crate) struct ArenaIter<'a, T> {
+pub struct ArenaIter<'a, T> {
     len: usize,
     base: iter::Enumerate<slice::Iter<'a, ArenaEntry<T>>>,
 }
@@ -299,7 +363,7 @@ impl<'a, T> Iterator for ArenaIter<'a, T> {
                 )) => {
                     self.len -= 1;
                     let idx = ArenaIndex {
-                        index: index as u32,
+                        index: index,
                         generation,
                     };
                     return Some((idx, data));
@@ -331,7 +395,7 @@ impl<'a, T> DoubleEndedIterator for ArenaIter<'a, T> {
                 )) => {
                     self.len -= 1;
                     let idx = ArenaIndex {
-                        index: index as u32,
+                        index: index,
                         generation,
                     };
                     return Some((idx, data));
@@ -362,7 +426,7 @@ impl<'a, T> IntoIterator for &'a mut Arena<T> {
     }
 }
 
-pub(crate) struct ArenaIterMut<'a, T> {
+pub struct ArenaIterMut<'a, T> {
     len: usize,
     base: iter::Enumerate<slice::IterMut<'a, ArenaEntry<T>>>,
 }
@@ -382,7 +446,7 @@ impl<'a, T> Iterator for ArenaIterMut<'a, T> {
                 )) => {
                     self.len -= 1;
                     let idx = ArenaIndex {
-                        index: index as u32,
+                        index: index,
                         generation,
                     };
                     return Some((idx, data));
@@ -414,7 +478,7 @@ impl<'a, T> DoubleEndedIterator for ArenaIterMut<'a, T> {
                 )) => {
                     self.len -= 1;
                     let idx = ArenaIndex {
-                        index: index as u32,
+                        index: index,
                         generation,
                     };
                     return Some((idx, data));
@@ -441,6 +505,73 @@ impl<T> Extend<T> for Arena<T> {
     fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
         for t in iter {
             self.insert(t);
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct ArenaIntoIter<T> {
+    len: usize,
+    inner: std::vec::IntoIter<ArenaEntry<T>>,
+}
+
+impl<T> Iterator for ArenaIntoIter<T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.inner.next() {
+                Some(ArenaEntry::Free { .. }) => continue,
+                Some(ArenaEntry::Occupied { data, .. }) => {
+                    self.len -= 1;
+                    return Some(data);
+                }
+                None => {
+                    debug_assert_eq!(self.len, 0);
+                    return None;
+                }
+            }
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.len, Some(self.len))
+    }
+}
+
+impl<T> DoubleEndedIterator for ArenaIntoIter<T> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.inner.next_back() {
+                Some(ArenaEntry::Free { .. }) => continue,
+                Some(ArenaEntry::Occupied { data, .. }) => {
+                    self.len -= 1;
+                    return Some(data);
+                }
+                None => {
+                    debug_assert_eq!(self.len, 0);
+                    return None;
+                }
+            }
+        }
+    }
+}
+
+impl<T> ExactSizeIterator for ArenaIntoIter<T> {
+    fn len(&self) -> usize {
+        self.len
+    }
+}
+
+impl<T> FusedIterator for ArenaIntoIter<T> {}
+
+impl<T> IntoIterator for Arena<T> {
+    type Item = T;
+    type IntoIter = ArenaIntoIter<T>;
+    fn into_iter(self) -> Self::IntoIter {
+        ArenaIntoIter {
+            len: self.len,
+            inner: self.items.into_iter(),
         }
     }
 }

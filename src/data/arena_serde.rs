@@ -1,13 +1,10 @@
 use super::arena::{Arena, ArenaEntry, ArenaIndex, DEFAULT_CAPACITY};
 use crate::BoxedComponent;
 use crate::ComponentDerive;
-use crate::ComponentGroup;
-use crate::ComponentGroupId;
 use core::cmp;
 use core::fmt;
 use core::iter;
 use core::marker::PhantomData;
-use rustc_hash::FxHashSet;
 use serde::de::{Deserialize, Deserializer, SeqAccess, Visitor};
 use serde::ser::Serializer;
 use serde::Serialize;
@@ -67,28 +64,28 @@ impl Arena<BoxedComponent> {
     }
 }
 
-impl Arena<ComponentGroup> {
-    pub fn serialize_groups(
-        &self,
-        ids: FxHashSet<ComponentGroupId>,
-    ) -> Vec<Option<(&u32, &ComponentGroup)>> {
-        let e = self
-            .items
-            .iter()
-            .map(|entry| match entry {
-                ArenaEntry::Occupied { generation, data } => {
-                    if ids.contains(&data.id()) {
-                        Some((generation, data))
-                    } else {
-                        None
-                    }
-                }
-                _ => None,
-            })
-            .collect();
-        return e;
-    }
-}
+// impl Arena<Group> {
+//     pub fn serialize_groups(
+//         &self,
+//         ids: FxHashSet<GroupId>,
+//     ) -> Vec<Option<(&u32, &Group)>> {
+//         let e = self
+//             .items
+//             .iter()
+//             .map(|entry| match entry {
+//                 ArenaEntry::Occupied { generation, data } => {
+//                     if ids.contains(&data.id()) {
+//                         Some((generation, data))
+//                     } else {
+//                         None
+//                     }
+//                 }
+//                 _ => None,
+//             })
+//             .collect();
+//         return e;
+//     }
+// }
 
 impl<'de, T> Deserialize<'de> for Arena<T>
 where
@@ -121,7 +118,7 @@ impl<T> Arena<T> {
             let add_cap = items.capacity() - (items.len() + 1);
             items.reserve_exact(add_cap);
             items.extend(iter::repeat_with(|| ArenaEntry::Free { next_free: None }).take(add_cap));
-            debug_assert_eq!(items.len(), items.capacity());
+            assert_eq!(items.len(), items.capacity());
         }
 
         let mut free_list_head = None;
@@ -131,7 +128,7 @@ impl<T> Arena<T> {
         for (idx, entry) in items.iter_mut().enumerate().rev() {
             if let ArenaEntry::Free { next_free } = entry {
                 *next_free = free_list_head;
-                free_list_head = Some(idx as u32);
+                free_list_head = Some(idx);
                 len -= 1;
             }
         }

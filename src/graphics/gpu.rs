@@ -1,14 +1,15 @@
 #[cfg(feature = "log")]
 use crate::log::info;
 #[cfg(feature = "text")]
-use crate::text::{FontBrush, TextDescriptor};
+use crate::text::{FontBrush, TextPipeline};
 use crate::{
     Camera, CameraBuffer, ColorWrites, InstanceBuffer, Isometry, Matrix, Model, ModelBuilder,
     RenderConfig, RenderEncoder, RenderTarget, Shader, ShaderConfig, ShaderField, ShaderLang,
     Sprite, SpriteSheet, Uniform, Vector,
 };
-use std::{borrow::Cow, ops::DerefMut, sync::RwLock};
+use std::borrow::Cow;
 use wgpu::{util::DeviceExt, BlendState};
+
 pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 0.5;
 
 #[derive(Clone)]
@@ -17,6 +18,7 @@ pub struct GpuConfig {
     pub backends: wgpu::Backends,
     pub device_features: wgpu::Features,
     pub device_limits: wgpu::Limits,
+    pub max_multisample: u8,
 }
 
 impl Default for GpuConfig {
@@ -29,6 +31,7 @@ impl Default for GpuConfig {
             } else {
                 wgpu::Limits::default()
             },
+            max_multisample: 2,
         }
     }
 }
@@ -41,7 +44,7 @@ pub struct Gpu {
     pub surface: wgpu::Surface,
     pub config: wgpu::SurfaceConfiguration,
     pub adapter: wgpu::Adapter,
-    pub commands: RwLock<Vec<wgpu::CommandBuffer>>,
+    // pub commands: Mutex<Vec<wgpu::CommandBuffer>>,
     pub(crate) base: WgpuBase,
 }
 
@@ -49,6 +52,7 @@ impl Gpu {
     pub(crate) async fn new(window: &winit::window::Window, config: GpuConfig) -> Self {
         let window_size = window.inner_size();
         let window_size = Vector::new(window_size.width, window_size.height);
+        let max_multisample = config.max_multisample;
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: config.backends,
             dx12_shader_compiler: wgpu::Dx12Compiler::Fxc,
@@ -81,18 +85,28 @@ impl Gpu {
 
         let sample_flags = adapter.get_texture_format_features(config.format).flags;
         let sample_count = {
-            if sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X8) {
+            if max_multisample >= 16
+                && sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X16)
+            {
+                16
+            } else if max_multisample >= 8
+                && sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X8)
+            {
                 8
-            } else if sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X4) {
+            } else if max_multisample >= 4
+                && sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X4)
+            {
                 4
-            } else if sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X2) {
+            } else if max_multisample >= 2
+                && sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X2)
+            {
                 2
             } else {
                 1
             }
         };
 
-        let base = WgpuBase::new(&device, sample_count);
+        let base = WgpuBase::new(&device, config.format, sample_count);
 
         surface.configure(&device, &config);
 
@@ -106,7 +120,6 @@ impl Gpu {
         }
 
         let gpu = Self {
-            commands: RwLock::new(vec![]),
             instance,
             queue,
             surface,
@@ -185,24 +198,8 @@ impl Gpu {
     }
 
     #[cfg(feature = "text")]
-    pub fn create_font(&self, bytes: &'static [u8]) -> FontBrush {
-        FontBrush::new(self, bytes)
-    }
-
-    #[cfg(feature = "text")]
-    pub fn create_text(
-        &self,
-        defaults: &GpuDefaults,
-        texture_size: Vector<u32>,
-        descriptor: TextDescriptor,
-    ) -> RenderTarget {
-        use crate::RenderConfigTarget;
-
-        let target = self.create_render_target(texture_size);
-        let mut encoder = RenderEncoder::new(self, defaults);
-        encoder.render_text(RenderConfigTarget::Custom(&target), self, descriptor);
-        encoder.stage();
-        return target;
+    pub fn create_font(&self, bytes: &'static [u8], max_chars: u64) -> FontBrush {
+        FontBrush::new(self, bytes, max_chars).unwrap()
     }
 
     pub fn create_uniform<T: bytemuck::Pod>(&self, data: T) -> Uniform<T> {
@@ -223,28 +220,30 @@ impl Gpu {
         return RenderTarget::computed(self, defaults, texture_size, camera, compute);
     }
 
-    pub fn submit_staged_encoders(&self) {
-        let mut commands_ref = self.commands.write().unwrap();
-        let commands = std::mem::replace(commands_ref.deref_mut(), vec![]);
-        self.queue.submit(commands);
-    }
+    // pub fn submit_encoders(&self) {
+    //     let mut commands_ref = self.commands.lock().unwrap();
+    //     let commands = std::mem::replace(commands_ref.deref_mut(), vec![]);
+    //     self.queue.submit(commands);
+    // }
 }
 
 /// Base Wgpu objects needed to create any further graphics object.
 pub struct WgpuBase {
     pub sample_count: u32,
-    pub multisample_state: wgpu::MultisampleState,
-    pub no_multisample_state: wgpu::MultisampleState,
+    pub multisample: wgpu::MultisampleState,
+    pub no_multisample: wgpu::MultisampleState,
     pub sprite_uniform: wgpu::BindGroupLayout,
     pub vertex_uniform: wgpu::BindGroupLayout,
     pub fragment_uniform: wgpu::BindGroupLayout,
     pub vertex_wgsl: wgpu::ShaderModule,
     pub vertex_glsl: wgpu::ShaderModule,
     pub texture_sampler: wgpu::Sampler,
+    #[cfg(feature = "text")]
+    pub text_pipeline: TextPipeline,
 }
 
 impl WgpuBase {
-    pub fn new(device: &wgpu::Device, sample_count: u32) -> Self {
+    pub fn new(device: &wgpu::Device, _format: wgpu::TextureFormat, sample_count: u32) -> Self {
         let sprite_uniform = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[
                 wgpu::BindGroupLayoutEntry {
@@ -318,27 +317,32 @@ impl WgpuBase {
             ..Default::default()
         });
 
-        let multisample_state = wgpu::MultisampleState {
+        let multisample = wgpu::MultisampleState {
             count: sample_count,
             mask: !0,
             alpha_to_coverage_enabled: false,
         };
-        let no_multisample_state = wgpu::MultisampleState {
+        let no_multisample = wgpu::MultisampleState {
             count: 1,
             mask: !0,
             alpha_to_coverage_enabled: false,
         };
 
+        #[cfg(feature = "text")]
+        let text_pipeline = TextPipeline::new(device, _format, multisample);
+
         Self {
             sample_count: sample_count,
-            multisample_state,
-            no_multisample_state,
+            multisample,
+            no_multisample,
             sprite_uniform,
             vertex_uniform,
             fragment_uniform,
             vertex_wgsl,
             vertex_glsl,
             texture_sampler,
+            #[cfg(feature = "text")]
+            text_pipeline,
         }
     }
 }

@@ -1,24 +1,15 @@
+#[cfg(feature = "physics")]
+use crate::physics::World;
+
 use crate::{
-    ComponentManager, Context, SceneStateManager, ScreenConfig, ShuraFields, Vector, WorldCamera,
+    ComponentManager, Context, SceneStateManager, ScreenConfig, Shura, Vector, WorldCamera,
     WorldCameraScale,
 };
 
 /// Origin of a [Scene]
 pub trait SceneCreator {
-    fn id(&self) -> u32;
-    fn create(self, shura: ShuraFields) -> Scene;
-    fn scene(self, shura: ShuraFields) -> Scene
-    where
-        Self: Sized,
-    {
-        let id = self.id();
-        let mut scene = self.create(shura);
-        scene.id = id;
-        scene.started = true;
-        scene.resized = true;
-        scene.switched = true;
-        return scene;
-    }
+    fn new_id(&self) -> u32;
+    fn create(self: Box<Self>, shura: &mut Shura) -> Scene;
 }
 
 /// Create a new [Scene] from scratch
@@ -34,21 +25,25 @@ impl<N: 'static + FnMut(&mut Context)> NewScene<N> {
 }
 
 impl<N: 'static + FnMut(&mut Context)> SceneCreator for NewScene<N> {
-    fn id(&self) -> u32 {
+    fn new_id(&self) -> u32 {
         self.id
     }
 
-    fn create(mut self, shura: ShuraFields) -> Scene {
+    fn create(mut self: Box<Self>, shura: &mut Shura) -> Scene {
         let mint: mint::Vector2<u32> = shura.window.inner_size().into();
         let window_size: Vector<u32> = mint.into();
         let mut scene = Scene::new(window_size, self.id);
-        let mut ctx = Context::from_fields(shura, &mut scene);
+        scene.id = self.id;
+        scene.started = true;
+        scene.resized = true;
+        scene.switched = true;
+        let mut ctx = Context::new(shura, &mut scene);
         (self.init)(&mut ctx);
         return scene;
     }
 }
 
-/// Add a [Scene] that previously has been removed by calling [remove_scene](crate::Context::remove_scene)
+/// Add a [Scene] that previously has been removed.
 pub struct RecycleScene<N: 'static + FnMut(&mut Context)> {
     pub id: u32,
     pub scene: Scene,
@@ -62,15 +57,19 @@ impl<N: 'static + FnMut(&mut Context)> RecycleScene<N> {
 }
 
 impl<N: 'static + FnMut(&mut Context)> SceneCreator for RecycleScene<N> {
-    fn id(&self) -> u32 {
+    fn new_id(&self) -> u32 {
         self.id
     }
 
-    fn create(mut self, shura: ShuraFields) -> Scene {
+    fn create(mut self: Box<Self>, shura: &mut Shura) -> Scene {
         let mint: mint::Vector2<u32> = shura.window.inner_size().into();
         let window_size: Vector<u32> = mint.into();
         self.scene.world_camera.resize(window_size);
-        let mut ctx = Context::from_fields(shura, &mut self.scene);
+        self.scene.id = self.id;
+        self.scene.started = true;
+        self.scene.resized = true;
+        self.scene.switched = true;
+        let mut ctx = Context::new(shura, &mut self.scene);
         (self.init)(&mut ctx);
         return self.scene;
     }
@@ -84,18 +83,22 @@ pub struct Scene {
     pub(crate) resized: bool,
     pub(crate) switched: bool,
     pub(crate) started: bool,
+    pub render_components: bool,
     pub screen_config: ScreenConfig,
     pub world_camera: WorldCamera,
-    pub component_manager: ComponentManager,
+    pub components: ComponentManager,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
     pub states: SceneStateManager,
+    #[cfg(feature = "physics")]
+    pub world: World,
 }
 
 impl Scene {
     pub const DEFAULT_VERTICAL_CAMERA_FOV: f32 = 3.0;
     pub(crate) fn new(window_size: Vector<u32>, id: u32) -> Self {
         Self {
+            render_components: true,
             id: id,
             switched: true,
             resized: true,
@@ -105,9 +108,11 @@ impl Scene {
                 WorldCameraScale::Min(Self::DEFAULT_VERTICAL_CAMERA_FOV),
                 window_size,
             ),
-            component_manager: ComponentManager::new(),
+            components: ComponentManager::new(),
             screen_config: ScreenConfig::new(),
             states: SceneStateManager::default(),
+            #[cfg(feature = "physics")]
+            world: World::new(),
         }
     }
 

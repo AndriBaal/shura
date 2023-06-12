@@ -14,7 +14,7 @@ pub enum RenderOperation {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// Describes when the [Matrix](crate::Matrix) of the components should be bufferd.
 pub enum BufferOperation {
-    /// Manual buffering by calling [force_buffer](`crate::Context::force_buffer()`). This is used when you have component that dont
+    /// Manual buffering by calling [force_buffer](`crate::ComponentManager::force_buffer()`). This is used when you have component that dont
     /// change their position. If you add a new component, all components of this type from the group will be buffered.
     Manual,
     /// Automatically buffer all positions every time before rendering.
@@ -59,25 +59,29 @@ pub enum PostproccessOperation {
 
 /// The configuration of a component type. This configuration is used to statically define
 /// behaviour of a component type for perfomance and utility reason.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ComponentConfig {
     /// Describes the order in which components are processed
     pub priority: i16,
+    // /// When this flag is set, the component is automatically registered when adding one
+    // pub auto_register: bool,
     pub update: UpdateOperation,
     pub render: RenderOperation,
     pub buffer: BufferOperation,
 }
 
-pub const DEFAULT_CONFIG: ComponentConfig = ComponentConfig {
-    buffer: BufferOperation::EveryFrame,
-    update: UpdateOperation::EveryFrame,
-    render: RenderOperation::EveryFrame,
-    priority: 16,
-};
+impl ComponentConfig {
+    pub const DEFAULT: ComponentConfig = ComponentConfig {
+        buffer: BufferOperation::EveryFrame,
+        update: UpdateOperation::EveryFrame,
+        render: RenderOperation::EveryFrame,
+        priority: 16,
+    };
+}
 
 impl Default for ComponentConfig {
     fn default() -> Self {
-        DEFAULT_CONFIG
+        Self::DEFAULT
     }
 }

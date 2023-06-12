@@ -1,9 +1,10 @@
-use crate::{Context, StateIdentifier, StateTypeId};
+use crate::{Context, RenderEncoder, StateIdentifier, StateTypeId};
 use downcast_rs::{impl_downcast, Downcast};
 use std::collections::BTreeMap;
 
 pub trait SceneStateStaticAccess {
     fn get_update(&self) -> fn(&mut Context);
+    fn get_render(&self) -> fn(&Context, encoder: &mut RenderEncoder);
     fn get_end(&self) -> fn(&mut Context);
 }
 
@@ -15,6 +16,10 @@ impl<T: SceneStateController> SceneStateStaticAccess for T {
     fn get_end(&self) -> fn(&mut Context) {
         T::end
     }
+
+    fn get_render(&self) -> fn(&Context, encoder: &mut RenderEncoder) {
+        T::render
+    }
 }
 
 #[allow(unused_variables)]
@@ -23,6 +28,11 @@ impl<T: SceneStateController> SceneStateStaticAccess for T {
 /// [Models](crate::Model) and [Sprites](crate::Sprite) or data relevant to the current [Scene](crate::Scene).
 pub trait SceneStateController: Downcast + SceneStateStaticAccess {
     fn update(ctx: &mut Context)
+    where
+        Self: Sized,
+    {
+    }
+    fn render(ctx: &Context, encoder: &mut RenderEncoder)
     where
         Self: Sized,
     {
@@ -93,6 +103,25 @@ impl SceneStateManager {
                 Included((this_prio, StateTypeId::new(0))),
             ))
             .map(|c| c.1.get_update())
+            .collect()
+    }
+
+    pub(crate) fn renders(
+        &self,
+        last_prio: i16,
+        this_prio: i16,
+    ) -> Vec<fn(&Context, &mut RenderEncoder)> {
+        use std::ops::Bound::{Excluded, Included};
+        self.states
+            .range((
+                if last_prio == i16::MIN {
+                    Included((last_prio, StateTypeId::new(0)))
+                } else {
+                    Excluded((last_prio, StateTypeId::new(0)))
+                },
+                Included((this_prio, StateTypeId::new(0))),
+            ))
+            .map(|c| c.1.get_render())
             .collect()
     }
 

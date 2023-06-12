@@ -177,9 +177,9 @@ impl Shader {
                 },
                 depth_stencil: None,
                 multisample: if config.msaa {
-                    gpu.base.multisample_state
+                    gpu.base.multisample
                 } else {
-                    gpu.base.no_multisample_state
+                    gpu.base.no_multisample
                 },
                 multiview: None,
             });
@@ -190,15 +190,6 @@ impl Shader {
             msaa: config.msaa,
         }
     }
-
-    // pub fn new_custom(
-    //     gpu: &Gpu,
-    //     lang: ShaderLang,
-    //     descriptor: &wgpu::RenderPipelineDescriptor,
-    // ) -> Self {
-    //     let pipeline = gpu.device.create_render_pipeline(descriptor);
-    //     Shader { pipeline, lang }
-    // }
 
     pub fn pipeline(&self) -> &wgpu::RenderPipeline {
         &self.pipeline
