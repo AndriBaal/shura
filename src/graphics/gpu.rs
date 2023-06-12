@@ -18,6 +18,8 @@ pub struct GpuConfig {
     pub backends: wgpu::Backends,
     pub device_features: wgpu::Features,
     pub device_limits: wgpu::Limits,
+    pub max_multisample: u8
+
 }
 
 impl Default for GpuConfig {
@@ -30,6 +32,7 @@ impl Default for GpuConfig {
             } else {
                 wgpu::Limits::default()
             },
+            max_multisample: 2
         }
     }
 }
@@ -50,6 +53,7 @@ impl Gpu {
     pub(crate) async fn new(window: &winit::window::Window, config: GpuConfig) -> Self {
         let window_size = window.inner_size();
         let window_size = Vector::new(window_size.width, window_size.height);
+        let max_multisample = config.max_multisample;
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: config.backends,
             dx12_shader_compiler: wgpu::Dx12Compiler::Fxc,
@@ -82,11 +86,13 @@ impl Gpu {
 
         let sample_flags = adapter.get_texture_format_features(config.format).flags;
         let sample_count = {
-            if sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X8) {
+            if max_multisample >= 16 && sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X16) {
+                16
+            } else if max_multisample >= 8 && sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X8) {
                 8
-            } else if sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X4) {
+            } else if max_multisample >= 4 && sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X4) {
                 4
-            } else if sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X2) {
+            } else if max_multisample >= 2 && sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X2) {
                 2
             } else {
                 1

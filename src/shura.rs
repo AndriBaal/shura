@@ -355,11 +355,31 @@ impl Shura {
     }
 
     fn update(&mut self, scene: &mut Scene) -> Result<(), wgpu::SurfaceError> {
+        let mint: mint::Vector2<u32> = self.window.inner_size().into();
+        let window_size: Vector<u32> = mint.into();
+        if scene.switched || scene.resized || scene.screen_config.changed {
+            scene.screen_config.changed = false;
+            scene.world_camera.resize(window_size);
+
+            self.gpu.apply_vsync(scene.screen_config.vsync());
+            self.defaults
+                .apply_render_scale(&self.gpu, scene.screen_config.render_scale());
+
+            #[cfg(feature = "log")]
+            {
+                let size = self.gpu.render_size(scene.screen_config.render_scale());
+                info!(
+                    "Resizing window to: {} x {} using VSYNC: {}",
+                    size.x,
+                    size.y,
+                    scene.screen_config.vsync()
+                );
+            }
+        }
+        let output = self.gpu.surface.get_current_texture()?;
         self.frame.update();
         #[cfg(feature = "gamepad")]
         self.input.sync_controller();
-        let mint: mint::Vector2<u32> = self.window.inner_size().into();
-        let window_size: Vector<u32> = mint.into();
         #[cfg(target_arch = "wasm32")]
         {
             if self.auto_scale_canvas {
@@ -383,25 +403,6 @@ impl Shura {
                         info!("Adjusting canvas to browser window!");
                     }
                 }
-            }
-        }
-        if scene.switched || scene.resized || scene.screen_config.changed {
-            scene.screen_config.changed = false;
-            scene.world_camera.resize(window_size);
-
-            self.gpu.apply_vsync(scene.screen_config.vsync());
-            self.defaults
-                .apply_render_scale(&self.gpu, scene.screen_config.render_scale());
-
-            #[cfg(feature = "log")]
-            {
-                let size = self.gpu.render_size(scene.screen_config.render_scale());
-                info!(
-                    "Resizing window to: {} x {} using VSYNC: {}",
-                    size.x,
-                    size.y,
-                    scene.screen_config.vsync()
-                );
             }
         }
         if scene.started {
@@ -538,7 +539,6 @@ impl Shura {
                 prev_priority = *priority;
             }
         }
-        let output = ctx.gpu.surface.get_current_texture()?;
         let output_view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
