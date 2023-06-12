@@ -224,6 +224,44 @@ impl Input {
         }
     }
 
+    pub fn are_pressed(&self, trigger: &[InputTrigger]) -> bool {
+        trigger
+            .iter()
+            .all(|trigger| match self.events.get(trigger) {
+                Some(i) => return i.is_pressed(),
+                None => false,
+            })
+    }
+
+    pub fn are_held(&self, trigger: &[InputTrigger]) -> bool {
+        trigger
+            .iter()
+            .all(|trigger| self.events.contains_key(trigger))
+    }
+
+    pub fn any_pressed(&self, trigger: &[InputTrigger]) -> bool {
+        trigger
+            .iter()
+            .any(|trigger| match self.events.get(trigger) {
+                Some(i) => return i.is_pressed(),
+                None => false,
+            })
+    }
+
+    pub fn any_held(&self, trigger: &[InputTrigger]) -> bool {
+        trigger
+            .iter()
+            .any(|trigger| self.events.contains_key(trigger))
+    }
+
+    pub fn events(&self) -> impl Iterator<Item = (&InputTrigger, &InputEvent)> {
+        self.events.iter()
+    }
+
+    pub fn event(&self, trigger: impl Into<InputTrigger>) -> Option<&InputEvent> {
+        self.events.get(&trigger.into())
+    }
+
     pub fn is_pressed(&self, trigger: impl Into<InputTrigger>) -> bool {
         match self.events.get(&trigger.into()) {
             Some(i) => return i.is_pressed(),
@@ -338,14 +376,6 @@ impl Input {
             touches.push((*id, self.compute_cursor(*raw, camera)));
         }
         return touches;
-    }
-
-    pub fn events(&self) -> impl Iterator<Item = (&InputTrigger, &InputEvent)> {
-        self.events.iter()
-    }
-
-    pub fn event(&self, trigger: impl Into<InputTrigger>) -> Option<&InputEvent> {
-        self.events.get(&trigger.into())
     }
 
     #[cfg(feature = "gamepad")]
