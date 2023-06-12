@@ -7,7 +7,7 @@ use crate::{
     RenderConfig, RenderEncoder, RenderTarget, Shader, ShaderConfig, ShaderField, ShaderLang,
     Sprite, SpriteSheet, Uniform, Vector,
 };
-use std::{borrow::Cow, ops::DerefMut, sync::Mutex};
+use std::borrow::Cow;
 use wgpu::{util::DeviceExt, BlendState};
 
 pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 0.5;
@@ -18,8 +18,7 @@ pub struct GpuConfig {
     pub backends: wgpu::Backends,
     pub device_features: wgpu::Features,
     pub device_limits: wgpu::Limits,
-    pub max_multisample: u8
-
+    pub max_multisample: u8,
 }
 
 impl Default for GpuConfig {
@@ -32,7 +31,7 @@ impl Default for GpuConfig {
             } else {
                 wgpu::Limits::default()
             },
-            max_multisample: 2
+            max_multisample: 2,
         }
     }
 }
@@ -86,13 +85,21 @@ impl Gpu {
 
         let sample_flags = adapter.get_texture_format_features(config.format).flags;
         let sample_count = {
-            if max_multisample >= 16 && sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X16) {
+            if max_multisample >= 16
+                && sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X16)
+            {
                 16
-            } else if max_multisample >= 8 && sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X8) {
+            } else if max_multisample >= 8
+                && sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X8)
+            {
                 8
-            } else if max_multisample >= 4 && sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X4) {
+            } else if max_multisample >= 4
+                && sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X4)
+            {
                 4
-            } else if max_multisample >= 2 && sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X2) {
+            } else if max_multisample >= 2
+                && sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X2)
+            {
                 2
             } else {
                 1
@@ -113,7 +120,6 @@ impl Gpu {
         }
 
         let gpu = Self {
-            // commands: Mutex::new(vec![]),
             instance,
             queue,
             surface,

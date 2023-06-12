@@ -1,9 +1,7 @@
-// TODO: Doc
-
 #![crate_type = "lib"]
 #![crate_name = "shura"]
 
-// Shura version
+/// Shura version
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 mod component;
@@ -129,8 +127,8 @@ pub use crate::scene::scene_serde::*;
 // animation
 #[cfg(feature = "animation")]
 mod tween;
-/// Access to animations
-#[cfg(feature = "animation")]
+/// Access to animations inspired by [bevy_tweening](https://github.com/djeedai/bevy_tweening)
+#[cfg(feature = "animation")] 
 pub mod animation {
     pub use crate::tween::{ease::*, tween::*};
 }

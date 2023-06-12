@@ -4,6 +4,11 @@ use std::{cell::RefCell, ops::DerefMut, rc::Rc};
 use crate::gui::Gui;
 #[cfg(feature = "physics")]
 use crate::physics::{ActiveEvents, CollideType};
+#[cfg(feature = "log")]
+use crate::{
+    log::{error, info, LoggerBuilder},
+    VERSION,
+};
 use crate::{
     Context, FrameManager, GlobalStateManager, Gpu, GpuConfig, GpuDefaults, Input,
     RenderConfigTarget, RenderEncoder, RenderOperation, Renderer, SceneCreator, SceneManager,
@@ -13,12 +18,6 @@ use crate::{
 use rustc_hash::FxHashMap;
 #[cfg(target_os = "android")]
 use winit::platform::android::activity::AndroidApp;
-
-#[cfg(feature = "log")]
-use crate::{
-    log::{error, info, LoggerBuilder},
-    VERSION,
-};
 
 #[cfg(feature = "audio")]
 use crate::audio::AudioManager;
@@ -160,7 +159,7 @@ impl ShuraConfig {
                             let update_status = shura.update();
                             match update_status {
                                 Ok(_) => {}
-                                Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
+                                Err(wgpu::SurfaceError::Lost) => {
                                     let mint: mint::Vector2<u32> = shura.window.inner_size().into();
                                     let window_size: Vector<u32> = mint.into();
                                     shura.resize(window_size);
@@ -208,6 +207,7 @@ impl ShuraConfig {
     }
 }
 
+/// Core of the game engine.
 pub struct Shura {
     pub end: bool,
     pub frame: FrameManager,
@@ -257,8 +257,21 @@ impl Shura {
     }
 
     fn resize(&mut self, new_size: Vector<u32>) {
-        let config_size = self.gpu.render_size_no_scale();
-        if new_size.x > 0 && new_size.y > 0 && new_size != config_size {
+        if new_size.x > 0 && new_size.y > 0 {
+            // #[cfg(target_os = "android")]
+            // let new_size = {
+            //     match self.window.config().orientation() {
+            //         Orientation::Port => {
+            //             Vector::new(new_size.x.min(new_size.y), new_size.x.max(new_size.y))
+            //         },
+            //         Orientation::Land => {
+            //             Vector::new(new_size.x.max(new_size.y), new_size.x.min(new_size.y))
+            //         },
+            //         _ => new_size
+            //     }
+            // };
+            #[cfg(feature = "log")]
+            info!("Resizing window to: {} x {}", new_size.x, new_size.y,);
             self.scenes.resize();
             self.input.resize(new_size);
             self.gpu.resize(new_size);
@@ -486,7 +499,6 @@ impl Shura {
 
         scene.components.update_sets(&self.defaults.world_camera);
         if !scene.render_components {
-            scene.resized = false;
             scene.switched = false;
             scene.started = false;
             return Ok(());
@@ -541,28 +553,26 @@ impl Shura {
 
         encoder.finish();
         output.present();
-
         if scene.switched || scene.resized || scene.screen_config.changed {
             scene.screen_config.changed = false;
-            scene.world_camera.resize(window_size);
-
-            self.gpu.apply_vsync(scene.screen_config.vsync());
-            self.defaults
-                .apply_render_scale(&self.gpu, scene.screen_config.render_scale());
-
+            scene.resized = false;
             #[cfg(feature = "log")]
             {
                 let size = self.gpu.render_size(scene.screen_config.render_scale());
                 info!(
-                    "Resizing window to: {} x {} using VSYNC: {}",
+                    "Resizing render target to: {} x {} using VSYNC: {}",
                     size.x,
                     size.y,
                     scene.screen_config.vsync()
                 );
             }
+            scene.world_camera.resize(window_size);
+
+            self.gpu.apply_vsync(scene.screen_config.vsync());
+            self.defaults
+                .apply_render_scale(&self.gpu, scene.screen_config.render_scale());
         }
 
-        scene.resized = false;
         scene.switched = false;
         scene.started = false;
         Ok(())

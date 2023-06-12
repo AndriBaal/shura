@@ -32,8 +32,7 @@ pub trait ComponentDerive: Downcast {
 impl_downcast!(ComponentDerive);
 
 #[allow(unused_variables)]
-/// A controller is used to define the behaviour of a component, by the given config and callbacks. The
-/// currently relevant components get passed through the [ActiveComponents](crate::ActiveComponents).
+/// A controller is used to define the behaviour of a component, by the given config and callbacks.
 pub trait ComponentController: ComponentDerive + ComponentIdentifier
 where
     Self: Sized,
