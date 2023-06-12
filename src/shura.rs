@@ -355,28 +355,9 @@ impl Shura {
     }
 
     fn update(&mut self, scene: &mut Scene) -> Result<(), wgpu::SurfaceError> {
+        let output = self.gpu.surface.get_current_texture()?;
         let mint: mint::Vector2<u32> = self.window.inner_size().into();
         let window_size: Vector<u32> = mint.into();
-        if scene.switched || scene.resized || scene.screen_config.changed {
-            scene.screen_config.changed = false;
-            scene.world_camera.resize(window_size);
-
-            self.gpu.apply_vsync(scene.screen_config.vsync());
-            self.defaults
-                .apply_render_scale(&self.gpu, scene.screen_config.render_scale());
-
-            #[cfg(feature = "log")]
-            {
-                let size = self.gpu.render_size(scene.screen_config.render_scale());
-                info!(
-                    "Resizing window to: {} x {} using VSYNC: {}",
-                    size.x,
-                    size.y,
-                    scene.screen_config.vsync()
-                );
-            }
-        }
-        let output = self.gpu.surface.get_current_texture()?;
         self.frame.update();
         #[cfg(feature = "gamepad")]
         self.input.sync_controller();
@@ -560,6 +541,26 @@ impl Shura {
         encoder.finish();
         ctx.gpu.submit_encoders();
         output.present();
+
+        if scene.switched || scene.resized || scene.screen_config.changed {
+            scene.screen_config.changed = false;
+            scene.world_camera.resize(window_size);
+
+            self.gpu.apply_vsync(scene.screen_config.vsync());
+            self.defaults
+                .apply_render_scale(&self.gpu, scene.screen_config.render_scale());
+
+            #[cfg(feature = "log")]
+            {
+                let size = self.gpu.render_size(scene.screen_config.render_scale());
+                info!(
+                    "Resizing window to: {} x {} using VSYNC: {}",
+                    size.x,
+                    size.y,
+                    scene.screen_config.vsync()
+                );
+            }
+        }
 
         scene.resized = false;
         scene.switched = false;

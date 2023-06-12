@@ -48,6 +48,7 @@ impl SceneStateController for BunnyState {
                 ui.label(&format!("FPS: {}", ctx.frame.fps()));
                 ui.label(format!("Bunnies: {}", ctx.components.len::<Bunny>()));
                 if ui.button("Clear Bunnies").clicked() {
+                    ctx.screen_config.set_render_scale(0.5);
                     ctx.components.remove_all::<Bunny>();
                 }
             });
