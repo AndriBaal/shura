@@ -540,7 +540,6 @@ impl Shura {
         ctx.gui.render(&ctx.gpu, &mut encoder.inner, &output_view);
 
         encoder.finish();
-        ctx.gpu.submit_encoders();
         output.present();
 
         if scene.switched || scene.resized || scene.screen_config.changed {

@@ -6,6 +6,7 @@ use core::hash::Hash;
 pub(crate) struct ComponentIndex(pub(crate) ArenaIndex);
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+/// Unique identifier of a group
 pub struct GroupHandle(pub(crate) ArenaIndex);
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

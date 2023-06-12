@@ -6,7 +6,7 @@ pub struct AudioManager {
 }
 
 impl AudioManager {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         let (output_stream, output_handle) = rodio::OutputStream::try_default().unwrap();
         return Self {
             output_stream,

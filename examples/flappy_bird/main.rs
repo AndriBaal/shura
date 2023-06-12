@@ -1,10 +1,4 @@
-use shura::{
-    audio::{AudioManager, AudioSink, Sound},
-    log::info,
-    physics::*,
-    rand::gen_range,
-    *,
-};
+use shura::{audio::*, log::info, physics::*, rand::gen_range, *};
 
 const GAME_SIZE: Vector<f32> = Vector::new(11.25, 5.0);
 

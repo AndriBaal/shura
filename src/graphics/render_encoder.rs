@@ -242,6 +242,6 @@ impl<'a> RenderEncoder<'a> {
     }
 
     pub fn finish(self) {
-        self.gpu.commands.lock().unwrap().push(self.inner.finish())
+        self.gpu.queue.submit(Some(self.inner.finish()));
     }
 }

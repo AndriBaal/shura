@@ -45,7 +45,7 @@ pub struct Gpu {
     pub surface: wgpu::Surface,
     pub config: wgpu::SurfaceConfiguration,
     pub adapter: wgpu::Adapter,
-    pub commands: Mutex<Vec<wgpu::CommandBuffer>>,
+    // pub commands: Mutex<Vec<wgpu::CommandBuffer>>,
     pub(crate) base: WgpuBase,
 }
 
@@ -113,7 +113,7 @@ impl Gpu {
         }
 
         let gpu = Self {
-            commands: Mutex::new(vec![]),
+            // commands: Mutex::new(vec![]),
             instance,
             queue,
             surface,
@@ -214,11 +214,11 @@ impl Gpu {
         return RenderTarget::computed(self, defaults, texture_size, camera, compute);
     }
 
-    pub fn submit_encoders(&self) {
-        let mut commands_ref = self.commands.lock().unwrap();
-        let commands = std::mem::replace(commands_ref.deref_mut(), vec![]);
-        self.queue.submit(commands);
-    }
+    // pub fn submit_encoders(&self) {
+    //     let mut commands_ref = self.commands.lock().unwrap();
+    //     let commands = std::mem::replace(commands_ref.deref_mut(), vec![]);
+    //     self.queue.submit(commands);
+    // }
 }
 
 /// Base Wgpu objects needed to create any further graphics object.
