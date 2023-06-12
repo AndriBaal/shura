@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, ops::DerefMut, rc::Rc};
 
 #[cfg(feature = "gui")]
 use crate::gui::Gui;
@@ -6,8 +6,8 @@ use crate::gui::Gui;
 use crate::physics::{ActiveEvents, CollideType};
 use crate::{
     Context, FrameManager, GlobalStateManager, Gpu, GpuConfig, GpuDefaults, Input,
-    RenderConfigTarget, RenderEncoder, RenderOperation, Renderer, Scene, SceneCreator,
-    SceneManager, Vector,
+    RenderConfigTarget, RenderEncoder, RenderOperation, Renderer, SceneCreator, SceneManager,
+    Vector,
 };
 #[cfg(target_arch = "wasm32")]
 use rustc_hash::FxHashMap;
@@ -157,33 +157,7 @@ impl ShuraConfig {
                             }
                         }
                         Event::RedrawRequested(window_id) if window_id == shura_window_id => {
-                            while let Some(remove) = shura.scenes.remove.pop() {
-                                if let Some(removed) = shura.scenes.scenes.remove(&remove) {
-                                    let mut removed = removed.borrow_mut();
-                                    for end in removed.states.ends() {
-                                        let mut ctx = Context::new(shura, &mut removed);
-                                        end(&mut ctx);
-                                    }
-                                }
-                            }
-
-                            while let Some(add) = shura.scenes.add.pop() {
-                                let id = add.new_id();
-                                let scene = add.create(shura);
-                                shura.scenes.scenes.insert(id, Rc::new(RefCell::new(scene)));
-                            }
-
-                            let scene = shura.scenes.get_active_scene();
-                            let mut scene = scene.borrow_mut();
-                            if let Some(max_frame_time) = scene.screen_config.max_frame_time() {
-                                let now = shura.frame.now();
-                                let update_time = shura.frame.update_time();
-                                if now < update_time + max_frame_time {
-                                    return;
-                                }
-                            }
-
-                            let update_status = shura.update(&mut scene);
+                            let update_status = shura.update();
                             match update_status {
                                 Ok(_) => {}
                                 Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
@@ -354,8 +328,35 @@ impl Shura {
         }
     }
 
-    fn update(&mut self, scene: &mut Scene) -> Result<(), wgpu::SurfaceError> {
+    fn update(&mut self) -> Result<(), wgpu::SurfaceError> {
         let output = self.gpu.surface.get_current_texture()?;
+        while let Some(remove) = self.scenes.remove.pop() {
+            if let Some(removed) = self.scenes.scenes.remove(&remove) {
+                let mut removed = removed.borrow_mut();
+                for end in removed.states.ends() {
+                    let mut ctx = Context::new(self, &mut removed);
+                    end(&mut ctx);
+                }
+            }
+        }
+
+        while let Some(add) = self.scenes.add.pop() {
+            let id = add.new_id();
+            let scene = add.create(self);
+            self.scenes.scenes.insert(id, Rc::new(RefCell::new(scene)));
+        }
+
+        let scene = self.scenes.get_active_scene();
+        let mut scene = scene.borrow_mut();
+        let mut scene = scene.deref_mut();
+        if let Some(max_frame_time) = scene.screen_config.max_frame_time() {
+            let now = self.frame.now();
+            let update_time = self.frame.update_time();
+            if now < update_time + max_frame_time {
+                return Ok(());
+            }
+        }
+
         let mint: mint::Vector2<u32> = self.window.inner_size().into();
         let window_size: Vector<u32> = mint.into();
         self.frame.update();
