@@ -85,7 +85,6 @@ impl<'a> Context<'a> {
         }
     }
 
-
     #[cfg(feature = "serde")]
     pub fn serialize_scene(
         &mut self,

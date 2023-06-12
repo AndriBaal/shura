@@ -3,6 +3,7 @@
 #![crate_type = "lib"]
 #![crate_name = "shura"]
 
+// Shura version
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 mod component;

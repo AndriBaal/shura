@@ -124,11 +124,19 @@ impl<'a, C: ComponentController> ComponentSetMut<'a, C> {
         self.ty.remove_all(self.groups)
     }
 
-    pub fn add(&mut self, group_handle: GroupHandle, component: C) -> ComponentHandle {
+    pub fn add(&mut self, component: C) -> ComponentHandle {
+        self.add_to(GroupHandle::DEFAULT_GROUP, component)
+    }
+
+    pub fn add_to(&mut self, group_handle: GroupHandle, component: C) -> ComponentHandle {
         self.ty.add(group_handle, component)
     }
 
-    pub fn add_many(
+    pub fn add_many(&mut self, components: impl IntoIterator<Item = C>) -> Vec<ComponentHandle> {
+        self.add_many_to(GroupHandle::DEFAULT_GROUP, components)
+    }
+
+    pub fn add_many_to(
         &mut self,
         group_handle: GroupHandle,
         components: impl IntoIterator<Item = C>,
@@ -136,7 +144,11 @@ impl<'a, C: ComponentController> ComponentSetMut<'a, C> {
         self.ty.add_many::<C>(group_handle, components)
     }
 
-    pub fn add_with(
+    pub fn add_with(&mut self, create: impl FnOnce(ComponentHandle) -> C) -> ComponentHandle {
+        self.add_with_to(GroupHandle::DEFAULT_GROUP, create)
+    }
+
+    pub fn add_with_to(
         &mut self,
         group_handle: GroupHandle,
         create: impl FnOnce(ComponentHandle) -> C,

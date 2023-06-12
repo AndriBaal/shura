@@ -28,13 +28,25 @@ macro_rules! register {
 #[macro_export]
 /// Wrapper for getting multiple [ComponentSets](crate::ComponentSet)
 macro_rules! sets {
-    ($components: expr, $filter: expr, [$($C:ty),*]) => {
+    ($components: expr, [$($C:ty),*]) => {
         {
             ($(
                 $components.set::<$C>($filter),
             )*)
         }
     };
+}
+
+#[macro_export]
+/// Wrapper for getting multiple [ComponentSets](crate::ComponentSet) from the specified groups
+macro_rules! sets_of {
+    ($components: expr, [$(($filter: expr, $C:ty)),*]) => {
+        {
+            ($(
+                $components.set_of::<$C>($filter),
+            )*)
+        }
+    }
 }
 
 #[macro_export]
@@ -52,7 +64,7 @@ macro_rules! sets_mut {
             let ptr: *mut shura::ComponentManager = $components as *mut _;
             unsafe {
                 ($(
-                    (&mut *ptr).set_mut::<$C>(shura::ComponentFilter::Active),
+                    (&mut *ptr).set_mut::<$C>(),
                 )*)
             }
         }
@@ -60,9 +72,9 @@ macro_rules! sets_mut {
 }
 
 #[macro_export]
-/// Wrapper around unsafeties of getting multiple [ComponentSets](crate::ComponentSetMut)
-macro_rules! sets_mut_filter {
-    ($components: expr, [$(($C:ty, $filter: expr)),*]) => {
+/// Wrapper around unsafeties of getting multiple [ComponentSets](crate::ComponentSetMut) from the specified groups
+macro_rules! sets_mut_of {
+    ($components: expr, [$(($filter: expr, $C:ty)),*]) => {
         {
             if !shura::ComponentManager::validate(&[
                 $(
@@ -74,7 +86,7 @@ macro_rules! sets_mut_filter {
             let ptr: *mut shura::ComponentManager = $components as *mut _;
             unsafe {
                 ($(
-                    (&mut *ptr).set_mut::<$C>($filter),
+                    (&mut *ptr).set_mut_of::<$C>($filter),
                 )*)
             }
         }
@@ -337,90 +349,6 @@ impl ComponentManager {
         return group;
     }
 
-    pub fn set<'a, C: ComponentController>(&'a self) -> ComponentSet<'a, C> {
-        self.set_filter(ComponentFilter::Active)
-    }
-
-    #[inline]
-    pub fn set_filter<'a, C: ComponentController>(
-        &'a self,
-        filter: ComponentFilter<'a>,
-    ) -> ComponentSet<'a, C> {
-        let groups = group_filter!(self, filter).1;
-        let ty = type_ref!(self, C);
-        return ComponentSet::new(ty, groups);
-    }
-
-    pub fn set_mut<'a, C: ComponentController>(&'a mut self) -> ComponentSetMut<'a, C> {
-        self.set_mut_filter(ComponentFilter::Active)
-    }
-
-    #[inline]
-    pub fn set_mut_filter<'a, C: ComponentController>(
-        &'a mut self,
-        filter: ComponentFilter<'a>,
-    ) -> ComponentSetMut<'a, C> {
-        let (check, groups) = group_filter!(self, filter);
-        let ty = type_mut!(self, C);
-        return ComponentSetMut::new(ty, groups, check);
-    }
-
-    pub fn validate(identifiers: &[ComponentTypeId]) -> bool {
-        for (index, value) in identifiers.iter().enumerate() {
-            for other in identifiers.iter().skip(index + 1) {
-                if value == other {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
-    #[inline]
-    pub fn each<C: ComponentController>(&self, each: impl FnMut(&C)) {
-        self.each_filter(ComponentFilter::Active, each)
-    }
-
-    pub fn each_filter<C: ComponentController>(
-        &self,
-        filter: ComponentFilter,
-        each: impl FnMut(&C),
-    ) {
-        let groups = group_filter!(self, filter).1;
-        let ty = type_ref!(self, C);
-        ty.each(groups, each);
-    }
-
-    #[inline]
-    pub fn each_mut<C: ComponentController>(&mut self, each: impl FnMut(&mut C)) {
-        self.each_mut_filter(ComponentFilter::Active, each)
-    }
-
-    pub fn each_mut_filter<C: ComponentController>(
-        &mut self,
-        filter: ComponentFilter,
-        each: impl FnMut(&mut C),
-    ) {
-        let groups = group_filter!(self, filter).1;
-        let ty = type_mut!(self, C);
-        ty.each_mut(groups, each);
-    }
-
-    #[inline]
-    pub fn retain<C: ComponentController>(&mut self, keep: impl FnMut(&mut C) -> bool) {
-        self.retain_filter(ComponentFilter::Active, keep)
-    }
-
-    pub fn retain_filter<C: ComponentController>(
-        &mut self,
-        filter: ComponentFilter,
-        keep: impl FnMut(&mut C) -> bool,
-    ) {
-        let groups = group_filter!(self, filter).1;
-        let ty = type_mut!(self, C);
-        ty.retain(groups, keep);
-    }
-
     pub fn index<C: ComponentController>(&self, group: GroupHandle, index: usize) -> Option<&C> {
         let ty = type_ref!(self, C);
         ty.index(group, index)
@@ -515,20 +443,6 @@ impl ComponentManager {
     }
 
     #[inline]
-    pub fn remove_all<C: ComponentController>(&mut self) -> Vec<(GroupHandle, Vec<C>)> {
-        self.remove_all_filter(ComponentFilter::All)
-    }
-
-    pub fn remove_all_filter<C: ComponentController>(
-        &mut self,
-        filter: ComponentFilter,
-    ) -> Vec<(GroupHandle, Vec<C>)> {
-        let groups = group_filter!(self, filter).1;
-        let ty = type_mut!(self, C);
-        ty.remove_all(groups)
-    }
-
-    #[inline]
     pub fn add<C: ComponentController>(&mut self, component: C) -> ComponentHandle {
         self.add_to(GroupHandle::DEFAULT_GROUP, component)
     }
@@ -577,11 +491,25 @@ impl ComponentManager {
     }
 
     #[inline]
-    pub fn force_buffer<C: ComponentController>(&mut self) {
-        self.force_buffer_filter::<C>(ComponentFilter::All)
+    pub fn remove_all<C: ComponentController>(&mut self) -> Vec<(GroupHandle, Vec<C>)> {
+        self.remove_all_of(ComponentFilter::All)
     }
 
-    pub fn force_buffer_filter<C: ComponentController>(&mut self, filter: ComponentFilter) {
+    pub fn remove_all_of<C: ComponentController>(
+        &mut self,
+        filter: ComponentFilter,
+    ) -> Vec<(GroupHandle, Vec<C>)> {
+        let groups = group_filter!(self, filter).1;
+        let ty = type_mut!(self, C);
+        ty.remove_all(groups)
+    }
+
+    #[inline]
+    pub fn force_buffer<C: ComponentController>(&mut self) {
+        self.force_buffer_of::<C>(ComponentFilter::All)
+    }
+
+    pub fn force_buffer_of<C: ComponentController>(&mut self, filter: ComponentFilter) {
         let groups = group_filter!(self, filter).1;
         let ty = type_mut!(self, C);
         ty.force_buffer(groups)
@@ -589,10 +517,10 @@ impl ComponentManager {
 
     #[inline]
     pub fn len<C: ComponentController>(&self) -> usize {
-        self.len_filter::<C>(ComponentFilter::All)
+        self.len_of::<C>(ComponentFilter::All)
     }
 
-    pub fn len_filter<C: ComponentController>(&self, filter: ComponentFilter) -> usize {
+    pub fn len_of<C: ComponentController>(&self, filter: ComponentFilter) -> usize {
         let groups = group_filter!(self, filter).1;
         let ty = type_ref!(self, C);
         ty.len(groups)
@@ -600,10 +528,10 @@ impl ComponentManager {
 
     #[inline]
     pub fn iter<C: ComponentController>(&self) -> impl DoubleEndedIterator<Item = &C> {
-        self.iter_filter::<C>(ComponentFilter::Active)
+        self.iter_of::<C>(ComponentFilter::Active)
     }
 
-    pub fn iter_filter<C: ComponentController>(
+    pub fn iter_of<C: ComponentController>(
         &self,
         filter: ComponentFilter,
     ) -> impl DoubleEndedIterator<Item = &C> {
@@ -614,10 +542,10 @@ impl ComponentManager {
 
     #[inline]
     pub fn iter_mut<C: ComponentController>(&mut self) -> impl DoubleEndedIterator<Item = &mut C> {
-        self.iter_mut_filter::<C>(ComponentFilter::Active)
+        self.iter_mut_of::<C>(ComponentFilter::Active)
     }
 
-    pub fn iter_mut_filter<C: ComponentController>(
+    pub fn iter_mut_of<C: ComponentController>(
         &mut self,
         filter: ComponentFilter,
     ) -> impl DoubleEndedIterator<Item = &mut C> {
@@ -652,10 +580,10 @@ impl ComponentManager {
             impl DoubleEndedIterator<Item = (InstanceIndex, &C)> + Clone,
         ),
     > {
-        self.iter_render_filter::<C>(ComponentFilter::Active)
+        self.iter_render_of::<C>(ComponentFilter::Active)
     }
 
-    pub fn iter_render_filter<C: ComponentController>(
+    pub fn iter_render_of<C: ComponentController>(
         &self,
         filter: ComponentFilter,
     ) -> impl DoubleEndedIterator<
@@ -673,10 +601,10 @@ impl ComponentManager {
     pub fn iter_with_handles<'a, C: ComponentController>(
         &'a self,
     ) -> impl DoubleEndedIterator<Item = (ComponentHandle, &'a C)> {
-        self.iter_with_handles_filter::<C>(ComponentFilter::Active)
+        self.iter_with_handles_of::<C>(ComponentFilter::Active)
     }
 
-    pub fn iter_with_handles_filter<'a, C: ComponentController>(
+    pub fn iter_with_handles_of<'a, C: ComponentController>(
         &'a self,
         filter: ComponentFilter<'a>,
     ) -> impl DoubleEndedIterator<Item = (ComponentHandle, &'a C)> {
@@ -689,15 +617,95 @@ impl ComponentManager {
     pub fn iter_mut_with_handles<'a, C: ComponentController>(
         &'a mut self,
     ) -> impl DoubleEndedIterator<Item = (ComponentHandle, &'a mut C)> {
-        self.iter_mut_with_handles_filter::<C>(ComponentFilter::Active)
+        self.iter_mut_with_handles_of::<C>(ComponentFilter::Active)
     }
 
-    pub fn iter_mut_with_handles_filter<'a, C: ComponentController>(
+    pub fn iter_mut_with_handles_of<'a, C: ComponentController>(
         &'a mut self,
         filter: ComponentFilter<'a>,
     ) -> impl DoubleEndedIterator<Item = (ComponentHandle, &'a mut C)> {
         let (check, groups) = group_filter!(self, filter);
         let ty = type_mut!(self, C);
         ty.iter_mut_with_handles(groups, check)
+    }
+
+    #[inline]
+    pub fn set<'a, C: ComponentController>(&'a self) -> ComponentSet<'a, C> {
+        self.set_of(ComponentFilter::Active)
+    }
+
+    pub fn set_of<'a, C: ComponentController>(
+        &'a self,
+        filter: ComponentFilter<'a>,
+    ) -> ComponentSet<'a, C> {
+        let groups = group_filter!(self, filter).1;
+        let ty = type_ref!(self, C);
+        return ComponentSet::new(ty, groups);
+    }
+
+    #[inline]
+    pub fn set_mut<'a, C: ComponentController>(&'a mut self) -> ComponentSetMut<'a, C> {
+        self.set_mut_of(ComponentFilter::Active)
+    }
+
+    pub fn set_mut_of<'a, C: ComponentController>(
+        &'a mut self,
+        filter: ComponentFilter<'a>,
+    ) -> ComponentSetMut<'a, C> {
+        let (check, groups) = group_filter!(self, filter);
+        let ty = type_mut!(self, C);
+        return ComponentSetMut::new(ty, groups, check);
+    }
+
+    pub fn validate(identifiers: &[ComponentTypeId]) -> bool {
+        for (index, value) in identifiers.iter().enumerate() {
+            for other in identifiers.iter().skip(index + 1) {
+                if value == other {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    #[inline]
+    pub fn each<C: ComponentController>(&self, each: impl FnMut(&C)) {
+        self.each_of(ComponentFilter::Active, each)
+    }
+
+    pub fn each_of<C: ComponentController>(&self, filter: ComponentFilter, each: impl FnMut(&C)) {
+        let groups = group_filter!(self, filter).1;
+        let ty = type_ref!(self, C);
+        ty.each(groups, each);
+    }
+
+    #[inline]
+    pub fn each_mut<C: ComponentController>(&mut self, each: impl FnMut(&mut C)) {
+        self.each_mut_of(ComponentFilter::Active, each)
+    }
+
+    pub fn each_mut_of<C: ComponentController>(
+        &mut self,
+        filter: ComponentFilter,
+        each: impl FnMut(&mut C),
+    ) {
+        let groups = group_filter!(self, filter).1;
+        let ty = type_mut!(self, C);
+        ty.each_mut(groups, each);
+    }
+
+    #[inline]
+    pub fn retain<C: ComponentController>(&mut self, keep: impl FnMut(&mut C) -> bool) {
+        self.retain_of(ComponentFilter::Active, keep)
+    }
+
+    pub fn retain_of<C: ComponentController>(
+        &mut self,
+        filter: ComponentFilter,
+        keep: impl FnMut(&mut C) -> bool,
+    ) {
+        let groups = group_filter!(self, filter).1;
+        let ty = type_mut!(self, C);
+        ty.retain(groups, keep);
     }
 }

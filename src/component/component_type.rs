@@ -306,7 +306,7 @@ impl ComponentType {
     }
 
     pub fn get<C: ComponentController>(&self, handle: ComponentHandle) -> Option<&C> {
-        if let Some(group) = self.groups.get(handle.group_index().0) {
+        if let Some(group) = self.groups.get(handle.group_handle().0) {
             if let Some(component) = group.components.get(handle.component_index().0) {
                 return component.downcast_ref::<C>();
             }
@@ -315,7 +315,7 @@ impl ComponentType {
     }
 
     pub fn get_mut<C: ComponentController>(&mut self, handle: ComponentHandle) -> Option<&mut C> {
-        if let Some(group) = self.groups.get_mut(handle.group_index().0) {
+        if let Some(group) = self.groups.get_mut(handle.group_handle().0) {
             if let Some(component) = group.components.get_mut(handle.component_index().0) {
                 return component.downcast_mut::<C>();
             }
@@ -330,8 +330,8 @@ impl ComponentType {
     ) -> (Option<&mut C1>, Option<&mut C2>) {
         let mut c1 = None;
         let mut c2 = None;
-        if handle1.group_index() == handle2.group_index() {
-            if let Some(group) = self.groups.get_mut(handle1.group_index().0) {
+        if handle1.group_handle() == handle2.group_handle() {
+            if let Some(group) = self.groups.get_mut(handle1.group_handle().0) {
                 let result = group
                     .components
                     .get2_mut(handle1.component_index().0, handle2.component_index().0);
@@ -345,7 +345,7 @@ impl ComponentType {
         } else {
             let (group1, group2) = self
                 .groups
-                .get2_mut(handle1.group_index().0, handle2.group_index().0);
+                .get2_mut(handle1.group_handle().0, handle2.group_handle().0);
             if let Some(group) = group1 {
                 if let Some(component) = group.components.get_mut(handle1.component_index().0) {
                     c1 = component.downcast_mut::<C1>();
@@ -368,8 +368,8 @@ impl ComponentType {
     ) -> (Option<&mut BoxedComponent>, Option<&mut BoxedComponent>) {
         let mut c1 = None;
         let mut c2 = None;
-        if handle1.group_index() == handle2.group_index() {
-            if let Some(group) = self.groups.get_mut(handle1.group_index().0) {
+        if handle1.group_handle() == handle2.group_handle() {
+            if let Some(group) = self.groups.get_mut(handle1.group_handle().0) {
                 (c1, c2) = group
                     .components
                     .get2_mut(handle1.component_index().0, handle2.component_index().0);
@@ -377,7 +377,7 @@ impl ComponentType {
         } else {
             let (group1, group2) = self
                 .groups
-                .get2_mut(handle1.group_index().0, handle2.group_index().0);
+                .get2_mut(handle1.group_handle().0, handle2.group_handle().0);
             if let Some(group) = group1 {
                 c1 = group.components.get_mut(handle1.component_index().0);
             }
@@ -390,21 +390,21 @@ impl ComponentType {
     }
 
     pub fn get_boxed(&self, handle: ComponentHandle) -> Option<&BoxedComponent> {
-        if let Some(group) = self.groups.get(handle.group_index().0) {
+        if let Some(group) = self.groups.get(handle.group_handle().0) {
             return group.components.get(handle.component_index().0);
         }
         return None;
     }
 
     pub fn get_boxed_mut(&mut self, handle: ComponentHandle) -> Option<&mut BoxedComponent> {
-        if let Some(group) = self.groups.get_mut(handle.group_index().0) {
+        if let Some(group) = self.groups.get_mut(handle.group_handle().0) {
             return group.components.get_mut(handle.component_index().0);
         }
         return None;
     }
 
     pub fn remove<C: ComponentController>(&mut self, handle: ComponentHandle) -> Option<C> {
-        if let Some(group) = self.groups.get_mut(handle.group_index().0) {
+        if let Some(group) = self.groups.get_mut(handle.group_handle().0) {
             if let Some(component) = group.components.remove(handle.component_index().0) {
                 #[cfg(feature = "physics")]
                 self.world_changes.register_remove(&component);
@@ -415,7 +415,7 @@ impl ComponentType {
     }
 
     pub fn remove_boxed(&mut self, handle: ComponentHandle) -> Option<BoxedComponent> {
-        if let Some(group) = self.groups.get_mut(handle.group_index().0) {
+        if let Some(group) = self.groups.get_mut(handle.group_handle().0) {
             if let Some(component) = group.components.remove(handle.component_index().0) {
                 #[cfg(feature = "physics")]
                 self.world_changes.register_remove(&component);

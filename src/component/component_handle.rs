@@ -31,14 +31,14 @@ impl Default for GroupHandle {
 pub struct ComponentHandle {
     component_index: ComponentIndex,
     type_index: TypeIndex,
-    group_index: GroupHandle,
+    group_handle: GroupHandle,
 }
 
 impl ComponentHandle {
     pub const INVALID: Self = ComponentHandle {
         component_index: ComponentIndex(ArenaIndex::INVALID),
         type_index: TypeIndex(ArenaIndex::INVALID),
-        group_index: GroupHandle(ArenaIndex::INVALID),
+        group_handle: GroupHandle(ArenaIndex::INVALID),
     };
 }
 
@@ -52,12 +52,12 @@ impl ComponentHandle {
     pub(crate) const fn new(
         component_index: ComponentIndex,
         type_index: TypeIndex,
-        group_index: GroupHandle,
+        group_handle: GroupHandle,
     ) -> Self {
         Self {
             component_index,
             type_index,
-            group_index,
+            group_handle,
         }
     }
 
@@ -65,8 +65,8 @@ impl ComponentHandle {
         self.type_index
     }
 
-    pub(crate) fn group_index(&self) -> GroupHandle {
-        self.group_index
+    pub fn group_handle(&self) -> GroupHandle {
+        self.group_handle
     }
 
     pub(crate) fn component_index(&self) -> ComponentIndex {

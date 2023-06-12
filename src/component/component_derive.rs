@@ -17,6 +17,8 @@ pub trait FieldNames {
 /// using downcast_ref or downcast_mut.
 pub type BoxedComponent = Box<dyn ComponentDerive>;
 
+/// Base of every component. Provides a method to generate a 2D Matrix, so the component can be rendered
+/// to the screen.
 pub trait BaseComponent: Downcast {
     fn matrix(&self, #[cfg(feature = "physics")] world: &World) -> Matrix;
 }
