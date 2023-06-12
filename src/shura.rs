@@ -5,8 +5,8 @@ use crate::gui::Gui;
 #[cfg(feature = "physics")]
 use crate::physics::{ActiveEvents, CollideType};
 use crate::{
-    audio::AudioManager, Context, FrameManager, GlobalStateManager, Gpu, GpuConfig, GpuDefaults,
-    Input, RenderConfigTarget, RenderEncoder, RenderOperation, Renderer, Scene, SceneCreator,
+    Context, FrameManager, GlobalStateManager, Gpu, GpuConfig, GpuDefaults, Input,
+    RenderConfigTarget, RenderEncoder, RenderOperation, Renderer, Scene, SceneCreator,
     SceneManager, Vector,
 };
 #[cfg(target_arch = "wasm32")]
@@ -19,6 +19,9 @@ use crate::{
     log::{error, info, LoggerBuilder},
     VERSION,
 };
+
+#[cfg(feature = "audio")]
+use crate::audio::AudioManager;
 
 /// Configuration for the base of the game engine
 pub struct ShuraConfig {
@@ -183,7 +186,7 @@ impl ShuraConfig {
                             let update_status = shura.update(&mut scene);
                             match update_status {
                                 Ok(_) => {}
-                                Err(wgpu::SurfaceError::Lost) => {
+                                Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
                                     let mint: mint::Vector2<u32> = shura.window.inner_size().into();
                                     let window_size: Vector<u32> = mint.into();
                                     shura.resize(window_size);
@@ -298,7 +301,6 @@ impl Shura {
                 match $res {
                     Some(val) => val,
                     None => {
-                        info!("ululul");
                         continue;
                     }
                 }
@@ -390,6 +392,17 @@ impl Shura {
             self.gpu.apply_vsync(scene.screen_config.vsync());
             self.defaults
                 .apply_render_scale(&self.gpu, scene.screen_config.render_scale());
+
+            #[cfg(feature = "log")]
+            {
+                let size = self.gpu.render_size(scene.screen_config.render_scale());
+                info!(
+                    "Resizing window to: {} x {} using VSYNC: {}",
+                    size.x,
+                    size.y,
+                    scene.screen_config.vsync()
+                );
+            }
         }
         if scene.started {
             self.input.update();
@@ -411,7 +424,6 @@ impl Shura {
                 &self.gpu,
             );
         }
-        let output = self.gpu.surface.get_current_texture()?;
 
         #[cfg(feature = "gui")]
         self.gui
@@ -526,6 +538,7 @@ impl Shura {
                 prev_priority = *priority;
             }
         }
+        let output = ctx.gpu.surface.get_current_texture()?;
         let output_view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());

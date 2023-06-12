@@ -219,7 +219,6 @@ impl ComponentManager {
         return self.priorities.clone();
     }
 
-    #[cfg(feature = "physics")]
     pub(crate) fn callable(&self, t: &TypeIndex) -> &CallableType {
         self.callables.get(t).unwrap()
     }
