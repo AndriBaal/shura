@@ -1,3 +1,5 @@
+use downcast_rs::{impl_downcast, Downcast};
+
 #[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// TypeId of a struct that derives from the [state](crate::State) macro. The diffrence to the [std::any::TypeId] is, that
@@ -22,5 +24,7 @@ impl StateTypeId {
 pub trait StateIdentifier {
     const TYPE_NAME: &'static str;
     const IDENTIFIER: StateTypeId;
-    const PRIORITY: i16;
 }
+
+pub trait StateDerive: Downcast {}
+impl_downcast!(StateDerive);

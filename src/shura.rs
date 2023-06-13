@@ -10,9 +10,8 @@ use crate::{
     VERSION,
 };
 use crate::{
-    Context, FrameManager, GlobalStateManager, Gpu, GpuConfig, GpuDefaults, Input,
-    RenderConfigTarget, RenderEncoder, RenderOperation, Renderer, SceneCreator, SceneManager,
-    Vector,
+    Context, EndReason, FrameManager, Gpu, GpuConfig, GpuDefaults, Input, RenderConfigTarget,
+    RenderEncoder, Renderer, SceneCreator, SceneManager, StateManager, Vector,
 };
 #[cfg(target_arch = "wasm32")]
 use rustc_hash::FxHashMap;
@@ -124,9 +123,6 @@ impl ShuraConfig {
         events.run(move |event, _target, control_flow| {
             use winit::event::{Event, WindowEvent};
             if let Some(shura) = &mut shura {
-                for global in shura.states.iter_mut() {
-                    global.winit_event(&event);
-                }
                 if !shura.end {
                     match event {
                         Event::WindowEvent {
@@ -215,7 +211,7 @@ pub struct Shura {
     pub window: winit::window::Window,
     pub input: Input,
     pub gpu: Gpu,
-    pub states: GlobalStateManager,
+    pub states: StateManager,
     pub defaults: GpuDefaults,
     #[cfg(feature = "gui")]
     pub gui: Gui,
@@ -242,7 +238,7 @@ impl Shura {
             scenes: SceneManager::new(creator.new_id(), creator),
             frame: FrameManager::new(),
             input: Input::new(window_size),
-            states: GlobalStateManager::default(),
+            states: StateManager::default(),
             #[cfg(feature = "audio")]
             audio: AudioManager::new(),
             end: false,
@@ -346,9 +342,10 @@ impl Shura {
         while let Some(remove) = self.scenes.remove.pop() {
             if let Some(removed) = self.scenes.scenes.remove(&remove) {
                 let mut removed = removed.borrow_mut();
-                for end in removed.states.ends() {
-                    let mut ctx = Context::new(self, &mut removed);
-                    end(&mut ctx);
+                let mut ctx = Context::new(self, &mut removed);
+                for (_, type_index) in ctx.components.priorities().borrow().iter() {
+                    let end = ctx.components.callable(type_index).callbacks.end;
+                    (end)(&mut ctx, EndReason::RemoveScene)
                 }
             }
         }
@@ -435,14 +432,9 @@ impl Shura {
                     (true, 0)
                 }
             };
-            let mut prev_priority = i16::MIN;
             let now = ctx.frame.update_time();
             {
                 for ((priority, _), type_index) in ctx.components.priorities().borrow().iter() {
-                    for update in ctx.scene_states.updates(prev_priority, *priority) {
-                        update(&mut ctx);
-                    }
-
                     #[cfg(feature = "physics")]
                     if !done_step && *priority > physics_priority {
                         done_step = true;
@@ -470,16 +462,12 @@ impl Shura {
                     }
 
                     (ty.callbacks.update)(&mut ctx);
-                    prev_priority = *priority;
                 }
             }
 
             #[cfg(feature = "physics")]
             if !done_step && ctx.world.physics_priority().is_some() {
                 Self::physics_step(&mut ctx);
-            }
-            for update in ctx.scene_states.updates(prev_priority, i16::MAX) {
-                update(&mut ctx);
             }
         }
         self.input.update();
@@ -516,25 +504,9 @@ impl Shura {
         }
 
         {
-            let mut prev_priority = i16::MIN;
-            for ((priority, _), type_index) in ctx.components.priorities().borrow().iter() {
-                for render in ctx.scene_states.renders(prev_priority, *priority) {
-                    render(&ctx, &mut encoder);
-                }
+            for (_, type_index) in ctx.components.priorities().borrow().iter() {
                 let ty = ctx.components.callable(type_index);
-                if ty.config.render != RenderOperation::Never {
-                    match ty.config.render {
-                        RenderOperation::EveryFrame => {
-                            (ty.callbacks.render)(&ctx, &mut encoder);
-                        }
-                        _ => {}
-                    }
-                }
-                prev_priority = *priority;
-            }
-
-            for render in ctx.scene_states.renders(prev_priority, i16::MAX) {
-                render(&ctx, &mut encoder);
+                (ty.callbacks.render)(&ctx, &mut encoder);
             }
         }
         let output_view = output
@@ -587,9 +559,10 @@ impl Drop for Shura {
     fn drop(&mut self) {
         for (_, scene) in self.scenes.end_scenes() {
             let mut scene = scene.borrow_mut();
-            for end in scene.states.ends() {
-                let mut ctx = Context::new(self, &mut scene);
-                end(&mut ctx);
+            let mut ctx = Context::new(self, &mut scene);
+            for (_, type_index) in ctx.components.priorities().borrow().iter() {
+                let end = ctx.components.callable(type_index).callbacks.end;
+                (end)(&mut ctx, EndReason::EndProgram)
             }
         }
     }

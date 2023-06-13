@@ -36,11 +36,7 @@ pub use crate::{
     math::{aabb::*, math::*, matrix::*},
     scene::{context::Context, scene::*, scene_manager::*},
     shura::*,
-    state::{
-        global_state::*,
-        scene_state::{SceneStateController, SceneStateManager},
-        state::*,
-    },
+    state::{state::*, state_manager::*},
 };
 
 /// Access to [wgpu](https://github.com/gfx-rs/wgpu) for creating custom graphics.

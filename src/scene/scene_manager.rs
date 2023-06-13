@@ -44,7 +44,7 @@ impl SceneManager {
         self.active_scene
     }
 
-    pub fn does_scene_exist(&self, id: u32) -> bool {
+    pub fn exists(&self, id: u32) -> bool {
         self.scenes.contains_key(&id)
     }
 

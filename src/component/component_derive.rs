@@ -4,7 +4,8 @@ use crate::{
     ComponentHandle,
 };
 use crate::{
-    ComponentConfig, ComponentIdentifier, ComponentTypeId, Context, Matrix, RenderEncoder,
+    ComponentConfig, ComponentIdentifier, ComponentTypeId, Context, EndReason, Matrix,
+    RenderEncoder,
 };
 use downcast_rs::*;
 
@@ -62,9 +63,11 @@ where
     /// This has massive performance advantes since many components
     /// can be rendered with the same operation, therefore it is mainly used for rendering
     /// components that have the exact same [model](crate::Model), [uniforms](crate::Uniform) or [sprites](crate::Sprite).
-    /// For this method to work the render operation of this component must be set to
-    /// [RenderOperation::EveryFrame](crate::RenderOperation::EveryFrame) in the [ComponentConfig](crate::ComponentConfig).
+    /// Rendering is mainly done with [render_each](crate::RenderEncoder::render_each) and [render_all](crate::RenderEncoder::render_all).
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {}
+
+    /// Method called when the game is closed or the scene gets removed
+    fn end(ctx: &mut Context, reason: EndReason) {}
 }
 
 impl<C: ComponentDerive + ?Sized> ComponentDerive for Box<C> {

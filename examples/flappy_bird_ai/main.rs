@@ -82,10 +82,40 @@ impl BirdSimulation {
     }
 }
 
-impl SceneStateController for BirdSimulation {
+#[derive(Component)]
+struct Bird {
+    #[base]
+    pos: PositionComponent,
+    brain: NeuralNetwork,
+    score: f32,
+    dead: bool,
+    linvel: Vector<f32>,
+}
+
+impl Bird {
+    const HALF_EXTENTS: Vector<f32> = Vector::new(0.3, 0.21176472);
+    const GRAVITY: Vector<f32> = Vector::new(0.0, -15.0);
+    pub fn new() -> Self {
+        Self {
+            pos: PositionComponent::new(Default::default()),
+            score: 0.0,
+            brain: NeuralNetwork::new(vec![5, 8, 1]),
+            dead: false,
+            linvel: Vector::default(),
+        }
+    }
+
+    pub fn with_brain(other: &Bird) -> Self {
+        let mut new_bird = Bird::new();
+        new_bird.brain = other.brain.clone();
+        new_bird
+    }
+}
+
+impl ComponentController for Bird {
     fn update(ctx: &mut Context) {
         let fps = ctx.frame.fps();
-        let scene = ctx.scene_states.get_mut::<Self>();
+        let scene = ctx.scene_states.get_mut::<BirdSimulation>();
         let delta = ctx.frame.frame_time() * scene.time_scale;
         scene.spawn_timer += delta;
         let score = ctx
@@ -211,39 +241,7 @@ impl SceneStateController for BirdSimulation {
                 ui.add(gui::Slider::new(&mut scene.time_scale, 0.1..=20.0).text("Speed"));
             });
     }
-}
 
-#[derive(Component)]
-struct Bird {
-    #[base]
-    pos: PositionComponent,
-    brain: NeuralNetwork,
-    score: f32,
-    dead: bool,
-    linvel: Vector<f32>,
-}
-
-impl Bird {
-    const HALF_EXTENTS: Vector<f32> = Vector::new(0.3, 0.21176472);
-    const GRAVITY: Vector<f32> = Vector::new(0.0, -15.0);
-    pub fn new() -> Self {
-        Self {
-            pos: PositionComponent::new(Default::default()),
-            score: 0.0,
-            brain: NeuralNetwork::new(vec![5, 8, 1]),
-            dead: false,
-            linvel: Vector::default(),
-        }
-    }
-
-    pub fn with_brain(other: &Bird) -> Self {
-        let mut new_bird = Bird::new();
-        new_bird.brain = other.brain.clone();
-        new_bird
-    }
-}
-
-impl ComponentController for Bird {
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {
         let scene = ctx.scene_states.get::<BirdSimulation>();
         encoder.render_each::<Self>(ctx, RenderConfig::default(), |r, bird, instance| {

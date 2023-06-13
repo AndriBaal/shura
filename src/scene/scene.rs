@@ -2,7 +2,7 @@
 use crate::physics::World;
 
 use crate::{
-    ComponentManager, Context, SceneStateManager, ScreenConfig, Shura, Vector, WorldCamera,
+    ComponentManager, Context, ScreenConfig, Shura, StateManager, Vector, WorldCamera,
     WorldCameraScale,
 };
 
@@ -77,7 +77,7 @@ impl<N: 'static + FnMut(&mut Context)> SceneCreator for RecycleScene<N> {
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 /// Scene owning its own [Components](ComponentManager), [Configurations](ScreenConfig), callbacks(resized, switched, started),
-/// [states](SceneStateManager) and [camera](WorldCamera) identified by an Id
+/// [states](StateManager) and [camera](WorldCamera) identified by an Id
 pub struct Scene {
     pub(crate) id: u32,
     pub(crate) resized: bool,
@@ -89,7 +89,7 @@ pub struct Scene {
     pub components: ComponentManager,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
-    pub states: SceneStateManager,
+    pub states: StateManager,
     #[cfg(feature = "physics")]
     pub world: World,
 }
@@ -110,7 +110,7 @@ impl Scene {
             ),
             components: ComponentManager::new(),
             screen_config: ScreenConfig::new(),
-            states: SceneStateManager::default(),
+            states: StateManager::default(),
             #[cfg(feature = "physics")]
             world: World::new(),
         }

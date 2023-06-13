@@ -41,42 +41,6 @@ impl BunnyState {
     }
 }
 
-impl SceneStateController for BunnyState {
-    fn update(ctx: &mut Context) {
-        const MODIFY_STEP: usize = 1500;
-        if ctx.input.is_held(MouseButton::Left) || ctx.input.is_held(ScreenTouch) {
-            let cursor = ctx.input.cursor(&ctx.world_camera);
-            for _ in 0..MODIFY_STEP {
-                ctx.components.add_with(|handle| Bunny::new(cursor, handle));
-            }
-        }
-        if ctx.input.is_held(MouseButton::Right) {
-            let mut dead: Vec<ComponentHandle> = vec![];
-            let bunnies = ctx.components.set::<Bunny>();
-            if bunnies.len() == 1 {
-                return;
-            }
-            for bunny in bunnies.iter().rev() {
-                if dead.len() == MODIFY_STEP {
-                    break;
-                }
-                dead.push(bunny.handle);
-            }
-            for handle in dead {
-                ctx.components.remove_boxed(handle);
-            }
-        }
-
-        let bunny_state = ctx.scene_states.get_mut::<Self>();
-        if let Some(screenshot) = bunny_state.screenshot.take() {
-            info!("Taking Screenshot!");
-            screenshot.sprite().save(&ctx.gpu, "screenshot.png").ok();
-        } else if ctx.input.is_pressed(Key::S) {
-            bunny_state.screenshot = Some(ctx.gpu.create_render_target(ctx.window_size));
-        }
-    }
-}
-
 #[derive(Component)]
 struct Bunny {
     #[base]
@@ -103,6 +67,38 @@ impl ComponentController for Bunny {
     };
     fn update(ctx: &mut Context) {
         const GRAVITY: f32 = -2.5;
+        const MODIFY_STEP: usize = 1500;
+        if ctx.input.is_held(MouseButton::Left) || ctx.input.is_held(ScreenTouch) {
+            let cursor = ctx.input.cursor(&ctx.world_camera);
+            for _ in 0..MODIFY_STEP {
+                ctx.components.add_with(|handle| Bunny::new(cursor, handle));
+            }
+        }
+        if ctx.input.is_held(MouseButton::Right) {
+            let mut dead: Vec<ComponentHandle> = vec![];
+            let bunnies = ctx.components.set::<Bunny>();
+            if bunnies.len() == 1 {
+                return;
+            }
+            for bunny in bunnies.iter().rev() {
+                if dead.len() == MODIFY_STEP {
+                    break;
+                }
+                dead.push(bunny.handle);
+            }
+            for handle in dead {
+                ctx.components.remove_boxed(handle);
+            }
+        }
+
+        let bunny_state = ctx.scene_states.get_mut::<BunnyState>();
+        if let Some(screenshot) = bunny_state.screenshot.take() {
+            info!("Taking Screenshot!");
+            screenshot.sprite().save(&ctx.gpu, "screenshot.png").ok();
+        } else if ctx.input.is_pressed(Key::S) {
+            bunny_state.screenshot = Some(ctx.gpu.create_render_target(ctx.window_size));
+        }
+
         let frame = ctx.frame.frame_time();
         let fov = ctx.world_camera.fov();
         for bunny in ctx.components.iter_mut::<Self>() {

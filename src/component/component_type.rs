@@ -7,8 +7,8 @@ use crate::physics::{CollideType, ColliderHandle, World, WorldChanges};
 
 use crate::{
     data::arena::ArenaEntry, Arena, BoxedComponent, BufferOperation, ComponentConfig,
-    ComponentController, ComponentDerive, ComponentHandle, ComponentIndex, Context, Gpu, Group,
-    GroupHandle, InstanceBuffer, InstanceIndex, Matrix, RenderEncoder, TypeIndex,
+    ComponentController, ComponentDerive, ComponentHandle, ComponentIndex, Context, EndReason, Gpu,
+    Group, GroupHandle, InstanceBuffer, InstanceIndex, Matrix, RenderEncoder, TypeIndex,
 };
 
 #[derive(Clone, Copy)]
@@ -24,6 +24,7 @@ pub(crate) struct ComponentCallbacks {
         other_collider: ColliderHandle,
         collision_type: CollideType,
     ),
+    pub end: fn(&mut Context, reason: EndReason),
 }
 
 impl ComponentCallbacks {
@@ -33,6 +34,7 @@ impl ComponentCallbacks {
             #[cfg(feature = "physics")]
             collision: C::collision,
             render: C::render,
+            end: C::end,
         };
     }
 }

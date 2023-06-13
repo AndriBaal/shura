@@ -1,6 +1,6 @@
 use crate::{
-    ComponentManager, FrameManager, GlobalStateManager, Gpu, GpuDefaults, Input, Scene,
-    SceneManager, SceneStateManager, ScreenConfig, Shura, Vector, WorldCamera,
+    ComponentManager, FrameManager, Gpu, GpuDefaults, Input, Scene, SceneManager, ScreenConfig,
+    Shura, StateManager, Vector, WorldCamera,
 };
 
 #[cfg(feature = "serde")]
@@ -24,7 +24,7 @@ pub struct Context<'a> {
     pub scene_started: &'a bool,
     pub render_components: &'a mut bool,
     pub screen_config: &'a mut ScreenConfig,
-    pub scene_states: &'a mut SceneStateManager,
+    pub scene_states: &'a mut StateManager,
     pub world_camera: &'a mut WorldCamera,
     pub components: &'a mut ComponentManager,
     #[cfg(feature = "physics")]
@@ -38,7 +38,7 @@ pub struct Context<'a> {
     pub end: &'a mut bool,
     pub scenes: &'a mut SceneManager,
     pub window: &'a mut winit::window::Window,
-    pub global_states: &'a mut GlobalStateManager,
+    pub global_states: &'a mut StateManager,
     #[cfg(feature = "gui")]
     pub gui: &'a mut Gui,
     #[cfg(feature = "audio")]

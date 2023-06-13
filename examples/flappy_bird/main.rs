@@ -59,47 +59,6 @@ impl FlappyState {
     }
 }
 
-impl SceneStateController for FlappyState {
-    fn update(ctx: &mut Context) {
-        let fps = ctx.frame.fps();
-        let delta = ctx.frame.frame_time();
-        let scene = ctx.scene_states.get_mut::<Self>();
-        if !scene.started
-            && (ctx.input.is_pressed(Key::Space)
-                || ctx.input.is_pressed(MouseButton::Left)
-                || ctx.input.is_pressed(ScreenTouch))
-        {
-            scene.started = true;
-            for bird in ctx.components.iter_mut::<Bird>() {
-                bird.body.get_mut(ctx.world).set_gravity_scale(1.0, true);
-            }
-        }
-
-        if scene.started {
-            scene.spawn_timer += delta;
-            if scene.score > scene.high_score {
-                scene.high_score = scene.score;
-            }
-
-            if scene.spawn_timer >= Pipe::SPAWN_TIME {
-                scene.spawn_timer = 0.0;
-                ctx.components.add(Pipe::new(ctx.world));
-                info!("Spawning new pipe!");
-            }
-        }
-
-        gui::Window::new("Flappy Bird")
-            .anchor(gui::Align2::LEFT_TOP, gui::Vec2::default())
-            .resizable(false)
-            .collapsible(false)
-            .show(&ctx.gui.clone(), |ui| {
-                ui.label(&format!("FPS: {}", fps));
-                ui.label(format!("Score: {}", scene.score));
-                ui.label(format!("High Score: {}", scene.high_score));
-            });
-    }
-}
-
 #[derive(Component)]
 struct Bird {
     #[base]
@@ -149,6 +108,43 @@ impl ComponentController for Bird {
     }
 
     fn update(ctx: &mut Context) {
+        let fps = ctx.frame.fps();
+        let delta = ctx.frame.frame_time();
+        let scene = ctx.scene_states.get_mut::<FlappyState>();
+        if !scene.started
+            && (ctx.input.is_pressed(Key::Space)
+                || ctx.input.is_pressed(MouseButton::Left)
+                || ctx.input.is_pressed(ScreenTouch))
+        {
+            scene.started = true;
+            for bird in ctx.components.iter_mut::<Bird>() {
+                bird.body.get_mut(ctx.world).set_gravity_scale(1.0, true);
+            }
+        }
+
+        if scene.started {
+            scene.spawn_timer += delta;
+            if scene.score > scene.high_score {
+                scene.high_score = scene.score;
+            }
+
+            if scene.spawn_timer >= Pipe::SPAWN_TIME {
+                scene.spawn_timer = 0.0;
+                ctx.components.add(Pipe::new(ctx.world));
+                info!("Spawning new pipe!");
+            }
+        }
+
+        gui::Window::new("Flappy Bird")
+            .anchor(gui::Align2::LEFT_TOP, gui::Vec2::default())
+            .resizable(false)
+            .collapsible(false)
+            .show(&ctx.gui.clone(), |ui| {
+                ui.label(&format!("FPS: {}", fps));
+                ui.label(format!("Score: {}", scene.score));
+                ui.label(format!("High Score: {}", scene.high_score));
+            });
+
         for bird in ctx.components.iter_mut::<Self>() {
             if ctx.input.is_pressed(Key::Space)
                 || ctx.input.is_pressed(MouseButton::Left)

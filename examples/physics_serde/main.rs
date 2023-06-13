@@ -13,9 +13,7 @@ fn shura_main(config: ShuraConfig) {
                 s.deserialize_components_with(ctx, |w, ctx| w.deserialize(FloorVisitor { ctx }));
                 s.deserialize_components_with(ctx, |w, ctx| w.deserialize(PlayerVisitor { ctx }));
                 s.deserialize_components::<PhysicsBox>(ctx);
-                s.deserialize_scene_state_with(ctx, |w, ctx| {
-                    w.deserialize(PhysicsStateVisitor { ctx })
-                });
+                ctx.scene_states.insert(PhysicsState::new(ctx))
             },
         })
     } else {
@@ -55,15 +53,11 @@ fn shura_main(config: ShuraConfig) {
     };
 }
 
-#[derive(State, serde::Serialize)]
+#[derive(State)]
 struct PhysicsState {
-    #[serde(skip)]
     default_color: Uniform<Color>,
-    #[serde(skip)]
     collision_color: Uniform<Color>,
-    #[serde(skip)]
     hover_color: Uniform<Color>,
-    #[serde(skip)]
     box_model: Model,
 }
 
@@ -80,12 +74,46 @@ impl PhysicsState {
             )),
         }
     }
+}
+
+#[derive(Component, serde::Serialize)]
+struct Player {
+    #[serde(skip)]
+    sprite: Sprite,
+    #[serde(skip)]
+    model: Model,
+    #[base]
+    body: RigidBodyComponent,
+}
+
+impl Player {
+    const RADIUS: f32 = 0.75;
+    const RESOLUTION: u32 = 24;
+    const SHAPE: Ball = Ball {
+        radius: Self::RADIUS,
+    };
+    pub fn new(ctx: &mut Context) -> Self {
+        let collider = ColliderBuilder::new(SharedShape::new(Self::SHAPE))
+            .active_events(ActiveEvents::COLLISION_EVENTS);
+        Self {
+            sprite: ctx.gpu.create_sprite(include_bytes!("./img/burger.png")),
+            model: ctx.gpu.create_model(ModelBuilder::from_collider_shape(
+                collider.shape.as_ref(),
+                Self::RESOLUTION,
+                0.0,
+            )),
+            body: RigidBodyComponent::new(
+                ctx.world,
+                RigidBodyBuilder::dynamic().translation(Vector::new(5.0, 4.0)),
+                [collider],
+            ),
+        }
+    }
 
     fn serialize_scene(ctx: &mut Context) {
         info!("Serializing scene!");
         let ser = ctx
             .serialize_scene(|s| {
-                s.serialize_scene_state::<Self>();
                 s.serialize_components::<Floor>();
                 s.serialize_components::<Player>();
                 s.serialize_components::<PhysicsBox>();
@@ -95,7 +123,7 @@ impl PhysicsState {
     }
 }
 
-impl SceneStateController for PhysicsState {
+impl ComponentController for Player {
     fn update(ctx: &mut Context) {
         let scroll = ctx.input.wheel_delta();
         let fov = ctx.world_camera.fov();
@@ -141,57 +169,12 @@ impl SceneStateController for PhysicsState {
                             w.deserialize(PlayerVisitor { ctx })
                         });
                         s.deserialize_components::<PhysicsBox>(ctx);
-                        s.deserialize_scene_state_with(ctx, |w, ctx| {
-                            w.deserialize(PhysicsStateVisitor { ctx })
-                        });
+                        ctx.scene_states.insert(PhysicsState::new(ctx));
                     },
                 });
             }
         }
-    }
 
-    fn end(ctx: &mut Context) {
-        Self::serialize_scene(ctx);
-    }
-}
-
-#[derive(Component, serde::Serialize)]
-struct Player {
-    #[serde(skip)]
-    sprite: Sprite,
-    #[serde(skip)]
-    model: Model,
-    #[base]
-    body: RigidBodyComponent,
-}
-
-impl Player {
-    const RADIUS: f32 = 0.75;
-    const RESOLUTION: u32 = 24;
-    const SHAPE: Ball = Ball {
-        radius: Self::RADIUS,
-    };
-    pub fn new(ctx: &mut Context) -> Self {
-        let collider = ColliderBuilder::new(SharedShape::new(Self::SHAPE))
-            .active_events(ActiveEvents::COLLISION_EVENTS);
-        Self {
-            sprite: ctx.gpu.create_sprite(include_bytes!("./img/burger.png")),
-            model: ctx.gpu.create_model(ModelBuilder::from_collider_shape(
-                collider.shape.as_ref(),
-                Self::RESOLUTION,
-                0.0,
-            )),
-            body: RigidBodyComponent::new(
-                ctx.world,
-                RigidBodyBuilder::dynamic().translation(Vector::new(5.0, 4.0)),
-                [collider],
-            ),
-        }
-    }
-}
-
-impl ComponentController for Player {
-    fn update(ctx: &mut Context) {
         let delta = ctx.frame.frame_time();
         let input = &mut ctx.input;
 
@@ -236,6 +219,10 @@ impl ComponentController for Player {
         if let Some(b) = ctx.components.get_mut::<PhysicsBox>(other_handle) {
             b.collided = collision_type == CollideType::Started;
         }
+    }
+
+    fn end(ctx: &mut Context, _reason: EndReason) {
+        Self::serialize_scene(ctx)
     }
 }
 
@@ -406,30 +393,6 @@ impl<'de, 'a> serde::de::Visitor<'de> for PlayerVisitor<'a> {
             model: self.ctx.gpu.create_model(ModelBuilder::from_collider_shape(
                 &Player::SHAPE,
                 Player::RESOLUTION,
-                0.0,
-            )),
-        })
-    }
-}
-
-struct PhysicsStateVisitor<'a> {
-    ctx: &'a Context<'a>,
-}
-
-impl<'de, 'a> serde::de::Visitor<'de> for PhysicsStateVisitor<'a> {
-    type Value = PhysicsState;
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("A PhysicsState")
-    }
-
-    fn visit_seq<V: serde::de::SeqAccess<'de>>(self, _seq: V) -> Result<PhysicsState, V::Error> {
-        Ok(PhysicsState {
-            default_color: self.ctx.gpu.create_uniform(Color::new_rgba(0, 255, 0, 255)),
-            collision_color: self.ctx.gpu.create_uniform(Color::new_rgba(255, 0, 0, 255)),
-            hover_color: self.ctx.gpu.create_uniform(Color::new_rgba(0, 0, 255, 255)),
-            box_model: self.ctx.gpu.create_model(ModelBuilder::from_collider_shape(
-                &PhysicsBox::BOX_SHAPE,
-                0,
                 0.0,
             )),
         })

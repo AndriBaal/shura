@@ -138,15 +138,6 @@ struct LightingState {
     shadow_color: Uniform<Color>,
 }
 
-impl SceneStateController for LightingState {
-    fn update(ctx: &mut Context) {
-        if *ctx.scene_resized {
-            let state = ctx.scene_states.get_mut::<Self>();
-            state.light_layer = ctx.gpu.create_render_target(ctx.window_size);
-        }
-    }
-}
-
 #[derive(Component)]
 struct Obstacle {
     #[base]
@@ -229,6 +220,12 @@ impl ComponentController for Light {
         fn det(v1: Vector<f32>, v2: Vector<f32>) -> f32 {
             return v1.x * v2.y - v1.y * v2.x;
         }
+
+        if *ctx.scene_resized {
+            let state = ctx.scene_states.get_mut::<LightingState>();
+            state.light_layer = ctx.gpu.create_render_target(ctx.window_size);
+        }
+
         let cursor_pos = ctx.input.cursor(&ctx.world_camera);
         for light in ctx.components.iter_mut::<Self>() {
             if light.follow_mouse {

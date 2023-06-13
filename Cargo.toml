@@ -74,7 +74,7 @@ futures-intrusive = "0.5.0"
 pollster = "0.3.0"
 bytemuck = { version = "1.12.2", features = ["derive"] }
 instant = "0.1.12"
-shura_proc = "0.3.0"
+shura_proc =  "0.4.0"
 crossbeam = "0.8.2"
 image = { version = "0.23.14", default-features = false, features = [
     "png",

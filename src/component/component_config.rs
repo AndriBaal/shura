@@ -1,13 +1,8 @@
 use instant::Duration;
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-/// Desribes when a component gets rendered.
-pub enum RenderOperation {
-    /// Does not render at all and therefore does not create a Buffer on the GPU.
-    Never,
-    /// Draw all currrently relative components every frame.
-    EveryFrame,
+pub enum EndReason {
+    EndProgram,
+    RemoveScene,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -45,18 +40,6 @@ pub enum UpdateOperation {
     AfterDuration(Duration),
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-/// Defines the postproccess operations
-pub enum PostproccessOperation {
-    /// No postprocessing is applied
-    Never,
-    /// Postprocessing is done on the same layer as every other render operation
-    SameLayer,
-    /// The Postprocessing gets applied to a seperate layer before rendering it on top of the others
-    SeperateLayer,
-}
-
 /// The configuration of a component type. This configuration is used to statically define
 /// behaviour of a component type for perfomance and utility reason.
 #[derive(Debug, Clone, Copy)]
@@ -67,7 +50,6 @@ pub struct ComponentConfig {
     // /// When this flag is set, the component is automatically registered when adding one
     // pub auto_register: bool,
     pub update: UpdateOperation,
-    pub render: RenderOperation,
     pub buffer: BufferOperation,
 }
 
@@ -75,7 +57,6 @@ impl ComponentConfig {
     pub const DEFAULT: ComponentConfig = ComponentConfig {
         buffer: BufferOperation::EveryFrame,
         update: UpdateOperation::EveryFrame,
-        render: RenderOperation::EveryFrame,
         priority: 16,
     };
 }

@@ -37,9 +37,33 @@ impl BunnyState {
     }
 }
 
-impl SceneStateController for BunnyState {
+#[derive(Component)]
+struct Bunny {
+    #[base]
+    base: PositionComponent,
+    linvel: Vector<f32>,
+    handle: ComponentHandle,
+}
+impl Bunny {
+    pub fn new(translation: Vector<f32>, handle: ComponentHandle) -> Bunny {
+        let base = PositionBuilder::new().translation(translation).into();
+        let linvel = Vector::new(gen_range(-2.5..2.5), gen_range(-7.5..7.5));
+        Bunny {
+            base,
+            linvel,
+            handle,
+        }
+    }
+}
+
+impl ComponentController for Bunny {
+    const CONFIG: ComponentConfig = ComponentConfig {
+        priority: 2,
+        ..ComponentConfig::DEFAULT
+    };
     fn update(ctx: &mut Context) {
         const MODIFY_STEP: usize = 1500;
+        const GRAVITY: f32 = -2.5;
         gui::Window::new("bunnymark")
             .anchor(gui::Align2::LEFT_TOP, gui::Vec2::default())
             .resizable(false)
@@ -76,42 +100,14 @@ impl SceneStateController for BunnyState {
             }
         }
 
-        let bunny_state = ctx.scene_states.get_mut::<Self>();
+        let bunny_state = ctx.scene_states.get_mut::<BunnyState>();
         if let Some(screenshot) = bunny_state.screenshot.take() {
             info!("Taking Screenshot!");
             screenshot.sprite().save(&ctx.gpu, "screenshot.png").ok();
         } else if ctx.input.is_pressed(Key::S) {
             bunny_state.screenshot = Some(ctx.gpu.create_render_target(ctx.window_size));
         }
-    }
-}
 
-#[derive(Component)]
-struct Bunny {
-    #[base]
-    base: PositionComponent,
-    linvel: Vector<f32>,
-    handle: ComponentHandle,
-}
-impl Bunny {
-    pub fn new(translation: Vector<f32>, handle: ComponentHandle) -> Bunny {
-        let base = PositionBuilder::new().translation(translation).into();
-        let linvel = Vector::new(gen_range(-2.5..2.5), gen_range(-7.5..7.5));
-        Bunny {
-            base,
-            linvel,
-            handle,
-        }
-    }
-}
-
-impl ComponentController for Bunny {
-    const CONFIG: ComponentConfig = ComponentConfig {
-        priority: 2,
-        ..ComponentConfig::DEFAULT
-    };
-    fn update(ctx: &mut Context) {
-        const GRAVITY: f32 = -2.5;
         let frame = ctx.frame.frame_time();
         let fov = ctx.world_camera.fov();
         for bunny in ctx.components.iter_mut::<Self>() {

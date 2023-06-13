@@ -124,7 +124,6 @@ impl ModelTest {
 impl ComponentController for ModelTest {
     const CONFIG: ComponentConfig = ComponentConfig {
         update: UpdateOperation::Never,
-        render: RenderOperation::EveryFrame,
         buffer: BufferOperation::Manual,
         ..ComponentConfig::DEFAULT
     };

@@ -9,15 +9,15 @@ use std::{cmp, marker::PhantomData};
 
 use crate::{
     Arena, ArenaEntry, BoxedComponent, ComponentController, ComponentManager, ComponentTypeId,
-    Context, FieldNames, GlobalStateController, GlobalStateManager, GroupHandle, Scene,
-    SceneCreator, SceneStateController, SceneStateManager, Shura, StateIdentifier, StateTypeId,
+    Context, FieldNames, GroupHandle, Scene, SceneCreator, Shura, StateDerive, StateIdentifier,
+    StateManager, StateTypeId,
 };
 
 /// Helper to serialize [Components](crate::Component) and [States](crate::State) of a [Scene]
 pub struct SceneSerializer<'a> {
     components: &'a ComponentManager,
-    global_states: &'a GlobalStateManager,
-    scene_states: &'a SceneStateManager,
+    global_states: &'a StateManager,
+    scene_states: &'a StateManager,
 
     ser_components: FxHashMap<ComponentTypeId, Vec<(GroupHandle, Vec<Option<(u32, Vec<u8>)>>)>>,
     ser_scene_states: FxHashMap<StateTypeId, Vec<u8>>,
@@ -27,8 +27,8 @@ pub struct SceneSerializer<'a> {
 impl<'a> SceneSerializer<'a> {
     pub(crate) fn new(
         components: &'a ComponentManager,
-        global_states: &'a GlobalStateManager,
-        scene_states: &'a SceneStateManager,
+        global_states: &'a StateManager,
+        scene_states: &'a StateManager,
     ) -> Self {
         Self {
             components,
@@ -64,16 +64,14 @@ impl<'a> SceneSerializer<'a> {
         self.ser_components.insert(C::IDENTIFIER, group_data);
     }
 
-    pub fn serialize_global_state<G: GlobalStateController + StateIdentifier + Serialize>(
-        &mut self,
-    ) {
+    pub fn serialize_global_state<G: StateDerive + StateIdentifier + Serialize>(&mut self) {
         if let Some(state) = self.global_states.try_get::<G>() {
             self.ser_global_states
                 .insert(G::IDENTIFIER, bincode::serialize(state).unwrap());
         }
     }
 
-    pub fn serialize_scene_state<S: SceneStateController + StateIdentifier + Serialize>(&mut self) {
+    pub fn serialize_scene_state<S: StateDerive + StateIdentifier + Serialize>(&mut self) {
         if let Some(state) = self.scene_states.try_get::<S>() {
             self.ser_scene_states
                 .insert(S::IDENTIFIER, bincode::serialize(state).unwrap());
@@ -210,7 +208,7 @@ impl SceneDeserializer {
     }
 
     pub fn deserialize_global_state<
-        G: GlobalStateController + StateIdentifier + serde::de::DeserializeOwned,
+        G: StateDerive + StateIdentifier + serde::de::DeserializeOwned,
     >(
         &mut self,
         ctx: &mut Context,
@@ -222,7 +220,7 @@ impl SceneDeserializer {
     }
 
     pub fn deserialize_scene_state<
-        S: SceneStateController + StateIdentifier + serde::de::DeserializeOwned,
+        S: StateDerive + StateIdentifier + serde::de::DeserializeOwned,
     >(
         &mut self,
         ctx: &mut Context,
@@ -233,9 +231,7 @@ impl SceneDeserializer {
         }
     }
 
-    pub fn deserialize_global_state_with<
-        G: GlobalStateController + StateIdentifier + FieldNames,
-    >(
+    pub fn deserialize_global_state_with<G: StateDerive + StateIdentifier + FieldNames>(
         &mut self,
         ctx: &mut Context,
         mut de: impl for<'de> FnMut(DeserializeWrapper<'de, G>, &'de Context<'de>) -> G,
@@ -246,7 +242,7 @@ impl SceneDeserializer {
             ctx.global_states.insert(state);
         }
     }
-    pub fn deserialize_scene_state_with<S: SceneStateController + StateIdentifier + FieldNames>(
+    pub fn deserialize_scene_state_with<S: StateDerive + StateIdentifier + FieldNames>(
         &mut self,
         ctx: &mut Context,
         mut de: impl for<'de> FnMut(DeserializeWrapper<'de, S>, &'de Context<'de>) -> S,
