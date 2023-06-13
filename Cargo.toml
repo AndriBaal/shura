@@ -1,6 +1,6 @@
 [package]
 name = "shura"
-version = "0.3.1"
+version = "0.4.0"
 edition = "2021"
 repository = "https://github.com/AndriBaal/shura"
 documentation = "https://docs.rs/shura"
