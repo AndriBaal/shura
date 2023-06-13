@@ -128,7 +128,7 @@ pub use crate::scene::scene_serde::*;
 #[cfg(feature = "animation")]
 mod tween;
 /// Access to animations inspired by [bevy_tweening](https://github.com/djeedai/bevy_tweening)
-#[cfg(feature = "animation")] 
+#[cfg(feature = "animation")]
 pub mod animation {
     pub use crate::tween::{ease::*, tween::*};
 }

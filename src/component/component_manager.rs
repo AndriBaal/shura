@@ -31,7 +31,7 @@ macro_rules! sets {
     ($components: expr, [$($C:ty),*]) => {
         {
             ($(
-                $components.set::<$C>($filter),
+                $components.set::<$C>(),
             )*)
         }
     };
@@ -49,46 +49,46 @@ macro_rules! sets_of {
     }
 }
 
+pub struct RawSet<'a> {
+    component_type: &'a mut ComponentType,
+    groups: &'a [GroupHandle],
+    check: bool,
+}
+
+impl<'a> RawSet<'a> {
+    pub fn cast<C: ComponentController>(self) -> ComponentSetMut<'a, C> {
+        ComponentSetMut::new(self.component_type, self.groups, self.check)
+    }
+}
+
 #[macro_export]
 /// Wrapper around unsafeties of getting multiple [ComponentSets](crate::ComponentSetMut)
 macro_rules! sets_mut {
     ($components: expr, [$($C:ty),*]) => {
         {
-            if !shura::ComponentManager::validate(&[
+            let raw: Vec<_> = $components.sets_mut(&[$((shura::ComponentFilter::Active, <$C>::IDENTIFIER), )*]);
+            let mut iter = raw.into_iter();
+            (
                 $(
-                    <$C>::IDENTIFIER,
+                    iter.next().unwrap().cast::<$C>(),
                 )*
-            ]) {
-                panic!("Duplicate component type!");
-            }
-            let ptr: *mut shura::ComponentManager = $components as *mut _;
-            unsafe {
-                ($(
-                    (&mut *ptr).set_mut::<$C>(),
-                )*)
-            }
+            )
         }
     };
 }
 
 #[macro_export]
-/// Wrapper around unsafeties of getting multiple [ComponentSets](crate::ComponentSetMut) from the specified groups
+/// Wrapper around unsafeties of getting multiple [ComponentSets](crate::ComponentSetMut)
 macro_rules! sets_mut_of {
     ($components: expr, [$(($filter: expr, $C:ty)),*]) => {
         {
-            if !shura::ComponentManager::validate(&[
+            let raw: Vec<_> = $components.sets_mut(&[$(($filter, <$C>::IDENTIFIER), )*]);
+            let mut iter = raw.into_iter();
+            (
                 $(
-                    <$C>::IDENTIFIER,
+                    iter.next().unwrap().cast::<$C>(),
                 )*
-            ]) {
-                panic!("Duplicate component type!");
-            }
-            let ptr: *mut shura::ComponentManager = $components as *mut _;
-            unsafe {
-                ($(
-                    (&mut *ptr).set_mut_of::<$C>($filter),
-                )*)
-            }
+            )
         }
     };
 }
@@ -553,23 +553,6 @@ impl ComponentManager {
         ty.iter_mut(groups, check)
     }
 
-    // pub fn iter_mut_and_groups<C: ComponentController>(
-    //     &mut self,
-    //     filter: ComponentFilter,
-    // ) -> (
-    //     impl DoubleEndedIterator<Item = &mut C>,
-    //     impl Iterator<Item = (GroupHandle, &Group)> + Clone,
-    // ) {
-    //     let (check, groups) = group_filter!(self, filter);
-    //     let ty = type_mut!(self, C);
-    //     (
-    //         ty.iter_mut(groups, check),
-    //         self.groups
-    //             .iter()
-    //             .map(|(index, group)| (GroupHandle(index), group)),
-    //     )
-    // }
-
     #[inline]
     pub fn iter_render<C: ComponentController>(
         &self,
@@ -647,6 +630,38 @@ impl ComponentManager {
         self.set_mut_of(ComponentFilter::Active)
     }
 
+    pub fn sets_mut<'a>(
+        &'a mut self,
+        ids: &[(ComponentFilter<'a>, ComponentTypeId)],
+    ) -> Vec<RawSet<'a>> {
+        let mut result = Vec::with_capacity(ids.len());
+        for (index, value) in ids.iter().enumerate() {
+            for other in ids.iter().skip(index + 1) {
+                if value == other {
+                    panic!("Duplicate component type!");
+                }
+            }
+        }
+
+        // We can use unsafe here because we validate for no duplicates
+        unsafe {
+            for (filter, id) in ids {
+                let filter = *filter;
+                let (check, groups) = group_filter!(self, filter);
+                let idx = self.type_map.get(id).unwrap();
+                let ty = self.types.get(idx.0).unwrap();
+                let ptr = ty as *const _ as *mut _;
+                let component_type = &mut *ptr;
+                result.push(RawSet {
+                    groups,
+                    component_type,
+                    check,
+                });
+            }
+        }
+        return result;
+    }
+
     pub fn set_mut_of<'a, C: ComponentController>(
         &'a mut self,
         filter: ComponentFilter<'a>,
@@ -654,17 +669,6 @@ impl ComponentManager {
         let (check, groups) = group_filter!(self, filter);
         let ty = type_mut!(self, C);
         return ComponentSetMut::new(ty, groups, check);
-    }
-
-    pub fn validate(identifiers: &[ComponentTypeId]) -> bool {
-        for (index, value) in identifiers.iter().enumerate() {
-            for other in identifiers.iter().skip(index + 1) {
-                if value == other {
-                    return false;
-                }
-            }
-        }
-        return true;
     }
 
     #[inline]

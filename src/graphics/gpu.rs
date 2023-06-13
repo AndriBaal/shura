@@ -197,6 +197,14 @@ impl Gpu {
         SpriteSheet::new(self, bytes, sprites)
     }
 
+    pub fn create_sprite_sheet_from_amount(
+        &self,
+        bytes: &[u8],
+        sprites: Vector<usize>,
+    ) -> SpriteSheet {
+        SpriteSheet::from_amount(self, bytes, sprites)
+    }
+
     #[cfg(feature = "text")]
     pub fn create_font(&self, bytes: &'static [u8], max_chars: u64) -> FontBrush {
         FontBrush::new(self, bytes, max_chars).unwrap()

@@ -131,7 +131,7 @@ impl Bird {
             model: gpu.create_model(ModelBuilder::cuboid(Self::HALF_EXTENTS)),
             sprite: gpu.create_sprite_sheet(
                 include_bytes!("./sprites/yellowbird.png"),
-                Vector::new(3, 1),
+                Vector::new(17, 12),
             ),
             sink: audio.create_sink(),
             hit_sound: audio.create_sound(include_bytes!("./audio/hit.wav")),

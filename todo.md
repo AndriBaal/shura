@@ -4,8 +4,6 @@
 
 - Serialization of Groups
 
-- Expand SpriteSheet
-
 - Refactor of rounded Models
 
 - Tutorials and in depth documentation
