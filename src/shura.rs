@@ -532,6 +532,10 @@ impl Shura {
                 }
                 prev_priority = *priority;
             }
+
+            for render in ctx.scene_states.renders(prev_priority, i16::MAX) {
+                render(&ctx, &mut encoder);
+            }
         }
         let output_view = output
             .texture
