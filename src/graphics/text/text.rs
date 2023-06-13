@@ -13,6 +13,7 @@ pub enum TextAlignment {
 pub struct TextSection<'a> {
     pub alignment: TextAlignment,
     pub position: Vector<f32>,
+    /// Bounds in halt extents
     pub bounds: Vector<f32>,
     pub layout: Layout<BuiltInLineBreaker>,
     pub text: Vec<Text<'a>>,
@@ -41,6 +42,7 @@ impl<'a> TextSection<'a> {
         self.position.x -= camera_pos.x;
         self.position.y += camera_pos.y;
         self.position *= resolution;
+        self.bounds *= resolution * 2.0;
         let mut section = Section {
             screen_position: (self.position.x, self.position.y),
             bounds: (self.bounds.x, self.bounds.y),
