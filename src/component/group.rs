@@ -11,6 +11,8 @@ pub enum GroupActivation {
     Position { aabb: AABB },
     /// Group is always active
     Always,
+    /// Never
+    Never
 }
 
 /// Groups can be used like a chunk system to make huge 2D worlds possible or to just order your components.
@@ -39,6 +41,9 @@ impl Group {
             GroupActivation::Position { aabb } => return cam_aabb.intersects(aabb),
             GroupActivation::Always => {
                 return true;
+            },
+            GroupActivation::Never => {
+                return false;
             }
         }
     }

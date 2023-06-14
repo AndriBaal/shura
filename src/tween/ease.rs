@@ -12,7 +12,6 @@ pub enum EaseMethod {
 }
 
 impl EaseMethod {
-    #[must_use]
     pub fn sample(self, x: f32) -> f32 {
         match self {
             Self::EaseFunction(function) => x.calc(function),

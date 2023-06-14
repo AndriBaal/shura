@@ -154,6 +154,11 @@ impl Gpu {
         self.surface.configure(&self.device, &self.config);
     }
 
+    pub fn block(&self, handle: wgpu::SubmissionIndex) {
+        self.device
+            .poll(wgpu::MaintainBase::WaitForSubmissionIndex(handle));
+    }
+
     pub fn render_size(&self, scale: f32) -> Vector<u32> {
         Vector::new(
             (self.config.width as f32 * scale) as u32,
@@ -227,12 +232,6 @@ impl Gpu {
     ) -> RenderTarget {
         return RenderTarget::computed(self, defaults, texture_size, camera, compute);
     }
-
-    // pub fn submit_encoders(&self) {
-    //     let mut commands_ref = self.commands.lock().unwrap();
-    //     let commands = std::mem::replace(commands_ref.deref_mut(), vec![]);
-    //     self.queue.submit(commands);
-    // }
 }
 
 /// Base Wgpu objects needed to create any further graphics object.

@@ -526,10 +526,10 @@ impl Shura {
 
         #[cfg(feature = "gui")]
         ctx.gui.render(&ctx.gpu, &mut encoder.inner, &output_view);
-
-        encoder.finish();
+        let index = encoder.finish();
         output.present();
         if scene.switched || scene.resized || scene.screen_config.changed {
+            self.gpu.block(index);
             scene.screen_config.changed = false;
             scene.resized = false;
             #[cfg(feature = "log")]

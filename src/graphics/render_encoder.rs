@@ -241,7 +241,7 @@ impl<'a> RenderEncoder<'a> {
         return renderer;
     }
 
-    pub fn finish(self) {
-        self.gpu.queue.submit(Some(self.inner.finish()));
+    pub fn finish(self) -> wgpu::SubmissionIndex {
+        self.gpu.queue.submit(Some(self.inner.finish()))
     }
 }

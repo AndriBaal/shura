@@ -225,16 +225,19 @@ impl<T: Stepable> Tween<T> {
     }
 
     #[must_use]
+    pub fn with_progress(mut self, progress: f32) -> Self {
+        self.set_progress(progress);
+        self
+    }
+
     pub fn set_repeat_count(&mut self, count: impl Into<RepeatCount>) {
         self.total_duration = compute_total_duration(self.duration, count.into());
     }
 
-    #[must_use]
     pub fn set_repeat_strategy(&mut self, strategy: RepeatStrategy) {
         self.strategy = strategy;
     }
 
-    #[must_use]
     pub fn set_direction(&mut self, direction: TweeningDirection) {
         self.direction = direction;
     }
