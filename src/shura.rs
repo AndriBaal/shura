@@ -340,8 +340,8 @@ impl Shura {
     }
 
     fn update(&mut self) -> Result<(), wgpu::SurfaceError> {
-        if let Some(last) = shura.last_submission.take() {
-            shura.gpu.block(last);
+        if let Some(last) = self.last_submission.take() {
+            self.gpu.block(last);
         }
         let output = self.gpu.surface.get_current_texture()?;
         while let Some(remove) = self.scenes.remove.pop() {
