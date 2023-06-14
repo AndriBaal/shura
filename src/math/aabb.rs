@@ -9,7 +9,7 @@ pub struct AABB {
 }
 
 impl AABB {
-    pub fn new(min: Vector<f32>, max: Vector<f32>) -> Self {
+    pub const fn new(min: Vector<f32>, max: Vector<f32>) -> Self {
         Self { min, max }
     }
 
@@ -59,7 +59,14 @@ impl AABB {
         };
     }
 
-    pub fn rotated(&self, position: Isometry<f32>) -> Self {
+    pub fn with_translation(&self, translation: Vector<f32>) -> Self {
+        let mut model_aabb = self.clone();
+        model_aabb.min += translation;
+        model_aabb.max += translation;
+        return model_aabb;
+    }
+
+    pub fn with_position(&self, position: Isometry<f32>) -> Self {
         let mut model_aabb = self.clone();
         model_aabb.min += position.translation.vector;
         model_aabb.max += position.translation.vector;

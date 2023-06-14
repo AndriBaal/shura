@@ -703,6 +703,6 @@ impl Model {
     }
 
     pub fn aabb(&self, position: Isometry<f32>) -> AABB {
-        self.aabb.rotated(position)
+        self.aabb.with_position(position)
     }
 }

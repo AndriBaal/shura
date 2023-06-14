@@ -163,6 +163,11 @@ impl ShuraConfig {
                                 Err(wgpu::SurfaceError::OutOfMemory) => {
                                     *control_flow = winit::event_loop::ControlFlow::Exit
                                 }
+                                Err(wgpu::SurfaceError::Timeout) => {
+                                    if let Some(last) = shura.last_submission.take() {
+                                        shura.gpu.block(last);
+                                    }
+                                }
                                 Err(_e) => {
                                     #[cfg(feature = "log")]
                                     error!("Render Error: {:?}", _e)
@@ -499,9 +504,6 @@ impl Shura {
             &mut scene.world,
             &self.gpu,
         );
-        if let Some(last) = self.last_submission.take() {
-            self.gpu.block(last);
-        }
         let ctx = Context::new(self, scene);
         let mut encoder = RenderEncoder::new(ctx.gpu, &ctx.defaults);
         if let Some(clear_color) = ctx.screen_config.clear_color {
