@@ -359,7 +359,6 @@ impl Shura {
         }
 
         let scene = self.scenes.get_active_scene();
-        let last_submission = self.last_submission.take();
         let mut scene = scene.borrow_mut();
         let mut scene = scene.deref_mut();
         if let Some(max_frame_time) = scene.screen_config.max_frame_time() {
@@ -500,6 +499,9 @@ impl Shura {
             &mut scene.world,
             &self.gpu,
         );
+        if let Some(last) = self.last_submission.take() {
+            self.gpu.block(last);
+        }
         let ctx = Context::new(self, scene);
         let mut encoder = RenderEncoder::new(ctx.gpu, &ctx.defaults);
         if let Some(clear_color) = ctx.screen_config.clear_color {
@@ -529,10 +531,6 @@ impl Shura {
 
         #[cfg(feature = "gui")]
         ctx.gui.render(&ctx.gpu, &mut encoder.inner, &output_view);
-
-        if let Some(last) = last_submission {
-            ctx.gpu.block(last);
-        }
         self.last_submission = Some(encoder.finish());
         output.present();
         if scene.switched || scene.resized || scene.screen_config.changed {
