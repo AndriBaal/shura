@@ -340,10 +340,6 @@ impl Shura {
     }
 
     fn update(&mut self) -> Result<(), wgpu::SurfaceError> {
-        if let Some(last) = self.last_submission.take() {
-            self.gpu.block(last);
-        }
-        
         let output = self.gpu.surface.get_current_texture()?;
         while let Some(remove) = self.scenes.remove.pop() {
             if let Some(removed) = self.scenes.scenes.remove(&remove) {
@@ -363,6 +359,7 @@ impl Shura {
         }
 
         let scene = self.scenes.get_active_scene();
+        let last_submission = self.last_submission.take();
         let mut scene = scene.borrow_mut();
         let mut scene = scene.deref_mut();
         if let Some(max_frame_time) = scene.screen_config.max_frame_time() {
@@ -532,6 +529,10 @@ impl Shura {
 
         #[cfg(feature = "gui")]
         ctx.gui.render(&ctx.gpu, &mut encoder.inner, &output_view);
+
+        if let Some(last) = last_submission {
+            ctx.gpu.block(last);
+        }
         self.last_submission = Some(encoder.finish());
         output.present();
         if scene.switched || scene.resized || scene.screen_config.changed {
