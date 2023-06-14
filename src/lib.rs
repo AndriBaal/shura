@@ -61,6 +61,11 @@ pub mod audio {
     pub use rodio::*;
 }
 
+/// Access to [image](https://github.com/image-rs/image)
+pub mod image {
+    pub use image::*;
+}
+
 // Rapier2d
 #[cfg(feature = "physics")]
 mod world;
