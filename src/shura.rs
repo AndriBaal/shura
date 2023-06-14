@@ -217,6 +217,7 @@ pub struct Shura {
     pub gui: Gui,
     #[cfg(feature = "audio")]
     pub audio: AudioManager,
+    last_submission: Option<wgpu::SubmissionIndex>,
     #[cfg(target_arch = "wasm32")]
     pub auto_scale_canvas: bool,
 }
@@ -249,6 +250,7 @@ impl Shura {
             defaults,
             #[cfg(target_arch = "wasm32")]
             auto_scale_canvas,
+            last_submission: None,
         }
     }
 
@@ -338,6 +340,10 @@ impl Shura {
     }
 
     fn update(&mut self) -> Result<(), wgpu::SurfaceError> {
+        if let Some(last) = self.last_submission.take() {
+            self.gpu.block(last);
+        }
+        
         let output = self.gpu.surface.get_current_texture()?;
         while let Some(remove) = self.scenes.remove.pop() {
             if let Some(removed) = self.scenes.scenes.remove(&remove) {
@@ -526,10 +532,9 @@ impl Shura {
 
         #[cfg(feature = "gui")]
         ctx.gui.render(&ctx.gpu, &mut encoder.inner, &output_view);
-        let index = encoder.finish();
+        self.last_submission = Some(encoder.finish());
         output.present();
         if scene.switched || scene.resized || scene.screen_config.changed {
-            self.gpu.block(index);
             scene.screen_config.changed = false;
             scene.resized = false;
             #[cfg(feature = "log")]
