@@ -163,11 +163,6 @@ impl ShuraConfig {
                                 Err(wgpu::SurfaceError::OutOfMemory) => {
                                     *control_flow = winit::event_loop::ControlFlow::Exit
                                 }
-                                Err(wgpu::SurfaceError::Timeout) => {
-                                    if let Some(last) = shura.last_submission.take() {
-                                        shura.gpu.block(last);
-                                    }
-                                }
                                 Err(_e) => {
                                     #[cfg(feature = "log")]
                                     error!("Render Error: {:?}", _e)
@@ -345,6 +340,9 @@ impl Shura {
     }
 
     fn update(&mut self) -> Result<(), wgpu::SurfaceError> {
+        if let Some(last) = shura.last_submission.take() {
+            shura.gpu.block(last);
+        }
         let output = self.gpu.surface.get_current_texture()?;
         while let Some(remove) = self.scenes.remove.pop() {
             if let Some(removed) = self.scenes.scenes.remove(&remove) {
