@@ -110,7 +110,7 @@ impl ComponentController for Bunny {
 
         let frame = ctx.frame.frame_time();
         let fov = ctx.world_camera.fov();
-        for bunny in ctx.components.iter_mut::<Self>() {
+        ctx.components.for_each_mut::<Self>(|bunny| {
             let mut linvel = bunny.linvel;
             let mut translation = bunny.base.translation();
 
@@ -133,14 +133,15 @@ impl ComponentController for Bunny {
             }
             bunny.linvel = linvel;
             bunny.base.set_translation(translation);
-        }
+        });
     }
 
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {
         let scene = ctx.scene_states.get::<BunnyState>();
-        encoder.render_all::<Self>(ctx, RenderConfig::WORLD, |r, instances| {
-            r.render_sprite(instances, &scene.bunny_model, &scene.bunny_sprite)
-        });
+        ctx.components
+            .render_all::<Self>(encoder, RenderConfig::WORLD, |r, instances| {
+                r.render_sprite(instances, &scene.bunny_model, &scene.bunny_sprite)
+            });
         if let Some(screenshot) = &scene.screenshot {
             encoder.copy_to_target(&ctx.defaults.world_target, &screenshot);
         }

@@ -1,5 +1,6 @@
 use crate::audio::{AudioSink, Sound};
 
+// Thin wrapper around rodio
 pub struct AudioManager {
     pub output_stream: rodio::OutputStream,
     pub output_handle: rodio::OutputStreamHandle,
@@ -12,6 +13,19 @@ impl AudioManager {
             output_stream,
             output_handle,
         };
+    }
+
+    pub fn play_once(&self, sound: &Sound) {
+        self.output_handle
+            .play_once(std::io::Cursor::new(sound.0))
+            .unwrap()
+            .detach()
+    }
+
+    pub fn play_once_and(&self, sound: &Sound) -> AudioSink {
+        self.output_handle
+            .play_once(std::io::Cursor::new(sound.0))
+            .unwrap()
     }
 
     pub fn create_sink(&self) -> AudioSink {

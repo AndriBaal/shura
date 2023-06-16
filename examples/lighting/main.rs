@@ -168,9 +168,10 @@ impl ComponentController for Obstacle {
     };
 
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {
-        encoder.render_each::<Self>(ctx, RenderConfig::WORLD, |renderer, o, i| {
-            renderer.render_color(i, &o.model, &o.color)
-        });
+        ctx.components
+            .render_each::<Self>(encoder, RenderConfig::WORLD, |renderer, o, i| {
+                renderer.render_color(i, &o.model, &o.color)
+            });
     }
 }
 
@@ -353,19 +354,17 @@ impl ComponentController for Light {
                 clear_color: Some(Color::TRANSPARENT),
                 ..RenderConfig::WORLD
             });
-            for (buffer, lights) in ctx.components.iter_render::<Self>() {
+            for (buffer, instance, light) in ctx.components.iter_render::<Self>() {
                 renderer.use_instances(buffer);
-                for (i, light) in lights {
-                    renderer.use_shader(&state.light_shader);
-                    renderer.use_model(&light.light_model);
-                    renderer.use_uniform(&light.light_color, 1);
-                    renderer.draw(i);
+                renderer.use_shader(&state.light_shader);
+                renderer.use_model(&light.light_model);
+                renderer.use_uniform(&light.light_color, 1);
+                renderer.draw(instance);
 
-                    for shadow in &light.shadows {
-                        renderer.use_shader(&state.shadow_shader);
-                        renderer.use_model(shadow);
-                        renderer.draw(i);
-                    }
+                for shadow in &light.shadows {
+                    renderer.use_shader(&state.shadow_shader);
+                    renderer.use_model(shadow);
+                    renderer.draw(instance);
                 }
             }
         }

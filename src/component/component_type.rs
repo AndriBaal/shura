@@ -7,8 +7,9 @@ use crate::physics::{CollideType, ColliderHandle, World, WorldChanges};
 
 use crate::{
     data::arena::ArenaEntry, Arena, BoxedComponent, BufferOperation, ComponentConfig,
-    ComponentController, ComponentDerive, ComponentHandle, ComponentIndex, Context, EndReason, Gpu,
-    Group, GroupHandle, InstanceBuffer, InstanceIndex, Matrix, RenderEncoder, TypeIndex,
+    ComponentController, ComponentDerive, ComponentHandle, ComponentIndex, ComponentStorage,
+    Context, EndReason, Gpu, Group, GroupHandle, InstanceBuffer, InstanceIndex, InstanceIndices,
+    Matrix, RenderConfig, RenderEncoder, Renderer, TypeIndex,
 };
 
 #[derive(Clone, Copy)]
@@ -71,12 +72,34 @@ pub trait ComponentIdentifier {
     const IDENTIFIER: ComponentTypeId;
 }
 
+#[cfg(feature = "serde")]
+fn default_true() -> bool {
+    true
+}
+
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub(crate) enum ComponentTypeStorage {
+    Single {
+        #[cfg_attr(feature = "serde", serde(skip))]
+        #[cfg_attr(feature = "serde", serde(default))]
+        buffer: Option<InstanceBuffer>,
+        #[cfg_attr(feature = "serde", serde(skip))]
+        #[cfg_attr(feature = "serde", serde(default = "default_true"))]
+        force_buffer: bool,
+        #[cfg_attr(feature = "serde", serde(skip))]
+        #[cfg_attr(feature = "serde", serde(default))]
+        component: Option<BoxedComponent>,
+    },
+    Multiple(ComponentTypeGroup),
+    MultipleGroups(Arena<ComponentTypeGroup>),
+}
+
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct ComponentTypeGroup {
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
     pub components: Arena<BoxedComponent>,
-    pub force_buffer: bool,
+    force_buffer: bool,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
     buffer: Option<InstanceBuffer>,
@@ -104,35 +127,6 @@ impl ComponentTypeGroup {
             })
             .collect::<Vec<Matrix>>()
     }
-
-    pub fn buffer(
-        &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
-        every_frame: bool,
-        gpu: &Gpu,
-    ) {
-        let new_len = self.components.len();
-        if new_len != self.last_len {
-            // We have to resize the buffer
-            let instances = self.instances(
-                #[cfg(feature = "physics")]
-                world,
-            );
-            self.last_len = new_len;
-            self.buffer = Some(InstanceBuffer::new(gpu, &instances[..]));
-        } else if every_frame || self.force_buffer {
-            let instances = self.instances(
-                #[cfg(feature = "physics")]
-                world,
-            );
-            self.force_buffer = false;
-            if let Some(buffer) = &mut self.buffer {
-                buffer.write(gpu, &instances[..]);
-            } else {
-                self.buffer = Some(InstanceBuffer::new(gpu, &instances));
-            }
-        }
-    }
 }
 
 pub(crate) struct CallableType {
@@ -159,9 +153,9 @@ pub(crate) struct ComponentType {
     index: TypeIndex,
     type_id: ComponentTypeId,
     config: ComponentConfig,
-    pub groups: Arena<ComponentTypeGroup>,
+    pub storage: ComponentTypeStorage,
     #[cfg(feature = "physics")]
-    pub world_changes: WorldChanges,
+    world_changes: WorldChanges,
 }
 
 impl ComponentType {
@@ -170,30 +164,42 @@ impl ComponentType {
         index: TypeIndex,
         group_structure: &Arena<Group>,
     ) -> Self {
-        let groups = Arena {
-            items: group_structure
-                .items
-                .iter()
-                .map(|entry| match *entry {
-                    ArenaEntry::Free { next_free } => ArenaEntry::Free { next_free },
-                    ArenaEntry::Occupied { generation, .. } => ArenaEntry::Occupied {
-                        generation,
-                        data: ComponentTypeGroup::new(),
-                    },
-                })
-                .collect(),
-            generation: group_structure.generation,
-            free_list_head: group_structure.free_list_head,
-            len: group_structure.len(),
+        let storage = match config.storage {
+            ComponentStorage::Single => ComponentTypeStorage::Single {
+                buffer: None,
+                force_buffer: true,
+                component: None,
+            },
+            ComponentStorage::Multiple => ComponentTypeStorage::Multiple(ComponentTypeGroup::new()),
+            ComponentStorage::Groups => ComponentTypeStorage::MultipleGroups(Arena {
+                items: group_structure
+                    .items
+                    .iter()
+                    .map(|entry| match *entry {
+                        ArenaEntry::Free { next_free } => ArenaEntry::Free { next_free },
+                        ArenaEntry::Occupied { generation, .. } => ArenaEntry::Occupied {
+                            generation,
+                            data: ComponentTypeGroup::new(),
+                        },
+                    })
+                    .collect(),
+                generation: group_structure.generation,
+                free_list_head: group_structure.free_list_head,
+                len: group_structure.len(),
+            }),
         };
         Self {
             index,
-            groups,
+            storage,
             config,
             type_id: C::IDENTIFIER,
             #[cfg(feature = "physics")]
             world_changes: WorldChanges::new(),
         }
+    }
+
+    pub fn component_type_id(&self) -> ComponentTypeId {
+        self.type_id
     }
 
     pub(crate) fn buffer(
@@ -206,33 +212,102 @@ impl ComponentType {
             return;
         }
 
-        let every_frame = self.config.buffer == BufferOperation::EveryFrame;
-        for index in active {
-            let group = &mut self.groups[index.0];
-            group.buffer(
-                #[cfg(feature = "physics")]
-                world,
-                every_frame,
-                gpu,
-            );
+        match &mut self.storage {
+            ComponentTypeStorage::MultipleGroups(groups) => {
+                for index in active {
+                    let group = &mut groups[index.0];
+                    let new_len = group.components.len();
+                    if new_len != group.last_len {
+                        // We have to resize the buffer
+                        let instances = group.instances(
+                            #[cfg(feature = "physics")]
+                            world,
+                        );
+                        group.last_len = new_len;
+                        group.buffer = Some(InstanceBuffer::new(gpu, &instances[..]));
+                    } else if self.config.buffer == BufferOperation::EveryFrame
+                        || group.force_buffer
+                    {
+                        let instances = group.instances(
+                            #[cfg(feature = "physics")]
+                            world,
+                        );
+                        group.force_buffer = false;
+                        if let Some(buffer) = &mut group.buffer {
+                            buffer.write(gpu, &instances[..]);
+                        } else {
+                            group.buffer = Some(InstanceBuffer::new(gpu, &instances));
+                        }
+                    }
+                }
+            }
+            ComponentTypeStorage::Multiple(multiple) => {
+                let new_len = multiple.components.len();
+                if new_len != multiple.last_len {
+                    // We have to resize the buffer
+                    let instances = multiple.instances(
+                        #[cfg(feature = "physics")]
+                        world,
+                    );
+                    multiple.last_len = new_len;
+                    multiple.buffer = Some(InstanceBuffer::new(gpu, &instances[..]));
+                } else if self.config.buffer == BufferOperation::EveryFrame || multiple.force_buffer
+                {
+                    let instances = multiple.instances(
+                        #[cfg(feature = "physics")]
+                        world,
+                    );
+                    multiple.force_buffer = false;
+                    if let Some(buffer) = &mut multiple.buffer {
+                        buffer.write(gpu, &instances[..]);
+                    } else {
+                        multiple.buffer = Some(InstanceBuffer::new(gpu, &instances));
+                    }
+                }
+            }
+            ComponentTypeStorage::Single {
+                buffer,
+                force_buffer,
+                component,
+            } => {
+                if let Some(component) = component {
+                    if self.config.buffer == BufferOperation::EveryFrame || *force_buffer {
+                        let matrix = component.base().matrix(
+                            #[cfg(feature = "physics")]
+                            world,
+                        );
+                        *force_buffer = false;
+                        if let Some(buffer) = buffer {
+                            buffer.write(gpu, &[matrix]);
+                        } else {
+                            *buffer = Some(InstanceBuffer::new(gpu, &[matrix]));
+                        }
+                    }
+                }
+            }
         }
     }
 
-    pub(crate) fn add_group(&mut self) -> GroupHandle {
-        let index = self.groups.insert(ComponentTypeGroup::new());
-        return GroupHandle(index);
+    pub(crate) fn add_group(&mut self) {
+        match &mut self.storage {
+            ComponentTypeStorage::MultipleGroups(groups) => {
+                groups.insert(ComponentTypeGroup::new());
+            }
+            _ => {}
+        }
     }
 
     pub(crate) fn remove_group(&mut self, handle: GroupHandle) {
-        let _group = self.groups.remove(handle.0).unwrap();
-        #[cfg(feature = "physics")]
-        for component in _group.components {
-            self.world_changes.register_remove(&component);
+        match &mut self.storage {
+            ComponentTypeStorage::MultipleGroups(groups) => {
+                let _group = groups.remove(handle.0).unwrap();
+                #[cfg(feature = "physics")]
+                for component in _group.components {
+                    self.world_changes.register_remove(&component);
+                }
+            }
+            _ => {}
         }
-    }
-
-    pub fn component_type_id(&self) -> ComponentTypeId {
-        self.type_id
     }
 
     #[cfg(feature = "physics")]
@@ -240,38 +315,85 @@ impl ComponentType {
         self.world_changes.apply(world)
     }
 
-    pub fn each<C: ComponentController>(&self, groups: &[GroupHandle], mut each: impl FnMut(&C)) {
-        for group in groups {
-            if let Some(group) = self.groups.get(group.0) {
-                for (_, component) in &group.components {
+    pub fn for_each<C: ComponentController>(
+        &self,
+        group_handles: &[GroupHandle],
+        mut each: impl FnMut(&C),
+    ) {
+        match &self.storage {
+            ComponentTypeStorage::Single { component, .. } => {
+                if let Some(component) = component {
                     (each)(component.downcast_ref::<C>().unwrap());
                 }
             }
-        }
+            ComponentTypeStorage::Multiple(multiple) => {
+                for (_, component) in &multiple.components {
+                    (each)(component.downcast_ref::<C>().unwrap());
+                }
+            }
+            ComponentTypeStorage::MultipleGroups(groups) => {
+                for group in group_handles {
+                    if let Some(group) = groups.get(group.0) {
+                        for (_, component) in &group.components {
+                            (each)(component.downcast_ref::<C>().unwrap());
+                        }
+                    }
+                }
+            }
+        };
     }
 
-    pub fn each_mut<C: ComponentController>(
+    pub fn for_each_mut<C: ComponentController>(
         &mut self,
-        groups: &[GroupHandle],
+        group_handles: &[GroupHandle],
         mut each: impl FnMut(&mut C),
     ) {
-        for group in groups {
-            if let Some(group) = self.groups.get_mut(group.0) {
-                for (_, component) in &mut group.components {
+        match &mut self.storage {
+            ComponentTypeStorage::Single { component, .. } => {
+                if let Some(component) = component {
                     (each)(component.downcast_mut::<C>().unwrap());
                 }
             }
-        }
+            ComponentTypeStorage::Multiple(multiple) => {
+                for (_, component) in &mut multiple.components {
+                    (each)(component.downcast_mut::<C>().unwrap());
+                }
+            }
+            ComponentTypeStorage::MultipleGroups(groups) => {
+                for group in group_handles {
+                    if let Some(group) = groups.get_mut(group.0) {
+                        for (_, component) in &mut group.components {
+                            (each)(component.downcast_mut::<C>().unwrap());
+                        }
+                    }
+                }
+            }
+        };
     }
 
     pub fn retain<C: ComponentController>(
         &mut self,
-        groups: &[GroupHandle],
+        group_handles: &[GroupHandle],
         mut keep: impl FnMut(&mut C) -> bool,
     ) {
-        for group in groups {
-            if let Some(group) = self.groups.get_mut(group.0) {
-                group.components.retain(|_, component| {
+        match &mut self.storage {
+            ComponentTypeStorage::Single {
+                force_buffer,
+                component,
+                ..
+            } => {
+                if let Some(c) = component {
+                    let c = c.downcast_mut::<C>().unwrap();
+                    #[cfg(feature = "physics")]
+                    self.world_changes.register_remove(c);
+                    if !keep(c) {
+                        *force_buffer = true;
+                        *component = None;
+                    }
+                }
+            }
+            ComponentTypeStorage::Multiple(multiple) => {
+                multiple.components.retain(|_, component| {
                     let component = component.downcast_mut::<C>().unwrap();
                     if keep(component) {
                         true
@@ -282,16 +404,50 @@ impl ComponentType {
                     }
                 });
             }
-        }
+            ComponentTypeStorage::MultipleGroups(groups) => {
+                for group in group_handles {
+                    if let Some(group) = groups.get_mut(group.0) {
+                        group.components.retain(|_, component| {
+                            let component = component.downcast_mut::<C>().unwrap();
+                            if keep(component) {
+                                true
+                            } else {
+                                #[cfg(feature = "physics")]
+                                self.world_changes.register_remove(component);
+                                false
+                            }
+                        });
+                    }
+                }
+            }
+        };
     }
 
     pub fn index<C: ComponentController>(&self, group: GroupHandle, index: usize) -> Option<&C> {
-        if let Some(group) = self.groups.get(group.0) {
-            if let Some(component) = group.components.get_unknown_gen(index) {
-                return component.downcast_ref::<C>();
+        match &self.storage {
+            ComponentTypeStorage::Single { component, .. } => {
+                if index == 0 {
+                    if let Some(c) = component {
+                        return c.downcast_ref::<C>();
+                    }
+                }
+                return None;
             }
-        }
-        return None;
+            ComponentTypeStorage::Multiple(multiple) => {
+                if let Some(component) = multiple.components.get_unknown_gen(index) {
+                    return component.downcast_ref::<C>();
+                }
+                return None;
+            }
+            ComponentTypeStorage::MultipleGroups(groups) => {
+                if let Some(group) = groups.get(group.0) {
+                    if let Some(component) = group.components.get_unknown_gen(index) {
+                        return component.downcast_ref::<C>();
+                    }
+                }
+                return None;
+            }
+        };
     }
 
     pub fn index_mut<C: ComponentController>(
@@ -299,30 +455,80 @@ impl ComponentType {
         group: GroupHandle,
         index: usize,
     ) -> Option<&mut C> {
-        if let Some(group) = self.groups.get_mut(group.0) {
-            if let Some(component) = group.components.get_unknown_gen_mut(index) {
-                return component.downcast_mut::<C>();
+        match &mut self.storage {
+            ComponentTypeStorage::Single { component, .. } => {
+                if index == 0 {
+                    if let Some(c) = component {
+                        return c.downcast_mut::<C>();
+                    }
+                }
+                return None;
             }
-        }
-        return None;
+            ComponentTypeStorage::Multiple(multiple) => {
+                if let Some(component) = multiple.components.get_unknown_gen_mut(index) {
+                    return component.downcast_mut::<C>();
+                }
+                return None;
+            }
+            ComponentTypeStorage::MultipleGroups(groups) => {
+                if let Some(group) = groups.get_mut(group.0) {
+                    if let Some(component) = group.components.get_unknown_gen_mut(index) {
+                        return component.downcast_mut::<C>();
+                    }
+                }
+                return None;
+            }
+        };
     }
 
     pub fn get<C: ComponentController>(&self, handle: ComponentHandle) -> Option<&C> {
-        if let Some(group) = self.groups.get(handle.group_handle().0) {
-            if let Some(component) = group.components.get(handle.component_index().0) {
-                return component.downcast_ref::<C>();
+        match &self.storage {
+            ComponentTypeStorage::Single { component, .. } => {
+                if let Some(c) = component {
+                    return c.downcast_ref::<C>();
+                }
+                return None;
             }
-        }
-        return None;
+            ComponentTypeStorage::Multiple(multiple) => {
+                if let Some(component) = multiple.components.get(handle.component_index().0) {
+                    return component.downcast_ref::<C>();
+                }
+                return None;
+            }
+            ComponentTypeStorage::MultipleGroups(groups) => {
+                if let Some(group) = groups.get(handle.group_handle().0) {
+                    if let Some(component) = group.components.get(handle.component_index().0) {
+                        return component.downcast_ref::<C>();
+                    }
+                }
+                return None;
+            }
+        };
     }
 
     pub fn get_mut<C: ComponentController>(&mut self, handle: ComponentHandle) -> Option<&mut C> {
-        if let Some(group) = self.groups.get_mut(handle.group_handle().0) {
-            if let Some(component) = group.components.get_mut(handle.component_index().0) {
-                return component.downcast_mut::<C>();
+        match &mut self.storage {
+            ComponentTypeStorage::Single { component, .. } => {
+                if let Some(c) = component {
+                    return c.downcast_mut::<C>();
+                }
+                return None;
             }
-        }
-        return None;
+            ComponentTypeStorage::Multiple(multiple) => {
+                if let Some(component) = multiple.components.get_mut(handle.component_index().0) {
+                    return component.downcast_mut::<C>();
+                }
+                return None;
+            }
+            ComponentTypeStorage::MultipleGroups(groups) => {
+                if let Some(group) = groups.get_mut(handle.group_handle().0) {
+                    if let Some(component) = group.components.get_mut(handle.component_index().0) {
+                        return component.downcast_mut::<C>();
+                    }
+                }
+                return None;
+            }
+        };
     }
 
     pub fn get2_mut<C1: ComponentController, C2: ComponentController>(
@@ -330,11 +536,14 @@ impl ComponentType {
         handle1: ComponentHandle,
         handle2: ComponentHandle,
     ) -> (Option<&mut C1>, Option<&mut C2>) {
-        let mut c1 = None;
-        let mut c2 = None;
-        if handle1.group_handle() == handle2.group_handle() {
-            if let Some(group) = self.groups.get_mut(handle1.group_handle().0) {
-                let result = group
+        match &mut self.storage {
+            ComponentTypeStorage::Single { .. } => {
+                panic!("Cannot get 2 on component with ComponentStorage::Single!");
+            }
+            ComponentTypeStorage::Multiple(multiple) => {
+                let mut c1 = None;
+                let mut c2 = None;
+                let result = multiple
                     .components
                     .get2_mut(handle1.component_index().0, handle2.component_index().0);
                 if let Some(component) = result.0 {
@@ -343,24 +552,45 @@ impl ComponentType {
                 if let Some(component) = result.1 {
                     c2 = component.downcast_mut::<C2>();
                 }
+                return (c1, c2);
             }
-        } else {
-            let (group1, group2) = self
-                .groups
-                .get2_mut(handle1.group_handle().0, handle2.group_handle().0);
-            if let Some(group) = group1 {
-                if let Some(component) = group.components.get_mut(handle1.component_index().0) {
-                    c1 = component.downcast_mut::<C1>();
-                }
-            }
+            ComponentTypeStorage::MultipleGroups(groups) => {
+                let mut c1 = None;
+                let mut c2 = None;
+                if handle1.group_handle() == handle2.group_handle() {
+                    if let Some(group) = groups.get_mut(handle1.group_handle().0) {
+                        let result = group
+                            .components
+                            .get2_mut(handle1.component_index().0, handle2.component_index().0);
+                        if let Some(component) = result.0 {
+                            c1 = component.downcast_mut::<C1>();
+                        }
+                        if let Some(component) = result.1 {
+                            c2 = component.downcast_mut::<C2>();
+                        }
+                    }
+                } else {
+                    let (group1, group2) =
+                        groups.get2_mut(handle1.group_handle().0, handle2.group_handle().0);
+                    if let Some(group) = group1 {
+                        if let Some(component) =
+                            group.components.get_mut(handle1.component_index().0)
+                        {
+                            c1 = component.downcast_mut::<C1>();
+                        }
+                    }
 
-            if let Some(group) = group2 {
-                if let Some(component) = group.components.get_mut(handle2.component_index().0) {
-                    c2 = component.downcast_mut::<C2>();
+                    if let Some(group) = group2 {
+                        if let Some(component) =
+                            group.components.get_mut(handle2.component_index().0)
+                        {
+                            c2 = component.downcast_mut::<C2>();
+                        }
+                    }
                 }
+                return (c1, c2);
             }
-        }
-        return (c1, c2);
+        };
     }
 
     pub fn get2_mut_boxed(
@@ -368,122 +598,233 @@ impl ComponentType {
         handle1: ComponentHandle,
         handle2: ComponentHandle,
     ) -> (Option<&mut BoxedComponent>, Option<&mut BoxedComponent>) {
-        let mut c1 = None;
-        let mut c2 = None;
-        if handle1.group_handle() == handle2.group_handle() {
-            if let Some(group) = self.groups.get_mut(handle1.group_handle().0) {
-                (c1, c2) = group
+        match &mut self.storage {
+            ComponentTypeStorage::Single { .. } => {
+                panic!("Cannot get 2 on component with ComponentStorage::Single!");
+            }
+            ComponentTypeStorage::Multiple(multiple) => {
+                return multiple
                     .components
                     .get2_mut(handle1.component_index().0, handle2.component_index().0);
             }
-        } else {
-            let (group1, group2) = self
-                .groups
-                .get2_mut(handle1.group_handle().0, handle2.group_handle().0);
-            if let Some(group) = group1 {
-                c1 = group.components.get_mut(handle1.component_index().0);
-            }
+            ComponentTypeStorage::MultipleGroups(groups) => {
+                let mut c1 = None;
+                let mut c2 = None;
+                if handle1.group_handle() == handle2.group_handle() {
+                    if let Some(group) = groups.get_mut(handle1.group_handle().0) {
+                        (c1, c2) = group
+                            .components
+                            .get2_mut(handle1.component_index().0, handle2.component_index().0);
+                    }
+                } else {
+                    let (group1, group2) =
+                        groups.get2_mut(handle1.group_handle().0, handle2.group_handle().0);
+                    if let Some(group) = group1 {
+                        c1 = group.components.get_mut(handle1.component_index().0);
+                    }
 
-            if let Some(group) = group2 {
-                c2 = group.components.get_mut(handle2.component_index().0);
+                    if let Some(group) = group2 {
+                        c2 = group.components.get_mut(handle2.component_index().0);
+                    }
+                }
+                return (c1, c2);
             }
-        }
-        return (c1, c2);
+        };
     }
 
     pub fn get_boxed(&self, handle: ComponentHandle) -> Option<&BoxedComponent> {
-        if let Some(group) = self.groups.get(handle.group_handle().0) {
-            return group.components.get(handle.component_index().0);
-        }
-        return None;
+        match &self.storage {
+            ComponentTypeStorage::Single { component, .. } => {
+                return component.as_ref();
+            }
+            ComponentTypeStorage::Multiple(multiple) => {
+                return multiple.components.get(handle.component_index().0);
+            }
+            ComponentTypeStorage::MultipleGroups(groups) => {
+                if let Some(group) = groups.get(handle.group_handle().0) {
+                    return group.components.get(handle.component_index().0);
+                }
+                return None;
+            }
+        };
     }
 
     pub fn get_boxed_mut(&mut self, handle: ComponentHandle) -> Option<&mut BoxedComponent> {
-        if let Some(group) = self.groups.get_mut(handle.group_handle().0) {
-            return group.components.get_mut(handle.component_index().0);
-        }
-        return None;
+        match &mut self.storage {
+            ComponentTypeStorage::Single { component, .. } => {
+                return component.as_mut();
+            }
+            ComponentTypeStorage::Multiple(multiple) => {
+                return multiple.components.get_mut(handle.component_index().0);
+            }
+            ComponentTypeStorage::MultipleGroups(groups) => {
+                if let Some(group) = groups.get_mut(handle.group_handle().0) {
+                    return group.components.get_mut(handle.component_index().0);
+                }
+                return None;
+            }
+        };
     }
 
     pub fn remove<C: ComponentController>(&mut self, handle: ComponentHandle) -> Option<C> {
-        if let Some(group) = self.groups.get_mut(handle.group_handle().0) {
-            if let Some(component) = group.components.remove(handle.component_index().0) {
-                #[cfg(feature = "physics")]
-                self.world_changes.register_remove(&component);
-                return component.downcast::<C>().ok().and_then(|b| Some(*b));
+        match &mut self.storage {
+            ComponentTypeStorage::Single {
+                force_buffer,
+                component,
+                ..
+            } => {
+                if let Some(component) = component.take() {
+                    #[cfg(feature = "physics")]
+                    self.world_changes.register_remove(&component);
+                    *force_buffer = true;
+                    return component.downcast::<C>().ok().and_then(|b| Some(*b));
+                }
+                return None;
             }
-        }
-        return None;
+            ComponentTypeStorage::Multiple(multiple) => {
+                if let Some(component) = multiple.components.remove(handle.component_index().0) {
+                    #[cfg(feature = "physics")]
+                    self.world_changes.register_remove(&component);
+                    return component.downcast::<C>().ok().and_then(|b| Some(*b));
+                }
+                return None;
+            }
+            ComponentTypeStorage::MultipleGroups(groups) => {
+                if let Some(group) = groups.get_mut(handle.group_handle().0) {
+                    if let Some(component) = group.components.remove(handle.component_index().0) {
+                        #[cfg(feature = "physics")]
+                        self.world_changes.register_remove(&component);
+                        return component.downcast::<C>().ok().and_then(|b| Some(*b));
+                    }
+                }
+                return None;
+            }
+        };
     }
 
     pub fn remove_boxed(&mut self, handle: ComponentHandle) -> Option<BoxedComponent> {
-        if let Some(group) = self.groups.get_mut(handle.group_handle().0) {
-            if let Some(component) = group.components.remove(handle.component_index().0) {
-                #[cfg(feature = "physics")]
-                self.world_changes.register_remove(&component);
-                return Some(component);
+        match &mut self.storage {
+            ComponentTypeStorage::Single {
+                force_buffer,
+                component,
+                ..
+            } => {
+                if let Some(component) = component.take() {
+                    #[cfg(feature = "physics")]
+                    self.world_changes.register_remove(&component);
+                    *force_buffer = true;
+                    return Some(component);
+                }
+                return None;
             }
-        }
-        return None;
+            ComponentTypeStorage::Multiple(multiple) => {
+                if let Some(component) = multiple.components.remove(handle.component_index().0) {
+                    #[cfg(feature = "physics")]
+                    self.world_changes.register_remove(&component);
+                    return Some(component);
+                }
+                return None;
+            }
+            ComponentTypeStorage::MultipleGroups(groups) => {
+                if let Some(group) = groups.get_mut(handle.group_handle().0) {
+                    if let Some(component) = group.components.remove(handle.component_index().0) {
+                        #[cfg(feature = "physics")]
+                        self.world_changes.register_remove(&component);
+                        return Some(component);
+                    }
+                }
+                return None;
+            }
+        };
     }
 
-    pub fn remove_all<C: ComponentController>(
-        &mut self,
-        groups: &[GroupHandle],
-    ) -> Vec<(GroupHandle, Vec<C>)> {
-        let mut result = Vec::with_capacity(groups.len());
-        for group_handle in groups {
-            if let Some(group) = self.groups.get_mut(group_handle.0) {
-                let components = std::mem::replace(&mut group.components, Default::default());
-                let mut casted = Vec::with_capacity(components.len());
+    pub fn remove_all<C: ComponentController>(&mut self, group_handles: &[GroupHandle]) -> Vec<C> {
+        match &mut self.storage {
+            ComponentTypeStorage::Single {
+                force_buffer,
+                component,
+                ..
+            } => {
+                let mut result = Vec::with_capacity(1);
+                if let Some(component) = component.take() {
+                    #[cfg(feature = "physics")]
+                    self.world_changes.register_remove(&component);
+                    *force_buffer = true;
+                    result.push(*component.downcast::<C>().ok().unwrap());
+                }
+                return result;
+            }
+            ComponentTypeStorage::Multiple(multiple) => {
+                let mut result = Vec::with_capacity(multiple.components.len());
+                let components = std::mem::replace(&mut multiple.components, Default::default());
                 for component in components {
                     #[cfg(feature = "physics")]
                     self.world_changes.register_remove(&component);
-                    casted.push(*component.downcast::<C>().ok().unwrap())
+                    result.push(*component.downcast::<C>().ok().unwrap())
                 }
-                result.push((*group_handle, casted));
+                return result;
             }
-        }
-        return result;
+            ComponentTypeStorage::MultipleGroups(groups) => {
+                let mut result = Vec::new();
+                for group_handle in group_handles {
+                    if let Some(group) = groups.get_mut(group_handle.0) {
+                        let components =
+                            std::mem::replace(&mut group.components, Default::default());
+                        for component in components {
+                            #[cfg(feature = "physics")]
+                            self.world_changes.register_remove(&component);
+                            result.push(*component.downcast::<C>().ok().unwrap());
+                        }
+                    }
+                }
+                return result;
+            }
+        };
     }
 
     pub fn add<C: ComponentDerive + ComponentController>(
         &mut self,
         group_handle: GroupHandle,
-        component: C,
+        new: C,
     ) -> ComponentHandle {
-        assert_eq!(C::IDENTIFIER, self.type_id);
-        let group = &mut self.groups[group_handle.0];
-        let mut handle = Default::default();
-        group.components.insert_with(|idx| {
-            handle = ComponentHandle::new(ComponentIndex(idx), self.index, group_handle);
-            #[cfg(feature = "physics")]
-            self.world_changes.register_add(handle, &component);
-            Box::new(component)
-        });
-        return handle;
-    }
-
-    pub fn add_many<C: ComponentController>(
-        &mut self,
-        group_handle: GroupHandle,
-        components: impl IntoIterator<Item = C>,
-    ) -> Vec<ComponentHandle> {
-        let components = components.into_iter();
-        let mut handles = Vec::with_capacity(components.size_hint().0);
-        if let Some(group) = self.groups.get_mut(group_handle.0) {
-            for component in components {
-                group.components.insert_with(|idx| {
-                    let handle =
-                        ComponentHandle::new(ComponentIndex(idx), self.index, group_handle);
-                    #[cfg(feature = "physics")]
-                    self.world_changes.register_add(handle, &component);
-                    handles.push(handle);
-                    Box::new(component)
-                });
+        match &mut self.storage {
+            ComponentTypeStorage::Single {
+                force_buffer,
+                component,
+                ..
+            } => {
+                assert!(component.is_none(), "Single component is already set!");
+                let handle =
+                    ComponentHandle::new(ComponentIndex::INVALID, self.index, GroupHandle::INVALID);
+                #[cfg(feature = "physics")]
+                self.world_changes.register_add(handle, &new);
+                *component = Some(Box::new(new));
+                *force_buffer = true;
+                return handle;
             }
-        }
-        return handles;
+            ComponentTypeStorage::Multiple(multiple) => {
+                let mut handle = Default::default();
+                multiple.components.insert_with(|idx| {
+                    handle =
+                        ComponentHandle::new(ComponentIndex(idx), self.index, GroupHandle::INVALID);
+                    #[cfg(feature = "physics")]
+                    self.world_changes.register_add(handle, &new);
+                    Box::new(new)
+                });
+                return handle;
+            }
+            ComponentTypeStorage::MultipleGroups(groups) => {
+                let group = &mut groups[group_handle.0];
+                let mut handle = Default::default();
+                group.components.insert_with(|idx| {
+                    handle = ComponentHandle::new(ComponentIndex(idx), self.index, group_handle);
+                    #[cfg(feature = "physics")]
+                    self.world_changes.register_add(handle, &new);
+                    Box::new(new)
+                });
+                return handle;
+            }
+        };
     }
 
     pub fn add_with<C: ComponentDerive + ComponentController>(
@@ -491,163 +832,592 @@ impl ComponentType {
         group_handle: GroupHandle,
         create: impl FnOnce(ComponentHandle) -> C,
     ) -> ComponentHandle {
-        assert_eq!(C::IDENTIFIER, self.type_id);
-        let group = &mut self.groups[group_handle.0];
-        let mut handle = Default::default();
-        group.components.insert_with(|idx| {
-            handle = ComponentHandle::new(ComponentIndex(idx), self.index, group_handle);
-            let component = create(handle);
-            #[cfg(feature = "physics")]
-            self.world_changes.register_add(handle, &component);
-            Box::new(component)
-        });
-        return handle;
+        match &mut self.storage {
+            ComponentTypeStorage::Single {
+                force_buffer,
+                component,
+                ..
+            } => {
+                assert!(component.is_none(), "Single component is already set!");
+                let handle =
+                    ComponentHandle::new(ComponentIndex::INVALID, self.index, GroupHandle::INVALID);
+                let new = create(handle);
+                #[cfg(feature = "physics")]
+                self.world_changes.register_add(handle, &new);
+                *component = Some(Box::new(new));
+                *force_buffer = true;
+                return handle;
+            }
+            ComponentTypeStorage::Multiple(multiple) => {
+                let mut handle = Default::default();
+                multiple.components.insert_with(|idx| {
+                    handle =
+                        ComponentHandle::new(ComponentIndex(idx), self.index, GroupHandle::INVALID);
+                    let new = create(handle);
+                    #[cfg(feature = "physics")]
+                    self.world_changes.register_add(handle, &new);
+                    Box::new(new)
+                });
+                return handle;
+            }
+            ComponentTypeStorage::MultipleGroups(groups) => {
+                let group = &mut groups[group_handle.0];
+                let mut handle = Default::default();
+                group.components.insert_with(|idx| {
+                    handle = ComponentHandle::new(ComponentIndex(idx), self.index, group_handle);
+                    let new = create(handle);
+                    #[cfg(feature = "physics")]
+                    self.world_changes.register_add(handle, &new);
+                    Box::new(new)
+                });
+                return handle;
+            }
+        };
     }
 
-    pub fn force_buffer(&mut self, groups: &[GroupHandle]) {
-        for group in groups {
-            if let Some(group) = self.groups.get_mut(group.0) {
-                group.force_buffer = true;
+    pub fn add_many<C: ComponentController>(
+        &mut self,
+        group_handle: GroupHandle,
+        components: impl IntoIterator<Item = C>,
+    ) -> Vec<ComponentHandle> {
+        match &mut self.storage {
+            ComponentTypeStorage::Single { .. } => {
+                panic!("Cannot add naby on component with ComponentStorage::Single!");
             }
-        }
+            ComponentTypeStorage::Multiple(multiple) => {
+                let components = components.into_iter();
+                let mut handles = Vec::with_capacity(components.size_hint().0);
+                for component in components {
+                    multiple.components.insert_with(|idx| {
+                        let handle = ComponentHandle::new(
+                            ComponentIndex(idx),
+                            self.index,
+                            GroupHandle::INVALID,
+                        );
+                        #[cfg(feature = "physics")]
+                        self.world_changes.register_add(handle, &component);
+                        handles.push(handle);
+                        Box::new(component)
+                    });
+                }
+                return handles;
+            }
+            ComponentTypeStorage::MultipleGroups(groups) => {
+                let components = components.into_iter();
+                let mut handles = Vec::with_capacity(components.size_hint().0);
+                if let Some(group) = groups.get_mut(group_handle.0) {
+                    for component in components {
+                        group.components.insert_with(|idx| {
+                            let handle =
+                                ComponentHandle::new(ComponentIndex(idx), self.index, group_handle);
+                            #[cfg(feature = "physics")]
+                            self.world_changes.register_add(handle, &component);
+                            handles.push(handle);
+                            Box::new(component)
+                        });
+                    }
+                }
+                return handles;
+            }
+        };
     }
 
-    pub fn len(&self, groups: &[GroupHandle]) -> usize {
-        let mut len = 0;
-        for group in groups {
-            if let Some(group) = self.groups.get(group.0) {
-                len += group.components.len();
+    pub fn force_buffer(&mut self, group_handles: &[GroupHandle]) {
+        match &mut self.storage {
+            ComponentTypeStorage::Single { force_buffer, .. } => {
+                *force_buffer = true;
             }
-        }
-        return len;
+            ComponentTypeStorage::Multiple(multiple) => {
+                multiple.force_buffer = true;
+            }
+            ComponentTypeStorage::MultipleGroups(groups) => {
+                for group in group_handles {
+                    if let Some(group) = groups.get_mut(group.0) {
+                        group.force_buffer = true;
+                    }
+                }
+            }
+        };
+    }
+
+    pub fn len(&self, group_handles: &[GroupHandle]) -> usize {
+        match &self.storage {
+            ComponentTypeStorage::Single { .. } => {
+                return 1;
+            }
+            ComponentTypeStorage::Multiple(multiple) => {
+                return multiple.components.len();
+            }
+            ComponentTypeStorage::MultipleGroups(groups) => {
+                let mut len = 0;
+                for group in group_handles {
+                    if let Some(group) = groups.get(group.0) {
+                        len += group.components.len();
+                    }
+                }
+                return len;
+            }
+        };
     }
 
     pub fn iter<'a, C: ComponentController>(
         &'a self,
-        groups: &[GroupHandle],
-    ) -> impl DoubleEndedIterator<Item = &'a C> {
-        let mut iters = Vec::with_capacity(groups.len());
-        for group in groups {
-            if let Some(group) = self.groups.get(group.0) {
-                if !group.components.is_empty() {
-                    iters.push(
-                        group
-                            .components
-                            .iter()
-                            .map(|(_, c)| c.downcast_ref::<C>().unwrap()),
-                    );
+        group_handles: &[GroupHandle],
+    ) -> Box<dyn DoubleEndedIterator<Item = &'a C> + 'a> {
+        match &self.storage {
+            ComponentTypeStorage::Single { component, .. } => {
+                if let Some(component) = component {
+                    return Box::new(std::iter::once(component.downcast_ref::<C>().unwrap()));
+                } else {
+                    return Box::new(std::iter::empty::<&C>());
                 }
             }
-        }
-        return iters.into_iter().flatten();
+            ComponentTypeStorage::Multiple(multiple) => {
+                return Box::new(
+                    multiple
+                        .components
+                        .iter()
+                        .map(|(_, c)| c.downcast_ref::<C>().unwrap()),
+                );
+            }
+            ComponentTypeStorage::MultipleGroups(groups) => {
+                let mut iters = Vec::with_capacity(groups.len());
+                for group in group_handles {
+                    if let Some(group) = groups.get(group.0) {
+                        if !group.components.is_empty() {
+                            iters.push(
+                                group
+                                    .components
+                                    .iter()
+                                    .map(|(_, c)| c.downcast_ref::<C>().unwrap()),
+                            );
+                        }
+                    }
+                }
+                return Box::new(iters.into_iter().flatten());
+            }
+        };
     }
 
     pub fn iter_with_handles<'a, C: ComponentController>(
         &'a self,
-        groups: &'a [GroupHandle],
-    ) -> impl DoubleEndedIterator<Item = (ComponentHandle, &'a C)> {
-        let mut iters = Vec::with_capacity(groups.len());
-        for group_handle in groups {
-            if let Some(group) = self.groups.get(group_handle.0) {
-                if !group.components.is_empty() {
-                    iters.push(group.components.iter().map(|(idx, c)| {
-                        (
-                            ComponentHandle::new(ComponentIndex(idx), self.index, *group_handle),
-                            c.downcast_ref::<C>().unwrap(),
-                        )
-                    }));
+        group_handles: &'a [GroupHandle],
+    ) -> Box<dyn DoubleEndedIterator<Item = (ComponentHandle, &'a C)> + 'a> {
+        match &self.storage {
+            ComponentTypeStorage::Single { component, .. } => {
+                if let Some(component) = component {
+                    return Box::new(std::iter::once((
+                        ComponentHandle::new(
+                            ComponentIndex::INVALID,
+                            self.index,
+                            GroupHandle::INVALID,
+                        ),
+                        component.downcast_ref::<C>().unwrap(),
+                    )));
+                } else {
+                    return Box::new(std::iter::empty::<(ComponentHandle, &'a C)>());
                 }
             }
-        }
-        return iters.into_iter().flatten();
-    }
-
-    pub fn iter_mut_with_handles<'a, C: ComponentController>(
-        &'a mut self,
-        groups: &'a [GroupHandle],
-        check: bool,
-    ) -> impl DoubleEndedIterator<Item = (ComponentHandle, &'a mut C)> {
-        let mut iters = Vec::with_capacity(groups.len());
-        let ptr: *mut Arena<ComponentTypeGroup> = &mut self.groups as *mut _;
-        if check && groups.len() > 1 {
-            for (index, value) in groups.iter().enumerate() {
-                for other in groups.iter().skip(index + 1) {
-                    assert_ne!(value.0.index(), other.0.index(), "Duplicate GroupHandle!");
+            ComponentTypeStorage::Multiple(multiple) => {
+                return Box::new(multiple.components.iter().map(|(idx, c)| {
+                    (
+                        ComponentHandle::new(ComponentIndex(idx), self.index, GroupHandle::INVALID),
+                        c.downcast_ref::<C>().unwrap(),
+                    )
+                }));
+            }
+            ComponentTypeStorage::MultipleGroups(groups) => {
+                let mut iters = Vec::with_capacity(groups.len());
+                for group_handle in group_handles {
+                    if let Some(group) = groups.get(group_handle.0) {
+                        if !group.components.is_empty() {
+                            iters.push(group.components.iter().map(|(idx, c)| {
+                                (
+                                    ComponentHandle::new(
+                                        ComponentIndex(idx),
+                                        self.index,
+                                        *group_handle,
+                                    ),
+                                    c.downcast_ref::<C>().unwrap(),
+                                )
+                            }));
+                        }
+                    }
                 }
+                return Box::new(iters.into_iter().flatten());
             }
-        }
-        unsafe {
-            for group_handle in groups {
-                if let Some(group) = (&mut *ptr).get_mut(group_handle.0) {
-                    let type_index = &self.index;
-
-                    iters.push(group.components.iter_mut().map(move |(idx, c)| {
-                        (
-                            ComponentHandle::new(ComponentIndex(idx), *type_index, *group_handle),
-                            c.downcast_mut::<C>().unwrap(),
-                        )
-                    }));
-                };
-            }
-        }
-
-        return iters.into_iter().flatten();
+        };
     }
 
     pub fn iter_mut<'a, C: ComponentController>(
         &'a mut self,
-        groups: &[GroupHandle],
+        group_handles: &[GroupHandle],
         check: bool,
-    ) -> impl DoubleEndedIterator<Item = &'a mut C> {
-        if check && groups.len() > 1 {
-            for (index, value) in groups.iter().enumerate() {
-                for other in groups.iter().skip(index + 1) {
-                    assert_ne!(value.0.index(), other.0.index(), "Duplicate GroupHandle!");
+    ) -> Box<dyn DoubleEndedIterator<Item = &'a mut C> + 'a> {
+        match &mut self.storage {
+            ComponentTypeStorage::Single { component, .. } => {
+                if let Some(component) = component {
+                    return Box::new(std::iter::once(component.downcast_mut::<C>().unwrap()));
+                } else {
+                    return Box::new(std::iter::empty::<&mut C>());
                 }
             }
-        }
-        let mut iters = Vec::with_capacity(groups.len());
-        let ptr: *mut Arena<ComponentTypeGroup> = &mut self.groups as *mut _;
-        unsafe {
-            for group_handle in groups {
-                if let Some(group) = (&mut *ptr).get_mut(group_handle.0) {
-                    iters.push(
-                        group
-                            .components
-                            .iter_mut()
-                            .map(|(_, c)| c.downcast_mut::<C>().unwrap()),
-                    );
-                };
+            ComponentTypeStorage::Multiple(multiple) => {
+                return Box::new(
+                    multiple
+                        .components
+                        .iter_mut()
+                        .map(|(_, c)| c.downcast_mut::<C>().unwrap()),
+                );
             }
-        }
+            ComponentTypeStorage::MultipleGroups(groups) => {
+                if check && groups.len() > 1 {
+                    for (index, value) in groups.iter().enumerate() {
+                        for other in groups.iter().skip(index + 1) {
+                            assert_ne!(value.0.index(), other.0.index(), "Duplicate GroupHandle!");
+                        }
+                    }
+                }
+                let mut iters = Vec::with_capacity(groups.len());
+                let ptr: *mut Arena<ComponentTypeGroup> = groups as *mut _;
+                unsafe {
+                    for group_handle in group_handles {
+                        if let Some(group) = (&mut *ptr).get_mut(group_handle.0) {
+                            iters.push(
+                                group
+                                    .components
+                                    .iter_mut()
+                                    .map(|(_, c)| c.downcast_mut::<C>().unwrap()),
+                            );
+                        };
+                    }
+                }
 
-        return iters.into_iter().flatten();
+                return Box::new(iters.into_iter().flatten());
+            }
+        };
     }
 
-    pub fn iter_render<C: ComponentController>(
-        &self,
-        groups: &[GroupHandle],
-    ) -> impl DoubleEndedIterator<
-        Item = (
-            &InstanceBuffer,
-            impl DoubleEndedIterator<Item = (InstanceIndex, &C)> + Clone,
-        ),
-    > {
-        let mut iters = Vec::with_capacity(groups.len());
-        for group in groups {
-            if let Some(group) = self.groups.get(group.0) {
-                if !group.components.is_empty() {
-                    iters.push((
-                        group.buffer.as_ref().expect(
-                            "This component's buffer is either not initialized or disabled.",
+    pub fn iter_mut_with_handles<'a, C: ComponentController>(
+        &'a mut self,
+        group_handles: &'a [GroupHandle],
+        check: bool,
+    ) -> Box<dyn DoubleEndedIterator<Item = (ComponentHandle, &'a mut C)> + 'a> {
+        match &mut self.storage {
+            ComponentTypeStorage::Single { component, .. } => {
+                if let Some(component) = component {
+                    return Box::new(std::iter::once((
+                        ComponentHandle::new(
+                            ComponentIndex::INVALID,
+                            self.index,
+                            GroupHandle::INVALID,
                         ),
-                        group.components.iter().enumerate().map(|(i, (_, c))| {
-                            (InstanceIndex::new(i as u32), c.downcast_ref::<C>().unwrap())
-                        }),
-                    ));
+                        component.downcast_mut::<C>().unwrap(),
+                    )));
+                } else {
+                    return Box::new(std::iter::empty::<(ComponentHandle, &mut C)>());
+                }
+            }
+            ComponentTypeStorage::Multiple(multiple) => {
+                return Box::new(multiple.components.iter_mut().map(|(idx, c)| {
+                    (
+                        ComponentHandle::new(ComponentIndex(idx), self.index, GroupHandle::INVALID),
+                        c.downcast_mut::<C>().unwrap(),
+                    )
+                }));
+            }
+            ComponentTypeStorage::MultipleGroups(groups) => {
+                if check && groups.len() > 1 {
+                    for (index, value) in groups.iter().enumerate() {
+                        for other in groups.iter().skip(index + 1) {
+                            assert_ne!(value.0.index(), other.0.index(), "Duplicate GroupHandle!");
+                        }
+                    }
+                }
+                let mut iters = Vec::with_capacity(groups.len());
+                let ptr: *mut Arena<ComponentTypeGroup> = groups as *mut _;
+                unsafe {
+                    for group_handle in group_handles {
+                        if let Some(group) = (&mut *ptr).get_mut(group_handle.0) {
+                            let type_index = &self.index;
+
+                            iters.push(group.components.iter_mut().map(move |(idx, c)| {
+                                (
+                                    ComponentHandle::new(
+                                        ComponentIndex(idx),
+                                        *type_index,
+                                        *group_handle,
+                                    ),
+                                    c.downcast_mut::<C>().unwrap(),
+                                )
+                            }));
+                        };
+                    }
+                }
+
+                return Box::new(iters.into_iter().flatten());
+            }
+        };
+    }
+
+    pub fn iter_render<'a, C: ComponentController>(
+        &'a self,
+        group_handles: &[GroupHandle],
+    ) -> Box<dyn DoubleEndedIterator<Item = (&'a InstanceBuffer, InstanceIndex, &'a C)> + 'a> {
+        match &self.storage {
+            ComponentTypeStorage::Single {
+                component, buffer, ..
+            } => {
+                if let Some(component) = component {
+                    return Box::new(std::iter::once((
+                        buffer.as_ref().unwrap(),
+                        InstanceIndex::new(0),
+                        component.downcast_ref::<C>().unwrap(),
+                    )));
+                } else {
+                    return Box::new(std::iter::empty::<(&InstanceBuffer, InstanceIndex, &C)>());
+                }
+            }
+            ComponentTypeStorage::Multiple(multiple) => {
+                return Box::new(multiple.components.iter().enumerate().map(|(i, (_, c))| {
+                    (
+                        multiple.buffer.as_ref().unwrap(),
+                        InstanceIndex::new(i as u32),
+                        c.downcast_ref::<C>().unwrap(),
+                    )
+                }));
+            }
+            ComponentTypeStorage::MultipleGroups(groups) => {
+                let mut iters = Vec::with_capacity(groups.len());
+                for group in group_handles {
+                    if let Some(group) = groups.get(group.0) {
+                        if !group.components.is_empty() {
+                            iters.push(group.components.iter().enumerate().map(|(i, (_, c))| {
+                                (
+                                    group.buffer.as_ref().unwrap(),
+                                    InstanceIndex::new(i as u32),
+                                    c.downcast_ref::<C>().unwrap(),
+                                )
+                            }));
+                        }
+                    }
+                }
+                return Box::new(iters.into_iter().flatten());
+            }
+        };
+    }
+
+    pub fn render_each<'a, C: ComponentController>(
+        &'a self,
+        encoder: &'a mut RenderEncoder,
+        config: RenderConfig<'a>,
+        mut each: impl FnMut(&mut Renderer<'a>, &'a C, InstanceIndex),
+    ) -> Renderer<'a> {
+        let mut renderer = encoder.renderer(config);
+        match &self.storage {
+            ComponentTypeStorage::Single {
+                buffer, component, ..
+            } => {
+                renderer.use_instances(buffer.as_ref().unwrap());
+                if let Some(component) = component {
+                    (each)(
+                        &mut renderer,
+                        component.downcast_ref::<C>().unwrap(),
+                        InstanceIndex::new(0),
+                    );
+                }
+            }
+            ComponentTypeStorage::Multiple(multiple) => {
+                renderer.use_instances(multiple.buffer.as_ref().unwrap());
+                for (instance, (_, component)) in multiple.components.iter().enumerate() {
+                    (each)(
+                        &mut renderer,
+                        component.downcast_ref::<C>().unwrap(),
+                        InstanceIndex::new(instance as u32),
+                    );
+                }
+            }
+            ComponentTypeStorage::MultipleGroups(groups) => {
+                for (_, group) in groups {
+                    renderer.use_instances(group.buffer.as_ref().unwrap());
+                    for (instance, (_, component)) in group.components.iter().enumerate() {
+                        (each)(
+                            &mut renderer,
+                            component.downcast_ref::<C>().unwrap(),
+                            InstanceIndex::new(instance as u32),
+                        );
+                    }
                 }
             }
         }
-        return iters.into_iter();
+        return renderer;
+    }
+
+    pub fn render_each_prepare<'a, C: ComponentController>(
+        &'a self,
+        encoder: &'a mut RenderEncoder,
+        config: RenderConfig<'a>,
+        prepare: impl FnOnce(&mut Renderer<'a>),
+        mut each: impl FnMut(&mut Renderer<'a>, &'a C, InstanceIndex),
+    ) -> Renderer<'a> {
+        let mut renderer = encoder.renderer(config);
+        prepare(&mut renderer);
+        match &self.storage {
+            ComponentTypeStorage::Single {
+                buffer, component, ..
+            } => {
+                renderer.use_instances(buffer.as_ref().unwrap());
+                if let Some(component) = component {
+                    (each)(
+                        &mut renderer,
+                        component.downcast_ref::<C>().unwrap(),
+                        InstanceIndex::new(0),
+                    );
+                }
+            }
+            ComponentTypeStorage::Multiple(multiple) => {
+                renderer.use_instances(multiple.buffer.as_ref().unwrap());
+                for (instance, (_, component)) in multiple.components.iter().enumerate() {
+                    (each)(
+                        &mut renderer,
+                        component.downcast_ref::<C>().unwrap(),
+                        InstanceIndex::new(instance as u32),
+                    );
+                }
+            }
+            ComponentTypeStorage::MultipleGroups(groups) => {
+                for (_, group) in groups {
+                    renderer.use_instances(group.buffer.as_ref().unwrap());
+                    for (instance, (_, component)) in group.components.iter().enumerate() {
+                        (each)(
+                            &mut renderer,
+                            component.downcast_ref::<C>().unwrap(),
+                            InstanceIndex::new(instance as u32),
+                        );
+                    }
+                }
+            }
+        }
+        return renderer;
+    }
+
+    pub fn render_all<'a, C: ComponentController>(
+        &'a self,
+        encoder: &'a mut RenderEncoder,
+        config: RenderConfig<'a>,
+        mut all: impl FnMut(&mut Renderer<'a>, InstanceIndices),
+    ) -> Renderer<'a> {
+        let mut renderer = encoder.renderer(config);
+        match &self.storage {
+            ComponentTypeStorage::Single { buffer, .. } => {
+                let buffer = buffer.as_ref().unwrap();
+                renderer.use_instances(buffer);
+                (all)(&mut renderer, buffer.all_instances());
+            }
+            ComponentTypeStorage::Multiple(multiple) => {
+                let buffer = multiple.buffer.as_ref().unwrap();
+                renderer.use_instances(buffer);
+                (all)(&mut renderer, buffer.all_instances());
+            }
+            ComponentTypeStorage::MultipleGroups(groups) => {
+                for (_, group) in groups {
+                    let buffer = group.buffer.as_ref().unwrap();
+                    renderer.use_instances(buffer);
+                    (all)(&mut renderer, buffer.all_instances());
+                }
+            }
+        }
+        return renderer;
+    }
+
+    pub fn single<C: ComponentController>(&self) -> Option<&C> {
+        match &self.storage {
+            ComponentTypeStorage::Single { component, .. } => {
+                if let Some(component) = component {
+                    return component.downcast_ref::<C>();
+                }
+                return None;
+            }
+            _ => panic!("Cannot get single on component without ComponentStorage::Single!"),
+        }
+    }
+
+    pub fn single_mut<C: ComponentController>(&mut self) -> Option<&mut C> {
+        match &mut self.storage {
+            ComponentTypeStorage::Single { component, .. } => {
+                if let Some(component) = component {
+                    return component.downcast_mut::<C>();
+                }
+                return None;
+            }
+            _ => panic!("Cannot get single on component without ComponentStorage::Single!"),
+        }
+    }
+
+    pub fn remove_single<C: ComponentController>(&mut self) -> Option<C> {
+        match &mut self.storage {
+            ComponentTypeStorage::Single {
+                force_buffer,
+                component,
+                ..
+            } => {
+                if let Some(component) = component.take() {
+                    *force_buffer = true;
+                    #[cfg(feature = "physics")]
+                    self.world_changes.register_remove(&component);
+                    return component.downcast::<C>().ok().and_then(|b| Some(*b));
+                }
+                return None;
+            }
+            _ => panic!("Cannot get single on component without ComponentStorage::Single!"),
+        }
+    }
+
+    pub fn set_single<C: ComponentController>(&mut self, new: C) -> ComponentHandle {
+        match &mut self.storage {
+            ComponentTypeStorage::Single {
+                force_buffer,
+                component,
+                ..
+            } => {
+                *force_buffer = true;
+                let handle =
+                    ComponentHandle::new(ComponentIndex::INVALID, self.index, GroupHandle::INVALID);
+                #[cfg(feature = "physics")]
+                self.world_changes.register_add(handle, &new);
+                if let Some(_old) = component.replace(Box::new(new)) {
+                    #[cfg(feature = "physics")]
+                    self.world_changes.register_remove(&_old);
+                }
+                return handle;
+            }
+            _ => panic!("Cannot get single on component without ComponentStorage::Single!"),
+        }
+    }
+
+    pub fn set_single_with<C: ComponentController>(
+        &mut self,
+        create: impl FnOnce(ComponentHandle) -> C,
+    ) -> ComponentHandle {
+        match &mut self.storage {
+            ComponentTypeStorage::Single {
+                force_buffer,
+                component,
+                ..
+            } => {
+                let handle =
+                    ComponentHandle::new(ComponentIndex::INVALID, self.index, GroupHandle::INVALID);
+                let new = create(handle);
+                #[cfg(feature = "physics")]
+                self.world_changes.register_add(handle, &new);
+                *force_buffer = true;
+                if let Some(_old) = component.replace(Box::new(new)) {
+                    #[cfg(feature = "physics")]
+                    self.world_changes.register_remove(&_old);
+                }
+                return handle;
+            }
+            _ => panic!("Cannot get single on component without ComponentStorage::Single!"),
+        }
     }
 }

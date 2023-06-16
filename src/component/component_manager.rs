@@ -7,7 +7,8 @@ use crate::physics::World;
 use crate::{
     Arena, BoxedComponent, CallableType, CameraBuffer, ComponentConfig, ComponentController,
     ComponentHandle, ComponentSet, ComponentSetMut, ComponentType, ComponentTypeId, Gpu, Group,
-    GroupActivation, GroupHandle, InstanceBuffer, InstanceIndex, TypeIndex, Vector,
+    GroupActivation, GroupHandle, InstanceBuffer, InstanceIndex, InstanceIndices, RenderConfig,
+    RenderEncoder, Renderer, TypeIndex, Vector,
 };
 use std::cell::RefCell;
 use std::collections::BTreeMap;
@@ -329,8 +330,7 @@ impl ComponentManager {
     pub fn add_group(&mut self, group: Group) -> GroupHandle {
         let handle = GroupHandle(self.groups.insert(group));
         for (_, ty) in &mut self.types {
-            let result = ty.add_group();
-            assert_eq!(handle, result);
+            ty.add_group();
         }
         self.all_groups.push(handle);
         return handle;
@@ -348,12 +348,20 @@ impl ComponentManager {
         return group;
     }
 
-    pub fn index<C: ComponentController>(&self, group: GroupHandle, index: usize) -> Option<&C> {
+    pub fn index<C: ComponentController>(&self, index: usize) -> Option<&C> {
+        self.index_of(GroupHandle::DEFAULT_GROUP, index)
+    }
+
+    pub fn index_mut<C: ComponentController>(&mut self, index: usize) -> Option<&mut C> {
+        self.index_mut_of(GroupHandle::DEFAULT_GROUP, index)
+    }
+
+    pub fn index_of<C: ComponentController>(&self, group: GroupHandle, index: usize) -> Option<&C> {
         let ty = type_ref!(self, C);
         ty.index(group, index)
     }
 
-    pub fn index_mut<C: ComponentController>(
+    pub fn index_mut_of<C: ComponentController>(
         &mut self,
         group: GroupHandle,
         index: usize,
@@ -490,14 +498,11 @@ impl ComponentManager {
     }
 
     #[inline]
-    pub fn remove_all<C: ComponentController>(&mut self) -> Vec<(GroupHandle, Vec<C>)> {
+    pub fn remove_all<C: ComponentController>(&mut self) -> Vec<C> {
         self.remove_all_of(ComponentFilter::All)
     }
 
-    pub fn remove_all_of<C: ComponentController>(
-        &mut self,
-        filter: ComponentFilter,
-    ) -> Vec<(GroupHandle, Vec<C>)> {
+    pub fn remove_all_of<C: ComponentController>(&mut self, filter: ComponentFilter) -> Vec<C> {
         let groups = group_filter!(self, filter).1;
         let ty = type_mut!(self, C);
         ty.remove_all(groups)
@@ -556,24 +561,14 @@ impl ComponentManager {
     #[inline]
     pub fn iter_render<C: ComponentController>(
         &self,
-    ) -> impl DoubleEndedIterator<
-        Item = (
-            &InstanceBuffer,
-            impl DoubleEndedIterator<Item = (InstanceIndex, &C)> + Clone,
-        ),
-    > {
+    ) -> impl DoubleEndedIterator<Item = (&InstanceBuffer, InstanceIndex, &C)> {
         self.iter_render_of::<C>(ComponentFilter::Active)
     }
 
     pub fn iter_render_of<C: ComponentController>(
         &self,
         filter: ComponentFilter,
-    ) -> impl DoubleEndedIterator<
-        Item = (
-            &InstanceBuffer,
-            impl DoubleEndedIterator<Item = (InstanceIndex, &C)> + Clone,
-        ),
-    > {
+    ) -> impl DoubleEndedIterator<Item = (&InstanceBuffer, InstanceIndex, &C)> {
         let groups = group_filter!(self, filter).1;
         let ty = type_ref!(self, C);
         ty.iter_render(groups)
@@ -672,29 +667,33 @@ impl ComponentManager {
     }
 
     #[inline]
-    pub fn each<C: ComponentController>(&self, each: impl FnMut(&C)) {
-        self.each_of(ComponentFilter::Active, each)
+    pub fn for_each<C: ComponentController>(&self, each: impl FnMut(&C)) {
+        self.for_each_of(ComponentFilter::Active, each)
     }
 
-    pub fn each_of<C: ComponentController>(&self, filter: ComponentFilter, each: impl FnMut(&C)) {
+    pub fn for_each_of<C: ComponentController>(
+        &self,
+        filter: ComponentFilter,
+        each: impl FnMut(&C),
+    ) {
         let groups = group_filter!(self, filter).1;
         let ty = type_ref!(self, C);
-        ty.each(groups, each);
+        ty.for_each(groups, each);
     }
 
     #[inline]
-    pub fn each_mut<C: ComponentController>(&mut self, each: impl FnMut(&mut C)) {
-        self.each_mut_of(ComponentFilter::Active, each)
+    pub fn for_each_mut<C: ComponentController>(&mut self, each: impl FnMut(&mut C)) {
+        self.for_each_mut_of(ComponentFilter::Active, each)
     }
 
-    pub fn each_mut_of<C: ComponentController>(
+    pub fn for_each_mut_of<C: ComponentController>(
         &mut self,
         filter: ComponentFilter,
         each: impl FnMut(&mut C),
     ) {
         let groups = group_filter!(self, filter).1;
         let ty = type_mut!(self, C);
-        ty.each_mut(groups, each);
+        ty.for_each_mut(groups, each);
     }
 
     #[inline]
@@ -710,5 +709,64 @@ impl ComponentManager {
         let groups = group_filter!(self, filter).1;
         let ty = type_mut!(self, C);
         ty.retain(groups, keep);
+    }
+
+    pub fn render_each<'a, C: ComponentController>(
+        &'a self,
+        encoder: &'a mut RenderEncoder,
+        config: RenderConfig<'a>,
+        each: impl FnMut(&mut Renderer<'a>, &'a C, InstanceIndex),
+    ) -> Renderer<'a> {
+        let ty = type_ref!(self, C);
+        ty.render_each(encoder, config, each)
+    }
+
+    pub fn render_each_prepare<'a, C: ComponentController>(
+        &'a self,
+        encoder: &'a mut RenderEncoder,
+        config: RenderConfig<'a>,
+        prepare: impl FnOnce(&mut Renderer<'a>),
+        each: impl FnMut(&mut Renderer<'a>, &'a C, InstanceIndex),
+    ) -> Renderer<'a> {
+        let ty = type_ref!(self, C);
+        ty.render_each_prepare(encoder, config, prepare, each)
+    }
+
+    pub fn render_all<'a, C: ComponentController>(
+        &'a self,
+        encoder: &'a mut RenderEncoder,
+        config: RenderConfig<'a>,
+        all: impl FnMut(&mut Renderer<'a>, InstanceIndices),
+    ) -> Renderer<'a> {
+        let ty = type_ref!(self, C);
+        ty.render_all::<C>(encoder, config, all)
+    }
+
+    pub fn single<C: ComponentController>(&self) -> Option<&C> {
+        let ty = type_ref!(self, C);
+        ty.single()
+    }
+
+    pub fn single_mut<C: ComponentController>(&mut self) -> Option<&mut C> {
+        let ty = type_mut!(self, C);
+        ty.single_mut()
+    }
+
+    pub fn remove_single<C: ComponentController>(&mut self) -> Option<C> {
+        let ty = type_mut!(self, C);
+        ty.remove_single()
+    }
+
+    pub fn set_single<C: ComponentController>(&mut self, new: C) -> ComponentHandle {
+        let ty = type_mut!(self, C);
+        ty.set_single(new)
+    }
+
+    pub fn set_single_with<C: ComponentController>(
+        &mut self,
+        create: impl FnOnce(ComponentHandle) -> C,
+    ) -> ComponentHandle {
+        let ty = type_mut!(self, C);
+        ty.set_single_with(create)
     }
 }
