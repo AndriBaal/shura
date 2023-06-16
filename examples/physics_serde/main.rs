@@ -124,6 +124,11 @@ impl Player {
 }
 
 impl ComponentController for Player {
+    const CONFIG: ComponentConfig = ComponentConfig {
+        storage: ComponentStorage::Single,
+        ..ComponentConfig::DEFAULT
+    };
+
     fn update(ctx: &mut Context) {
         let scroll = ctx.input.wheel_delta();
         let fov = ctx.world_camera.fov();
@@ -203,9 +208,10 @@ impl ComponentController for Player {
     }
 
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {
-        ctx.components.render_each::<Self>(encoder, RenderConfig::WORLD, |r, player, index| {
-            r.render_sprite(index, &player.model, &player.sprite)
-        });
+        ctx.components
+            .render_each::<Self>(encoder, RenderConfig::WORLD, |r, player, index| {
+                r.render_sprite(index, &player.model, &player.sprite)
+            });
     }
 
     fn collision(
@@ -258,9 +264,10 @@ impl Floor {
 
 impl ComponentController for Floor {
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {
-        ctx.components.render_each::<Self>(encoder, RenderConfig::WORLD, |r, floor, index| {
-            r.render_color(index, &floor.model, &floor.color)
-        });
+        ctx.components
+            .render_each::<Self>(encoder, RenderConfig::WORLD, |r, floor, index| {
+                r.render_color(index, &floor.model, &floor.color)
+            });
     }
 }
 
@@ -294,28 +301,17 @@ impl PhysicsBox {
 
 impl ComponentController for PhysicsBox {
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {
-        let mut renderer = encoder.renderer(RenderConfig::WORLD);
         let state = ctx.scene_states.get::<PhysicsState>();
-        for (buffer, boxes) in ctx.components.iter_render::<Self>() {
-            let mut ranges = vec![];
-            let mut last = 0;
-            for (i, b) in boxes.clone() {
-                if b.collided {
-                    ranges.push((&state.default_color, last..i.index));
-                    ranges.push((&state.collision_color, i.index..i.index + 1));
-                    last = i.index + 1;
-                } else if b.hovered {
-                    ranges.push((&state.default_color, last..i.index));
-                    ranges.push((&state.hover_color, i.index..i.index + 1));
-                    last = i.index + 1;
-                }
-            }
-            ranges.push((&state.default_color, last..buffer.len()));
-            renderer.use_instances(buffer);
-            for (color, r) in ranges {
-                renderer.render_color(r, &state.box_model, color)
-            }
-        }
+        ctx.components.render_each::<Self>(encoder, RenderConfig::WORLD, |renderer, b, instance|  {
+            let sprite = if b.hovered {
+                &state.hover_color
+            } else if b.collided {
+                &state.collision_color
+            } else {
+                &state.default_color
+            };
+            renderer.render_color(instance, &state.box_model, sprite);
+        }) ;
     }
 
     fn update(ctx: &mut Context) {

@@ -156,6 +156,7 @@ impl ShuraConfig {
                             match update_status {
                                 Ok(_) => {}
                                 Err(wgpu::SurfaceError::Lost) => {
+                                    #[cfg(feature = "log")]
                                     error!("Lost surface!");
                                     let mint: mint::Vector2<u32> = shura.window.inner_size().into();
                                     let window_size: Vector<u32> = mint.into();
@@ -442,9 +443,9 @@ impl Shura {
             };
             let now = ctx.frame.update_time();
             {
-                for ((priority, _), type_index) in ctx.components.priorities().borrow().iter() {
+                for ((_priority, _), type_index) in ctx.components.priorities().borrow().iter() {
                     #[cfg(feature = "physics")]
-                    if !done_step && *priority > physics_priority {
+                    if !done_step && *_priority > physics_priority {
                         done_step = true;
                         Self::physics_step(&mut ctx);
                     }

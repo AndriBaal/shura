@@ -1,5 +1,6 @@
 use crate::audio::{AudioSink, Sound};
 
+// Thin wrapper around rodio
 pub struct AudioManager {
     pub output_stream: rodio::OutputStream,
     pub output_handle: rodio::OutputStreamHandle,

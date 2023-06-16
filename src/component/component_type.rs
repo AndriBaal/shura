@@ -72,12 +72,19 @@ pub trait ComponentIdentifier {
     const IDENTIFIER: ComponentTypeId;
 }
 
+#[cfg(feature = "serde")]
+fn default_true() -> bool {
+    true
+}
+
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) enum ComponentTypeStorage {
     Single {
         #[cfg_attr(feature = "serde", serde(skip))]
         #[cfg_attr(feature = "serde", serde(default))]
         buffer: Option<InstanceBuffer>,
+        #[cfg_attr(feature = "serde", serde(skip))]
+        #[cfg_attr(feature = "serde", serde(default = "default_true"))]
         force_buffer: bool,
         #[cfg_attr(feature = "serde", serde(skip))]
         #[cfg_attr(feature = "serde", serde(default))]
@@ -87,14 +94,12 @@ pub(crate) enum ComponentTypeStorage {
     MultipleGroups(Arena<ComponentTypeGroup>),
 }
 
-impl ComponentTypeStorage {}
-
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct ComponentTypeGroup {
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
     pub components: Arena<BoxedComponent>,
-    pub force_buffer: bool,
+    force_buffer: bool,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
     buffer: Option<InstanceBuffer>,
@@ -150,7 +155,7 @@ pub(crate) struct ComponentType {
     config: ComponentConfig,
     pub storage: ComponentTypeStorage,
     #[cfg(feature = "physics")]
-    pub world_changes: WorldChanges,
+    world_changes: WorldChanges,
 }
 
 impl ComponentType {
@@ -1376,16 +1381,13 @@ impl ComponentType {
                 ..
             } => {
                 *force_buffer = true;
-                let handle = ComponentHandle::new(
-                    ComponentIndex::INVALID,
-                    self.index,
-                    GroupHandle::INVALID,
-                );
+                let handle =
+                    ComponentHandle::new(ComponentIndex::INVALID, self.index, GroupHandle::INVALID);
                 #[cfg(feature = "physics")]
                 self.world_changes.register_add(handle, &new);
-                if let Some(old) = component.replace(Box::new(new)) {
+                if let Some(_old) = component.replace(Box::new(new)) {
                     #[cfg(feature = "physics")]
-                    self.world_changes.register_remove(&old);
+                    self.world_changes.register_remove(&_old);
                 }
                 return handle;
             }
@@ -1409,9 +1411,9 @@ impl ComponentType {
                 #[cfg(feature = "physics")]
                 self.world_changes.register_add(handle, &new);
                 *force_buffer = true;
-                if let Some(old) = component.replace(Box::new(new)) {
+                if let Some(_old) = component.replace(Box::new(new)) {
                     #[cfg(feature = "physics")]
-                    self.world_changes.register_remove(&old);
+                    self.world_changes.register_remove(&_old);
                 }
                 return handle;
             }

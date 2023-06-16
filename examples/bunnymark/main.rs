@@ -138,9 +138,10 @@ impl ComponentController for Bunny {
 
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {
         let scene = ctx.scene_states.get::<BunnyState>();
-        ctx.components.render_all::<Self>(encoder, RenderConfig::WORLD, |r, instances| {
-            r.render_sprite(instances, &scene.bunny_model, &scene.bunny_sprite)
-        });
+        ctx.components
+            .render_all::<Self>(encoder, RenderConfig::WORLD, |r, instances| {
+                r.render_sprite(instances, &scene.bunny_model, &scene.bunny_sprite)
+            });
         if let Some(screenshot) = &scene.screenshot {
             encoder.copy_to_target(&ctx.defaults.world_target, &screenshot);
         }

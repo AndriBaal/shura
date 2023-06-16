@@ -4,7 +4,10 @@ use crate::{
 };
 
 #[cfg(feature = "serde")]
-use crate::{ComponentTypeId, GroupHandle, SceneSerializer, StateTypeId};
+use crate::{ComponentTypeId, SceneSerializer, SerializedComponentStorage, StateTypeId};
+
+#[cfg(feature = "serde")]
+use rustc_hash::FxHashMap;
 
 #[cfg(feature = "audio")]
 use crate::audio::AudioManager;
@@ -90,8 +93,6 @@ impl<'a> Context<'a> {
         &mut self,
         mut serialize: impl FnMut(&mut SceneSerializer),
     ) -> Result<Vec<u8>, Box<bincode::ErrorKind>> {
-        use rustc_hash::FxHashMap;
-
         let components = &self.components;
 
         let mut serializer =
@@ -121,9 +122,23 @@ impl<'a> Context<'a> {
 
             for (_, ty) in self.components.types() {
                 if !ser_components.contains_key(&ty.component_type_id()) {
-                    for (_, group) in &ty.groups {
-                        for (_, component) in &group.components {
-                            changes.register_remove(component);
+                    match &ty.storage {
+                        crate::ComponentTypeStorage::Single { component, .. } => {
+                            if let Some(component) = component {
+                                changes.register_remove(component);
+                            }
+                        }
+                        crate::ComponentTypeStorage::Multiple(multiple) => {
+                            for (_, component) in &multiple.components {
+                                changes.register_remove(component);
+                            }
+                        }
+                        crate::ComponentTypeStorage::MultipleGroups(groups) => {
+                            for (_, group) in groups {
+                                for (_, component) in &group.components {
+                                    changes.register_remove(component);
+                                }
+                            }
                         }
                     }
                 }
@@ -143,7 +158,7 @@ impl<'a> Context<'a> {
             };
             let scene: (
                 &Scene,
-                FxHashMap<ComponentTypeId, Vec<(GroupHandle, Vec<Option<(u32, Vec<u8>)>>)>>,
+                FxHashMap<ComponentTypeId, SerializedComponentStorage>,
                 FxHashMap<StateTypeId, Vec<u8>>,
                 FxHashMap<StateTypeId, Vec<u8>>,
             ) = (&scene, ser_components, ser_scene_state, ser_global_state);
@@ -166,7 +181,7 @@ impl<'a> Context<'a> {
             };
             let scene: (
                 &Scene,
-                FxHashMap<ComponentTypeId, Vec<(GroupHandle, Vec<Option<(u32, Vec<u8>)>>)>>,
+                FxHashMap<ComponentTypeId, SerializedComponentStorage>,
                 FxHashMap<StateTypeId, Vec<u8>>,
                 FxHashMap<StateTypeId, Vec<u8>>,
             ) = (&scene, ser_components, ser_scene_state, ser_global_state);
@@ -174,20 +189,4 @@ impl<'a> Context<'a> {
             return result;
         }
     }
-
-    // pub fn remove_scene(&mut self, id: u32) -> Option<Scene> {
-    //     if let Some(mut scene) = self.scenes.remove(id) {
-    //         for end in scene.states.ends() {
-    //             let mut ctx = Context::from_fields(ShuraFields::from_ctx(self), &mut scene);
-    //             end(&mut ctx);
-    //         }
-    //         return Some(scene);
-    //     }
-    //     return None;
-    // }
-
-    // pub fn add_scene(&mut self, scene: impl SceneCreator) {
-    //     let scene = scene.scene(ShuraFields::from_ctx(self));
-    //     self.scenes.add(scene);
-    // }
 }

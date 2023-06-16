@@ -129,9 +129,10 @@ impl ComponentController for Bunny {
 
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {
         let scene = ctx.scene_states.get::<BunnyState>();
-        ctx.components.render_all::<Self>(encoder, RenderConfig::WORLD, |r, instances| {
-            r.render_sprite(instances, &scene.bunny_model, &scene.bunny_sprite);
-        });
+        ctx.components
+            .render_all::<Self>(encoder, RenderConfig::WORLD, |r, instances| {
+                r.render_sprite(instances, &scene.bunny_model, &scene.bunny_sprite);
+            });
 
         scene.font.queue(
             ctx.defaults,

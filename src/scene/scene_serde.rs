@@ -5,13 +5,21 @@ use bincode::{
 };
 use rustc_hash::FxHashMap;
 use serde::{de::Visitor, Deserializer, Serialize};
-use std::{cmp, marker::PhantomData};
+use std::marker::PhantomData;
 
 use crate::{
     Arena, ArenaEntry, BoxedComponent, ComponentController, ComponentManager, ComponentTypeId,
-    Context, FieldNames, GroupHandle, Scene, SceneCreator, Shura, StateDerive, StateIdentifier,
-    StateManager, StateTypeId,
+    ComponentTypeStorage, Context, FieldNames, GroupHandle, Scene, SceneCreator, Shura,
+    StateDerive, StateIdentifier, StateManager, StateTypeId,
 };
+
+#[cfg(feature = "serde")]
+#[derive(serde::Deserialize, serde::Serialize)]
+pub(crate) enum SerializedComponentStorage {
+    Single(Option<Vec<u8>>),
+    Multiple(Vec<Option<(u32, Vec<u8>)>>),
+    MultipleGroups(Vec<(GroupHandle, Vec<Option<(u32, Vec<u8>)>>)>),
+}
 
 /// Helper to serialize [Components](crate::Component) and [States](crate::State) of a [Scene]
 pub struct SceneSerializer<'a> {
@@ -19,7 +27,7 @@ pub struct SceneSerializer<'a> {
     global_states: &'a StateManager,
     scene_states: &'a StateManager,
 
-    ser_components: FxHashMap<ComponentTypeId, Vec<(GroupHandle, Vec<Option<(u32, Vec<u8>)>>)>>,
+    ser_components: FxHashMap<ComponentTypeId, SerializedComponentStorage>,
     ser_scene_states: FxHashMap<StateTypeId, Vec<u8>>,
     ser_global_states: FxHashMap<StateTypeId, Vec<u8>>,
 }
@@ -43,7 +51,7 @@ impl<'a> SceneSerializer<'a> {
     pub(crate) fn finish(
         self,
     ) -> (
-        FxHashMap<ComponentTypeId, Vec<(GroupHandle, Vec<Option<(u32, Vec<u8>)>>)>>,
+        FxHashMap<ComponentTypeId, SerializedComponentStorage>,
         FxHashMap<StateTypeId, Vec<u8>>,
         FxHashMap<StateTypeId, Vec<u8>>,
     ) {
@@ -56,12 +64,29 @@ impl<'a> SceneSerializer<'a> {
 
     pub fn serialize_components<C: ComponentController + serde::Serialize>(&mut self) {
         let ty = self.components.type_ref::<C>();
-        let mut group_data = vec![];
-        for (group_handle, group) in &ty.groups {
-            let ser_components = group.components.serialize_components::<C>();
-            group_data.push((GroupHandle(group_handle), ser_components));
-        }
-        self.ser_components.insert(C::IDENTIFIER, group_data);
+        let ser = match &ty.storage {
+            ComponentTypeStorage::Single { component, .. } => {
+                let data = if let Some(component) = &component {
+                    bincode::serialize(component.downcast_ref::<C>().unwrap()).ok()
+                } else {
+                    None
+                };
+                SerializedComponentStorage::Single(data)
+            }
+            ComponentTypeStorage::Multiple(multiple) => {
+                let ser_components = multiple.components.serialize_components::<C>();
+                SerializedComponentStorage::Multiple(ser_components)
+            }
+            ComponentTypeStorage::MultipleGroups(groups) => {
+                let mut group_data = vec![];
+                for (group_handle, group) in groups {
+                    let ser_components = group.components.serialize_components::<C>();
+                    group_data.push((GroupHandle(group_handle), ser_components));
+                }
+                SerializedComponentStorage::MultipleGroups(group_data)
+            }
+        };
+        self.ser_components.insert(C::IDENTIFIER, ser);
     }
 
     pub fn serialize_global_state<G: StateDerive + StateIdentifier + Serialize>(&mut self) {
@@ -100,7 +125,7 @@ impl<N: 'static + FnMut(&mut Context, &mut SceneDeserializer)> SceneCreator for 
     fn create(mut self: Box<Self>, shura: &mut Shura) -> Scene {
         let (mut scene, ser_components, ser_scene_state, ser_global_state): (
             Scene,
-            FxHashMap<ComponentTypeId, Vec<(GroupHandle, Vec<Option<(u32, Vec<u8>)>>)>>,
+            FxHashMap<ComponentTypeId, SerializedComponentStorage>,
             FxHashMap<StateTypeId, Vec<u8>>,
             FxHashMap<StateTypeId, Vec<u8>>,
         ) = bincode::deserialize(&self.scene).unwrap();
@@ -115,14 +140,14 @@ impl<N: 'static + FnMut(&mut Context, &mut SceneDeserializer)> SceneCreator for 
 #[derive(serde::Deserialize)]
 /// Helper to deserialize [Components](crate::Component) and [States](crate::State) of a serialized [Scene]
 pub struct SceneDeserializer {
-    ser_components: FxHashMap<ComponentTypeId, Vec<(GroupHandle, Vec<Option<(u32, Vec<u8>)>>)>>,
+    ser_components: FxHashMap<ComponentTypeId, SerializedComponentStorage>,
     ser_scene_states: FxHashMap<StateTypeId, Vec<u8>>,
     ser_global_states: FxHashMap<StateTypeId, Vec<u8>>,
 }
 
 impl SceneDeserializer {
     pub(crate) fn new(
-        ser_components: FxHashMap<ComponentTypeId, Vec<(GroupHandle, Vec<Option<(u32, Vec<u8>)>>)>>,
+        ser_components: FxHashMap<ComponentTypeId, SerializedComponentStorage>,
         ser_scene_states: FxHashMap<StateTypeId, Vec<u8>>,
         ser_global_states: FxHashMap<StateTypeId, Vec<u8>>,
     ) -> Self {
@@ -140,30 +165,73 @@ impl SceneDeserializer {
         ctx.components.reregister::<C>();
         let type_id = C::IDENTIFIER;
         let ty = ctx.components.type_mut::<C>();
-        if let Some(components) = self.ser_components.remove(&type_id) {
-            for (group_id, components) in components {
-                let mut items: Vec<ArenaEntry<BoxedComponent>> =
-                    Vec::with_capacity(components.capacity());
-                let mut generation = 0;
-                for component in components {
-                    let item = match component {
-                        Some((gen, data)) => {
-                            generation = cmp::max(generation, gen);
-                            let component: BoxedComponent =
-                                Box::new(bincode::deserialize::<C>(&data).unwrap());
-
-                            ArenaEntry::Occupied {
-                                generation: gen,
-                                data: component,
-                            }
+        if let Some(storage) = self.ser_components.remove(&type_id) {
+            match storage {
+                SerializedComponentStorage::Single(single) => match &mut ty.storage {
+                    ComponentTypeStorage::Single { component, .. } => {
+                        if let Some(single) = single {
+                            *component =
+                                Some(Box::new(bincode::deserialize::<C>(&single).unwrap()));
                         }
-                        None => ArenaEntry::Free { next_free: None },
-                    };
-                    items.push(item);
-                }
+                    }
+                    _ => unreachable!(),
+                },
+                SerializedComponentStorage::Multiple(ser_multiple) => match &mut ty.storage {
+                    ComponentTypeStorage::Multiple(multiple) => {
+                        let mut items: Vec<ArenaEntry<BoxedComponent>> =
+                            Vec::with_capacity(ser_multiple.capacity());
+                        let mut generation = 0;
+                        for component in ser_multiple {
+                            let item = match component {
+                                Some((gen, data)) => {
+                                    generation = std::cmp::max(generation, gen);
+                                    let component: BoxedComponent =
+                                        Box::new(bincode::deserialize::<C>(&data).unwrap());
 
-                let components = Arena::from_items(items, generation);
-                ty.groups[group_id.0].components = components;
+                                    ArenaEntry::Occupied {
+                                        generation: gen,
+                                        data: component,
+                                    }
+                                }
+                                None => ArenaEntry::Free { next_free: None },
+                            };
+                            items.push(item);
+                        }
+
+                        let components = Arena::from_items(items, generation);
+                        multiple.components = components;
+                    }
+                    _ => unreachable!(),
+                },
+                SerializedComponentStorage::MultipleGroups(ser_groups) => match &mut ty.storage {
+                    ComponentTypeStorage::MultipleGroups(groups) => {
+                        for (group_id, components) in ser_groups {
+                            let mut items: Vec<ArenaEntry<BoxedComponent>> =
+                                Vec::with_capacity(components.capacity());
+                            let mut generation = 0;
+                            for component in components {
+                                let item = match component {
+                                    Some((gen, data)) => {
+                                        generation = std::cmp::max(generation, gen);
+                                        let component: BoxedComponent =
+                                            Box::new(bincode::deserialize::<C>(&data).unwrap());
+
+                                        ArenaEntry::Occupied {
+                                            generation: gen,
+                                            data: component,
+                                        }
+                                    }
+                                    None => ArenaEntry::Free { next_free: None },
+                                };
+                                items.push(item);
+                            }
+
+                            let components = Arena::from_items(items, generation);
+                            groups[group_id.0].components = components;
+                        }
+                    }
+                    _ => unreachable!(),
+                },
             }
         }
     }
@@ -175,34 +243,81 @@ impl SceneDeserializer {
     ) {
         ctx.components.reregister::<C>();
         let type_id = C::IDENTIFIER;
-        if let Some(components) = self.ser_components.remove(&type_id) {
-            for (group_id, components) in components {
-                let mut items: Vec<ArenaEntry<BoxedComponent>> =
-                    Vec::with_capacity(components.capacity());
-                let mut generation = 0;
-                for component in components {
-                    let item = match component {
-                        Some((gen, data)) => {
-                            generation = cmp::max(generation, gen);
-                            let wrapper = DeserializeWrapper::new(&data);
-                            let component: BoxedComponent = Box::new((de)(wrapper, ctx));
-                            // #[cfg(feature = "physics")]
-                            // if component.base().is_body() {
-                            //     component.base_mut().init_body(ctx.components.world.clone());
-                            // }
-                            ArenaEntry::Occupied {
-                                generation: gen,
-                                data: component,
+        if let Some(storage) = self.ser_components.remove(&type_id) {
+            match storage {
+                SerializedComponentStorage::Single(single) => {
+                    if let Some(single) = single {
+                        let wrapper = DeserializeWrapper::new(&single);
+                        let c: BoxedComponent = Box::new((de)(wrapper, ctx));
+                        let ty = ctx.components.type_mut::<C>();
+                        match &mut ty.storage {
+                            ComponentTypeStorage::Single { component, .. } => {
+                                *component = Some(c);
                             }
+                            _ => unreachable!(),
                         }
-                        None => ArenaEntry::Free { next_free: None },
-                    };
-                    items.push(item);
+                    }
                 }
+                SerializedComponentStorage::Multiple(ser_multiple) => {
+                    let mut items: Vec<ArenaEntry<BoxedComponent>> =
+                        Vec::with_capacity(ser_multiple.capacity());
+                    let mut generation = 0;
+                    for component in ser_multiple {
+                        let item = match component {
+                            Some((gen, data)) => {
+                                generation = std::cmp::max(generation, gen);
+                                let wrapper = DeserializeWrapper::new(&data);
+                                let component: BoxedComponent = Box::new((de)(wrapper, ctx));
+                                ArenaEntry::Occupied {
+                                    generation: gen,
+                                    data: component,
+                                }
+                            }
+                            None => ArenaEntry::Free { next_free: None },
+                        };
+                        items.push(item);
+                    }
 
-                let ty = ctx.components.type_mut::<C>();
-                let components = Arena::from_items(items, generation);
-                ty.groups[group_id.0].components = components;
+                    let components = Arena::from_items(items, generation);
+                    let ty = ctx.components.type_mut::<C>();
+                    match &mut ty.storage {
+                        ComponentTypeStorage::Multiple(multiple) => {
+                            multiple.components = components;
+                        }
+                        _ => unreachable!(),
+                    }
+                }
+                SerializedComponentStorage::MultipleGroups(ser_groups) => {
+                    for (group_id, components) in ser_groups {
+                        let mut items: Vec<ArenaEntry<BoxedComponent>> =
+                            Vec::with_capacity(components.capacity());
+                        let mut generation = 0;
+                        for component in components {
+                            let item = match component {
+                                Some((gen, data)) => {
+                                    generation = std::cmp::max(generation, gen);
+                                    let wrapper = DeserializeWrapper::new(&data);
+                                    let component: BoxedComponent = Box::new((de)(wrapper, ctx));
+                                    ArenaEntry::Occupied {
+                                        generation: gen,
+                                        data: component,
+                                    }
+                                }
+                                None => ArenaEntry::Free { next_free: None },
+                            };
+                            items.push(item);
+                        }
+
+                        let ty = ctx.components.type_mut::<C>();
+                        match &mut ty.storage {
+                            ComponentTypeStorage::MultipleGroups(groups) => {
+                                let components = Arena::from_items(items, generation);
+                                groups[group_id.0].components = components;
+                            }
+                            _ => unreachable!(),
+                        }
+                    }
+                }
             }
         }
     }

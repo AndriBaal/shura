@@ -1,6 +1,6 @@
 use crate::{
     BoxedComponent, ComponentController, ComponentHandle, ComponentType, GroupHandle,
-    InstanceBuffer, InstanceIndex, RenderEncoder, RenderConfig, Renderer, InstanceIndices,
+    InstanceBuffer, InstanceIndex, InstanceIndices, RenderConfig, RenderEncoder, Renderer,
 };
 use std::marker::PhantomData;
 
