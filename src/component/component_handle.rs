@@ -13,7 +13,12 @@ pub struct GroupHandle(pub(crate) ArenaIndex);
 pub(crate) struct TypeIndex(pub(crate) ArenaIndex);
 
 impl GroupHandle {
+    pub const INVALID: Self = GroupHandle(ArenaIndex::INVALID);
     pub const DEFAULT_GROUP: Self = GroupHandle(ArenaIndex::FIRST);
+}
+
+impl ComponentIndex {
+    pub const INVALID: Self = ComponentIndex(ArenaIndex::INVALID);
 }
 
 impl Default for GroupHandle {

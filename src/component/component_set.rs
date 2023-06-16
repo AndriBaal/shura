@@ -1,6 +1,6 @@
 use crate::{
     BoxedComponent, ComponentController, ComponentHandle, ComponentType, GroupHandle,
-    InstanceBuffer, InstanceIndex,
+    InstanceBuffer, InstanceIndex, RenderEncoder, RenderConfig, Renderer, InstanceIndices,
 };
 use std::marker::PhantomData;
 
@@ -26,7 +26,7 @@ impl<'a, C: ComponentController> ComponentSet<'a, C> {
     }
 
     pub fn index(&self, index: usize) -> Option<&C> {
-        self.index_of(GroupHandle::DEFAULT_GROUP, 0)
+        self.index_of(GroupHandle::DEFAULT_GROUP, index)
     }
 
     pub fn index_of(&self, group: GroupHandle, index: usize) -> Option<&C> {
@@ -47,6 +47,10 @@ impl<'a, C: ComponentController> ComponentSet<'a, C> {
 
     pub fn iter(&self) -> impl DoubleEndedIterator<Item = &C> {
         self.ty.iter(self.groups)
+    }
+
+    pub fn single(&self) -> Option<&C> {
+        self.ty.single()
     }
 }
 
@@ -85,11 +89,11 @@ impl<'a, C: ComponentController> ComponentSetMut<'a, C> {
     }
 
     pub fn index(&self, index: usize) -> Option<&C> {
-        self.index_of(GroupHandle::DEFAULT_GROUP, 0)
+        self.index_of(GroupHandle::DEFAULT_GROUP, index)
     }
 
     pub fn index_mut(&mut self, index: usize) -> Option<&mut C> {
-        self.index_mut_of(GroupHandle::DEFAULT_GROUP, 0)
+        self.index_mut_of(GroupHandle::DEFAULT_GROUP, index)
     }
 
     pub fn index_of(&self, group: GroupHandle, index: usize) -> Option<&C> {
@@ -186,12 +190,7 @@ impl<'a, C: ComponentController> ComponentSetMut<'a, C> {
 
     pub fn iter_render(
         &self,
-    ) -> impl DoubleEndedIterator<
-        Item = (
-            &InstanceBuffer,
-            impl DoubleEndedIterator<Item = (InstanceIndex, &C)> + Clone,
-        ),
-    > {
+    ) -> impl DoubleEndedIterator<Item = (&InstanceBuffer, InstanceIndex, &C)> {
         self.ty.iter_render(self.groups)
     }
 
@@ -203,5 +202,56 @@ impl<'a, C: ComponentController> ComponentSetMut<'a, C> {
         &mut self,
     ) -> impl DoubleEndedIterator<Item = (ComponentHandle, &mut C)> {
         self.ty.iter_mut_with_handles(self.groups, self.check)
+    }
+
+    pub fn render_each(
+        &'a self,
+        encoder: &'a mut RenderEncoder,
+        config: RenderConfig<'a>,
+        each: impl FnMut(&mut Renderer<'a>, &'a C, InstanceIndex),
+    ) -> Renderer<'a> {
+        self.ty.render_each(encoder, config, each)
+    }
+
+    pub fn render_each_prepare(
+        &'a self,
+        encoder: &'a mut RenderEncoder,
+        config: RenderConfig<'a>,
+        prepare: impl FnOnce(&mut Renderer<'a>),
+        each: impl FnMut(&mut Renderer<'a>, &'a C, InstanceIndex),
+    ) -> Renderer<'a> {
+        self.ty.render_each_prepare(encoder, config, prepare, each)
+    }
+
+    pub fn render_all(
+        &'a self,
+        encoder: &'a mut RenderEncoder,
+        config: RenderConfig<'a>,
+        all: impl FnMut(&mut Renderer<'a>, InstanceIndices),
+    ) -> Renderer<'a> {
+        self.ty.render_all::<C>(encoder, config, all)
+    }
+
+    pub fn single(&self) -> Option<&C> {
+        self.ty.single()
+    }
+
+    pub fn single_mut(&mut self) -> Option<&mut C> {
+        self.ty.single_mut()
+    }
+
+    pub fn remove_single(&mut self) -> Option<C> {
+        self.ty.remove_single()
+    }
+
+    pub fn set_single(&mut self, new: C) -> ComponentHandle {
+        self.ty.set_single(new)
+    }
+
+    pub fn set_single_with(
+        &mut self,
+        create: impl FnOnce(ComponentHandle) -> C,
+    ) -> ComponentHandle {
+        self.ty.set_single_with(create)
     }
 }

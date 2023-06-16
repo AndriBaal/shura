@@ -100,8 +100,13 @@ impl Bird {
 }
 
 impl ComponentController for Bird {
+    const CONFIG: ComponentConfig = ComponentConfig {
+        storage: ComponentStorage::Single,
+        ..ComponentConfig::DEFAULT
+    };
+
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {
-        encoder.render_each::<Self>(ctx, RenderConfig::default(), |r, bird, instance| {
+        ctx.components.render_each::<Self>(encoder, RenderConfig::default(), |r, bird, instance| {
             let index = (ctx.frame.total_time() * 7.0 % 3.0) as usize;
             r.render_sprite(instance, &bird.model, &bird.sprite[index])
         });
@@ -229,7 +234,7 @@ impl ComponentController for Ground {
         ..ComponentConfig::DEFAULT
     };
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {
-        encoder.render_each::<Self>(ctx, RenderConfig::default(), |r, ground, instance| {
+        ctx.components.render_each::<Self>(encoder, RenderConfig::default(), |r, ground, instance| {
             r.render_sprite(instance, &ground.model, &ground.sprite)
         });
     }
@@ -260,10 +265,11 @@ impl ComponentController for Background {
     const CONFIG: ComponentConfig = ComponentConfig {
         priority: 1,
         buffer: BufferOperation::Manual,
+        storage: ComponentStorage::Single,
         ..ComponentConfig::DEFAULT
     };
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {
-        encoder.render_each::<Self>(ctx, RenderConfig::default(), |r, background, instance| {
+        ctx.components.render_each::<Self>(encoder, RenderConfig::default(), |r, background, instance| {
             r.render_sprite(instance, &background.model, &background.sprite)
         });
     }
@@ -335,7 +341,7 @@ impl ComponentController for Pipe {
 
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {
         let scene = ctx.scene_states.get::<FlappyState>();
-        encoder.render_all::<Self>(ctx, RenderConfig::default(), |r, instances| {
+        ctx.components.render_all::<Self>(encoder, RenderConfig::default(), |r, instances| {
             r.render_sprite(instances.clone(), &scene.top_pipe_model, &scene.pipe_sprite);
             r.render_sprite(instances, &scene.bottom_pipe_model, &scene.pipe_sprite);
         });

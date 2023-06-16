@@ -47,7 +47,7 @@ pub enum UpdateOperation {
 pub enum ComponentStorage {
     Single,
     Multiple,
-    Groups
+    Groups,
 }
 
 /// The configuration of a component type. This configuration is used to statically define
@@ -61,7 +61,7 @@ pub struct ComponentConfig {
     // pub auto_register: bool,
     pub update: UpdateOperation,
     pub buffer: BufferOperation,
-    pub storage: ComponentStorage
+    pub storage: ComponentStorage,
 }
 
 impl ComponentConfig {

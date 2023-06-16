@@ -244,7 +244,7 @@ impl ComponentController for Bird {
 
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {
         let scene = ctx.scene_states.get::<BirdSimulation>();
-        encoder.render_each::<Self>(ctx, RenderConfig::default(), |r, bird, instance| {
+        ctx.components.render_each::<Self>(encoder, RenderConfig::default(), |r, bird, instance| {
             if !bird.dead {
                 r.render_sprite(instance, &scene.bird_model, &scene.bird_sprite)
             }
@@ -282,7 +282,7 @@ impl ComponentController for Ground {
         ..ComponentConfig::DEFAULT
     };
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {
-        encoder.render_each::<Self>(ctx, RenderConfig::default(), |r, ground, instance| {
+        ctx.components.render_each::<Self>(encoder, RenderConfig::default(), |r, ground, instance| {
             r.render_sprite(instance, &ground.model, &ground.sprite)
         });
     }
@@ -316,7 +316,7 @@ impl ComponentController for Background {
         ..ComponentConfig::DEFAULT
     };
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {
-        encoder.render_each::<Self>(ctx, RenderConfig::default(), |r, background, instance| {
+        ctx.components.render_each::<Self>(encoder, RenderConfig::default(), |r, background, instance| {
             r.render_sprite(instance, &background.model, &background.sprite)
         });
     }
@@ -367,7 +367,7 @@ impl ComponentController for Pipe {
 
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {
         let scene = ctx.scene_states.get::<BirdSimulation>();
-        encoder.render_all::<Self>(ctx, RenderConfig::default(), |r, instances| {
+        ctx.components.render_all::<Self>(encoder, RenderConfig::default(), |r, instances| {
             r.render_sprite(instances.clone(), &scene.top_pipe_model, &scene.pipe_sprite);
             r.render_sprite(instances, &scene.bottom_pipe_model, &scene.pipe_sprite);
         });

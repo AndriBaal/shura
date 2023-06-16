@@ -168,7 +168,7 @@ impl ComponentController for Obstacle {
     };
 
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {
-        encoder.render_each::<Self>(ctx, RenderConfig::WORLD, |renderer, o, i| {
+        ctx.components.render_each::<Self>(encoder, RenderConfig::WORLD, |renderer, o, i| {
             renderer.render_color(i, &o.model, &o.color)
         });
     }

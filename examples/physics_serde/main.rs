@@ -203,7 +203,7 @@ impl ComponentController for Player {
     }
 
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {
-        encoder.render_each::<Self>(ctx, RenderConfig::WORLD, |r, player, index| {
+        ctx.components.render_each::<Self>(encoder, RenderConfig::WORLD, |r, player, index| {
             r.render_sprite(index, &player.model, &player.sprite)
         });
     }
@@ -258,7 +258,7 @@ impl Floor {
 
 impl ComponentController for Floor {
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {
-        encoder.render_each::<Self>(ctx, RenderConfig::WORLD, |r, floor, index| {
+        ctx.components.render_each::<Self>(encoder, RenderConfig::WORLD, |r, floor, index| {
             r.render_color(index, &floor.model, &floor.color)
         });
     }

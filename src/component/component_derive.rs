@@ -63,7 +63,7 @@ where
     /// This has massive performance advantes since many components
     /// can be rendered with the same operation, therefore it is mainly used for rendering
     /// components that have the exact same [model](crate::Model), [uniforms](crate::Uniform) or [sprites](crate::Sprite).
-    /// Rendering is mainly done with [render_each](crate::RenderEncoder::render_each) and [render_all](crate::RenderEncoder::render_all).
+    /// Rendering is mainly done with [render_each](crate::ComponentManager::render_each) and [render_all](crate::ComponentManager::render_all).
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {}
 
     /// Method called when the game is closed or the scene gets removed

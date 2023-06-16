@@ -1,6 +1,5 @@
 use crate::{
-    CameraBuffer, Color, ComponentController, Context, Gpu, GpuDefaults, InstanceBuffer,
-    InstanceIndex, InstanceIndices, RenderTarget, Renderer, Sprite,
+    CameraBuffer, Color, Gpu, GpuDefaults, InstanceBuffer, RenderTarget, Renderer, Sprite,
 };
 
 #[derive(Clone, Copy)]
@@ -190,54 +189,6 @@ impl<'a> RenderEncoder<'a> {
     ) -> Renderer<'b> {
         let mut renderer = self.renderer(config);
         (render)(&mut renderer);
-        return renderer;
-    }
-
-    pub fn render_each<'b, C: ComponentController>(
-        &'b mut self,
-        ctx: &'b Context<'b>,
-        config: RenderConfig<'b>,
-        mut each: impl FnMut(&mut Renderer<'b>, &'b C, InstanceIndex),
-    ) -> Renderer<'b> {
-        let mut renderer = self.renderer(config);
-        for (buffer, components) in ctx.components.iter_render::<C>() {
-            renderer.use_instances(buffer);
-            for (instance, component) in components {
-                (each)(&mut renderer, component, instance);
-            }
-        }
-        return renderer;
-    }
-
-    pub fn render_each_prepare<'b, C: ComponentController>(
-        &'b mut self,
-        ctx: &'b Context<'b>,
-        config: RenderConfig<'b>,
-        prepare: impl FnOnce(&mut Renderer<'b>),
-        mut each: impl FnMut(&mut Renderer<'b>, &'b C, InstanceIndex),
-    ) -> Renderer<'b> {
-        let mut renderer = self.renderer(config);
-        prepare(&mut renderer);
-        for (buffer, components) in ctx.components.iter_render::<C>() {
-            renderer.use_instances(buffer);
-            for (instance, component) in components {
-                (each)(&mut renderer, component, instance);
-            }
-        }
-        return renderer;
-    }
-
-    pub fn render_all<'b, C: ComponentController>(
-        &'b mut self,
-        ctx: &'b Context<'b>,
-        config: RenderConfig<'b>,
-        mut all: impl FnMut(&mut Renderer<'b>, InstanceIndices),
-    ) -> Renderer<'b> {
-        let mut renderer = self.renderer(config);
-        for (buffer, _) in ctx.components.iter_render::<C>() {
-            renderer.use_instances(buffer);
-            (all)(&mut renderer, buffer.all_instances());
-        }
         return renderer;
     }
 
