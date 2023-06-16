@@ -14,6 +14,19 @@ impl AudioManager {
         };
     }
 
+    pub fn play_once(&self, sound: &Sound) {
+        self.output_handle
+            .play_once(std::io::Cursor::new(sound.0))
+            .unwrap()
+            .detach()
+    }
+
+    pub fn play_once_and(&self, sound: &Sound) -> AudioSink {
+        self.output_handle
+            .play_once(std::io::Cursor::new(sound.0))
+            .unwrap()
+    }
+
     pub fn create_sink(&self) -> AudioSink {
         AudioSink::try_new(&self.output_handle).unwrap()
     }

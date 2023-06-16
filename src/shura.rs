@@ -156,16 +156,19 @@ impl ShuraConfig {
                             match update_status {
                                 Ok(_) => {}
                                 Err(wgpu::SurfaceError::Lost) => {
+                                    error!("Lost surface!");
                                     let mint: mint::Vector2<u32> = shura.window.inner_size().into();
                                     let window_size: Vector<u32> = mint.into();
                                     shura.resize(window_size);
                                 }
                                 Err(wgpu::SurfaceError::OutOfMemory) => {
+                                    #[cfg(feature = "log")]
+                                    error!("Not enough memory!");
                                     *control_flow = winit::event_loop::ControlFlow::Exit
                                 }
                                 Err(_e) => {
                                     #[cfg(feature = "log")]
-                                    error!("Render Error: {:?}", _e)
+                                    error!("Render error: {:?}", _e)
                                 }
                             }
 

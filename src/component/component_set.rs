@@ -21,11 +21,15 @@ impl<'a, C: ComponentController> ComponentSet<'a, C> {
         }
     }
 
-    pub fn each(&mut self, each: impl FnMut(&C)) {
-        self.ty.each(self.groups, each);
+    pub fn for_each(&mut self, each: impl FnMut(&C)) {
+        self.ty.for_each(self.groups, each);
     }
 
-    pub fn index(&self, group: GroupHandle, index: usize) -> Option<&C> {
+    pub fn index(&self, index: usize) -> Option<&C> {
+        self.index_of(GroupHandle::DEFAULT_GROUP, 0)
+    }
+
+    pub fn index_of(&self, group: GroupHandle, index: usize) -> Option<&C> {
         self.ty.index(group, index)
     }
 
@@ -68,23 +72,31 @@ impl<'a, C: ComponentController> ComponentSetMut<'a, C> {
         }
     }
 
-    pub fn each(&self, each: impl FnMut(&C)) {
-        self.ty.each(self.groups, each);
+    pub fn for_each(&self, each: impl FnMut(&C)) {
+        self.ty.for_each(self.groups, each);
     }
 
-    pub fn each_mut(&mut self, each: impl FnMut(&mut C)) {
-        self.ty.each_mut(self.groups, each);
+    pub fn for_each_mut(&mut self, each: impl FnMut(&mut C)) {
+        self.ty.for_each_mut(self.groups, each);
     }
 
     pub fn retain(&mut self, keep: impl FnMut(&mut C) -> bool) {
         self.ty.retain(self.groups, keep);
     }
 
-    pub fn index(&self, group: GroupHandle, index: usize) -> Option<&C> {
+    pub fn index(&self, index: usize) -> Option<&C> {
+        self.index_of(GroupHandle::DEFAULT_GROUP, 0)
+    }
+
+    pub fn index_mut(&mut self, index: usize) -> Option<&mut C> {
+        self.index_mut_of(GroupHandle::DEFAULT_GROUP, 0)
+    }
+
+    pub fn index_of(&self, group: GroupHandle, index: usize) -> Option<&C> {
         self.ty.index(group, index)
     }
 
-    pub fn index_mut(&mut self, group: GroupHandle, index: usize) -> Option<&mut C> {
+    pub fn index_mut_of(&mut self, group: GroupHandle, index: usize) -> Option<&mut C> {
         self.ty.index_mut(group, index)
     }
 
@@ -120,7 +132,7 @@ impl<'a, C: ComponentController> ComponentSetMut<'a, C> {
         self.ty.remove_boxed(handle)
     }
 
-    pub fn remove_all(&mut self) -> Vec<(GroupHandle, Vec<C>)> {
+    pub fn remove_all(&mut self) -> Vec<C> {
         self.ty.remove_all(self.groups)
     }
 

@@ -43,7 +43,7 @@ default = [
     "audio",
     "physics",
     "gui",
-    "serde",
+    # "serde",
     "log",
 ]
 
@@ -62,7 +62,6 @@ naga = "0.12"
 egui-wgpu = { version = "0.22", features = ["winit"], optional = true }
 egui = { version = "0.22", default-features = false, optional = true, features = [
     "bytemuck",
-    # "tracing",
     "default_fonts",
     "mint",
 ] }
