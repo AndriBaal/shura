@@ -31,6 +31,7 @@ serde = [
     "wgpu/trace",
     "wgpu/serde",
     "wgpu/replay",
+    "winit/serde",
     "gilrs?/serde-serialize",
     "egui?/serde",
     "nalgebra/serde-serialize",

@@ -380,7 +380,7 @@ impl Shura {
         let window_size: Vector<u32> = mint.into();
         self.frame.update();
         #[cfg(feature = "gamepad")]
-        self.input.sync_controller();
+        self.input.sync_gamepad();
         #[cfg(target_arch = "wasm32")]
         {
             if self.auto_scale_canvas {

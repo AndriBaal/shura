@@ -32,7 +32,7 @@ pub use crate::{
         render_encoder::*, render_target::*, renderer::*, screen_config::*, shader::*, sprite::*,
         sprite_sheet::*, uniform::*, vertex::*,
     },
-    input::input::*,
+    input::input::{Input, InputEvent, InputTrigger, Key, Modifier, MouseButton, ScreenTouch},
     math::{aabb::*, math::*, matrix::*},
     scene::{context::Context, scene::*, scene_manager::*},
     shura::*,
@@ -115,6 +115,7 @@ pub mod text {
 #[cfg(feature = "gamepad")]
 /// Access to [gilrs](https://gitlab.com/gilrs-project/gilrs)
 pub mod gamepad {
+    pub use crate::input::input::{GamepadButton, GamepadStick};
     pub use gilrs::{
         ev, ff, Axis, Button, ConnectedGamepadsIterator, Gamepad, GamepadId, Mapping, MappingError,
         MappingSource, PowerInfo,

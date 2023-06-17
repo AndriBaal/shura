@@ -6,20 +6,39 @@ use instant::{Duration, Instant};
 use rustc_hash::FxHashMap;
 use winit::event::*;
 
+#[cfg(feature = "log")]
+use crate::log::info;
+
 pub use winit::event::ModifiersState as Modifier;
 pub use winit::event::MouseButton;
 pub use winit::event::VirtualKeyCode as Key;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 /// Indicates if the screen is touched anywhere.
 pub struct ScreenTouch;
 
 #[cfg(feature = "gamepad")]
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 /// Button on a GamePad
 pub struct GamepadButton {
     pub gamepad: GamepadId,
     pub button: Button,
+}
+
+#[cfg(feature = "gamepad")]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+pub enum GamepadStick {
+    Left,
+    Right,
+}
+
+impl GamepadButton {
+    pub fn new(gamepad: GamepadId, button: Button) -> Self {
+        Self { gamepad, button }
+    }
 }
 
 #[cfg(feature = "gamepad")]
@@ -48,6 +67,7 @@ impl From<ScreenTouch> for InputTrigger {
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 /// Trigger of a key-like event
 pub enum InputTrigger {
     Key(Key),
@@ -58,9 +78,12 @@ pub enum InputTrigger {
 }
 
 /// Event of a [InputTrigger] that holds the trigger and the time of the event.
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct InputEvent {
     trigger: InputTrigger,
     pressed: bool,
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[cfg_attr(feature = "serde", serde(default = "Instant::now"))]
     start: Instant,
     frames: u32,
     pressure: f32,
@@ -111,9 +134,11 @@ pub struct Input {
     events: FxHashMap<InputTrigger, InputEvent>,
     modifiers: Modifier,
     wheel_delta: f32,
+    window_size: Vector<f32>,
     #[cfg(feature = "gamepad")]
     game_pad_manager: Gilrs,
-    window_size: Vector<f32>,
+    // #[cfg(feature = "gamepad")]
+    // active_gamepad: Option<GamepadId>,
 }
 
 impl Input {
@@ -124,6 +149,7 @@ impl Input {
             events: Default::default(),
             modifiers: Default::default(),
             wheel_delta: 0.0,
+            window_size: window_size.cast(),
             #[cfg(feature = "gamepad")]
             game_pad_manager: match Gilrs::new() {
                 Ok(ok) => ok,
@@ -133,7 +159,8 @@ impl Input {
                     Error::Other(err) => panic!("Gamepad Error: {}", err),
                 },
             },
-            window_size: window_size.cast(),
+            // #[cfg(feature = "gamepad")]
+            // active_gamepad: None,
         }
     }
 
@@ -288,8 +315,8 @@ impl Input {
     }
 
     #[cfg(feature = "gamepad")]
-    // Syncs the gamepad inputs to the inputs of the controller. This is automatically done once every update cycle.
-    pub fn sync_controller(&mut self) {
+    // Syncs the gamepad inputs to the inputs of the gamepad. This is automatically done once every update cycle.
+    pub fn sync_gamepad(&mut self) {
         while let Some(event) = self.game_pad_manager.next_event() {
             let gamepad = event.id;
             match event.event {
@@ -311,18 +338,77 @@ impl Input {
                     let trigger = GamepadButton { gamepad, button };
                     self.events.remove(&trigger.into());
                 }
-                EventType::Disconnected => self.events.retain(|trigger, _| match trigger {
-                    InputTrigger::GamepadButton(c) => c.gamepad != gamepad,
-                    _ => true,
-                }),
+                EventType::Disconnected => {
+                    #[cfg(feature = "log")]
+                    {
+                        let gamepad = self.gamepad(gamepad).unwrap();
+                        info!(
+                            "Dropped gamepad: {}",
+                            gamepad.name()
+                        );
+                    }
+                    self.events.retain(|trigger, _| match trigger {
+                        InputTrigger::GamepadButton(c) => c.gamepad != gamepad,
+                        _ => true,
+                    })
+                }
                 // TODO: Maybe support this
                 EventType::ButtonRepeated(_, _) => {}
                 EventType::Dropped => {}
-                EventType::Connected => {}
+                EventType::Connected => {
+                    #[cfg(feature = "log")]
+                    {
+                        let gamepad = self.gamepad(gamepad).unwrap();
+                        info!(
+                            "Connected gamepad: {} with power {:?}",
+                            gamepad.name(),
+                            gamepad.power_info()
+                        );
+                    }
+                }
                 EventType::AxisChanged(_, _, _) => {}
             }
         }
     }
+
+    #[cfg(feature = "gamepad")]
+    /// Returns a vector between [-1.0, -1.0] and [1.0, 1.0]
+    pub fn gamepad_stick(&self, gamepad_id: GamepadId, stick: GamepadStick) -> Vector<f32> {
+        if let Some(gamepad) = self.gamepad(gamepad_id) {
+            match stick {
+                GamepadStick::Left => {
+                    return Vector::new(
+                        gamepad
+                            .axis_data(Axis::LeftStickX)
+                            .map(|a| a.value())
+                            .unwrap_or(0.0),
+                        gamepad
+                            .axis_data(Axis::LeftStickY)
+                            .map(|a| a.value())
+                            .unwrap_or(0.0),
+                    );
+                }
+                GamepadStick::Right => {
+                    return Vector::new(
+                        gamepad
+                            .axis_data(Axis::RightStickX)
+                            .map(|a| a.value())
+                            .unwrap_or(0.0),
+                        gamepad
+                            .axis_data(Axis::RightStickY)
+                            .map(|a| a.value())
+                            .unwrap_or(0.0),
+                    );
+                }
+            }
+        }
+        return Vector::default();
+    }
+
+    // #[cfg(feature = "gamepad")]
+    // pub fn active_gamepad(&self) -> Option<GamepadId> {
+    //     return self.active_gamepad;
+    // }
 
     #[cfg(feature = "gamepad")]
     pub fn first_gamepad(&self) -> Option<(GamepadId, Gamepad)> {
