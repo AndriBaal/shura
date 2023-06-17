@@ -137,11 +137,14 @@ pub struct Input {
     window_size: Vector<f32>,
     #[cfg(feature = "gamepad")]
     game_pad_manager: Gilrs,
-    // #[cfg(feature = "gamepad")]
-    // active_gamepad: Option<GamepadId>,
+    #[cfg(feature = "gamepad")]
+    active_gamepad: Option<GamepadId>,
 }
 
 impl Input {
+    #[cfg(feature = "gamepad")]
+    pub const DEFAULT_DEAD_ZONE: f32 = 0.1;
+
     pub(crate) fn new(window_size: Vector<u32>) -> Self {
         Self {
             cursor_raw: Vector::new(0, 0),
@@ -159,8 +162,8 @@ impl Input {
                     Error::Other(err) => panic!("Gamepad Error: {}", err),
                 },
             },
-            // #[cfg(feature = "gamepad")]
-            // active_gamepad: None,
+            #[cfg(feature = "gamepad")]
+            active_gamepad: None,
         }
     }
 
@@ -319,6 +322,7 @@ impl Input {
     pub fn sync_gamepad(&mut self) {
         while let Some(event) = self.game_pad_manager.next_event() {
             let gamepad = event.id;
+            self.active_gamepad = Some(gamepad);
             match event.event {
                 EventType::ButtonPressed(button, _) => {
                     let trigger = GamepadButton { gamepad, button };
@@ -341,10 +345,9 @@ impl Input {
                 EventType::Disconnected => {
                     #[cfg(feature = "log")]
                     {
-                        let gamepad = self.gamepad(gamepad).unwrap();
                         info!(
                             "Dropped gamepad: {}",
-                            gamepad.name()
+                            gamepad
                         );
                     }
                     self.events.retain(|trigger, _| match trigger {
@@ -358,15 +361,22 @@ impl Input {
                 EventType::Connected => {
                     #[cfg(feature = "log")]
                     {
-                        let gamepad = self.gamepad(gamepad).unwrap();
+                        let gamepad_ref = self.gamepad(gamepad).unwrap();
                         info!(
-                            "Connected gamepad: {} with power {:?}",
-                            gamepad.name(),
-                            gamepad.power_info()
+                            "Connected gamepad: {} with power {:?} and id {}",
+                            gamepad_ref.name(),
+                            gamepad_ref.power_info(),
+                            gamepad
                         );
                     }
                 }
                 EventType::AxisChanged(_, _, _) => {}
+            }
+        }
+        if let Some(active) = self.active_gamepad {
+            let exists = self.game_pad_manager.gamepad(active).is_connected();
+            if !exists {
+                self.active_gamepad = None;
             }
         }
     }
@@ -405,10 +415,10 @@ impl Input {
         return Vector::default();
     }
 
-    // #[cfg(feature = "gamepad")]
-    // pub fn active_gamepad(&self) -> Option<GamepadId> {
-    //     return self.active_gamepad;
-    // }
+    #[cfg(feature = "gamepad")]
+    pub fn active_gamepad(&self) -> Option<GamepadId> {
+        return self.active_gamepad;
+    }
 
     #[cfg(feature = "gamepad")]
     pub fn first_gamepad(&self) -> Option<(GamepadId, Gamepad)> {
