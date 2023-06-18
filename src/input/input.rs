@@ -6,7 +6,7 @@ use instant::{Duration, Instant};
 use rustc_hash::FxHashMap;
 use winit::event::*;
 
-#[cfg(feature = "log")]
+#[cfg(all(feature = "log", feature = "gamepad"))]
 use crate::log::info;
 
 pub use winit::event::ModifiersState as Modifier;
@@ -35,6 +35,7 @@ pub enum GamepadStick {
     Right,
 }
 
+#[cfg(feature = "gamepad")]
 impl GamepadButton {
     pub fn new(gamepad: GamepadId, button: Button) -> Self {
         Self { gamepad, button }

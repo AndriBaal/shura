@@ -50,7 +50,12 @@ struct Bunny {
 }
 impl Bunny {
     pub fn new(translation: Vector<f32>, handle: ComponentHandle) -> Bunny {
-        let base = PositionBuilder::new().translation(translation).into();
+        let scale = gen_range(0.75..2.0);
+        let base = PositionBuilder::new()
+            .translation(translation)
+            .rotation(Rotation::new(gen_range(-1.0..1.0)))
+            .scale(Vector::new(scale, scale))
+            .into();
         let linvel = Vector::new(gen_range(-2.5..2.5), gen_range(-7.5..7.5));
         Bunny {
             base,
@@ -73,17 +78,16 @@ impl ComponentController for Bunny {
         if ctx.input.is_held(MouseButton::Right) {
             let mut dead: Vec<ComponentHandle> = vec![];
             let bunnies = ctx.components.set::<Bunny>();
-            if bunnies.len() == 1 {
-                return;
-            }
-            for bunny in bunnies.iter().rev() {
-                if dead.len() == MODIFY_STEP {
-                    break;
+            if bunnies.len() != 1 {
+                for bunny in bunnies.iter().rev() {
+                    if dead.len() == MODIFY_STEP {
+                        break;
+                    }
+                    dead.push(bunny.handle);
                 }
-                dead.push(bunny.handle);
-            }
-            for handle in dead {
-                ctx.components.remove_boxed(handle);
+                for handle in dead {
+                    ctx.components.remove_boxed(handle);
+                }
             }
         }
 

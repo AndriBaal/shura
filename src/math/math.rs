@@ -1,4 +1,5 @@
 pub use nalgebra::Isometry2 as Isometry;
+pub use nalgebra::Matrix2 as Matrix;
 pub use nalgebra::Point2 as Point;
 pub use nalgebra::Translation2 as Translation;
 pub use nalgebra::UnitComplex as Rotation;

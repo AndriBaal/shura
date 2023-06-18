@@ -33,7 +33,7 @@ pub use crate::{
         sprite_sheet::*, uniform::*, vertex::*,
     },
     input::input::{Input, InputEvent, InputTrigger, Key, Modifier, MouseButton, ScreenTouch},
-    math::{aabb::*, math::*, matrix::*},
+    math::{aabb::*, math::*},
     scene::{context::Context, scene::*, scene_manager::*},
     shura::*,
     state::{state::*, state_manager::*},

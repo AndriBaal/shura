@@ -4,7 +4,7 @@ use crate::{
     ComponentHandle,
 };
 use crate::{
-    ComponentConfig, ComponentIdentifier, ComponentTypeId, Context, EndReason, Matrix,
+    ComponentConfig, ComponentIdentifier, ComponentTypeId, Context, EndReason, InstanceData,
     RenderEncoder,
 };
 use downcast_rs::*;
@@ -21,7 +21,7 @@ pub type BoxedComponent = Box<dyn ComponentDerive>;
 /// Base of every component. Provides a method to generate a 2D Matrix, so the component can be rendered
 /// to the screen.
 pub trait BaseComponent: Downcast {
-    fn matrix(&self, #[cfg(feature = "physics")] world: &World) -> Matrix;
+    fn instance(&self, #[cfg(feature = "physics")] world: &World) -> InstanceData;
 }
 impl_downcast!(BaseComponent);
 
@@ -81,9 +81,7 @@ impl<C: ComponentDerive + ?Sized> ComponentDerive for Box<C> {
 }
 
 // impl<C: BaseComponent + ?Sized> BaseComponent for Box<C> {
-//     fn matrix(&self, #[cfg(feature = "physics")] world: &World) -> Matrix {
+//     fn instance(&self, #[cfg(feature = "physics")] world: &World) -> Matrix {
 //         (**self).matrix(#[cfg(feature = "physics")] world)
 //     }
 // }
-
-

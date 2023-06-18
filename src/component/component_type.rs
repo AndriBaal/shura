@@ -8,8 +8,8 @@ use crate::physics::{CollideType, ColliderHandle, World, WorldChanges};
 use crate::{
     data::arena::ArenaEntry, Arena, BoxedComponent, BufferOperation, ComponentConfig,
     ComponentController, ComponentDerive, ComponentHandle, ComponentIndex, ComponentStorage,
-    Context, EndReason, Gpu, Group, GroupHandle, InstanceBuffer, InstanceIndex, InstanceIndices,
-    Matrix, RenderConfig, RenderEncoder, Renderer, TypeIndex,
+    Context, EndReason, Gpu, Group, GroupHandle, InstanceBuffer, InstanceData, InstanceIndex,
+    InstanceIndices, RenderConfig, RenderEncoder, Renderer, TypeIndex,
 };
 
 #[derive(Clone, Copy)]
@@ -103,7 +103,7 @@ pub(crate) struct ComponentTypeGroup {
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
     buffer: Option<InstanceBuffer>,
-    last_len: usize,
+    last_len: u32,
 }
 
 impl ComponentTypeGroup {
@@ -116,16 +116,41 @@ impl ComponentTypeGroup {
         }
     }
 
-    fn instances(&self, #[cfg(feature = "physics")] world: &mut World) -> Vec<Matrix> {
+    fn instances(&self, #[cfg(feature = "physics")] world: &mut World) -> Vec<InstanceData> {
         self.components
             .iter()
             .map(|(_, component)| {
-                component.base().matrix(
+                component.base().instance(
                     #[cfg(feature = "physics")]
                     world,
                 )
             })
-            .collect::<Vec<Matrix>>()
+            .collect::<Vec<InstanceData>>()
+    }
+
+    fn buffer(
+        &mut self,
+        gpu: &Gpu,
+        config: &ComponentConfig,
+        #[cfg(feature = "physics")] world: &mut World,
+    ) {
+        // Additional allocation
+        const BUFFER_STEP: u32 = 12;
+        let new_len = self.components.len() as u32;
+        let buffer_capacity = self.buffer.as_ref().map(|b| b.capacity()).unwrap_or(0) as u32;
+        if self.buffer.is_none() || new_len > buffer_capacity {
+            self.buffer = Some(InstanceBuffer::empty(gpu, new_len + BUFFER_STEP));
+        }
+
+        if config.buffer == BufferOperation::EveryFrame || self.force_buffer || new_len != self.last_len {
+            let instances = self.instances(
+                #[cfg(feature = "physics")]
+                world,
+            );
+            self.last_len = new_len;
+            self.force_buffer = false;
+            self.buffer.as_mut().unwrap().write(gpu, &instances);
+        }
     }
 }
 
@@ -219,55 +244,20 @@ impl ComponentType {
             ComponentTypeStorage::MultipleGroups(groups) => {
                 for index in active {
                     let group = &mut groups[index.0];
-                    let new_len = group.components.len();
-                    if new_len != group.last_len {
-                        // We have to resize the buffer
-                        let instances = group.instances(
-                            #[cfg(feature = "physics")]
-                            world,
-                        );
-                        group.last_len = new_len;
-                        group.buffer = Some(InstanceBuffer::new(gpu, &instances[..]));
-                    } else if self.config.buffer == BufferOperation::EveryFrame
-                        || group.force_buffer
-                    {
-                        let instances = group.instances(
-                            #[cfg(feature = "physics")]
-                            world,
-                        );
-                        group.force_buffer = false;
-                        if let Some(buffer) = &mut group.buffer {
-                            buffer.write(gpu, &instances[..]);
-                        } else {
-                            group.buffer = Some(InstanceBuffer::new(gpu, &instances));
-                        }
-                    }
-                }
-            }
-            ComponentTypeStorage::Multiple(multiple) => {
-                let new_len = multiple.components.len();
-                if new_len != multiple.last_len {
-                    // We have to resize the buffer
-                    let instances = multiple.instances(
+                    group.buffer(
+                        gpu,
+                        &self.config,
                         #[cfg(feature = "physics")]
                         world,
-                    );
-                    multiple.last_len = new_len;
-                    multiple.buffer = Some(InstanceBuffer::new(gpu, &instances[..]));
-                } else if self.config.buffer == BufferOperation::EveryFrame || multiple.force_buffer
-                {
-                    let instances = multiple.instances(
-                        #[cfg(feature = "physics")]
-                        world,
-                    );
-                    multiple.force_buffer = false;
-                    if let Some(buffer) = &mut multiple.buffer {
-                        buffer.write(gpu, &instances[..]);
-                    } else {
-                        multiple.buffer = Some(InstanceBuffer::new(gpu, &instances));
-                    }
+                    )
                 }
             }
+            ComponentTypeStorage::Multiple(multiple) => multiple.buffer(
+                gpu,
+                &self.config,
+                #[cfg(feature = "physics")]
+                world,
+            ),
             ComponentTypeStorage::Single {
                 buffer,
                 force_buffer,
@@ -275,7 +265,7 @@ impl ComponentType {
             } => {
                 if let Some(component) = component {
                     if self.config.buffer == BufferOperation::EveryFrame || *force_buffer {
-                        let matrix = component.base().matrix(
+                        let matrix = component.base().instance(
                             #[cfg(feature = "physics")]
                             world,
                         );
@@ -1315,18 +1305,18 @@ impl ComponentType {
             ComponentTypeStorage::Single { buffer, .. } => {
                 let buffer = buffer.as_ref().expect(BUFFER_ERROR);
                 renderer.use_instances(buffer);
-                (all)(&mut renderer, buffer.all_instances());
+                (all)(&mut renderer, buffer.instances());
             }
             ComponentTypeStorage::Multiple(multiple) => {
                 let buffer = multiple.buffer.as_ref().expect(BUFFER_ERROR);
                 renderer.use_instances(buffer);
-                (all)(&mut renderer, buffer.all_instances());
+                (all)(&mut renderer, buffer.instances());
             }
             ComponentTypeStorage::MultipleGroups(groups) => {
                 for (_, group) in groups {
                     let buffer = group.buffer.as_ref().expect(BUFFER_ERROR);
                     renderer.use_instances(buffer);
-                    (all)(&mut renderer, buffer.all_instances());
+                    (all)(&mut renderer, buffer.instances());
                 }
             }
         }

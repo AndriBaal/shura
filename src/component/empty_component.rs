@@ -1,4 +1,4 @@
-use crate::{BaseComponent, Matrix};
+use crate::{BaseComponent, InstanceData};
 
 #[cfg(feature = "physics")]
 use crate::physics::World;
@@ -14,7 +14,7 @@ impl EmptyComponent {
 }
 
 impl BaseComponent for EmptyComponent {
-    fn matrix(&self, #[cfg(feature = "physics")] _world: &World) -> Matrix {
-        Matrix::default()
+    fn instance(&self, #[cfg(feature = "physics")] _world: &World) -> InstanceData {
+        InstanceData::default()
     }
 }

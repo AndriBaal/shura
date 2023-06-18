@@ -1,7 +1,7 @@
 use super::{text::TextSection, text_cache::TextCache};
 use crate::{
-    text::TextVertex, Gpu, GpuDefaults, Matrix, RenderConfig, RenderConfigTarget, RenderEncoder,
-    Vector,
+    text::TextVertex, CameraMatrix, Gpu, GpuDefaults, RenderConfig, RenderConfigTarget,
+    RenderEncoder, Vector,
 };
 use glyph_brush::{
     ab_glyph::{FontRef, InvalidFont},
@@ -88,7 +88,8 @@ impl FontBrush {
                     break match action {
                         BrushAction::Draw(vertices) => {
                             self.cache.update_vertex_buffer(gpu, vertices);
-                            self.cache.update_matrix(gpu, Matrix::ortho(target_size));
+                            self.cache
+                                .update_matrix(gpu, CameraMatrix::ortho(target_size));
                             pipeline.draw(&self.cache, pass);
                         }
                         BrushAction::ReDraw => pipeline.draw(&self.cache, pass),

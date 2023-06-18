@@ -43,8 +43,8 @@ default = [
     "text",
     "audio",
     "physics",
-    "gui",
     "serde",
+    "gui",
     "log",
 ]
 

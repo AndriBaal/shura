@@ -1,6 +1,6 @@
 use crate::{
     physics::{Collider, ColliderHandle, World},
-    BaseComponent, Matrix, Vector,
+    BaseComponent, InstanceData, Vector,
 };
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -23,10 +23,10 @@ impl ColliderComponent {
 }
 
 impl BaseComponent for ColliderComponent {
-    fn matrix(&self, world: &World) -> Matrix {
+    fn instance(&self, world: &World) -> InstanceData {
         if let Some(collider) = world.collider(self.collider_handle) {
-            return Matrix::new(*collider.position(), Vector::new(1.0, 1.0));
+            return InstanceData::new(*collider.position(), Vector::new(1.0, 1.0));
         }
-        return Matrix::default();
+        return InstanceData::default();
     }
 }

@@ -1,8 +1,10 @@
-use std::ops::Deref;
+use nalgebra::Vector4;
+use std::mem;
+use std::ops::*;
 
 use crate::{
-    ComponentHandle, ComponentManager, Gpu, Isometry, Matrix, Model, ModelBuilder, Rotation,
-    Uniform, Vector,
+    ComponentHandle, ComponentManager, Gpu, Isometry, Model, ModelBuilder, Rotation, Uniform,
+    Vector,
 };
 
 #[cfg(feature = "physics")]
@@ -16,12 +18,12 @@ const MINIMAL_FOV: f32 = 5.4E-079;
 pub struct Camera {
     position: Isometry<f32>,
     fov: Vector<f32>,
-    proj: Matrix,
+    proj: CameraMatrix,
 }
 
 impl Camera {
     pub fn new(position: Isometry<f32>, fov: Vector<f32>) -> Self {
-        let proj = Matrix::frustum(fov);
+        let proj = CameraMatrix::frustum(fov);
         Camera {
             position,
             fov,
@@ -30,7 +32,7 @@ impl Camera {
     }
 
     pub(crate) fn reset_camera_projection(&mut self) {
-        self.proj = Matrix::frustum(self.fov());
+        self.proj = CameraMatrix::frustum(self.fov());
     }
 
     pub const fn position(&self) -> &Isometry<f32> {
@@ -41,15 +43,15 @@ impl Camera {
         &self.position.translation.vector
     }
 
-    pub fn view(&self) -> Matrix {
-        Matrix::view(self.position)
+    pub fn view(&self) -> CameraMatrix {
+        CameraMatrix::view(self.position)
     }
 
-    pub fn proj(&self) -> Matrix {
+    pub fn proj(&self) -> CameraMatrix {
         self.proj
     }
 
-    pub fn view_proj(&self) -> Matrix {
+    pub fn view_proj(&self) -> CameraMatrix {
         self.view() * self.proj()
     }
 
@@ -143,13 +145,11 @@ impl WorldCamera {
     ) {
         if let Some(target) = self.target() {
             if let Some(component) = man.get_boxed(target) {
-                // TODO: Maybe change this to not read from the matrix
-                let matrix = component.base().matrix(
+                let instance = component.base().instance(
                     #[cfg(feature = "physics")]
                     world,
                 );
-                let translation = Vector::new(matrix[12], matrix[13]);
-                self.camera.set_translation(translation);
+                self.camera.set_translation(instance.pos());
             } else {
                 self.set_target(None);
             }
@@ -275,15 +275,139 @@ impl WorldCameraScale {
 /// Holds the [Uniform] with the matrix of a [Camera] and the [Model] of the fov.
 pub struct CameraBuffer {
     model: Model,
-    uniform: Uniform<Matrix>,
+    uniform: Uniform<CameraMatrix>,
 }
 
 impl CameraBuffer {
-    pub fn uniform(&self) -> &Uniform<Matrix> {
+    pub fn uniform(&self) -> &Uniform<CameraMatrix> {
         &self.uniform
     }
 
     pub fn model(&self) -> &Model {
         &self.model
+    }
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct CameraMatrix {
+    pub x: Vector4<f32>,
+    pub y: Vector4<f32>,
+    pub z: Vector4<f32>,
+    pub w: Vector4<f32>,
+}
+
+impl CameraMatrix {
+    // Matrix::from_look(Vec3::new(0.0, 0.0,-3.0), Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 1.0, 0.0));
+    pub(crate) const NULL_VIEW: CameraMatrix = CameraMatrix::raw(
+        Vector4::new(-1.0, 0.0, -0.0, 0.0),
+        Vector4::new(0.0, 1.0, -0.0, 0.0),
+        Vector4::new(0.0, -0.0, -1.0, 0.0),
+        Vector4::new(0.0, 0.0, -3.0, 1.0),
+    );
+
+    pub const fn raw(x: Vector4<f32>, y: Vector4<f32>, z: Vector4<f32>, w: Vector4<f32>) -> Self {
+        Self { x, y, z, w }
+    }
+
+    /// Frustum
+    pub fn frustum(half_extents: Vector<f32>) -> Self {
+        const NEAR: f32 = 3.0;
+        const FAR: f32 = 7.0;
+        let left = -half_extents.x;
+        let right = half_extents.x;
+        let bottom = -half_extents.y;
+        let top = half_extents.y;
+        let r_width = 1.0 / (left - right);
+        let r_height = 1.0 / (top - bottom);
+        let r_depth = 1.0 / (NEAR - FAR);
+        let x = 2.0 * (NEAR * r_width);
+        let y = 2.0 * (NEAR * r_height);
+        let a = (left + right) * r_width;
+        let b = (top + bottom) * r_height;
+        let c = (FAR + NEAR) * r_depth;
+        let d = FAR * NEAR * r_depth;
+
+        Self::raw(
+            Vector4::new(x, 0.0, 0.0, 0.0),
+            Vector4::new(0.0, y, 0.0, 0.0),
+            Vector4::new(a, b, c, -1.0),
+            Vector4::new(0.0, 0.0, d, 0.0),
+        )
+    }
+
+    /// View
+    pub fn view(mut position: Isometry<f32>) -> Self {
+        let mut result = Self::NULL_VIEW;
+        let s = position.rotation.sin_angle();
+        let c = position.rotation.cos_angle();
+        let temp = position.translation;
+        position.translation.x = temp.x * c - (temp.y) * s;
+        position.translation.y = temp.x * s + (temp.y) * c;
+
+        result[12] = position.translation.x;
+        result[13] = -position.translation.y;
+        result[0] = -c;
+        result[1] = s;
+        result[4] = s;
+        result[5] = c;
+
+        return result;
+    }
+
+    pub fn ortho(dim: Vector<f32>) -> Self {
+        Self::raw(
+            Vector4::new(2.0 / dim.x, 0.0, 0.0, 0.0),
+            Vector4::new(0.0, -2.0 / dim.y, 0.0, 0.0),
+            Vector4::new(0.0, 0.0, 1.0, 0.0),
+            Vector4::new(-1.0, 1.0, 0.0, 1.),
+        )
+    }
+}
+
+impl AsRef<[f32; 16]> for CameraMatrix {
+    fn as_ref(&self) -> &[f32; 16] {
+        unsafe { mem::transmute(self) }
+    }
+}
+
+impl AsMut<[f32; 16]> for CameraMatrix {
+    fn as_mut(&mut self) -> &mut [f32; 16] {
+        unsafe { mem::transmute(self) }
+    }
+}
+
+impl Into<[f32; 16]> for CameraMatrix {
+    fn into(self) -> [f32; 16] {
+        unsafe { mem::transmute(self) }
+    }
+}
+
+impl Index<usize> for CameraMatrix {
+    type Output = f32;
+
+    fn index<'a>(&'a self, i: usize) -> &'a f32 {
+        let v: &[f32; 16] = self.as_ref();
+        &v[i]
+    }
+}
+
+impl IndexMut<usize> for CameraMatrix {
+    fn index_mut<'a>(&'a mut self, i: usize) -> &'a mut f32 {
+        let v: &mut [f32; 16] = self.as_mut();
+        &mut v[i]
+    }
+}
+
+impl Mul for CameraMatrix {
+    type Output = CameraMatrix;
+    fn mul(self, m: CameraMatrix) -> Self {
+        CameraMatrix::raw(
+            m.x * self[0] + m.y * self[1] + m.z * self[2] + m.w * self[3],
+            m.x * self[4] + m.y * self[5] + m.z * self[6] + m.w * self[7],
+            m.x * self[8] + m.y * self[9] + m.z * self[10] + m.w * self[11],
+            m.x * self[12] + m.y * self[13] + m.z * self[14] + m.w * self[15],
+        )
     }
 }

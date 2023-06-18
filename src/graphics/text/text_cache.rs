@@ -3,7 +3,7 @@ use std::sync::Mutex;
 use glyph_brush::Rectangle;
 use wgpu::util::DeviceExt;
 
-use crate::{Gpu, Matrix, Vector};
+use crate::{CameraMatrix, Gpu, Vector};
 
 use super::text_pipeline::TextVertex;
 
@@ -38,7 +38,7 @@ impl TextCache {
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("wgpu-text Matrix Buffer"),
-                contents: bytemuck::cast_slice(&[Matrix::ortho(dim.cast::<f32>())]),
+                contents: bytemuck::cast_slice(&[CameraMatrix::ortho(dim.cast::<f32>())]),
                 usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             });
 
@@ -106,7 +106,7 @@ impl TextCache {
         )
     }
 
-    pub fn update_matrix(&self, gpu: &Gpu, matrix: Matrix) {
+    pub fn update_matrix(&self, gpu: &Gpu, matrix: CameraMatrix) {
         gpu.queue
             .write_buffer(&self.matrix_buffer, 0, bytemuck::cast_slice(&[matrix]));
     }

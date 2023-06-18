@@ -1,4 +1,4 @@
-use crate::{Gpu, Vertex};
+use crate::{Gpu, InstanceData, Vertex};
 use std::borrow::Cow;
 
 pub use wgpu::{BlendComponent, BlendFactor, BlendOperation, BlendState, ColorWrites};
@@ -144,7 +144,7 @@ impl Shader {
                     push_constant_ranges: &[],
                 });
 
-        let buffers = vec![Vertex::desc(), Vertex::instance_desc()];
+        let buffers = vec![Vertex::desc(), InstanceData::desc()];
 
         // Default Shader Configuration
         let pipeline = gpu
