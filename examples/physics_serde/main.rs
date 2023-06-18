@@ -302,16 +302,20 @@ impl PhysicsBox {
 impl ComponentController for PhysicsBox {
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {
         let state = ctx.scene_states.get::<PhysicsState>();
-        ctx.components.render_each::<Self>(encoder, RenderConfig::WORLD, |renderer, b, instance|  {
-            let sprite = if b.hovered {
-                &state.hover_color
-            } else if b.collided {
-                &state.collision_color
-            } else {
-                &state.default_color
-            };
-            renderer.render_color(instance, &state.box_model, sprite);
-        }) ;
+        ctx.components.render_each::<Self>(
+            encoder,
+            RenderConfig::WORLD,
+            |renderer, b, instance| {
+                let sprite = if b.hovered {
+                    &state.hover_color
+                } else if b.collided {
+                    &state.collision_color
+                } else {
+                    &state.default_color
+                };
+                renderer.render_color(instance, &state.box_model, sprite);
+            },
+        );
     }
 
     fn update(ctx: &mut Context) {

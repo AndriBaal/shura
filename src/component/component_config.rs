@@ -55,8 +55,10 @@ pub enum ComponentStorage {
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ComponentConfig {
-    /// Describes the order in which components are processed
-    pub priority: i16,
+    /// Describes the order in which components are updated and ended
+    pub update_priority: i16,
+    /// Describes the order in which components are rendered
+    pub render_priority: i16,
     // /// When this flag is set, the component is automatically registered when adding one
     // pub auto_register: bool,
     pub update: UpdateOperation,
@@ -65,11 +67,13 @@ pub struct ComponentConfig {
 }
 
 impl ComponentConfig {
+    pub const DEFAULT_PRIORITY: i16 = 16;
     pub const DEFAULT: ComponentConfig = ComponentConfig {
         buffer: BufferOperation::EveryFrame,
         update: UpdateOperation::EveryFrame,
         storage: ComponentStorage::Multiple,
-        priority: 16,
+        update_priority: Self::DEFAULT_PRIORITY,
+        render_priority: Self::DEFAULT_PRIORITY,
     };
 }
 

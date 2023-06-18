@@ -162,7 +162,7 @@ impl Obstacle {
 
 impl ComponentController for Obstacle {
     const CONFIG: ComponentConfig = ComponentConfig {
-        priority: 2,
+        render_priority: 2,
         update: UpdateOperation::Never,
         ..ComponentConfig::DEFAULT
     };
@@ -213,7 +213,7 @@ impl Light {
 
 impl ComponentController for Light {
     const CONFIG: ComponentConfig = ComponentConfig {
-        priority: 1,
+        render_priority: 1,
         ..ComponentConfig::DEFAULT
     };
 

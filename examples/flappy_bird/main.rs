@@ -234,7 +234,7 @@ impl Ground {
 
 impl ComponentController for Ground {
     const CONFIG: ComponentConfig = ComponentConfig {
-        priority: 2,
+        update_priority: 2,
         ..ComponentConfig::DEFAULT
     };
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {
@@ -269,7 +269,7 @@ impl Background {
 
 impl ComponentController for Background {
     const CONFIG: ComponentConfig = ComponentConfig {
-        priority: 1,
+        update_priority: 1,
         buffer: BufferOperation::Manual,
         storage: ComponentStorage::Single,
         ..ComponentConfig::DEFAULT
@@ -329,7 +329,7 @@ impl Pipe {
 
 impl ComponentController for Pipe {
     const CONFIG: ComponentConfig = ComponentConfig {
-        priority: 3,
+        update_priority: 3,
         ..ComponentConfig::DEFAULT
     };
     fn update(ctx: &mut Context) {

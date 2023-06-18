@@ -22,6 +22,12 @@ impl Color {
         b: 0.0,
         a: 1.0,
     };
+    pub const GOLD: Self = Self {
+        r: 0.831372549,
+        g: 0.68627451,
+        b: 0.215686275,
+        a: 1.0,
+    };
     pub const WHITE: Self = Self {
         r: 1.0,
         g: 1.0,

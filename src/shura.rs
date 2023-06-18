@@ -352,7 +352,7 @@ impl Shura {
             if let Some(removed) = self.scenes.scenes.remove(&remove) {
                 let mut removed = removed.borrow_mut();
                 let mut ctx = Context::new(self, &mut removed);
-                for (_, type_index) in ctx.components.priorities().borrow().iter() {
+                for (_, type_index) in ctx.components.update_priorities().borrow().iter() {
                     let end = ctx.components.callable(type_index).callbacks.end;
                     (end)(&mut ctx, EndReason::RemoveScene)
                 }
@@ -443,7 +443,10 @@ impl Shura {
             };
             let now = ctx.frame.update_time();
             {
-                for ((_priority, _), type_index) in ctx.components.priorities().borrow().iter() {
+                ctx.components.apply_priorities();
+                for ((_priority, _), type_index) in
+                    ctx.components.update_priorities().borrow().iter()
+                {
                     #[cfg(feature = "physics")]
                     if !done_step && *_priority > physics_priority {
                         done_step = true;
@@ -513,7 +516,7 @@ impl Shura {
         }
 
         {
-            for (_, type_index) in ctx.components.priorities().borrow().iter() {
+            for (_, type_index) in ctx.components.render_priorities().borrow().iter() {
                 let ty = ctx.components.callable(type_index);
                 (ty.callbacks.render)(&ctx, &mut encoder);
             }
@@ -568,7 +571,7 @@ impl Drop for Shura {
         for (_, scene) in self.scenes.end_scenes() {
             let mut scene = scene.borrow_mut();
             let mut ctx = Context::new(self, &mut scene);
-            for (_, type_index) in ctx.components.priorities().borrow().iter() {
+            for (_, type_index) in ctx.components.update_priorities().borrow().iter() {
                 let end = ctx.components.callable(type_index).callbacks.end;
                 (end)(&mut ctx, EndReason::EndProgram)
             }

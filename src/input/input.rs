@@ -139,6 +139,8 @@ pub struct Input {
     game_pad_manager: Gilrs,
     #[cfg(feature = "gamepad")]
     active_gamepad: Option<GamepadId>,
+    #[cfg(feature = "gamepad")]
+    dead_zone: f32,
 }
 
 impl Input {
@@ -164,6 +166,8 @@ impl Input {
             },
             #[cfg(feature = "gamepad")]
             active_gamepad: None,
+            #[cfg(feature = "gamepad")]
+            dead_zone: Self::DEFAULT_DEAD_ZONE,
         }
     }
 
@@ -345,10 +349,7 @@ impl Input {
                 EventType::Disconnected => {
                     #[cfg(feature = "log")]
                     {
-                        info!(
-                            "Dropped gamepad: {}",
-                            gamepad
-                        );
+                        info!("Dropped gamepad: {}", gamepad);
                     }
                     self.events.retain(|trigger, _| match trigger {
                         InputTrigger::GamepadButton(c) => c.gamepad != gamepad,
@@ -383,36 +384,58 @@ impl Input {
 
     #[cfg(feature = "gamepad")]
     /// Returns a vector between [-1.0, -1.0] and [1.0, 1.0]
-    pub fn gamepad_stick(&self, gamepad_id: GamepadId, stick: GamepadStick) -> Vector<f32> {
+    pub fn gamepad_stick_deadzone(
+        &self,
+        gamepad_id: GamepadId,
+        stick: GamepadStick,
+        dead_zone: f32,
+    ) -> Vector<f32> {
+        fn axis_values(
+            gamepad: &Gamepad,
+            deadzone: f32,
+            x_axis: Axis,
+            y_axis: Axis,
+        ) -> Vector<f32> {
+            fn axis(gamepad: &Gamepad, deadzone: f32, x_axis: Axis) -> f32 {
+                let value = gamepad.axis_data(x_axis).map(|a| a.value()).unwrap_or(0.0);
+                if value >= deadzone {
+                    return value;
+                } else {
+                    return 0.0;
+                }
+            }
+            return Vector::new(
+                axis(gamepad, deadzone, x_axis),
+                axis(gamepad, deadzone, y_axis),
+            );
+        }
         if let Some(gamepad) = self.gamepad(gamepad_id) {
             match stick {
                 GamepadStick::Left => {
-                    return Vector::new(
-                        gamepad
-                            .axis_data(Axis::LeftStickX)
-                            .map(|a| a.value())
-                            .unwrap_or(0.0),
-                        gamepad
-                            .axis_data(Axis::LeftStickY)
-                            .map(|a| a.value())
-                            .unwrap_or(0.0),
-                    );
+                    return axis_values(&gamepad, dead_zone, Axis::LeftStickX, Axis::LeftStickY);
                 }
                 GamepadStick::Right => {
-                    return Vector::new(
-                        gamepad
-                            .axis_data(Axis::RightStickX)
-                            .map(|a| a.value())
-                            .unwrap_or(0.0),
-                        gamepad
-                            .axis_data(Axis::RightStickY)
-                            .map(|a| a.value())
-                            .unwrap_or(0.0),
-                    );
+                    return axis_values(&gamepad, dead_zone, Axis::RightStickX, Axis::RightStickY);
                 }
             }
         }
         return Vector::default();
+    }
+
+    #[cfg(feature = "gamepad")]
+    /// Returns a vector between [-1.0, -1.0] and [1.0, 1.0]
+    pub fn gamepad_stick(&self, gamepad_id: GamepadId, stick: GamepadStick) -> Vector<f32> {
+        return Self::gamepad_stick_deadzone(&self, gamepad_id, stick, self.dead_zone);
+    }
+
+    #[cfg(feature = "gamepad")]
+    pub fn dead_zone(&self) -> f32 {
+        return self.dead_zone;
+    }
+
+    #[cfg(feature = "gamepad")]
+    pub fn set_dead_zone(&mut self, val: f32) {
+        self.dead_zone = val;
     }
 
     #[cfg(feature = "gamepad")]

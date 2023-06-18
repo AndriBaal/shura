@@ -61,10 +61,6 @@ impl Bunny {
 }
 
 impl ComponentController for Bunny {
-    const CONFIG: ComponentConfig = ComponentConfig {
-        priority: 2,
-        ..ComponentConfig::DEFAULT
-    };
     fn update(ctx: &mut Context) {
         const GRAVITY: f32 = -2.5;
         const MODIFY_STEP: usize = 1500;

@@ -159,10 +159,13 @@ pub struct ComponentManager {
     callables: FxHashMap<TypeIndex, CallableType>,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
-    priorities: Rc<RefCell<BTreeMap<(i16, ComponentTypeId), TypeIndex>>>,
+    update_priorities: Rc<RefCell<BTreeMap<(i16, ComponentTypeId), TypeIndex>>>,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
-    new_priorities: Vec<(i16, ComponentTypeId, TypeIndex)>,
+    render_priorities: Rc<RefCell<BTreeMap<(i16, ComponentTypeId), TypeIndex>>>,
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[cfg_attr(feature = "serde", serde(default))]
+    new_priorities: Vec<(i16, i16, ComponentTypeId, TypeIndex)>,
     groups: Arena<Group>,
     active_groups: Vec<GroupHandle>,
     all_groups: Vec<GroupHandle>,
@@ -178,8 +181,9 @@ impl ComponentManager {
             types: Default::default(),
             type_map: Default::default(),
             callables: Default::default(),
-            priorities: Default::default(),
             new_priorities: Default::default(),
+            update_priorities: Default::default(),
+            render_priorities: Default::default(),
             all_groups: Vec::from_iter([group_handle]),
             active_groups: Vec::from_iter([group_handle]),
             groups,
@@ -208,16 +212,28 @@ impl ComponentManager {
         }
     }
 
-    pub(crate) fn priorities(
-        &mut self,
-    ) -> Rc<RefCell<BTreeMap<(i16, ComponentTypeId), TypeIndex>>> {
+    pub(crate) fn apply_priorities(&mut self) {
         if self.new_priorities.len() > 0 {
-            let mut priorities = self.priorities.borrow_mut();
-            for (priority, type_id, index) in self.new_priorities.drain(..) {
-                priorities.insert((priority, type_id), index);
+            let mut update_priorities = self.update_priorities.borrow_mut();
+            let mut render_priorities = self.render_priorities.borrow_mut();
+            for (update_priority, render_priority, type_id, index) in self.new_priorities.drain(..)
+            {
+                update_priorities.insert((update_priority, type_id), index);
+                render_priorities.insert((render_priority, type_id), index);
             }
         }
-        return self.priorities.clone();
+    }
+
+    pub(crate) fn update_priorities(
+        &self,
+    ) -> Rc<RefCell<BTreeMap<(i16, ComponentTypeId), TypeIndex>>> {
+        return self.update_priorities.clone();
+    }
+
+    pub(crate) fn render_priorities(
+        &self,
+    ) -> Rc<RefCell<BTreeMap<(i16, ComponentTypeId), TypeIndex>>> {
+        return self.render_priorities.clone();
     }
 
     pub(crate) fn callable(&self, t: &TypeIndex) -> &CallableType {
@@ -231,8 +247,12 @@ impl ComponentManager {
     #[cfg(feature = "serde")]
     pub(crate) fn reregister<C: ComponentController>(&mut self) {
         let index = *self.type_map.get(&C::IDENTIFIER).unwrap();
-        self.new_priorities
-            .push((C::CONFIG.priority, C::IDENTIFIER, index));
+        self.new_priorities.push((
+            C::CONFIG.update_priority,
+            C::CONFIG.render_priority,
+            C::IDENTIFIER,
+            index,
+        ));
         self.callables.insert(index, CallableType::new::<C>());
     }
 
@@ -269,14 +289,17 @@ impl ComponentManager {
             });
             #[cfg(feature = "log")]
             info!(
-                "Register component '{}' with priority {} and ID '{}'",
+                "Register component '{}' with ID '{}'",
                 C::TYPE_NAME,
-                C::CONFIG.priority,
                 C::IDENTIFIER
             );
             self.type_map.insert(C::IDENTIFIER, TypeIndex(index));
-            self.new_priorities
-                .push((C::CONFIG.priority, C::IDENTIFIER, TypeIndex(index)));
+            self.new_priorities.push((
+                C::CONFIG.update_priority,
+                C::CONFIG.render_priority,
+                C::IDENTIFIER,
+                TypeIndex(index),
+            ));
             self.callables
                 .insert(TypeIndex(index), CallableType::new::<C>());
         }

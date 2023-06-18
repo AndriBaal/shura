@@ -148,6 +148,9 @@ impl CallableType {
     }
 }
 
+const BUFFER_ERROR: &'static str =
+    "This component either has no buffer or it has not been initialized yet!";
+
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct ComponentType {
     index: TypeIndex,
@@ -1170,7 +1173,7 @@ impl ComponentType {
             } => {
                 if let Some(component) = component {
                     return Box::new(std::iter::once((
-                        buffer.as_ref().unwrap(),
+                        buffer.as_ref().expect(BUFFER_ERROR),
                         InstanceIndex::new(0),
                         component.downcast_ref::<C>().unwrap(),
                     )));
@@ -1181,7 +1184,7 @@ impl ComponentType {
             ComponentTypeStorage::Multiple(multiple) => {
                 return Box::new(multiple.components.iter().enumerate().map(|(i, (_, c))| {
                     (
-                        multiple.buffer.as_ref().unwrap(),
+                        multiple.buffer.as_ref().expect(BUFFER_ERROR),
                         InstanceIndex::new(i as u32),
                         c.downcast_ref::<C>().unwrap(),
                     )
@@ -1194,7 +1197,7 @@ impl ComponentType {
                         if !group.components.is_empty() {
                             iters.push(group.components.iter().enumerate().map(|(i, (_, c))| {
                                 (
-                                    group.buffer.as_ref().unwrap(),
+                                    group.buffer.as_ref().expect(BUFFER_ERROR),
                                     InstanceIndex::new(i as u32),
                                     c.downcast_ref::<C>().unwrap(),
                                 )
@@ -1218,7 +1221,7 @@ impl ComponentType {
             ComponentTypeStorage::Single {
                 buffer, component, ..
             } => {
-                renderer.use_instances(buffer.as_ref().unwrap());
+                renderer.use_instances(buffer.as_ref().expect(BUFFER_ERROR));
                 if let Some(component) = component {
                     (each)(
                         &mut renderer,
@@ -1228,7 +1231,7 @@ impl ComponentType {
                 }
             }
             ComponentTypeStorage::Multiple(multiple) => {
-                renderer.use_instances(multiple.buffer.as_ref().unwrap());
+                renderer.use_instances(multiple.buffer.as_ref().expect(BUFFER_ERROR));
                 for (instance, (_, component)) in multiple.components.iter().enumerate() {
                     (each)(
                         &mut renderer,
@@ -1239,7 +1242,7 @@ impl ComponentType {
             }
             ComponentTypeStorage::MultipleGroups(groups) => {
                 for (_, group) in groups {
-                    renderer.use_instances(group.buffer.as_ref().unwrap());
+                    renderer.use_instances(group.buffer.as_ref().expect(BUFFER_ERROR));
                     for (instance, (_, component)) in group.components.iter().enumerate() {
                         (each)(
                             &mut renderer,
@@ -1266,7 +1269,7 @@ impl ComponentType {
             ComponentTypeStorage::Single {
                 buffer, component, ..
             } => {
-                renderer.use_instances(buffer.as_ref().unwrap());
+                renderer.use_instances(buffer.as_ref().expect(BUFFER_ERROR));
                 if let Some(component) = component {
                     (each)(
                         &mut renderer,
@@ -1276,7 +1279,7 @@ impl ComponentType {
                 }
             }
             ComponentTypeStorage::Multiple(multiple) => {
-                renderer.use_instances(multiple.buffer.as_ref().unwrap());
+                renderer.use_instances(multiple.buffer.as_ref().expect(BUFFER_ERROR));
                 for (instance, (_, component)) in multiple.components.iter().enumerate() {
                     (each)(
                         &mut renderer,
@@ -1287,7 +1290,7 @@ impl ComponentType {
             }
             ComponentTypeStorage::MultipleGroups(groups) => {
                 for (_, group) in groups {
-                    renderer.use_instances(group.buffer.as_ref().unwrap());
+                    renderer.use_instances(group.buffer.as_ref().expect(BUFFER_ERROR));
                     for (instance, (_, component)) in group.components.iter().enumerate() {
                         (each)(
                             &mut renderer,
@@ -1310,18 +1313,18 @@ impl ComponentType {
         let mut renderer = encoder.renderer(config);
         match &self.storage {
             ComponentTypeStorage::Single { buffer, .. } => {
-                let buffer = buffer.as_ref().unwrap();
+                let buffer = buffer.as_ref().expect(BUFFER_ERROR);
                 renderer.use_instances(buffer);
                 (all)(&mut renderer, buffer.all_instances());
             }
             ComponentTypeStorage::Multiple(multiple) => {
-                let buffer = multiple.buffer.as_ref().unwrap();
+                let buffer = multiple.buffer.as_ref().expect(BUFFER_ERROR);
                 renderer.use_instances(buffer);
                 (all)(&mut renderer, buffer.all_instances());
             }
             ComponentTypeStorage::MultipleGroups(groups) => {
                 for (_, group) in groups {
-                    let buffer = group.buffer.as_ref().unwrap();
+                    let buffer = group.buffer.as_ref().expect(BUFFER_ERROR);
                     renderer.use_instances(buffer);
                     (all)(&mut renderer, buffer.all_instances());
                 }
