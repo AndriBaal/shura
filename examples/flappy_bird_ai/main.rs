@@ -166,6 +166,7 @@ impl ComponentController for Bird {
                 || bird_aabb.intersects(&bottom_aabb)
                 || bird_aabb.intersects(&top_aabb)
             {
+                bird.pos.set_disabled(true);
                 bird.dead = true;
             }
 

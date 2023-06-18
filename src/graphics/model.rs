@@ -518,6 +518,12 @@ impl ModelBuilder {
         self
     }
 
+    /// Set the texture coordinates of this model to match a singular sprite in the spritesheet
+    pub fn with_sprite_sheet(mut self) -> Self {
+        todo!();
+        self
+    }
+
     pub fn apply_modifiers(mut self) -> Self {
         Self::compute_modifed_vertices(
             &mut self.vertices,

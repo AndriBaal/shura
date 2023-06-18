@@ -6,6 +6,8 @@ use crate::{
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ColliderComponent {
     pub collider_handle: ColliderHandle,
+    pub tex: Vector<f32>,
+    pub scale: Vector<f32>,
 }
 
 impl ColliderComponent {
@@ -20,12 +22,36 @@ impl ColliderComponent {
     pub fn get_mut<'a>(&self, world: &'a mut World) -> &'a mut Collider {
         world.collider_mut(self.collider_handle).unwrap()
     }
+
+    pub fn set_scale(&mut self, scale: Vector<f32>) {
+        self.scale = scale;
+    }
+
+    pub const fn scale(&self) -> &Vector<f32> {
+        &self.scale
+    }
+
+    pub fn set_tex(&mut self, tex: Vector<f32>) {
+        self.tex = tex;
+    }
+
+    pub const fn tex(&self) -> &Vector<f32> {
+        &self.tex
+    }
 }
 
 impl BaseComponent for ColliderComponent {
     fn instance(&self, world: &World) -> InstanceData {
         if let Some(collider) = world.collider(self.collider_handle) {
-            return InstanceData::new(*collider.position(), Vector::new(1.0, 1.0));
+            return InstanceData::new(
+                *collider.position(),
+                self.tex,
+                if collider.is_enabled() {
+                    self.scale
+                } else {
+                    Vector::default()
+                },
+            );
         }
         return InstanceData::default();
     }

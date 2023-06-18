@@ -205,7 +205,7 @@ impl Gpu {
     pub fn create_sprite_sheet_from_amount(
         &self,
         bytes: &[u8],
-        sprites: Vector<usize>,
+        sprites: Vector<u32>,
     ) -> SpriteSheet {
         SpriteSheet::from_amount(self, bytes, sprites)
     }
@@ -476,6 +476,7 @@ impl GpuDefaults {
         let times = Uniform::new(gpu, [0.0, 0.0]);
         let single_centered_instance = gpu.create_instance_buffer(&[InstanceData::new(
             Default::default(),
+            Vector::default(),
             Vector::new(1.0, 1.0),
         )]);
         let empty_instance = gpu.create_instance_buffer(&[]);

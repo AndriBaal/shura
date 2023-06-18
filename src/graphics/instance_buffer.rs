@@ -9,20 +9,21 @@ use wgpu::util::DeviceExt;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct InstanceData {
     pos: Vector<f32>,
+    tex: Vector<f32>,
     rot: Matrix<f32>,
 }
 
 impl InstanceData {
-    pub fn new(pos: Isometry<f32>, scale: Vector<f32>) -> Self {
+    pub fn new(pos: Isometry<f32>, tex: Vector<f32>, scale: Vector<f32>) -> Self {
         Self {
-            rot: Matrix::new(scale.x, 0.0, 0.0, scale.y)
-                * Matrix::new(
-                    pos.rotation.cos_angle(),
-                    -pos.rotation.sin_angle(),
-                    pos.rotation.sin_angle(),
-                    pos.rotation.cos_angle(),
-                ),
+            rot: Matrix::new(
+                scale.x * pos.rotation.cos_angle(),
+                scale.x * pos.rotation.sin_angle(),
+                scale.y * -pos.rotation.sin_angle(),
+                scale.y * pos.rotation.cos_angle(),
+            ),
             pos: pos.translation.vector,
+            tex,
         }
     }
 
@@ -37,8 +38,13 @@ impl InstanceData {
                     format: wgpu::VertexFormat::Float32x2,
                 },
                 wgpu::VertexAttribute {
-                    offset: mem::size_of::<Vector<f32>>() as wgpu::BufferAddress,
+                    offset: mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
                     shader_location: 6,
+                    format: wgpu::VertexFormat::Float32x2,
+                },
+                wgpu::VertexAttribute {
+                    offset: mem::size_of::<[f32; 4]>() as wgpu::BufferAddress,
+                    shader_location: 7,
                     format: wgpu::VertexFormat::Float32x4,
                 },
             ],
@@ -59,14 +65,26 @@ impl InstanceData {
             )
     }
 
+    pub fn set_tex(&mut self, tex: Vector<f32>) {
+        self.tex = tex;
+    }
+
     pub fn pos(&self) -> Vector<f32> {
         self.pos
+    }
+
+    pub fn tex(&self) -> Vector<f32> {
+        self.tex
     }
 }
 
 impl Default for InstanceData {
     fn default() -> Self {
-        return Self::new(Isometry::new(Vector::default(), 0.0), Vector::new(1.0, 1.0));
+        return Self::new(
+            Isometry::new(Vector::default(), 0.0),
+            Vector::new(0.0, 0.0),
+            Vector::new(1.0, 1.0),
+        );
     }
 }
 
@@ -93,18 +111,16 @@ impl InstanceBuffer {
     }
 
     pub fn empty(gpu: &Gpu, amount: u32) -> Self {
-        let buffer = gpu
-            .device
-            .create_buffer(&wgpu::BufferDescriptor {
-                label: Some("instance_buffer"),
-                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-                size: std::mem::size_of::<InstanceData>() as u64 * amount as u64,
-                mapped_at_creation: false,
-            });
+        let buffer = gpu.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("instance_buffer"),
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            size: std::mem::size_of::<InstanceData>() as u64 * amount as u64,
+            mapped_at_creation: false,
+        });
 
         return Self {
             buffer,
-            instances: amount
+            instances: amount,
         };
     }
 

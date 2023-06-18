@@ -142,7 +142,10 @@ impl ComponentTypeGroup {
             self.buffer = Some(InstanceBuffer::empty(gpu, new_len + BUFFER_STEP));
         }
 
-        if config.buffer == BufferOperation::EveryFrame || self.force_buffer || new_len != self.last_len {
+        if config.buffer == BufferOperation::EveryFrame
+            || self.force_buffer
+            || new_len != self.last_len
+        {
             let instances = self.instances(
                 #[cfg(feature = "physics")]
                 world,

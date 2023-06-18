@@ -6,6 +6,8 @@ use crate::{
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RigidBodyComponent {
     pub rigid_body_handle: RigidBodyHandle,
+    pub tex: Vector<f32>,
+    pub scale: Vector<f32>,
 }
 
 impl RigidBodyComponent {
@@ -46,12 +48,36 @@ impl RigidBodyComponent {
             world.unregister_collider(collider_handle)
         }
     }
+
+    pub fn set_scale(&mut self, scale: Vector<f32>) {
+        self.scale = scale;
+    }
+
+    pub const fn scale(&self) -> &Vector<f32> {
+        &self.scale
+    }
+
+    pub fn set_tex(&mut self, tex: Vector<f32>) {
+        self.tex = tex;
+    }
+
+    pub const fn tex(&self) -> &Vector<f32> {
+        &self.tex
+    }
 }
 
 impl BaseComponent for RigidBodyComponent {
     fn instance(&self, world: &World) -> crate::InstanceData {
-        if let Some(collider) = world.rigid_body(self.rigid_body_handle) {
-            return InstanceData::new(*collider.position(), Vector::new(1.0, 1.0));
+        if let Some(rigid_body) = world.rigid_body(self.rigid_body_handle) {
+            return InstanceData::new(
+                *rigid_body.position(),
+                self.tex,
+                if rigid_body.is_enabled() {
+                    self.scale
+                } else {
+                    Vector::default()
+                },
+            );
         }
         return InstanceData::default();
     }

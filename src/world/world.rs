@@ -259,7 +259,11 @@ impl World {
             self.colliders
                 .insert_with_parent(collider, rigid_body_handle, &mut self.bodies);
         }
-        RigidBodyComponent { rigid_body_handle }
+        RigidBodyComponent {
+            rigid_body_handle,
+            scale: Vector::new(1.0, 1.0),
+            tex: Vector::new(0.0, 0.0),
+        }
     }
 
     pub fn create_collider_component(
@@ -268,6 +272,8 @@ impl World {
     ) -> ColliderComponent {
         ColliderComponent {
             collider_handle: self.colliders.insert(collider),
+            scale: Vector::new(1.0, 1.0),
+            tex: Vector::new(0.0, 0.0),
         }
     }
 

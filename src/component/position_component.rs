@@ -8,14 +8,18 @@ use crate::physics::World;
 #[derive(Clone)]
 pub struct PositionBuilder {
     pub scale: Vector<f32>,
+    pub tex: Vector<f32>,
     pub position: Isometry<f32>,
+    pub disabled: bool,
 }
 
 impl Default for PositionBuilder {
     fn default() -> Self {
         Self {
             scale: Vector::new(1.0, 1.0),
-            position: Default::default(),
+            tex: Vector::default(),
+            position: Isometry::default(),
+            disabled: false,
         }
     }
 }
@@ -45,6 +49,16 @@ impl PositionBuilder {
         self
     }
 
+    pub fn tex(mut self, tex: Vector<f32>) -> Self {
+        self.tex = tex;
+        self
+    }
+
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.disabled = disabled;
+        self
+    }
+
     pub fn build(self) -> PositionComponent {
         self.into()
     }
@@ -63,6 +77,7 @@ pub struct PositionComponent {
     scale: Vector<f32>,
     position: Isometry<f32>,
     instance: InstanceData,
+    disabled: bool,
 }
 
 impl Default for PositionComponent {
@@ -76,8 +91,9 @@ impl PositionComponent {
     pub fn new(pos: PositionBuilder) -> Self {
         Self {
             scale: pos.scale,
-            instance: InstanceData::new(pos.position, pos.scale),
+            instance: InstanceData::new(pos.position, pos.tex, pos.scale),
             position: pos.position,
+            disabled: pos.disabled,
         }
     }
 
@@ -85,9 +101,28 @@ impl PositionComponent {
         self.instance
     }
 
+    pub fn set_disabled(&mut self, disabled: bool) {
+        self.disabled = disabled;
+        self.instance.set_scale_rotation(
+            if disabled {
+                Vector::default()
+            } else {
+                self.scale
+            },
+            self.position.rotation,
+        );
+    }
+
     pub fn set_rotation(&mut self, rotation: Rotation<f32>) {
-        self.instance.set_scale_rotation(self.scale, rotation);
         self.position.rotation = rotation;
+        self.instance.set_scale_rotation(
+            if self.disabled {
+                Vector::default()
+            } else {
+                self.scale
+            },
+            rotation,
+        );
     }
 
     pub fn set_translation(&mut self, translation: Vector<f32>) {
@@ -96,8 +131,32 @@ impl PositionComponent {
     }
 
     pub fn set_position(&mut self, position: Isometry<f32>) {
-        self.instance = InstanceData::new(position, self.scale);
         self.position = position;
+        self.instance = InstanceData::new(
+            position,
+            self.instance.tex(),
+            if self.disabled {
+                Vector::default()
+            } else {
+                self.scale
+            },
+        );
+    }
+
+    pub fn set_scale(&mut self, scale: Vector<f32>) {
+        self.scale = scale;
+        self.instance.set_scale_rotation(
+            if self.disabled {
+                Vector::default()
+            } else {
+                self.scale
+            },
+            self.position.rotation,
+        );
+    }
+
+    pub fn disabled(&self) -> bool {
+        self.disabled
     }
 
     pub fn rotation(&self) -> Rotation<f32> {
@@ -114,12 +173,6 @@ impl PositionComponent {
 
     pub const fn scale(&self) -> &Vector<f32> {
         &self.scale
-    }
-
-    pub fn set_scale(&mut self, scale: Vector<f32>) {
-        self.scale = scale;
-        self.instance
-            .set_scale_rotation(self.scale, self.position.rotation);
     }
 }
 
