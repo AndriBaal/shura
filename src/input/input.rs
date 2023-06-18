@@ -396,18 +396,15 @@ impl Input {
             x_axis: Axis,
             y_axis: Axis,
         ) -> Vector<f32> {
-            fn axis(gamepad: &Gamepad, deadzone: f32, x_axis: Axis) -> f32 {
+            fn axis(gamepad: &Gamepad, x_axis: Axis) -> f32 {
                 let value = gamepad.axis_data(x_axis).map(|a| a.value()).unwrap_or(0.0);
-                if value >= deadzone {
-                    return value;
-                } else {
-                    return 0.0;
-                }
+                return value;
             }
-            return Vector::new(
-                axis(gamepad, deadzone, x_axis),
-                axis(gamepad, deadzone, y_axis),
-            );
+            let value = Vector::new(axis(gamepad, x_axis), axis(gamepad, y_axis));
+            if value.magnitude() >= deadzone {
+                return value;
+            }
+            return Vector::default();
         }
         if let Some(gamepad) = self.gamepad(gamepad_id) {
             match stick {

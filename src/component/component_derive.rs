@@ -79,3 +79,11 @@ impl<C: ComponentDerive + ?Sized> ComponentDerive for Box<C> {
         (**self).component_type_id()
     }
 }
+
+// impl<C: BaseComponent + ?Sized> BaseComponent for Box<C> {
+//     fn matrix(&self, #[cfg(feature = "physics")] world: &World) -> Matrix {
+//         (**self).matrix(#[cfg(feature = "physics")] world)
+//     }
+// }
+
+
