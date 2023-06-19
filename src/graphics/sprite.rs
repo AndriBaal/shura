@@ -1,5 +1,5 @@
-use crate::{Gpu, Vector};
-use image::GenericImageView;
+use crate::{Gpu, Vector, Color};
+use image::{GenericImageView, ImageBuffer, DynamicImage};
 
 /// 2D Sprite used for rendering
 #[derive(Debug)]
@@ -34,7 +34,7 @@ impl Sprite {
         }
     }
 
-    pub fn from_image(gpu: &Gpu, image: image::DynamicImage) -> Self {
+    pub fn from_image(gpu: &Gpu, image: DynamicImage) -> Self {
         use wgpu::TextureFormat;
         let size = Vector::new(image.width(), image.height());
         let (format, texture) = Self::create_texture(gpu, size);
@@ -82,6 +82,14 @@ impl Sprite {
             texture,
             size,
         }
+    }
+
+    fn from_color(gpu: &Gpu, colors: &[Color]) -> Self {
+        let mut img = ImageBuffer::from_fn(colors.len() as u32, 1, |x, _y| {
+            let color = colors[x as usize];
+            image::Rgba([color.r as u8, color.g as u8, color.b as u8, color.a as u8])
+        });
+        return Self::from_image(gpu, DynamicImage::ImageRgba8(img));
     }
 
     fn create_texture(gpu: &Gpu, size: Vector<u32>) -> (wgpu::TextureFormat, wgpu::Texture) {

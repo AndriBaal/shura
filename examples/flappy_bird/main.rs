@@ -73,6 +73,10 @@ struct Bird {
 impl Bird {
     const HALF_EXTENTS: Vector<f32> = Vector::new(0.3, 0.21176472);
     pub fn new(world: &mut World, gpu: &Gpu, audio: &AudioManager) -> Self {
+        let sprite = gpu.create_sprite_sheet(
+            include_bytes!("./sprites/yellowbird.png"),
+            Vector::new(17, 12),
+        );
         Self {
             body: RigidBodyComponent::new(
                 world,
@@ -87,11 +91,9 @@ impl Bird {
                 ],
             ),
 
-            model: gpu.create_model(ModelBuilder::cuboid(Self::HALF_EXTENTS)),
-            sprite: gpu.create_sprite_sheet(
-                include_bytes!("./sprites/yellowbird.png"),
-                Vector::new(17, 12),
-            ),
+            model: gpu
+                .create_model(ModelBuilder::cuboid(Self::HALF_EXTENTS).with_sprite_sheet(&sprite)),
+            sprite,
             sink: audio.create_sink(),
             hit_sound: audio.create_sound(include_bytes!("./audio/hit.wav")),
             wing_sound: audio.create_sound(include_bytes!("./audio/wing.wav")),
@@ -110,8 +112,7 @@ impl ComponentController for Bird {
             encoder,
             RenderConfig::default(),
             |r, bird, instance| {
-                let index = (ctx.frame.total_time() * 7.0 % 3.0) as usize;
-                r.render_sprite(instance, &bird.model, &bird.sprite[index])
+                r.render_sprite(instance, &bird.model, &bird.sprite)
             },
         );
     }
@@ -155,6 +156,7 @@ impl ComponentController for Bird {
             });
 
         for bird in ctx.components.iter_mut::<Self>() {
+            bird.body.set_tex(bird.sprite.offset(Vector::new((ctx.frame.total_time() * 7.0 % 3.0) as u32, 0)));
             if ctx.input.is_pressed(Key::Space)
                 || ctx.input.is_pressed(MouseButton::Left)
                 || ctx.input.is_pressed(ScreenTouch)

@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use crate::{Gpu, Sprite, Vector};
 /// Collection of [Sprites](crate::Sprite) that will be loaded from the same image where all sprites have the same size.
 pub struct SpriteSheet {
@@ -30,7 +32,9 @@ impl SpriteSheet {
     }
 
     pub fn offset(&self, index: Vector<u32>) -> Vector<f32> {
-        todo!()
+        return Vector::new(1.0, 1.0)
+            .component_div(&self.sprite_amount.cast::<f32>())
+            .component_mul(&index.cast::<f32>());
     }
 
     pub fn len(&self) -> u32 {
@@ -46,6 +50,14 @@ impl SpriteSheet {
     }
 
     pub fn sprite(&self) -> &Sprite {
+        &self.sprite
+    }
+}
+
+impl Deref for SpriteSheet {
+    type Target = Sprite;
+
+    fn deref(&self) -> &Self::Target {
         &self.sprite
     }
 }
