@@ -1,11 +1,13 @@
 use std::ops::Deref;
 
-use crate::{Gpu, Sprite, Vector};
+use image::{DynamicImage, ImageBuffer};
+
+use crate::{Color, Gpu, Sprite, Vector};
 /// Collection of [Sprites](crate::Sprite) that will be loaded from the same image where all sprites have the same size.
 pub struct SpriteSheet {
-    sprite: Sprite,
-    sprite_size: Vector<u32>,
-    sprite_amount: Vector<u32>,
+    pub sprite: Sprite,
+    pub sprite_size: Vector<u32>,
+    pub sprite_amount: Vector<u32>,
 }
 
 impl SpriteSheet {
@@ -31,7 +33,18 @@ impl SpriteSheet {
         };
     }
 
-    pub fn offset(&self, index: Vector<u32>) -> Vector<f32> {
+    pub fn from_color(gpu: &Gpu, colors: &[Color]) -> Self {
+        let img = ImageBuffer::from_fn(colors.len() as u32, 1, |x, _y| {
+            colors[x as usize].into()
+        });
+        Self {
+            sprite: Sprite::from_image(gpu, DynamicImage::ImageRgba8(img)),
+            sprite_size: Vector::new(colors.len() as u32, 1),
+            sprite_amount: Vector::new(colors.len() as u32, 1),
+        }
+    }
+
+    pub fn tex_offset(&self, index: Vector<u32>) -> Vector<f32> {
         return Vector::new(1.0, 1.0)
             .component_div(&self.sprite_amount.cast::<f32>())
             .component_mul(&index.cast::<f32>());

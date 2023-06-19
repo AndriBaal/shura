@@ -9,7 +9,7 @@ fn shura_main(config: ShuraConfig) {
             Vector::new(-3.0, 3.0),
             ctx.gpu
                 .create_model(ModelBuilder::cuboid(Vector::new(0.5, 0.5))),
-            ctx.gpu.create_uniform(Color::BLUE),
+            ctx.gpu.create_color(Color::BLUE),
         ));
 
         ctx.components.add(ModelTest::new(
@@ -19,7 +19,7 @@ fn shura_main(config: ShuraConfig) {
                 0.25,
                 10,
             )),
-            ctx.gpu.create_uniform(Color::CYAN),
+            ctx.gpu.create_color(Color::CYAN),
         ));
 
         ctx.components.add(ModelTest::new(
@@ -29,7 +29,7 @@ fn shura_main(config: ShuraConfig) {
                 Vector::new(-0.5, -0.5),
                 Vector::new(0.5, -0.5),
             )),
-            ctx.gpu.create_uniform(Color::BROWN),
+            ctx.gpu.create_color(Color::BROWN),
         ));
 
         ctx.components.add(ModelTest::new(
@@ -43,13 +43,13 @@ fn shura_main(config: ShuraConfig) {
                 0.15,
                 10,
             )),
-            ctx.gpu.create_uniform(Color::LIME),
+            ctx.gpu.create_color(Color::LIME),
         ));
 
         ctx.components.add(ModelTest::new(
             Vector::new(-3.0, 1.0),
             ctx.gpu.create_model(ModelBuilder::regular_polygon(0.5, 32)),
-            ctx.gpu.create_uniform(Color::NAVY),
+            ctx.gpu.create_color(Color::NAVY),
         ));
 
         ctx.components.add(ModelTest::new(
@@ -59,7 +59,7 @@ fn shura_main(config: ShuraConfig) {
                 0.15,
                 5,
             )),
-            ctx.gpu.create_uniform(Color::SILVER),
+            ctx.gpu.create_color(Color::SILVER),
         ));
 
         ctx.components.add(ModelTest::new(
@@ -69,7 +69,7 @@ fn shura_main(config: ShuraConfig) {
                 Vector::new(-0.5, -0.5),
                 0.2,
             )),
-            ctx.gpu.create_uniform(Color::GRAY),
+            ctx.gpu.create_color(Color::GRAY),
         ));
 
         ctx.components.add(ModelTest::new(
@@ -79,7 +79,7 @@ fn shura_main(config: ShuraConfig) {
                 0.2,
                 5,
             )),
-            ctx.gpu.create_uniform(Color::PURPLE),
+            ctx.gpu.create_color(Color::PURPLE),
         ));
 
         ctx.components.add(ModelTest::new(
@@ -92,13 +92,13 @@ fn shura_main(config: ShuraConfig) {
                     5,
                 ),
             ])),
-            ctx.gpu.create_uniform(Color::PINK),
+            ctx.gpu.create_color(Color::PINK),
         ));
 
         ctx.components.add(ModelTest::new(
             Vector::new(-1.0, -1.0),
             ctx.gpu.create_model(ModelBuilder::star(5, 0.2, 0.8)),
-            ctx.gpu.create_uniform(Color::RED),
+            ctx.gpu.create_color(Color::RED),
         ));
     }))
 }
@@ -106,13 +106,13 @@ fn shura_main(config: ShuraConfig) {
 #[derive(Component)]
 struct ModelTest {
     model: Model,
-    color: Uniform<Color>,
+    color: Sprite,
     #[base]
     base: PositionComponent,
 }
 
 impl ModelTest {
-    pub fn new(translation: Vector<f32>, model: Model, color: Uniform<Color>) -> Self {
+    pub fn new(translation: Vector<f32>, model: Model, color: Sprite) -> Self {
         Self {
             model,
             color,
@@ -130,7 +130,7 @@ impl ComponentController for ModelTest {
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {
         ctx.components
             .render_each::<Self>(encoder, RenderConfig::WORLD, |r, model, index| {
-                r.render_color(index, &model.model, &model.color)
+                r.render_sprite(index, &model.model, &model.color)
             });
     }
 }

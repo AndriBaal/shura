@@ -164,8 +164,13 @@ impl Into<[f32; 4]> for Color {
     }
 }
 
-impl Into<image::Rgba<f32>> for Color {
-    fn into(self) -> image::Rgba<f32> {
-        image::Rgba(self.into())
+impl Into<image::Rgba<u8>> for Color {
+    fn into(self) -> image::Rgba<u8> {
+        image::Rgba([
+            (self.r * 255.0) as u8,
+            (self.g * 255.0) as u8,
+            (self.b * 255.0) as u8,
+            (self.a * 255.0) as u8,
+        ])
     }
-} 
+}

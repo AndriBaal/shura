@@ -3,9 +3,9 @@ use crate::log::info;
 #[cfg(feature = "text")]
 use crate::text::{FontBrush, TextPipeline};
 use crate::{
-    Camera, CameraBuffer, ColorWrites, InstanceBuffer, InstanceData, Isometry, Model, ModelBuilder,
-    RenderConfig, RenderEncoder, RenderTarget, Shader, ShaderConfig, ShaderField, ShaderLang,
-    Sprite, SpriteSheet, Uniform, Vector,
+    Camera, CameraBuffer, Color, ColorWrites, InstanceBuffer, InstanceData, Isometry, Model,
+    ModelBuilder, RenderConfig, RenderEncoder, RenderTarget, Shader, ShaderConfig, ShaderField,
+    ShaderLang, Sprite, SpriteSheet, Uniform, Vector,
 };
 use std::borrow::Cow;
 use wgpu::{util::DeviceExt, BlendState};
@@ -219,6 +219,14 @@ impl Gpu {
         Uniform::new(self, data)
     }
 
+    pub fn create_color(&self, color: Color) -> Sprite {
+        Sprite::from_color(self, color)
+    }
+
+    pub fn create_color_sheet(&self, colors: &[Color]) -> SpriteSheet {
+        SpriteSheet::from_color(self, colors)
+    }
+
     pub fn create_shader(&self, config: ShaderConfig) -> Shader {
         Shader::new(self, config)
     }
@@ -315,9 +323,9 @@ impl WgpuBase {
         });
 
         let texture_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            address_mode_u: wgpu::AddressMode::Repeat,
+            address_mode_v: wgpu::AddressMode::Repeat,
+            address_mode_w: wgpu::AddressMode::Repeat,
             mag_filter: wgpu::FilterMode::Nearest,
             min_filter: wgpu::FilterMode::Nearest,
             mipmap_filter: wgpu::FilterMode::Nearest,
@@ -358,13 +366,8 @@ impl WgpuBase {
 pub struct GpuDefaults {
     pub sprite: Shader,
     pub rainbow: Shader,
-    pub color: Shader,
-    pub colored_sprite: Shader,
-    pub transparent: Shader,
     pub grey: Shader,
     pub blurr: Shader,
-
-    pub color_no_msaa: Shader,
     pub sprite_no_msaa: Shader,
 
     pub cuboid_index_buffer: wgpu::Buffer,
@@ -417,33 +420,6 @@ impl GpuDefaults {
             write_mask: ColorWrites::ALL,
         });
 
-        let color = gpu.create_shader(ShaderConfig {
-            fragment_source: Shader::COLOR_WGSL,
-            shader_lang: ShaderLang::WGSL,
-            shader_fields: &[ShaderField::Uniform],
-            msaa: true,
-            blend: BlendState::ALPHA_BLENDING,
-            write_mask: ColorWrites::ALL,
-        });
-
-        let color_no_msaa = gpu.create_shader(ShaderConfig {
-            fragment_source: Shader::COLOR_WGSL,
-            shader_lang: ShaderLang::WGSL,
-            shader_fields: &[ShaderField::Uniform],
-            msaa: false,
-            blend: BlendState::ALPHA_BLENDING,
-            write_mask: ColorWrites::ALL,
-        });
-
-        let colored_sprite = gpu.create_shader(ShaderConfig {
-            fragment_source: Shader::COLORED_SPRITE_GLSL,
-            shader_lang: ShaderLang::GLSL,
-            shader_fields: &[ShaderField::Sprite, ShaderField::Uniform],
-            msaa: true,
-            blend: BlendState::ALPHA_BLENDING,
-            write_mask: ColorWrites::ALL,
-        });
-
         let grey = gpu.create_shader(ShaderConfig {
             fragment_source: Shader::GREY_WGSL,
             shader_lang: ShaderLang::WGSL,
@@ -457,15 +433,6 @@ impl GpuDefaults {
             fragment_source: Shader::BLURR_WGSL,
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Sprite],
-            msaa: true,
-            blend: BlendState::ALPHA_BLENDING,
-            write_mask: ColorWrites::ALL,
-        });
-
-        let transparent = gpu.create_shader(ShaderConfig {
-            fragment_source: Shader::TRANSPARENT_SPRITE_WGSL,
-            shader_lang: ShaderLang::WGSL,
-            shader_fields: &[ShaderField::Sprite, ShaderField::Uniform],
             msaa: true,
             blend: BlendState::ALPHA_BLENDING,
             write_mask: ColorWrites::ALL,
@@ -524,11 +491,7 @@ impl GpuDefaults {
             unit_camera,
             sprite,
             rainbow,
-            color,
-            color_no_msaa,
             sprite_no_msaa,
-            colored_sprite,
-            transparent,
             grey,
             blurr,
             times,

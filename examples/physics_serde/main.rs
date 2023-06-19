@@ -55,23 +55,24 @@ fn shura_main(config: ShuraConfig) {
 
 #[derive(State)]
 struct PhysicsState {
-    default_color: Uniform<Color>,
-    collision_color: Uniform<Color>,
-    hover_color: Uniform<Color>,
+    box_colors: SpriteSheet,
     box_model: Model,
 }
 
 impl PhysicsState {
     pub fn new(ctx: &Context) -> Self {
+        let box_colors = ctx.gpu.create_color_sheet(&[
+            Color::new_rgba(0, 255, 0, 255),
+            Color::new_rgba(255, 0, 0, 255),
+            Color::new_rgba(0, 0, 255, 255),
+            Color::new_rgba(0, 0, 255, 255)
+        ]);
         Self {
-            default_color: ctx.gpu.create_uniform(Color::new_rgba(0, 255, 0, 255)),
-            collision_color: ctx.gpu.create_uniform(Color::new_rgba(255, 0, 0, 255)),
-            hover_color: ctx.gpu.create_uniform(Color::new_rgba(0, 0, 255, 255)),
-            box_model: ctx.gpu.create_model(ModelBuilder::from_collider_shape(
-                &PhysicsBox::BOX_SHAPE,
-                0,
-                0.0,
-            )),
+            box_model: ctx.gpu.create_model(
+                ModelBuilder::from_collider_shape(&PhysicsBox::BOX_SHAPE, 0, 0.0)
+                    .with_sprite_sheet(&box_colors),
+            ),
+            box_colors,
         }
     }
 }
@@ -92,6 +93,7 @@ impl Player {
     const SHAPE: Ball = Ball {
         radius: Self::RADIUS,
     };
+
     pub fn new(ctx: &mut Context) -> Self {
         let collider = ColliderBuilder::new(SharedShape::new(Self::SHAPE))
             .active_events(ActiveEvents::COLLISION_EVENTS);
@@ -223,7 +225,7 @@ impl ComponentController for Player {
         collision_type: CollideType,
     ) {
         if let Some(b) = ctx.components.get_mut::<PhysicsBox>(other_handle) {
-            b.collided = collision_type == CollideType::Started;
+            b.body.set_tex(Vector::new(0.25, 0.0));
         }
     }
 
@@ -235,7 +237,7 @@ impl ComponentController for Player {
 #[derive(Component, serde::Serialize)]
 struct Floor {
     #[serde(skip)]
-    color: Uniform<Color>,
+    color: Sprite,
     #[serde(skip)]
     model: Model,
     #[base]
@@ -251,7 +253,7 @@ impl Floor {
         let collider = ColliderBuilder::new(SharedShape::new(Self::FLOOR_SHAPE))
             .translation(Vector::new(0.0, -1.0));
         Self {
-            color: ctx.gpu.create_uniform(Color::new_rgba(0, 0, 255, 255)),
+            color: ctx.gpu.create_color(Color::new_rgba(0, 0, 255, 255)),
             model: ctx.gpu.create_model(ModelBuilder::from_collider_shape(
                 collider.shape.as_ref(),
                 Self::FLOOR_RESOLUTION,
@@ -266,15 +268,13 @@ impl ComponentController for Floor {
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {
         ctx.components
             .render_each::<Self>(encoder, RenderConfig::WORLD, |r, floor, index| {
-                r.render_color(index, &floor.model, &floor.color)
+                r.render_sprite(index, &floor.model, &floor.color)
             });
     }
 }
 
 #[derive(Component, serde::Serialize, serde::Deserialize)]
 struct PhysicsBox {
-    collided: bool,
-    hovered: bool,
     #[base]
     body: RigidBodyComponent,
 }
@@ -286,8 +286,6 @@ impl PhysicsBox {
     };
     pub fn new(ctx: &mut Context, position: Vector<f32>) -> Self {
         Self {
-            collided: false,
-            hovered: false,
             body: RigidBodyComponent::new(
                 ctx.world,
                 RigidBodyBuilder::dynamic().translation(position),
@@ -302,27 +300,17 @@ impl PhysicsBox {
 impl ComponentController for PhysicsBox {
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {
         let state = ctx.scene_states.get::<PhysicsState>();
-        ctx.components.render_each::<Self>(
-            encoder,
-            RenderConfig::WORLD,
-            |renderer, b, instance| {
-                let sprite = if b.hovered {
-                    &state.hover_color
-                } else if b.collided {
-                    &state.collision_color
-                } else {
-                    &state.default_color
-                };
-                renderer.render_color(instance, &state.box_model, sprite);
-            },
-        );
+        ctx.components
+            .render_all::<Self>(encoder, RenderConfig::WORLD, |renderer, instance| {
+                renderer.render_sprite(instance, &state.box_model, &state.box_colors);
+            });
     }
 
     fn update(ctx: &mut Context) {
         let cursor_world: Point<f32> = (ctx.input.cursor(&ctx.world_camera)).into();
         let remove = ctx.input.is_held(MouseButton::Left) || ctx.input.is_pressed(ScreenTouch);
         for physics_box in ctx.components.iter_mut::<Self>() {
-            physics_box.hovered = false;
+            physics_box.body.set_tex(Vector::new(0.25, 0.0));
         }
         let mut component: Option<ComponentHandle> = None;
         ctx.world.intersections_with_point(
@@ -335,7 +323,7 @@ impl ComponentController for PhysicsBox {
         );
         if let Some(handle) = component {
             if let Some(physics_box) = ctx.components.get_mut::<Self>(handle) {
-                physics_box.hovered = true;
+                physics_box.body.set_tex(Vector::new(0.25, 0.0));
                 if remove {
                     ctx.components.remove_boxed(handle);
                 }
@@ -360,7 +348,7 @@ impl<'de, 'a> serde::de::Visitor<'de> for FloorVisitor<'a> {
             .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
         Ok(Floor {
             collider,
-            color: self.ctx.gpu.create_uniform(Color::new_rgba(0, 0, 255, 255)),
+            color: self.ctx.gpu.create_color(Color::new_rgba(0, 0, 255, 255)),
             model: self.ctx.gpu.create_model(ModelBuilder::from_collider_shape(
                 &Floor::FLOOR_SHAPE,
                 Floor::FLOOR_RESOLUTION,

@@ -1,6 +1,6 @@
 use crate::{
-    CameraBuffer, Color, Gpu, GpuDefaults, InstanceBuffer, InstanceIndices, Model,
-    ModelIndexBuffer, RenderConfig, Shader, Sprite, Uniform, Vector,
+    CameraBuffer, Gpu, GpuDefaults, InstanceBuffer, InstanceIndices, Model, ModelIndexBuffer,
+    RenderConfig, Shader, Sprite, Uniform, Vector,
 };
 use std::ptr::null;
 
@@ -32,12 +32,12 @@ impl Default for RenderCache {
 /// Render grpahics to the screen or a sprite. The renderer can be extended with custom graphcis throught
 /// the [RenderPass](wgpu::RenderPass) or the provided methods for shura's shader system.
 pub struct Renderer<'a> {
-    pub render_pass: wgpu::RenderPass<'a>,
-    pub indices: u32,
     pub msaa: bool,
     pub gpu: &'a Gpu,
     pub defaults: &'a GpuDefaults,
     pub config: RenderConfig<'a>,
+    indices: u32,
+    render_pass: wgpu::RenderPass<'a>,
     target_size: Vector<u32>,
     cache: RenderCache,
 }
@@ -222,10 +222,6 @@ impl<'a> Renderer<'a> {
         self.msaa
     }
 
-    pub fn render_pass(&mut self) -> &mut wgpu::RenderPass<'a> {
-        &mut self.render_pass
-    }
-
     #[cfg(feature = "text")]
     pub fn render_text(&mut self, font: &'a FontBrush) {
         self.cache = Default::default();
@@ -274,58 +270,6 @@ impl<'a> Renderer<'a> {
         self.use_shader(&self.defaults.blurr);
         self.use_model(model);
         self.use_sprite(sprite, 1);
-        self.draw(instances);
-    }
-
-    pub fn render_colored_sprite(
-        &mut self,
-        instances: impl Into<InstanceIndices>,
-        model: &'a Model,
-        sprite: &'a Sprite,
-        color: &'a Uniform<Color>,
-    ) {
-        self.use_shader(&self.defaults.colored_sprite);
-        self.use_model(model);
-        self.use_sprite(sprite, 1);
-        self.use_uniform(color, 2);
-        self.draw(instances);
-    }
-
-    pub fn render_transparent_sprite(
-        &mut self,
-        instances: impl Into<InstanceIndices>,
-        model: &'a Model,
-        sprite: &'a Sprite,
-        transparency: &'a Uniform<f32>,
-    ) {
-        self.use_shader(&self.defaults.transparent);
-        self.use_model(model);
-        self.use_sprite(sprite, 1);
-        self.use_uniform(transparency, 2);
-        self.draw(instances);
-    }
-
-    pub fn render_color(
-        &mut self,
-        instances: impl Into<InstanceIndices>,
-        model: &'a Model,
-        color: &'a Uniform<Color>,
-    ) {
-        self.use_shader(&self.defaults.color);
-        self.use_model(model);
-        self.use_uniform(color, 1);
-        self.draw(instances);
-    }
-
-    pub fn render_color_no_msaa(
-        &mut self,
-        instances: impl Into<InstanceIndices>,
-        model: &'a Model,
-        color: &'a Uniform<Color>,
-    ) {
-        self.use_shader(&self.defaults.color_no_msaa);
-        self.use_model(model);
-        self.use_uniform(color, 1);
         self.draw(instances);
     }
 
