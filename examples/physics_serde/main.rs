@@ -65,7 +65,7 @@ impl PhysicsState {
             Color::new_rgba(0, 255, 0, 255),
             Color::new_rgba(255, 0, 0, 255),
             Color::new_rgba(0, 0, 255, 255),
-            Color::new_rgba(0, 0, 255, 255)
+            Color::new_rgba(0, 0, 255, 255),
         ]);
         Self {
             box_model: ctx.gpu.create_model(

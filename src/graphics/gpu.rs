@@ -224,7 +224,7 @@ impl Gpu {
     }
 
     pub fn create_color_sheet(&self, colors: &[Color]) -> SpriteSheet {
-        SpriteSheet::from_color(self, colors)
+        SpriteSheet::from_colors(self, colors)
     }
 
     pub fn create_shader(&self, config: ShaderConfig) -> Shader {
@@ -247,9 +247,10 @@ pub struct WgpuBase {
     pub sample_count: u32,
     pub multisample: wgpu::MultisampleState,
     pub no_multisample: wgpu::MultisampleState,
-    pub sprite_uniform: wgpu::BindGroupLayout,
-    pub vertex_uniform: wgpu::BindGroupLayout,
-    pub fragment_uniform: wgpu::BindGroupLayout,
+    pub sprite_sheet_layout: wgpu::BindGroupLayout,
+    pub sprite_layout: wgpu::BindGroupLayout,
+    pub vertex_layout: wgpu::BindGroupLayout,
+    pub fragment_layout: wgpu::BindGroupLayout,
     pub vertex_wgsl: wgpu::ShaderModule,
     pub vertex_glsl: wgpu::ShaderModule,
     pub texture_sampler: wgpu::Sampler,
@@ -259,7 +260,7 @@ pub struct WgpuBase {
 
 impl WgpuBase {
     pub fn new(device: &wgpu::Device, _format: wgpu::TextureFormat, sample_count: u32) -> Self {
-        let sprite_uniform = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        let sprite_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
@@ -281,7 +282,7 @@ impl WgpuBase {
             label: Some("sprite_bind_group_layout"),
         });
 
-        let fragment_uniform = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        let fragment_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
                 visibility: wgpu::ShaderStages::FRAGMENT,
@@ -295,7 +296,7 @@ impl WgpuBase {
             label: Some("uniform_bind_group_layout"),
         });
 
-        let vertex_uniform = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        let vertex_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
                 visibility: wgpu::ShaderStages::VERTEX,
@@ -306,8 +307,41 @@ impl WgpuBase {
                 },
                 count: None,
             }],
-            label: Some("matrix_bind_group_layout"),
+            label: Some("camera_bind_group_layout"),
         });
+
+        let sprite_sheet_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("sprite_sheet_layout"),
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2Array,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                ],
+            });
 
         let vertex_wgsl = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("vertex_wgsl"),
@@ -323,9 +357,9 @@ impl WgpuBase {
         });
 
         let texture_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::Repeat,
-            address_mode_v: wgpu::AddressMode::Repeat,
-            address_mode_w: wgpu::AddressMode::Repeat,
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
             mag_filter: wgpu::FilterMode::Nearest,
             min_filter: wgpu::FilterMode::Nearest,
             mipmap_filter: wgpu::FilterMode::Nearest,
@@ -349,10 +383,11 @@ impl WgpuBase {
         Self {
             sample_count: sample_count,
             multisample,
+            sprite_sheet_layout,
             no_multisample,
-            sprite_uniform,
-            vertex_uniform,
-            fragment_uniform,
+            sprite_layout,
+            vertex_layout,
+            fragment_layout,
             vertex_wgsl,
             vertex_glsl,
             texture_sampler,
@@ -443,8 +478,8 @@ impl GpuDefaults {
         let times = Uniform::new(gpu, [0.0, 0.0]);
         let single_centered_instance = gpu.create_instance_buffer(&[InstanceData::new(
             Default::default(),
-            Vector::default(),
             Vector::new(1.0, 1.0),
+            Vector::new(0, 0),
         )]);
         let empty_instance = gpu.create_instance_buffer(&[]);
 

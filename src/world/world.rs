@@ -262,7 +262,7 @@ impl World {
         RigidBodyComponent {
             rigid_body_handle,
             scale: Vector::new(1.0, 1.0),
-            tex: Vector::new(0.0, 0.0),
+            tex: Vector::new(0, 0),
         }
     }
 
@@ -273,7 +273,7 @@ impl World {
         ColliderComponent {
             collider_handle: self.colliders.insert(collider),
             scale: Vector::new(1.0, 1.0),
-            tex: Vector::new(0.0, 0.0),
+            tex: Vector::new(0, 0),
         }
     }
 

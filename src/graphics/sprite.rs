@@ -1,5 +1,5 @@
 use crate::{Color, Gpu, Vector};
-use image::{DynamicImage, GenericImageView, ImageBuffer};
+use image::{DynamicImage, GenericImageView};
 
 /// 2D Sprite used for rendering
 #[derive(Debug)]
@@ -24,11 +24,11 @@ impl Sprite {
 
     pub(crate) fn empty(gpu: &Gpu, size: Vector<u32>) -> Self {
         assert!(size.x != 0 && size.y != 0);
-        let (format, texture) = Self::create_texture(gpu, size);
+        let texture = Self::create_texture(gpu, size);
         let bind_group = Self::create_bind_group(gpu, &texture);
         Self {
             size,
-            format,
+            format: gpu.config.format,
             texture,
             bind_group,
         }
@@ -36,61 +36,53 @@ impl Sprite {
 
     pub fn from_image(gpu: &Gpu, image: DynamicImage) -> Self {
         let size = Vector::new(image.width(), image.height());
-        let (format, texture) = Self::create_texture(gpu, size);
         match gpu.config.format {
             wgpu::TextureFormat::Bgra8Unorm | wgpu::TextureFormat::Bgra8UnormSrgb => {
-                let image = image.to_bgra8();
-                gpu.queue.write_texture(
-                    texture.as_image_copy(),
-                    &image,
-                    wgpu::ImageDataLayout {
-                        offset: 0,
-                        bytes_per_row: Some(4 * image.width()),
-                        rows_per_image: Some(image.height()),
-                    },
-                    wgpu::Extent3d {
-                        width: size.x,
-                        height: size.y,
-                        depth_or_array_layers: 1,
-                    },
-                );
+                return Self::from_raw(gpu, size, &image.to_bgra8());
             }
             _ => {
-                let image = image.to_rgba8();
-                gpu.queue.write_texture(
-                    texture.as_image_copy(),
-                    &image,
-                    wgpu::ImageDataLayout {
-                        offset: 0,
-                        bytes_per_row: Some(4 * image.width()),
-                        rows_per_image: Some(image.height()),
-                    },
-                    wgpu::Extent3d {
-                        width: size.x,
-                        height: size.y,
-                        depth_or_array_layers: 1,
-                    },
-                );
+                return Self::from_raw(gpu, size, &image.to_rgba8());
             }
         };
+    }
+
+    pub fn from_color(gpu: &Gpu, color: Color) -> Self {
+        return Self::from_raw(
+            gpu,
+            Vector::new(1, 1),
+            &[color.r, color.g, color.b, color.a],
+        );
+    }
+
+    pub fn from_raw(gpu: &Gpu, size: Vector<u32>, data: &[u8]) -> Self {
+        let texture = Self::create_texture(gpu, size);
+        gpu.queue.write_texture(
+            texture.as_image_copy(),
+            data,
+            wgpu::ImageDataLayout {
+                offset: 0,
+                bytes_per_row: Some(4 * size.x),
+                rows_per_image: Some(size.y),
+            },
+            wgpu::Extent3d {
+                width: size.x,
+                height: size.y,
+                depth_or_array_layers: 1,
+            },
+        );
 
         let bind_group = Self::create_bind_group(gpu, &texture);
         Self {
             bind_group,
-            format,
+            format: gpu.config.format,
             texture,
             size,
         }
     }
 
-    pub fn from_color(gpu: &Gpu, color: Color) -> Self {
-        let img = ImageBuffer::from_fn(1, 1, |_x, _y| color.into());
-        return Self::from_image(gpu, DynamicImage::ImageRgba8(img));
-    }
-
-    fn create_texture(gpu: &Gpu, size: Vector<u32>) -> (wgpu::TextureFormat, wgpu::Texture) {
+    fn create_texture(gpu: &Gpu, size: Vector<u32>) -> wgpu::Texture {
         let texture = gpu.device.create_texture(&wgpu::TextureDescriptor {
-            label: None,
+            label: Some("sprite_texture"),
             size: wgpu::Extent3d {
                 width: size.x,
                 height: size.y,
@@ -107,13 +99,13 @@ impl Sprite {
             view_formats: &[],
         });
 
-        return (gpu.config.format, texture);
+        return texture;
     }
 
     fn create_bind_group(gpu: &Gpu, texture: &wgpu::Texture) -> wgpu::BindGroup {
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
         let bind_group = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &gpu.base.sprite_uniform,
+            layout: &gpu.base.sprite_layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,

@@ -8,7 +8,7 @@ use crate::physics::World;
 #[derive(Clone)]
 pub struct PositionBuilder {
     pub scale: Vector<f32>,
-    pub tex: Vector<f32>,
+    pub tex: Vector<i32>,
     pub position: Isometry<f32>,
     pub disabled: bool,
 }
@@ -49,7 +49,7 @@ impl PositionBuilder {
         self
     }
 
-    pub fn tex(mut self, tex: Vector<f32>) -> Self {
+    pub fn tex(mut self, tex: Vector<i32>) -> Self {
         self.tex = tex;
         self
     }
@@ -91,7 +91,7 @@ impl PositionComponent {
     pub fn new(pos: PositionBuilder) -> Self {
         Self {
             scale: pos.scale,
-            instance: InstanceData::new(pos.position, pos.tex, pos.scale),
+            instance: InstanceData::new(pos.position, pos.scale, pos.tex),
             position: pos.position,
             disabled: pos.disabled,
         }
@@ -134,12 +134,12 @@ impl PositionComponent {
         self.position = position;
         self.instance = InstanceData::new(
             position,
-            self.instance.tex(),
             if self.disabled {
                 Vector::default()
             } else {
                 self.scale
             },
+            self.instance.tex(),
         );
     }
 

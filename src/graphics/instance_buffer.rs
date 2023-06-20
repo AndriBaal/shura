@@ -9,12 +9,12 @@ use wgpu::util::DeviceExt;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct InstanceData {
     pos: Vector<f32>,
-    tex: Vector<f32>,
     rot: Matrix<f32>,
+    tex: Vector<i32>,
 }
 
 impl InstanceData {
-    pub fn new(pos: Isometry<f32>, tex: Vector<f32>, scale: Vector<f32>) -> Self {
+    pub fn new(pos: Isometry<f32>, scale: Vector<f32>, tex: Vector<i32>) -> Self {
         Self {
             rot: Matrix::new(
                 scale.x * pos.rotation.cos_angle(),
@@ -40,12 +40,12 @@ impl InstanceData {
                 wgpu::VertexAttribute {
                     offset: mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
                     shader_location: 6,
-                    format: wgpu::VertexFormat::Float32x2,
+                    format: wgpu::VertexFormat::Float32x4,
                 },
                 wgpu::VertexAttribute {
-                    offset: mem::size_of::<[f32; 4]>() as wgpu::BufferAddress,
+                    offset: mem::size_of::<[f32; 6]>() as wgpu::BufferAddress,
                     shader_location: 7,
-                    format: wgpu::VertexFormat::Float32x4,
+                    format: wgpu::VertexFormat::Sint32x2,
                 },
             ],
         }
@@ -65,7 +65,7 @@ impl InstanceData {
             )
     }
 
-    pub fn set_tex(&mut self, tex: Vector<f32>) {
+    pub fn set_tex(&mut self, tex: Vector<i32>) {
         self.tex = tex;
     }
 
@@ -73,7 +73,7 @@ impl InstanceData {
         self.pos
     }
 
-    pub fn tex(&self) -> Vector<f32> {
+    pub fn tex(&self) -> Vector<i32> {
         self.tex
     }
 }
@@ -82,8 +82,8 @@ impl Default for InstanceData {
     fn default() -> Self {
         return Self::new(
             Isometry::new(Vector::default(), 0.0),
-            Vector::new(0.0, 0.0),
             Vector::new(1.0, 1.0),
+            Vector::new(0, 0),
         );
     }
 }

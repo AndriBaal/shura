@@ -96,14 +96,14 @@ impl Shader {
     pub const GREY_WGSL: &'static str = include_str!("../../res/shader/grey.wgsl");
     pub const BLURR_WGSL: &'static str = include_str!("../../res/shader/blurr.wgsl");
     pub fn new(gpu: &Gpu, config: ShaderConfig) -> Self {
-        let mut layouts: Vec<&wgpu::BindGroupLayout> = vec![&gpu.base.vertex_uniform];
+        let mut layouts: Vec<&wgpu::BindGroupLayout> = vec![&gpu.base.vertex_layout];
         for link in config.shader_fields.iter() {
             match link {
                 ShaderField::Uniform => {
-                    layouts.push(&gpu.base.fragment_uniform);
+                    layouts.push(&gpu.base.fragment_layout);
                 }
                 ShaderField::Sprite => {
-                    layouts.push(&gpu.base.sprite_uniform);
+                    layouts.push(&gpu.base.sprite_layout);
                 }
             }
         }

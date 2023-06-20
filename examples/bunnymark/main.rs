@@ -8,7 +8,7 @@ fn shura_main(config: ShuraConfig) {
             ctx.components.register::<Bunny>();
             ctx.scene_states.insert(BunnyState::new(ctx));
             ctx.screen_config
-                .set_clear_color(Some(Color::new_rgba(220, 220, 220, 255)));
+                .set_clear_color(Some(Color::new(220, 220, 220, 255)));
             ctx.world_camera.set_scaling(WorldCameraScale::Min(3.0));
             ctx.components
                 .add_with(|handle| Bunny::new(Vector::new(0.0, 0.0), handle));

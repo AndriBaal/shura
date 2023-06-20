@@ -16,7 +16,7 @@ pub struct ScreenConfig {
 impl Default for ScreenConfig {
     fn default() -> Self {
         Self {
-            clear_color: Some(Color::new(0.0, 0.0, 0.0, 1.0)),
+            clear_color: Some(Color::new(0, 0, 0, 255)),
             render_scale: 1.0,
             max_fps: None,
             vsync: false,

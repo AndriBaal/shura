@@ -1,7 +1,7 @@
 #[cfg(feature = "physics")]
 use crate::physics::{Shape, TypedShape};
 use crate::{na::Matrix2, Gpu, Index, Isometry, Rotation, Vector, Vertex};
-use crate::{CameraBuffer, SpriteSheet, AABB};
+use crate::{CameraBuffer, AABB};
 use std::f32::consts::{FRAC_PI_2, PI};
 use wgpu::util::DeviceExt;
 
@@ -515,16 +515,6 @@ impl ModelBuilder {
 
     pub fn tex_coord_rotation_axis(mut self, rotation_axis: Vector<f32>) -> Self {
         self.tex_coord_rotation_axis = rotation_axis;
-        self
-    }
-
-    /// Set the texture coordinates of this model to match a singular sprite in the spritesheet
-    pub fn with_sprite_sheet(mut self, sheet: &SpriteSheet) -> Self {
-        for vertex in &mut self.vertices {
-            vertex
-                .tex_coords
-                .component_div_assign(&sheet.amount().cast::<f32>());
-        }
         self
     }
 
