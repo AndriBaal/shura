@@ -62,15 +62,14 @@ struct PhysicsState {
 impl PhysicsState {
     pub fn new(ctx: &Context) -> Self {
         let box_colors = ctx.gpu.create_color_sheet(&[
-            Color::new_rgba(0, 255, 0, 255),
-            Color::new_rgba(255, 0, 0, 255),
-            Color::new_rgba(0, 0, 255, 255),
-            Color::new_rgba(0, 0, 255, 255),
+            Color::new(0, 255, 0, 255),
+            Color::new(255, 0, 0, 255),
+            Color::new(0, 0, 255, 255),
+            Color::new(0, 0, 255, 255),
         ]);
         Self {
             box_model: ctx.gpu.create_model(
                 ModelBuilder::from_collider_shape(&PhysicsBox::BOX_SHAPE, 0, 0.0)
-                    .with_sprite_sheet(&box_colors),
             ),
             box_colors,
         }
@@ -225,7 +224,7 @@ impl ComponentController for Player {
         collision_type: CollideType,
     ) {
         if let Some(b) = ctx.components.get_mut::<PhysicsBox>(other_handle) {
-            b.body.set_tex(Vector::new(0.25, 0.0));
+            b.body.set_sprite(Vector::new(1, 0));
         }
     }
 
@@ -253,7 +252,7 @@ impl Floor {
         let collider = ColliderBuilder::new(SharedShape::new(Self::FLOOR_SHAPE))
             .translation(Vector::new(0.0, -1.0));
         Self {
-            color: ctx.gpu.create_color(Color::new_rgba(0, 0, 255, 255)),
+            color: ctx.gpu.create_color(Color::new(0, 0, 255, 255)),
             model: ctx.gpu.create_model(ModelBuilder::from_collider_shape(
                 collider.shape.as_ref(),
                 Self::FLOOR_RESOLUTION,
@@ -302,7 +301,7 @@ impl ComponentController for PhysicsBox {
         let state = ctx.scene_states.get::<PhysicsState>();
         ctx.components
             .render_all::<Self>(encoder, RenderConfig::WORLD, |renderer, instance| {
-                renderer.render_sprite(instance, &state.box_model, &state.box_colors);
+                renderer.render_sprite_sheet(instance, &state.box_model, &state.box_colors);
             });
     }
 
@@ -310,7 +309,7 @@ impl ComponentController for PhysicsBox {
         let cursor_world: Point<f32> = (ctx.input.cursor(&ctx.world_camera)).into();
         let remove = ctx.input.is_held(MouseButton::Left) || ctx.input.is_pressed(ScreenTouch);
         for physics_box in ctx.components.iter_mut::<Self>() {
-            physics_box.body.set_tex(Vector::new(0.25, 0.0));
+            physics_box.body.set_sprite(Vector::new(1, 0));
         }
         let mut component: Option<ComponentHandle> = None;
         ctx.world.intersections_with_point(
@@ -323,7 +322,7 @@ impl ComponentController for PhysicsBox {
         );
         if let Some(handle) = component {
             if let Some(physics_box) = ctx.components.get_mut::<Self>(handle) {
-                physics_box.body.set_tex(Vector::new(0.25, 0.0));
+                physics_box.body.set_sprite(Vector::new(1, 0));
                 if remove {
                     ctx.components.remove_boxed(handle);
                 }
@@ -348,7 +347,7 @@ impl<'de, 'a> serde::de::Visitor<'de> for FloorVisitor<'a> {
             .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
         Ok(Floor {
             collider,
-            color: self.ctx.gpu.create_color(Color::new_rgba(0, 0, 255, 255)),
+            color: self.ctx.gpu.create_color(Color::new(0, 0, 255, 255)),
             model: self.ctx.gpu.create_model(ModelBuilder::from_collider_shape(
                 &Floor::FLOOR_SHAPE,
                 Floor::FLOOR_RESOLUTION,

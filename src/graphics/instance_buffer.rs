@@ -10,11 +10,11 @@ use wgpu::util::DeviceExt;
 pub struct InstanceData {
     pos: Vector<f32>,
     rot: Matrix<f32>,
-    tex: Vector<i32>,
+    sprite: Vector<i32>,
 }
 
 impl InstanceData {
-    pub fn new(pos: Isometry<f32>, scale: Vector<f32>, tex: Vector<i32>) -> Self {
+    pub fn new(pos: Isometry<f32>, scale: Vector<f32>, sprite: Vector<i32>) -> Self {
         Self {
             rot: Matrix::new(
                 scale.x * pos.rotation.cos_angle(),
@@ -23,7 +23,7 @@ impl InstanceData {
                 scale.y * pos.rotation.cos_angle(),
             ),
             pos: pos.translation.vector,
-            tex,
+            sprite,
         }
     }
 
@@ -65,16 +65,16 @@ impl InstanceData {
             )
     }
 
-    pub fn set_tex(&mut self, tex: Vector<i32>) {
-        self.tex = tex;
+    pub fn set_tex(&mut self, sprite: Vector<i32>) {
+        self.sprite = sprite;
     }
 
     pub fn pos(&self) -> Vector<f32> {
         self.pos
     }
 
-    pub fn tex(&self) -> Vector<i32> {
-        self.tex
+    pub fn sprite(&self) -> Vector<i32> {
+        self.sprite
     }
 }
 

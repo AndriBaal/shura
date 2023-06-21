@@ -1,6 +1,6 @@
 use crate::{
     CameraBuffer, Gpu, GpuDefaults, InstanceBuffer, InstanceIndices, Model, ModelIndexBuffer,
-    RenderConfig, Shader, Sprite, Uniform, Vector,
+    RenderConfig, Shader, Sprite, Uniform, Vector, SpriteSheet,
 };
 use std::ptr::null;
 
@@ -197,6 +197,10 @@ impl<'a> Renderer<'a> {
         self.use_bind_group(sprite.bind_group(), slot);
     }
 
+    pub fn use_sprite_sheet(&mut self, sprite_sheet: &'a SpriteSheet, slot: u32) {
+        self.use_bind_group(sprite_sheet.bind_group(), slot);
+    }
+
     pub fn use_uniform<T: bytemuck::Pod>(&mut self, uniform: &'a Uniform<T>, slot: u32) {
         self.use_bind_group(uniform.bind_group(), slot);
     }
@@ -246,6 +250,19 @@ impl<'a> Renderer<'a> {
         self.use_shader(&self.defaults.sprite);
         self.use_model(model);
         self.use_sprite(sprite, 1);
+        self.draw(instances);
+    }
+
+    
+    pub fn render_sprite_sheet(
+        &mut self,
+        instances: impl Into<InstanceIndices>,
+        model: &'a Model,
+        sprite: &'a SpriteSheet,
+    ) {
+        self.use_shader(&self.defaults.sprite_sheet);
+        self.use_model(model);
+        self.use_sprite_sheet(sprite, 1);
         self.draw(instances);
     }
 

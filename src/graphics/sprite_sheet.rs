@@ -1,5 +1,5 @@
 use image::{DynamicImage, GenericImageView};
-use wgpu::util::DeviceExt;
+use wgpu::{util::DeviceExt, ImageCopyTexture};
 
 use crate::{Color, Gpu, Vector};
 /// Collection of [Sprites](crate::Sprite) that will be loaded from the same image where all sprites have the same size.
@@ -32,34 +32,48 @@ impl SpriteSheet {
         for c in colors {
             bytes.extend_from_slice(&[c.r, c.g, c.b, c.a])
         }
-        return Self::from_raw(gpu, &bytes, sprite_size, sprite_size);
+        return Self::from_raw(gpu, &[bytes], sprite_size, sprite_size);
     }
 
-    pub fn from_image(gpu: &Gpu, image: DynamicImage, sprite_size: Vector<u32>) -> Self {
+    pub fn from_image(gpu: &Gpu, mut image: DynamicImage, sprite_size: Vector<u32>) -> Self {
         let size = Vector::new(image.width(), image.height());
         let sprite_amount = size.component_div(&sprite_size);
-        match gpu.config.format {
-            wgpu::TextureFormat::Bgra8Unorm | wgpu::TextureFormat::Bgra8UnormSrgb => {
-                return Self::from_raw(gpu, &image.to_bgra8(), sprite_size, sprite_amount);
+        let mut sprites: Vec<Vec<u8>> = vec![];
+
+        for i in 0..sprite_amount.y as u32 {
+            for j in 0..sprite_amount.x as u32 {
+                let sprite = image.crop(
+                    j * sprite_size.x,
+                    i * sprite_size.y,
+                    sprite_size.x,
+                    sprite_size.y,
+                );
+                sprites.push(match gpu.config.format {
+                    wgpu::TextureFormat::Bgra8Unorm | wgpu::TextureFormat::Bgra8UnormSrgb => {
+                        sprite.to_bgra8().to_vec()
+                    }
+                    _ => {
+                        sprite.to_rgba8().to_vec()
+                    }
+                });
             }
-            _ => {
-                return Self::from_raw(gpu, &image.to_rgba8(), sprite_size, sprite_amount);
-            }
-        };
+        }
+        return Self::from_raw(gpu, &sprites, sprite_size, sprite_amount);
     }
 
     pub fn from_raw(
         gpu: &Gpu,
-        bytes: &[u8],
+        sprites: &[Vec<u8>],
         sprite_size: Vector<u32>,
         sprite_amount: Vector<u32>,
     ) -> Self {
+        println!("{:?} {:?}", sprite_amount, sprite_size);
         let amount = sprite_amount.x * sprite_amount.y;
         let size_hint_buffer = gpu
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("spritesheet_size_hint_buffer"),
-                contents: bytemuck::cast_slice(&[sprite_amount]),
+                contents: bytemuck::cast_slice(&[sprite_amount.cast::<i32>()]),
                 usage: wgpu::BufferUsages::UNIFORM,
             });
 
@@ -84,20 +98,27 @@ impl SpriteSheet {
             ..texture_descriptor
         });
 
-        gpu.queue.write_texture(
-            texture.as_image_copy(),
-            bytes,
-            wgpu::ImageDataLayout {
-                offset: 0,
-                bytes_per_row: Some(4 * sprite_size.x),
-                rows_per_image: Some(sprite_size.y),
-            },
-            wgpu::Extent3d {
-                width: sprite_size.x,
-                height: sprite_size.y,
-                depth_or_array_layers: amount,
-            },
-        );
+        for (layer, bytes) in sprites.iter().enumerate() {
+            gpu.queue.write_texture(
+                ImageCopyTexture {
+                    texture: &texture,
+                    mip_level: 0,
+                    origin: wgpu::Origin3d { x: 0, y: 0, z: layer as u32 },
+                    aspect: wgpu::TextureAspect::All,
+                },
+                bytes,
+                wgpu::ImageDataLayout {
+                    offset: 0,
+                    bytes_per_row: Some(4 * sprite_size.x),
+                    rows_per_image: Some(sprite_size.y),
+                },
+                wgpu::Extent3d {
+                    width: sprite_size.x,
+                    height: sprite_size.y,
+                    depth_or_array_layers: 1,
+                },
+            );
+        }
 
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
         let bind_group = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {

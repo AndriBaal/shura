@@ -249,8 +249,8 @@ pub struct WgpuBase {
     pub no_multisample: wgpu::MultisampleState,
     pub sprite_sheet_layout: wgpu::BindGroupLayout,
     pub sprite_layout: wgpu::BindGroupLayout,
-    pub vertex_layout: wgpu::BindGroupLayout,
-    pub fragment_layout: wgpu::BindGroupLayout,
+    pub camera_layout: wgpu::BindGroupLayout,
+    pub uniform_layout: wgpu::BindGroupLayout,
     pub vertex_wgsl: wgpu::ShaderModule,
     pub vertex_glsl: wgpu::ShaderModule,
     pub texture_sampler: wgpu::Sampler,
@@ -282,7 +282,7 @@ impl WgpuBase {
             label: Some("sprite_bind_group_layout"),
         });
 
-        let fragment_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        let uniform_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
                 visibility: wgpu::ShaderStages::FRAGMENT,
@@ -296,7 +296,7 @@ impl WgpuBase {
             label: Some("uniform_bind_group_layout"),
         });
 
-        let vertex_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        let camera_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
                 visibility: wgpu::ShaderStages::VERTEX,
@@ -386,8 +386,8 @@ impl WgpuBase {
             sprite_sheet_layout,
             no_multisample,
             sprite_layout,
-            vertex_layout,
-            fragment_layout,
+            camera_layout,
+            uniform_layout,
             vertex_wgsl,
             vertex_glsl,
             texture_sampler,
@@ -400,6 +400,7 @@ impl WgpuBase {
 /// Holds default buffers, shaders, sprites and layouts needed by shura.
 pub struct GpuDefaults {
     pub sprite: Shader,
+    pub sprite_sheet: Shader,
     pub rainbow: Shader,
     pub grey: Shader,
     pub blurr: Shader,
@@ -428,6 +429,15 @@ pub struct GpuDefaults {
 
 impl GpuDefaults {
     pub(crate) fn new(gpu: &Gpu, window_size: Vector<u32>) -> Self {
+        let sprite_sheet = gpu.create_shader(ShaderConfig {
+            fragment_source: Shader::SPIRT_SHEETE_WGSL,
+            shader_lang: ShaderLang::WGSL,
+            shader_fields: &[ShaderField::SpriteSheet],
+            msaa: true,
+            blend: BlendState::ALPHA_BLENDING,
+            write_mask: ColorWrites::ALL,
+        });
+
         let sprite = gpu.create_shader(ShaderConfig {
             fragment_source: Shader::SPIRTE_WGSL,
             shader_lang: ShaderLang::WGSL,
@@ -521,6 +531,7 @@ impl GpuDefaults {
                 });
 
         Self {
+            sprite_sheet,
             cuboid_index_buffer,
             triangle_index_buffer,
             unit_camera,

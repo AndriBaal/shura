@@ -6,7 +6,7 @@ use crate::{
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RigidBodyComponent {
     pub rigid_body_handle: RigidBodyHandle,
-    pub tex: Vector<i32>,
+    pub sprite: Vector<i32>,
     pub scale: Vector<f32>,
 }
 
@@ -57,12 +57,12 @@ impl RigidBodyComponent {
         &self.scale
     }
 
-    pub fn set_tex(&mut self, tex: Vector<i32>) {
-        self.tex = tex;
+    pub fn set_sprite(&mut self, sprite: Vector<i32>) {
+        self.sprite = sprite;
     }
 
-    pub const fn tex(&self) -> &Vector<i32> {
-        &self.tex
+    pub const fn sprite(&self) -> &Vector<i32> {
+        &self.sprite
     }
 }
 
@@ -76,7 +76,7 @@ impl BaseComponent for RigidBodyComponent {
                 } else {
                     Vector::default()
                 },
-                self.tex,
+                self.sprite,
             );
         }
         return InstanceData::default();

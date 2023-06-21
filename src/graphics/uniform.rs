@@ -13,11 +13,11 @@ pub struct Uniform<T: bytemuck::Pod> {
 
 impl<T: bytemuck::Pod> Uniform<T> {
     pub fn new(gpu: &Gpu, data: T) -> Self {
-        Self::new_custom(&gpu, &gpu.base.fragment_layout, data)
+        Self::new_custom(&gpu, &gpu.base.uniform_layout, data)
     }
 
     pub(crate) fn new_vertex(gpu: &Gpu, data: T) -> Self {
-        Self::new_custom(&gpu, &gpu.base.vertex_layout, data)
+        Self::new_custom(&gpu, &gpu.base.camera_layout, data)
     }
 
     pub(crate) fn new_custom(gpu: &Gpu, layout: &wgpu::BindGroupLayout, data: T) -> Uniform<T> {

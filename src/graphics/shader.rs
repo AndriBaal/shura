@@ -33,6 +33,7 @@ pub enum ShaderField {
     /// var<uniform> color: Color;
     /// ```
     Uniform,
+    SpriteSheet,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -92,18 +93,22 @@ impl Shader {
     pub const VERTEX_GLSL: &'static str = include_str!("../../res/shader/vertex.glsl");
     pub const VERTEX_WGSL: &'static str = include_str!("../../res/shader/vertex.wgsl");
     pub const SPIRTE_WGSL: &'static str = include_str!("../../res/shader/sprite.wgsl");
+    pub const SPIRT_SHEETE_WGSL: &'static str = include_str!("../../res/shader/sprite_sheet.wgsl");
     pub const RAINBOW_WGSL: &'static str = include_str!("../../res/shader/rainbow.wgsl");
     pub const GREY_WGSL: &'static str = include_str!("../../res/shader/grey.wgsl");
     pub const BLURR_WGSL: &'static str = include_str!("../../res/shader/blurr.wgsl");
     pub fn new(gpu: &Gpu, config: ShaderConfig) -> Self {
-        let mut layouts: Vec<&wgpu::BindGroupLayout> = vec![&gpu.base.vertex_layout];
+        let mut layouts: Vec<&wgpu::BindGroupLayout> = vec![&gpu.base.camera_layout];
         for link in config.shader_fields.iter() {
             match link {
                 ShaderField::Uniform => {
-                    layouts.push(&gpu.base.fragment_layout);
+                    layouts.push(&gpu.base.uniform_layout);
                 }
                 ShaderField::Sprite => {
                     layouts.push(&gpu.base.sprite_layout);
+                }
+                ShaderField::SpriteSheet => {
+                    layouts.push(&gpu.base.sprite_sheet_layout);
                 }
             }
         }
