@@ -212,6 +212,15 @@ impl<'a, C: ComponentController> ComponentSetMut<'a, C> {
     ) -> Renderer<'a> {
         self.ty.render_each(encoder, config, each)
     }
+    
+    pub fn render_single(
+        &'a self,
+        encoder: &'a mut RenderEncoder,
+        config: RenderConfig<'a>,
+        each: impl FnOnce(&mut Renderer<'a>, &'a C, InstanceIndex),
+    ) -> Renderer<'a> {
+        self.ty.render_single(encoder, config, each)
+    }
 
     pub fn render_each_prepare(
         &'a self,

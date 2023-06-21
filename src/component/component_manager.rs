@@ -744,6 +744,16 @@ impl ComponentManager {
         ty.render_each(encoder, config, each)
     }
 
+    pub fn render_single<'a, C: ComponentController>(
+        &'a self,
+        encoder: &'a mut RenderEncoder,
+        config: RenderConfig<'a>,
+        each: impl FnOnce(&mut Renderer<'a>, &'a C, InstanceIndex),
+    ) -> Renderer<'a> {
+        let ty = type_ref!(self, C);
+        ty.render_single(encoder, config, each)
+    }
+
     pub fn render_each_prepare<'a, C: ComponentController>(
         &'a self,
         encoder: &'a mut RenderEncoder,

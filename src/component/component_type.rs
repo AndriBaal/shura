@@ -1248,6 +1248,33 @@ impl ComponentType {
         return renderer;
     }
 
+    pub fn render_single<'a, C: ComponentController>(
+        &'a self,
+        encoder: &'a mut RenderEncoder,
+        config: RenderConfig<'a>,
+        each: impl FnOnce(&mut Renderer<'a>, &'a C, InstanceIndex),
+    ) -> Renderer<'a> {
+        let mut renderer = encoder.renderer(config);
+        match &self.storage {
+            ComponentTypeStorage::Single {
+                buffer, component, ..
+            } => {
+                renderer.use_instances(buffer.as_ref().expect(BUFFER_ERROR));
+                if let Some(component) = component {
+                    (each)(
+                        &mut renderer,
+                        component.downcast_ref::<C>().unwrap(),
+                        InstanceIndex::new(0),
+                    );
+                }
+            }
+            _ => {
+                panic!("Cannot get single on component without ComponentStorage::Single!")
+            }
+        }
+        return renderer;
+    }
+
     pub fn render_each_prepare<'a, C: ComponentController>(
         &'a self,
         encoder: &'a mut RenderEncoder,

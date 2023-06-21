@@ -6,7 +6,6 @@ pub use wgpu::{BlendComponent, BlendFactor, BlendOperation, BlendState, ColorWri
 /// Properties of a [Shader]
 pub struct ShaderConfig<'a> {
     pub fragment_source: &'a str,
-    pub shader_lang: ShaderLang,
     pub shader_fields: &'a [ShaderField],
     pub msaa: bool,
     pub blend: BlendState,
@@ -18,7 +17,6 @@ impl Default for ShaderConfig<'static> {
     fn default() -> Self {
         Self {
             fragment_source: "",
-            shader_lang: ShaderLang::WGSL,
             shader_fields: &[],
             msaa: true,
             blend: BlendState::ALPHA_BLENDING,
@@ -49,13 +47,6 @@ pub enum ShaderField {
     /// ```
     Uniform,
     SpriteSheet,
-}
-
-#[derive(Copy, Clone, Eq, PartialEq)]
-/// Supported shader languages.
-pub enum ShaderLang {
-    GLSL,
-    WGSL,
 }
 
 /// Shader following the shura shader system. The vertex shader is the same along every shader and is provided
@@ -100,20 +91,18 @@ pub enum ShaderLang {
 ///
 pub struct Shader {
     pipeline: wgpu::RenderPipeline,
-    lang: ShaderLang,
     msaa: bool,
 }
 
 impl Shader {
-    pub const VERTEX_GLSL: &'static str = include_str!("../../res/shader/vertex.glsl");
-    pub const VERTEX_WGSL: &'static str = include_str!("../../res/shader/vertex.wgsl");
-    pub const SPRITE_WGSL: &'static str = include_str!("../../res/shader/sprite.wgsl");
-    pub const SPRITE_SHEET_WGSL: &'static str = include_str!("../../res/shader/sprite_sheet.wgsl");
-    pub const SPRITE_SHEET_UNIFORM_WGSL: &'static str =
+    pub const VERTEX: &'static str = include_str!("../../res/shader/vertex.wgsl");
+    pub const SPRITE: &'static str = include_str!("../../res/shader/sprite.wgsl");
+    pub const SPRITE_SHEET: &'static str = include_str!("../../res/shader/sprite_sheet.wgsl");
+    pub const SPRITE_SHEET_UNIFORM: &'static str =
         include_str!("../../res/shader/sprite_sheet_uniform.wgsl");
-    pub const RAINBOW_WGSL: &'static str = include_str!("../../res/shader/rainbow.wgsl");
-    pub const GREY_WGSL: &'static str = include_str!("../../res/shader/grey.wgsl");
-    pub const BLURR_WGSL: &'static str = include_str!("../../res/shader/blurr.wgsl");
+    pub const RAINBOW: &'static str = include_str!("../../res/shader/rainbow.wgsl");
+    pub const GREY: &'static str = include_str!("../../res/shader/grey.wgsl");
+    pub const BLURR: &'static str = include_str!("../../res/shader/blurr.wgsl");
     pub fn new(gpu: &Gpu, config: ShaderConfig) -> Self {
         let mut layouts: Vec<&wgpu::BindGroupLayout> = vec![&gpu.base.camera_layout];
         for link in config.shader_fields.iter() {
@@ -130,28 +119,13 @@ impl Shader {
             }
         }
 
-        let vertex_shader = match config.shader_lang {
-            ShaderLang::GLSL => &gpu.base.vertex_glsl,
-            ShaderLang::WGSL => &gpu.base.vertex_wgsl,
-        };
-        let fragment_shader = match config.shader_lang {
-            ShaderLang::GLSL => gpu
-                .device
-                .create_shader_module(wgpu::ShaderModuleDescriptor {
-                    label: None,
-                    source: wgpu::ShaderSource::Glsl {
-                        shader: Cow::Borrowed(config.fragment_source),
-                        stage: naga::ShaderStage::Fragment,
-                        defines: Default::default(),
-                    },
-                }),
-            ShaderLang::WGSL => gpu
-                .device
-                .create_shader_module(wgpu::ShaderModuleDescriptor {
-                    label: None,
-                    source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(config.fragment_source)),
-                }),
-        };
+
+        let fragment_shader = gpu
+        .device
+        .create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: None,
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(config.fragment_source)),
+        });
 
         let render_pipeline_layout =
             gpu.device
@@ -170,7 +144,7 @@ impl Shader {
                 label: None,
                 layout: Some(&render_pipeline_layout),
                 vertex: wgpu::VertexState {
-                    module: &vertex_shader,
+                    module: &gpu.base.vertex_shader,
                     entry_point: "main",
                     buffers: &buffers[..],
                 },
@@ -207,17 +181,12 @@ impl Shader {
 
         Shader {
             pipeline,
-            lang: config.shader_lang,
             msaa: config.msaa,
         }
     }
 
     pub fn pipeline(&self) -> &wgpu::RenderPipeline {
         &self.pipeline
-    }
-
-    pub fn lang(&self) -> ShaderLang {
-        self.lang
     }
 
     pub fn msaa(&self) -> bool {

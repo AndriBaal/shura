@@ -1,6 +1,6 @@
 [package]
 name = "shura"
-version = "0.5.2"
+version = "0.6.0"
 edition = "2021"
 repository = "https://github.com/AndriBaal/shura"
 documentation = "https://docs.rs/shura"
@@ -59,7 +59,6 @@ mint = { version = "0.5" }
 nalgebra = { version = "0.32", features = ["convert-bytemuck", "mint"] }
 glyph_brush = { version = "0.7", optional = true }
 gilrs = { version = "0.10", optional = true }
-naga = "0.12"
 egui-wgpu = { version = "0.22", features = ["winit"], optional = true }
 egui = { version = "0.22", default-features = false, optional = true, features = [
     "bytemuck",
@@ -86,7 +85,7 @@ rand = "0.8.5"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 egui-winit = { version = "0.22", features = ["links"], optional = true }
-wgpu = { version = "0.16", features = ["glsl"] }
+wgpu = { version = "0.16" }
 rodio = { version = "0.17", default-features = false, optional = true, features = [
     "symphonia-all",
 ] }

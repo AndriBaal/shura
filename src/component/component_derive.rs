@@ -68,6 +68,15 @@ where
 
     /// Method called when the game is closed or the scene gets removed
     fn end(ctx: &mut Context, reason: EndReason) {}
+
+    // fn buffer<'a>(components: impl Iterator<Item=BoxedComponent>) -> &'a [u8] {
+    //     todo!();
+    // }
+
+    // fn additional_layout(#[cfg(feature = "physics")] world: &mut World) -> Option<&[wgpu::VertexFormat]> {
+    //     todo!();
+    // }
+
 }
 
 impl<C: ComponentDerive + ?Sized> ComponentDerive for Box<C> {

@@ -5,7 +5,7 @@ use crate::text::{FontBrush, TextPipeline};
 use crate::{
     Camera, CameraBuffer, Color, ColorWrites, InstanceBuffer, InstanceData, Isometry, Model,
     ModelBuilder, RenderConfig, RenderEncoder, RenderTarget, Shader, ShaderConfig, ShaderField,
-    ShaderLang, Sprite, SpriteSheet, Uniform, Vector,
+    Sprite, SpriteSheet, Uniform, Vector,
 };
 use std::borrow::Cow;
 use wgpu::{util::DeviceExt, BlendState};
@@ -251,8 +251,7 @@ pub struct WgpuBase {
     pub sprite_layout: wgpu::BindGroupLayout,
     pub camera_layout: wgpu::BindGroupLayout,
     pub uniform_layout: wgpu::BindGroupLayout,
-    pub vertex_wgsl: wgpu::ShaderModule,
-    pub vertex_glsl: wgpu::ShaderModule,
+    pub vertex_shader: wgpu::ShaderModule,
     pub texture_sampler: wgpu::Sampler,
     #[cfg(feature = "text")]
     pub text_pipeline: TextPipeline,
@@ -343,17 +342,9 @@ impl WgpuBase {
                 ],
             });
 
-        let vertex_wgsl = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("vertex_wgsl"),
-            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(Shader::VERTEX_WGSL)),
-        });
-        let vertex_glsl = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("vertex_glsl"),
-            source: wgpu::ShaderSource::Glsl {
-                shader: Cow::Borrowed(Shader::VERTEX_GLSL),
-                stage: naga::ShaderStage::Vertex,
-                defines: Default::default(),
-            },
+        let vertex_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("vertex_shader"),
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(Shader::VERTEX)),
         });
 
         let texture_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
@@ -388,8 +379,7 @@ impl WgpuBase {
             sprite_layout,
             camera_layout,
             uniform_layout,
-            vertex_wgsl,
-            vertex_glsl,
+            vertex_shader,
             texture_sampler,
             #[cfg(feature = "text")]
             text_pipeline,
@@ -431,8 +421,7 @@ pub struct GpuDefaults {
 impl GpuDefaults {
     pub(crate) fn new(gpu: &Gpu, window_size: Vector<u32>) -> Self {
         let sprite_no_msaa = gpu.create_shader(ShaderConfig {
-            fragment_source: Shader::SPRITE_WGSL,
-            shader_lang: ShaderLang::WGSL,
+            fragment_source: Shader::SPRITE,
             shader_fields: &[ShaderField::Sprite],
             msaa: false,
             blend: BlendState::ALPHA_BLENDING,
@@ -441,37 +430,37 @@ impl GpuDefaults {
         });
 
         let sprite_sheet = gpu.create_shader(ShaderConfig {
-            fragment_source: Shader::SPRITE_SHEET_WGSL,
+            fragment_source: Shader::SPRITE_SHEET,
             shader_fields: &[ShaderField::SpriteSheet],
             ..Default::default()
         });
 
         let sprite_sheet_uniform = gpu.create_shader(ShaderConfig {
-            fragment_source: Shader::SPRITE_SHEET_UNIFORM_WGSL,
+            fragment_source: Shader::SPRITE_SHEET_UNIFORM,
             shader_fields: &[ShaderField::SpriteSheet, ShaderField::Uniform],
             ..Default::default()
         });
 
         let sprite = gpu.create_shader(ShaderConfig {
-            fragment_source: Shader::SPRITE_WGSL,
+            fragment_source: Shader::SPRITE,
             shader_fields: &[ShaderField::Sprite],
             ..Default::default()
         });
 
         let rainbow = gpu.create_shader(ShaderConfig {
-            fragment_source: Shader::RAINBOW_WGSL,
+            fragment_source: Shader::RAINBOW,
             shader_fields: &[ShaderField::Uniform],
             ..Default::default()
         });
 
         let grey = gpu.create_shader(ShaderConfig {
-            fragment_source: Shader::GREY_WGSL,
+            fragment_source: Shader::GREY,
             shader_fields: &[ShaderField::Sprite],
             ..Default::default()
         });
 
         let blurr = gpu.create_shader(ShaderConfig {
-            fragment_source: Shader::BLURR_WGSL,
+            fragment_source: Shader::BLURR,
             shader_fields: &[ShaderField::Sprite],
             ..Default::default()
         });
