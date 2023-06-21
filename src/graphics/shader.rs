@@ -107,8 +107,10 @@ pub struct Shader {
 impl Shader {
     pub const VERTEX_GLSL: &'static str = include_str!("../../res/shader/vertex.glsl");
     pub const VERTEX_WGSL: &'static str = include_str!("../../res/shader/vertex.wgsl");
-    pub const SPIRTE_WGSL: &'static str = include_str!("../../res/shader/sprite.wgsl");
-    pub const SPIRT_SHEETE_WGSL: &'static str = include_str!("../../res/shader/sprite_sheet.wgsl");
+    pub const SPRITE_WGSL: &'static str = include_str!("../../res/shader/sprite.wgsl");
+    pub const SPRITE_SHEET_WGSL: &'static str = include_str!("../../res/shader/sprite_sheet.wgsl");
+    pub const SPRITE_SHEET_UNIFORM_WGSL: &'static str =
+        include_str!("../../res/shader/sprite_sheet_uniform.wgsl");
     pub const RAINBOW_WGSL: &'static str = include_str!("../../res/shader/rainbow.wgsl");
     pub const GREY_WGSL: &'static str = include_str!("../../res/shader/grey.wgsl");
     pub const BLURR_WGSL: &'static str = include_str!("../../res/shader/blurr.wgsl");

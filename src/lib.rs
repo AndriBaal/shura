@@ -66,6 +66,10 @@ pub mod image {
     pub use image::*;
 }
 
+pub mod bytmuck {
+    pub use bytemuck::*;
+}
+
 // Rapier2d
 #[cfg(feature = "physics")]
 mod world;

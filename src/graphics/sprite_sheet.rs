@@ -84,7 +84,7 @@ impl SpriteSheet {
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("spritesheet_size_hint_buffer"),
-                contents: bytemuck::cast_slice(&[sprite_amount.cast::<i32>()]),
+                contents: bytemuck::cast_slice(&[sprite_amount.cast::<i32>(), Vector::new(0, 0)]), // Empty vec needed for 16 Byte alignment
                 usage: wgpu::BufferUsages::UNIFORM,
             });
 

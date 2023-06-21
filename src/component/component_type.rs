@@ -1,5 +1,5 @@
-use std::fmt::{Display, Formatter, Result};
 use instant::Instant;
+use std::fmt::{Display, Formatter, Result};
 
 #[cfg(feature = "physics")]
 use crate::physics::{CollideType, ColliderHandle, World, WorldChanges};

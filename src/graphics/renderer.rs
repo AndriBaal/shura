@@ -265,6 +265,20 @@ impl<'a> Renderer<'a> {
         self.draw(instances);
     }
 
+    pub fn render_sprite_sheet_uniform(
+        &mut self,
+        instances: impl Into<InstanceIndices>,
+        model: &'a Model,
+        sprite: &'a SpriteSheet,
+        sprite_index: &'a Uniform<Vector<i32>>,
+    ) {
+        self.use_shader(&self.defaults.sprite_sheet_uniform);
+        self.use_model(model);
+        self.use_sprite_sheet(sprite, 1);
+        self.use_uniform(sprite_index, 2);
+        self.draw(instances);
+    }
+
     pub fn render_grey(
         &mut self,
         instances: impl Into<InstanceIndices>,

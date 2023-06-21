@@ -401,6 +401,7 @@ impl WgpuBase {
 pub struct GpuDefaults {
     pub sprite: Shader,
     pub sprite_sheet: Shader,
+    pub sprite_sheet_uniform: Shader,
     pub rainbow: Shader,
     pub grey: Shader,
     pub blurr: Shader,
@@ -430,7 +431,7 @@ pub struct GpuDefaults {
 impl GpuDefaults {
     pub(crate) fn new(gpu: &Gpu, window_size: Vector<u32>) -> Self {
         let sprite_no_msaa = gpu.create_shader(ShaderConfig {
-            fragment_source: Shader::SPIRTE_WGSL,
+            fragment_source: Shader::SPRITE_WGSL,
             shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Sprite],
             msaa: false,
@@ -440,13 +441,19 @@ impl GpuDefaults {
         });
 
         let sprite_sheet = gpu.create_shader(ShaderConfig {
-            fragment_source: Shader::SPIRT_SHEETE_WGSL,
+            fragment_source: Shader::SPRITE_SHEET_WGSL,
             shader_fields: &[ShaderField::SpriteSheet],
             ..Default::default()
         });
 
+        let sprite_sheet_uniform = gpu.create_shader(ShaderConfig {
+            fragment_source: Shader::SPRITE_SHEET_UNIFORM_WGSL,
+            shader_fields: &[ShaderField::SpriteSheet, ShaderField::Uniform],
+            ..Default::default()
+        });
+
         let sprite = gpu.create_shader(ShaderConfig {
-            fragment_source: Shader::SPIRTE_WGSL,
+            fragment_source: Shader::SPRITE_WGSL,
             shader_fields: &[ShaderField::Sprite],
             ..Default::default()
         });
@@ -517,6 +524,7 @@ impl GpuDefaults {
                 });
 
         Self {
+            sprite_sheet_uniform,
             sprite_sheet,
             cuboid_index_buffer,
             triangle_index_buffer,

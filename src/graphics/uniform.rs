@@ -16,18 +16,23 @@ impl<T: bytemuck::Pod> Uniform<T> {
         Self::new_custom(&gpu, &gpu.base.uniform_layout, data)
     }
 
-    pub(crate) fn new_vertex(gpu: &Gpu, data: T) -> Self {
+    pub fn new_vertex(gpu: &Gpu, data: T) -> Self {
         Self::new_custom(&gpu, &gpu.base.camera_layout, data)
     }
 
     pub(crate) fn new_custom(gpu: &Gpu, layout: &wgpu::BindGroupLayout, data: T) -> Uniform<T> {
-        const BUFFER_ALIGNMENT: usize = 16;
+        const BUFFER_ALIGNMENT: u64 = 16;
         let data_size = std::mem::size_of_val(&data);
         let buffer_size =
-            ((data_size + BUFFER_ALIGNMENT - 1) / BUFFER_ALIGNMENT) * BUFFER_ALIGNMENT;
+            (data_size as f32 / BUFFER_ALIGNMENT as f32).ceil() as u64 * BUFFER_ALIGNMENT;
+        assert!(
+            buffer_size % BUFFER_ALIGNMENT == 0,
+            "Unaligned buffer size: {}",
+            buffer_size
+        );
         let buffer = gpu.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("uniform_buffer"),
-            size: buffer_size as u64,
+            size: buffer_size,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });

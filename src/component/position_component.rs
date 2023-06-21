@@ -155,6 +155,14 @@ impl PositionComponent {
         );
     }
 
+    pub fn sprite(&self) -> Vector<i32> {
+        self.instance.sprite()
+    }
+
+    pub fn set_sprite(&mut self, sprite: Vector<i32>) {
+        self.instance.set_sprite(sprite)
+    }
+
     pub fn disabled(&self) -> bool {
         self.disabled
     }
