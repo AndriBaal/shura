@@ -68,9 +68,11 @@ impl PhysicsState {
             Color::new(0, 0, 255, 255),
         ]);
         Self {
-            box_model: ctx.gpu.create_model(
-                ModelBuilder::from_collider_shape(&PhysicsBox::BOX_SHAPE, 0, 0.0)
-            ),
+            box_model: ctx.gpu.create_model(ModelBuilder::from_collider_shape(
+                &PhysicsBox::BOX_SHAPE,
+                0,
+                0.0,
+            )),
             box_colors,
         }
     }
@@ -221,7 +223,7 @@ impl ComponentController for Player {
         other_handle: ComponentHandle,
         _self_collider: ColliderHandle,
         _other_collider: ColliderHandle,
-        collision_type: CollideType,
+        _collision_type: CollideType,
     ) {
         if let Some(b) = ctx.components.get_mut::<PhysicsBox>(other_handle) {
             b.body.set_sprite(Vector::new(1, 0));

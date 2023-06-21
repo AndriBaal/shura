@@ -1,6 +1,6 @@
 use std::ops::{Deref, DerefMut};
 
-use crate::{gui::GuiContext, Gpu, Vector};
+use crate::{gui::GuiContext, Gpu, GpuDefaults, RenderEncoder, Vector};
 use egui_wgpu::renderer::{Renderer, ScreenDescriptor};
 use egui_winit::State;
 use instant::Duration;
@@ -20,8 +20,12 @@ impl Gui {
     ) -> Self {
         let config = &gpu.config;
         let device = &gpu.device;
-        // TODO: Implement msaa_samnples and render to the target and not the surface texture
-        let renderer = Renderer::new(device, config.format, None, 1);
+        let renderer = Renderer::new(
+            device,
+            wgpu::TextureFormat::Rgba8UnormSrgb,
+            None,
+            gpu.base.sample_count,
+        );
         let state = State::new(event_loop);
         let context = GuiContext::default();
 
@@ -57,8 +61,8 @@ impl Gui {
     pub(crate) fn render(
         &mut self,
         gpu: &Gpu,
-        encoder: &mut wgpu::CommandEncoder,
-        view: &wgpu::TextureView,
+        defaults: &GpuDefaults,
+        encoder: &mut RenderEncoder,
     ) {
         let output = self.context.end_frame();
         let paint_jobs = self.context.tessellate(output.shapes);
@@ -71,24 +75,26 @@ impl Gui {
         self.renderer.update_buffers(
             &gpu.device,
             &gpu.queue,
-            encoder,
+            &mut encoder.inner,
             &paint_jobs,
             &self.screen_descriptor,
         );
 
         {
-            let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Load,
-                        store: true,
-                    },
-                })],
-                depth_stencil_attachment: None,
-                label: Some("egui main render pass"),
-            });
+            let mut rpass = encoder
+                .inner
+                .begin_render_pass(&wgpu::RenderPassDescriptor {
+                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                        view: defaults.world_target.msaa(),
+                        resolve_target: Some(defaults.world_target.view()),
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Load,
+                            store: true,
+                        },
+                    })],
+                    depth_stencil_attachment: None,
+                    label: Some("egui main render pass"),
+                });
 
             self.renderer
                 .render(&mut rpass, &paint_jobs, &self.screen_descriptor);

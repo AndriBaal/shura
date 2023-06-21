@@ -1,12 +1,11 @@
 use crate::{Color, Gpu, Vector};
-use image::{DynamicImage, GenericImageView};
+use image::DynamicImage;
 
 /// 2D Sprite used for rendering
 #[derive(Debug)]
 pub struct Sprite {
     texture: wgpu::Texture,
     bind_group: wgpu::BindGroup,
-    format: wgpu::TextureFormat,
     size: Vector<u32>,
 }
 
@@ -28,7 +27,6 @@ impl Sprite {
         let bind_group = Self::create_bind_group(gpu, &texture);
         Self {
             size,
-            format: gpu.config.format,
             texture,
             bind_group,
         }
@@ -36,14 +34,7 @@ impl Sprite {
 
     pub fn from_image(gpu: &Gpu, image: DynamicImage) -> Self {
         let size = Vector::new(image.width(), image.height());
-        match gpu.config.format {
-            wgpu::TextureFormat::Bgra8Unorm | wgpu::TextureFormat::Bgra8UnormSrgb => {
-                return Self::from_raw(gpu, size, &image.to_bgra8());
-            }
-            _ => {
-                return Self::from_raw(gpu, size, &image.to_rgba8());
-            }
-        };
+        return Self::from_raw(gpu, size, image.as_rgba8().unwrap_or(&image.to_rgba8()));
     }
 
     pub fn from_color(gpu: &Gpu, color: Color) -> Self {
@@ -74,7 +65,6 @@ impl Sprite {
         let bind_group = Self::create_bind_group(gpu, &texture);
         Self {
             bind_group,
-            format: gpu.config.format,
             texture,
             size,
         }
@@ -88,10 +78,10 @@ impl Sprite {
                 height: size.y,
                 depth_or_array_layers: 1,
             },
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: gpu.config.format,
             usage: wgpu::TextureUsages::TEXTURE_BINDING
                 | wgpu::TextureUsages::COPY_DST
                 | wgpu::TextureUsages::COPY_SRC
@@ -144,7 +134,7 @@ impl Sprite {
     #[cfg(not(target_os = "android"))]
     #[cfg(not(target_os = "ios"))]
     pub fn save(&self, gpu: &Gpu, file_name: &str) -> image::ImageResult<()> {
-        self.to_image(gpu).save(file_name)
+        self.to_image(gpu).to_rgba8().save(file_name)
     }
 
     pub fn to_image(&self, gpu: &Gpu) -> image::DynamicImage {
@@ -198,22 +188,11 @@ impl Sprite {
             pollster::block_on(rx.receive()).unwrap().unwrap();
             let data = buffer_slice.get_mapped_range();
             let raw = data.as_ref().to_vec();
-            match self.format {
-                wgpu::TextureFormat::Bgra8UnormSrgb | wgpu::TextureFormat::Bgra8Unorm => {
-                    let image_buf =
-                        image::ImageBuffer::from_vec(texture_width, texture_height, raw).unwrap();
-                    let bgra = image::DynamicImage::ImageBgra8(image_buf);
-                    let mut rgba = image::DynamicImage::ImageRgba8(bgra.to_rgba8());
-                    rgba.crop(0, 0, o_texture_width, texture_height)
-                }
-                _ => {
-                    let image_buf =
-                        image::ImageBuffer::from_vec(texture_width, texture_height, raw).unwrap();
-                    let mut rgba = image::DynamicImage::ImageRgba8(image_buf);
-                    rgba.crop(0, 0, o_texture_width, texture_height)
-                }
-            }
+            let image_buf =
+                image::ImageBuffer::from_vec(texture_width, texture_height, raw).unwrap();
+            image::DynamicImage::ImageRgba8(image_buf)
         };
+
         output_buffer.unmap();
         return image;
     }
@@ -226,8 +205,8 @@ impl Sprite {
         &self.bind_group
     }
 
-    pub const fn format(&self) -> &wgpu::TextureFormat {
-        &self.format
+    pub const fn format(&self) -> wgpu::TextureFormat {
+        return wgpu::TextureFormat::Rgba8UnormSrgb;
     }
 
     pub const fn texture(&self) -> &wgpu::Texture {

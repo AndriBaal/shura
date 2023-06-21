@@ -8,8 +8,6 @@ use shura::{
     *,
 };
 
-// Inspired by: https://github.com/bones-ai/rust-flappy-bird-ai
-
 const GAME_SIZE: Vector<f32> = Vector::new(11.25, 5.0);
 const AMOUNT_BIRDS: u32 = 1000;
 
@@ -88,7 +86,6 @@ struct Bird {
     pos: PositionComponent,
     brain: NeuralNetwork,
     score: f32,
-    dead: bool,
     linvel: Vector<f32>,
 }
 
@@ -100,7 +97,6 @@ impl Bird {
             pos: PositionComponent::new(Default::default()),
             score: 0.0,
             brain: NeuralNetwork::new(vec![5, 8, 1]),
-            dead: false,
             linvel: Vector::default(),
         }
     }
@@ -121,7 +117,7 @@ impl ComponentController for Bird {
         let score = ctx
             .components
             .iter::<Bird>()
-            .find(|b| !b.dead)
+            .find(|b| !b.pos.disabled())
             .unwrap()
             .score as u32;
         if score > scene.high_score {
@@ -167,10 +163,9 @@ impl ComponentController for Bird {
                 || bird_aabb.intersects(&top_aabb)
             {
                 bird.pos.set_disabled(true);
-                bird.dead = true;
             }
 
-            if bird.dead {
+            if bird.pos.disabled() {
                 continue;
             }
 
@@ -188,7 +183,11 @@ impl ComponentController for Bird {
             }
         }
 
-        let dead_count = ctx.components.iter::<Bird>().filter(|b| !b.dead).count();
+        let dead_count = ctx
+            .components
+            .iter::<Bird>()
+            .filter(|b| !b.pos.disabled())
+            .count();
 
         if dead_count == 0 {
             let mut max_fitness = 0.0;
@@ -242,15 +241,10 @@ impl ComponentController for Bird {
 
     fn render(ctx: &Context, encoder: &mut RenderEncoder) {
         let scene = ctx.scene_states.get::<BirdSimulation>();
-        ctx.components.render_each::<Self>(
-            encoder,
-            RenderConfig::default(),
-            |r, bird, instance| {
-                if !bird.dead {
-                    r.render_sprite(instance, &scene.bird_model, &scene.bird_sprite)
-                }
-            },
-        );
+        ctx.components
+            .render_all::<Self>(encoder, RenderConfig::default(), |r, instance| {
+                r.render_sprite(instance, &scene.bird_model, &scene.bird_sprite)
+            });
     }
 }
 

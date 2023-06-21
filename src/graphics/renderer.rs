@@ -1,6 +1,6 @@
 use crate::{
     CameraBuffer, Gpu, GpuDefaults, InstanceBuffer, InstanceIndices, Model, ModelIndexBuffer,
-    RenderConfig, Shader, Sprite, Uniform, Vector, SpriteSheet,
+    RenderConfig, Shader, Sprite, SpriteSheet, Uniform, Vector,
 };
 use std::ptr::null;
 
@@ -253,7 +253,6 @@ impl<'a> Renderer<'a> {
         self.draw(instances);
     }
 
-    
     pub fn render_sprite_sheet(
         &mut self,
         instances: impl Into<InstanceIndices>,

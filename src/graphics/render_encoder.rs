@@ -172,11 +172,11 @@ impl<'a> RenderEncoder<'a> {
                 target: RenderConfigTarget::Custom(target),
                 camera: RenderConfigCamera::RelativeCamera,
                 intances: Some(RenderConfigInstances::SingleCenteredInstance),
-                msaa: false,
+                msaa: true,
                 clear_color: None,
             },
         );
-        renderer.use_shader(&self.defaults.sprite_no_msaa);
+        renderer.use_shader(&self.defaults.sprite);
         renderer.use_model(self.defaults.relative_camera.0.model());
         renderer.use_sprite(src, 1);
         renderer.draw(0);

@@ -521,6 +521,9 @@ impl Shura {
                 (ty.callbacks.render)(&ctx, &mut encoder);
             }
         }
+
+        #[cfg(feature = "gui")]
+        ctx.gui.render(ctx.gpu, ctx.defaults, &mut encoder);
         let output_view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
@@ -536,8 +539,6 @@ impl Shura {
             renderer.draw(0);
         }
 
-        #[cfg(feature = "gui")]
-        ctx.gui.render(&ctx.gpu, &mut encoder.inner, &output_view);
         self.last_submission = Some(encoder.finish());
         output.present();
         if scene.switched || scene.resized || scene.screen_config.changed {

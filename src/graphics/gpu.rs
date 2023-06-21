@@ -106,7 +106,7 @@ impl Gpu {
             }
         };
 
-        let base = WgpuBase::new(&device, config.format, sample_count);
+        let base = WgpuBase::new(&device, sample_count);
 
         surface.configure(&device, &config);
 
@@ -259,7 +259,7 @@ pub struct WgpuBase {
 }
 
 impl WgpuBase {
-    pub fn new(device: &wgpu::Device, _format: wgpu::TextureFormat, sample_count: u32) -> Self {
+    pub fn new(device: &wgpu::Device, sample_count: u32) -> Self {
         let sprite_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[
                 wgpu::BindGroupLayoutEntry {
@@ -378,7 +378,7 @@ impl WgpuBase {
         };
 
         #[cfg(feature = "text")]
-        let text_pipeline = TextPipeline::new(device, _format, multisample);
+        let text_pipeline = TextPipeline::new(device, multisample);
 
         Self {
             sample_count: sample_count,
@@ -429,24 +429,6 @@ pub struct GpuDefaults {
 
 impl GpuDefaults {
     pub(crate) fn new(gpu: &Gpu, window_size: Vector<u32>) -> Self {
-        let sprite_sheet = gpu.create_shader(ShaderConfig {
-            fragment_source: Shader::SPIRT_SHEETE_WGSL,
-            shader_lang: ShaderLang::WGSL,
-            shader_fields: &[ShaderField::SpriteSheet],
-            msaa: true,
-            blend: BlendState::ALPHA_BLENDING,
-            write_mask: ColorWrites::ALL,
-        });
-
-        let sprite = gpu.create_shader(ShaderConfig {
-            fragment_source: Shader::SPIRTE_WGSL,
-            shader_lang: ShaderLang::WGSL,
-            shader_fields: &[ShaderField::Sprite],
-            msaa: true,
-            blend: BlendState::ALPHA_BLENDING,
-            write_mask: ColorWrites::ALL,
-        });
-
         let sprite_no_msaa = gpu.create_shader(ShaderConfig {
             fragment_source: Shader::SPIRTE_WGSL,
             shader_lang: ShaderLang::WGSL,
@@ -454,33 +436,37 @@ impl GpuDefaults {
             msaa: false,
             blend: BlendState::ALPHA_BLENDING,
             write_mask: ColorWrites::ALL,
+            render_to_surface: true,
+        });
+
+        let sprite_sheet = gpu.create_shader(ShaderConfig {
+            fragment_source: Shader::SPIRT_SHEETE_WGSL,
+            shader_fields: &[ShaderField::SpriteSheet],
+            ..Default::default()
+        });
+
+        let sprite = gpu.create_shader(ShaderConfig {
+            fragment_source: Shader::SPIRTE_WGSL,
+            shader_fields: &[ShaderField::Sprite],
+            ..Default::default()
         });
 
         let rainbow = gpu.create_shader(ShaderConfig {
             fragment_source: Shader::RAINBOW_WGSL,
-            shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Uniform],
-            msaa: true,
-            blend: BlendState::ALPHA_BLENDING,
-            write_mask: ColorWrites::ALL,
+            ..Default::default()
         });
 
         let grey = gpu.create_shader(ShaderConfig {
             fragment_source: Shader::GREY_WGSL,
-            shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Sprite],
-            msaa: true,
-            blend: BlendState::ALPHA_BLENDING,
-            write_mask: ColorWrites::ALL,
+            ..Default::default()
         });
 
         let blurr = gpu.create_shader(ShaderConfig {
             fragment_source: Shader::BLURR_WGSL,
-            shader_lang: ShaderLang::WGSL,
             shader_fields: &[ShaderField::Sprite],
-            msaa: true,
-            blend: BlendState::ALPHA_BLENDING,
-            write_mask: ColorWrites::ALL,
+            ..Default::default()
         });
 
         let size = gpu.render_size(1.0);

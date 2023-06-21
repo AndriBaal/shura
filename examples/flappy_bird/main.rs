@@ -91,8 +91,7 @@ impl Bird {
                 ],
             ),
 
-            model: gpu
-                .create_model(ModelBuilder::cuboid(Self::HALF_EXTENTS)),
+            model: gpu.create_model(ModelBuilder::cuboid(Self::HALF_EXTENTS)),
             sprite,
             sink: audio.create_sink(),
             hit_sound: audio.create_sound(include_bytes!("./audio/hit.wav")),
@@ -154,9 +153,8 @@ impl ComponentController for Bird {
             });
 
         for bird in ctx.components.iter_mut::<Self>() {
-            bird.body.set_sprite(
-                Vector::new((ctx.frame.total_time() * 7.0 % 3.0) as i32, 0)
-            );
+            bird.body
+                .set_sprite(Vector::new((ctx.frame.total_time() * 7.0 % 3.0) as i32, 0));
             if ctx.input.is_pressed(Key::Space)
                 || ctx.input.is_pressed(MouseButton::Left)
                 || ctx.input.is_pressed(ScreenTouch)

@@ -1,7 +1,5 @@
 ## Future features (TODO):
 
-- Test controller use cases
-
 - Serialization of Groups
 
 - Refactor of rounded Models

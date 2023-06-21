@@ -33,25 +33,20 @@ fn shura_main(config: ShuraConfig) {
                     fragment_source: include_str!("./light.glsl"),
                     shader_lang: ShaderLang::GLSL,
                     shader_fields: &[ShaderField::Uniform],
-                    blend: BlendState::ALPHA_BLENDING,
-                    msaa: true,
-                    write_mask: ColorWrites::ALL,
+                    ..Default::default()
                 }),
                 shadow_shader: ctx.gpu.create_shader(ShaderConfig {
                     fragment_source: include_str!("./light.glsl"),
                     shader_lang: ShaderLang::GLSL,
                     shader_fields: &[ShaderField::Uniform],
                     blend,
-                    msaa: true,
-                    write_mask: ColorWrites::ALL,
+                    ..Default::default()
                 }),
                 present_shader: ctx.gpu.create_shader(ShaderConfig {
                     fragment_source: include_str!("./present.glsl"),
                     shader_lang: ShaderLang::GLSL,
                     shader_fields: &[ShaderField::Sprite, ShaderField::Uniform],
-                    blend: BlendState::ALPHA_BLENDING,
-                    msaa: true,
-                    write_mask: ColorWrites::ALL,
+                    ..Default::default()
                 }),
             });
             ctx.components.add(Obstacle::new(

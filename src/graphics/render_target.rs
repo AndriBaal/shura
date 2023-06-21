@@ -18,8 +18,12 @@ impl RenderTarget {
         let target_view = target
             .texture()
             .create_view(&wgpu::TextureViewDescriptor::default());
-        let target_msaa =
-            Self::create_msaa(&gpu.device, gpu.config.format, gpu.base.sample_count, size);
+        let target_msaa = Self::create_msaa(
+            &gpu.device,
+            wgpu::TextureFormat::Rgba8UnormSrgb,
+            gpu.base.sample_count,
+            size,
+        );
 
         return Self {
             target_msaa,

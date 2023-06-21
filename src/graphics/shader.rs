@@ -11,6 +11,21 @@ pub struct ShaderConfig<'a> {
     pub msaa: bool,
     pub blend: BlendState,
     pub write_mask: ColorWrites,
+    pub render_to_surface: bool,
+}
+
+impl Default for ShaderConfig<'static> {
+    fn default() -> Self {
+        Self {
+            fragment_source: "",
+            shader_lang: ShaderLang::WGSL,
+            shader_fields: &[],
+            msaa: true,
+            blend: BlendState::ALPHA_BLENDING,
+            write_mask: ColorWrites::ALL,
+            render_to_surface: false,
+        }
+    }
 }
 
 /// Field that is present in the shader.
@@ -161,7 +176,11 @@ impl Shader {
                     module: &fragment_shader,
                     entry_point: "main",
                     targets: &[Some(wgpu::ColorTargetState {
-                        format: gpu.config.format,
+                        format: if config.render_to_surface {
+                            gpu.config.format
+                        } else {
+                            wgpu::TextureFormat::Rgba8UnormSrgb
+                        },
                         blend: Some(config.blend),
                         write_mask: config.write_mask,
                     })],
