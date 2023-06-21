@@ -17,6 +17,25 @@ impl SpriteSheet {
         Self::from_image(gpu, img, sprite_size)
     }
 
+    // /// Create a [SpriteSheet] from multiple, by flattening all provided SpriteSheets to have their own row.
+    // pub fn from_multiple(gpu: &Gpu, sheets: &[&[u8]], sprite_size: Vector<u32>) -> Self {
+    //     let sprite_amount = size.component_div(&sprite_size);
+    //     let mut sprites: Vec<Vec<u8>> = vec![];
+
+    //     for i in 0..sprite_amount.y as u32 {
+    //         for j in 0..sprite_amount.x as u32 {
+    //             let sprite = image.crop(
+    //                 j * sprite_size.x,
+    //                 i * sprite_size.y,
+    //                 sprite_size.x,
+    //                 sprite_size.y,
+    //             );
+    //             sprites.push(sprite.as_rgba8().unwrap_or(&image.to_rgba8()).to_vec());
+    //         }
+    //     }
+    //     return Self::from_raw(gpu, &sprites, sprite_size, sprite_amount);
+    // }
+
     pub fn from_amount(gpu: &Gpu, bytes: &[u8], sprite_amount: Vector<u32>) -> Self {
         let img = image::load_from_memory(bytes).unwrap();
         let sprite_size = Vector::new(
@@ -39,7 +58,6 @@ impl SpriteSheet {
         let size = Vector::new(image.width(), image.height());
         let sprite_amount = size.component_div(&sprite_size);
         let mut sprites: Vec<Vec<u8>> = vec![];
-
         for i in 0..sprite_amount.y as u32 {
             for j in 0..sprite_amount.x as u32 {
                 let sprite = image.crop(
@@ -48,7 +66,7 @@ impl SpriteSheet {
                     sprite_size.x,
                     sprite_size.y,
                 );
-                sprites.push(sprite.as_rgba8().unwrap_or(&image.to_rgba8()).to_vec());
+                sprites.push(sprite.to_rgba8().to_vec());
             }
         }
         return Self::from_raw(gpu, &sprites, sprite_size, sprite_amount);
@@ -61,6 +79,7 @@ impl SpriteSheet {
         sprite_amount: Vector<u32>,
     ) -> Self {
         let amount = sprite_amount.x * sprite_amount.y;
+        assert!(amount > 1, "SpriteSheet must atleast have to 2 sprites!");
         let size_hint_buffer = gpu
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -79,16 +98,14 @@ impl SpriteSheet {
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: gpu.config.format,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
             usage: wgpu::TextureUsages::TEXTURE_BINDING
                 | wgpu::TextureUsages::COPY_DST
                 | wgpu::TextureUsages::COPY_SRC
                 | wgpu::TextureUsages::RENDER_ATTACHMENT,
             view_formats: &[],
         };
-        let texture = gpu.device.create_texture(&wgpu::TextureDescriptor {
-            ..texture_descriptor
-        });
+        let texture = gpu.device.create_texture(&texture_descriptor);
 
         for (layer, bytes) in sprites.iter().enumerate() {
             gpu.queue.write_texture(
@@ -137,7 +154,7 @@ impl SpriteSheet {
                 },
             ],
             layout: &gpu.base.sprite_sheet_layout,
-            label: Some("sprite_shett_bindgroup"),
+            label: Some("sprite_sheet_bindgroup"),
         });
 
         return Self {

@@ -19,7 +19,7 @@ struct Uniforms {
 
 @fragment
 fn main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let index = in.sprite.y * sprite_amount.index.y + in.sprite.x;
+    let index = in.sprite.y * sprite_amount.index.x + in.sprite.x;
     return textureSample(
         t_diffuse,
         s_diffuse,

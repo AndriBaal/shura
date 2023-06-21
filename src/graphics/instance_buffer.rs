@@ -65,7 +65,7 @@ impl InstanceData {
             )
     }
 
-    pub fn set_tex(&mut self, sprite: Vector<i32>) {
+    pub fn set_sprite(&mut self, sprite: Vector<i32>) {
         self.sprite = sprite;
     }
 

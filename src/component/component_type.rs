@@ -1,5 +1,4 @@
 use std::fmt::{Display, Formatter, Result};
-
 use instant::Instant;
 
 #[cfg(feature = "physics")]

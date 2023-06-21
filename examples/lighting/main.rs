@@ -153,7 +153,7 @@ impl Obstacle {
             collider: ColliderComponent::new(world, collider),
         }
     }
-}
+} 
 
 impl ComponentController for Obstacle {
     const CONFIG: ComponentConfig = ComponentConfig {
