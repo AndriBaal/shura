@@ -190,15 +190,15 @@ impl Sprite {
             let raw = data.as_ref().to_vec();
             let image_buf =
                 image::ImageBuffer::from_vec(texture_width, texture_height, raw).unwrap();
-            image::DynamicImage::ImageRgba8(image_buf)
+            image::DynamicImage::ImageRgba8(image_buf).crop(0, 0, o_texture_width, texture_height)
         };
 
         output_buffer.unmap();
         return image;
     }
 
-    pub const fn size(&self) -> &Vector<u32> {
-        &self.size
+    pub const fn size(&self) -> Vector<u32> {
+        self.size
     }
 
     pub const fn bind_group(&self) -> &wgpu::BindGroup {

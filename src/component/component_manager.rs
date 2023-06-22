@@ -7,8 +7,8 @@ use crate::physics::World;
 use crate::{
     Arena, BoxedComponent, CallableType, CameraBuffer, ComponentConfig, ComponentController,
     ComponentHandle, ComponentSet, ComponentSetMut, ComponentType, ComponentTypeId, Gpu, Group,
-    GroupActivation, GroupHandle, InstanceBuffer, InstanceIndex, InstanceIndices, RenderConfig,
-    RenderEncoder, Renderer, TypeIndex, Vector,
+    GroupActivation, GroupHandle, InstanceBuffer, InstanceIndex, InstanceIndices, RenderCamera,
+    Renderer, TypeIndex, Vector,
 };
 use std::cell::RefCell;
 use std::collections::BTreeMap;
@@ -736,43 +736,43 @@ impl ComponentManager {
 
     pub fn render_each<'a, C: ComponentController>(
         &'a self,
-        encoder: &'a mut RenderEncoder,
-        config: RenderConfig<'a>,
+        renderer: &mut Renderer<'a>,
+        camera: RenderCamera<'a>,
         each: impl FnMut(&mut Renderer<'a>, &'a C, InstanceIndex),
-    ) -> Renderer<'a> {
+    ) {
         let ty = type_ref!(self, C);
-        ty.render_each(encoder, config, each)
+        ty.render_each(renderer, camera, each)
     }
 
     pub fn render_single<'a, C: ComponentController>(
         &'a self,
-        encoder: &'a mut RenderEncoder,
-        config: RenderConfig<'a>,
+        renderer: &mut Renderer<'a>,
+        camera: RenderCamera<'a>,
         each: impl FnOnce(&mut Renderer<'a>, &'a C, InstanceIndex),
-    ) -> Renderer<'a> {
+    ) {
         let ty = type_ref!(self, C);
-        ty.render_single(encoder, config, each)
+        ty.render_single(renderer, camera, each)
     }
 
     pub fn render_each_prepare<'a, C: ComponentController>(
         &'a self,
-        encoder: &'a mut RenderEncoder,
-        config: RenderConfig<'a>,
+        renderer: &mut Renderer<'a>,
+        camera: RenderCamera<'a>,
         prepare: impl FnOnce(&mut Renderer<'a>),
         each: impl FnMut(&mut Renderer<'a>, &'a C, InstanceIndex),
-    ) -> Renderer<'a> {
+    ) {
         let ty = type_ref!(self, C);
-        ty.render_each_prepare(encoder, config, prepare, each)
+        ty.render_each_prepare(renderer, camera, prepare, each)
     }
 
     pub fn render_all<'a, C: ComponentController>(
         &'a self,
-        encoder: &'a mut RenderEncoder,
-        config: RenderConfig<'a>,
+        renderer: &mut Renderer<'a>,
+        camera: RenderCamera<'a>,
         all: impl FnMut(&mut Renderer<'a>, InstanceIndices),
-    ) -> Renderer<'a> {
+    ) {
         let ty = type_ref!(self, C);
-        ty.render_all::<C>(encoder, config, all)
+        ty.render_all::<C>(renderer, camera, all)
     }
 
     pub fn single<C: ComponentController>(&self) -> Option<&C> {

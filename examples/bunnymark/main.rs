@@ -102,7 +102,7 @@ impl ComponentController for Bunny {
 
         let bunny_state = ctx.scene_states.get_mut::<BunnyState>();
         if let Some(screenshot) = bunny_state.screenshot.take() {
-            info!("Taking Screenshot!");
+            info!("Saving Screenshot!");
             screenshot.sprite().save(&ctx.gpu, "screenshot.png").ok();
         } else if ctx.input.is_pressed(Key::S) {
             bunny_state.screenshot = Some(ctx.gpu.create_render_target(ctx.window_size));
@@ -136,14 +136,14 @@ impl ComponentController for Bunny {
         });
     }
 
-    fn render(ctx: &Context, encoder: &mut RenderEncoder) {
+    fn render<'a>(ctx: &'a Context, renderer: &mut Renderer<'a>) {
         let scene = ctx.scene_states.get::<BunnyState>();
         ctx.components
-            .render_all::<Self>(encoder, RenderConfig::WORLD, |r, instances| {
+            .render_all::<Self>(renderer, RenderCamera::World, |r, instances| {
                 r.render_sprite(instances, &scene.bunny_model, &scene.bunny_sprite)
             });
         if let Some(screenshot) = &scene.screenshot {
-            encoder.copy_to_target(&ctx.defaults.world_target, &screenshot);
+            renderer.screenshot = Some(screenshot);
         }
     }
 }

@@ -1,7 +1,7 @@
 use super::{text::TextSection, text_cache::TextCache};
 use crate::{
-    text::TextVertex, CameraMatrix, Gpu, GpuDefaults, RenderConfig, RenderConfigTarget,
-    RenderEncoder, Vector,
+    text::TextVertex, CameraMatrix, Gpu, GpuDefaults, RenderCamera, RenderEncoder, RendererTarget,
+    Vector,
 };
 use glyph_brush::{
     ab_glyph::{FontRef, InvalidFont},
@@ -31,13 +31,18 @@ impl FontBrush {
         })
     }
 
-    pub fn queue(&self, defaults: &GpuDefaults, config: RenderConfig, sections: Vec<TextSection>) {
-        let cam = config.camera.camera(defaults);
-        let target = config.target.target(defaults);
+    pub(crate) fn queue(
+        &self,
+        defaults: &GpuDefaults,
+        camera: RenderCamera,
+        size: Vector<u32>,
+        sections: Vec<TextSection>,
+    ) {
+        let cam = camera.camera(defaults);
         let cam_aabb = cam.model().aabb(Default::default());
         let camera_pos = cam_aabb.center();
         let dim = cam_aabb.dim();
-        let resolution = target.size().x as f32 / cam_aabb.dim().x;
+        let resolution = size.x as f32 / cam_aabb.dim().x;
         let offset = dim / 2.0;
         let mut inner = self.inner.lock().unwrap();
         for s in sections {
@@ -46,7 +51,7 @@ impl FontBrush {
         }
     }
 
-    pub fn submit(&self, encoder: &mut RenderEncoder, target: RenderConfigTarget) {
+    pub(crate) fn submit(&self, encoder: &mut RenderEncoder, target: RendererTarget) {
         let target = target.target(encoder.defaults);
         let mut pass = encoder
             .inner

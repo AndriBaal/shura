@@ -239,10 +239,10 @@ impl ComponentController for Bird {
             });
     }
 
-    fn render(ctx: &Context, encoder: &mut RenderEncoder) {
+    fn render<'a>(ctx: &'a Context, renderer: &mut Renderer<'a>) {
         let scene = ctx.scene_states.get::<BirdSimulation>();
         ctx.components
-            .render_all::<Self>(encoder, RenderConfig::default(), |r, instance| {
+            .render_all::<Self>(renderer, RenderCamera::World, |r, instance| {
                 r.render_sprite(instance, &scene.bird_model, &scene.bird_sprite)
             });
     }
@@ -277,10 +277,10 @@ impl ComponentController for Ground {
         update_priority: 2,
         ..ComponentConfig::DEFAULT
     };
-    fn render(ctx: &Context, encoder: &mut RenderEncoder) {
+    fn render<'a>(ctx: &'a Context, renderer: &mut Renderer<'a>) {
         ctx.components.render_each::<Self>(
-            encoder,
-            RenderConfig::default(),
+            renderer,
+            RenderCamera::World,
             |r, ground, instance| r.render_sprite(instance, &ground.model, &ground.sprite),
         );
     }
@@ -313,10 +313,10 @@ impl ComponentController for Background {
         buffer: BufferOperation::Manual,
         ..ComponentConfig::DEFAULT
     };
-    fn render(ctx: &Context, encoder: &mut RenderEncoder) {
+    fn render<'a>(ctx: &'a Context, renderer: &mut Renderer<'a>) {
         ctx.components.render_each::<Self>(
-            encoder,
-            RenderConfig::default(),
+            renderer,
+            RenderCamera::World,
             |r, background, instance| {
                 r.render_sprite(instance, &background.model, &background.sprite)
             },
@@ -367,10 +367,10 @@ impl ComponentController for Pipe {
         });
     }
 
-    fn render(ctx: &Context, encoder: &mut RenderEncoder) {
+    fn render<'a>(ctx: &'a Context, renderer: &mut Renderer<'a>) {
         let scene = ctx.scene_states.get::<BirdSimulation>();
         ctx.components
-            .render_all::<Self>(encoder, RenderConfig::default(), |r, instances| {
+            .render_all::<Self>(renderer, RenderCamera::World, |r, instances| {
                 r.render_sprite(instances.clone(), &scene.top_pipe_model, &scene.pipe_sprite);
                 r.render_sprite(instances, &scene.bottom_pipe_model, &scene.pipe_sprite);
             });

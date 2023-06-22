@@ -10,8 +10,8 @@ use crate::{
     VERSION,
 };
 use crate::{
-    Context, EndReason, FrameManager, Gpu, GpuConfig, GpuDefaults, Input, RenderConfigTarget,
-    RenderEncoder, Renderer, SceneCreator, SceneManager, StateManager, Vector,
+    Context, EndReason, FrameManager, Gpu, GpuConfig, GpuDefaults, Input, RenderEncoder, Renderer,
+    RendererTarget, SceneCreator, SceneManager, StateManager, Vector,
 };
 #[cfg(target_arch = "wasm32")]
 use rustc_hash::FxHashMap;
@@ -121,6 +121,7 @@ impl ShuraConfig {
         };
 
         events.run(move |event, _target, control_flow| {
+            *control_flow = winit::event_loop::ControlFlow::Poll;
             use winit::event::{Event, WindowEvent};
             if let Some(shura) = &mut shura {
                 if !shura.end {
@@ -221,7 +222,6 @@ pub struct Shura {
     pub gui: Gui,
     #[cfg(feature = "audio")]
     pub audio: AudioManager,
-    last_submission: Option<wgpu::SubmissionIndex>,
     #[cfg(target_arch = "wasm32")]
     pub auto_scale_canvas: bool,
 }
@@ -254,7 +254,6 @@ impl Shura {
             defaults,
             #[cfg(target_arch = "wasm32")]
             auto_scale_canvas,
-            last_submission: None,
         }
     }
 
@@ -344,10 +343,6 @@ impl Shura {
     }
 
     fn update(&mut self) -> Result<(), wgpu::SurfaceError> {
-        if let Some(last) = self.last_submission.take() {
-            self.gpu.block(last);
-        }
-        let output = self.gpu.surface.get_current_texture()?;
         while let Some(remove) = self.scenes.remove.pop() {
             if let Some(removed) = self.scenes.scenes.remove(&remove) {
                 let mut removed = removed.borrow_mut();
@@ -378,6 +373,26 @@ impl Shura {
 
         let mint: mint::Vector2<u32> = self.window.inner_size().into();
         let window_size: Vector<u32> = mint.into();
+        if scene.switched || scene.resized || scene.screen_config.changed {
+            scene.screen_config.changed = false;
+            scene.resized = false;
+            #[cfg(feature = "log")]
+            {
+                let size = self.gpu.render_size(scene.screen_config.render_scale());
+                info!(
+                    "Resizing render target to: {} x {} using VSYNC: {}",
+                    size.x,
+                    size.y,
+                    scene.screen_config.vsync()
+                );
+            }
+            scene.world_camera.resize(window_size);
+
+            self.gpu.apply_vsync(scene.screen_config.vsync());
+            self.defaults
+                .apply_render_scale(&self.gpu, scene.screen_config.render_scale());
+        }
+        let output = self.gpu.surface.get_current_texture()?;
         self.frame.update();
         #[cfg(feature = "gamepad")]
         self.input.sync_gamepad();
@@ -483,8 +498,6 @@ impl Shura {
             }
         }
         self.input.update();
-        self.defaults
-            .apply_render_scale(&self.gpu, scene.screen_config.render_scale());
         scene.world_camera.apply_target(
             #[cfg(feature = "physics")]
             &scene.world,
@@ -511,14 +524,20 @@ impl Shura {
         );
         let ctx = Context::new(self, scene);
         let mut encoder = RenderEncoder::new(ctx.gpu, &ctx.defaults);
-        if let Some(clear_color) = ctx.screen_config.clear_color {
-            encoder.clear(RenderConfigTarget::World, clear_color);
-        }
 
         {
+            let mut renderer =
+                encoder.renderer(RendererTarget::World, ctx.screen_config.clear_color, true);
             for (_, type_index) in ctx.components.render_priorities().borrow().iter() {
                 let ty = ctx.components.callable(type_index);
-                (ty.callbacks.render)(&ctx, &mut encoder);
+                (ty.callbacks.render)(&ctx, &mut renderer);
+                if let Some(screenshot) = renderer.screenshot.take() {
+                    let screenshot =
+                        unsafe { (screenshot as *const crate::RenderTarget).as_ref().unwrap() };
+                    drop(renderer);
+                    encoder.copy_to_target(&ctx.defaults.world_target, screenshot);
+                    renderer = encoder.renderer(RendererTarget::World, None, true);
+                }
             }
         }
 
@@ -531,36 +550,15 @@ impl Shura {
         {
             let mut renderer =
                 Renderer::output_renderer(&mut encoder.inner, &output_view, ctx.defaults, ctx.gpu);
-            renderer.use_camera(&ctx.defaults.relative_camera.0);
-            renderer.use_instances(&ctx.defaults.single_centered_instance);
             renderer.use_shader(&ctx.defaults.sprite_no_msaa);
             renderer.use_model(ctx.defaults.relative_camera.0.model());
             renderer.use_sprite(ctx.defaults.world_target.sprite(), 1);
             renderer.draw(0);
         }
 
-        self.last_submission = Some(encoder.finish());
+        encoder.finish();
+        self.gpu.submit();
         output.present();
-        if scene.switched || scene.resized || scene.screen_config.changed {
-            scene.screen_config.changed = false;
-            scene.resized = false;
-            #[cfg(feature = "log")]
-            {
-                let size = self.gpu.render_size(scene.screen_config.render_scale());
-                info!(
-                    "Resizing render target to: {} x {} using VSYNC: {}",
-                    size.x,
-                    size.y,
-                    scene.screen_config.vsync()
-                );
-            }
-            scene.world_camera.resize(window_size);
-
-            self.gpu.apply_vsync(scene.screen_config.vsync());
-            self.defaults
-                .apply_render_scale(&self.gpu, scene.screen_config.render_scale());
-        }
-
         scene.switched = false;
         scene.started = false;
         Ok(())

@@ -3,82 +3,30 @@ use crate::{
 };
 
 #[derive(Clone, Copy)]
-/// Configuration passed to [Renderer]
-pub struct RenderConfig<'a> {
-    pub target: RenderConfigTarget<'a>,
-    pub camera: RenderConfigCamera<'a>,
-    pub intances: Option<RenderConfigInstances<'a>>,
-    pub msaa: bool,
-    pub clear_color: Option<Color>,
-}
-
-impl<'a> Default for RenderConfig<'a> {
-    fn default() -> Self {
-        Self::WORLD
-    }
-}
-
-impl<'a> RenderConfig<'a> {
-    pub const WORLD: RenderConfig<'static> = RenderConfig {
-        target: RenderConfigTarget::World,
-        camera: RenderConfigCamera::WordCamera,
-        intances: None,
-        msaa: true,
-        clear_color: None,
-    };
-    pub const UNIT_WORLD: RenderConfig<'static> = RenderConfig {
-        camera: RenderConfigCamera::UnitCamera,
-        ..Self::WORLD
-    };
-    pub const RELATIVE_WORLD: RenderConfig<'static> = RenderConfig {
-        camera: RenderConfigCamera::RelativeCamera,
-        ..Self::WORLD
-    };
-    pub const RELATIVE_BOTTOM_LEFT_WORLD: RenderConfig<'static> = RenderConfig {
-        camera: RenderConfigCamera::RelativeCameraBottomLeft,
-        ..Self::WORLD
-    };
-    pub const RELATIVE_BOTTOM_RIGHT_WORLD: RenderConfig<'static> = RenderConfig {
-        camera: RenderConfigCamera::RelativeCameraBottomRight,
-        ..Self::WORLD
-    };
-    pub const RELATIVE_TOP_LEFT_WORLD: RenderConfig<'static> = RenderConfig {
-        camera: RenderConfigCamera::RelativeCameraTopLeft,
-        ..Self::WORLD
-    };
-    pub const RELATIVE_TOP_RIGHT_WORLD: RenderConfig<'static> = RenderConfig {
-        camera: RenderConfigCamera::RelativeCameraTopRight,
-        ..Self::WORLD
-    };
-}
-
-#[derive(Clone, Copy)]
 /// Camera used for rendering. Allow to easily select a default camera from shura or
 /// to use a custom camera. All default cameras are living inside the [GpuDefaults](crate::GpuDefaults).
-pub enum RenderConfigCamera<'a> {
-    WordCamera,
-    UnitCamera,
-    RelativeCamera,
-    RelativeCameraBottomLeft,
-    RelativeCameraBottomRight,
-    RelativeCameraTopLeft,
-    RelativeCameraTopRight,
+pub enum RenderCamera<'a> {
+    World,
+    Unit,
+    Relative,
+    RelativeBottomLeft,
+    RelativeBottomRight,
+    RelativeTopLeft,
+    RelativeTopRight,
     Custom(&'a CameraBuffer),
 }
 
-impl<'a> RenderConfigCamera<'a> {
+impl<'a> RenderCamera<'a> {
     pub fn camera(self, defaults: &'a GpuDefaults) -> &'a CameraBuffer {
         return match self {
-            RenderConfigCamera::WordCamera => &defaults.world_camera,
-            RenderConfigCamera::UnitCamera => &defaults.unit_camera.0,
-            RenderConfigCamera::RelativeCamera => &defaults.relative_camera.0,
-            RenderConfigCamera::RelativeCameraBottomLeft => &defaults.relative_bottom_left_camera.0,
-            RenderConfigCamera::RelativeCameraBottomRight => {
-                &defaults.relative_bottom_right_camera.0
-            }
-            RenderConfigCamera::RelativeCameraTopLeft => &defaults.relative_top_left_camera.0,
-            RenderConfigCamera::RelativeCameraTopRight => &defaults.relative_top_right_camera.0,
-            RenderConfigCamera::Custom(c) => c,
+            RenderCamera::World => &defaults.world_camera,
+            RenderCamera::Unit => &defaults.unit_camera.0,
+            RenderCamera::Relative => &defaults.relative_camera.0,
+            RenderCamera::RelativeBottomLeft => &defaults.relative_bottom_left_camera.0,
+            RenderCamera::RelativeBottomRight => &defaults.relative_bottom_right_camera.0,
+            RenderCamera::RelativeTopLeft => &defaults.relative_top_left_camera.0,
+            RenderCamera::RelativeTopRight => &defaults.relative_top_right_camera.0,
+            RenderCamera::Custom(c) => c,
         };
     }
 }
@@ -103,16 +51,16 @@ impl<'a> RenderConfigInstances<'a> {
 
 #[derive(Clone, Copy)]
 /// Target to render onto
-pub enum RenderConfigTarget<'a> {
+pub enum RendererTarget<'a> {
     World,
     Custom(&'a RenderTarget),
 }
 
-impl<'a> RenderConfigTarget<'a> {
+impl<'a> RendererTarget<'a> {
     pub fn target(self, defaults: &'a GpuDefaults) -> &'a RenderTarget {
         return match self {
-            RenderConfigTarget::World => &defaults.world_target,
-            RenderConfigTarget::Custom(c) => c,
+            RendererTarget::World => &defaults.world_target,
+            RendererTarget::Custom(c) => c,
         };
     }
 }
@@ -122,6 +70,7 @@ pub struct RenderEncoder<'a> {
     pub inner: wgpu::CommandEncoder,
     pub defaults: &'a GpuDefaults,
     pub gpu: &'a Gpu,
+    // pub screenshot: bool
 }
 
 impl<'a> RenderEncoder<'a> {
@@ -139,10 +88,10 @@ impl<'a> RenderEncoder<'a> {
         }
     }
 
-    pub fn clear(&mut self, target: RenderConfigTarget, color: Color) {
+    pub fn clear(&mut self, target: RendererTarget, color: Color) {
         let target = match target {
-            crate::RenderConfigTarget::World => &self.defaults.world_target,
-            crate::RenderConfigTarget::Custom(c) => c,
+            crate::RendererTarget::World => &self.defaults.world_target,
+            crate::RendererTarget::Custom(c) => c,
         };
         self.inner.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("render_pass"),
@@ -159,8 +108,20 @@ impl<'a> RenderEncoder<'a> {
         });
     }
 
-    pub fn renderer<'b>(&'b mut self, config: RenderConfig<'b>) -> Renderer<'b> {
-        Renderer::new(&mut self.inner, self.defaults, self.gpu, config)
+    pub fn renderer<'b>(
+        &'b mut self,
+        target: RendererTarget<'b>,
+        clear: Option<Color>,
+        msaa: bool,
+    ) -> Renderer<'b> {
+        Renderer::new(
+            &mut self.inner,
+            self.defaults,
+            self.gpu,
+            target,
+            msaa,
+            clear,
+        )
     }
 
     pub fn copy_to_target(&mut self, src: &Sprite, target: &RenderTarget) {
@@ -168,31 +129,19 @@ impl<'a> RenderEncoder<'a> {
             &mut self.inner,
             self.defaults,
             self.gpu,
-            RenderConfig {
-                target: RenderConfigTarget::Custom(target),
-                camera: RenderConfigCamera::RelativeCamera,
-                intances: Some(RenderConfigInstances::SingleCenteredInstance),
-                msaa: true,
-                clear_color: None,
-            },
+            RendererTarget::Custom(target),
+            true,
+            None,
         );
+        renderer.use_camera_buffer(&self.defaults.relative_camera.0);
+        renderer.use_instance_buffer(&self.defaults.single_centered_instance);
         renderer.use_shader(&self.defaults.sprite);
         renderer.use_model(self.defaults.relative_camera.0.model());
         renderer.use_sprite(src, 1);
         renderer.draw(0);
     }
 
-    pub fn render<'b>(
-        &'b mut self,
-        config: RenderConfig<'b>,
-        render: impl FnOnce(&mut Renderer<'b>),
-    ) -> Renderer<'b> {
-        let mut renderer = self.renderer(config);
-        (render)(&mut renderer);
-        return renderer;
-    }
-
-    pub fn finish(self) -> wgpu::SubmissionIndex {
-        self.gpu.queue.submit(Some(self.inner.finish()))
+    pub fn finish(self) {
+        self.gpu.stage(self.inner.finish())
     }
 }

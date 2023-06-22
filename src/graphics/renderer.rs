@@ -1,6 +1,7 @@
 use crate::{
-    CameraBuffer, Gpu, GpuDefaults, InstanceBuffer, InstanceIndices, Model, ModelIndexBuffer,
-    RenderConfig, Shader, Sprite, SpriteSheet, Uniform, Vector,
+    CameraBuffer, Color, Gpu, GpuDefaults, InstanceBuffer, InstanceIndices, Model,
+    ModelIndexBuffer, RenderCamera, RenderConfigInstances, RenderTarget, RendererTarget, Shader,
+    Sprite, SpriteSheet, Uniform, Vector,
 };
 use std::ptr::null;
 
@@ -32,10 +33,10 @@ impl Default for RenderCache {
 /// Render grpahics to the screen or a sprite. The renderer can be extended with custom graphcis throught
 /// the [RenderPass](wgpu::RenderPass) or the provided methods for shura's shader system.
 pub struct Renderer<'a> {
-    pub msaa: bool,
     pub gpu: &'a Gpu,
     pub defaults: &'a GpuDefaults,
-    pub config: RenderConfig<'a>,
+    pub screenshot: Option<&'a RenderTarget>,
+    msaa: bool,
     indices: u32,
     render_pass: wgpu::RenderPass<'a>,
     target_size: Vector<u32>,
@@ -47,26 +48,18 @@ impl<'a> Renderer<'a> {
         render_encoder: &'a mut wgpu::CommandEncoder,
         defaults: &'a GpuDefaults,
         gpu: &'a Gpu,
-        config: RenderConfig<'a>,
+        target: RendererTarget<'a>,
+        msaa: bool,
+        clear: Option<Color>,
     ) -> Renderer<'a> {
-        let target = config.target.target(defaults);
-        let camera = config.camera.camera(defaults);
-
+        let target = target.target(defaults);
         let render_pass = render_encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("render_pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: if config.msaa {
-                    target.msaa()
-                } else {
-                    target.view()
-                },
-                resolve_target: if config.msaa {
-                    Some(target.view())
-                } else {
-                    None
-                },
+                view: if msaa { target.msaa() } else { target.view() },
+                resolve_target: if msaa { Some(target.view()) } else { None },
                 ops: wgpu::Operations {
-                    load: if let Some(clear_color) = config.clear_color {
+                    load: if let Some(clear_color) = clear {
                         wgpu::LoadOp::Clear(clear_color.into())
                     } else {
                         wgpu::LoadOp::Load
@@ -78,25 +71,16 @@ impl<'a> Renderer<'a> {
             depth_stencil_attachment: None,
         });
 
-        let mut renderer = Self {
+        return Self {
             render_pass,
             indices: 0,
-            msaa: config.msaa,
+            msaa: msaa,
             cache: Default::default(),
             defaults: defaults,
-            target_size: *target.size(),
-            config,
+            target_size: target.size(),
             gpu,
+            screenshot: None,
         };
-
-        renderer.use_camera(camera);
-
-        if let Some(instances) = config.intances {
-            let instances = instances.instances(defaults);
-            renderer.use_instances(instances);
-        }
-
-        return renderer;
     }
 
     pub(crate) fn output_renderer(
@@ -126,11 +110,11 @@ impl<'a> Renderer<'a> {
             cache: Default::default(),
             defaults,
             target_size: Vector::default(),
-            config: RenderConfig::WORLD,
             gpu,
+            screenshot: None,
         };
-        renderer.use_uniform(defaults.relative_camera.0.uniform(), 0);
-        renderer.use_instances(&defaults.single_centered_instance);
+        renderer.use_camera_buffer(&defaults.relative_camera.0);
+        renderer.use_instance_buffer(&defaults.single_centered_instance);
         return renderer;
     }
 
@@ -139,7 +123,7 @@ impl<'a> Renderer<'a> {
     }
 
     /// Sets the instance buffer at the position 1
-    pub fn use_instances(&mut self, buffer: &'a InstanceBuffer) {
+    pub fn use_instance_buffer(&mut self, buffer: &'a InstanceBuffer) {
         let ptr = buffer as *const _;
         if ptr != self.cache.bound_instances {
             self.cache.bound_instances = ptr;
@@ -147,13 +131,23 @@ impl<'a> Renderer<'a> {
         }
     }
 
-    pub fn use_camera(&mut self, camera: &'a CameraBuffer) {
+    pub fn use_camera_buffer(&mut self, camera: &'a CameraBuffer) {
         let ptr = camera as *const _;
         if ptr != self.cache.bound_camera {
             self.cache.bound_camera = ptr;
             self.render_pass
                 .set_bind_group(0, camera.uniform().bind_group(), &[]);
         }
+    }
+
+    pub fn use_instances(&mut self, instances: RenderConfigInstances<'a>) {
+        let buffer = instances.instances(self.defaults);
+        self.use_instance_buffer(buffer);
+    }
+
+    pub fn use_camera(&mut self, camera: RenderCamera<'a>) {
+        let buffer = camera.camera(self.defaults);
+        self.use_camera_buffer(buffer);
     }
 
     pub fn use_shader(&mut self, shader: &'a Shader) {
@@ -227,7 +221,7 @@ impl<'a> Renderer<'a> {
     }
 
     #[cfg(feature = "text")]
-    pub fn render_text(&mut self, font: &'a FontBrush) {
+    pub fn render_font(&mut self, font: &'a FontBrush) {
         self.cache = Default::default();
         font.render(
             self.gpu,
@@ -237,8 +231,13 @@ impl<'a> Renderer<'a> {
     }
 
     #[cfg(feature = "text")]
-    pub fn queue_text(&mut self, font: &'a FontBrush, sections: Vec<TextSection>) {
-        font.queue(self.defaults, self.config, sections);
+    pub fn queue_text(
+        &mut self,
+        camera: RenderCamera,
+        font: &'a FontBrush,
+        sections: Vec<TextSection>,
+    ) {
+        font.queue(self.defaults, camera, self.target_size, sections);
     }
 
     pub fn render_sprite(

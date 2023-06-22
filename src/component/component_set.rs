@@ -1,6 +1,6 @@
 use crate::{
     BoxedComponent, ComponentController, ComponentHandle, ComponentType, GroupHandle,
-    InstanceBuffer, InstanceIndex, InstanceIndices, RenderConfig, RenderEncoder, Renderer,
+    InstanceBuffer, InstanceIndex
 };
 use std::marker::PhantomData;
 
@@ -202,43 +202,6 @@ impl<'a, C: ComponentController> ComponentSetMut<'a, C> {
         &mut self,
     ) -> impl DoubleEndedIterator<Item = (ComponentHandle, &mut C)> {
         self.ty.iter_mut_with_handles(self.groups, self.check)
-    }
-
-    pub fn render_each(
-        &'a self,
-        encoder: &'a mut RenderEncoder,
-        config: RenderConfig<'a>,
-        each: impl FnMut(&mut Renderer<'a>, &'a C, InstanceIndex),
-    ) -> Renderer<'a> {
-        self.ty.render_each(encoder, config, each)
-    }
-    
-    pub fn render_single(
-        &'a self,
-        encoder: &'a mut RenderEncoder,
-        config: RenderConfig<'a>,
-        each: impl FnOnce(&mut Renderer<'a>, &'a C, InstanceIndex),
-    ) -> Renderer<'a> {
-        self.ty.render_single(encoder, config, each)
-    }
-
-    pub fn render_each_prepare(
-        &'a self,
-        encoder: &'a mut RenderEncoder,
-        config: RenderConfig<'a>,
-        prepare: impl FnOnce(&mut Renderer<'a>),
-        each: impl FnMut(&mut Renderer<'a>, &'a C, InstanceIndex),
-    ) -> Renderer<'a> {
-        self.ty.render_each_prepare(encoder, config, prepare, each)
-    }
-
-    pub fn render_all(
-        &'a self,
-        encoder: &'a mut RenderEncoder,
-        config: RenderConfig<'a>,
-        all: impl FnMut(&mut Renderer<'a>, InstanceIndices),
-    ) -> Renderer<'a> {
-        self.ty.render_all::<C>(encoder, config, all)
     }
 
     pub fn single(&self) -> Option<&C> {

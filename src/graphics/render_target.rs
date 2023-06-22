@@ -1,7 +1,4 @@
-use crate::{
-    Camera, CameraBuffer, Gpu, GpuDefaults, RenderConfig, RenderConfigCamera, RenderConfigTarget,
-    RenderEncoder, Sprite, Vector,
-};
+use crate::{Camera, Gpu, GpuDefaults, RenderEncoder, Sprite, Vector};
 use std::ops::Deref;
 
 /// Texture to render onto with a [RenderEncoder]
@@ -36,11 +33,10 @@ impl RenderTarget {
         gpu: &Gpu,
         defaults: &GpuDefaults,
         texture_size: Vector<u32>,
-        camera: &CameraBuffer,
-        compute: impl FnMut(RenderConfig, &mut RenderEncoder),
+        compute: impl FnMut(&mut RenderEncoder),
     ) -> Self {
         let target = RenderTarget::new(gpu, texture_size);
-        target.draw(gpu, defaults, camera, compute);
+        target.draw(gpu, defaults, compute);
         return target;
     }
 
@@ -87,18 +83,10 @@ impl RenderTarget {
         &self,
         gpu: &Gpu,
         defaults: &GpuDefaults,
-        camera: &CameraBuffer,
-        mut compute: impl FnMut(RenderConfig, &mut RenderEncoder),
+        compute: impl FnOnce(&mut RenderEncoder),
     ) {
         let mut encoder = RenderEncoder::new(gpu, defaults);
-        let config = RenderConfig {
-            target: RenderConfigTarget::Custom(self),
-            camera: RenderConfigCamera::Custom(camera),
-            intances: None,
-            msaa: true,
-            clear_color: None,
-        };
-        compute(config, &mut encoder);
+        compute(&mut encoder);
         encoder.finish();
     }
 

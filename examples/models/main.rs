@@ -127,9 +127,9 @@ impl ComponentController for ModelTest {
         buffer: BufferOperation::Manual,
         ..ComponentConfig::DEFAULT
     };
-    fn render(ctx: &Context, encoder: &mut RenderEncoder) {
+    fn render<'a>(ctx: &'a Context, renderer: &mut Renderer<'a>) {
         ctx.components
-            .render_each::<Self>(encoder, RenderConfig::WORLD, |r, model, index| {
+            .render_each::<Self>(renderer, RenderCamera::World, |r, model, index| {
                 r.render_sprite(index, &model.model, &model.color)
             });
     }

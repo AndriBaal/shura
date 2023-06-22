@@ -210,9 +210,9 @@ impl ComponentController for Player {
         }
     }
 
-    fn render(ctx: &Context, encoder: &mut RenderEncoder) {
+    fn render<'a>(ctx: &'a Context, renderer: &mut Renderer<'a>) {
         ctx.components
-            .render_each::<Self>(encoder, RenderConfig::WORLD, |r, player, index| {
+            .render_each::<Self>(renderer, RenderCamera::World, |r, player, index| {
                 r.render_sprite(index, &player.model, &player.sprite)
             });
     }
@@ -266,9 +266,9 @@ impl Floor {
 }
 
 impl ComponentController for Floor {
-    fn render(ctx: &Context, encoder: &mut RenderEncoder) {
+    fn render<'a>(ctx: &'a Context, renderer: &mut Renderer<'a>) {
         ctx.components
-            .render_each::<Self>(encoder, RenderConfig::WORLD, |r, floor, index| {
+            .render_each::<Self>(renderer, RenderCamera::World, |r, floor, index| {
                 r.render_sprite(index, &floor.model, &floor.color)
             });
     }
@@ -299,10 +299,10 @@ impl PhysicsBox {
 }
 
 impl ComponentController for PhysicsBox {
-    fn render(ctx: &Context, encoder: &mut RenderEncoder) {
+    fn render<'a>(ctx: &'a Context, renderer: &mut Renderer<'a>) {
         let state = ctx.scene_states.get::<PhysicsState>();
         ctx.components
-            .render_all::<Self>(encoder, RenderConfig::WORLD, |renderer, instance| {
+            .render_all::<Self>(renderer, RenderCamera::World, |renderer, instance| {
                 renderer.render_sprite_sheet(instance, &state.box_model, &state.box_colors);
             });
     }

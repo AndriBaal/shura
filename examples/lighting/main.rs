@@ -162,9 +162,9 @@ impl ComponentController for Obstacle {
         ..ComponentConfig::DEFAULT
     };
 
-    fn render(ctx: &Context, encoder: &mut RenderEncoder) {
+    fn render<'a>(ctx: &'a Context, renderer: &mut Renderer<'a>) {
         ctx.components
-            .render_each::<Self>(encoder, RenderConfig::WORLD, |renderer, o, i| {
+            .render_each::<Self>(renderer, RenderCamera::World, |renderer, o, i| {
                 renderer.render_color(i, &o.model, &o.color)
             });
     }
@@ -340,14 +340,14 @@ impl ComponentController for Light {
         }
     }
 
-    fn render(ctx: &Context, encoder: &mut RenderEncoder) {
+    fn render<'a>(ctx: &'a Context, renderer: &mut Renderer<'a>) {
         let state = ctx.scene_states.get::<LightingState>();
 
         {
             let mut renderer = encoder.renderer(RenderConfig {
-                target: RenderConfigTarget::Custom(&state.light_layer),
+                target: RendererTarget::Custom(&state.light_layer),
                 clear_color: Some(Color::TRANSPARENT),
-                ..RenderConfig::WORLD
+                ..RenderCamera::World
             });
             for (buffer, instance, light) in ctx.components.iter_render::<Self>() {
                 renderer.use_instances(buffer);

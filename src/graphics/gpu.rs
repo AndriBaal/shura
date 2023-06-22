@@ -4,10 +4,10 @@ use crate::log::info;
 use crate::text::{FontBrush, TextPipeline};
 use crate::{
     Camera, CameraBuffer, Color, ColorWrites, InstanceBuffer, InstanceData, Isometry, Model,
-    ModelBuilder, RenderConfig, RenderEncoder, RenderTarget, Shader, ShaderConfig, ShaderField,
-    Sprite, SpriteSheet, Uniform, Vector,
+    ModelBuilder, RenderEncoder, RenderTarget, Shader, ShaderConfig, ShaderField, Sprite,
+    SpriteSheet, Uniform, Vector,
 };
-use std::borrow::Cow;
+use std::{borrow::Cow, sync::Mutex};
 use wgpu::{util::DeviceExt, BlendState};
 
 pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 0.5;
@@ -44,7 +44,7 @@ pub struct Gpu {
     pub surface: wgpu::Surface,
     pub config: wgpu::SurfaceConfiguration,
     pub adapter: wgpu::Adapter,
-    // pub commands: Mutex<Vec<wgpu::CommandBuffer>>,
+    pub commands: Mutex<Vec<wgpu::CommandBuffer>>,
     pub(crate) base: WgpuBase,
 }
 
@@ -127,6 +127,7 @@ impl Gpu {
             device,
             adapter,
             base,
+            commands: Mutex::new(vec![]),
         };
 
         return gpu;
@@ -157,6 +158,16 @@ impl Gpu {
     pub fn block(&self, handle: wgpu::SubmissionIndex) {
         self.device
             .poll(wgpu::MaintainBase::WaitForSubmissionIndex(handle));
+    }
+
+    pub fn submit(&self) -> wgpu::SubmissionIndex {
+        let mut buffers = self.commands.lock().unwrap();
+        self.queue.submit(buffers.drain(..))
+    }
+
+    pub fn stage(&self, buffer: wgpu::CommandBuffer) {
+        let mut buffers = self.commands.lock().unwrap();
+        buffers.push(buffer)
     }
 
     pub fn render_size(&self, scale: f32) -> Vector<u32> {
@@ -235,10 +246,9 @@ impl Gpu {
         &self,
         defaults: &GpuDefaults,
         texture_size: Vector<u32>,
-        camera: &CameraBuffer,
-        compute: impl FnMut(RenderConfig, &mut RenderEncoder),
+        compute: impl FnMut(&mut RenderEncoder),
     ) -> RenderTarget {
-        return RenderTarget::computed(self, defaults, texture_size, camera, compute);
+        return RenderTarget::computed(self, defaults, texture_size, compute);
     }
 }
 
@@ -576,7 +586,7 @@ impl GpuDefaults {
 
     pub(crate) fn apply_render_scale(&mut self, gpu: &Gpu, scale: f32) {
         let size = gpu.render_size(scale);
-        if *self.world_target.size() != size {
+        if self.world_target.size() != size {
             self.world_target = gpu.create_render_target(size);
         }
     }

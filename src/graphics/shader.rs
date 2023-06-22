@@ -119,13 +119,12 @@ impl Shader {
             }
         }
 
-
         let fragment_shader = gpu
-        .device
-        .create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: None,
-            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(config.fragment_source)),
-        });
+            .device
+            .create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: None,
+                source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(config.fragment_source)),
+            });
 
         let render_pipeline_layout =
             gpu.device

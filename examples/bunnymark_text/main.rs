@@ -127,29 +127,28 @@ impl ComponentController for Bunny {
         });
     }
 
-    fn render(ctx: &Context, encoder: &mut RenderEncoder) {
+    fn render<'a>(ctx: &'a Context, renderer: &mut Renderer<'a>) {
         let scene = ctx.scene_states.get::<BunnyState>();
         ctx.components
-            .render_all::<Self>(encoder, RenderConfig::WORLD, |r, instances| {
+            .render_all::<Self>(renderer, RenderCamera::World, |r, instances| {
                 r.render_sprite(instances, &scene.bunny_model, &scene.bunny_sprite);
-            });
-
-        scene.font.queue(
-            ctx.defaults,
-            RenderConfig::RELATIVE_TOP_RIGHT_WORLD,
-            vec![TextSection {
-                position: Vector::new(0.0, 0.0),
-                text: vec![Text::new(&format!(
-                    "FPS: {}\nBunnies: {}",
-                    ctx.frame.fps(),
-                    ctx.components.len::<Bunny>()
-                ))
-                .with_scale(0.05)
-                .with_color(Color::RED)],
-                alignment: TextAlignment::TopRight,
-                ..Default::default()
-            }],
-        );
-        scene.font.submit(encoder, RenderConfigTarget::World);
+                r.queue_text(
+                    RenderCamera::RelativeTopRight,
+                    &scene.font,
+                    vec![TextSection {
+                        position: Vector::new(0.0, 0.0),
+                        text: vec![Text::new(&format!(
+                            "FPS: {}\nBunnies: {}",
+                            ctx.frame.fps(),
+                            ctx.components.len::<Bunny>()
+                        ))
+                        .with_scale(0.05)
+                        .with_color(Color::RED)],
+                        alignment: TextAlignment::TopRight,
+                        ..Default::default()
+                    }],
+                );
+                r.render_font(&scene.font)
+            })
     }
 }
