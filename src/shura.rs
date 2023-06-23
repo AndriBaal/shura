@@ -169,6 +169,7 @@ impl ShuraConfig {
                                     *control_flow = winit::event_loop::ControlFlow::Exit
                                 }
                                 Err(_e) => {
+                                    shura.gpu.instance.poll_all(true);
                                     #[cfg(feature = "log")]
                                     error!("Render error: {:?}", _e)
                                 }
@@ -271,6 +272,7 @@ impl Shura {
             //         _ => new_size
             //     }
             // };
+            self.gpu.instance.poll_all(true);
             #[cfg(feature = "log")]
             info!("Resizing window to: {} x {}", new_size.x, new_size.y,);
             self.scenes.resize();
@@ -343,6 +345,7 @@ impl Shura {
     }
 
     fn update(&mut self) -> Result<(), wgpu::SurfaceError> {
+        let output = self.gpu.surface.get_current_texture()?;
         while let Some(remove) = self.scenes.remove.pop() {
             if let Some(removed) = self.scenes.scenes.remove(&remove) {
                 let mut removed = removed.borrow_mut();
@@ -373,27 +376,6 @@ impl Shura {
 
         let mint: mint::Vector2<u32> = self.window.inner_size().into();
         let window_size: Vector<u32> = mint.into();
-        if scene.switched || scene.resized || scene.screen_config.changed {
-            self.gpu.instance.poll_all(true);
-            scene.screen_config.changed = false;
-            scene.resized = false;
-            #[cfg(feature = "log")]
-            {
-                let size = self.gpu.render_size(scene.screen_config.render_scale());
-                info!(
-                    "Resizing render target to: {} x {} using VSYNC: {}",
-                    size.x,
-                    size.y,
-                    scene.screen_config.vsync()
-                );
-            }
-            scene.world_camera.resize(window_size);
-
-            self.gpu.apply_vsync(scene.screen_config.vsync());
-            self.defaults
-                .apply_render_scale(&self.gpu, scene.screen_config.render_scale());
-        }
-        let output = self.gpu.surface.get_current_texture()?;
         self.frame.update();
         #[cfg(feature = "gamepad")]
         self.input.sync_gamepad();
@@ -560,6 +542,29 @@ impl Shura {
         encoder.finish();
         self.gpu.submit();
         output.present();
+
+
+        if scene.switched || scene.resized || scene.screen_config.changed {
+            self.gpu.instance.poll_all(true);
+            scene.screen_config.changed = false;
+            scene.resized = false;
+            #[cfg(feature = "log")]
+            {
+                let size = self.gpu.render_size(scene.screen_config.render_scale());
+                info!(
+                    "Resizing render target to: {} x {} using VSYNC: {}",
+                    size.x,
+                    size.y,
+                    scene.screen_config.vsync()
+                );
+            }
+            scene.world_camera.resize(window_size);
+
+            self.gpu.apply_vsync(scene.screen_config.vsync());
+            self.defaults
+                .apply_render_scale(&self.gpu, scene.screen_config.render_scale());
+        }
+
         scene.switched = false;
         scene.started = false;
         Ok(())
