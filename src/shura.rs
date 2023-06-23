@@ -423,7 +423,7 @@ impl Shura {
             scene.screen_config.changed = false;
             scene.world_camera.resize(window_size);
 
-            self.gpu.apply_vsync(scene.screen_config.vsync());
+            self.gpu.apply_vsync(window_size, scene.screen_config.vsync());
             self.defaults
                 .apply_render_scale(&self.gpu, scene.screen_config.render_scale());
             self.gpu.instance.poll_all(true);

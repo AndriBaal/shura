@@ -138,14 +138,16 @@ impl Gpu {
         self.surface = unsafe { self.instance.create_surface(window).unwrap() };
         self.surface.configure(&self.device, &self.config);
     }
-
-    pub(crate) fn apply_vsync(&mut self, vsync: bool) {
+    
+    pub(crate) fn apply_vsync(&mut self, window_size: Vector<u32>, vsync: bool) {
         let new_mode = if vsync {
             wgpu::PresentMode::AutoVsync
         } else {
             wgpu::PresentMode::AutoNoVsync
         };
         self.config.present_mode = new_mode;
+        self.config.width = window_size.x;
+        self.config.height = window_size.y;
         self.surface.configure(&self.device, &self.config);
     }
 
