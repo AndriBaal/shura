@@ -44,7 +44,7 @@ default = [
     "audio",
     "physics",
     "serde",
-    # "gui",
+    "gui",
     "log",
 ]
 

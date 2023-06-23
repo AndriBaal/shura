@@ -399,33 +399,18 @@ impl Shura {
             }
         }
         if scene.started {
+            info!("Initializing scene {}!", scene.id);
             scene.started = false;
-            self.input.update();
-            scene.world_camera.apply_target(
-                #[cfg(feature = "physics")]
-                &scene.world,
-                &scene.components,
-            );
-            self.defaults.buffer(
-                &mut scene.world_camera.camera,
-                &self.gpu,
-                self.frame.total_time(),
-                self.frame.frame_time(),
-            );
             scene.components.update_sets(&self.defaults.world_camera);
-            scene.components.buffer(
-                #[cfg(feature = "physics")]
-                &mut scene.world,
-                &self.gpu,
-            );
         }
 
-        if scene.switched || scene.resized || scene.screen_config.changed {
-            scene.screen_config.changed = false;
-            scene.resized = false;
-            scene.switched = false;
+        if self.scenes.switched() || scene.screen_config.changed {
             #[cfg(feature = "log")]
             {
+                if self.scenes.switched() {
+                    info!("Switched to scene {}!", scene.id);
+                }
+
                 let size = self.gpu.render_size(scene.screen_config.render_scale());
                 info!(
                     "Resizing render target to: {} x {} using VSYNC: {}",
@@ -434,11 +419,13 @@ impl Shura {
                     scene.screen_config.vsync()
                 );
             }
+            scene.screen_config.changed = false;
             scene.world_camera.resize(window_size);
 
             self.gpu.apply_vsync(scene.screen_config.vsync());
             self.defaults
                 .apply_render_scale(&self.gpu, scene.screen_config.render_scale());
+            self.gpu.instance.poll_all(true);
             return Ok(());
         }
 
@@ -516,8 +503,6 @@ impl Shura {
 
         scene.components.update_sets(&self.defaults.world_camera);
         if !scene.render_components {
-            scene.switched = false;
-            scene.started = false;
             return Ok(());
         }
 

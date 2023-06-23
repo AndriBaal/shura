@@ -9,6 +9,8 @@ pub struct SceneManager {
     pub(crate) remove: Vec<u32>,
     pub(crate) add: Vec<Box<dyn SceneCreator>>,
     active_scene: u32,
+    last_active: Option<u32>,
+    scene_switched: bool
 }
 
 impl SceneManager {
@@ -18,6 +20,8 @@ impl SceneManager {
             remove: Default::default(),
             scenes: Default::default(),
             add: vec![Box::new(creator)],
+            last_active: None,
+            scene_switched: false,
         }
     }
 
@@ -28,7 +32,7 @@ impl SceneManager {
     pub(crate) fn resize(&mut self) {
         for scene in self.scenes.values_mut() {
             let mut scene = scene.borrow_mut();
-            scene.resized = true;
+            scene.screen_config.changed = true;
         }
     }
 
@@ -52,6 +56,10 @@ impl SceneManager {
         self.add.push(Box::new(scene))
     }
 
+    pub fn switched(&self) -> bool {
+        self.scene_switched
+    }
+
     /// Remove a scene by its id.
     pub fn remove(&mut self, scene_id: u32) {
         self.remove.push(scene_id)
@@ -59,6 +67,12 @@ impl SceneManager {
 
     pub(crate) fn get_active_scene(&mut self) -> Rc<RefCell<Scene>> {
         if let Some(scene) = self.scenes.get(&self.active_scene) {
+            if let Some(last) = self.last_active {
+                self.scene_switched = last != self.active_scene;
+            } else {
+                self.scene_switched = true;
+            }
+            self.last_active = Some(self.active_scene);
             return scene.clone();
         } else {
             panic!(

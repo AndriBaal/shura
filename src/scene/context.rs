@@ -22,8 +22,6 @@ use crate::gui::Gui;
 pub struct Context<'a> {
     // Scene
     pub scene_id: &'a u32,
-    pub scene_resized: &'a bool,
-    pub scene_switched: &'a bool,
     pub scene_started: &'a bool,
     pub render_components: &'a mut bool,
     pub screen_config: &'a mut ScreenConfig,
@@ -58,9 +56,7 @@ impl<'a> Context<'a> {
         Self {
             // Scene
             scene_id: &scene.id,
-            scene_resized: &scene.resized,
             scene_started: &scene.started,
-            scene_switched: &scene.switched,
             render_components: &mut scene.render_components,
             screen_config: &mut scene.screen_config,
             world_camera: &mut scene.world_camera,

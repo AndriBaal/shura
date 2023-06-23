@@ -35,8 +35,6 @@ impl<N: 'static + FnMut(&mut Context)> SceneCreator for NewScene<N> {
         let mut scene = Scene::new(window_size, self.id);
         scene.id = self.id;
         scene.started = true;
-        scene.resized = true;
-        scene.switched = true;
         let mut ctx = Context::new(shura, &mut scene);
         (self.init)(&mut ctx);
         return scene;
@@ -67,8 +65,6 @@ impl<N: 'static + FnMut(&mut Context)> SceneCreator for RecycleScene<N> {
         self.scene.world_camera.resize(window_size);
         self.scene.id = self.id;
         self.scene.started = true;
-        self.scene.resized = true;
-        self.scene.switched = true;
         let mut ctx = Context::new(shura, &mut self.scene);
         (self.init)(&mut ctx);
         return self.scene;
@@ -76,13 +72,10 @@ impl<N: 'static + FnMut(&mut Context)> SceneCreator for RecycleScene<N> {
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
-/// Scene owning its own [Components](ComponentManager), [Configurations](ScreenConfig), callbacks(resized, switched, started),
 /// [states](StateManager) and [camera](WorldCamera) identified by an Id
 pub struct Scene {
     pub(crate) id: u32,
-    pub(crate) resized: bool,
-    pub(crate) switched: bool,
-    pub(crate) started: bool,
+    pub started: bool,
     pub render_components: bool,
     pub screen_config: ScreenConfig,
     pub world_camera: WorldCamera,
@@ -98,11 +91,7 @@ impl Scene {
     pub const DEFAULT_VERTICAL_CAMERA_FOV: f32 = 3.0;
     pub(crate) fn new(window_size: Vector<u32>, id: u32) -> Self {
         Self {
-            render_components: true,
-            id: id,
-            switched: true,
-            resized: true,
-            started: true,
+            id,
             world_camera: WorldCamera::new(
                 Default::default(),
                 WorldCameraScale::Min(Self::DEFAULT_VERTICAL_CAMERA_FOV),
@@ -111,17 +100,11 @@ impl Scene {
             components: ComponentManager::new(),
             screen_config: ScreenConfig::new(),
             states: StateManager::default(),
+            render_components: true,
             #[cfg(feature = "physics")]
             world: World::new(),
+            started: true,
         }
-    }
-
-    pub fn resized(&self) -> bool {
-        self.resized
-    }
-
-    pub fn switched(&self) -> bool {
-        self.switched
     }
 
     pub fn started(&self) -> bool {
