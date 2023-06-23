@@ -30,7 +30,8 @@ impl LoggerBuilder {
             .filter_module("wgpu_hal", LevelFilter::Error)
             .filter_module("wgpu", LevelFilter::Warn)
             .filter_module("winit", LevelFilter::Warn)
-            .filter_module("symphonia_core", LevelFilter::Warn);
+            .filter_module("symphonia_core", LevelFilter::Warn)
+            .filter_module("symphonia_bundle_mp3", LevelFilter::Warn);
         Self { env: builder }
     }
 

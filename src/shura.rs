@@ -156,7 +156,7 @@ impl ShuraConfig {
                             let update_status = shura.update();
                             match update_status {
                                 Ok(_) => {}
-                                Err(wgpu::SurfaceError::Lost) => {
+                                Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
                                     #[cfg(feature = "log")]
                                     error!("Lost surface!");
                                     let mint: mint::Vector2<u32> = shura.window.inner_size().into();
@@ -169,6 +169,7 @@ impl ShuraConfig {
                                     *control_flow = winit::event_loop::ControlFlow::Exit
                                 }
                                 Err(_e) => {
+                                    shura.gpu.instance.poll_all(true);
                                     #[cfg(feature = "log")]
                                     error!("Render error: {:?}", _e)
                                 }
