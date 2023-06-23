@@ -169,6 +169,7 @@ impl ShuraConfig {
                                     *control_flow = winit::event_loop::ControlFlow::Exit
                                 }
                                 Err(_e) => {
+                                    shura.gpu.instance.poll_all(true);
                                     #[cfg(feature = "log")]
                                     error!("Render error: {:?}", _e)
                                 }
