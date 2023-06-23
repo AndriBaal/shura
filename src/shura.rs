@@ -169,7 +169,6 @@ impl ShuraConfig {
                                     *control_flow = winit::event_loop::ControlFlow::Exit
                                 }
                                 Err(_e) => {
-                                    shura.gpu.instance.poll_all(true);
                                     #[cfg(feature = "log")]
                                     error!("Render error: {:?}", _e)
                                 }
@@ -375,6 +374,7 @@ impl Shura {
         let mint: mint::Vector2<u32> = self.window.inner_size().into();
         let window_size: Vector<u32> = mint.into();
         if scene.switched || scene.resized || scene.screen_config.changed {
+            self.gpu.instance.poll_all(true);
             scene.screen_config.changed = false;
             scene.resized = false;
             #[cfg(feature = "log")]
