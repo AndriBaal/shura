@@ -169,7 +169,6 @@ impl ShuraConfig {
                                     *control_flow = winit::event_loop::ControlFlow::Exit
                                 }
                                 Err(_e) => {
-                                    shura.gpu.instance.poll_all(true);
                                     #[cfg(feature = "log")]
                                     error!("Render error: {:?}", _e)
                                 }
@@ -374,9 +373,6 @@ impl Shura {
 
         let mint: mint::Vector2<u32> = self.window.inner_size().into();
         let window_size: Vector<u32> = mint.into();
-        self.frame.update();
-        #[cfg(feature = "gamepad")]
-        self.input.sync_gamepad();
         #[cfg(target_arch = "wasm32")]
         {
             if self.auto_scale_canvas {
@@ -445,6 +441,10 @@ impl Shura {
                 .apply_render_scale(&self.gpu, scene.screen_config.render_scale());
             return Ok(());
         }
+
+        self.frame.update();
+        #[cfg(feature = "gamepad")]
+        self.input.sync_gamepad();
 
         #[cfg(feature = "gui")]
         self.gui
