@@ -280,6 +280,9 @@ impl Shura {
             self.defaults.resize(&self.gpu, new_size);
             #[cfg(feature = "gui")]
             self.gui.resize(&new_size);
+            while (!self.gpu.instance.poll_all(true)) {
+
+            }
         }
     }
 
