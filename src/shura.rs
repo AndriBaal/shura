@@ -280,9 +280,8 @@ impl Shura {
             self.defaults.resize(&self.gpu, new_size);
             #[cfg(feature = "gui")]
             self.gui.resize(&new_size);
-            while (!self.gpu.instance.poll_all(true)) {
-
-            }
+            self.gpu.queue.submit(std::iter::empty());
+            self.gpu.instance.poll_all(true);
         }
     }
 
@@ -429,9 +428,8 @@ impl Shura {
             self.gpu.apply_vsync(scene.screen_config.vsync());
             self.defaults
                 .apply_render_scale(&self.gpu, scene.screen_config.render_scale());
-            while (!self.gpu.instance.poll_all(true)) {
-
-            }
+            self.gpu.queue.submit(std::iter::empty());
+            self.gpu.instance.poll_all(true);
         }
 
         self.frame.update();
