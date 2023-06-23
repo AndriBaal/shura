@@ -13,6 +13,7 @@ use crate::{
     Context, EndReason, FrameManager, Gpu, GpuConfig, GpuDefaults, Input, RenderEncoder, Renderer,
     RendererTarget, SceneCreator, SceneManager, StateManager, Vector,
 };
+use instant::Duration;
 #[cfg(target_arch = "wasm32")]
 use rustc_hash::FxHashMap;
 #[cfg(target_os = "android")]
@@ -273,14 +274,13 @@ impl Shura {
             // };
             #[cfg(feature = "log")]
             info!("Resizing window to: {} x {}", new_size.x, new_size.y,);
-            self.gpu.instance.poll_all(true);
+            std::thread::sleep(Duration::from_secs(1));
             self.scenes.resize();
             self.input.resize(new_size);
             self.gpu.resize(new_size);
             self.defaults.resize(&self.gpu, new_size);
             #[cfg(feature = "gui")]
             self.gui.resize(&new_size);
-            self.gpu.instance.poll_all(true);
         }
     }
 
@@ -407,7 +407,6 @@ impl Shura {
         }
 
         if self.scenes.switched() || scene.screen_config.changed {
-            self.gpu.instance.poll_all(true);
             #[cfg(feature = "log")]
             {
                 if self.scenes.switched() {
@@ -425,10 +424,9 @@ impl Shura {
             scene.screen_config.changed = false;
             scene.world_camera.resize(window_size);
 
-            // self.gpu.apply_vsync(scene.screen_config.vsync());
+            self.gpu.apply_vsync(scene.screen_config.vsync());
             self.defaults
                 .apply_render_scale(&self.gpu, scene.screen_config.render_scale());
-            self.gpu.instance.poll_all(true);
             return Ok(());
         }
 
@@ -436,10 +434,11 @@ impl Shura {
         #[cfg(feature = "gamepad")]
         self.input.sync_gamepad();
 
+        let output = self.gpu.surface.get_current_texture()?;
+
         #[cfg(feature = "gui")]
         self.gui
             .begin(&self.frame.total_time_duration(), &self.window);
-        let output = self.gpu.surface.get_current_texture()?;
         {
             let mut ctx = Context::new(self, scene);
             #[cfg(feature = "physics")]
