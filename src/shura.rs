@@ -275,7 +275,7 @@ impl Shura {
             info!("Resizing window to: {} x {}", new_size.x, new_size.y,);
             self.scenes.resize();
             self.input.resize(new_size);
-            self.gpu.resize(new_size);
+            // self.gpu.resize(new_size);
             self.defaults.resize(&self.gpu, new_size);
             #[cfg(feature = "gui")]
             self.gui.resize(&new_size);
@@ -405,6 +405,7 @@ impl Shura {
         }
 
         if self.scenes.switched() || scene.screen_config.changed {
+            self.gpu.instance.poll_all(true);
             #[cfg(feature = "log")]
             {
                 if self.scenes.switched() {
@@ -425,6 +426,7 @@ impl Shura {
             self.gpu.apply_vsync(scene.screen_config.vsync());
             self.defaults
                 .apply_render_scale(&self.gpu, scene.screen_config.render_scale());
+            self.gpu.instance.poll_all(true);
             return Ok(());
         }
 
@@ -432,7 +434,6 @@ impl Shura {
         #[cfg(feature = "gamepad")]
         self.input.sync_gamepad();
 
-        self.gpu.instance.poll_all(true);
         let output = self.gpu.surface.get_current_texture()?;
         #[cfg(feature = "gui")]
         self.gui

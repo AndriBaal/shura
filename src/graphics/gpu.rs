@@ -139,12 +139,6 @@ impl Gpu {
         self.surface.configure(&self.device, &self.config);
     }
 
-    pub(crate) fn resize(&mut self, window_size: Vector<u32>) {
-        self.config.width = window_size.x;
-        self.config.height = window_size.y;
-        self.surface.configure(&self.device, &self.config);
-    }
-
     pub(crate) fn apply_vsync(&mut self, vsync: bool) {
         let new_mode = if vsync {
             wgpu::PresentMode::AutoVsync
