@@ -274,6 +274,9 @@ impl Shura {
             // };
             #[cfg(feature = "log")]
             info!("Resizing window to: {} x {}", new_size.x, new_size.y,);
+            
+            self.gpu.queue.submit(std::iter::empty());
+            self.gpu.instance.poll_all(true);
             self.scenes.resize();
             self.input.resize(new_size);
             self.gpu.resize(new_size);
@@ -425,6 +428,9 @@ impl Shura {
             scene.screen_config.changed = false;
             scene.world_camera.resize(window_size);
 
+
+            self.gpu.queue.submit(std::iter::empty());
+            self.gpu.instance.poll_all(true);
             self.gpu.apply_vsync(scene.screen_config.vsync());
             self.defaults
                 .apply_render_scale(&self.gpu, scene.screen_config.render_scale());
