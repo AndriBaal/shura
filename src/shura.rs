@@ -273,12 +273,14 @@ impl Shura {
             // };
             #[cfg(feature = "log")]
             info!("Resizing window to: {} x {}", new_size.x, new_size.y,);
+            self.gpu.instance.poll_all(true);
             self.scenes.resize();
             self.input.resize(new_size);
-            // self.gpu.resize(new_size);
+            self.gpu.resize(new_size);
             self.defaults.resize(&self.gpu, new_size);
             #[cfg(feature = "gui")]
             self.gui.resize(&new_size);
+            self.gpu.instance.poll_all(true);
         }
     }
 
@@ -423,7 +425,7 @@ impl Shura {
             scene.screen_config.changed = false;
             scene.world_camera.resize(window_size);
 
-            self.gpu.apply_vsync(window_size, scene.screen_config.vsync());
+            // self.gpu.apply_vsync(scene.screen_config.vsync());
             self.defaults
                 .apply_render_scale(&self.gpu, scene.screen_config.render_scale());
             self.gpu.instance.poll_all(true);
@@ -434,10 +436,10 @@ impl Shura {
         #[cfg(feature = "gamepad")]
         self.input.sync_gamepad();
 
-        let output = self.gpu.surface.get_current_texture()?;
         #[cfg(feature = "gui")]
         self.gui
             .begin(&self.frame.total_time_duration(), &self.window);
+        let output = self.gpu.surface.get_current_texture()?;
         {
             let mut ctx = Context::new(self, scene);
             #[cfg(feature = "physics")]
