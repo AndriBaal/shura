@@ -271,6 +271,7 @@ impl Shura {
             //         _ => new_size
             //     }
             // };
+            self.gpu.instance.poll_all(true);
             #[cfg(feature = "log")]
             info!("Resizing window to: {} x {}", new_size.x, new_size.y,);
             self.scenes.resize();
@@ -405,6 +406,7 @@ impl Shura {
         }
 
         if self.scenes.switched() || scene.screen_config.changed {
+            self.gpu.instance.poll_all(true);
             #[cfg(feature = "log")]
             {
                 if self.scenes.switched() {
@@ -425,7 +427,6 @@ impl Shura {
             self.gpu.apply_vsync(scene.screen_config.vsync());
             self.defaults
                 .apply_render_scale(&self.gpu, scene.screen_config.render_scale());
-            self.gpu.instance.poll_all(true);
             return Ok(());
         }
 
