@@ -169,7 +169,6 @@ impl ShuraConfig {
                                     *control_flow = winit::event_loop::ControlFlow::Exit
                                 }
                                 Err(_e) => {
-                                    shura.gpu.instance.poll_all(true);
                                     #[cfg(feature = "log")]
                                     error!("Render error: {:?}", _e)
                                 }
@@ -272,7 +271,6 @@ impl Shura {
             //         _ => new_size
             //     }
             // };
-            self.gpu.instance.poll_all(true);
             #[cfg(feature = "log")]
             info!("Resizing window to: {} x {}", new_size.x, new_size.y,);
             self.scenes.resize();
@@ -407,7 +405,6 @@ impl Shura {
         }
 
         if self.scenes.switched() || scene.screen_config.changed {
-            self.gpu.instance.poll_all(true);
             #[cfg(feature = "log")]
             {
                 if self.scenes.switched() {
@@ -435,10 +432,11 @@ impl Shura {
         #[cfg(feature = "gamepad")]
         self.input.sync_gamepad();
 
+        self.gpu.instance.poll_all(true);
+        let output = self.gpu.surface.get_current_texture()?;
         #[cfg(feature = "gui")]
         self.gui
             .begin(&self.frame.total_time_duration(), &self.window);
-        let output = self.gpu.surface.get_current_texture()?;
         {
             let mut ctx = Context::new(self, scene);
             #[cfg(feature = "physics")]
