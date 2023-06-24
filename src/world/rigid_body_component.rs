@@ -64,6 +64,16 @@ impl RigidBodyComponent {
     pub const fn sprite(&self) -> &Vector<i32> {
         &self.sprite
     }
+    
+    pub fn with_scale(mut self, scale: Vector<f32>) -> Self {
+        self.scale = scale;
+        self
+    }
+
+    pub fn with_sprite(mut self, sprite: Vector<i32>) -> Self {
+        self.sprite = sprite;
+        self
+    }
 }
 
 impl BaseComponent for RigidBodyComponent {

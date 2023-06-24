@@ -116,7 +116,7 @@ impl ModelTest {
         Self {
             model,
             color,
-            base: PositionComponent::new(PositionBuilder::new().translation(translation)),
+            base: PositionComponent::new().with_translation(translation),
         }
     }
 }

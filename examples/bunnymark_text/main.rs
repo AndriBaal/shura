@@ -51,11 +51,10 @@ struct Bunny {
 impl Bunny {
     pub fn new(translation: Vector<f32>, handle: ComponentHandle) -> Bunny {
         let scale = gen_range(0.75..2.0);
-        let base = PositionBuilder::new()
-            .translation(translation)
-            .rotation(Rotation::new(gen_range(-1.0..1.0)))
-            .scale(Vector::new(scale, scale))
-            .into();
+        let base = PositionComponent::new()
+            .with_translation(translation)
+            .with_rotation(Rotation::new(gen_range(-1.0..1.0)))
+            .with_scale(Vector::new(scale, scale));
         let linvel = Vector::new(gen_range(-2.5..2.5), gen_range(-7.5..7.5));
         Bunny {
             base,

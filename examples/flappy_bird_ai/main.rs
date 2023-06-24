@@ -94,7 +94,7 @@ impl Bird {
     const GRAVITY: Vector<f32> = Vector::new(0.0, -15.0);
     pub fn new() -> Self {
         Self {
-            pos: PositionComponent::new(Default::default()),
+            pos: PositionComponent::new(),
             score: 0.0,
             brain: NeuralNetwork::new(vec![5, 8, 1]),
             linvel: Vector::default(),
@@ -264,10 +264,7 @@ impl Ground {
                 .gpu
                 .create_model(ModelBuilder::cuboid(Self::HALF_EXTENTS)),
             sprite: ctx.gpu.create_sprite(include_bytes!("./sprites/base.png")),
-            pos: PositionComponent::new(
-                PositionBuilder::new()
-                    .translation(Vector::new(0.0, -GAME_SIZE.y + Self::HALF_EXTENTS.y)),
-            ),
+            pos: PositionComponent::new().with_translation(Vector::new(0.0, -GAME_SIZE.y + Self::HALF_EXTENTS.y))
         }
     }
 }
@@ -342,9 +339,7 @@ impl Pipe {
                 ..GAME_SIZE.y - Self::MIN_PIPE_Y - Pipe::HALF_HOLE_SIZE,
         );
         return Self {
-            pos: PositionComponent::new(
-                PositionBuilder::new().translation(Vector::new(GAME_SIZE.x, y)),
-            ),
+            pos: PositionComponent::new().with_translation(Vector::new(GAME_SIZE.x, y))
         };
     }
 }

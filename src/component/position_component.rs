@@ -3,73 +3,6 @@ use crate::{BaseComponent, InstanceData, Isometry, Rotation, Vector};
 #[cfg(feature = "physics")]
 use crate::physics::World;
 
-/// Easily create a [PositionComponent] with a position and scale.
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone)]
-pub struct PositionBuilder {
-    pub scale: Vector<f32>,
-    pub sprite: Vector<i32>,
-    pub position: Isometry<f32>,
-    pub disabled: bool,
-}
-
-impl Default for PositionBuilder {
-    fn default() -> Self {
-        Self {
-            scale: Vector::new(1.0, 1.0),
-            sprite: Vector::default(),
-            position: Isometry::default(),
-            disabled: false,
-        }
-    }
-}
-
-impl PositionBuilder {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn scale(mut self, scale: Vector<f32>) -> Self {
-        self.scale = scale;
-        self
-    }
-
-    pub fn rotation(mut self, rotation: Rotation<f32>) -> Self {
-        self.position.rotation = rotation;
-        self
-    }
-
-    pub fn translation(mut self, translation: Vector<f32>) -> Self {
-        self.position.translation.vector = translation;
-        self
-    }
-
-    pub fn position(mut self, position: Isometry<f32>) -> Self {
-        self.position = position;
-        self
-    }
-
-    pub fn sprite(mut self, sprite: Vector<i32>) -> Self {
-        self.sprite = sprite;
-        self
-    }
-
-    pub fn disabled(mut self, disabled: bool) -> Self {
-        self.disabled = disabled;
-        self
-    }
-
-    pub fn build(self) -> PositionComponent {
-        self.into()
-    }
-}
-
-impl Into<PositionComponent> for PositionBuilder {
-    fn into(self) -> PositionComponent {
-        return PositionComponent::new(self);
-    }
-}
-
 /// Component that is rendered to the screen by its given position and scale.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone)]
@@ -80,24 +13,55 @@ pub struct PositionComponent {
     disabled: bool,
 }
 
+
 impl Default for PositionComponent {
     fn default() -> Self {
-        Self::new(Default::default())
+        Self {
+            scale: Vector::new(1.0, 1.0),
+            instance: InstanceData::default(),
+            position: Isometry::default(),
+            disabled: false,
+        }
     }
 }
 
 #[allow(unreachable_patterns)]
 impl PositionComponent {
-    pub fn new(pos: PositionBuilder) -> Self {
-        Self {
-            scale: pos.scale,
-            instance: InstanceData::new(pos.position, pos.scale, pos.sprite),
-            position: pos.position,
-            disabled: pos.disabled,
-        }
+    pub fn new() -> Self {
+        Self::default()
     }
 
-    pub fn instance(&self) -> InstanceData {
+    pub fn with_scale(mut self, scale: Vector<f32>) -> Self {
+        self.scale = scale;
+        self
+    }
+
+    pub fn with_rotation(mut self, rotation: Rotation<f32>) -> Self {
+        self.set_rotation(rotation);
+        self
+    }
+
+    pub fn with_translation(mut self, translation: Vector<f32>) -> Self {
+        self.set_translation(translation);
+        self
+    }
+
+    pub fn with_position(mut self, position: Isometry<f32>) -> Self {
+        self.set_position(position);
+        self
+    }
+
+    pub fn with_sprite(mut self, sprite: Vector<i32>) -> Self {
+        self.set_sprite(sprite);
+        self
+    }
+
+    pub fn with_disabled(mut self, disabled: bool) -> Self {
+        self.set_disabled(disabled);
+        self
+    }
+
+    pub fn with_instance(&self) -> InstanceData {
         self.instance
     }
 

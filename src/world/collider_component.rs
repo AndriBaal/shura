@@ -23,6 +23,16 @@ impl ColliderComponent {
         world.collider_mut(self.collider_handle).unwrap()
     }
 
+    pub fn with_scale(mut self, scale: Vector<f32>) -> Self {
+        self.scale = scale;
+        self
+    }
+
+    pub fn with_sprite(mut self, sprite: Vector<i32>) -> Self {
+        self.sprite = sprite;
+        self
+    }
+
     pub fn set_scale(&mut self, scale: Vector<f32>) {
         self.scale = scale;
     }

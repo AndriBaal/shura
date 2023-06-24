@@ -200,7 +200,7 @@ impl World {
             bodies: RigidBodySet::new(),
             events: Default::default(),
             component_mapping: Default::default(),
-            physics_priority: Some(1000),
+            physics_priority: Some(i16::MAX),
             gravity: vector![0.0, 0.0],
             time_scale: 1.0,
         }

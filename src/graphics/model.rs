@@ -45,12 +45,12 @@ pub struct ModelBuilder {
 }
 
 impl ModelBuilder {
-    pub(crate) const TRIANGLE_INDICES: [Index; 1] = [Index::new(0, 1, 2)];
-    pub(crate) const CUBOID_INDICES: [Index; 2] = [Index::new(0, 1, 2), Index::new(2, 3, 0)];
+    pub const TRIANGLE_INDICES: [Index; 1] = [Index::new(0, 1, 2)];
+    pub const CUBOID_INDICES: [Index; 2] = [Index::new(0, 1, 2), Index::new(2, 3, 0)];
 
-    const DEFAULT_OFFSET: Vector<f32> = Vector::new(0.0, 0.0);
-    const DEFAULT_ROTATION: f32 = 0.0;
-    const DEFAULT_SCALE: Vector<f32> = Vector::new(1.0, 1.0);
+    pub const DEFAULT_OFFSET: Vector<f32> = Vector::new(0.0, 0.0);
+    pub const DEFAULT_ROTATION: f32 = 0.0;
+    pub const DEFAULT_SCALE: Vector<f32> = Vector::new(1.0, 1.0);
     pub fn ball(radius: f32, resolution: u32) -> Self {
         Self::regular_polygon(radius, resolution)
     }

@@ -472,7 +472,7 @@ impl Input {
         self.touches.iter()
     }
 
-    pub fn compute_cursor(&self, cursor: Vector<u32>, camera: &Camera) -> Vector<f32> {
+    pub fn cursor_from_pixel(&self, cursor: Vector<u32>, camera: &Camera) -> Vector<f32> {
         let fov = camera.fov() * 2.0;
         let camera_translation = camera.translation();
         let cursor: Vector<f32> = Vector::new(cursor.x as f32, cursor.y as f32);
@@ -484,13 +484,13 @@ impl Input {
     }
 
     pub fn cursor(&self, camera: &Camera) -> Vector<f32> {
-        self.compute_cursor(self.cursor_raw, camera)
+        self.cursor_from_pixel(self.cursor_raw, camera)
     }
 
     pub fn touches(&self, camera: &Camera) -> Vec<(u64, Vector<f32>)> {
         let mut touches = vec![];
         for (id, raw) in &self.touches {
-            touches.push((*id, self.compute_cursor(*raw, camera)));
+            touches.push((*id, self.cursor_from_pixel(*raw, camera)));
         }
         return touches;
     }

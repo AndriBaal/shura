@@ -1,6 +1,6 @@
 use shura::log::*;
 use shura::physics::*;
-use shura::*;
+use shura::{*, serde};
 use std::{fmt, fs};
 
 #[shura::main]

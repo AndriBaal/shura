@@ -104,6 +104,14 @@ pub mod gui {
     pub use egui::*;
 }
 
+#[cfg(feature = "serde")]
+pub mod serde {
+    pub use serde::*;
+    pub mod bincode {
+        pub use bincode::*;
+    }
+}
+
 // text
 #[cfg(feature = "text")]
 /// Text rendering inspired by [wgpu_text](https://github.com/Blatko1/wgpu-text)
