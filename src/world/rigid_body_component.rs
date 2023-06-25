@@ -3,6 +3,22 @@ use crate::{
     BaseComponent, InstanceData, Vector,
 };
 
+enum BodyStatus {
+    Added {
+        handle: RigidBodyHandle
+    },
+    Pending {
+        
+    }
+}
+
+impl BodyStatus {
+
+    pub fn attach_collider(&mut self) {
+        
+    }
+}
+
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RigidBodyComponent {
     pub rigid_body_handle: RigidBodyHandle,

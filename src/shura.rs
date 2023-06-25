@@ -283,7 +283,7 @@ impl Shura {
     }
 
     #[cfg(feature = "physics")]
-    fn physics_step(ctx: &mut Context) {
+    fn world_step(ctx: &mut Context) {
         macro_rules! skip_fail {
             ($res:expr) => {
                 match $res {
@@ -455,7 +455,7 @@ impl Shura {
                     #[cfg(feature = "physics")]
                     if !done_step && *_priority > physics_priority {
                         done_step = true;
-                        Self::physics_step(&mut ctx);
+                        Self::world_step(&mut ctx);
                     }
 
                     let ty = ctx.components.callable_mut(type_index);
@@ -484,7 +484,7 @@ impl Shura {
 
             #[cfg(feature = "physics")]
             if !done_step && ctx.world.physics_priority().is_some() {
-                Self::physics_step(&mut ctx);
+                Self::world_step(&mut ctx);
             }
         }
         self.input.update();

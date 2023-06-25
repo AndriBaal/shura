@@ -10,7 +10,7 @@ use crate::{
 #[cfg(feature = "physics")]
 use crate::physics::World;
 
-const MINIMAL_FOV: f32 = 5.4E-079;
+const MINIMAL_FOV: f32 = 0.0001;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone)]

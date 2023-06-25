@@ -70,13 +70,11 @@ pub mod bytmuck {
     pub use bytemuck::*;
 }
 
-// Rapier2d
 #[cfg(feature = "physics")]
 mod world;
 #[cfg(feature = "physics")]
 /// Access to the to [rapier2d](https://github.com/dimforge/rapier)
 pub mod physics {
-    pub(crate) use crate::world::world_changes::*;
     pub use crate::world::{collider_component::*, rigid_body_component::*, world::*};
     pub use rapier2d::geometry::*;
     pub use rapier2d::parry;

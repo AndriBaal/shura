@@ -1,6 +1,6 @@
 use crate::{
     physics::{ColliderComponent, RigidBodyComponent},
-    ComponentHandle,
+    ComponentHandle, BaseComponent,
 };
 use rapier2d::prelude::*;
 use rustc_hash::FxHashMap;
@@ -249,33 +249,47 @@ impl World {
         }
     }
 
-    pub fn create_rigid_body_component(
-        &mut self,
-        rigid_body: impl Into<RigidBody>,
-        colliders: impl IntoIterator<Item = impl Into<Collider>>,
-    ) -> RigidBodyComponent {
-        let rigid_body_handle = self.bodies.insert(rigid_body);
-        for collider in colliders {
-            self.colliders
-                .insert_with_parent(collider, rigid_body_handle, &mut self.bodies);
-        }
-        RigidBodyComponent {
-            rigid_body_handle,
-            scale: Vector::new(1.0, 1.0),
-            sprite: Vector::new(0, 0),
+    pub fn add(&mut self, component: &BaseComponent) {
+        if let Some(component) = component.base().downcast_ref::<RigidBodyComponent>() {
+            self.changes.push(WorldChange::AddRigidBody {
+                component_handle,
+                rigid_body_handle: component.rigid_body_handle,
+            });
+        } else if let Some(component) = component.base().downcast_ref::<ColliderComponent>() {
+            self.changes.push(WorldChange::AddCollider {
+                component_handle,
+                collider_handle: component.collider_handle,
+            });
         }
     }
 
-    pub fn create_collider_component(
-        &mut self,
-        collider: impl Into<Collider>,
-    ) -> ColliderComponent {
-        ColliderComponent {
-            collider_handle: self.colliders.insert(collider),
-            scale: Vector::new(1.0, 1.0),
-            sprite: Vector::new(0, 0),
-        }
-    }
+    // pub fn create_rigid_body_component(
+    //     &mut self,
+    //     rigid_body: impl Into<RigidBody>,
+    //     colliders: impl IntoIterator<Item = impl Into<Collider>>,
+    // ) -> RigidBodyComponent {
+    //     let rigid_body_handle = self.bodies.insert(rigid_body);
+    //     for collider in colliders {
+    //         self.colliders
+    //             .insert_with_parent(collider, rigid_body_handle, &mut self.bodies);
+    //     }
+    //     RigidBodyComponent {
+    //         rigid_body_handle,
+    //         scale: Vector::new(1.0, 1.0),
+    //         sprite: Vector::new(0, 0),
+    //     }
+    // }
+
+    // pub fn create_collider_component(
+    //     &mut self,
+    //     collider: impl Into<Collider>,
+    // ) -> ColliderComponent {
+    //     ColliderComponent {
+    //         collider_handle: self.colliders.insert(collider),
+    //         scale: Vector::new(1.0, 1.0),
+    //         sprite: Vector::new(0, 0),
+    //     }
+    // }
 
     pub fn attach_collider(
         &mut self,

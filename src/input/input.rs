@@ -78,11 +78,19 @@ pub enum InputTrigger {
     GamepadButton(GamepadButton),
 }
 
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+pub enum InputEventState {
+    Pressed,
+    Held,
+    JustReleased,
+}
+
 /// Event of a [InputTrigger] that holds the trigger and the time of the event.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct InputEvent {
     trigger: InputTrigger,
-    pressed: bool,
+    state: InputEventState,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default = "Instant::now"))]
     start: Instant,
@@ -94,7 +102,7 @@ impl InputEvent {
     pub fn new(trigger: InputTrigger, pressure: f32) -> Self {
         Self {
             trigger,
-            pressed: true,
+            state: InputEventState::Pressed,
             start: Instant::now(),
             frames: 1,
             pressure,
@@ -107,7 +115,7 @@ impl InputEvent {
     }
 
     pub fn update(&mut self) {
-        self.pressed = false;
+        self.state = InputEventState::Held;
         self.frames += 1;
     }
 
@@ -119,8 +127,20 @@ impl InputEvent {
         self.start.elapsed()
     }
 
+    pub fn state(&self) -> InputEventState {
+        self.state
+    }
+
+    pub fn is_held(&self) -> bool {
+        self.state == InputEventState::Held
+    }
+
     pub fn is_pressed(&self) -> bool {
-        self.pressed
+        self.state == InputEventState::Pressed
+    }
+
+    pub fn is_just_released(&self) -> bool {
+        self.state == InputEventState::JustReleased
     }
 
     pub fn trigger(&self) -> InputTrigger {
@@ -193,7 +213,9 @@ impl Input {
                     TouchPhase::Ended | TouchPhase::Cancelled => {
                         let trigger = ScreenTouch.into();
                         self.touches.remove(&touch.id);
-                        self.events.remove(&trigger);
+                        if let Some(event) = self.events.get_mut(&trigger) {
+                            event.state = InputEventState::JustReleased;
+                        }
                     }
                     TouchPhase::Moved => {
                         if let Some(touch) = self.touches.get_mut(&touch.id) {
@@ -212,7 +234,9 @@ impl Input {
                             }
                         }
                         ElementState::Released => {
-                            self.events.remove(&trigger);
+                            if let Some(event) = self.events.get_mut(&trigger) {
+                                event.state = InputEventState::JustReleased;
+                            }
                         }
                     }
                 }
@@ -225,7 +249,9 @@ impl Input {
                         self.events.insert(trigger, InputEvent::new(trigger, 1.0));
                     }
                     ElementState::Released => {
-                        self.events.remove(&trigger);
+                        if let Some(event) = self.events.get_mut(&trigger) {
+                            event.state = InputEventState::JustReleased;
+                        }
                     }
                 }
             }
@@ -254,6 +280,7 @@ impl Input {
     pub(crate) fn update(&mut self) {
         self.wheel_delta = 0.0;
 
+        self.events.retain(|_, event| event.state != InputEventState::JustReleased);
         for trigger in self.events.values_mut() {
             trigger.update();
         }
@@ -271,7 +298,10 @@ impl Input {
     pub fn are_held(&self, trigger: &[impl Into<InputTrigger> + Copy]) -> bool {
         trigger
             .iter()
-            .all(|trigger| self.events.contains_key(&(*trigger).into()))
+            .all(|trigger| match self.events.get(&(*trigger).into()) {
+                Some(i) => return i.is_held(),
+                None => false,
+            })
     }
 
     pub fn any_pressed(&self, trigger: &[impl Into<InputTrigger> + Copy]) -> bool {
@@ -286,7 +316,10 @@ impl Input {
     pub fn any_held(&self, trigger: &[impl Into<InputTrigger> + Copy]) -> bool {
         trigger
             .iter()
-            .any(|trigger| self.events.contains_key(&(*trigger).into()))
+            .any(|trigger| match self.events.get(&(*trigger).into()) {
+                Some(i) => return i.is_held(),
+                None => false,
+            })
     }
 
     pub fn events(&self) -> impl Iterator<Item = (&InputTrigger, &InputEvent)> {
@@ -297,6 +330,13 @@ impl Input {
         self.events.get(&trigger.into())
     }
 
+    pub fn is_just_released(&self, trigger: impl Into<InputTrigger>) -> bool {
+        match self.events.get(&trigger.into()) {
+            Some(i) => return i.is_just_released(),
+            None => false,
+        }
+    }
+
     pub fn is_pressed(&self, trigger: impl Into<InputTrigger>) -> bool {
         match self.events.get(&trigger.into()) {
             Some(i) => return i.is_pressed(),
@@ -305,7 +345,10 @@ impl Input {
     }
 
     pub fn is_held(&self, trigger: impl Into<InputTrigger>) -> bool {
-        return self.events.contains_key(&trigger.into());
+        match self.events.get(&trigger.into()) {
+            Some(i) => return i.is_held(),
+            None => false,
+        }
     }
 
     pub fn held_time(&self, trigger: impl Into<InputTrigger>) -> f32 {
@@ -337,7 +380,9 @@ impl Input {
                 EventType::ButtonChanged(button, pressure, _) => {
                     let trigger = GamepadButton { gamepad, button };
                     if pressure == 0.0 {
-                        self.events.remove(&trigger.into());
+                        if let Some(event) = self.events.get_mut(&trigger.into()) {
+                            event.state = InputEventState::JustReleased;
+                        }
                     } else {
                         self.events
                             .insert(trigger.into(), InputEvent::new(trigger.into(), pressure));
@@ -345,7 +390,9 @@ impl Input {
                 }
                 EventType::ButtonReleased(button, _) => {
                     let trigger = GamepadButton { gamepad, button };
-                    self.events.remove(&trigger.into());
+                    if let Some(event) = self.events.get_mut(&trigger.into()) {
+                        event.state = InputEventState::JustReleased;
+                    }
                 }
                 EventType::Disconnected => {
                     #[cfg(feature = "log")]

@@ -1,7 +1,50 @@
+use rapier2d::prelude::ColliderBuilder;
+
 use crate::{
     physics::{Collider, ColliderHandle, World},
     BaseComponent, InstanceData, Vector,
 };
+
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+enum ColliderStatus {
+    Added {
+        handle: ColliderHandle
+    },
+    Pending {
+        collider: Collider
+    }
+}
+
+impl ColliderStatus {
+    pub fn get<'a>(&self, world: &'a World) -> &'a Collider {
+        match self {
+            ColliderStatus::Added { handle } => {
+                return world.collider(*handle).unwrap();
+            },
+            ColliderStatus::Pending { collider } => {
+                return collider;
+            },
+        }
+    }
+
+    pub fn get_mut<'a>(&mut self, world: &'a mut World) -> &'a mut Collider {
+        match self {
+            ColliderStatus::Added { handle } => {
+                return world.collider_mut(*handle).unwrap();
+            },
+            ColliderStatus::Pending { collider } => {
+                return collider;
+            },
+        }    }
+
+    pub fn insert(&mut self, world: &mut World) {
+
+    }
+
+    pub fn remove(&mut self, world: &mut World) {
+
+    }
+}
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ColliderComponent {

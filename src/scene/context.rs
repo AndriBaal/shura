@@ -89,6 +89,9 @@ impl<'a> Context<'a> {
         &mut self,
         mut serialize: impl FnMut(&mut SceneSerializer),
     ) -> Result<Vec<u8>, Box<bincode::ErrorKind>> {
+        #[cfg(feature = "physics")]
+        self.components.apply_world_mapping(self.world);
+
         let components = &self.components;
 
         let mut serializer =

@@ -2,7 +2,7 @@ use instant::Instant;
 use std::fmt::{Display, Formatter, Result};
 
 #[cfg(feature = "physics")]
-use crate::physics::{CollideType, ColliderHandle, World, WorldChanges};
+use crate::physics::{CollideType, ColliderHandle, World};
 
 use crate::{
     data::arena::ArenaEntry, Arena, BoxedComponent, BufferOperation, ComponentConfig,
@@ -183,9 +183,7 @@ pub(crate) struct ComponentType {
     index: TypeIndex,
     type_id: ComponentTypeId,
     config: ComponentConfig,
-    pub storage: ComponentTypeStorage,
-    #[cfg(feature = "physics")]
-    world_changes: WorldChanges,
+    pub storage: ComponentTypeStorage
 }
 
 impl ComponentType {
@@ -222,9 +220,7 @@ impl ComponentType {
             index,
             storage,
             config,
-            type_id: C::IDENTIFIER,
-            #[cfg(feature = "physics")]
-            world_changes: WorldChanges::new(),
+            type_id: C::IDENTIFIER
         }
     }
 
