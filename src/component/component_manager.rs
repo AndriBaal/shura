@@ -271,13 +271,6 @@ impl ComponentManager {
         &self.types
     }
 
-    #[cfg(feature = "physics")]
-    pub fn apply_world_mapping(&mut self, world: &mut World) {
-        for (_, ty) in &mut self.types {
-            ty.apply_world_mapping(world)
-        }
-    }
-
     pub fn register<C: ComponentController>(&mut self) {
         self.register_with_config::<C>(C::CONFIG);
     }
@@ -359,13 +352,21 @@ impl ComponentManager {
         return handle;
     }
 
-    pub fn remove_group(&mut self, handle: GroupHandle) -> Option<Group> {
+    pub fn remove_group(
+        &mut self,
+        #[cfg(feature = "physics")] world: &mut World,
+        handle: GroupHandle,
+    ) -> Option<Group> {
         if handle == GroupHandle::DEFAULT_GROUP {
             panic!("Cannot remove default group!");
         }
         let group = self.groups.remove(handle.0);
         for (_, ty) in &mut self.types {
-            ty.remove_group(handle);
+            ty.remove_group(
+                #[cfg(feature = "physics")]
+                world,
+                handle,
+            );
         }
         self.all_groups.retain(|h| *h != handle);
         return group;
@@ -451,84 +452,155 @@ impl ComponentManager {
             .get_boxed(handle)
     }
 
-    pub fn get_boxed_mut(&mut self, handle: ComponentHandle) -> Option<&mut BoxedComponent> {
+    pub fn get_boxed_mut(
+        &mut self,
+        #[cfg(feature = "physics")] world: &mut World,
+        handle: ComponentHandle,
+    ) -> Option<&mut BoxedComponent> {
         self.types
             .get_mut(handle.type_index().0)
             .unwrap()
             .get_boxed_mut(handle)
     }
 
-    pub fn remove<C: ComponentController>(&mut self, handle: ComponentHandle) -> Option<C> {
-        self.types
-            .get_mut(handle.type_index().0)
-            .unwrap()
-            .remove(handle)
+    pub fn remove<C: ComponentController>(
+        &mut self,
+        #[cfg(feature = "physics")] world: &mut World,
+        handle: ComponentHandle,
+    ) -> Option<C> {
+        self.types.get_mut(handle.type_index().0).unwrap().remove(
+            #[cfg(feature = "physics")]
+            world,
+            handle,
+        )
     }
 
-    pub fn remove_boxed(&mut self, handle: ComponentHandle) -> Option<BoxedComponent> {
+    pub fn remove_boxed(
+        &mut self,
+        #[cfg(feature = "physics")] world: &mut World,
+        handle: ComponentHandle,
+    ) -> Option<BoxedComponent> {
         self.types
             .get_mut(handle.type_index().0)
             .unwrap()
-            .remove_boxed(handle)
+            .remove_boxed(
+                #[cfg(feature = "physics")]
+                world,
+                handle,
+            )
     }
 
     #[inline]
-    pub fn add<C: ComponentController>(&mut self, component: C) -> ComponentHandle {
-        self.add_to(GroupHandle::DEFAULT_GROUP, component)
+    pub fn add<C: ComponentController>(
+        &mut self,
+        #[cfg(feature = "physics")] world: &mut World,
+        component: C,
+    ) -> ComponentHandle {
+        self.add_to(
+            #[cfg(feature = "physics")]
+            world,
+            GroupHandle::DEFAULT_GROUP,
+            component,
+        )
     }
 
     pub fn add_to<C: ComponentController>(
         &mut self,
+        #[cfg(feature = "physics")] world: &mut World,
         group_handle: GroupHandle,
         component: C,
     ) -> ComponentHandle {
         let ty = type_mut!(self, C);
-        ty.add(group_handle, component)
+        ty.add(
+            #[cfg(feature = "physics")]
+            world,
+            group_handle,
+            component,
+        )
     }
 
     #[inline]
     pub fn add_many<C: ComponentController>(
         &mut self,
+        #[cfg(feature = "physics")] world: &mut World,
         components: impl IntoIterator<Item = C>,
     ) -> Vec<ComponentHandle> {
-        self.add_many_to(GroupHandle::DEFAULT_GROUP, components)
+        self.add_many_to(
+            #[cfg(feature = "physics")]
+            world,
+            GroupHandle::DEFAULT_GROUP,
+            components,
+        )
     }
 
     pub fn add_many_to<C: ComponentController>(
         &mut self,
+        #[cfg(feature = "physics")] world: &mut World,
         group_handle: GroupHandle,
         components: impl IntoIterator<Item = C>,
     ) -> Vec<ComponentHandle> {
         let ty = type_mut!(self, C);
-        ty.add_many::<C>(group_handle, components)
+        ty.add_many::<C>(
+            #[cfg(feature = "physics")]
+            world,
+            group_handle,
+            components,
+        )
     }
 
     #[inline]
     pub fn add_with<C: ComponentController + ComponentController>(
         &mut self,
+        #[cfg(feature = "physics")] world: &mut World,
         create: impl FnOnce(ComponentHandle) -> C,
     ) -> ComponentHandle {
-        self.add_with_to(GroupHandle::DEFAULT_GROUP, create)
+        self.add_with_to(
+            #[cfg(feature = "physics")]
+            world,
+            GroupHandle::DEFAULT_GROUP,
+            create,
+        )
     }
 
     pub fn add_with_to<C: ComponentController + ComponentController>(
         &mut self,
+        #[cfg(feature = "physics")] world: &mut World,
         group_handle: GroupHandle,
         create: impl FnOnce(ComponentHandle) -> C,
     ) -> ComponentHandle {
         let ty = type_mut!(self, C);
-        ty.add_with::<C>(group_handle, create)
+        ty.add_with::<C>(
+            #[cfg(feature = "physics")]
+            world,
+            group_handle,
+            create,
+        )
     }
 
     #[inline]
-    pub fn remove_all<C: ComponentController>(&mut self) -> Vec<C> {
-        self.remove_all_of(ComponentFilter::All)
+    pub fn remove_all<C: ComponentController>(
+        &mut self,
+        #[cfg(feature = "physics")] world: &mut World,
+    ) -> Vec<C> {
+        self.remove_all_of(
+            #[cfg(feature = "physics")]
+            world,
+            ComponentFilter::All,
+        )
     }
 
-    pub fn remove_all_of<C: ComponentController>(&mut self, filter: ComponentFilter) -> Vec<C> {
+    pub fn remove_all_of<C: ComponentController>(
+        &mut self,
+        #[cfg(feature = "physics")] world: &mut World,
+        filter: ComponentFilter,
+    ) -> Vec<C> {
         let groups = group_filter!(self, filter).1;
         let ty = type_mut!(self, C);
-        ty.remove_all(groups)
+        ty.remove_all(
+            #[cfg(feature = "physics")]
+            world,
+            groups,
+        )
     }
 
     #[inline]
@@ -720,18 +792,33 @@ impl ComponentManager {
     }
 
     #[inline]
-    pub fn retain<C: ComponentController>(&mut self, keep: impl FnMut(&mut C) -> bool) {
-        self.retain_of(ComponentFilter::Active, keep)
+    pub fn retain<C: ComponentController>(
+        &mut self,
+        #[cfg(feature = "physics")] world: &mut World,
+        keep: impl FnMut(&mut C) -> bool,
+    ) {
+        self.retain_of(
+            #[cfg(feature = "physics")]
+            world,
+            ComponentFilter::Active,
+            keep,
+        )
     }
 
     pub fn retain_of<C: ComponentController>(
         &mut self,
+        #[cfg(feature = "physics")] world: &mut World,
         filter: ComponentFilter,
         keep: impl FnMut(&mut C) -> bool,
     ) {
         let groups = group_filter!(self, filter).1;
         let ty = type_mut!(self, C);
-        ty.retain(groups, keep);
+        ty.retain(
+            #[cfg(feature = "physics")]
+            world,
+            groups,
+            keep,
+        );
     }
 
     pub fn render_each<'a, C: ComponentController>(
@@ -785,21 +872,36 @@ impl ComponentManager {
         ty.single_mut()
     }
 
-    pub fn remove_single<C: ComponentController>(&mut self) -> Option<C> {
+    pub fn remove_single<C: ComponentController>(
+        &mut self,
+        #[cfg(feature = "physics")] world: &mut World,
+    ) -> Option<C> {
         let ty = type_mut!(self, C);
-        ty.remove_single()
+        ty.remove_single(
+            #[cfg(feature = "physics")]
+            world,
+        )
     }
 
-    pub fn set_single<C: ComponentController>(&mut self, new: C) -> ComponentHandle {
+    pub fn set_single<C: ComponentController>(
+        &mut self,
+        #[cfg(feature = "physics")] world: &mut World,
+        new: C,
+    ) -> ComponentHandle {
         let ty = type_mut!(self, C);
-        ty.set_single(new)
+        ty.set_single(
+            #[cfg(feature = "physics")]
+            world,
+            new,
+        )
     }
 
     pub fn set_single_with<C: ComponentController>(
         &mut self,
+        #[cfg(feature = "physics")] world: &mut World,
         create: impl FnOnce(ComponentHandle) -> C,
     ) -> ComponentHandle {
         let ty = type_mut!(self, C);
-        ty.set_single_with(create)
+        ty.set_single_with(#[cfg(feature = "physics")] world, create)
     }
 }

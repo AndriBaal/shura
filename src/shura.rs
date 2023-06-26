@@ -296,7 +296,6 @@ impl Shura {
         }
 
         let delta = ctx.frame.frame_time();
-        ctx.components.apply_world_mapping(ctx.world);
         ctx.world.step(delta);
         // while let Ok(contact_force_event) = ctx.components.event_receivers.1.try_recv() {
         // }

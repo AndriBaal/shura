@@ -1,69 +1,94 @@
 use crate::{
-    physics::{Collider, ColliderHandle, RigidBody, RigidBodyHandle, World},
+    physics::{Collider, RigidBody, RigidBodyHandle, World},
     BaseComponent, InstanceData, Vector,
 };
 
-enum BodyStatus {
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum RigidBodyStatus {
     Added {
-        handle: RigidBodyHandle
+        rigid_body_handle: RigidBodyHandle,
     },
     Pending {
-        
-    }
+        rigid_body: RigidBody,
+        colliders: Vec<Collider>,
+    },
 }
 
-impl BodyStatus {
+impl RigidBodyStatus {
+    pub fn get<'a>(&'a self, world: &'a World) -> &'a RigidBody {
+        match self {
+            RigidBodyStatus::Added { rigid_body_handle } => {
+                return world.rigid_body(*rigid_body_handle).unwrap();
+            }
+            RigidBodyStatus::Pending { rigid_body, .. } => {
+                return rigid_body;
+            }
+        }
+    }
 
-    pub fn attach_collider(&mut self) {
-        
+    pub fn get_mut<'a>(&'a mut self, world: &'a mut World) -> &'a mut RigidBody {
+        match self {
+            RigidBodyStatus::Added { rigid_body_handle } => {
+                return world.rigid_body_mut(*rigid_body_handle).unwrap();
+            }
+            RigidBodyStatus::Pending { rigid_body, .. } => {
+                return rigid_body;
+            }
+        }
     }
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RigidBodyComponent {
-    pub rigid_body_handle: RigidBodyHandle,
+    pub(crate) status: RigidBodyStatus,
     pub sprite: Vector<i32>,
     pub scale: Vector<f32>,
 }
 
 impl RigidBodyComponent {
     pub fn new(
-        world: &mut World,
         rigid_body: impl Into<RigidBody>,
         colliders: impl IntoIterator<Item = impl Into<Collider>>,
     ) -> Self {
-        world.create_rigid_body_component(rigid_body, colliders)
-    }
-
-    pub fn get<'a>(&self, world: &'a World) -> &'a RigidBody {
-        world.rigid_body(self.rigid_body_handle).unwrap()
-    }
-
-    pub fn get_mut<'a>(&self, world: &'a mut World) -> &'a mut RigidBody {
-        world.rigid_body_mut(self.rigid_body_handle).unwrap()
-    }
-
-    pub fn attach_collider(
-        &mut self,
-        world: &mut World,
-        collider: impl Into<Collider>,
-    ) -> ColliderHandle {
-        if world.rigid_body(self.rigid_body_handle).is_some() {
-            return world.attach_collider(self.rigid_body_handle, collider);
-        }
-        panic!("This RigidBodyComponent is not initailized")
-    }
-
-    pub fn remove_attached_colliders(
-        &mut self,
-        world: &mut World,
-        collider_handle: ColliderHandle,
-    ) {
-        if let Some(collider) = world.collider(collider_handle) {
-            assert!(collider.parent().unwrap() == self.rigid_body_handle);
-            world.unregister_collider(collider_handle)
+        Self {
+            status: RigidBodyStatus::Pending {
+                rigid_body: rigid_body.into(),
+                colliders: colliders.into_iter().map(|c| c.into()).collect(),
+            },
+            sprite: Vector::new(0, 0),
+            scale: Vector::new(1.0, 1.0),
         }
     }
+
+    pub fn get<'a>(&'a self, world: &'a World) -> &'a RigidBody {
+        self.status.get(world)
+    }
+
+    pub fn get_mut<'a>(&'a mut self, world: &'a mut World) -> &'a mut RigidBody {
+        self.status.get_mut(world)
+    }
+
+    // pub fn attach_collider(
+    //     &mut self,
+    //     world: &mut World,
+    //     collider: impl Into<Collider>,
+    // ) -> ColliderHandle {
+    //     if world.rigid_body(self.rigid_body_handle).is_some() {
+    //         return world.attach_collider(self.rigid_body_handle, collider);
+    //     }
+    //     panic!("This RigidBodyComponent is not initailized")
+    // }
+
+    // pub fn remove_attached_colliders(
+    //     &mut self,
+    //     world: &mut World,
+    //     rigid_body_handle: ColliderHandle,
+    // ) {
+    //     if let Some(collider) = world.collider(rigid_body_handle) {
+    //         assert!(collider.parent().unwrap() == self.rigid_body_handle);
+    //         world.unregister_collider(rigid_body_handle)
+    //     }
+    // }
 
     pub fn set_scale(&mut self, scale: Vector<f32>) {
         self.scale = scale;
@@ -80,7 +105,7 @@ impl RigidBodyComponent {
     pub const fn sprite(&self) -> &Vector<i32> {
         &self.sprite
     }
-    
+
     pub fn with_scale(mut self, scale: Vector<f32>) -> Self {
         self.scale = scale;
         self
@@ -94,16 +119,31 @@ impl RigidBodyComponent {
 
 impl BaseComponent for RigidBodyComponent {
     fn instance(&self, world: &World) -> crate::InstanceData {
-        if let Some(rigid_body) = world.rigid_body(self.rigid_body_handle) {
-            return InstanceData::new(
-                *rigid_body.position(),
-                if rigid_body.is_enabled() {
-                    self.scale
-                } else {
-                    Vector::default()
-                },
-                self.sprite,
-            );
+        match &self.status {
+            RigidBodyStatus::Added { rigid_body_handle } => {
+                if let Some(rigid_body) = world.rigid_body(*rigid_body_handle) {
+                    return InstanceData::new(
+                        *rigid_body.position(),
+                        if rigid_body.is_enabled() {
+                            self.scale
+                        } else {
+                            Vector::default()
+                        },
+                        self.sprite,
+                    );
+                }
+            }
+            RigidBodyStatus::Pending { rigid_body, .. } => {
+                return InstanceData::new(
+                    *rigid_body.position(),
+                    if rigid_body.is_enabled() {
+                        self.scale
+                    } else {
+                        Vector::default()
+                    },
+                    self.sprite,
+                );
+            }
         }
         return InstanceData::default();
     }

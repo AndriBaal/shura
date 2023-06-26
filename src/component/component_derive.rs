@@ -28,6 +28,7 @@ impl_downcast!(BaseComponent);
 /// All components need to implement from this trait. This is not done manually, but with the derive macro [Component](crate::Component).
 pub trait ComponentDerive: Downcast {
     fn base(&self) -> &dyn BaseComponent;
+    fn base_mut(&mut self) -> &mut dyn BaseComponent;
     fn component_type_id(&self) -> ComponentTypeId;
 }
 impl_downcast!(ComponentDerive);
@@ -81,6 +82,10 @@ where
 impl<C: ComponentDerive + ?Sized> ComponentDerive for Box<C> {
     fn base(&self) -> &dyn BaseComponent {
         (**self).base()
+    }    
+    
+    fn base_mut(&mut self) -> &mut dyn BaseComponent {
+        (**self).base_mut()
     }
 
     fn component_type_id(&self) -> ComponentTypeId {

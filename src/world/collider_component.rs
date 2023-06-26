@@ -1,69 +1,62 @@
-use rapier2d::prelude::ColliderBuilder;
-
 use crate::{
     physics::{Collider, ColliderHandle, World},
     BaseComponent, InstanceData, Vector,
 };
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-enum ColliderStatus {
-    Added {
-        handle: ColliderHandle
-    },
-    Pending {
-        collider: Collider
-    }
+pub enum ColliderStatus {
+    Added { collider_handle: ColliderHandle },
+    Pending { collider: Collider },
 }
 
 impl ColliderStatus {
-    pub fn get<'a>(&self, world: &'a World) -> &'a Collider {
+    pub fn get<'a>(&'a self, world: &'a World) -> &'a Collider {
         match self {
-            ColliderStatus::Added { handle } => {
-                return world.collider(*handle).unwrap();
-            },
+            ColliderStatus::Added { collider_handle } => {
+                return world.collider(*collider_handle).unwrap();
+            }
             ColliderStatus::Pending { collider } => {
                 return collider;
-            },
+            }
         }
     }
 
-    pub fn get_mut<'a>(&mut self, world: &'a mut World) -> &'a mut Collider {
+    pub fn get_mut<'a>(&'a mut self, world: &'a mut World) -> &'a mut Collider {
         match self {
-            ColliderStatus::Added { handle } => {
-                return world.collider_mut(*handle).unwrap();
-            },
+            ColliderStatus::Added { collider_handle } => {
+                return world.collider_mut(*collider_handle).unwrap();
+            }
             ColliderStatus::Pending { collider } => {
                 return collider;
-            },
-        }    }
-
-    pub fn insert(&mut self, world: &mut World) {
-
-    }
-
-    pub fn remove(&mut self, world: &mut World) {
-
+            }
+        }
     }
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ColliderComponent {
-    pub collider_handle: ColliderHandle,
+    pub(crate) status: ColliderStatus,
     pub sprite: Vector<i32>,
     pub scale: Vector<f32>,
 }
 
 impl ColliderComponent {
-    pub fn new(world: &mut World, collider: impl Into<Collider>) -> Self {
-        world.create_collider_component(collider)
+    pub fn new(collider: impl Into<Collider>) -> Self {
+        Self {
+            status: ColliderStatus::Pending {
+                collider: collider.into(),
+            },
+            sprite: Vector::new(0, 0),
+            scale: Vector::new(1.0, 1.0),
+        }
     }
 
-    pub fn get<'a>(&self, world: &'a World) -> &'a Collider {
-        world.collider(self.collider_handle).unwrap()
+    pub fn get<'a>(&'a self, world: &'a World) -> &'a Collider {
+        self.status.get(world)
     }
 
-    pub fn get_mut<'a>(&self, world: &'a mut World) -> &'a mut Collider {
-        world.collider_mut(self.collider_handle).unwrap()
+    pub fn get_mut<'a>(&'a mut self, world: &'a mut World) -> &'a mut Collider {
+        self.status.get_mut(world)
     }
 
     pub fn with_scale(mut self, scale: Vector<f32>) -> Self {
@@ -95,16 +88,31 @@ impl ColliderComponent {
 
 impl BaseComponent for ColliderComponent {
     fn instance(&self, world: &World) -> InstanceData {
-        if let Some(collider) = world.collider(self.collider_handle) {
-            return InstanceData::new(
-                *collider.position(),
-                if collider.is_enabled() {
-                    self.scale
-                } else {
-                    Vector::default()
-                },
-                self.sprite,
-            );
+        match &self.status {
+            ColliderStatus::Added { collider_handle } => {
+                if let Some(collider) = world.collider(*collider_handle) {
+                    return InstanceData::new(
+                        *collider.position(),
+                        if collider.is_enabled() {
+                            self.scale
+                        } else {
+                            Vector::default()
+                        },
+                        self.sprite,
+                    );
+                }
+            }
+            ColliderStatus::Pending { collider } => {
+                return InstanceData::new(
+                    *collider.position(),
+                    if collider.is_enabled() {
+                        self.scale
+                    } else {
+                        Vector::default()
+                    },
+                    self.sprite,
+                );
+            }
         }
         return InstanceData::default();
     }

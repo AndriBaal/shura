@@ -1,6 +1,6 @@
 use crate::{
-    physics::{ColliderComponent, RigidBodyComponent},
-    ComponentHandle, BaseComponent,
+    physics::{ColliderComponent, ColliderStatus, RigidBodyComponent, RigidBodyStatus},
+    ComponentDerive, ComponentHandle,
 };
 use rapier2d::prelude::*;
 use rustc_hash::FxHashMap;
@@ -206,60 +206,123 @@ impl World {
         }
     }
 
-    pub(crate) fn register_collider(
-        &mut self,
-        component_handle: ComponentHandle,
-        collider_handle: ColliderHandle,
-    ) {
-        self.component_mapping
-            .insert(collider_handle, component_handle);
-    }
+    // pub(crate) fn register_collider(
+    //     &mut self,
+    //     component_handle: ComponentHandle,
+    //     collider_handle: ColliderHandle,
+    // ) {
+    //     self.component_mapping
+    //         .insert(collider_handle, component_handle);
+    // }
 
-    pub(crate) fn register_rigid_body(
-        &mut self,
-        component_handle: ComponentHandle,
-        rigid_body_handle: RigidBodyHandle,
-    ) {
-        if let Some(body) = self.bodies.get(rigid_body_handle) {
-            for collider_handle in body.colliders() {
-                self.component_mapping
-                    .insert(*collider_handle, component_handle);
+    // pub(crate) fn register_rigid_body(
+    //     &mut self,
+    //     component_handle: ComponentHandle,
+    //     rigid_body_handle: RigidBodyHandle,
+    // ) {
+    //     if let Some(body) = self.bodies.get(rigid_body_handle) {
+    //         for collider_handle in body.colliders() {
+    //             self.component_mapping
+    //                 .insert(*collider_handle, component_handle);
+    //         }
+    //     }
+    // }
+
+    // pub(crate) fn unregister_collider(&mut self, collider_handle: ColliderHandle) {
+    //     self.colliders
+    //         .remove(collider_handle, &mut self.islands, &mut self.bodies, false);
+    //     self.component_mapping.remove(&collider_handle);
+    // }
+
+    // pub(crate) fn unregister_rigid_body(&mut self, rigid_body_handle: RigidBodyHandle) {
+    //     if let Some(body) = self.bodies.remove(
+    //         rigid_body_handle,
+    //         &mut self.islands,
+    //         &mut self.colliders,
+    //         &mut self.impulse_joints,
+    //         &mut self.multibody_joints,
+    //         true,
+    //     ) {
+    //         for collider_handle in body.colliders() {
+    //             self.component_mapping.remove(collider_handle);
+    //         }
+    //     }
+    // }
+
+    pub fn add(&mut self, component_handle: ComponentHandle, component: &mut dyn ComponentDerive) {
+        if let Some(component) = component.base_mut().downcast_mut::<RigidBodyComponent>() {
+            match &mut component.status {
+                RigidBodyStatus::Added { .. } => return,
+                RigidBodyStatus::Pending {
+                    rigid_body,
+                    colliders,
+                } => {
+                    let rigid_body_handle = self.bodies.insert(rigid_body.clone());
+                    for collider in colliders {
+                        self.colliders.insert_with_parent(
+                            collider.clone(),
+                            rigid_body_handle,
+                            &mut self.bodies,
+                        );
+                    }
+                    if let Some(body) = self.bodies.get(rigid_body_handle) {
+                        for collider_handle in body.colliders() {
+                            self.component_mapping
+                                .insert(*collider_handle, component_handle);
+                        }
+                    }
+                }
+            }
+        } else if let Some(component) = component.base_mut().downcast_mut::<ColliderComponent>() {
+            match &mut component.status {
+                ColliderStatus::Added { .. } => return,
+                ColliderStatus::Pending { collider } => {
+                    let collider_handle = self.colliders.insert(collider.clone());
+                    self.component_mapping
+                        .insert(collider_handle, component_handle);
+                    component.status = ColliderStatus::Added { collider_handle }
+                }
             }
         }
     }
 
-    pub(crate) fn unregister_collider(&mut self, collider_handle: ColliderHandle) {
-        self.colliders
-            .remove(collider_handle, &mut self.islands, &mut self.bodies, false);
-        self.component_mapping.remove(&collider_handle);
-    }
-
-    pub(crate) fn unregister_rigid_body(&mut self, rigid_body_handle: RigidBodyHandle) {
-        if let Some(body) = self.bodies.remove(
-            rigid_body_handle,
-            &mut self.islands,
-            &mut self.colliders,
-            &mut self.impulse_joints,
-            &mut self.multibody_joints,
-            true,
-        ) {
-            for collider_handle in body.colliders() {
-                self.component_mapping.remove(collider_handle);
+    pub fn remove(
+        &mut self,
+        component: &mut dyn ComponentDerive,
+    ) {
+        if let Some(component) = component.base_mut().downcast_mut::<RigidBodyComponent>() {
+            match component.status {
+                RigidBodyStatus::Added { rigid_body_handle } => {
+                    if let Some(body) = self.bodies.remove(
+                        rigid_body_handle,
+                        &mut self.islands,
+                        &mut self.colliders,
+                        &mut self.impulse_joints,
+                        &mut self.multibody_joints,
+                        true,
+                    ) {
+                        for collider_handle in body.colliders() {
+                            self.component_mapping.remove(collider_handle);
+                        }
+                    }
+                }
+                RigidBodyStatus::Pending { .. } => return,
             }
-        }
-    }
-
-    pub fn add(&mut self, component: &BaseComponent) {
-        if let Some(component) = component.base().downcast_ref::<RigidBodyComponent>() {
-            self.changes.push(WorldChange::AddRigidBody {
-                component_handle,
-                rigid_body_handle: component.rigid_body_handle,
-            });
-        } else if let Some(component) = component.base().downcast_ref::<ColliderComponent>() {
-            self.changes.push(WorldChange::AddCollider {
-                component_handle,
-                collider_handle: component.collider_handle,
-            });
+        } else if let Some(mut component) = component.base_mut().downcast_mut::<ColliderComponent>() {
+            match component.status {
+                ColliderStatus::Added { collider_handle } => {
+                    self.component_mapping.remove(&collider_handle);
+                    if let Some(collider) = self.colliders.remove(
+                        collider_handle,
+                        &mut self.islands,
+                        &mut self.bodies,
+                        false,
+                    ) {
+                        component.status = ColliderStatus::Pending { collider }
+                    }
+                }
+                ColliderStatus::Pending { .. } => return,
+            }
         }
     }
 
