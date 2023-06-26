@@ -264,7 +264,8 @@ impl Ground {
                 .gpu
                 .create_model(ModelBuilder::cuboid(Self::HALF_EXTENTS)),
             sprite: ctx.gpu.create_sprite(include_bytes!("./sprites/base.png")),
-            pos: PositionComponent::new().with_translation(Vector::new(0.0, -GAME_SIZE.y + Self::HALF_EXTENTS.y))
+            pos: PositionComponent::new()
+                .with_translation(Vector::new(0.0, -GAME_SIZE.y + Self::HALF_EXTENTS.y)),
         }
     }
 }
@@ -275,11 +276,10 @@ impl ComponentController for Ground {
         ..ComponentConfig::DEFAULT
     };
     fn render<'a>(ctx: &'a Context, renderer: &mut Renderer<'a>) {
-        ctx.components.render_each::<Self>(
-            renderer,
-            RenderCamera::World,
-            |r, ground, instance| r.render_sprite(instance, &ground.model, &ground.sprite),
-        );
+        ctx.components
+            .render_each::<Self>(renderer, RenderCamera::World, |r, ground, instance| {
+                r.render_sprite(instance, &ground.model, &ground.sprite)
+            });
     }
 }
 
@@ -339,7 +339,7 @@ impl Pipe {
                 ..GAME_SIZE.y - Self::MIN_PIPE_Y - Pipe::HALF_HOLE_SIZE,
         );
         return Self {
-            pos: PositionComponent::new().with_translation(Vector::new(GAME_SIZE.x, y))
+            pos: PositionComponent::new().with_translation(Vector::new(GAME_SIZE.x, y)),
         };
     }
 }

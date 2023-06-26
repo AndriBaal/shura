@@ -454,7 +454,6 @@ impl ComponentManager {
 
     pub fn get_boxed_mut(
         &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
         handle: ComponentHandle,
     ) -> Option<&mut BoxedComponent> {
         self.types
@@ -795,6 +794,9 @@ impl ComponentManager {
     pub fn retain<C: ComponentController>(
         &mut self,
         #[cfg(feature = "physics")] world: &mut World,
+        #[cfg(feature = "physics")]
+        keep: impl FnMut(&mut C, &mut World) -> bool,
+        #[cfg(not(feature = "physics"))]
         keep: impl FnMut(&mut C) -> bool,
     ) {
         self.retain_of(
@@ -809,6 +811,9 @@ impl ComponentManager {
         &mut self,
         #[cfg(feature = "physics")] world: &mut World,
         filter: ComponentFilter,
+        #[cfg(feature = "physics")]
+        keep: impl FnMut(&mut C, &mut World) -> bool,
+        #[cfg(not(feature = "physics"))]
         keep: impl FnMut(&mut C) -> bool,
     ) {
         let groups = group_filter!(self, filter).1;

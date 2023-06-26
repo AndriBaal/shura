@@ -271,6 +271,7 @@ impl World {
                                 .insert(*collider_handle, component_handle);
                         }
                     }
+                    component.status = RigidBodyStatus::Added { rigid_body_handle }
                 }
             }
         } else if let Some(component) = component.base_mut().downcast_mut::<ColliderComponent>() {
@@ -286,29 +287,49 @@ impl World {
         }
     }
 
-    pub fn remove(
-        &mut self,
-        component: &mut dyn ComponentDerive,
-    ) {
+    pub fn remove(&mut self, component: &mut dyn ComponentDerive) {
         if let Some(component) = component.base_mut().downcast_mut::<RigidBodyComponent>() {
             match component.status {
                 RigidBodyStatus::Added { rigid_body_handle } => {
-                    if let Some(body) = self.bodies.remove(
+                    if let Some(rigid_body) = self.bodies.remove(
                         rigid_body_handle,
                         &mut self.islands,
                         &mut self.colliders,
                         &mut self.impulse_joints,
                         &mut self.multibody_joints,
-                        true,
+                        false,
                     ) {
-                        for collider_handle in body.colliders() {
-                            self.component_mapping.remove(collider_handle);
+                        let colliders = rigid_body.colliders();
+                        let mut status = RigidBodyStatus::Pending {
+                            rigid_body: rigid_body.clone(),
+                            colliders: Vec::with_capacity(colliders.len()),
+                        };
+                        for collider_handle in colliders {
+                            match &mut status {
+                                RigidBodyStatus::Pending {
+                                    colliders,
+                                    ..
+                                } => {
+                                    if let Some(collider) = self.colliders.remove(
+                                        *collider_handle,
+                                        &mut self.islands,
+                                        &mut self.bodies,
+                                        true,
+                                    ) {
+                                        colliders.push(collider);
+                                    }
+                                    self.component_mapping.remove(collider_handle);
+                                }
+                                _ => {}
+                            }
                         }
+                        component.status = status;
                     }
                 }
                 RigidBodyStatus::Pending { .. } => return,
             }
-        } else if let Some(mut component) = component.base_mut().downcast_mut::<ColliderComponent>() {
+        } else if let Some(mut component) = component.base_mut().downcast_mut::<ColliderComponent>()
+        {
             match component.status {
                 ColliderStatus::Added { collider_handle } => {
                     self.component_mapping.remove(&collider_handle);

@@ -8,9 +8,9 @@ fn shura_main(config: ShuraConfig) {
         register!(ctx.components, [Background, Ground, Pipe, Bird]);
         ctx.scene_states
             .insert(FlappyState::new(ctx.gpu, ctx.audio));
-        ctx.components.add(Background::new(ctx));
-        ctx.components.add(Ground::new(ctx.world, ctx.gpu));
-        ctx.components.add(Bird::new(ctx.world, ctx.gpu, ctx.audio));
+        ctx.components.add(ctx.world, Background::new(ctx));
+        ctx.components.add(ctx.world, Ground::new(ctx.gpu));
+        ctx.components.add(ctx.world, Bird::new(ctx.gpu, ctx.audio));
         ctx.world.set_physics_priority(Some(10));
         ctx.world.set_gravity(Vector::new(0.0, -15.0));
         ctx.world_camera
@@ -72,14 +72,13 @@ struct Bird {
 
 impl Bird {
     const HALF_EXTENTS: Vector<f32> = Vector::new(0.3, 0.21176472);
-    pub fn new(world: &mut World, gpu: &Gpu, audio: &AudioManager) -> Self {
+    pub fn new(gpu: &Gpu, audio: &AudioManager) -> Self {
         let sprite = gpu.create_sprite_sheet(
             include_bytes!("./sprites/yellowbird.png"),
             Vector::new(17, 12),
         );
         Self {
             body: RigidBodyComponent::new(
-                world,
                 RigidBodyBuilder::dynamic()
                     .locked_axes(LockedAxes::TRANSLATION_LOCKED_X)
                     .lock_rotations()
@@ -107,11 +106,10 @@ impl ComponentController for Bird {
     };
 
     fn render<'a>(ctx: &'a Context, renderer: &mut Renderer<'a>) {
-        ctx.components.render_each::<Self>(
-            renderer,
-            RenderCamera::World,
-            |r, bird, instance| r.render_sprite_sheet(instance, &bird.model, &bird.sprite),
-        );
+        ctx.components
+            .render_each::<Self>(renderer, RenderCamera::World, |r, bird, instance| {
+                r.render_sprite_sheet(instance, &bird.model, &bird.sprite)
+            });
     }
 
     fn update(ctx: &mut Context) {
@@ -137,7 +135,7 @@ impl ComponentController for Bird {
 
             if scene.spawn_timer >= Pipe::SPAWN_TIME {
                 scene.spawn_timer = 0.0;
-                ctx.components.add(Pipe::new(ctx.world));
+                ctx.components.add(ctx.world, Pipe::new());
                 info!("Spawning new pipe!");
             }
         }
@@ -177,7 +175,7 @@ impl ComponentController for Bird {
         collision_type: CollideType,
     ) {
         if collision_type == CollideType::Started {
-            ctx.components.remove_all::<Pipe>();
+            ctx.components.remove_all::<Pipe>(ctx.world);
             {
                 let bird = ctx.components.get_mut::<Self>(self_handle).unwrap();
                 bird.sink = ctx.audio.create_sink();
@@ -206,28 +204,25 @@ struct Ground {
 
 impl Ground {
     const HALF_EXTENTS: Vector<f32> = Vector::new(GAME_SIZE.data.0[0][0], 0.9375);
-    pub fn new(world: &mut World, gpu: &Gpu) -> Self {
+    pub fn new(gpu: &Gpu) -> Self {
         let pos = Vector::new(0.0, -GAME_SIZE.y + Self::HALF_EXTENTS.y);
         Self {
             model: gpu
                 .create_model(ModelBuilder::cuboid(Self::HALF_EXTENTS).vertex_translation(pos)),
             sprite: gpu.create_sprite(include_bytes!("./sprites/base.png")),
-            collider: ColliderComponent::new(
-                world,
-                ColliderBuilder::compound(vec![
-                    (
-                        pos.into(),
-                        SharedShape::cuboid(Self::HALF_EXTENTS.x, Self::HALF_EXTENTS.y),
+            collider: ColliderComponent::new(ColliderBuilder::compound(vec![
+                (
+                    pos.into(),
+                    SharedShape::cuboid(Self::HALF_EXTENTS.x, Self::HALF_EXTENTS.y),
+                ),
+                (
+                    Vector::new(0.0, GAME_SIZE.y).into(),
+                    SharedShape::segment(
+                        Point::new(-GAME_SIZE.x, 0.0),
+                        Point::new(GAME_SIZE.x, 0.0),
                     ),
-                    (
-                        Vector::new(0.0, GAME_SIZE.y).into(),
-                        SharedShape::segment(
-                            Point::new(-GAME_SIZE.x, 0.0),
-                            Point::new(GAME_SIZE.x, 0.0),
-                        ),
-                    ),
-                ]),
-            ),
+                ),
+            ])),
         }
     }
 }
@@ -238,11 +233,10 @@ impl ComponentController for Ground {
         ..ComponentConfig::DEFAULT
     };
     fn render<'a>(ctx: &'a Context, renderer: &mut Renderer<'a>) {
-        ctx.components.render_each::<Self>(
-            renderer,
-            RenderCamera::World,
-            |r, ground, instance| r.render_sprite(instance, &ground.model, &ground.sprite),
-        );
+        ctx.components
+            .render_each::<Self>(renderer, RenderCamera::World, |r, ground, instance| {
+                r.render_sprite(instance, &ground.model, &ground.sprite)
+            });
     }
 }
 
@@ -298,7 +292,7 @@ impl Pipe {
     const HALF_HOLE_SIZE: f32 = 1.1;
     const MIN_PIPE_Y: f32 = 0.25;
     const SPAWN_TIME: f32 = 3.0;
-    pub fn new(world: &mut World) -> Self {
+    pub fn new() -> Self {
         let y = gen_range(
             -GAME_SIZE.y + Self::MIN_PIPE_Y + Pipe::HALF_HOLE_SIZE + Ground::HALF_EXTENTS.y * 2.0
                 ..GAME_SIZE.y - Self::MIN_PIPE_Y - Pipe::HALF_HOLE_SIZE,
@@ -306,7 +300,6 @@ impl Pipe {
         Self {
             point_awarded: false,
             body: RigidBodyComponent::new(
-                world,
                 RigidBodyBuilder::kinematic_velocity_based()
                     .translation(Vector::new(GAME_SIZE.x, y))
                     .linvel(Vector::new(Self::PIPE_SPEED, 0.0)),
@@ -334,8 +327,8 @@ impl ComponentController for Pipe {
     };
     fn update(ctx: &mut Context) {
         let state = ctx.scene_states.get_mut::<FlappyState>();
-        ctx.components.retain::<Self>(|pipe| {
-            let x = pipe.body.get(ctx.world).translation().x;
+        ctx.components.retain::<Self>(ctx.world, |pipe, world| {
+            let x = pipe.body.get(world).translation().x;
             if !pipe.point_awarded && x < 0.0 {
                 pipe.point_awarded = true;
                 state.score += 1;

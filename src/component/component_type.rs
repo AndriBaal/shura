@@ -186,6 +186,7 @@ pub(crate) struct ComponentType {
     pub storage: ComponentTypeStorage,
 }
 
+#[cfg_attr(not(feature = "physics"), allow(unused_mut))]
 impl ComponentType {
     pub(crate) fn with_config<C: ComponentController>(
         config: ComponentConfig,
@@ -365,6 +366,9 @@ impl ComponentType {
         &mut self,
         #[cfg(feature = "physics")] world: &mut World,
         group_handles: &[GroupHandle],
+        #[cfg(feature = "physics")]
+        mut keep: impl FnMut(&mut C, &mut World) -> bool,
+        #[cfg(not(feature = "physics"))]
         mut keep: impl FnMut(&mut C) -> bool,
     ) {
         match &mut self.storage {
@@ -377,7 +381,7 @@ impl ComponentType {
                     let c = c.downcast_mut::<C>().unwrap();
                     #[cfg(feature = "physics")]
                     world.remove(c);
-                    if !keep(c) {
+                    if !keep(c, #[cfg(feature = "physics")] world) {
                         *force_buffer = true;
                         *component = None;
                     }
@@ -385,8 +389,8 @@ impl ComponentType {
             }
             ComponentTypeStorage::Multiple(multiple) => {
                 multiple.components.retain(|_, component| {
-                    let mut component = component.downcast_mut::<C>().unwrap();
-                    if keep(component) {
+                    let component = component.downcast_mut::<C>().unwrap();
+                    if keep(component, #[cfg(feature = "physics")] world) {
                         true
                     } else {
                         #[cfg(feature = "physics")]
@@ -399,8 +403,8 @@ impl ComponentType {
                 for group in group_handles {
                     if let Some(group) = groups.get_mut(group.0) {
                         group.components.retain(|_, component| {
-                            let mut component = component.downcast_mut::<C>().unwrap();
-                            if keep(component) {
+                            let component = component.downcast_mut::<C>().unwrap();
+                            if keep(component, #[cfg(feature = "physics")] world) {
                                 true
                             } else {
                                 #[cfg(feature = "physics")]
@@ -1425,9 +1429,9 @@ impl ComponentType {
                     ComponentHandle::new(ComponentIndex::INVALID, self.index, GroupHandle::INVALID);
                 #[cfg(feature = "physics")]
                 world.add(handle, &mut new);
-                if let Some(mut old) = component.replace(Box::new(new)) {
+                if let Some(mut _old) = component.replace(Box::new(new)) {
                     #[cfg(feature = "physics")]
-                    world.remove(&mut old);
+                    world.remove(&mut _old);
                 }
                 return handle;
             }
@@ -1452,9 +1456,9 @@ impl ComponentType {
                 #[cfg(feature = "physics")]
                 world.add(handle, &mut new);
                 *force_buffer = true;
-                if let Some(mut old) = component.replace(Box::new(new)) {
+                if let Some(mut _old) = component.replace(Box::new(new)) {
                     #[cfg(feature = "physics")]
-                    world.remove(&mut old);
+                    world.remove(&mut _old);
                 }
                 return handle;
             }

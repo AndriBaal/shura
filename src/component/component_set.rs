@@ -90,6 +90,9 @@ impl<'a, C: ComponentController> ComponentSetMut<'a, C> {
     pub fn retain(
         &mut self,
         #[cfg(feature = "physics")] world: &mut World,
+        #[cfg(feature = "physics")]
+        keep: impl FnMut(&mut C, &mut World) -> bool,
+        #[cfg(not(feature = "physics"))]
         keep: impl FnMut(&mut C) -> bool,
     ) {
         self.ty.retain(#[cfg(feature = "physics")] world, self.groups, keep);
