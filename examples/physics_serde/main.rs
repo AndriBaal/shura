@@ -31,23 +31,19 @@ fn shura_main(config: ShuraConfig) {
 
                 for x in -PYRAMID_ELEMENTS..PYRAMID_ELEMENTS {
                     for y in 0..(PYRAMID_ELEMENTS - x.abs()) {
-                        let b = PhysicsBox::new(
-                            ctx,
-                            Vector::new(
-                                x as f32 * (PhysicsBox::HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING),
-                                y as f32
-                                    * (PhysicsBox::HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING * 2.0),
-                            ),
-                        );
-                        ctx.components.add(b);
+                        let b = PhysicsBox::new(Vector::new(
+                            x as f32 * (PhysicsBox::HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING),
+                            y as f32 * (PhysicsBox::HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING * 2.0),
+                        ));
+                        ctx.components.add(ctx.world, b);
                     }
                 }
 
                 let player = Player::new(ctx);
-                let player_handle = ctx.components.add(player);
+                let player_handle = ctx.components.add(ctx.world, player);
                 ctx.world_camera.set_target(Some(player_handle));
                 let floor = Floor::new(ctx);
-                ctx.components.add(floor);
+                ctx.components.add(ctx.world, floor);
             },
         })
     };
@@ -95,7 +91,7 @@ impl Player {
         radius: Self::RADIUS,
     };
 
-    pub fn new(ctx: &mut Context) -> Self {
+    pub fn new(ctx: &Context) -> Self {
         let collider = ColliderBuilder::new(SharedShape::new(Self::SHAPE))
             .active_events(ActiveEvents::COLLISION_EVENTS);
         Self {
@@ -106,7 +102,6 @@ impl Player {
                 0.0,
             )),
             body: RigidBodyComponent::new(
-                ctx.world,
                 RigidBodyBuilder::dynamic().translation(Vector::new(5.0, 4.0)),
                 [collider],
             ),
@@ -155,8 +150,8 @@ impl ComponentController for Player {
                 )
                 .is_none()
             {
-                let b = PhysicsBox::new(ctx, cursor);
-                ctx.components.add(b);
+                let b = PhysicsBox::new(cursor);
+                ctx.components.add(ctx.world, b);
             }
         }
 
@@ -223,10 +218,13 @@ impl ComponentController for Player {
         other_handle: ComponentHandle,
         _self_collider: ColliderHandle,
         _other_collider: ColliderHandle,
-        _collision_type: CollideType,
+        collision_type: CollideType,
     ) {
         if let Some(b) = ctx.components.get_mut::<PhysicsBox>(other_handle) {
-            b.body.set_sprite(Vector::new(1, 0));
+            match collision_type {
+                CollideType::Started => b.body.set_sprite(Vector::new(2, 0)),
+                CollideType::Stopped => b.body.set_sprite(Vector::new(0, 0)),
+            }
         }
     }
 
@@ -250,7 +248,7 @@ impl Floor {
     const FLOOR_SHAPE: Cuboid = Cuboid {
         half_extents: Vector::new(20.0, 0.4),
     };
-    pub fn new(ctx: &mut Context) -> Self {
+    pub fn new(ctx: &Context) -> Self {
         let collider = ColliderBuilder::new(SharedShape::new(Self::FLOOR_SHAPE))
             .translation(Vector::new(0.0, -1.0));
         Self {
@@ -260,7 +258,7 @@ impl Floor {
                 Self::FLOOR_RESOLUTION,
                 0.0,
             )),
-            collider: ColliderComponent::new(ctx.world, collider),
+            collider: ColliderComponent::new(collider),
         }
     }
 }
@@ -285,15 +283,14 @@ impl PhysicsBox {
     const BOX_SHAPE: Cuboid = Cuboid {
         half_extents: Vector::new(PhysicsBox::HALF_BOX_SIZE, PhysicsBox::HALF_BOX_SIZE),
     };
-    pub fn new(ctx: &mut Context, position: Vector<f32>) -> Self {
+    pub fn new(position: Vector<f32>) -> Self {
         Self {
             body: RigidBodyComponent::new(
-                ctx.world,
                 RigidBodyBuilder::dynamic().translation(position),
                 [ColliderBuilder::new(SharedShape::new(
                     PhysicsBox::BOX_SHAPE,
                 ))],
-            ),
+            )
         }
     }
 }
@@ -311,7 +308,9 @@ impl ComponentController for PhysicsBox {
         let cursor_world: Point<f32> = (ctx.input.cursor(&ctx.world_camera)).into();
         let remove = ctx.input.is_held(MouseButton::Left) || ctx.input.is_pressed(ScreenTouch);
         for physics_box in ctx.components.iter_mut::<Self>() {
-            physics_box.body.set_sprite(Vector::new(1, 0));
+            if *physics_box.body.sprite() == vector(1, 0) {
+                physics_box.body.set_sprite(Vector::new(0, 0));
+            }
         }
         let mut component: Option<ComponentHandle> = None;
         ctx.world.intersections_with_point(
@@ -326,7 +325,7 @@ impl ComponentController for PhysicsBox {
             if let Some(physics_box) = ctx.components.get_mut::<Self>(handle) {
                 physics_box.body.set_sprite(Vector::new(1, 0));
                 if remove {
-                    ctx.components.remove_boxed(handle);
+                    ctx.components.remove_boxed(ctx.world, handle);
                 }
             }
         }

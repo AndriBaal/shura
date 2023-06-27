@@ -18,12 +18,12 @@ fn shura_main(config: ShuraConfig) {
         ctx.world_camera
             .set_scaling(WorldCameraScale::Vertical(GAME_SIZE.y));
         ctx.scene_states.insert(BirdSimulation::new(ctx));
-        ctx.components.add(Background::new(ctx));
-        ctx.components.add(Ground::new(ctx));
+        ctx.components.add(ctx.world, Background::new(ctx));
+        ctx.components.add(ctx.world, Ground::new(ctx));
         ctx.window.set_resizable(false);
         ctx.window.set_enabled_buttons(WindowButtons::CLOSE);
         for _ in 0..AMOUNT_BIRDS {
-            ctx.components.add(Bird::new());
+            ctx.components.add(ctx.world, Bird::new());
         }
     }))
 }
@@ -74,9 +74,13 @@ impl BirdSimulation {
         };
     }
 
-    fn spawn_pipes(&mut self, components: &mut ComponentManager) {
+    fn spawn_pipes(
+        &mut self,
+        world: &mut crate::physics::World,
+        components: &mut ComponentManager,
+    ) {
         self.spawn_timer = 0.0;
-        components.add(Pipe::new());
+        components.add(world, Pipe::new());
     }
 }
 
@@ -125,7 +129,7 @@ impl ComponentController for Bird {
         }
 
         if scene.spawn_timer >= Pipe::SPAWN_TIME {
-            scene.spawn_pipes(ctx.components);
+            scene.spawn_pipes(ctx.world, ctx.components);
         }
 
         let pipes = ctx.components.iter::<Pipe>();
@@ -216,13 +220,13 @@ impl ComponentController for Bird {
                 new_bird.brain.mutate();
                 new_birds.push(new_bird);
             }
-            ctx.components.remove_all::<Bird>();
-            ctx.components.add_many(new_birds);
+            ctx.components.remove_all::<Bird>(ctx.world);
+            ctx.components.add_many(ctx.world, new_birds);
 
             scene.generation += 1;
             info!("Now at generation {}!", scene.generation);
-            ctx.components.remove_all::<Pipe>();
-            scene.spawn_pipes(ctx.components);
+            ctx.components.remove_all::<Pipe>(ctx.world);
+            scene.spawn_pipes(ctx.world, ctx.components);
         }
 
         gui::Window::new("Flappy Bird")
@@ -352,7 +356,7 @@ impl ComponentController for Pipe {
     fn update(ctx: &mut Context) {
         let scene = ctx.scene_states.get_mut::<BirdSimulation>();
         let step = ctx.frame.frame_time() * scene.time_scale * Self::PIPE_VEL;
-        ctx.components.retain::<Self>(|pipe| {
+        ctx.components.retain::<Self>(ctx.world, |pipe, _| {
             let new_pos = pipe.pos.translation() + step;
             pipe.pos.set_translation(new_pos);
             if new_pos.x <= -GAME_SIZE.x {

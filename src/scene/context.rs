@@ -89,11 +89,7 @@ impl<'a> Context<'a> {
         &mut self,
         mut serialize: impl FnMut(&mut SceneSerializer),
     ) -> Result<Vec<u8>, Box<bincode::ErrorKind>> {
-        #[cfg(feature = "physics")]
-        self.components.apply_world_mapping(self.world);
-
         let components = &self.components;
-
         let mut serializer =
             SceneSerializer::new(components, &self.global_states, &self.scene_states);
         (serialize)(&mut serializer);
@@ -101,8 +97,6 @@ impl<'a> Context<'a> {
         #[derive(serde::Serialize)]
         struct Scene<'a> {
             id: u32,
-            resized: bool,
-            switched: bool,
             started: bool,
             render_components: bool,
             screen_config: &'a ScreenConfig,
@@ -114,40 +108,34 @@ impl<'a> Context<'a> {
 
         #[cfg(feature = "physics")]
         {
-            use crate::physics::WorldChanges;
             let (ser_components, ser_scene_state, ser_global_state) = serializer.finish();
             let mut world_cpy = self.world.clone();
-            let mut changes = WorldChanges::default();
-
             for (_, ty) in self.components.types() {
                 if !ser_components.contains_key(&ty.component_type_id()) {
                     match &ty.storage {
                         crate::ComponentTypeStorage::Single { component, .. } => {
                             if let Some(component) = component {
-                                changes.register_remove(component);
+                                world_cpy.remove_no_maintain(component);
                             }
                         }
                         crate::ComponentTypeStorage::Multiple(multiple) => {
                             for (_, component) in &multiple.components {
-                                changes.register_remove(component);
+                                world_cpy.remove_no_maintain(component);
                             }
                         }
                         crate::ComponentTypeStorage::MultipleGroups(groups) => {
                             for (_, group) in groups {
                                 for (_, component) in &group.components {
-                                    changes.register_remove(component);
+                                    world_cpy.remove_no_maintain(component);
                                 }
                             }
                         }
                     }
                 }
             }
-            changes.apply(&mut world_cpy);
 
             let scene = Scene {
                 id: *self.scene_id,
-                resized: true,
-                switched: true,
                 started: true,
                 render_components: *self.render_components,
                 screen_config: self.screen_config,
@@ -170,8 +158,6 @@ impl<'a> Context<'a> {
             let (ser_components, ser_scene_state, ser_global_state) = serializer.finish();
             let scene = Scene {
                 id: *self.scene_id,
-                resized: true,
-                switched: true,
                 started: true,
                 screen_config: self.screen_config,
                 world_camera: self.world_camera,

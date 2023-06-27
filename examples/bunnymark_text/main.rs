@@ -10,8 +10,9 @@ fn shura_main(config: ShuraConfig) {
             ctx.screen_config
                 .set_clear_color(Some(Color::new(220, 220, 220, 255)));
             ctx.world_camera.set_scaling(WorldCameraScale::Min(3.0));
-            ctx.components
-                .add_with(|handle| Bunny::new(Vector::new(0.0, 0.0), handle));
+            ctx.components.add_with(ctx.world, |handle| {
+                Bunny::new(Vector::new(0.0, 0.0), handle)
+            });
         },
     });
 }
@@ -71,7 +72,8 @@ impl ComponentController for Bunny {
         if ctx.input.is_held(MouseButton::Left) || ctx.input.is_held(ScreenTouch) {
             let cursor = ctx.input.cursor(&ctx.world_camera);
             for _ in 0..MODIFY_STEP {
-                ctx.components.add_with(|handle| Bunny::new(cursor, handle));
+                ctx.components
+                    .add_with(ctx.world, |handle| Bunny::new(cursor, handle));
             }
         }
         if ctx.input.is_held(MouseButton::Right) {
@@ -85,7 +87,7 @@ impl ComponentController for Bunny {
                     dead.push(bunny.handle);
                 }
                 for handle in dead {
-                    ctx.components.remove_boxed(handle);
+                    ctx.components.remove_boxed(ctx.world, handle);
                 }
             }
         }

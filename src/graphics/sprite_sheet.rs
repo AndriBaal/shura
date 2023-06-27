@@ -49,9 +49,9 @@ impl SpriteSheet {
         let mut bytes = vec![];
         let sprite_size = Vector::new(colors.len() as u32, 1);
         for c in colors {
-            bytes.extend_from_slice(&[c.r, c.g, c.b, c.a])
+            bytes.push(vec![c.r, c.g, c.b, c.a]);
         }
-        return Self::from_raw(gpu, &[bytes], sprite_size, sprite_size);
+        return Self::from_raw(gpu, &bytes, Vector::new(1, 1), sprite_size);
     }
 
     pub fn from_image(gpu: &Gpu, mut image: DynamicImage, sprite_size: Vector<u32>) -> Self {
@@ -74,6 +74,7 @@ impl SpriteSheet {
 
     pub fn from_raw(
         gpu: &Gpu,
+        // Every Sprite passed seperatley because split crop in image
         sprites: &[Vec<u8>],
         sprite_size: Vector<u32>,
         sprite_amount: Vector<u32>,

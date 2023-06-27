@@ -6,7 +6,7 @@ fn shura_main(config: ShuraConfig) {
         id: 0,
         init: |ctx| {
             ctx.components.register::<GuiComponent>();
-            ctx.components.add(GuiComponent::default());
+            ctx.components.add(ctx.world, GuiComponent::default());
         },
     });
 }

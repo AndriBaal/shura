@@ -10,7 +10,14 @@ pub struct ScreenConfig {
     pub render_scale: f32,
     pub max_fps: Option<u32>,
     pub vsync: bool,
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[cfg_attr(feature = "serde", serde(default = "default_true"))]
     pub(crate) changed: bool,
+}
+
+#[cfg(feature = "serde")]
+fn default_true() -> bool {
+    true
 }
 
 impl Default for ScreenConfig {
