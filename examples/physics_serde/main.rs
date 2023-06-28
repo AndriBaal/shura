@@ -222,8 +222,8 @@ impl ComponentController for Player {
     ) {
         if let Some(b) = ctx.components.get_mut::<PhysicsBox>(other_handle) {
             match collision_type {
-                CollideType::Started => b.body.set_sprite(Vector::new(2, 0)),
-                CollideType::Stopped => b.body.set_sprite(Vector::new(0, 0)),
+                CollideType::Started => b.sprite = Vector::new(2, 0),
+                CollideType::Stopped => b.sprite = Vector::new(0, 0),
             }
         }
     }
@@ -276,6 +276,8 @@ impl ComponentController for Floor {
 struct PhysicsBox {
     #[base]
     body: RigidBodyComponent,
+    #[buffer]
+    sprite: Vector<i32>,
 }
 
 impl PhysicsBox {
@@ -290,7 +292,8 @@ impl PhysicsBox {
                 [ColliderBuilder::new(SharedShape::new(
                     PhysicsBox::BOX_SHAPE,
                 ))],
-            )
+            ),
+            sprite: vector(0, 0),
         }
     }
 }
@@ -308,8 +311,8 @@ impl ComponentController for PhysicsBox {
         let cursor_world: Point<f32> = (ctx.input.cursor(&ctx.world_camera)).into();
         let remove = ctx.input.is_held(MouseButton::Left) || ctx.input.is_pressed(ScreenTouch);
         for physics_box in ctx.components.iter_mut::<Self>() {
-            if *physics_box.body.sprite() == vector(1, 0) {
-                physics_box.body.set_sprite(Vector::new(0, 0));
+            if physics_box.sprite == vector(1, 0) {
+                physics_box.sprite = Vector::new(0, 0);
             }
         }
         let mut component: Option<ComponentHandle> = None;
@@ -323,7 +326,7 @@ impl ComponentController for PhysicsBox {
         );
         if let Some(handle) = component {
             if let Some(physics_box) = ctx.components.get_mut::<Self>(handle) {
-                physics_box.body.set_sprite(Vector::new(1, 0));
+                physics_box.sprite = Vector::new(1, 0);
                 if remove {
                     ctx.components.remove_boxed(ctx.world, handle);
                 }

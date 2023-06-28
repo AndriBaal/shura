@@ -202,10 +202,12 @@ impl ComponentManager {
     }
 
     pub(crate) fn buffer(&mut self, #[cfg(feature = "physics")] world: &mut World, gpu: &Gpu) {
-        for (_, ty) in &mut self.types {
+        for (idx, ty) in &mut self.types {
+            let callable = self.callables.get(&TypeIndex(idx)).unwrap();
             ty.buffer(
                 #[cfg(feature = "physics")]
                 world,
+                callable.callbacks.buffer,
                 &self.active_groups,
                 gpu,
             );
@@ -452,10 +454,7 @@ impl ComponentManager {
             .get_boxed(handle)
     }
 
-    pub fn get_boxed_mut(
-        &mut self,
-        handle: ComponentHandle,
-    ) -> Option<&mut BoxedComponent> {
+    pub fn get_boxed_mut(&mut self, handle: ComponentHandle) -> Option<&mut BoxedComponent> {
         self.types
             .get_mut(handle.type_index().0)
             .unwrap()
@@ -794,10 +793,8 @@ impl ComponentManager {
     pub fn retain<C: ComponentController>(
         &mut self,
         #[cfg(feature = "physics")] world: &mut World,
-        #[cfg(feature = "physics")]
-        keep: impl FnMut(&mut C, &mut World) -> bool,
-        #[cfg(not(feature = "physics"))]
-        keep: impl FnMut(&mut C) -> bool,
+        #[cfg(feature = "physics")] keep: impl FnMut(&mut C, &mut World) -> bool,
+        #[cfg(not(feature = "physics"))] keep: impl FnMut(&mut C) -> bool,
     ) {
         self.retain_of(
             #[cfg(feature = "physics")]
@@ -811,10 +808,8 @@ impl ComponentManager {
         &mut self,
         #[cfg(feature = "physics")] world: &mut World,
         filter: ComponentFilter,
-        #[cfg(feature = "physics")]
-        keep: impl FnMut(&mut C, &mut World) -> bool,
-        #[cfg(not(feature = "physics"))]
-        keep: impl FnMut(&mut C) -> bool,
+        #[cfg(feature = "physics")] keep: impl FnMut(&mut C, &mut World) -> bool,
+        #[cfg(not(feature = "physics"))] keep: impl FnMut(&mut C) -> bool,
     ) {
         let groups = group_filter!(self, filter).1;
         let ty = type_mut!(self, C);
@@ -907,6 +902,10 @@ impl ComponentManager {
         create: impl FnOnce(ComponentHandle) -> C,
     ) -> ComponentHandle {
         let ty = type_mut!(self, C);
-        ty.set_single_with(#[cfg(feature = "physics")] world, create)
+        ty.set_single_with(
+            #[cfg(feature = "physics")]
+            world,
+            create,
+        )
     }
 }

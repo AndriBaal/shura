@@ -51,11 +51,6 @@ impl PositionComponent {
         self
     }
 
-    pub fn with_sprite(mut self, sprite: Vector<i32>) -> Self {
-        self.set_sprite(sprite);
-        self
-    }
-
     pub fn with_disabled(mut self, disabled: bool) -> Self {
         self.set_disabled(disabled);
         self
@@ -102,8 +97,7 @@ impl PositionComponent {
                 Vector::default()
             } else {
                 self.scale
-            },
-            self.instance.sprite(),
+            }
         );
     }
 
@@ -117,14 +111,6 @@ impl PositionComponent {
             },
             self.position.rotation,
         );
-    }
-
-    pub fn sprite(&self) -> Vector<i32> {
-        self.instance.sprite()
-    }
-
-    pub fn set_sprite(&mut self, sprite: Vector<i32>) {
-        self.instance.set_sprite(sprite)
     }
 
     pub fn disabled(&self) -> bool {

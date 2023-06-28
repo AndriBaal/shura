@@ -35,7 +35,7 @@ impl Test {
             lightmap: ctx.gpu.create_sprite(include_bytes!("./lightmap.png")),
             shader: ctx.gpu.create_shader(ShaderConfig {
                 fragment_source: Shader::SPRITE,
-                shader_fields: &[ShaderField::Sprite],
+                uniforms: &[UniformField::Sprite],
                 blend: BlendState {
                     color: BlendComponent {
                         src_factor: BlendFactor::Dst,

@@ -4,8 +4,8 @@ use crate::{
     ComponentHandle,
 };
 use crate::{
-    ComponentConfig, ComponentIdentifier, ComponentTypeId, Context, EndReason, InstanceData,
-    Renderer,
+    ComponentConfig, ComponentIdentifier, ComponentTypeId, Context, EndReason, Gpu, InstanceBuffer,
+    InstanceData, Renderer,
 };
 use downcast_rs::*;
 
@@ -35,7 +35,7 @@ impl_downcast!(ComponentDerive);
 
 #[allow(unused_variables)]
 /// A controller is used to define the behaviour of a component, by the given config and callbacks.
-pub trait ComponentController: ComponentDerive + ComponentIdentifier
+pub trait ComponentController: ComponentDerive + ComponentIdentifier + ComponentBuffer
 where
     Self: Sized,
 {
@@ -69,21 +69,13 @@ where
 
     /// Method called when the game is closed or the scene gets removed
     fn end(ctx: &mut Context, reason: EndReason) {}
-
-    // fn buffer<'a>(components: impl Iterator<Item=BoxedComponent>) -> &'a [u8] {
-    //     todo!();
-    // }
-
-    // fn additional_layout(#[cfg(feature = "physics")] world: &mut World) -> Option<&[wgpu::VertexFormat]> {
-    //     todo!();
-    // }
 }
 
 impl<C: ComponentDerive + ?Sized> ComponentDerive for Box<C> {
     fn base(&self) -> &dyn BaseComponent {
         (**self).base()
-    }    
-    
+    }
+
     fn base_mut(&mut self) -> &mut dyn BaseComponent {
         (**self).base_mut()
     }
@@ -93,8 +85,23 @@ impl<C: ComponentDerive + ?Sized> ComponentDerive for Box<C> {
     }
 }
 
-// impl<C: BaseComponent + ?Sized> BaseComponent for Box<C> {
-//     fn instance(&self, #[cfg(feature = "physics")] world: &World) -> Matrix {
-//         (**self).matrix(#[cfg(feature = "physics")] world)
-//     }
-// }
+pub trait ComponentBuffer {
+    const INSTANCE_SIZE: u32 = InstanceData::SIZE;
+    fn buffer(
+        buffer: &mut InstanceBuffer,
+        #[cfg(feature = "physics")] world: &World,
+        gpu: &Gpu,
+        components: &mut dyn Iterator<Item = &BoxedComponent>,
+    ) {
+        let instances = components
+            .into_iter()
+            .map(|component| {
+                component.base().instance(
+                    #[cfg(feature = "physics")]
+                    world,
+                )
+            })
+            .collect::<Vec<InstanceData>>();
+        buffer.write(gpu, bytemuck::cast_slice(&instances));
+    }
+}

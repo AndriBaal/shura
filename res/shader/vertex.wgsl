@@ -15,14 +15,12 @@ struct VertexInput {
 struct InstanceInput {
     @location(5) position: vec2<f32>,
     @location(6) rotation: vec4<f32>,
-    @location(7) sprite: vec2<i32>,
     // SHURA_MARKER_INSTANCE_INPUT
 }
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) tex: vec2<f32>,
-    @location(1) sprite: vec2<i32>
     // SHURA_MARKER_VERTEX_OUTPUT
 }
 
@@ -33,7 +31,6 @@ fn main(
 ) -> VertexOutput {
     var out: VertexOutput;
     out.tex = model.tex;
-    out.sprite = instance.sprite;
     // SHURA_MARKER_VARIABLE_ASSIGNMENT
 
     let pos = model.position * mat2x2<f32>(instance.rotation.xy, instance.rotation.zw) + instance.position;

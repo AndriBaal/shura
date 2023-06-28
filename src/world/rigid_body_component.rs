@@ -41,7 +41,6 @@ impl RigidBodyStatus {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RigidBodyComponent {
     pub(crate) status: RigidBodyStatus,
-    pub sprite: Vector<i32>,
     pub scale: Vector<f32>,
 }
 
@@ -55,7 +54,6 @@ impl RigidBodyComponent {
                 rigid_body: rigid_body.into(),
                 colliders: colliders.into_iter().map(|c| c.into()).collect(),
             },
-            sprite: Vector::new(0, 0),
             scale: Vector::new(1.0, 1.0),
         }
     }
@@ -98,21 +96,8 @@ impl RigidBodyComponent {
         &self.scale
     }
 
-    pub fn set_sprite(&mut self, sprite: Vector<i32>) {
-        self.sprite = sprite;
-    }
-
-    pub const fn sprite(&self) -> &Vector<i32> {
-        &self.sprite
-    }
-
     pub fn with_scale(mut self, scale: Vector<f32>) -> Self {
         self.scale = scale;
-        self
-    }
-
-    pub fn with_sprite(mut self, sprite: Vector<i32>) -> Self {
-        self.sprite = sprite;
         self
     }
 }
@@ -129,7 +114,6 @@ impl BaseComponent for RigidBodyComponent {
                         } else {
                             Vector::default()
                         },
-                        self.sprite,
                     );
                 }
             }
@@ -141,7 +125,6 @@ impl BaseComponent for RigidBodyComponent {
                     } else {
                         Vector::default()
                     },
-                    self.sprite,
                 );
             }
         }

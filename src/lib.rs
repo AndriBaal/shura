@@ -66,9 +66,9 @@ pub mod image {
     pub use image::*;
 }
 
-pub mod bytmuck {
+pub mod bytemuck {
     pub use bytemuck::*;
-}
+}   
 
 #[cfg(feature = "physics")]
 mod world;

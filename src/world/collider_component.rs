@@ -36,7 +36,6 @@ impl ColliderStatus {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ColliderComponent {
     pub(crate) status: ColliderStatus,
-    pub sprite: Vector<i32>,
     pub scale: Vector<f32>,
 }
 
@@ -46,7 +45,6 @@ impl ColliderComponent {
             status: ColliderStatus::Pending {
                 collider: collider.into(),
             },
-            sprite: Vector::new(0, 0),
             scale: Vector::new(1.0, 1.0),
         }
     }
@@ -63,26 +61,12 @@ impl ColliderComponent {
         self.scale = scale;
         self
     }
-
-    pub fn with_sprite(mut self, sprite: Vector<i32>) -> Self {
-        self.sprite = sprite;
-        self
-    }
-
     pub fn set_scale(&mut self, scale: Vector<f32>) {
         self.scale = scale;
     }
 
     pub const fn scale(&self) -> &Vector<f32> {
         &self.scale
-    }
-
-    pub fn set_sprite(&mut self, sprite: Vector<i32>) {
-        self.sprite = sprite;
-    }
-
-    pub const fn sprite(&self) -> &Vector<i32> {
-        &self.sprite
     }
 }
 
@@ -98,7 +82,6 @@ impl BaseComponent for ColliderComponent {
                         } else {
                             Vector::default()
                         },
-                        self.sprite,
                     );
                 }
             }
@@ -110,7 +93,6 @@ impl BaseComponent for ColliderComponent {
                     } else {
                         Vector::default()
                     },
-                    self.sprite,
                 );
             }
         }

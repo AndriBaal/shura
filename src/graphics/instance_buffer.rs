@@ -10,11 +10,11 @@ use wgpu::util::DeviceExt;
 pub struct InstanceData {
     pos: Vector<f32>,
     rot: Matrix<f32>,
-    sprite: Vector<i32>,
 }
 
 impl InstanceData {
-    pub fn new(pos: Isometry<f32>, scale: Vector<f32>, sprite: Vector<i32>) -> Self {
+    pub const SIZE: u32 = std::mem::size_of::<Self>() as u32;
+    pub fn new(pos: Isometry<f32>, scale: Vector<f32>) -> Self {
         Self {
             rot: Matrix::new(
                 scale.x * pos.rotation.cos_angle(),
@@ -23,32 +23,30 @@ impl InstanceData {
                 scale.y * pos.rotation.cos_angle(),
             ),
             pos: pos.translation.vector,
-            sprite,
         }
     }
 
-    pub const fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
-        wgpu::VertexBufferLayout {
-            array_stride: mem::size_of::<Self>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Instance,
-            attributes: &[
-                wgpu::VertexAttribute {
-                    offset: 0,
-                    shader_location: 5,
-                    format: wgpu::VertexFormat::Float32x2,
-                },
-                wgpu::VertexAttribute {
-                    offset: mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
-                    shader_location: 6,
-                    format: wgpu::VertexFormat::Float32x4,
-                },
-                wgpu::VertexAttribute {
-                    offset: mem::size_of::<[f32; 6]>() as wgpu::BufferAddress,
-                    shader_location: 7,
-                    format: wgpu::VertexFormat::Sint32x2,
-                },
-            ],
-        }
+    // pub const fn desc() -> wgpu::VertexBufferLayout<'static> {
+    //     const ATTRIBUTES: [wgpu::VertexAttribute; 2] = wgpu::vertex_attr_array![
+    //         5 => Float32x2,
+    //         6 => Float32x4
+    //     ];
+    //     wgpu::VertexBufferLayout {
+    //         array_stride: mem::size_of::<Self>() as wgpu::BufferAddress,
+    //         step_mode: wgpu::VertexStepMode::Instance,
+    //         attributes: &ATTRIBUTES,
+    //     }
+    // }
+
+    pub fn size() -> wgpu::BufferAddress {
+        mem::size_of::<Self>() as wgpu::BufferAddress
+    }
+
+    pub fn attributes() -> Vec<wgpu::VertexAttribute> {
+        wgpu::vertex_attr_array![
+            5 => Float32x2,
+            6 => Float32x4
+        ].to_vec()
     }
 
     pub fn set_translation(&mut self, translation: Vector<f32>) {
@@ -65,26 +63,14 @@ impl InstanceData {
             )
     }
 
-    pub fn set_sprite(&mut self, sprite: Vector<i32>) {
-        self.sprite = sprite;
-    }
-
     pub fn pos(&self) -> Vector<f32> {
         self.pos
-    }
-
-    pub fn sprite(&self) -> Vector<i32> {
-        self.sprite
     }
 }
 
 impl Default for InstanceData {
     fn default() -> Self {
-        return Self::new(
-            Isometry::new(Vector::default(), 0.0),
-            Vector::new(1.0, 1.0),
-            Vector::new(0, 0),
-        );
+        return Self::new(Isometry::new(Vector::default(), 0.0), Vector::new(1.0, 1.0));
     }
 }
 
@@ -92,42 +78,44 @@ impl Default for InstanceData {
 pub struct InstanceBuffer {
     buffer: wgpu::Buffer,
     instances: u32,
+    instance_size: u32,
 }
 
 impl InstanceBuffer {
-    pub fn new(gpu: &Gpu, data: &[InstanceData]) -> Self {
+    pub fn new(gpu: &Gpu, instance_size: u32, data: &[u8]) -> Self {
         let buffer = gpu
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("instance_buffer"),
                 usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-                contents: bytemuck::cast_slice(data),
+                contents: data,
             });
 
         return Self {
             buffer,
             instances: data.len() as u32,
+            instance_size,
         };
     }
 
-    pub fn empty(gpu: &Gpu, amount: u32) -> Self {
+    pub fn empty(gpu: &Gpu, instance_size: u32, amount: u32) -> Self {
         let buffer = gpu.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("instance_buffer"),
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-            size: std::mem::size_of::<InstanceData>() as u64 * amount as u64,
+            size: instance_size as u64 * amount as u64,
             mapped_at_creation: false,
         });
 
         return Self {
             buffer,
+            instance_size,
             instances: amount,
         };
     }
 
-    pub fn write(&mut self, gpu: &Gpu, data: &[InstanceData]) {
-        self.instances = data.len() as u32;
-        gpu.queue
-            .write_buffer(&self.buffer, 0, bytemuck::cast_slice(&data));
+    pub fn write(&mut self, gpu: &Gpu, data: &[u8]) {
+        self.instances = data.len() as u32 / self.instance_size;
+        gpu.queue.write_buffer(&self.buffer, 0, data);
     }
 
     pub fn slice(&self) -> wgpu::BufferSlice {
@@ -149,9 +137,8 @@ impl InstanceBuffer {
     }
 
     pub fn capacity(&self) -> u32 {
-        const INSTANCE_SIZE: u64 = std::mem::size_of::<InstanceData>() as u64;
         let buffer_size = self.size();
-        return (buffer_size / INSTANCE_SIZE) as u32;
+        return buffer_size as u32 / self.instance_size;
     }
 }
 

@@ -3,7 +3,7 @@ use crate::{
     ModelIndexBuffer, RenderCamera, RenderConfigInstances, RenderTarget, RendererTarget, Shader,
     Sprite, SpriteSheet, Uniform, Vector,
 };
-use std::ptr::null;
+use std::{ptr::null, ops::Range};
 
 #[cfg(feature = "text")]
 use crate::text::{FontBrush, TextSection};
@@ -44,6 +44,9 @@ pub struct Renderer<'a> {
 }
 
 impl<'a> Renderer<'a> {
+    pub const MODEL_SLOT: u32 = 0;
+    pub const INSTANCE_SLOT: u32 = 1;
+    pub const CAMERA_SLOT: u32 = 0;
     pub fn new(
         render_encoder: &'a mut wgpu::CommandEncoder,
         defaults: &'a GpuDefaults,
@@ -127,7 +130,7 @@ impl<'a> Renderer<'a> {
         let ptr = buffer as *const _;
         if ptr != self.cache.bound_instances {
             self.cache.bound_instances = ptr;
-            self.render_pass.set_vertex_buffer(1, buffer.slice());
+            self.render_pass.set_vertex_buffer(Self::INSTANCE_SLOT, buffer.slice());
         }
     }
 
@@ -136,7 +139,7 @@ impl<'a> Renderer<'a> {
         if ptr != self.cache.bound_camera {
             self.cache.bound_camera = ptr;
             self.render_pass
-                .set_bind_group(0, camera.uniform().bind_group(), &[]);
+                .set_bind_group(Self::CAMERA_SLOT, camera.uniform().bind_group(), &[]);
         }
     }
 
@@ -183,7 +186,7 @@ impl<'a> Renderer<'a> {
         if vertex_ptr != self.cache.bound_vertex_buffer {
             self.cache.bound_vertex_buffer = vertex_ptr;
             self.render_pass
-                .set_vertex_buffer(0, model.vertex_buffer().slice(..));
+                .set_vertex_buffer(Self::MODEL_SLOT, model.vertex_buffer().slice(..));
         }
     }
 
@@ -212,8 +215,12 @@ impl<'a> Renderer<'a> {
     }
 
     pub fn draw(&mut self, instances: impl Into<InstanceIndices>) {
+        self.draw_indexed(0..self.indices, instances);
+    }
+
+    pub fn draw_indexed(&mut self, indices: Range<u32>, instances: impl Into<InstanceIndices>) {
         self.render_pass
-            .draw_indexed(0..self.indices, 0, instances.into().range);
+            .draw_indexed(indices, 0, instances.into().range);
     }
 
     pub const fn msaa(&self) -> bool {

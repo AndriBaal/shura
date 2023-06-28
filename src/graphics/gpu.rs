@@ -3,11 +3,11 @@ use crate::log::info;
 #[cfg(feature = "text")]
 use crate::text::{FontBrush, TextPipeline};
 use crate::{
-    Camera, CameraBuffer, Color, ColorWrites, InstanceBuffer, InstanceData, Isometry, Model,
-    ModelBuilder, RenderEncoder, RenderTarget, Shader, ShaderConfig, ShaderField, Sprite,
-    SpriteSheet, Uniform, Vector,
+    Camera, CameraBuffer, Color, ColorWrites, InstanceBuffer, InstanceData, InstanceField,
+    Isometry, Model, ModelBuilder, RenderEncoder, RenderTarget, Shader, ShaderConfig, Sprite,
+    SpriteSheet, Uniform, UniformField, Vector,
 };
-use std::{borrow::Cow, sync::Mutex};
+use std::sync::Mutex;
 use wgpu::{util::DeviceExt, BlendState};
 
 pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 0.5;
@@ -189,8 +189,8 @@ impl Gpu {
         camera.create_buffer(self)
     }
 
-    pub fn create_instance_buffer(&self, instances: &[InstanceData]) -> InstanceBuffer {
-        InstanceBuffer::new(self, instances)
+    pub fn create_instance_buffer(&self, instance_size: u32, instances: &[u8]) -> InstanceBuffer {
+        InstanceBuffer::new(self, instance_size, instances)
     }
 
     pub fn create_model(&self, builder: ModelBuilder) -> Model {
@@ -261,7 +261,6 @@ pub struct WgpuBase {
     pub sprite_layout: wgpu::BindGroupLayout,
     pub camera_layout: wgpu::BindGroupLayout,
     pub uniform_layout: wgpu::BindGroupLayout,
-    pub vertex_shader: wgpu::ShaderModule,
     pub texture_sampler: wgpu::Sampler,
     #[cfg(feature = "text")]
     pub text_pipeline: TextPipeline,
@@ -352,11 +351,6 @@ impl WgpuBase {
                 ],
             });
 
-        let vertex_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("vertex_shader"),
-            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(Shader::VERTEX)),
-        });
-
         let texture_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
@@ -389,7 +383,6 @@ impl WgpuBase {
             sprite_layout,
             camera_layout,
             uniform_layout,
-            vertex_shader,
             texture_sampler,
             #[cfg(feature = "text")]
             text_pipeline,
@@ -431,59 +424,79 @@ pub struct GpuDefaults {
 impl GpuDefaults {
     pub(crate) fn new(gpu: &Gpu, window_size: Vector<u32>) -> Self {
         let sprite_no_msaa = gpu.create_shader(ShaderConfig {
+            name: "sprite_no_msaa",
             fragment_source: Shader::SPRITE,
-            shader_fields: &[ShaderField::Sprite],
+            uniforms: &[UniformField::Sprite],
             msaa: false,
             blend: BlendState::ALPHA_BLENDING,
             write_mask: ColorWrites::ALL,
             render_to_surface: true,
+            ..Default::default()
         });
 
         let sprite_sheet = gpu.create_shader(ShaderConfig {
+            name: "sprite_sheet",
             fragment_source: Shader::SPRITE_SHEET,
-            shader_fields: &[ShaderField::SpriteSheet],
+            uniforms: &[UniformField::SpriteSheet],
+            instance_fields: &[InstanceField {
+                format: wgpu::VertexFormat::Sint32x2,
+                field_name: "sprite",
+                data_type: "vec2<i32>",
+            }],
             ..Default::default()
         });
 
         let sprite_sheet_uniform = gpu.create_shader(ShaderConfig {
+            name: "sprite_sheet_uniform",
             fragment_source: Shader::SPRITE_SHEET_UNIFORM,
-            shader_fields: &[ShaderField::SpriteSheet, ShaderField::Uniform],
+            uniforms: &[UniformField::SpriteSheet, UniformField::Uniform],
+            instance_fields: &[InstanceField {
+                format: wgpu::VertexFormat::Sint32x2,
+                field_name: "sprite",
+                data_type: "vec2<i32>",
+            }],
             ..Default::default()
         });
 
         let sprite = gpu.create_shader(ShaderConfig {
+            name: "sprite",
             fragment_source: Shader::SPRITE,
-            shader_fields: &[ShaderField::Sprite],
+            uniforms: &[UniformField::Sprite],
             ..Default::default()
         });
 
         let rainbow = gpu.create_shader(ShaderConfig {
+            name: "rainbow",
             fragment_source: Shader::RAINBOW,
-            shader_fields: &[ShaderField::Uniform],
+            uniforms: &[UniformField::Uniform],
             ..Default::default()
         });
 
         let grey = gpu.create_shader(ShaderConfig {
+            name: "grey",
             fragment_source: Shader::GREY,
-            shader_fields: &[ShaderField::Sprite],
+            uniforms: &[UniformField::Sprite],
             ..Default::default()
         });
 
         let blurr = gpu.create_shader(ShaderConfig {
+            name: "blurr",
             fragment_source: Shader::BLURR,
-            shader_fields: &[ShaderField::Sprite],
+            uniforms: &[UniformField::Sprite],
             ..Default::default()
         });
 
         let size = gpu.render_size(1.0);
         let world_target = gpu.create_render_target(size);
         let times = Uniform::new(gpu, [0.0, 0.0]);
-        let single_centered_instance = gpu.create_instance_buffer(&[InstanceData::new(
-            Default::default(),
-            Vector::new(1.0, 1.0),
-            Vector::new(0, 0),
-        )]);
-        let empty_instance = gpu.create_instance_buffer(&[]);
+        let single_centered_instance = gpu.create_instance_buffer(
+            InstanceData::SIZE,
+            bytemuck::cast_slice(&[InstanceData::new(
+                Default::default(),
+                Vector::new(1.0, 1.0),
+            )]),
+        );
+        let empty_instance = gpu.create_instance_buffer(InstanceData::SIZE, &[]);
 
         let fov = Self::relative_fov(window_size);
 

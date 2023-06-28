@@ -11,20 +11,33 @@ use crate::{
     InstanceIndices, RenderCamera, Renderer, TypeIndex,
 };
 
+type BufferCallback = fn(
+    buffer: &mut InstanceBuffer,
+    #[cfg(feature = "physics")] world: &World,
+    gpu: &Gpu,
+    components: &mut dyn Iterator<Item = &BoxedComponent>,
+);
+type UpdateCallback = fn(ctx: &mut Context);
+type RenderCallback = for<'a> fn(ctx: &'a Context, renderer: &mut Renderer<'a>);
+#[cfg(feature = "physics")]
+type CollisionCallback = fn(
+    ctx: &mut Context,
+    self_handle: ComponentHandle,
+    other_handle: ComponentHandle,
+    self_collider: ColliderHandle,
+    other_collider: ColliderHandle,
+    collision_type: CollideType,
+);
+type EndCallback = fn(&mut Context, reason: EndReason);
+
 #[derive(Clone, Copy)]
 pub(crate) struct ComponentCallbacks {
-    pub update: fn(ctx: &mut Context),
-    pub render: for<'a> fn(ctx: &'a Context, renderer: &mut Renderer<'a>),
+    pub update: UpdateCallback,
+    pub render: RenderCallback,
     #[cfg(feature = "physics")]
-    pub collision: fn(
-        ctx: &mut Context,
-        self_handle: ComponentHandle,
-        other_handle: ComponentHandle,
-        self_collider: ColliderHandle,
-        other_collider: ColliderHandle,
-        collision_type: CollideType,
-    ),
-    pub end: fn(&mut Context, reason: EndReason),
+    pub collision: CollisionCallback,
+    pub end: EndCallback,
+    pub buffer: BufferCallback,
 }
 
 impl ComponentCallbacks {
@@ -35,6 +48,7 @@ impl ComponentCallbacks {
             collision: C::collision,
             render: C::render,
             end: C::end,
+            buffer: C::buffer,
         };
     }
 }
@@ -115,22 +129,12 @@ impl ComponentTypeGroup {
         }
     }
 
-    fn instances(&self, #[cfg(feature = "physics")] world: &World) -> Vec<InstanceData> {
-        self.components
-            .iter()
-            .map(|(_, component)| {
-                component.base().instance(
-                    #[cfg(feature = "physics")]
-                    world,
-                )
-            })
-            .collect::<Vec<InstanceData>>()
-    }
-
     fn buffer(
         &mut self,
         gpu: &Gpu,
         config: &ComponentConfig,
+        buffer_size: u32,
+        buffer: BufferCallback,
         #[cfg(feature = "physics")] world: &mut World,
     ) {
         // Additional allocation
@@ -138,20 +142,32 @@ impl ComponentTypeGroup {
         let new_len = self.components.len() as u32;
         let buffer_capacity = self.buffer.as_ref().map(|b| b.capacity()).unwrap_or(0) as u32;
         if self.buffer.is_none() || new_len > buffer_capacity {
-            self.buffer = Some(InstanceBuffer::empty(gpu, new_len + BUFFER_STEP));
+            self.buffer = Some(InstanceBuffer::empty(
+                gpu,
+                buffer_size,
+                new_len + BUFFER_STEP,
+            ));
         }
 
         if config.buffer == BufferOperation::EveryFrame
             || self.force_buffer
             || new_len != self.last_len
         {
-            let instances = self.instances(
-                #[cfg(feature = "physics")]
-                world,
-            );
             self.last_len = new_len;
             self.force_buffer = false;
-            self.buffer.as_mut().unwrap().write(gpu, &instances);
+            let buffer = self.buffer.as_mut().unwrap();
+            
+            let instances = self
+                .components
+                .iter()
+                .map(|(_, component)| {
+                    component.base().instance(
+                        #[cfg(feature = "physics")]
+                        world,
+                    )
+                })
+                .collect::<Vec<InstanceData>>();
+            buffer.write(gpu, bytemuck::cast_slice(&instances));
         }
     }
 }
@@ -183,6 +199,7 @@ pub(crate) struct ComponentType {
     index: TypeIndex,
     type_id: ComponentTypeId,
     config: ComponentConfig,
+    buffer_size: u32,
     pub storage: ComponentTypeStorage,
 }
 
@@ -221,6 +238,7 @@ impl ComponentType {
             index,
             storage,
             config,
+            buffer_size: C::INSTANCE_SIZE,
             type_id: C::IDENTIFIER,
         }
     }
@@ -232,6 +250,7 @@ impl ComponentType {
     pub(crate) fn buffer(
         &mut self,
         #[cfg(feature = "physics")] world: &mut World,
+        callback: BufferCallback,
         active: &[GroupHandle],
         gpu: &Gpu,
     ) {
@@ -246,6 +265,7 @@ impl ComponentType {
                     group.buffer(
                         gpu,
                         &self.config,
+                        self.buffer_size,
                         #[cfg(feature = "physics")]
                         world,
                     )
@@ -254,6 +274,7 @@ impl ComponentType {
             ComponentTypeStorage::Multiple(multiple) => multiple.buffer(
                 gpu,
                 &self.config,
+                self.buffer_size,
                 #[cfg(feature = "physics")]
                 world,
             ),
@@ -264,16 +285,19 @@ impl ComponentType {
             } => {
                 if let Some(component) = component {
                     if self.config.buffer == BufferOperation::EveryFrame || *force_buffer {
-                        let matrix = component.base().instance(
+                        if buffer.is_none() {
+                            *buffer = Some(InstanceBuffer::empty(gpu, self.buffer_size, 1));
+                        }
+                        *force_buffer = false;
+                        let buffer = buffer.as_mut().unwrap();
+                        let mut iter = std::iter::once(&*component);
+                        callback(
+                            buffer,
                             #[cfg(feature = "physics")]
                             world,
+                            gpu,
+                            &mut iter,
                         );
-                        *force_buffer = false;
-                        if let Some(buffer) = buffer {
-                            buffer.write(gpu, &[matrix]);
-                        } else {
-                            *buffer = Some(InstanceBuffer::new(gpu, &[matrix]));
-                        }
                     }
                 }
             }
@@ -366,10 +390,8 @@ impl ComponentType {
         &mut self,
         #[cfg(feature = "physics")] world: &mut World,
         group_handles: &[GroupHandle],
-        #[cfg(feature = "physics")]
-        mut keep: impl FnMut(&mut C, &mut World) -> bool,
-        #[cfg(not(feature = "physics"))]
-        mut keep: impl FnMut(&mut C) -> bool,
+        #[cfg(feature = "physics")] mut keep: impl FnMut(&mut C, &mut World) -> bool,
+        #[cfg(not(feature = "physics"))] mut keep: impl FnMut(&mut C) -> bool,
     ) {
         match &mut self.storage {
             ComponentTypeStorage::Single {
@@ -381,7 +403,11 @@ impl ComponentType {
                     let c = c.downcast_mut::<C>().unwrap();
                     #[cfg(feature = "physics")]
                     world.remove(c);
-                    if !keep(c, #[cfg(feature = "physics")] world) {
+                    if !keep(
+                        c,
+                        #[cfg(feature = "physics")]
+                        world,
+                    ) {
                         *force_buffer = true;
                         *component = None;
                     }
@@ -390,7 +416,11 @@ impl ComponentType {
             ComponentTypeStorage::Multiple(multiple) => {
                 multiple.components.retain(|_, component| {
                     let component = component.downcast_mut::<C>().unwrap();
-                    if keep(component, #[cfg(feature = "physics")] world) {
+                    if keep(
+                        component,
+                        #[cfg(feature = "physics")]
+                        world,
+                    ) {
                         true
                     } else {
                         #[cfg(feature = "physics")]
@@ -404,7 +434,11 @@ impl ComponentType {
                     if let Some(group) = groups.get_mut(group.0) {
                         group.components.retain(|_, component| {
                             let component = component.downcast_mut::<C>().unwrap();
-                            if keep(component, #[cfg(feature = "physics")] world) {
+                            if keep(
+                                component,
+                                #[cfg(feature = "physics")]
+                                world,
+                            ) {
                                 true
                             } else {
                                 #[cfg(feature = "physics")]
