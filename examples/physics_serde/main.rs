@@ -277,7 +277,7 @@ struct PhysicsBox {
     #[base]
     body: RigidBodyComponent,
     #[buffer]
-    sprite: Vector<i32>,
+    sprite: Vector<u32>,
 }
 
 impl PhysicsBox {

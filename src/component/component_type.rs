@@ -7,8 +7,8 @@ use crate::physics::{CollideType, ColliderHandle, World};
 use crate::{
     data::arena::ArenaEntry, Arena, BoxedComponent, BufferOperation, ComponentConfig,
     ComponentController, ComponentDerive, ComponentHandle, ComponentIndex, ComponentStorage,
-    Context, EndReason, Gpu, Group, GroupHandle, InstanceBuffer, InstanceData, InstanceIndex,
-    InstanceIndices, RenderCamera, Renderer, TypeIndex,
+    Context, EndReason, Gpu, Group, GroupHandle, InstanceBuffer, InstanceIndex, InstanceIndices,
+    RenderCamera, Renderer, TypeIndex,
 };
 
 type BufferCallback = fn(
@@ -116,7 +116,7 @@ pub(crate) struct ComponentTypeGroup {
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
     buffer: Option<InstanceBuffer>,
-    last_len: u32,
+    last_len: u64,
 }
 
 impl ComponentTypeGroup {
@@ -133,14 +133,14 @@ impl ComponentTypeGroup {
         &mut self,
         gpu: &Gpu,
         config: &ComponentConfig,
-        buffer_size: u32,
-        buffer: BufferCallback,
+        buffer_size: u64,
+        callback: BufferCallback,
         #[cfg(feature = "physics")] world: &mut World,
     ) {
         // Additional allocation
-        const BUFFER_STEP: u32 = 12;
-        let new_len = self.components.len() as u32;
-        let buffer_capacity = self.buffer.as_ref().map(|b| b.capacity()).unwrap_or(0) as u32;
+        const BUFFER_STEP: u64 = 12;
+        let new_len = self.components.len() as u64;
+        let buffer_capacity = self.buffer.as_ref().map(|b| b.capacity()).unwrap_or(0);
         if self.buffer.is_none() || new_len > buffer_capacity {
             self.buffer = Some(InstanceBuffer::empty(
                 gpu,
@@ -156,18 +156,13 @@ impl ComponentTypeGroup {
             self.last_len = new_len;
             self.force_buffer = false;
             let buffer = self.buffer.as_mut().unwrap();
-            
-            let instances = self
-                .components
-                .iter()
-                .map(|(_, component)| {
-                    component.base().instance(
-                        #[cfg(feature = "physics")]
-                        world,
-                    )
-                })
-                .collect::<Vec<InstanceData>>();
-            buffer.write(gpu, bytemuck::cast_slice(&instances));
+            callback(
+                buffer,
+                #[cfg(feature = "physics")]
+                world,
+                gpu,
+                &mut self.components.iter().map(|(_, component)| component),
+            );
         }
     }
 }
@@ -193,13 +188,15 @@ impl CallableType {
 
 const BUFFER_ERROR: &'static str =
     "This component either has no buffer or it has not been initialized yet!";
+// const INSTANCE_SIZE_ERROR: &'static str =
+//     "This component instance does have have the required size needed for the shader! Consider adding additional fields to buffer with the #[buffer] attribute.";
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct ComponentType {
     index: TypeIndex,
     type_id: ComponentTypeId,
     config: ComponentConfig,
-    buffer_size: u32,
+    buffer_size: u64,
     pub storage: ComponentTypeStorage,
 }
 
@@ -266,6 +263,7 @@ impl ComponentType {
                         gpu,
                         &self.config,
                         self.buffer_size,
+                        callback,
                         #[cfg(feature = "physics")]
                         world,
                     )
@@ -275,6 +273,7 @@ impl ComponentType {
                 gpu,
                 &self.config,
                 self.buffer_size,
+                callback,
                 #[cfg(feature = "physics")]
                 world,
             ),

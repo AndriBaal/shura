@@ -86,7 +86,7 @@ impl<C: ComponentDerive + ?Sized> ComponentDerive for Box<C> {
 }
 
 pub trait ComponentBuffer {
-    const INSTANCE_SIZE: u32 = InstanceData::SIZE;
+    const INSTANCE_SIZE: u64 = InstanceData::SIZE;
     fn buffer(
         buffer: &mut InstanceBuffer,
         #[cfg(feature = "physics")] world: &World,

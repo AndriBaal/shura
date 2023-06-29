@@ -70,6 +70,7 @@ pub enum UniformField {
 pub struct Shader {
     pipeline: wgpu::RenderPipeline,
     msaa: bool,
+    instance_size: u64
 }
 
 impl Shader {
@@ -156,7 +157,6 @@ impl Shader {
                     vertex_shader.replace("// SHURA_MARKER_VERTEX_OUTPUT", &vertex_outputs);
                 vertex_shader =
                     vertex_shader.replace("// SHURA_MARKER_VARIABLE_ASSIGNMENT", &assignments);
-                println!("{vertex_shader}");
             }
             Cow::Owned(vertex_shader)
         };
@@ -219,11 +219,16 @@ impl Shader {
         Shader {
             pipeline,
             msaa: config.msaa,
+            instance_size: array_stride,
         }
     }
 
     pub fn pipeline(&self) -> &wgpu::RenderPipeline {
         &self.pipeline
+    }
+
+    pub fn instance_size(&self) -> u64 {
+        self.instance_size
     }
 
     pub fn msaa(&self) -> bool {

@@ -3,7 +3,7 @@
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) tex: vec2<f32>,
-    @location(1) sprite: vec2<i32>  
+    @location(1) sprite: vec2<u32>  
 }
 
 @group(1) @binding(0) 
@@ -14,7 +14,7 @@ var s_diffuse: sampler;
 var<uniform> sprite_amount: Uniforms;
 
 struct Uniforms {
-    @size(16) index: vec2<i32>,
+    @size(16) index: vec2<u32>,
 }
 
 @fragment

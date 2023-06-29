@@ -189,7 +189,7 @@ impl Gpu {
         camera.create_buffer(self)
     }
 
-    pub fn create_instance_buffer(&self, instance_size: u32, instances: &[u8]) -> InstanceBuffer {
+    pub fn create_instance_buffer(&self, instance_size: u64, instances: &[u8]) -> InstanceBuffer {
         InstanceBuffer::new(self, instance_size, instances)
     }
 
@@ -439,9 +439,9 @@ impl GpuDefaults {
             fragment_source: Shader::SPRITE_SHEET,
             uniforms: &[UniformField::SpriteSheet],
             instance_fields: &[InstanceField {
-                format: wgpu::VertexFormat::Sint32x2,
+                format: wgpu::VertexFormat::Uint32x2,
                 field_name: "sprite",
-                data_type: "vec2<i32>",
+                data_type: "vec2<u32>",
             }],
             ..Default::default()
         });
@@ -451,9 +451,9 @@ impl GpuDefaults {
             fragment_source: Shader::SPRITE_SHEET_UNIFORM,
             uniforms: &[UniformField::SpriteSheet, UniformField::Uniform],
             instance_fields: &[InstanceField {
-                format: wgpu::VertexFormat::Sint32x2,
+                format: wgpu::VertexFormat::Uint32x2,
                 field_name: "sprite",
-                data_type: "vec2<i32>",
+                data_type: "vec2<u32>",
             }],
             ..Default::default()
         });
