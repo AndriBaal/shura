@@ -179,6 +179,10 @@ impl ShuraConfig {
                             }
                         }
                         Event::MainEventsCleared => {
+                            if shura.gpu.instance.poll_all(true) {
+                                #[cfg(feature = "log")]
+                                info!("Awaiting render submits");
+                            }
                             shura.window.request_redraw();
                         }
                         #[cfg(target_os = "android")]
@@ -277,8 +281,6 @@ impl Shura {
             self.input.resize(new_size);
             self.gpu.resize(new_size);
             self.defaults.resize(&self.gpu, new_size);
-            #[cfg(feature = "gui")]
-            self.gui.resize(&new_size);
         }
     }
 
@@ -404,13 +406,14 @@ impl Shura {
         }
 
         if self.scenes.switched() || scene.screen_config.changed {
+            let scale = scene.screen_config.render_scale();
             #[cfg(feature = "log")]
             {
                 if self.scenes.switched() {
                     info!("Switched to scene {}!", scene.id);
                 }
 
-                let size = self.gpu.render_size(scene.screen_config.render_scale());
+                let size = self.gpu.render_size(scale);
                 info!(
                     "Resizing render target to: {} x {} using VSYNC: {}",
                     size.x,
@@ -423,7 +426,10 @@ impl Shura {
 
             self.gpu.apply_vsync(scene.screen_config.vsync());
             self.defaults
-                .apply_render_scale(&self.gpu, scene.screen_config.render_scale());
+                .apply_render_scale(&self.gpu, scale);
+
+            #[cfg(feature = "gui")]
+            self.gui.resize(&self.gpu.render_size(scale));
         }
 
         self.frame.update();
