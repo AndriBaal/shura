@@ -1,4 +1,4 @@
-use crate::{Color, Gpu, Vector};
+use crate::{Gpu, Vector, RgbaColor};
 use image::DynamicImage;
 
 /// 2D Sprite used for rendering
@@ -37,7 +37,7 @@ impl Sprite {
         return Self::from_raw(gpu, size, image.as_rgba8().unwrap_or(&image.to_rgba8()));
     }
 
-    pub fn from_color(gpu: &Gpu, color: Color) -> Self {
+    pub fn from_color(gpu: &Gpu, color: RgbaColor) -> Self {
         return Self::from_raw(
             gpu,
             Vector::new(1, 1),

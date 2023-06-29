@@ -1,9 +1,9 @@
 use crate::{
     CameraBuffer, Color, Gpu, GpuDefaults, InstanceBuffer, InstanceIndices, Model,
-    ModelIndexBuffer, RenderCamera, RenderConfigInstances, RenderTarget, RendererTarget, Shader,
+    RenderCamera, RenderConfigInstances, RenderTarget, RendererTarget, Shader,
     Sprite, SpriteSheet, Uniform, Vector,
 };
-use std::{ptr::null, ops::Range};
+use std::{ops::Range, ptr::null};
 
 #[cfg(feature = "text")]
 use crate::text::{FontBrush, TextSection};
@@ -36,10 +36,10 @@ pub struct Renderer<'a> {
     pub gpu: &'a Gpu,
     pub defaults: &'a GpuDefaults,
     pub screenshot: Option<&'a RenderTarget>,
+    target: &'a RenderTarget,
     msaa: bool,
     indices: u32,
     render_pass: wgpu::RenderPass<'a>,
-    target_size: Vector<u32>,
     cache: RenderCache,
 }
 
@@ -80,7 +80,7 @@ impl<'a> Renderer<'a> {
             msaa: msaa,
             cache: Default::default(),
             defaults: defaults,
-            target_size: target.size(),
+            target,
             gpu,
             screenshot: None,
         };
@@ -90,9 +90,8 @@ impl<'a> Renderer<'a> {
         encoder: &'a mut wgpu::CommandEncoder,
         output: &'a wgpu::TextureView,
         defaults: &'a GpuDefaults,
-        gpu: &'a Gpu,
-    ) -> Renderer<'a> {
-        let render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+    ) {
+        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("render_pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 view: &output,
@@ -106,23 +105,35 @@ impl<'a> Renderer<'a> {
             depth_stencil_attachment: None,
         });
 
-        let mut renderer = Self {
-            render_pass,
-            indices: 0,
-            msaa: false,
-            cache: Default::default(),
-            defaults,
-            target_size: Vector::default(),
-            gpu,
-            screenshot: None,
-        };
-        renderer.use_camera_buffer(&defaults.relative_camera.0);
-        renderer.use_instance_buffer(&defaults.single_centered_instance);
-        return renderer;
+        let shader = &defaults.sprite_no_msaa;
+        let sprite = &defaults.world_target.sprite();
+        let model = &defaults.relative_camera.0.model();
+
+        render_pass.set_bind_group(
+            Self::CAMERA_SLOT,
+            &defaults.relative_camera.0.uniform().bind_group(),
+            &[],
+        );
+        render_pass.set_vertex_buffer(
+            Self::INSTANCE_SLOT,
+            defaults.single_centered_instance.slice(),
+        );
+        render_pass.set_pipeline(shader.pipeline());
+        render_pass.set_bind_group(1, sprite.bind_group(), &[]);
+        render_pass.set_vertex_buffer(Self::MODEL_SLOT, model.vertex_buffer().slice(..));
+        render_pass.set_index_buffer(model.index_buffer(defaults).slice(..), wgpu::IndexFormat::Uint32);
+        render_pass.draw_indexed(0..model.amount_of_indices(), 0, 0..1);
+
+        // renderer.use_camera_buffer(&defaults.relative_camera.0);
+        // renderer.use_instance_buffer(&defaults.single_centered_instance);
+        // renderer.use_shader(&ctx.defaults.sprite_no_msaa);
+        // renderer.use_model(ctx.defaults.relative_camera.0.model());
+        // renderer.use_sprite(ctx.defaults.world_target.sprite(), 1);
+        // renderer.draw(0);
     }
 
-    pub fn target_size(&self) -> Vector<u32> {
-        self.target_size
+    pub fn target(&self) -> &RenderTarget {
+        self.target
     }
 
     /// Sets the instance buffer at the position 1
@@ -130,7 +141,8 @@ impl<'a> Renderer<'a> {
         let ptr = buffer as *const _;
         if ptr != self.cache.bound_instances {
             self.cache.bound_instances = ptr;
-            self.render_pass.set_vertex_buffer(Self::INSTANCE_SLOT, buffer.slice());
+            self.render_pass
+                .set_vertex_buffer(Self::INSTANCE_SLOT, buffer.slice());
         }
     }
 
@@ -167,11 +179,7 @@ impl<'a> Renderer<'a> {
     }
 
     pub fn use_model(&mut self, model: &'a Model) {
-        let index_buffer = match model.index_buffer() {
-            ModelIndexBuffer::Triangle => &self.defaults.triangle_index_buffer,
-            ModelIndexBuffer::Cuboid => &self.defaults.cuboid_index_buffer,
-            ModelIndexBuffer::Custom(c) => c,
-        };
+        let index_buffer = model.index_buffer(self.defaults);
         let index_ptr = index_buffer as *const _;
         let vertex_ptr = model.vertex_buffer() as *const _;
 
@@ -233,7 +241,7 @@ impl<'a> Renderer<'a> {
         font.render(
             self.gpu,
             &mut self.render_pass,
-            self.target_size.cast::<f32>(),
+            self.target.size().cast::<f32>(),
         )
     }
 
@@ -244,7 +252,7 @@ impl<'a> Renderer<'a> {
         font: &'a FontBrush,
         sections: Vec<TextSection>,
     ) {
-        font.queue(self.defaults, camera, self.target_size, sections);
+        font.queue(self.defaults, camera, self.target.size(), sections);
     }
 
     pub fn render_sprite(
@@ -282,6 +290,24 @@ impl<'a> Renderer<'a> {
         self.use_model(model);
         self.use_sprite_sheet(sprite, 1);
         self.use_uniform(sprite_index, 2);
+        self.draw(instances);
+    }
+
+    pub fn render_color(&mut self, instances: impl Into<InstanceIndices>, model: &'a Model) {
+        self.use_shader(&self.defaults.color);
+        self.use_model(model);
+        self.draw(instances);
+    }
+
+    pub fn render_color_uniform(
+        &mut self,
+        instances: impl Into<InstanceIndices>,
+        model: &'a Model,
+        color: &'a Uniform<Color>,
+    ) {
+        self.use_shader(&self.defaults.color_uniform);
+        self.use_model(model);
+        self.use_uniform(color, 1);
         self.draw(instances);
     }
 

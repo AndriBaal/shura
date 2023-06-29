@@ -179,10 +179,8 @@ impl ShuraConfig {
                             }
                         }
                         Event::MainEventsCleared => {
-                            if shura.gpu.instance.poll_all(true) {
-                                #[cfg(feature = "log")]
-                                info!("Awaiting render submits");
-                            }
+                            #[cfg(target_os = "windows")]
+                            shura.gpu.instance.poll_all(true);
                             shura.window.request_redraw();
                         }
                         #[cfg(target_os = "android")]
@@ -425,8 +423,7 @@ impl Shura {
             scene.world_camera.resize(window_size);
 
             self.gpu.apply_vsync(scene.screen_config.vsync());
-            self.defaults
-                .apply_render_scale(&self.gpu, scale);
+            self.defaults.apply_render_scale(&self.gpu, scale);
 
             #[cfg(feature = "gui")]
             self.gui.resize(&self.gpu.render_size(scale));
@@ -541,12 +538,7 @@ impl Shura {
             .create_view(&wgpu::TextureViewDescriptor::default());
 
         {
-            let mut renderer =
-                Renderer::output_renderer(&mut encoder.inner, &output_view, ctx.defaults, ctx.gpu);
-            renderer.use_shader(&ctx.defaults.sprite_no_msaa);
-            renderer.use_model(ctx.defaults.relative_camera.0.model());
-            renderer.use_sprite(ctx.defaults.world_target.sprite(), 1);
-            renderer.draw(0);
+            Renderer::output_renderer(&mut encoder.inner, &output_view, ctx.defaults);
         }
 
         encoder.finish();

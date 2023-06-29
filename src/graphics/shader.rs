@@ -70,7 +70,7 @@ pub enum UniformField {
 pub struct Shader {
     pipeline: wgpu::RenderPipeline,
     msaa: bool,
-    instance_size: u64
+    instance_size: u64,
 }
 
 impl Shader {
@@ -79,6 +79,8 @@ impl Shader {
     pub const SPRITE_SHEET: &'static str = include_str!("../../res/shader/sprite_sheet.wgsl");
     pub const SPRITE_SHEET_UNIFORM: &'static str =
         include_str!("../../res/shader/sprite_sheet_uniform.wgsl");
+    pub const COLOR: &'static str = include_str!("../../res/shader/color.wgsl");
+    pub const COLOR_UNIFORM: &'static str = include_str!("../../res/shader/color_uniform.wgsl");
     pub const RAINBOW: &'static str = include_str!("../../res/shader/rainbow.wgsl");
     pub const GREY: &'static str = include_str!("../../res/shader/grey.wgsl");
     pub const BLURR: &'static str = include_str!("../../res/shader/blurr.wgsl");
@@ -145,10 +147,14 @@ impl Shader {
                         shader_location: vertex_input,
                     });
                     array_stride += field.format.size();
-                    instance_inputs +=
-                        &format!("\n\t@location({vertex_input}) sprite: {},", field.data_type);
-                    vertex_outputs +=
-                        &format!("\n\t@location({vertex_output}) sprite: {}", field.data_type);
+                    instance_inputs += &format!(
+                        "\n\t@location({vertex_input}) {}: {},",
+                        field.field_name, field.data_type
+                    );
+                    vertex_outputs += &format!(
+                        "\n\t@location({vertex_output}) {}: {}",
+                        field.field_name, field.data_type
+                    );
                     assignments += &format!("\n\tout.{0} = instance.{0};", field.field_name);
                 }
                 vertex_shader =

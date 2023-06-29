@@ -58,10 +58,10 @@ struct PhysicsState {
 impl PhysicsState {
     pub fn new(ctx: &Context) -> Self {
         let box_colors = ctx.gpu.create_color_sheet(&[
-            Color::new(0, 255, 0, 255),
-            Color::new(255, 0, 0, 255),
-            Color::new(0, 0, 255, 255),
-            Color::new(0, 0, 255, 255),
+            RgbaColor::new(0, 255, 0, 255),
+            RgbaColor::new(255, 0, 0, 255),
+            RgbaColor::new(0, 0, 255, 255),
+            RgbaColor::new(0, 0, 255, 255),
         ]);
         Self {
             box_model: ctx.gpu.create_model(ModelBuilder::from_collider_shape(
@@ -252,7 +252,7 @@ impl Floor {
         let collider = ColliderBuilder::new(SharedShape::new(Self::FLOOR_SHAPE))
             .translation(Vector::new(0.0, -1.0));
         Self {
-            color: ctx.gpu.create_color(Color::new(0, 0, 255, 255)),
+            color: ctx.gpu.create_color(RgbaColor::BLUE),
             model: ctx.gpu.create_model(ModelBuilder::from_collider_shape(
                 collider.shape.as_ref(),
                 Self::FLOOR_RESOLUTION,
@@ -351,7 +351,7 @@ impl<'de, 'a> serde::de::Visitor<'de> for FloorVisitor<'a> {
             .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
         Ok(Floor {
             collider,
-            color: self.ctx.gpu.create_color(Color::new(0, 0, 255, 255)),
+            color: self.ctx.gpu.create_color(RgbaColor::BLUE),
             model: self.ctx.gpu.create_model(ModelBuilder::from_collider_shape(
                 &Floor::FLOOR_SHAPE,
                 Floor::FLOOR_RESOLUTION,

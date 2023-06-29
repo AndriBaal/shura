@@ -63,8 +63,10 @@ impl FlappyState {
 struct Bird {
     #[base]
     body: RigidBodyComponent,
+    #[buffer]
+    sprite: Vector<u32>,
     model: Model,
-    sprite: SpriteSheet,
+    sprite_sheet: SpriteSheet,
     sink: AudioSink,
     hit_sound: Sound,
     wing_sound: Sound,
@@ -73,10 +75,6 @@ struct Bird {
 impl Bird {
     const HALF_EXTENTS: Vector<f32> = Vector::new(0.3, 0.21176472);
     pub fn new(gpu: &Gpu, audio: &AudioManager) -> Self {
-        let sprite = gpu.create_sprite_sheet(
-            include_bytes!("./sprites/yellowbird.png"),
-            Vector::new(17, 12),
-        );
         Self {
             body: RigidBodyComponent::new(
                 RigidBodyBuilder::dynamic()
@@ -91,10 +89,14 @@ impl Bird {
             ),
 
             model: gpu.create_model(ModelBuilder::cuboid(Self::HALF_EXTENTS)),
-            sprite,
+            sprite_sheet: gpu.create_sprite_sheet(
+                include_bytes!("./sprites/yellowbird.png"),
+                Vector::new(17, 12),
+            ),
             sink: audio.create_sink(),
             hit_sound: audio.create_sound(include_bytes!("./audio/hit.wav")),
             wing_sound: audio.create_sound(include_bytes!("./audio/wing.wav")),
+            sprite: Default::default(),
         }
     }
 }
@@ -108,7 +110,7 @@ impl ComponentController for Bird {
     fn render<'a>(ctx: &'a Context, renderer: &mut Renderer<'a>) {
         ctx.components
             .render_each::<Self>(renderer, RenderCamera::World, |r, bird, instance| {
-                r.render_sprite_sheet(instance, &bird.model, &bird.sprite)
+                r.render_sprite_sheet(instance, &bird.model, &bird.sprite_sheet)
             });
     }
 
@@ -150,19 +152,17 @@ impl ComponentController for Bird {
                 ui.label(format!("High Score: {}", scene.high_score));
             });
 
-        for bird in ctx.components.iter_mut::<Self>() {
+        let bird = ctx.components.single_mut::<Self>().unwrap();
+        bird.sprite = Vector::new((ctx.frame.total_time() * 7.0 % 3.0) as u32, 0);
+        if ctx.input.is_pressed(Key::Space)
+            || ctx.input.is_pressed(MouseButton::Left)
+            || ctx.input.is_pressed(ScreenTouch)
+        {
+            bird.sink = ctx.audio.create_sink();
+            bird.sink.append(bird.wing_sound.decode());
             bird.body
-                .set_sprite(Vector::new((ctx.frame.total_time() * 7.0 % 3.0) as i32, 0));
-            if ctx.input.is_pressed(Key::Space)
-                || ctx.input.is_pressed(MouseButton::Left)
-                || ctx.input.is_pressed(ScreenTouch)
-            {
-                bird.sink = ctx.audio.create_sink();
-                bird.sink.append(bird.wing_sound.decode());
-                bird.body
-                    .get_mut(ctx.world)
-                    .set_linvel(Vector::new(0.0, 5.0), true);
-            }
+                .get_mut(ctx.world)
+                .set_linvel(Vector::new(0.0, 5.0), true);
         }
     }
 

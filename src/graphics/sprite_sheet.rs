@@ -1,7 +1,7 @@
 use image::DynamicImage;
 use wgpu::{util::DeviceExt, ImageCopyTexture};
 
-use crate::{Color, Gpu, Vector};
+use crate::{Gpu, RgbaColor, Vector};
 /// Collection of [Sprites](crate::Sprite) that will be loaded from the same image where all sprites have the same size.
 pub struct SpriteSheet {
     _texture: wgpu::Texture,
@@ -45,7 +45,7 @@ impl SpriteSheet {
         Self::from_image(gpu, img, sprite_size)
     }
 
-    pub fn from_colors(gpu: &Gpu, colors: &[Color]) -> Self {
+    pub fn from_colors(gpu: &Gpu, colors: &[RgbaColor]) -> Self {
         let mut bytes = vec![];
         let sprite_size = Vector::new(colors.len() as u32, 1);
         for c in colors {

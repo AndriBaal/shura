@@ -1,7 +1,7 @@
 #[cfg(feature = "physics")]
 use crate::physics::{Shape, TypedShape};
 use crate::{na::Matrix2, Gpu, Index, Isometry, Rotation, Vector, Vertex};
-use crate::{CameraBuffer, AABB};
+use crate::{CameraBuffer, AABB, GpuDefaults};
 use std::f32::consts::{FRAC_PI_2, PI};
 use wgpu::util::DeviceExt;
 
@@ -690,8 +690,12 @@ impl Model {
         &self.vertex_buffer
     }
 
-    pub fn index_buffer(&self) -> &ModelIndexBuffer {
-        &self.index_buffer
+    pub fn index_buffer<'a>(&'a self, defaults: &'a GpuDefaults) -> &'a wgpu::Buffer {
+        return match &self.index_buffer {
+            ModelIndexBuffer::Triangle => &defaults.triangle_index_buffer,
+            ModelIndexBuffer::Cuboid => &defaults.cuboid_index_buffer,
+            ModelIndexBuffer::Custom(c) => c,
+        };
     }
 
     pub fn amount_of_indices(&self) -> u32 {

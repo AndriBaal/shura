@@ -3,8 +3,8 @@ use crate::log::info;
 #[cfg(feature = "text")]
 use crate::text::{FontBrush, TextPipeline};
 use crate::{
-    Camera, CameraBuffer, Color, ColorWrites, InstanceBuffer, InstanceData, InstanceField,
-    Isometry, Model, ModelBuilder, RenderEncoder, RenderTarget, Shader, ShaderConfig, Sprite,
+    Camera, CameraBuffer, ColorWrites, InstanceBuffer, InstanceData, InstanceField, Isometry,
+    Model, ModelBuilder, RenderEncoder, RenderTarget, RgbaColor, Shader, ShaderConfig, Sprite,
     SpriteSheet, Uniform, UniformField, Vector,
 };
 use std::sync::Mutex;
@@ -230,11 +230,11 @@ impl Gpu {
         Uniform::new(self, data)
     }
 
-    pub fn create_color(&self, color: Color) -> Sprite {
+    pub fn create_color(&self, color: RgbaColor) -> Sprite {
         Sprite::from_color(self, color)
     }
 
-    pub fn create_color_sheet(&self, colors: &[Color]) -> SpriteSheet {
+    pub fn create_color_sheet(&self, colors: &[RgbaColor]) -> SpriteSheet {
         SpriteSheet::from_colors(self, colors)
     }
 
@@ -395,6 +395,8 @@ pub struct GpuDefaults {
     pub sprite: Shader,
     pub sprite_sheet: Shader,
     pub sprite_sheet_uniform: Shader,
+    pub color: Shader,
+    pub color_uniform: Shader,
     pub rainbow: Shader,
     pub grey: Shader,
     pub blurr: Shader,
@@ -458,6 +460,26 @@ impl GpuDefaults {
             ..Default::default()
         });
 
+        let color = gpu.create_shader(ShaderConfig {
+            name: "color",
+            fragment_source: Shader::COLOR,
+            uniforms: &[],
+            instance_fields: &[InstanceField {
+                format: wgpu::VertexFormat::Float32x4,
+                field_name: "color",
+                data_type: "vec4<f32>",
+            }],
+            ..Default::default()
+        });
+
+        let color_uniform = gpu.create_shader(ShaderConfig {
+            name: "color_uniform",
+            fragment_source: Shader::COLOR_UNIFORM,
+            uniforms: &[UniformField::Uniform],
+            instance_fields: &[],
+            ..Default::default()
+        });
+
         let sprite = gpu.create_shader(ShaderConfig {
             name: "sprite",
             fragment_source: Shader::SPRITE,
@@ -491,10 +513,7 @@ impl GpuDefaults {
         let times = Uniform::new(gpu, [0.0, 0.0]);
         let single_centered_instance = gpu.create_instance_buffer(
             InstanceData::SIZE,
-            bytemuck::cast_slice(&[InstanceData::new(
-                Default::default(),
-                Vector::new(1.0, 1.0),
-            )]),
+            bytemuck::cast_slice(&[InstanceData::new(Default::default(), Vector::new(1.0, 1.0))]),
         );
         let empty_instance = gpu.create_instance_buffer(InstanceData::SIZE, &[]);
 
@@ -556,6 +575,8 @@ impl GpuDefaults {
             relative_top_right_camera,
             world_camera,
             world_target,
+            color,
+            color_uniform,
         }
     }
 

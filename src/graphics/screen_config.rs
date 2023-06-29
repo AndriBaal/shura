@@ -23,7 +23,7 @@ fn default_true() -> bool {
 impl Default for ScreenConfig {
     fn default() -> Self {
         Self {
-            clear_color: Some(Color::new(0, 0, 0, 255)),
+            clear_color: Some(Color::BLACK),
             render_scale: 1.0,
             max_fps: None,
             vsync: false,
