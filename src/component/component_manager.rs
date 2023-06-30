@@ -173,7 +173,7 @@ pub struct ComponentManager {
 
 impl ComponentManager {
     pub(crate) fn new() -> Self {
-        let default_component_group = Group::new(GroupActivation::Always, 0);
+        let default_component_group = Group::new(GroupActivation::Always, 0, Some("Default Group"));
         let mut groups = Arena::default();
         let index = groups.insert(default_component_group);
         let group_handle = GroupHandle(index);

@@ -20,16 +20,18 @@ pub enum GroupActivation {
 /// After every update and before rendering, the set of active groups gets
 /// computed.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub struct Group {
     active: bool,
+    pub name: String,
     pub activation: GroupActivation,
     pub user_data: u64,
 }
 
 impl Group {
-    pub fn new(activation: GroupActivation, user_data: u64) -> Group {
+    pub fn new(activation: GroupActivation, user_data: u64, name: Option<&str>) -> Group {
         Group {
+            name: name.unwrap_or("Group").into(),
             activation,
             user_data,
             active: false,
