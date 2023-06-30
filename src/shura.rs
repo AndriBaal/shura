@@ -11,7 +11,7 @@ use crate::{
 };
 use crate::{
     Context, EndReason, FrameManager, Gpu, GpuConfig, GpuDefaults, Input, RenderEncoder, Renderer,
-    RendererTarget, SceneCreator, SceneManager, StateManager, Vector,
+    SceneCreator, SceneManager, StateManager, Vector,
 };
 #[cfg(target_arch = "wasm32")]
 use rustc_hash::FxHashMap;
@@ -295,8 +295,7 @@ impl Shura {
             };
         }
 
-        let delta = ctx.frame.frame_time();
-        ctx.world.step(delta);
+        ctx.world.step(ctx.frame);
         // while let Ok(contact_force_event) = ctx.components.event_receivers.1.try_recv() {
         // }
         while let Ok(collision_event) = ctx.world.collision_event() {
@@ -398,6 +397,7 @@ impl Shura {
             }
         }
         if scene.started {
+            #[cfg(feature = "log")]
             info!("Initializing scene {}!", scene.id);
             scene.started = false;
             scene.components.update_sets(&self.defaults.world_camera);
@@ -516,17 +516,25 @@ impl Shura {
         let mut encoder = RenderEncoder::new(ctx.gpu, &ctx.defaults);
 
         {
-            let mut renderer =
-                encoder.renderer(RendererTarget::World, ctx.screen_config.clear_color, true);
+            let mut renderer = encoder.renderer(
+                &ctx.defaults.world_target,
+                ctx.screen_config.clear_color,
+                true,
+            );
             for (_, type_index) in ctx.components.render_priorities().borrow().iter() {
                 let ty = ctx.components.callable(type_index);
+                let (clear, target) = (ty.callbacks.render_target)(&ctx);
+                if target as *const _ != renderer.target() as *const _ {
+                    drop(renderer);
+                    renderer = encoder.renderer(&target, clear, true);
+                }
                 (ty.callbacks.render)(&ctx, &mut renderer);
                 if let Some(screenshot) = renderer.screenshot.take() {
                     let screenshot =
                         unsafe { (screenshot as *const crate::RenderTarget).as_ref().unwrap() };
                     drop(renderer);
-                    encoder.copy_to_target(&ctx.defaults.world_target, screenshot);
-                    renderer = encoder.renderer(RendererTarget::World, None, true);
+                    encoder.copy_to_target(ctx.defaults.world_target.sprite(), screenshot);
+                    renderer = encoder.renderer(&ctx.defaults.world_target, None, true);
                 }
             }
         }

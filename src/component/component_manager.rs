@@ -277,6 +277,10 @@ impl ComponentManager {
         self.register_with_config::<C>(C::CONFIG);
     }
 
+    pub fn type_id(&self, component: ComponentHandle) -> ComponentTypeId {
+        self.callables.get(&component.type_index()).unwrap().type_id
+    }
+
     pub fn register_with_config<C: ComponentController>(&mut self, config: ComponentConfig) {
         if !self.type_map.contains_key(&C::IDENTIFIER) {
             let index = self.types.insert_with(|idx| {
@@ -341,7 +345,7 @@ impl ComponentManager {
         return false;
     }
 
-    pub fn type_id_of(&self, component: ComponentHandle) -> ComponentTypeId {
+    pub fn component_type_id(&self, component: ComponentHandle) -> ComponentTypeId {
         return self.types[component.type_index().0].component_type_id();
     }
 

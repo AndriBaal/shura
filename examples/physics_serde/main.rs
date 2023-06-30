@@ -136,7 +136,7 @@ impl ComponentController for Player {
         }
 
         if ctx.input.is_held(MouseButton::Right) {
-            let cursor = ctx.input.cursor(&ctx.world_camera);
+            let cursor = ctx.input.cursor(ctx.world_camera);
             let cursor_pos = Isometry::new(cursor, 0.0);
             if ctx
                 .world
@@ -207,7 +207,7 @@ impl ComponentController for Player {
 
     fn render<'a>(ctx: &'a Context, renderer: &mut Renderer<'a>) {
         ctx.components
-            .render_each::<Self>(renderer, RenderCamera::World, |r, player, index| {
+            .render_single::<Self>(renderer, RenderCamera::World, |r, player, index| {
                 r.render_sprite(index, &player.model, &player.sprite)
             });
     }
@@ -264,9 +264,13 @@ impl Floor {
 }
 
 impl ComponentController for Floor {
+    const CONFIG: ComponentConfig = ComponentConfig {
+        storage: ComponentStorage::Single,
+        ..ComponentConfig::DEFAULT
+    };
     fn render<'a>(ctx: &'a Context, renderer: &mut Renderer<'a>) {
         ctx.components
-            .render_each::<Self>(renderer, RenderCamera::World, |r, floor, index| {
+            .render_single::<Self>(renderer, RenderCamera::World, |r, floor, index| {
                 r.render_sprite(index, &floor.model, &floor.color)
             });
     }
@@ -308,7 +312,7 @@ impl ComponentController for PhysicsBox {
     }
 
     fn update(ctx: &mut Context) {
-        let cursor_world: Point<f32> = (ctx.input.cursor(&ctx.world_camera)).into();
+        let cursor_world: Point<f32> = (ctx.input.cursor(ctx.world_camera)).into();
         let remove = ctx.input.is_held(MouseButton::Left) || ctx.input.is_pressed(ScreenTouch);
         for physics_box in ctx.components.iter_mut::<Self>() {
             if physics_box.sprite == vector(1, 0) {

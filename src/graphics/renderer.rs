@@ -1,6 +1,6 @@
 use crate::{
     CameraBuffer, Color, Gpu, GpuDefaults, InstanceBuffer, InstanceIndices, Model,
-    RenderCamera, RenderConfigInstances, RenderTarget, RendererTarget, Shader,
+    RenderCamera, RenderConfigInstances, RenderTarget, Shader,
     Sprite, SpriteSheet, Uniform, Vector,
 };
 use std::{ops::Range, ptr::null};
@@ -51,11 +51,10 @@ impl<'a> Renderer<'a> {
         render_encoder: &'a mut wgpu::CommandEncoder,
         defaults: &'a GpuDefaults,
         gpu: &'a Gpu,
-        target: RendererTarget<'a>,
+        target: &'a RenderTarget,
         msaa: bool,
         clear: Option<Color>,
     ) -> Renderer<'a> {
-        let target = target.target(defaults);
         let render_pass = render_encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("render_pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {

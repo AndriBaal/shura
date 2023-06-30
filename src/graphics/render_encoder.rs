@@ -49,21 +49,6 @@ impl<'a> RenderConfigInstances<'a> {
     }
 }
 
-#[derive(Clone, Copy)]
-/// Target to render onto
-pub enum RendererTarget<'a> {
-    World,
-    Custom(&'a RenderTarget),
-}
-
-impl<'a> RendererTarget<'a> {
-    pub fn target(self, defaults: &'a GpuDefaults) -> &'a RenderTarget {
-        return match self {
-            RendererTarget::World => &defaults.world_target,
-            RendererTarget::Custom(c) => c,
-        };
-    }
-}
 
 /// Encoder of [Renderers](crate::Renderer) and utilities to copy, clear and render text onto [RenderTargets](crate::RenderTarget)
 pub struct RenderEncoder<'a> {
@@ -88,11 +73,7 @@ impl<'a> RenderEncoder<'a> {
         }
     }
 
-    pub fn clear(&mut self, target: RendererTarget, color: Color) {
-        let target = match target {
-            crate::RendererTarget::World => &self.defaults.world_target,
-            crate::RendererTarget::Custom(c) => c,
-        };
+    pub fn clear(&mut self, target: &RenderTarget, color: Color) {
         self.inner.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("render_pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -110,7 +91,7 @@ impl<'a> RenderEncoder<'a> {
 
     pub fn renderer<'b>(
         &'b mut self,
-        target: RendererTarget<'b>,
+        target: &'b RenderTarget,
         clear: Option<Color>,
         msaa: bool,
     ) -> Renderer<'b> {
@@ -129,7 +110,7 @@ impl<'a> RenderEncoder<'a> {
             &mut self.inner,
             self.defaults,
             self.gpu,
-            RendererTarget::Custom(target),
+            target,
             true,
             None,
         );

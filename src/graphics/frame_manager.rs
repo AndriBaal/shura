@@ -16,6 +16,7 @@ pub struct FrameManager {
 }
 
 impl FrameManager {
+    pub const MAX_FRAME_TIME: Duration = Duration::from_millis(50);
     pub(crate) fn new() -> Self {
         let now = Instant::now();
         let elapsed = now.elapsed();
@@ -33,7 +34,6 @@ impl FrameManager {
     }
 
     pub(crate) fn update(&mut self) {
-        const MAX_FRAME_TIME: Duration = Duration::from_millis(50);
         self.update_time = Instant::now();
         self.total_time = self.update_time - self.start_time;
 
@@ -41,8 +41,8 @@ impl FrameManager {
         self.total_frames += 1;
         let new_frame_time = self.total_time - self.last_time;
 
-        if new_frame_time > MAX_FRAME_TIME {
-            self.frame_time = MAX_FRAME_TIME;
+        if new_frame_time > Self::MAX_FRAME_TIME {
+            self.frame_time = Self::MAX_FRAME_TIME;
         } else {
             self.frame_time = new_frame_time;
         }
@@ -70,6 +70,7 @@ impl FrameManager {
         Instant::now()
     }
 
+    /// Frame time with a limit of [MAX_FRAME_TIME]
     pub fn frame_time(&self) -> f32 {
         self.frame_time.as_secs_f32()
     }

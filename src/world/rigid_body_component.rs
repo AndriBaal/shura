@@ -1,5 +1,5 @@
 use crate::{
-    physics::{Collider, RigidBody, RigidBodyHandle, World},
+    physics::{Collider, ColliderHandle, RigidBody, RigidBodyHandle, World},
     BaseComponent, InstanceData, Vector,
 };
 
@@ -36,6 +36,32 @@ impl RigidBodyStatus {
             }
         }
     }
+
+    pub fn attach_collider(
+        &mut self,
+        world: &mut World,
+        collider: impl Into<Collider>,
+    ) -> Option<ColliderHandle> {
+        match self {
+            RigidBodyStatus::Added { rigid_body_handle } => {
+                return world.attach_collider(*rigid_body_handle, collider)
+            }
+            RigidBodyStatus::Pending { colliders, .. } => colliders.push(collider.into()),
+        }
+        return None;
+    }
+
+    pub fn detach_collider(
+        &mut self,
+        world: &mut World,
+        collider: ColliderHandle,
+    ) -> Option<Collider> {
+        match self {
+            RigidBodyStatus::Added { .. } => return world.detach_collider(collider),
+            RigidBodyStatus::Pending { .. } => (),
+        }
+        return None;
+    }
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -66,27 +92,21 @@ impl RigidBodyComponent {
         self.status.get_mut(world)
     }
 
-    // pub fn attach_collider(
-    //     &mut self,
-    //     world: &mut World,
-    //     collider: impl Into<Collider>,
-    // ) -> ColliderHandle {
-    //     if world.rigid_body(self.rigid_body_handle).is_some() {
-    //         return world.attach_collider(self.rigid_body_handle, collider);
-    //     }
-    //     panic!("This RigidBodyComponent is not initailized")
-    // }
+    pub fn attach_collider(
+        &mut self,
+        world: &mut World,
+        collider: impl Into<Collider>,
+    ) -> Option<ColliderHandle> {
+        self.status.attach_collider(world, collider)
+    }
 
-    // pub fn remove_attached_colliders(
-    //     &mut self,
-    //     world: &mut World,
-    //     rigid_body_handle: ColliderHandle,
-    // ) {
-    //     if let Some(collider) = world.collider(rigid_body_handle) {
-    //         assert!(collider.parent().unwrap() == self.rigid_body_handle);
-    //         world.unregister_collider(rigid_body_handle)
-    //     }
-    // }
+    pub fn detach_collider(
+        &mut self,
+        world: &mut World,
+        collider: ColliderHandle,
+    ) -> Option<Collider> {
+        self.status.detach_collider(world, collider)
+    }
 
     pub fn set_scale(&mut self, scale: Vector<f32>) {
         self.scale = scale;

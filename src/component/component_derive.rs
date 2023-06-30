@@ -5,7 +5,7 @@ use crate::{
 };
 use crate::{
     ComponentConfig, ComponentIdentifier, ComponentTypeId, Context, EndReason, Gpu, InstanceBuffer,
-    InstanceData, Renderer,
+    InstanceData, Renderer, RenderTarget, Color
 };
 use downcast_rs::*;
 
@@ -69,6 +69,10 @@ where
 
     /// Method called when the game is closed or the scene gets removed
     fn end(ctx: &mut Context, reason: EndReason) {}
+
+    fn render_target<'a>(ctx: &'a Context) -> (Option<Color>, &'a RenderTarget) {
+        return (None, &ctx.defaults.world_target);
+    }
 }
 
 impl<C: ComponentDerive + ?Sized> ComponentDerive for Box<C> {

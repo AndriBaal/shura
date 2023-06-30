@@ -1,34 +1,52 @@
-use crate::{BaseComponent, InstanceData, Isometry, Rotation, Vector};
+use crate::{
+    physics::{
+        Collider, KinematicCharacterController, RigidBody, RigidBodyHandle, Shape, SharedShape,
+        TypedShape, World,
+    },
+    BaseComponent, InstanceData, Isometry, Rotation, Vector,
+};
 
-#[cfg(feature = "physics")]
-use crate::physics::World;
-
-/// Component that is rendered to the screen by its given position and scale.
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone)]
-pub struct PositionComponent {
+// #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct CharacterControllerComponent {
+    pub controller: KinematicCharacterController,
+    pub shape: SharedShape,
     scale: Vector<f32>,
     position: Isometry<f32>,
     instance: InstanceData,
     disabled: bool,
 }
 
-
-impl Default for PositionComponent {
-    fn default() -> Self {
-        Self {
-            scale: Vector::new(1.0, 1.0),
-            instance: InstanceData::default(),
-            position: Isometry::default(),
-            disabled: false,
-        }
+impl CharacterControllerComponent {
+    pub fn controller(&self) -> &KinematicCharacterController {
+        &self.controller
     }
-}
 
-#[allow(unreachable_patterns)]
-impl PositionComponent {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn controller_mut(&mut self) -> &mut KinematicCharacterController {
+        &mut self.controller
+    }
+
+    pub fn set_controller(&mut self, controller: KinematicCharacterController) {
+        self.controller = controller;
+    }
+
+    pub fn set_shape(&mut self, shape: impl Into<SharedShape>) {
+        self.shape = shape.into()
+    }
+
+    pub fn try_shape<S: Shape>(&self) -> Option<&S> {
+        self.shape.downcast_ref::<S>()
+    }
+
+    pub fn try_shape_mut<S: Shape>(&mut self) -> Option<&mut S> {
+        self.shape.downcast_mut::<S>()
+    }
+
+    pub fn shape<S: Shape>(&self) -> &S {
+        self.try_shape().unwrap()
+    }
+
+    pub fn shape_mut<S: Shape>(&mut self) -> &mut S {
+        self.try_shape_mut().unwrap()
     }
 
     pub fn with_scale(mut self, scale: Vector<f32>) -> Self {
@@ -56,6 +74,15 @@ impl PositionComponent {
         self
     }
 
+    pub fn with_shape(mut self, shape: impl Into<SharedShape>) -> Self {
+        self.shape = shape.into();
+        self
+    }
+
+    pub fn with_controller(mut self, controller: KinematicCharacterController) -> Self {
+        self.controller = controller;
+        self
+    }
 
     pub fn set_disabled(&mut self, disabled: bool) {
         self.disabled = disabled;
@@ -94,7 +121,7 @@ impl PositionComponent {
                 Vector::default()
             } else {
                 self.scale
-            }
+            },
         );
     }
 
@@ -129,10 +156,20 @@ impl PositionComponent {
     pub const fn scale(&self) -> &Vector<f32> {
         &self.scale
     }
+
+    // pub fn move_character(&mut self, world: &World) {}
+
+    // pub fn move_character_no_apply(&self, world: &World) -> EffectiveCharacterMovement {
+
+    // }
+
+    // pub fn solve_collision(&self) {
+
+    // }
 }
 
-impl BaseComponent for PositionComponent {
-    fn instance(&self, #[cfg(feature = "physics")] _world: &World) -> InstanceData {
+impl BaseComponent for CharacterControllerComponent {
+    fn instance(&self, world: &World) -> crate::InstanceData {
         self.instance
     }
 }

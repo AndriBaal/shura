@@ -109,7 +109,7 @@ impl ComponentController for Bird {
 
     fn render<'a>(ctx: &'a Context, renderer: &mut Renderer<'a>) {
         ctx.components
-            .render_each::<Self>(renderer, RenderCamera::World, |r, bird, instance| {
+            .render_single::<Self>(renderer, RenderCamera::World, |r, bird, instance| {
                 r.render_sprite_sheet(instance, &bird.model, &bird.sprite_sheet)
             });
     }
@@ -230,13 +230,15 @@ impl Ground {
 impl ComponentController for Ground {
     const CONFIG: ComponentConfig = ComponentConfig {
         update_priority: 2,
+        storage: ComponentStorage::Single,
         ..ComponentConfig::DEFAULT
     };
     fn render<'a>(ctx: &'a Context, renderer: &mut Renderer<'a>) {
-        ctx.components
-            .render_each::<Self>(renderer, RenderCamera::World, |r, ground, instance| {
-                r.render_sprite(instance, &ground.model, &ground.sprite)
-            });
+        ctx.components.render_single::<Self>(
+            renderer,
+            RenderCamera::World,
+            |r, ground, instance| r.render_sprite(instance, &ground.model, &ground.sprite),
+        );
     }
 }
 
@@ -264,12 +266,13 @@ impl Background {
 impl ComponentController for Background {
     const CONFIG: ComponentConfig = ComponentConfig {
         update_priority: 1,
+        render_priority: 1,
         buffer: BufferOperation::Manual,
         storage: ComponentStorage::Single,
         ..ComponentConfig::DEFAULT
     };
     fn render<'a>(ctx: &'a Context, renderer: &mut Renderer<'a>) {
-        ctx.components.render_each::<Self>(
+        ctx.components.render_single::<Self>(
             renderer,
             RenderCamera::World,
             |r, background, instance| {

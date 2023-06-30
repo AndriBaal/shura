@@ -1,5 +1,4 @@
 use crate::{Camera, Gpu, GpuDefaults, RenderEncoder, Sprite, Vector};
-use std::ops::Deref;
 
 /// Texture to render onto with a [RenderEncoder]
 pub struct RenderTarget {
@@ -71,6 +70,10 @@ impl RenderTarget {
         &self.target
     }
 
+    pub fn size(&self) -> Vector<u32> {
+        self.target.size()
+    }
+
     pub fn view(&self) -> &wgpu::TextureView {
         &self.target_view
     }
@@ -121,13 +124,5 @@ impl RenderTarget {
 impl Into<Sprite> for RenderTarget {
     fn into(self) -> Sprite {
         return self.target;
-    }
-}
-
-impl Deref for RenderTarget {
-    type Target = Sprite;
-
-    fn deref(&self) -> &Sprite {
-        self.sprite()
     }
 }

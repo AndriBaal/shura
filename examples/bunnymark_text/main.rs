@@ -70,7 +70,7 @@ impl ComponentController for Bunny {
         const GRAVITY: f32 = -2.5;
         const MODIFY_STEP: usize = 1500;
         if ctx.input.is_held(MouseButton::Left) || ctx.input.is_held(ScreenTouch) {
-            let cursor = ctx.input.cursor(&ctx.world_camera);
+            let cursor = ctx.input.cursor(ctx.world_camera);
             for _ in 0..MODIFY_STEP {
                 ctx.components
                     .add_with(ctx.world, |handle| Bunny::new(cursor, handle));

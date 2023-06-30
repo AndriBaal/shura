@@ -68,14 +68,23 @@ pub mod image {
 
 pub mod bytemuck {
     pub use bytemuck::*;
-}   
+}
 
 #[cfg(feature = "physics")]
 mod world;
 #[cfg(feature = "physics")]
 /// Access to the to [rapier2d](https://github.com/dimforge/rapier)
 pub mod physics {
-    pub use crate::world::{collider_component::*, rigid_body_component::*, world::*};
+    pub use crate::world::{
+        // character_controller_component::*,
+        collider_component::*,
+        rigid_body_component::*,
+        world::*,
+    };
+    pub use rapier2d::control::{
+        CharacterAutostep, CharacterCollision, CharacterLength, EffectiveCharacterMovement,
+        KinematicCharacterController,
+    };
     pub use rapier2d::geometry::*;
     pub use rapier2d::parry;
     pub use rapier2d::prelude::{

@@ -5,10 +5,10 @@ use std::fmt::{Display, Formatter, Result};
 use crate::physics::{CollideType, ColliderHandle, World};
 
 use crate::{
-    data::arena::ArenaEntry, Arena, BoxedComponent, BufferOperation, ComponentConfig,
+    data::arena::ArenaEntry, Arena, BoxedComponent, BufferOperation, Color, ComponentConfig,
     ComponentController, ComponentDerive, ComponentHandle, ComponentIndex, ComponentStorage,
     Context, EndReason, Gpu, Group, GroupHandle, InstanceBuffer, InstanceIndex, InstanceIndices,
-    RenderCamera, Renderer, TypeIndex,
+    RenderCamera, RenderTarget, Renderer, TypeIndex,
 };
 
 type BufferCallback = fn(
@@ -19,6 +19,7 @@ type BufferCallback = fn(
 );
 type UpdateCallback = fn(ctx: &mut Context);
 type RenderCallback = for<'a> fn(ctx: &'a Context, renderer: &mut Renderer<'a>);
+type TargetCallback = for<'a> fn(ctx: &'a Context) -> (Option<Color>, &'a RenderTarget);
 #[cfg(feature = "physics")]
 type CollisionCallback = fn(
     ctx: &mut Context,
@@ -38,6 +39,7 @@ pub(crate) struct ComponentCallbacks {
     pub collision: CollisionCallback,
     pub end: EndCallback,
     pub buffer: BufferCallback,
+    pub render_target: TargetCallback,
 }
 
 impl ComponentCallbacks {
@@ -49,6 +51,7 @@ impl ComponentCallbacks {
             render: C::render,
             end: C::end,
             buffer: C::buffer,
+            render_target: C::render_target,
         };
     }
 }
@@ -171,6 +174,7 @@ pub(crate) struct CallableType {
     pub config: ComponentConfig,
     pub callbacks: ComponentCallbacks,
     pub last_update: Option<Instant>,
+    pub type_id: ComponentTypeId
 }
 
 impl CallableType {
@@ -182,6 +186,7 @@ impl CallableType {
             },
             callbacks: ComponentCallbacks::new::<C>(),
             config: C::CONFIG,
+            type_id: C::IDENTIFIER
         }
     }
 }

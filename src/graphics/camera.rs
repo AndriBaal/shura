@@ -12,6 +12,31 @@ use crate::physics::World;
 
 const MINIMAL_FOV: f32 = 0.0001;
 
+pub trait CursorCompute {
+    fn fov(&self) -> Vector<f32>;
+    fn translation(&self) -> Vector<f32>;
+}
+
+impl CursorCompute for WorldCamera {
+    fn fov(&self) -> Vector<f32> {
+        self.fov()
+    }
+
+    fn translation(&self) -> Vector<f32> {
+        *self.translation()
+    }
+}
+
+impl CursorCompute for Camera {
+    fn fov(&self) -> Vector<f32> {
+        self.fov()
+    }
+
+    fn translation(&self) -> Vector<f32> {
+        *self.translation()
+    }
+}
+
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone)]
 /// 2D Camera for rendering
@@ -194,15 +219,40 @@ impl WorldCamera {
     pub fn set_translation(&mut self, translation: Vector<f32>) {
         self.camera.position.translation.vector = translation;
     }
-}
 
-impl Deref for WorldCamera {
-    type Target = Camera;
+    pub fn position(&self) -> &Isometry<f32> {
+        self.camera.position()
+    }
 
-    fn deref(&self) -> &Self::Target {
+    pub fn translation(&self) -> &Vector<f32> {
+        self.camera.translation()
+    }
+
+    pub fn view(&self) -> CameraMatrix {
+        self.camera.view()
+    }
+
+    pub fn proj(&self) -> CameraMatrix {
+        self.camera.proj()
+    }
+
+    pub fn view_proj(&self) -> CameraMatrix {
+        self.camera.view_proj()
+    }
+
+    pub fn rotation(&self) -> &Rotation<f32> {
+        self.camera.rotation()
+    }
+
+    pub fn fov(&self) -> Vector<f32> {
+        self.camera.fov()
+    }
+
+    pub fn camera(&self) -> &Camera {
         &self.camera
     }
 }
+
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Copy)]
@@ -271,6 +321,7 @@ impl WorldCameraScale {
         }
     }
 }
+
 
 /// Holds the [Uniform] with the matrix of a [Camera] and the [Model] of the fov.
 pub struct CameraBuffer {
