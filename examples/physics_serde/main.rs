@@ -22,9 +22,9 @@ fn shura_main(config: ShuraConfig) {
             init: |ctx| {
                 const PYRAMID_ELEMENTS: i32 = 8;
                 const MINIMAL_SPACING: f32 = 0.1;
-                ctx.components.register::<PhysicsBox>();
-                ctx.components.register::<Player>();
-                ctx.components.register::<Floor>();
+                ctx.components.register::<PhysicsBox>(ctx.groups);
+                ctx.components.register::<Player>(ctx.groups);
+                ctx.components.register::<Floor>(ctx.groups);
                 ctx.world_camera.set_scaling(WorldCameraScale::Max(5.0));
                 ctx.world.set_gravity(Vector::new(0.00, -9.81));
                 ctx.scene_states.insert(PhysicsState::new(ctx));

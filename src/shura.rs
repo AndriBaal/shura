@@ -400,7 +400,9 @@ impl Shura {
             #[cfg(feature = "log")]
             info!("Initializing scene {}!", scene.id);
             scene.started = false;
-            scene.components.update_sets(&self.defaults.world_camera);
+            scene
+                .groups
+                .update(&mut scene.components, &self.defaults.world_camera);
         }
 
         if self.scenes.switched() || scene.screen_config.changed {
@@ -502,7 +504,9 @@ impl Shura {
             self.frame.frame_time(),
         );
 
-        scene.components.update_sets(&self.defaults.world_camera);
+        scene
+            .groups
+            .update(&mut scene.components, &self.defaults.world_camera);
         if !scene.render_components {
             return Ok(());
         }

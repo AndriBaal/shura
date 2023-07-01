@@ -4,8 +4,8 @@ use crate::{
     ComponentHandle,
 };
 use crate::{
-    ComponentConfig, ComponentIdentifier, ComponentTypeId, Context, EndReason, Gpu, InstanceBuffer,
-    InstanceData, Renderer, RenderTarget, Color
+    Color, ComponentConfig, ComponentIdentifier, ComponentTypeId, Context, EndReason, Gpu,
+    InstanceBuffer, InstanceData, RenderTarget, Renderer,
 };
 use downcast_rs::*;
 

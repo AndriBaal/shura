@@ -5,7 +5,7 @@ const GAME_SIZE: Vector<f32> = Vector::new(11.25, 5.0);
 #[shura::main]
 fn shura_main(config: ShuraConfig) {
     config.init(NewScene::new(1, |ctx| {
-        register!(ctx.components, [Background, Ground, Pipe, Bird]);
+        register!(ctx.components, ctx.groups, [Background, Ground, Pipe, Bird]);
         ctx.scene_states
             .insert(FlappyState::new(ctx.gpu, ctx.audio));
         ctx.components.add(ctx.world, Background::new(ctx));

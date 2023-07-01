@@ -2,8 +2,8 @@
 use crate::physics::World;
 
 use crate::{
-    ComponentManager, Context, ScreenConfig, Shura, StateManager, Vector, WorldCamera,
-    WorldCameraScale,
+    ComponentManager, Context, GroupManager, ScreenConfig, Shura, StateManager, Vector,
+    WorldCamera, WorldCameraScale,
 };
 
 /// Origin of a [Scene]
@@ -80,6 +80,7 @@ pub struct Scene {
     pub screen_config: ScreenConfig,
     pub world_camera: WorldCamera,
     pub components: ComponentManager,
+    pub groups: GroupManager,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
     pub states: StateManager,
@@ -98,6 +99,7 @@ impl Scene {
                 window_size,
             ),
             components: ComponentManager::new(),
+            groups: GroupManager::new(),
             screen_config: ScreenConfig::new(),
             states: StateManager::default(),
             render_components: true,

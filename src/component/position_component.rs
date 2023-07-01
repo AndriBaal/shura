@@ -13,7 +13,6 @@ pub struct PositionComponent {
     disabled: bool,
 }
 
-
 impl Default for PositionComponent {
     fn default() -> Self {
         Self {
@@ -56,7 +55,6 @@ impl PositionComponent {
         self
     }
 
-
     pub fn set_disabled(&mut self, disabled: bool) {
         self.disabled = disabled;
         self.instance.set_scale_rotation(
@@ -94,7 +92,7 @@ impl PositionComponent {
                 Vector::default()
             } else {
                 self.scale
-            }
+            },
         );
     }
 

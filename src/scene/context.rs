@@ -1,6 +1,6 @@
 use crate::{
-    ComponentManager, FrameManager, Gpu, GpuDefaults, Input, Scene, SceneManager, ScreenConfig,
-    Shura, StateManager, Vector, WorldCamera,
+    ComponentManager, FrameManager, Gpu, GpuDefaults, GroupManager, Input, Scene, SceneManager,
+    ScreenConfig, Shura, StateManager, Vector, WorldCamera,
 };
 
 #[cfg(feature = "serde")]
@@ -28,6 +28,7 @@ pub struct Context<'a> {
     pub scene_states: &'a mut StateManager,
     pub world_camera: &'a mut WorldCamera,
     pub components: &'a mut ComponentManager,
+    pub groups: &'a mut GroupManager,
     #[cfg(feature = "physics")]
     pub world: &'a mut World,
 
@@ -61,6 +62,7 @@ impl<'a> Context<'a> {
             screen_config: &mut scene.screen_config,
             world_camera: &mut scene.world_camera,
             components: &mut scene.components,
+            groups: &mut scene.groups,
             scene_states: &mut scene.states,
             #[cfg(feature = "physics")]
             world: &mut scene.world,
@@ -102,6 +104,7 @@ impl<'a> Context<'a> {
             screen_config: &'a ScreenConfig,
             world_camera: &'a WorldCamera,
             components: &'a ComponentManager,
+            groups: &'a GroupManager,
             #[cfg(feature = "physics")]
             world: &'a World,
         }
@@ -141,6 +144,7 @@ impl<'a> Context<'a> {
                 screen_config: self.screen_config,
                 world_camera: self.world_camera,
                 components: self.components,
+                groups: self.groups,
                 world: &world_cpy,
             };
             let scene: (
@@ -162,6 +166,7 @@ impl<'a> Context<'a> {
                 screen_config: self.screen_config,
                 world_camera: self.world_camera,
                 components: self.components,
+                groups: self.groups,
                 render_components: *self.render_components,
             };
             let scene: (

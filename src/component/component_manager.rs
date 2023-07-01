@@ -5,10 +5,9 @@ use crate::log::info;
 #[cfg(feature = "physics")]
 use crate::physics::World;
 use crate::{
-    Arena, BoxedComponent, CallableType, CameraBuffer, ComponentConfig, ComponentController,
-    ComponentHandle, ComponentSet, ComponentSetMut, ComponentType, ComponentTypeId, Gpu, Group,
-    GroupActivation, GroupHandle, InstanceBuffer, InstanceIndex, InstanceIndices, RenderCamera,
-    Renderer, TypeIndex, Vector,
+    Arena, BoxedComponent, CallableType, ComponentConfig, ComponentController, ComponentHandle,
+    ComponentSet, ComponentSetMut, ComponentType, ComponentTypeId, Gpu, GroupHandle, GroupManager,
+    InstanceBuffer, InstanceIndex, InstanceIndices, RenderCamera, Renderer, TypeIndex,
 };
 use std::cell::RefCell;
 use std::collections::BTreeMap;
@@ -17,10 +16,10 @@ use std::rc::Rc;
 #[macro_export]
 /// Register multiple components at once
 macro_rules! register {
-    ($components: expr,[$($C:ty),*]) => {
+    ($components: expr, $groups: expr, [$($C:ty),*]) => {
         {
             $(
-                $components.register::<$C>();
+                $components.register::<$C>($groups);
             )*
         }
     };
@@ -152,7 +151,7 @@ impl ComponentFilter<'static> {
 /// Access to the component system
 pub struct ComponentManager {
     type_map: FxHashMap<ComponentTypeId, TypeIndex>,
-    types: Arena<ComponentType>,
+    pub(super) types: Arena<ComponentType>,
 
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
@@ -166,17 +165,12 @@ pub struct ComponentManager {
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
     new_priorities: Vec<(i16, i16, ComponentTypeId, TypeIndex)>,
-    groups: Arena<Group>,
-    active_groups: Vec<GroupHandle>,
-    all_groups: Vec<GroupHandle>,
+    pub(super) active_groups: Vec<GroupHandle>,
+    pub(super) all_groups: Vec<GroupHandle>,
 }
 
 impl ComponentManager {
     pub(crate) fn new() -> Self {
-        let default_component_group = Group::new(GroupActivation::Always, 0, Some("Default Group"));
-        let mut groups = Arena::default();
-        let index = groups.insert(default_component_group);
-        let group_handle = GroupHandle(index);
         Self {
             types: Default::default(),
             type_map: Default::default(),
@@ -184,20 +178,8 @@ impl ComponentManager {
             new_priorities: Default::default(),
             update_priorities: Default::default(),
             render_priorities: Default::default(),
-            all_groups: Vec::from_iter([group_handle]),
-            active_groups: Vec::from_iter([group_handle]),
-            groups,
-        }
-    }
-
-    pub(crate) fn update_sets(&mut self, camera: &CameraBuffer) {
-        let cam_aabb = camera.model().aabb(Vector::new(0.0, 0.0).into()); // Translation is already applied
-        self.active_groups.clear();
-        for (index, group) in &mut self.groups {
-            if group.intersects_camera(cam_aabb) {
-                group.set_active(true);
-                self.active_groups.push(GroupHandle(index));
-            }
+            all_groups: Vec::from_iter([GroupHandle::DEFAULT_GROUP]),
+            active_groups: Vec::from_iter([GroupHandle::DEFAULT_GROUP]),
         }
     }
 
@@ -273,19 +255,23 @@ impl ComponentManager {
         &self.types
     }
 
-    pub fn register<C: ComponentController>(&mut self) {
-        self.register_with_config::<C>(C::CONFIG);
+    pub fn register<C: ComponentController>(&mut self, groups: &GroupManager) {
+        self.register_with_config::<C>(groups, C::CONFIG);
     }
 
     pub fn type_id(&self, component: ComponentHandle) -> ComponentTypeId {
         self.callables.get(&component.type_index()).unwrap().type_id
     }
 
-    pub fn register_with_config<C: ComponentController>(&mut self, config: ComponentConfig) {
+    pub fn register_with_config<C: ComponentController>(
+        &mut self,
+        groups: &GroupManager,
+        config: ComponentConfig,
+    ) {
         if !self.type_map.contains_key(&C::IDENTIFIER) {
-            let index = self.types.insert_with(|idx| {
-                ComponentType::with_config::<C>(config, TypeIndex(idx), &self.groups)
-            });
+            let index = self
+                .types
+                .insert_with(|idx| ComponentType::with_config::<C>(config, TypeIndex(idx), groups));
             #[cfg(feature = "log")]
             info!(
                 "Register component '{}' with ID '{}'",
@@ -312,32 +298,6 @@ impl ComponentManager {
         &self.all_groups
     }
 
-    pub fn groups(&self) -> impl Iterator<Item = (GroupHandle, &Group)> + Clone {
-        return self
-            .groups
-            .iter()
-            .map(|(index, group)| (GroupHandle(index), group));
-    }
-
-    pub fn groups_mut(&mut self) -> impl Iterator<Item = (GroupHandle, &mut Group)> {
-        return self
-            .groups
-            .iter_mut()
-            .map(|(index, group)| (GroupHandle(index), group));
-    }
-
-    pub fn contains_group(&self, handle: GroupHandle) -> bool {
-        return self.groups.contains(handle.0);
-    }
-
-    pub fn group(&self, handle: GroupHandle) -> Option<&Group> {
-        return self.groups.get(handle.0);
-    }
-
-    pub fn group_mut(&mut self, handle: GroupHandle) -> Option<&mut Group> {
-        return self.groups.get_mut(handle.0);
-    }
-
     pub fn is_type_of<C: ComponentController>(&self, component: ComponentHandle) -> bool {
         if let Some(ty) = self.type_map.get(&C::IDENTIFIER) {
             return component.type_index() == *ty;
@@ -347,35 +307,6 @@ impl ComponentManager {
 
     pub fn component_type_id(&self, component: ComponentHandle) -> ComponentTypeId {
         return self.types[component.type_index().0].component_type_id();
-    }
-
-    pub fn add_group(&mut self, group: Group) -> GroupHandle {
-        let handle = GroupHandle(self.groups.insert(group));
-        for (_, ty) in &mut self.types {
-            ty.add_group();
-        }
-        self.all_groups.push(handle);
-        return handle;
-    }
-
-    pub fn remove_group(
-        &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
-        handle: GroupHandle,
-    ) -> Option<Group> {
-        if handle == GroupHandle::DEFAULT_GROUP {
-            panic!("Cannot remove default group!");
-        }
-        let group = self.groups.remove(handle.0);
-        for (_, ty) in &mut self.types {
-            ty.remove_group(
-                #[cfg(feature = "physics")]
-                world,
-                handle,
-            );
-        }
-        self.all_groups.retain(|h| *h != handle);
-        return group;
     }
 
     pub fn index<C: ComponentController>(&self, index: usize) -> Option<&C> {

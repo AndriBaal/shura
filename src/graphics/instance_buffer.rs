@@ -46,7 +46,8 @@ impl InstanceData {
         wgpu::vertex_attr_array![
             5 => Float32x2,
             6 => Float32x4
-        ].to_vec()
+        ]
+        .to_vec()
     }
 
     pub fn set_translation(&mut self, translation: Vector<f32>) {

@@ -5,7 +5,7 @@ fn shura_main(config: ShuraConfig) {
     config.init(NewScene {
         id: 1,
         init: |ctx| {
-            ctx.components.register::<Bunny>();
+            ctx.components.register::<Bunny>(ctx.groups);
             ctx.scene_states.insert(BunnyState::new(ctx));
             ctx.screen_config
                 .set_clear_color(Some(RgbaColor::new(220, 220, 220, 255).into()));

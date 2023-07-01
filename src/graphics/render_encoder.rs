@@ -49,7 +49,6 @@ impl<'a> RenderConfigInstances<'a> {
     }
 }
 
-
 /// Encoder of [Renderers](crate::Renderer) and utilities to copy, clear and render text onto [RenderTargets](crate::RenderTarget)
 pub struct RenderEncoder<'a> {
     pub inner: wgpu::CommandEncoder,
@@ -106,14 +105,8 @@ impl<'a> RenderEncoder<'a> {
     }
 
     pub fn copy_to_target(&mut self, src: &Sprite, target: &RenderTarget) {
-        let mut renderer = Renderer::new(
-            &mut self.inner,
-            self.defaults,
-            self.gpu,
-            target,
-            true,
-            None,
-        );
+        let mut renderer =
+            Renderer::new(&mut self.inner, self.defaults, self.gpu, target, true, None);
         renderer.use_camera_buffer(&self.defaults.relative_camera.0);
         renderer.use_instance_buffer(&self.defaults.single_centered_instance);
         renderer.use_shader(&self.defaults.sprite);

@@ -10,7 +10,7 @@ pub struct SceneManager {
     pub(crate) add: Vec<Box<dyn SceneCreator>>,
     active_scene: u32,
     last_active: Option<u32>,
-    scene_switched: bool
+    scene_switched: bool,
 }
 
 impl SceneManager {

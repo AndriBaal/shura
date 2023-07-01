@@ -253,7 +253,6 @@ impl WorldCamera {
     }
 }
 
-
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Copy)]
 /// Defines how the [WorldCamera] gets scaled. This ensures that your game is responsive on various
@@ -322,7 +321,6 @@ impl WorldCameraScale {
     }
 }
 
-
 /// Holds the [Uniform] with the matrix of a [Camera] and the [Model] of the fov.
 pub struct CameraBuffer {
     model: Model,
@@ -350,12 +348,14 @@ pub struct CameraMatrix {
 }
 
 impl CameraMatrix {
-    // Matrix::from_look(Vec3::new(0.0, 0.0,-3.0), Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 1.0, 0.0));
+    const NEAR: f32 = 0.1;
+    const FAR: f32 = 1000.0;
+    // Matrix::from_look(Vec3::new(0.0, 0.0,-0.1.0), Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 1.0, 0.0));
     pub(crate) const NULL_VIEW: CameraMatrix = CameraMatrix::raw(
         Vector4::new(-1.0, 0.0, -0.0, 0.0),
         Vector4::new(0.0, 1.0, -0.0, 0.0),
         Vector4::new(0.0, -0.0, -1.0, 0.0),
-        Vector4::new(0.0, 0.0, -3.0, 1.0),
+        Vector4::new(0.0, 0.0, -Self::NEAR, 1.0),
     );
 
     pub const fn raw(x: Vector4<f32>, y: Vector4<f32>, z: Vector4<f32>, w: Vector4<f32>) -> Self {
@@ -364,21 +364,19 @@ impl CameraMatrix {
 
     /// Frustum
     pub fn frustum(half_extents: Vector<f32>) -> Self {
-        const NEAR: f32 = 3.0;
-        const FAR: f32 = 7.0;
         let left = -half_extents.x;
         let right = half_extents.x;
         let bottom = -half_extents.y;
         let top = half_extents.y;
         let r_width = 1.0 / (left - right);
         let r_height = 1.0 / (top - bottom);
-        let r_depth = 1.0 / (NEAR - FAR);
-        let x = 2.0 * (NEAR * r_width);
-        let y = 2.0 * (NEAR * r_height);
+        let r_depth = 1.0 / (Self::NEAR - Self::FAR);
+        let x = 2.0 * (Self::NEAR * r_width);
+        let y = 2.0 * (Self::NEAR * r_height);
         let a = (left + right) * r_width;
         let b = (top + bottom) * r_height;
-        let c = (FAR + NEAR) * r_depth;
-        let d = FAR * NEAR * r_depth;
+        let c = (Self::FAR + Self::NEAR) * r_depth;
+        let d = Self::FAR * Self::NEAR * r_depth;
 
         Self::raw(
             Vector4::new(x, 0.0, 0.0, 0.0),

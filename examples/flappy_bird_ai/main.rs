@@ -14,7 +14,7 @@ const AMOUNT_BIRDS: u32 = 1000;
 #[shura::main]
 fn shura_main(config: ShuraConfig) {
     config.init(NewScene::new(1, |ctx| {
-        register!(ctx.components, [Background, Ground, Pipe, Bird]);
+        register!(ctx.components, ctx.groups, [Background, Ground, Pipe, Bird]);
         ctx.world_camera
             .set_scaling(WorldCameraScale::Vertical(GAME_SIZE.y));
         ctx.scene_states.insert(BirdSimulation::new(ctx));
@@ -281,10 +281,11 @@ impl ComponentController for Ground {
         ..ComponentConfig::DEFAULT
     };
     fn render<'a>(ctx: &'a Context, renderer: &mut Renderer<'a>) {
-        ctx.components
-            .render_single::<Self>(renderer, RenderCamera::World, |r, ground, instance| {
-                r.render_sprite(instance, &ground.model, &ground.sprite)
-            });
+        ctx.components.render_single::<Self>(
+            renderer,
+            RenderCamera::World,
+            |r, ground, instance| r.render_sprite(instance, &ground.model, &ground.sprite),
+        );
     }
 }
 

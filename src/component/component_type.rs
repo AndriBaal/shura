@@ -7,8 +7,8 @@ use crate::physics::{CollideType, ColliderHandle, World};
 use crate::{
     data::arena::ArenaEntry, Arena, BoxedComponent, BufferOperation, Color, ComponentConfig,
     ComponentController, ComponentDerive, ComponentHandle, ComponentIndex, ComponentStorage,
-    Context, EndReason, Gpu, Group, GroupHandle, InstanceBuffer, InstanceIndex, InstanceIndices,
-    RenderCamera, RenderTarget, Renderer, TypeIndex,
+    Context, EndReason, Gpu, GroupHandle, GroupManager, InstanceBuffer, InstanceIndex,
+    InstanceIndices, RenderCamera, RenderTarget, Renderer, TypeIndex,
 };
 
 type BufferCallback = fn(
@@ -174,7 +174,7 @@ pub(crate) struct CallableType {
     pub config: ComponentConfig,
     pub callbacks: ComponentCallbacks,
     pub last_update: Option<Instant>,
-    pub type_id: ComponentTypeId
+    pub type_id: ComponentTypeId,
 }
 
 impl CallableType {
@@ -186,7 +186,7 @@ impl CallableType {
             },
             callbacks: ComponentCallbacks::new::<C>(),
             config: C::CONFIG,
-            type_id: C::IDENTIFIER
+            type_id: C::IDENTIFIER,
         }
     }
 }
@@ -210,7 +210,7 @@ impl ComponentType {
     pub(crate) fn with_config<C: ComponentController>(
         config: ComponentConfig,
         index: TypeIndex,
-        group_structure: &Arena<Group>,
+        group_structure: &GroupManager,
     ) -> Self {
         let storage = match config.storage {
             ComponentStorage::Single => ComponentTypeStorage::Single {
@@ -221,6 +221,7 @@ impl ComponentType {
             ComponentStorage::Multiple => ComponentTypeStorage::Multiple(ComponentTypeGroup::new()),
             ComponentStorage::Groups => ComponentTypeStorage::MultipleGroups(Arena {
                 items: group_structure
+                    .groups
                     .items
                     .iter()
                     .map(|entry| match *entry {
@@ -231,9 +232,9 @@ impl ComponentType {
                         },
                     })
                     .collect(),
-                generation: group_structure.generation,
-                free_list_head: group_structure.free_list_head,
-                len: group_structure.len(),
+                generation: group_structure.groups.generation,
+                free_list_head: group_structure.groups.free_list_head,
+                len: group_structure.groups.len(),
             }),
         };
         Self {

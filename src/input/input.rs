@@ -280,7 +280,8 @@ impl Input {
     pub(crate) fn update(&mut self) {
         self.wheel_delta = 0.0;
 
-        self.events.retain(|_, event| event.state != InputEventState::JustReleased);
+        self.events
+            .retain(|_, event| event.state != InputEventState::JustReleased);
         for trigger in self.events.values_mut() {
             trigger.update();
         }
@@ -519,7 +520,11 @@ impl Input {
         self.touches.iter()
     }
 
-    pub fn cursor_from_pixel(&self, cursor: Vector<u32>, camera: &dyn CursorCompute) -> Vector<f32> {
+    pub fn cursor_from_pixel(
+        &self,
+        cursor: Vector<u32>,
+        camera: &dyn CursorCompute,
+    ) -> Vector<f32> {
         let fov = camera.fov() * 2.0;
         let camera_translation = camera.translation();
         let cursor: Vector<f32> = Vector::new(cursor.x as f32, cursor.y as f32);

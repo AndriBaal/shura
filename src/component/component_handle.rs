@@ -15,6 +15,9 @@ pub(crate) struct TypeIndex(pub(crate) ArenaIndex);
 impl GroupHandle {
     pub const INVALID: Self = GroupHandle(ArenaIndex::INVALID);
     pub const DEFAULT_GROUP: Self = GroupHandle(ArenaIndex::FIRST);
+    pub fn index(&self) -> usize {
+        self.0.index()
+    }
 }
 
 impl ComponentIndex {

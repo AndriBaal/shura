@@ -1,4 +1,4 @@
-use crate::{Gpu, Vector, RgbaColor};
+use crate::{Gpu, RgbaColor, Vector};
 use image::DynamicImage;
 
 /// 2D Sprite used for rendering

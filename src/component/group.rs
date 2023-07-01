@@ -1,4 +1,92 @@
-use crate::AABB;
+use crate::{data::arena::Arena, CameraBuffer, ComponentManager, GroupHandle, Vector, AABB};
+
+#[cfg(feature = "physics")]
+use crate::physics::World;
+
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct GroupManager {
+    pub(super) groups: Arena<Group>,
+}
+
+impl GroupManager {
+    pub const DEFAULT_GROUP_NAME: &str = "Default Group";
+    pub const DEFAULT_GROUP: GroupHandle = GroupHandle::DEFAULT_GROUP;
+    pub(crate) fn new() -> Self {
+        let default_component_group = Group::new(GroupActivation::Always, 0, Some(Self::DEFAULT_GROUP_NAME));
+        let mut groups = Arena::default();
+        groups.insert(default_component_group);
+        Self { groups }
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (GroupHandle, &Group)> + Clone {
+        return self
+            .groups
+            .iter()
+            .map(|(index, group)| (GroupHandle(index), group));
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (GroupHandle, &mut Group)> {
+        return self
+            .groups
+            .iter_mut()
+            .map(|(index, group)| (GroupHandle(index), group));
+    }
+
+    pub fn contains(&self, handle: GroupHandle) -> bool {
+        return self.groups.contains(handle.0);
+    }
+
+    pub fn get(&self, handle: GroupHandle) -> Option<&Group> {
+        return self.groups.get(handle.0);
+    }
+
+    pub fn get_mut(&mut self, handle: GroupHandle) -> Option<&mut Group> {
+        return self.groups.get_mut(handle.0);
+    }
+
+    pub fn add(&mut self, components: &mut ComponentManager, group: Group) -> GroupHandle {
+        let handle = GroupHandle(self.groups.insert(group));
+        for (_, ty) in &mut components.types {
+            ty.add_group();
+        }
+        components.all_groups.push(handle);
+        return handle;
+    }
+
+    pub fn remove(
+        &mut self,
+        components: &mut ComponentManager,
+        #[cfg(feature = "physics")] world: &mut World,
+        handle: GroupHandle,
+    ) -> Option<Group> {
+        if handle == GroupHandle::DEFAULT_GROUP {
+            panic!("Cannot remove default group!");
+        }
+        let group = self.groups.remove(handle.0);
+        components.active_groups.retain(|g| *g != handle);
+        components.all_groups.retain(|g| *g != handle);
+        for (_, ty) in &mut components.types {
+            ty.remove_group(
+                #[cfg(feature = "physics")]
+                world,
+                handle,
+            );
+        }
+        components.all_groups.retain(|h| *h != handle);
+        return group;
+    }
+
+    pub(crate) fn update(&mut self, components: &mut ComponentManager, camera: &CameraBuffer) {
+        let cam_aabb = camera.model().aabb(Vector::new(0.0, 0.0).into()); // Translation is already applied
+        components.active_groups.clear();
+        for (index, group) in &mut self.groups {
+            if group.intersects_camera(cam_aabb) {
+                group.set_active(true);
+                components.active_groups.push(GroupHandle(index));
+            }
+        }
+    }
+}
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Copy, Clone)]
