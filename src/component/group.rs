@@ -1,4 +1,5 @@
 use crate::{data::arena::Arena, CameraBuffer, ComponentManager, GroupHandle, Vector, AABB};
+use std::fmt;
 
 #[cfg(feature = "physics")]
 use crate::physics::World;
@@ -12,7 +13,8 @@ impl GroupManager {
     pub const DEFAULT_GROUP_NAME: &str = "Default Group";
     pub const DEFAULT_GROUP: GroupHandle = GroupHandle::DEFAULT_GROUP;
     pub(crate) fn new() -> Self {
-        let default_component_group = Group::new(GroupActivation::Always, 0, Some(Self::DEFAULT_GROUP_NAME));
+        let default_component_group =
+            Group::new(GroupActivation::Always, 0, Some(Self::DEFAULT_GROUP_NAME));
         let mut groups = Arena::default();
         groups.insert(default_component_group);
         Self { groups }
@@ -89,7 +91,7 @@ impl GroupManager {
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 /// Decides when a group is active.
 ///
 /// # Important
@@ -103,6 +105,15 @@ pub enum GroupActivation {
     Never,
 }
 
+impl fmt::Display for GroupActivation {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            GroupActivation::Position { .. } => f.write_str("Position"),
+            GroupActivation::Always => f.write_str("Always"),
+            GroupActivation::Never => f.write_str("Never"),
+        }
+    }
+}
 /// Groups can be used like a chunk system to make huge 2D worlds possible or to just order your components.
 /// The Engine has a default [Group](crate::Group) with the [default handle](crate::GroupHandle::DEFAULT_GROUP).
 /// After every update and before rendering, the set of active groups gets

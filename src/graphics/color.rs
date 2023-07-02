@@ -136,6 +136,13 @@ impl Into<image::Rgba<u8>> for RgbaColor {
     }
 }
 
+#[cfg(feature="gui")]
+impl Into<crate::gui::Color32> for RgbaColor {
+    fn into(self) -> crate::gui::Color32 {
+        crate::gui::Color32::from_rgba_premultiplied(self.r, self.g, self.b, self.a)
+    }
+}
+
 impl Into<[u8; 4]> for RgbaColor {
     fn into(self) -> [u8; 4] {
         [self.r, self.g, self.b, self.a]

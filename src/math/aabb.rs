@@ -1,6 +1,6 @@
 use crate::{Isometry, Vector, Vertex};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Copy, Clone, PartialEq, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// Simple Axis-aligned minimum bounding box collision detection
 pub struct AABB {
