@@ -23,6 +23,7 @@ pub struct Context<'a> {
     // Scene
     pub scene_id: &'a u32,
     pub scene_started: &'a bool,
+    pub update_components: &'a mut bool,
     pub render_components: &'a mut bool,
     pub screen_config: &'a mut ScreenConfig,
     pub scene_states: &'a mut StateManager,
@@ -59,6 +60,7 @@ impl<'a> Context<'a> {
             scene_id: &scene.id,
             scene_started: &scene.started,
             render_components: &mut scene.render_components,
+            update_components: &mut scene.update_components,
             screen_config: &mut scene.screen_config,
             world_camera: &mut scene.world_camera,
             components: &mut scene.components,
@@ -101,6 +103,7 @@ impl<'a> Context<'a> {
             id: u32,
             started: bool,
             render_components: bool,
+            update_components: bool,
             screen_config: &'a ScreenConfig,
             world_camera: &'a WorldCamera,
             components: &'a ComponentManager,
@@ -141,6 +144,7 @@ impl<'a> Context<'a> {
                 id: *self.scene_id,
                 started: true,
                 render_components: *self.render_components,
+                update_components: *self.update_components,
                 screen_config: self.screen_config,
                 world_camera: self.world_camera,
                 components: self.components,
@@ -168,6 +172,7 @@ impl<'a> Context<'a> {
                 components: self.components,
                 groups: self.groups,
                 render_components: *self.render_components,
+                update_components: *self.update_components,
             };
             let scene: (
                 &Scene,

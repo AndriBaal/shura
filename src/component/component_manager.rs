@@ -7,7 +7,8 @@ use crate::physics::World;
 use crate::{
     Arena, BoxedComponent, CallableType, ComponentConfig, ComponentController, ComponentHandle,
     ComponentSet, ComponentSetMut, ComponentType, ComponentTypeId, Gpu, GroupHandle, GroupManager,
-    InstanceBuffer, InstanceIndex, InstanceIndices, RenderCamera, Renderer, TypeIndex,
+    InstanceBuffer, InstanceIndex, InstanceIndices, RenderCamera, RenderOperation, Renderer,
+    TypeIndex, UpdateOperation,
 };
 use std::cell::RefCell;
 use std::collections::BTreeMap;
@@ -164,7 +165,7 @@ pub struct ComponentManager {
     render_priorities: Rc<RefCell<BTreeMap<(i16, ComponentTypeId), TypeIndex>>>,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
-    new_priorities: Vec<(i16, i16, ComponentTypeId, TypeIndex)>,
+    new_priorities: Vec<(Option<i16>, Option<i16>, ComponentTypeId, TypeIndex)>,
     pub(super) active_groups: Vec<GroupHandle>,
     pub(super) all_groups: Vec<GroupHandle>,
 }
@@ -202,8 +203,12 @@ impl ComponentManager {
             let mut render_priorities = self.render_priorities.borrow_mut();
             for (update_priority, render_priority, type_id, index) in self.new_priorities.drain(..)
             {
-                update_priorities.insert((update_priority, type_id), index);
-                render_priorities.insert((render_priority, type_id), index);
+                if let Some(update_priority) = update_priority {
+                    update_priorities.insert((update_priority, type_id), index);
+                }
+                if let Some(render_priority) = render_priority {
+                    render_priorities.insert((render_priority, type_id), index);
+                }
             }
         }
     }
@@ -231,9 +236,23 @@ impl ComponentManager {
     #[cfg(feature = "serde")]
     pub(crate) fn reregister<C: ComponentController>(&mut self) {
         let index = *self.type_map.get(&C::IDENTIFIER).unwrap();
+        #[cfg(feature = "log")]
+        info!(
+            "Reregister component '{}' with ID '{}'",
+            C::TYPE_NAME,
+            C::IDENTIFIER
+        );
         self.new_priorities.push((
-            C::CONFIG.update_priority,
-            C::CONFIG.render_priority,
+            if C::CONFIG.update != UpdateOperation::Never {
+                Some(C::CONFIG.update_priority)
+            } else {
+                None
+            },
+            if C::CONFIG.render != RenderOperation::Never {
+                Some(C::CONFIG.render_priority)
+            } else {
+                None
+            },
             C::IDENTIFIER,
             index,
         ));
@@ -280,8 +299,16 @@ impl ComponentManager {
             );
             self.type_map.insert(C::IDENTIFIER, TypeIndex(index));
             self.new_priorities.push((
-                C::CONFIG.update_priority,
-                C::CONFIG.render_priority,
+                if C::CONFIG.update != UpdateOperation::Never {
+                    Some(C::CONFIG.update_priority)
+                } else {
+                    None
+                },
+                if C::CONFIG.render != RenderOperation::Never {
+                    Some(C::CONFIG.render_priority)
+                } else {
+                    None
+                },
                 C::IDENTIFIER,
                 TypeIndex(index),
             ));

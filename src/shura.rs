@@ -456,13 +456,18 @@ impl Shura {
                 for ((_priority, _), type_index) in
                     ctx.components.update_priorities().borrow().iter()
                 {
+
                     #[cfg(feature = "physics")]
-                    if !done_step && *_priority > physics_priority {
+                    if !done_step && *_priority > physics_priority && *ctx.update_components {
                         done_step = true;
                         Self::world_step(&mut ctx);
                     }
-
+                    
                     let ty = ctx.components.callable_mut(type_index);
+                    if !*ctx.update_components && !ty.config.force_update {
+                        continue;
+                    } 
+
                     match ty.config.update {
                         crate::UpdateOperation::EveryFrame => {}
                         crate::UpdateOperation::Never => {
@@ -487,7 +492,7 @@ impl Shura {
             }
 
             #[cfg(feature = "physics")]
-            if !done_step && ctx.world.physics_priority().is_some() {
+            if !done_step && ctx.world.physics_priority().is_some() && *ctx.update_components {
                 Self::world_step(&mut ctx);
             }
         }

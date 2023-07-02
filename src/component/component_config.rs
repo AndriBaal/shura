@@ -40,6 +40,13 @@ pub enum UpdateOperation {
     AfterDuration(Duration),
 }
 
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum RenderOperation {
+    Never,
+    EveryFrame,
+}
+
 /// Defines how to component gets stored. It is either a signle, multiple of it can be
 /// stored or it has multiple groups
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -49,6 +56,7 @@ pub enum ComponentStorage {
     Multiple,
     Groups,
 }
+
 
 /// The configuration of a component type. This configuration is used to statically define
 /// behaviour of a component type for perfomance and utility reason.
@@ -62,18 +70,23 @@ pub struct ComponentConfig {
     // /// When this flag is set, the component is automatically registered when adding one
     // pub auto_register: bool,
     pub update: UpdateOperation,
+    pub render: RenderOperation,
     pub buffer: BufferOperation,
     pub storage: ComponentStorage,
+    // Update even when the game is paused
+    pub force_update: bool
 }
 
 impl ComponentConfig {
     pub const DEFAULT_PRIORITY: i16 = 16;
     pub const DEFAULT: ComponentConfig = ComponentConfig {
         buffer: BufferOperation::EveryFrame,
+        render: RenderOperation::EveryFrame,
         update: UpdateOperation::EveryFrame,
         storage: ComponentStorage::Multiple,
         update_priority: Self::DEFAULT_PRIORITY,
         render_priority: Self::DEFAULT_PRIORITY,
+        force_update: false
     };
 }
 
