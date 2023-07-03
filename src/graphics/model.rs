@@ -94,9 +94,11 @@ impl ModelBuilder {
             ..Default::default()
         }
     }
+
     pub fn square(half_length: f32) -> Self {
         Self::cuboid(Vector::new(half_length, half_length))
     }
+
     pub fn cuboid(half_extents: Vector<f32>) -> Self {
         let vertices = vec![
             Vertex::new(
@@ -123,6 +125,35 @@ impl ModelBuilder {
             ..Default::default()
         }
     }
+
+
+    pub fn aabb(aabb: AABB) -> Self {
+        let vertices = vec![
+            Vertex::new(
+                Vector::new(aabb.min.x, aabb.max.y),
+                Vector::new(0.0, 0.0),
+            ),
+            Vertex::new(
+                Vector::new(aabb.min.x, aabb.min.y),
+                Vector::new(0.0, 1.0),
+            ),
+            Vertex::new(
+                Vector::new(aabb.max.x, aabb.min.y),
+                Vector::new(1.0, 1.0),
+            ),
+            Vertex::new(
+                Vector::new(aabb.max.x, aabb.max.y),
+                Vector::new(1.0, 0.0),
+            ),
+        ];
+        let indices = Vec::from(Self::CUBOID_INDICES);
+        Self {
+            vertices,
+            indices,
+            ..Default::default()
+        }
+    }
+
     pub fn triangle(a: Vector<f32>, b: Vector<f32>, c: Vector<f32>) -> Self {
         let ccw = (b.x - a.x) * (c.y - a.y) - (c.x - a.x) * (b.y - a.y);
         let vertices = if ccw > 0.0 {

@@ -404,6 +404,7 @@ pub struct GpuDefaults {
 
     pub cuboid_index_buffer: wgpu::Buffer,
     pub triangle_index_buffer: wgpu::Buffer,
+    pub unit_model: Model,
 
     /// This field holds both total time and the frame time. Both are stored as f32 in the buffer.
     /// The first f32 is the `total_time` and the second f32 is the `frame_time`. In the shader
@@ -518,6 +519,7 @@ impl GpuDefaults {
         let empty_instance = gpu.create_instance_buffer(InstanceData::SIZE, &[]);
 
         let fov = Self::relative_fov(window_size);
+        let unit_model = gpu.create_model(ModelBuilder::square(0.5));
 
         let camera = Camera::new(Isometry::new(fov, 0.0), fov);
         let relative_bottom_left_camera = (camera.create_buffer(gpu), camera);
@@ -555,6 +557,7 @@ impl GpuDefaults {
                 });
 
         Self {
+            unit_model,
             sprite_sheet_uniform,
             sprite_sheet,
             cuboid_index_buffer,
