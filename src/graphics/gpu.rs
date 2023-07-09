@@ -65,7 +65,7 @@ impl Gpu {
                 force_fallback_adapter: false,
             })
             .await
-            .unwrap();
+            .expect("Invalid Graphics Backend!");
 
         let (device, queue) = adapter
             .request_device(

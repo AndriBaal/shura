@@ -41,6 +41,10 @@ impl ScreenConfig {
         self.render_scale
     }
 
+    pub fn resized(&self) -> bool {
+        self.changed
+    }
+
     pub fn clear_color(&self) -> Option<Color> {
         self.clear_color
     }

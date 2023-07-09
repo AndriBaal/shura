@@ -82,6 +82,10 @@ impl RenderTarget {
         &self.target_msaa
     }
 
+    pub fn resize(&mut self, gpu: &Gpu, size: Vector<u32>) {
+        *self = gpu.create_render_target(size)
+    }
+
     pub fn draw<'caller>(
         &self,
         gpu: &Gpu,
