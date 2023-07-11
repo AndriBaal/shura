@@ -349,7 +349,7 @@ pub struct CameraMatrix {
 
 impl CameraMatrix {
     const NEAR: f32 = 0.1;
-    const FAR: f32 = 1000.0;
+    const FAR: f32 = 1.0;
     // Matrix::from_look(Vec3::new(0.0, 0.0,-0.1.0), Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 1.0, 0.0));
     pub(crate) const NULL_VIEW: CameraMatrix = CameraMatrix::raw(
         Vector4::new(-1.0, 0.0, -0.0, 0.0),

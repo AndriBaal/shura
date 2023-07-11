@@ -38,14 +38,14 @@ pub struct Context<'a> {
     pub defaults: &'a GpuDefaults,
     pub input: &'a Input,
     pub gpu: &'a Gpu,
+    #[cfg(feature = "gui")]
+    pub gui: &'a Gui,
+    #[cfg(feature = "audio")]
+    pub audio: &'a AudioManager,
     pub end: &'a mut bool,
     pub scenes: &'a mut SceneManager,
     pub window: &'a mut winit::window::Window,
     pub global_states: &'a mut StateManager,
-    #[cfg(feature = "gui")]
-    pub gui: &'a mut Gui,
-    #[cfg(feature = "audio")]
-    pub audio: &'a mut AudioManager,
 
     // Misc
     pub window_size: Vector<u32>,
@@ -74,14 +74,14 @@ impl<'a> Context<'a> {
             defaults: &shura.defaults,
             input: &shura.input,
             gpu: &shura.gpu,
+            #[cfg(feature = "gui")]
+            gui: &shura.gui,
+            #[cfg(feature = "audio")]
+            audio: &shura.audio,
             end: &mut shura.end,
             scenes: &mut shura.scenes,
             window: &mut shura.window,
             global_states: &mut shura.states,
-            #[cfg(feature = "gui")]
-            gui: &mut shura.gui,
-            #[cfg(feature = "audio")]
-            audio: &mut shura.audio,
 
             // Misc
             window_size,

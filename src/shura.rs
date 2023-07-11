@@ -179,8 +179,8 @@ impl ShuraConfig {
                             }
                         }
                         Event::MainEventsCleared => {
-                            #[cfg(target_os = "windows")]
-                            shura.gpu.instance.poll_all(true);
+                            // #[cfg(target_os = "windows")]
+                            // shura.gpu.instance.poll_all(true);
                             shura.window.request_redraw();
                         }
                         #[cfg(target_os = "android")]
@@ -521,8 +521,39 @@ impl Shura {
             &mut scene.world,
             &self.gpu,
         );
-        let ctx = Context::new(self, scene);
-        let mut encoder = RenderEncoder::new(ctx.gpu, &ctx.defaults);
+
+        let  ctx = Context {
+            // Scene
+            scene_id: &scene.id,
+            scene_started: &scene.started,
+            render_components: &mut scene.render_components,
+            update_components: &mut scene.update_components,
+            screen_config: &mut scene.screen_config,
+            world_camera: &mut scene.world_camera,
+            components: &mut scene.components,
+            groups: &mut scene.groups,
+            scene_states: &mut scene.states,
+            #[cfg(feature = "physics")]
+            world: &mut scene.world,
+
+            // Shura
+            frame: &self.frame,
+            defaults: &self.defaults,
+            input: &self.input,
+            gpu: &self.gpu,
+            #[cfg(feature = "gui")]
+            gui: &self.gui,
+            #[cfg(feature = "audio")]
+            audio: &self.audio,
+            end: &mut self.end,
+            scenes: &mut self.scenes,
+            window: &mut self.window,
+            global_states: &mut self.states,
+
+            // Misc
+            window_size,
+        };
+        let mut encoder = RenderEncoder::new(&self.gpu, &self.defaults);
 
         {
             let mut renderer = encoder.renderer(
@@ -548,14 +579,16 @@ impl Shura {
             }
         }
 
+        drop(ctx);
+
         #[cfg(feature = "gui")]
-        ctx.gui.render(ctx.gpu, ctx.defaults, &mut encoder);
+        self.gui.render(&self.gpu, &self.defaults, &mut encoder);
         let output_view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
 
         {
-            Renderer::output_renderer(&mut encoder.inner, &output_view, ctx.defaults);
+            Renderer::output_renderer(&mut encoder.inner, &output_view, &self.defaults);
         }
 
         encoder.finish();
