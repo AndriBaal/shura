@@ -8,7 +8,7 @@ use crate::{
     Arena, BoxedComponent, CallableType, ComponentConfig, ComponentController, ComponentHandle,
     ComponentSet, ComponentSetMut, ComponentType, ComponentTypeId, Gpu, GroupHandle, GroupManager,
     InstanceBuffer, InstanceIndex, InstanceIndices, RenderCamera, RenderOperation, Renderer,
-    TypeIndex, UpdateOperation,
+    TypeIndex, UpdateOperation, BufferOperation
 };
 use std::cell::RefCell;
 use std::collections::BTreeMap;
@@ -184,16 +184,19 @@ impl ComponentManager {
         }
     }
 
-    pub(crate) fn buffer(&mut self, #[cfg(feature = "physics")] world: &mut World, gpu: &Gpu) {
+    pub(crate) fn buffer(&mut self, #[cfg(feature = "physics")] world: &World, gpu: &Gpu) {
         for (idx, ty) in &mut self.types {
             let callable = self.callables.get(&TypeIndex(idx)).unwrap();
-            ty.buffer(
-                #[cfg(feature = "physics")]
-                world,
-                callable.callbacks.buffer,
-                &self.active_groups,
-                gpu,
-            );
+            
+            if ty.config().buffer != BufferOperation::Never {
+                ty.buffer(
+                    #[cfg(feature = "physics")]
+                    world,
+                    callable.callbacks.buffer,
+                    &self.active_groups,
+                    &gpu,
+                );
+            }
         }
     }
 

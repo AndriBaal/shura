@@ -138,7 +138,7 @@ impl ComponentTypeGroup {
         config: &ComponentConfig,
         buffer_size: u64,
         callback: BufferCallback,
-        #[cfg(feature = "physics")] world: &mut World,
+        #[cfg(feature = "physics")] world: &World,
     ) {
         // Additional allocation
         const BUFFER_STEP: u64 = 12;
@@ -250,17 +250,17 @@ impl ComponentType {
         self.type_id
     }
 
+    pub fn config(&self) -> &ComponentConfig {
+        &self.config
+    }
+
     pub(crate) fn buffer(
         &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
+        #[cfg(feature = "physics")] world: &World,
         callback: BufferCallback,
         active: &[GroupHandle],
         gpu: &Gpu,
     ) {
-        if self.config.buffer == BufferOperation::Never {
-            return;
-        }
-
         match &mut self.storage {
             ComponentTypeStorage::MultipleGroups(groups) => {
                 for index in active {

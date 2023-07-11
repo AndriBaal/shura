@@ -26,7 +26,7 @@ pub trait BaseComponent: Downcast {
 impl_downcast!(BaseComponent);
 
 /// All components need to implement from this trait. This is not done manually, but with the derive macro [Component](crate::Component).
-pub trait ComponentDerive: Downcast {
+pub trait ComponentDerive: Downcast + Send + Sync {
     fn base(&self) -> &dyn BaseComponent;
     fn base_mut(&mut self) -> &mut dyn BaseComponent;
     fn component_type_id(&self) -> ComponentTypeId;
