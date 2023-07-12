@@ -37,10 +37,6 @@ impl ArenaIndex {
     pub fn index(&self) -> usize {
         self.index
     }
-
-    pub fn generation(&self) -> u32 {
-        self.generation
-    }
 }
 
 pub(crate) const DEFAULT_CAPACITY: usize = 4;
@@ -270,6 +266,20 @@ impl<T> Arena<T> {
         }
     }
 
+    pub fn iter_with_index(&self) -> ArenaIterWithIndex<T> {
+        ArenaIterWithIndex {
+            len: self.len,
+            base: self.items.iter().enumerate(),
+        }
+    }
+
+    pub fn iter_with_index_mut(&mut self) -> ArenaIterWithIndexMut<T> {
+        ArenaIterWithIndexMut {
+            len: self.len,
+            base: self.items.iter_mut().enumerate(),
+        }
+    }
+
     pub fn retain(&mut self, mut predicate: impl FnMut(ArenaIndex, &mut T) -> bool) {
         for i in 0..self.capacity() {
             let remove = match &mut self.items[i] {
@@ -326,7 +336,7 @@ impl<T> Arena<T> {
 }
 
 impl<'a, T> IntoIterator for &'a Arena<T> {
-    type Item = (ArenaIndex, &'a T);
+    type Item = &'a T;
     type IntoIter = ArenaIter<'a, T>;
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
@@ -349,24 +359,14 @@ impl<T> Clone for ArenaIter<'_, T> {
 }
 
 impl<'a, T> Iterator for ArenaIter<'a, T> {
-    type Item = (ArenaIndex, &'a T);
+    type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             match self.base.next() {
-                Some((
-                    index,
-                    &ArenaEntry::Occupied {
-                        generation,
-                        ref data,
-                    },
-                )) => {
+                Some((_, &ArenaEntry::Occupied { ref data, .. })) => {
                     self.len -= 1;
-                    let idx = ArenaIndex {
-                        index: index,
-                        generation,
-                    };
-                    return Some((idx, data));
+                    return Some(data);
                 }
                 Some((_, _)) => continue,
                 None => {
@@ -386,19 +386,9 @@ impl<'a, T> DoubleEndedIterator for ArenaIter<'a, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
         loop {
             match self.base.next_back() {
-                Some((
-                    index,
-                    &ArenaEntry::Occupied {
-                        generation,
-                        ref data,
-                    },
-                )) => {
+                Some((_, &ArenaEntry::Occupied { ref data, .. })) => {
                     self.len -= 1;
-                    let idx = ArenaIndex {
-                        index: index,
-                        generation,
-                    };
-                    return Some((idx, data));
+                    return Some(data);
                 }
                 Some((_, _)) => continue,
                 None => {
@@ -419,7 +409,7 @@ impl<'a, T> ExactSizeIterator for ArenaIter<'a, T> {
 impl<'a, T> FusedIterator for ArenaIter<'a, T> {}
 
 impl<'a, T> IntoIterator for &'a mut Arena<T> {
-    type Item = (ArenaIndex, &'a mut T);
+    type Item = &'a mut T;
     type IntoIter = ArenaIterMut<'a, T>;
     fn into_iter(self) -> Self::IntoIter {
         self.iter_mut()
@@ -432,24 +422,14 @@ pub struct ArenaIterMut<'a, T> {
 }
 
 impl<'a, T> Iterator for ArenaIterMut<'a, T> {
-    type Item = (ArenaIndex, &'a mut T);
+    type Item = &'a mut T;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             match self.base.next() {
-                Some((
-                    index,
-                    &mut ArenaEntry::Occupied {
-                        generation,
-                        ref mut data,
-                    },
-                )) => {
+                Some((_, &mut ArenaEntry::Occupied { ref mut data, .. })) => {
                     self.len -= 1;
-                    let idx = ArenaIndex {
-                        index: index,
-                        generation,
-                    };
-                    return Some((idx, data));
+                    return Some(data);
                 }
                 Some((_, _)) => continue,
                 None => {
@@ -469,19 +449,9 @@ impl<'a, T> DoubleEndedIterator for ArenaIterMut<'a, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
         loop {
             match self.base.next_back() {
-                Some((
-                    index,
-                    &mut ArenaEntry::Occupied {
-                        generation,
-                        ref mut data,
-                    },
-                )) => {
+                Some((_, &mut ArenaEntry::Occupied { ref mut data, .. })) => {
                     self.len -= 1;
-                    let idx = ArenaIndex {
-                        index: index,
-                        generation,
-                    };
-                    return Some((idx, data));
+                    return Some(data);
                 }
                 Some((_, _)) => continue,
                 None => {
@@ -601,3 +571,163 @@ impl<T> ops::IndexMut<ArenaIndex> for Arena<T> {
         self.get_mut(index).expect("No element at index")
     }
 }
+
+pub struct ArenaIterWithIndex<'a, T> {
+    len: usize,
+    base: iter::Enumerate<slice::Iter<'a, ArenaEntry<T>>>,
+}
+
+impl<T> Clone for ArenaIterWithIndex<'_, T> {
+    #[inline]
+    fn clone(&self) -> Self {
+        Self {
+            len: self.len,
+            base: self.base.clone(),
+        }
+    }
+}
+
+impl<'a, T> Iterator for ArenaIterWithIndex<'a, T> {
+    type Item = (ArenaIndex, &'a T);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.base.next() {
+                Some((
+                    index,
+                    &ArenaEntry::Occupied {
+                        generation,
+                        ref data,
+                    },
+                )) => {
+                    self.len -= 1;
+                    let idx = ArenaIndex {
+                        index: index,
+                        generation,
+                    };
+                    return Some((idx, data));
+                }
+                Some((_, _)) => continue,
+                None => {
+                    debug_assert_eq!(self.len, 0);
+                    return None;
+                }
+            }
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.len, Some(self.len))
+    }
+}
+
+impl<'a, T> DoubleEndedIterator for ArenaIterWithIndex<'a, T> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.base.next_back() {
+                Some((
+                    index,
+                    &ArenaEntry::Occupied {
+                        generation,
+                        ref data,
+                    },
+                )) => {
+                    self.len -= 1;
+                    let idx = ArenaIndex {
+                        index: index,
+                        generation,
+                    };
+                    return Some((idx, data));
+                }
+                Some((_, _)) => continue,
+                None => {
+                    debug_assert_eq!(self.len, 0);
+                    return None;
+                }
+            }
+        }
+    }
+}
+
+impl<'a, T> ExactSizeIterator for ArenaIterWithIndex<'a, T> {
+    fn len(&self) -> usize {
+        self.len
+    }
+}
+
+impl<'a, T> FusedIterator for ArenaIterWithIndex<'a, T> {}
+
+pub struct ArenaIterWithIndexMut<'a, T> {
+    len: usize,
+    base: iter::Enumerate<slice::IterMut<'a, ArenaEntry<T>>>,
+}
+
+impl<'a, T> Iterator for ArenaIterWithIndexMut<'a, T> {
+    type Item = (ArenaIndex, &'a mut T);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.base.next() {
+                Some((
+                    index,
+                    &mut ArenaEntry::Occupied {
+                        generation,
+                        ref mut data,
+                    },
+                )) => {
+                    self.len -= 1;
+                    let idx = ArenaIndex {
+                        index: index,
+                        generation,
+                    };
+                    return Some((idx, data));
+                }
+                Some((_, _)) => continue,
+                None => {
+                    debug_assert_eq!(self.len, 0);
+                    return None;
+                }
+            }
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.len, Some(self.len))
+    }
+}
+
+impl<'a, T> DoubleEndedIterator for ArenaIterWithIndexMut<'a, T> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.base.next_back() {
+                Some((
+                    index,
+                    &mut ArenaEntry::Occupied {
+                        generation,
+                        ref mut data,
+                    },
+                )) => {
+                    self.len -= 1;
+                    let idx = ArenaIndex {
+                        index: index,
+                        generation,
+                    };
+                    return Some((idx, data));
+                }
+                Some((_, _)) => continue,
+                None => {
+                    debug_assert_eq!(self.len, 0);
+                    return None;
+                }
+            }
+        }
+    }
+}
+
+impl<'a, T> ExactSizeIterator for ArenaIterWithIndexMut<'a, T> {
+    fn len(&self) -> usize {
+        self.len
+    }
+}
+
+impl<'a, T> FusedIterator for ArenaIterWithIndexMut<'a, T> {}

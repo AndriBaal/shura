@@ -79,7 +79,7 @@ impl<'a> SceneSerializer<'a> {
             }
             ComponentTypeStorage::MultipleGroups(groups) => {
                 let mut group_data = vec![];
-                for (group_handle, group) in groups {
+                for (group_handle, group) in groups.iter_with_index() {
                     let ser_components = group.components.serialize_components::<C>();
                     group_data.push((GroupHandle(group_handle), ser_components));
                 }

@@ -57,7 +57,6 @@ pub enum ComponentStorage {
     Groups,
 }
 
-
 /// The configuration of a component type. This configuration is used to statically define
 /// behaviour of a component type for perfomance and utility reason.
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
@@ -74,7 +73,7 @@ pub struct ComponentConfig {
     pub buffer: BufferOperation,
     pub storage: ComponentStorage,
     // Update even when the game is paused
-    pub force_update: bool
+    pub force_update: bool,
 }
 
 impl ComponentConfig {
@@ -86,7 +85,7 @@ impl ComponentConfig {
         storage: ComponentStorage::Multiple,
         update_priority: Self::DEFAULT_PRIORITY,
         render_priority: Self::DEFAULT_PRIORITY,
-        force_update: false
+        force_update: false,
     };
 }
 

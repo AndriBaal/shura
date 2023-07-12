@@ -126,25 +126,12 @@ impl ModelBuilder {
         }
     }
 
-
     pub fn aabb(aabb: AABB) -> Self {
         let vertices = vec![
-            Vertex::new(
-                Vector::new(aabb.min.x, aabb.max.y),
-                Vector::new(0.0, 0.0),
-            ),
-            Vertex::new(
-                Vector::new(aabb.min.x, aabb.min.y),
-                Vector::new(0.0, 1.0),
-            ),
-            Vertex::new(
-                Vector::new(aabb.max.x, aabb.min.y),
-                Vector::new(1.0, 1.0),
-            ),
-            Vertex::new(
-                Vector::new(aabb.max.x, aabb.max.y),
-                Vector::new(1.0, 0.0),
-            ),
+            Vertex::new(Vector::new(aabb.min.x, aabb.max.y), Vector::new(0.0, 0.0)),
+            Vertex::new(Vector::new(aabb.min.x, aabb.min.y), Vector::new(0.0, 1.0)),
+            Vertex::new(Vector::new(aabb.max.x, aabb.min.y), Vector::new(1.0, 1.0)),
+            Vertex::new(Vector::new(aabb.max.x, aabb.max.y), Vector::new(1.0, 0.0)),
         ];
         let indices = Vec::from(Self::CUBOID_INDICES);
         Self {

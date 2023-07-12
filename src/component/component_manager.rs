@@ -5,10 +5,10 @@ use crate::log::info;
 #[cfg(feature = "physics")]
 use crate::physics::World;
 use crate::{
-    Arena, BoxedComponent, CallableType, ComponentConfig, ComponentController, ComponentHandle,
-    ComponentSet, ComponentSetMut, ComponentType, ComponentTypeId, Gpu, GroupHandle, GroupManager,
-    InstanceBuffer, InstanceIndex, InstanceIndices, RenderCamera, RenderOperation, Renderer,
-    TypeIndex, UpdateOperation, BufferOperation
+    Arena, BoxedComponent, BufferOperation, CallableType, ComponentConfig, ComponentController,
+    ComponentHandle, ComponentSet, ComponentSetMut, ComponentType, ComponentTypeId, Gpu,
+    GroupHandle, GroupManager, InstanceBuffer, InstanceIndex, InstanceIndices, RenderCamera,
+    RenderOperation, Renderer, TypeIndex, UpdateOperation,
 };
 use std::cell::RefCell;
 use std::collections::BTreeMap;
@@ -95,7 +95,7 @@ macro_rules! sets_mut_of {
 }
 
 macro_rules! group_filter {
-    ($self:ident, $filter: ident) => {
+    ($self:ident, $filter: expr) => {
         match $filter {
             ComponentFilter::All => (false, &$self.all_groups[..]),
             ComponentFilter::Active => (false, &$self.active_groups[..]),
@@ -185,9 +185,9 @@ impl ComponentManager {
     }
 
     pub(crate) fn buffer(&mut self, #[cfg(feature = "physics")] world: &World, gpu: &Gpu) {
-        for (idx, ty) in &mut self.types {
+        for (idx, ty) in self.types.iter_with_index_mut() {
             let callable = self.callables.get(&TypeIndex(idx)).unwrap();
-            
+
             if ty.config().buffer != BufferOperation::Never {
                 ty.buffer(
                     #[cfg(feature = "physics")]
@@ -744,6 +744,25 @@ impl ComponentManager {
         self.for_each_mut_of(ComponentFilter::Active, each)
     }
 
+
+    #[inline]
+    pub fn par_for_each<C: ComponentController>(
+        &self,
+        each: impl Fn(&C) + Send + Sync,
+    ) {
+        self.par_for_each_of(ComponentFilter::Active, each)
+    }
+
+    pub fn par_for_each_of<C: ComponentController>(
+        &self,
+        filter: ComponentFilter,
+        each: impl Fn(&C) + Send + Sync,
+    ) {
+        let groups = group_filter!(self, filter).1;
+        let ty = type_ref!(self, C);
+        ty.par_for_each(groups, each);
+    }
+    
     pub fn for_each_mut_of<C: ComponentController>(
         &mut self,
         filter: ComponentFilter,
@@ -753,6 +772,25 @@ impl ComponentManager {
         let ty = type_mut!(self, C);
         ty.for_each_mut(groups, each);
     }
+
+    #[inline]
+    pub fn par_for_each_mut<C: ComponentController>(
+        &mut self,
+        each: impl Fn(&mut C) + Send + Sync,
+    ) {
+        self.par_for_each_mut_of(ComponentFilter::Active, each)
+    }
+
+    pub fn par_for_each_mut_of<C: ComponentController>(
+        &mut self,
+        filter: ComponentFilter,
+        each: impl Fn(&mut C) + Send + Sync,
+    ) {
+        let groups = group_filter!(self, filter).1;
+        let ty = type_mut!(self, C);
+        ty.par_for_each_mut(groups, each);
+    }
+
 
     #[inline]
     pub fn retain<C: ComponentController>(

@@ -116,7 +116,7 @@ impl<'a> Context<'a> {
         {
             let (ser_components, ser_scene_state, ser_global_state) = serializer.finish();
             let mut world_cpy = self.world.clone();
-            for (_, ty) in self.components.types() {
+            for ty in self.components.types() {
                 if !ser_components.contains_key(&ty.component_type_id()) {
                     match &ty.storage {
                         crate::ComponentTypeStorage::Single { component, .. } => {
@@ -125,13 +125,13 @@ impl<'a> Context<'a> {
                             }
                         }
                         crate::ComponentTypeStorage::Multiple(multiple) => {
-                            for (_, component) in &multiple.components {
+                            for component in &multiple.components {
                                 world_cpy.remove_no_maintain(component);
                             }
                         }
                         crate::ComponentTypeStorage::MultipleGroups(groups) => {
-                            for (_, group) in groups {
-                                for (_, component) in &group.components {
+                            for group in groups {
+                                for component in &group.components {
                                     world_cpy.remove_no_maintain(component);
                                 }
                             }

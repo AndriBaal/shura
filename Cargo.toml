@@ -55,6 +55,7 @@ crate-type = ["lib", "cdylib"]
 [dependencies]
 env_logger = "0.10"
 delaunator = "1"
+rayon="*"
 mint = { version = "0.5" }
 nalgebra = { version = "0.32", features = ["convert-bytemuck", "mint"] }
 glyph_brush = { version = "0.7", optional = true }

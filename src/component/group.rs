@@ -23,14 +23,14 @@ impl GroupManager {
     pub fn iter(&self) -> impl Iterator<Item = (GroupHandle, &Group)> + Clone {
         return self
             .groups
-            .iter()
+            .iter_with_index()
             .map(|(index, group)| (GroupHandle(index), group));
     }
 
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (GroupHandle, &mut Group)> {
         return self
             .groups
-            .iter_mut()
+            .iter_with_index_mut()
             .map(|(index, group)| (GroupHandle(index), group));
     }
 
@@ -48,7 +48,7 @@ impl GroupManager {
 
     pub fn add(&mut self, components: &mut ComponentManager, group: Group) -> GroupHandle {
         let handle = GroupHandle(self.groups.insert(group));
-        for (_, ty) in &mut components.types {
+        for ty in &mut components.types {
             ty.add_group();
         }
         components.all_groups.push(handle);
@@ -67,7 +67,7 @@ impl GroupManager {
         let group = self.groups.remove(handle.0);
         components.active_groups.retain(|g| *g != handle);
         components.all_groups.retain(|g| *g != handle);
-        for (_, ty) in &mut components.types {
+        for ty in &mut components.types {
             ty.remove_group(
                 #[cfg(feature = "physics")]
                 world,
@@ -81,7 +81,7 @@ impl GroupManager {
     pub(crate) fn update(&mut self, components: &mut ComponentManager, camera: &CameraBuffer) {
         let cam_aabb = camera.model().aabb(Vector::new(0.0, 0.0).into()); // Translation is already applied
         components.active_groups.clear();
-        for (index, group) in &mut self.groups {
+        for (index, group) in self.groups.iter_with_index_mut() {
             if group.intersects_camera(cam_aabb) {
                 group.set_active(true);
                 components.active_groups.push(GroupHandle(index));
