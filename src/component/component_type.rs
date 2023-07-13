@@ -200,9 +200,7 @@ impl CallableType {
 
 const BUFFER_ERROR: &'static str =
     "This component either has no buffer or it has not been initialized yet!";
-// const INSTANCE_SIZE_ERROR: &'static str =
-//     "This component instance does have have the required size needed for the shader! Consider adding additional fields to buffer with the #[buffer] attribute.";
-
+    
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct ComponentType {
     index: TypeIndex,
