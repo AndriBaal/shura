@@ -185,7 +185,7 @@ impl ComponentManager {
     }
 
     pub(crate) fn buffer(&mut self, #[cfg(feature = "physics")] world: &World, gpu: &Gpu) {
-        for (idx, ty) in self.types.iter_with_index_mut() {
+        for (idx, ty) in self.types.iter_with_index_mut().par_iter() {
             let callable = self.callables.get(&TypeIndex(idx)).unwrap();
 
             if ty.config().buffer != BufferOperation::Never {
