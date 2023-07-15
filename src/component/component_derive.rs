@@ -1,13 +1,15 @@
+use crate::{
+    data::arena::{Arena, ArenaEntry},
+    Color, ComponentConfig, ComponentIdentifier, ComponentTypeId, Context, EndReason, Gpu,
+    InstanceBuffer, InstanceData, RenderTarget, Renderer,
+};
 #[cfg(feature = "physics")]
 use crate::{
     physics::{CollideType, ColliderHandle, World},
     ComponentHandle,
 };
-use crate::{
-    Color, ComponentConfig, ComponentIdentifier, ComponentTypeId, Context, EndReason, Gpu,
-    InstanceBuffer, InstanceData, RenderTarget, Renderer,
-};
 use downcast_rs::*;
+use rayon::prelude::*;
 
 /// Fields names of a struct used for deserialization and serialization
 pub trait FieldNames {
@@ -89,31 +91,71 @@ impl<C: ComponentDerive + ?Sized> ComponentDerive for Box<C> {
     }
 }
 
-pub enum BufferIterType<'a> {
+pub(crate) enum BufferHelperType<'a> {
     Single {
         offset: u64,
-        component: &'a BoxedComponent
+        component: &'a BoxedComponent,
     },
     All {
-        component: &'a mut dyn Iterator<Item=&'a BoxedComponent>
+        components: &'a Arena<BoxedComponent>,
+    },
+}
+
+pub struct BufferHelper<'a> {
+    inner: BufferHelperType<'a>,
+}
+
+impl<'a> BufferHelper<'a> {
+    pub(crate) fn new(inner: BufferHelperType<'a>) -> Self {
+        Self {
+            inner
+        }
     }
-}
 
-pub struct BufferIter<'a> {
-    pub inner: BufferIterType<'a>   
-}
-
-impl <'a>BufferIter<'a> {
-    pub fn buffer<C: ComponentDerive, B: bytemuck::Pod + bytemuck::Zeroable>(&mut self, buffer: &mut InstanceBuffer, gpu: &Gpu, each: impl Fn(&C) -> B)  {
+    pub fn buffer<C: ComponentDerive, B: bytemuck::Pod + bytemuck::Zeroable + Send + Sync>(
+        &mut self,
+        buffer: &mut InstanceBuffer,
+        gpu: &Gpu,
+        each: impl Fn(&C) -> B + Send + Sync,
+    ) {
         match &self.inner {
-            BufferIterType::Single { offset, component } => {
+            BufferHelperType::Single { offset, component } => {
                 let data = each(component.downcast_ref::<C>().unwrap());
                 buffer.write_offset(gpu, *offset, bytemuck::cast_slice(&[data]));
-            },
-            BufferIterType::All { component } => {
-                // let data = each(component.downcast_ref::<C>().unwrap());
-                // buffer.write(gpu, bytemuck::cast_slice(&[data]));
-            },
+            }
+            BufferHelperType::All { components } => {
+                let instances = components
+                    .items
+                    .par_iter()
+                    .filter_map(|component| match component {
+                        ArenaEntry::Free { .. } => None,
+                        ArenaEntry::Occupied { data, .. } => {
+                            Some(each(data.downcast_ref::<C>().unwrap()))
+                        }
+                    })
+                    .collect::<Vec<B>>();
+                buffer.write(gpu, bytemuck::cast_slice(&instances));
+            }
+        };
+    }
+
+    pub fn buffer_uncasted(&mut self, buffer: &mut InstanceBuffer, gpu: &Gpu, world: &World) {
+        match &self.inner {
+            BufferHelperType::Single { offset, component } => {
+                let data = component.base().instance(world);
+                buffer.write_offset(gpu, *offset, bytemuck::cast_slice(&[data]));
+            }
+            BufferHelperType::All { components } => {
+                let instances = components
+                    .items
+                    .par_iter()
+                    .filter_map(|component| match component {
+                        ArenaEntry::Free { .. } => None,
+                        ArenaEntry::Occupied { data, .. } => Some(data.base().instance(world)),
+                    })
+                    .collect::<Vec<InstanceData>>();
+                buffer.write(gpu, bytemuck::cast_slice(&instances));
+            }
         };
     }
 }
@@ -124,17 +166,8 @@ pub trait ComponentBuffer {
         buffer: &mut InstanceBuffer,
         #[cfg(feature = "physics")] world: &World,
         gpu: &Gpu,
-        components: &mut dyn Iterator<Item = &BoxedComponent>,
+        mut helper: BufferHelper
     ) {
-        let instances = components
-            .into_iter()
-            .map(|component| {
-                component.base().instance(
-                    #[cfg(feature = "physics")]
-                    world,
-                )
-            })
-            .collect::<Vec<InstanceData>>();
-        buffer.write(gpu, bytemuck::cast_slice(&instances));
+        helper.buffer_uncasted(buffer, gpu, world)
     }
 }

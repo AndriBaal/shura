@@ -6,17 +6,17 @@ use std::fmt::{Display, Formatter, Result};
 use crate::physics::{CollideType, ColliderHandle, World};
 
 use crate::{
-    data::arena::ArenaEntry, Arena, BoxedComponent, BufferOperation, Color, ComponentConfig,
-    ComponentController, ComponentDerive, ComponentHandle, ComponentIndex, ComponentStorage,
-    Context, EndReason, Gpu, GroupHandle, GroupManager, InstanceBuffer, InstanceIndex,
-    InstanceIndices, RenderCamera, RenderTarget, Renderer, TypeIndex,
+    data::arena::ArenaEntry, Arena, BoxedComponent, BufferHelper, BufferOperation, Color,
+    ComponentConfig, ComponentController, ComponentDerive, ComponentHandle, ComponentIndex,
+    ComponentStorage, Context, EndReason, Gpu, GroupHandle, GroupManager, InstanceBuffer,
+    InstanceIndex, InstanceIndices, RenderCamera, RenderTarget, Renderer, TypeIndex,
 };
 
 type BufferCallback = fn(
     buffer: &mut InstanceBuffer,
     #[cfg(feature = "physics")] world: &World,
     gpu: &Gpu,
-    components: &mut dyn Iterator<Item = &BoxedComponent>,
+    helper: BufferHelper,
 );
 type UpdateCallback = fn(ctx: &mut Context);
 type RenderCallback = for<'a> fn(ctx: &'a Context, renderer: &mut Renderer<'a>);
@@ -160,19 +160,14 @@ impl ComponentTypeGroup {
             self.last_len = new_len;
             self.force_buffer = false;
             let buffer = self.buffer.as_mut().unwrap();
-            let instances = self
-                .components
-                .items
-                .par_iter()
-                .filter_map(|component| match component {
-                    ArenaEntry::Free { .. } => None,
-                    ArenaEntry::Occupied { data, .. } => Some(data.base().instance(
-                        #[cfg(feature = "physics")]
-                        world,
-                    )),
-                })
-                .collect::<Vec<crate::InstanceData>>();
-            buffer.write(gpu, bytemuck::cast_slice(&instances));
+            callback(
+                buffer,
+                world,
+                gpu,
+                BufferHelper::new(crate::BufferHelperType::All {
+                    components: &self.components,
+                }),
+            )
         }
     }
 }
@@ -200,7 +195,7 @@ impl CallableType {
 
 const BUFFER_ERROR: &'static str =
     "This component either has no buffer or it has not been initialized yet!";
-    
+
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct ComponentType {
     index: TypeIndex,
@@ -300,13 +295,14 @@ impl ComponentType {
                         }
                         *force_buffer = false;
                         let buffer = buffer.as_mut().unwrap();
-                        let mut iter = std::iter::once(&*component);
                         callback(
                             buffer,
-                            #[cfg(feature = "physics")]
                             world,
                             gpu,
-                            &mut iter,
+                            BufferHelper::new(crate::BufferHelperType::Single {
+                                offset: 0,
+                                component,
+                            }),
                         );
                     }
                 }
@@ -351,23 +347,18 @@ impl ComponentType {
                     (each)(component.downcast_ref::<C>().unwrap());
                 }
             }
-            ComponentTypeStorage::Multiple(multiple) => multiple
-                .components
-                .items
-                .par_iter()
-                .for_each(|e| match e {
+            ComponentTypeStorage::Multiple(multiple) => {
+                multiple.components.items.par_iter().for_each(|e| match e {
                     ArenaEntry::Free { .. } => (),
                     ArenaEntry::Occupied { data, .. } => {
                         (each)(data.downcast_ref::<C>().unwrap());
                     }
-                }),
+                })
+            }
             ComponentTypeStorage::MultipleGroups(groups) => {
                 for group in group_handles {
                     if let Some(group) = groups.get(group.0) {
-                        group.components
-                        .items
-                        .par_iter()
-                        .for_each(|e| match e {
+                        group.components.items.par_iter().for_each(|e| match e {
                             ArenaEntry::Free { .. } => (),
                             ArenaEntry::Occupied { data, .. } => {
                                 (each)(data.downcast_ref::<C>().unwrap());
@@ -403,10 +394,7 @@ impl ComponentType {
             ComponentTypeStorage::MultipleGroups(groups) => {
                 for group in group_handles {
                     if let Some(group) = groups.get_mut(group.0) {
-                        group.components
-                        .items
-                        .par_iter_mut()
-                        .for_each(|e| match e {
+                        group.components.items.par_iter_mut().for_each(|e| match e {
                             ArenaEntry::Free { .. } => (),
                             ArenaEntry::Occupied { data, .. } => {
                                 (each)(data.downcast_mut::<C>().unwrap());
@@ -1276,16 +1264,18 @@ impl ComponentType {
                         if let Some(group) = (&mut *ptr).get_mut(group_handle.0) {
                             let type_index = &self.index;
 
-                            iters.push(group.components.iter_with_index_mut().map(move |(idx, c)| {
-                                (
-                                    ComponentHandle::new(
-                                        ComponentIndex(idx),
-                                        *type_index,
-                                        *group_handle,
-                                    ),
-                                    c.downcast_mut::<C>().unwrap(),
-                                )
-                            }));
+                            iters.push(group.components.iter_with_index_mut().map(
+                                move |(idx, c)| {
+                                    (
+                                        ComponentHandle::new(
+                                            ComponentIndex(idx),
+                                            *type_index,
+                                            *group_handle,
+                                        ),
+                                        c.downcast_mut::<C>().unwrap(),
+                                    )
+                                },
+                            ));
                         };
                     }
                 }
