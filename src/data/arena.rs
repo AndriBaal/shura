@@ -255,14 +255,14 @@ impl<T> Arena<T> {
     pub fn iter(&self) -> ArenaIter<T> {
         ArenaIter {
             len: self.len,
-            base: self.items.iter().enumerate(),
+            base: self.items.iter()
         }
     }
 
     pub fn iter_mut(&mut self) -> ArenaIterMut<T> {
         ArenaIterMut {
             len: self.len,
-            base: self.items.iter_mut().enumerate(),
+            base: self.items.iter_mut()
         }
     }
 
@@ -345,7 +345,16 @@ impl<'a, T> IntoIterator for &'a Arena<T> {
 
 pub struct ArenaIter<'a, T> {
     len: usize,
-    base: iter::Enumerate<slice::Iter<'a, ArenaEntry<T>>>,
+    base: slice::Iter<'a, ArenaEntry<T>>,
+}
+
+impl<'a, T> ArenaIter<'a, T> {
+    pub(crate) fn new(base: slice::Iter<'a, ArenaEntry<T>>) -> Self {
+        Self {
+            len: base.len(),
+            base,
+        }
+    }
 }
 
 impl<T> Clone for ArenaIter<'_, T> {
@@ -364,11 +373,11 @@ impl<'a, T> Iterator for ArenaIter<'a, T> {
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             match self.base.next() {
-                Some((_, &ArenaEntry::Occupied { ref data, .. })) => {
+                Some(&ArenaEntry::Occupied { ref data, .. }) => {
                     self.len -= 1;
                     return Some(data);
                 }
-                Some((_, _)) => continue,
+                Some(_) => continue,
                 None => {
                     debug_assert_eq!(self.len, 0);
                     return None;
@@ -386,11 +395,11 @@ impl<'a, T> DoubleEndedIterator for ArenaIter<'a, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
         loop {
             match self.base.next_back() {
-                Some((_, &ArenaEntry::Occupied { ref data, .. })) => {
+                Some(&ArenaEntry::Occupied { ref data, .. }) => {
                     self.len -= 1;
                     return Some(data);
                 }
-                Some((_, _)) => continue,
+                Some(_) => continue,
                 None => {
                     debug_assert_eq!(self.len, 0);
                     return None;
@@ -418,7 +427,17 @@ impl<'a, T> IntoIterator for &'a mut Arena<T> {
 
 pub struct ArenaIterMut<'a, T> {
     len: usize,
-    base: iter::Enumerate<slice::IterMut<'a, ArenaEntry<T>>>,
+    base: slice::IterMut<'a, ArenaEntry<T>>,
+}
+
+
+impl<'a, T> ArenaIterMut<'a, T> {
+    pub(crate) fn new(base: slice::IterMut<'a, ArenaEntry<T>>) -> Self {
+        Self {
+            len: base.len(),
+            base,
+        }
+    }
 }
 
 impl<'a, T> Iterator for ArenaIterMut<'a, T> {
@@ -427,11 +446,11 @@ impl<'a, T> Iterator for ArenaIterMut<'a, T> {
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             match self.base.next() {
-                Some((_, &mut ArenaEntry::Occupied { ref mut data, .. })) => {
+                Some(&mut ArenaEntry::Occupied { ref mut data, .. }) => {
                     self.len -= 1;
                     return Some(data);
                 }
-                Some((_, _)) => continue,
+                Some(_) => continue,
                 None => {
                     debug_assert_eq!(self.len, 0);
                     return None;
@@ -449,11 +468,11 @@ impl<'a, T> DoubleEndedIterator for ArenaIterMut<'a, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
         loop {
             match self.base.next_back() {
-                Some((_, &mut ArenaEntry::Occupied { ref mut data, .. })) => {
+                Some(&mut ArenaEntry::Occupied { ref mut data, .. }) => {
                     self.len -= 1;
                     return Some(data);
                 }
-                Some((_, _)) => continue,
+                Some(_) => continue,
                 None => {
                     debug_assert_eq!(self.len, 0);
                     return None;

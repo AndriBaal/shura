@@ -89,6 +89,35 @@ impl<C: ComponentDerive + ?Sized> ComponentDerive for Box<C> {
     }
 }
 
+pub enum BufferIterType<'a> {
+    Single {
+        offset: u64,
+        component: &'a BoxedComponent
+    },
+    All {
+        component: &'a mut dyn Iterator<Item=&'a BoxedComponent>
+    }
+}
+
+pub struct BufferIter<'a> {
+    pub inner: BufferIterType<'a>   
+}
+
+impl <'a>BufferIter<'a> {
+    pub fn buffer<C: ComponentDerive, B: bytemuck::Pod + bytemuck::Zeroable>(&mut self, buffer: &mut InstanceBuffer, gpu: &Gpu, each: impl Fn(&C) -> B)  {
+        match &self.inner {
+            BufferIterType::Single { offset, component } => {
+                let data = each(component.downcast_ref::<C>().unwrap());
+                buffer.write_offset(gpu, *offset, bytemuck::cast_slice(&[data]));
+            },
+            BufferIterType::All { component } => {
+                // let data = each(component.downcast_ref::<C>().unwrap());
+                // buffer.write(gpu, bytemuck::cast_slice(&[data]));
+            },
+        };
+    }
+}
+
 pub trait ComponentBuffer {
     const INSTANCE_SIZE: u64 = InstanceData::SIZE;
     fn buffer(
