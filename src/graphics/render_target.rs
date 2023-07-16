@@ -1,4 +1,6 @@
-use crate::{Camera, Gpu, GpuDefaults, RenderEncoder, Sprite, Vector};
+use std::ops::Deref;
+
+use crate::{Camera, Gpu, GpuDefaults, RenderEncoder, Sprite, Vector, SpriteDescriptor};
 
 /// Texture to render onto with a [RenderEncoder]
 pub struct RenderTarget {
@@ -8,9 +10,9 @@ pub struct RenderTarget {
 }
 
 impl RenderTarget {
-    pub fn new(gpu: &Gpu, size: Vector<u32>) -> Self {
-        // let size = Self::validate_webgl_size(size);
-        let target = Sprite::empty(gpu, size);
+    pub fn new<D: Deref<Target = [u8]>>(gpu: &Gpu, sprite: SpriteDescriptor<D>) -> Self {
+        let size = sprite.size;
+        let target = Sprite::new(gpu, sprite);
         let target_view = target
             .texture()
             .create_view(&wgpu::TextureViewDescriptor::default());
@@ -28,13 +30,13 @@ impl RenderTarget {
         };
     }
 
-    pub fn computed(
+    pub fn computed<D: Deref<Target = [u8]>>(
         gpu: &Gpu,
         defaults: &GpuDefaults,
-        texture_size: Vector<u32>,
+        sprite: SpriteDescriptor<D>,
         compute: impl FnMut(&mut RenderEncoder),
     ) -> Self {
-        let target = RenderTarget::new(gpu, texture_size);
+        let target = RenderTarget::new(gpu, sprite);
         target.draw(gpu, defaults, compute);
         return target;
     }
@@ -80,10 +82,6 @@ impl RenderTarget {
 
     pub fn msaa(&self) -> &wgpu::TextureView {
         &self.target_msaa
-    }
-
-    pub fn resize(&mut self, gpu: &Gpu, size: Vector<u32>) {
-        *self = gpu.create_render_target(size)
     }
 
     pub fn draw<'caller>(

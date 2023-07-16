@@ -4,11 +4,11 @@ use crate::log::info;
 use crate::text::{FontBrush, TextPipeline};
 use crate::{
     Camera, CameraBuffer, ColorWrites, InstanceBuffer, InstanceData, InstanceField, Isometry,
-    Model, ModelBuilder, RenderEncoder, RenderTarget, RgbaColor, Shader, ShaderConfig, Sprite,
-    SpriteSheet, Uniform, UniformField, Vector,
+    Model, ModelBuilder, RenderEncoder, RenderTarget, Shader, ShaderConfig, Sprite,
+    SpriteDescriptor, SpriteSheet, SpriteSheetDescriptor, Uniform, UniformField, Vector,
 };
-use std::sync::Mutex;
-use wgpu::{util::DeviceExt, BlendState};
+use std::{ops::Deref, sync::Mutex};
+use wgpu::BlendState;
 
 pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 0.5;
 
@@ -181,8 +181,11 @@ impl Gpu {
         Vector::new(self.config.width, self.config.height)
     }
 
-    pub fn create_render_target(&self, size: Vector<u32>) -> RenderTarget {
-        RenderTarget::new(self, size)
+    pub fn create_render_target<D: Deref<Target = [u8]>>(
+        &self,
+        sprite: SpriteDescriptor<D>,
+    ) -> RenderTarget {
+        RenderTarget::new(self, sprite)
     }
 
     pub fn create_camera_buffer(&self, camera: &Camera) -> CameraBuffer {
@@ -197,28 +200,15 @@ impl Gpu {
         Model::new(self, builder)
     }
 
-    pub fn create_sprite(&self, bytes: &[u8]) -> Sprite {
-        Sprite::new(self, bytes)
+    pub fn create_sprite<D: Deref<Target = [u8]>>(&self, desc: SpriteDescriptor<D>) -> Sprite {
+        Sprite::new(self, desc)
     }
 
-    pub fn create_sprite_from_image(&self, image: image::DynamicImage) -> Sprite {
-        Sprite::from_image(self, image)
-    }
-
-    pub fn create_empty_sprite(&self, size: Vector<u32>) -> Sprite {
-        Sprite::empty(self, size)
-    }
-
-    pub fn create_sprite_sheet(&self, bytes: &[u8], sprites: Vector<u32>) -> SpriteSheet {
-        SpriteSheet::new(self, bytes, sprites)
-    }
-
-    pub fn create_sprite_sheet_from_amount(
+    pub fn create_sprite_sheet<D: Deref<Target = [u8]>>(
         &self,
-        bytes: &[u8],
-        sprites: Vector<u32>,
+        desc: SpriteSheetDescriptor<D>,
     ) -> SpriteSheet {
-        SpriteSheet::from_amount(self, bytes, sprites)
+        SpriteSheet::new(self, desc)
     }
 
     #[cfg(feature = "text")]
@@ -230,25 +220,17 @@ impl Gpu {
         Uniform::new(self, data)
     }
 
-    pub fn create_color(&self, color: RgbaColor) -> Sprite {
-        Sprite::from_color(self, color)
-    }
-
-    pub fn create_color_sheet(&self, colors: &[RgbaColor]) -> SpriteSheet {
-        SpriteSheet::from_colors(self, colors)
-    }
-
     pub fn create_shader(&self, config: ShaderConfig) -> Shader {
         Shader::new(self, config)
     }
 
-    pub fn create_computed_target<'caller>(
+    pub fn create_computed_target<'caller, D: Deref<Target = [u8]>>(
         &self,
         defaults: &GpuDefaults,
-        texture_size: Vector<u32>,
+        sprite: SpriteDescriptor<D>,
         compute: impl FnMut(&mut RenderEncoder),
     ) -> RenderTarget {
-        return RenderTarget::computed(self, defaults, texture_size, compute);
+        return RenderTarget::computed(self, defaults, sprite, compute);
     }
 }
 
@@ -261,7 +243,6 @@ pub struct WgpuBase {
     pub sprite_layout: wgpu::BindGroupLayout,
     pub camera_layout: wgpu::BindGroupLayout,
     pub uniform_layout: wgpu::BindGroupLayout,
-    pub texture_sampler: wgpu::Sampler,
     #[cfg(feature = "text")]
     pub text_pipeline: TextPipeline,
 }
@@ -351,16 +332,6 @@ impl WgpuBase {
                 ],
             });
 
-        let texture_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Nearest,
-            min_filter: wgpu::FilterMode::Nearest,
-            mipmap_filter: wgpu::FilterMode::Nearest,
-            ..Default::default()
-        });
-
         let multisample = wgpu::MultisampleState {
             count: sample_count,
             mask: !0,
@@ -383,7 +354,6 @@ impl WgpuBase {
             sprite_layout,
             camera_layout,
             uniform_layout,
-            texture_sampler,
             #[cfg(feature = "text")]
             text_pipeline,
         }
@@ -401,9 +371,6 @@ pub struct GpuDefaults {
     pub grey: Shader,
     pub blurr: Shader,
     pub sprite_no_msaa: Shader,
-
-    pub cuboid_index_buffer: wgpu::Buffer,
-    pub triangle_index_buffer: wgpu::Buffer,
     pub unit_model: Model,
 
     /// This field holds both total time and the frame time. Both are stored as f32 in the buffer.
@@ -510,7 +477,7 @@ impl GpuDefaults {
         });
 
         let size = gpu.render_size(1.0);
-        let world_target = gpu.create_render_target(size);
+        let world_target = gpu.create_render_target(SpriteDescriptor::empty(size));
         let times = Uniform::new(gpu, [0.0, 0.0]);
         let single_centered_instance = gpu.create_instance_buffer(
             InstanceData::SIZE,
@@ -540,28 +507,10 @@ impl GpuDefaults {
         let camera = Camera::new(Default::default(), Vector::new(0.5, 0.5));
         let unit_camera = (camera.create_buffer(gpu), camera);
 
-        let cuboid_index_buffer =
-            gpu.device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("cuboid_index_buffer"),
-                    contents: bytemuck::cast_slice(&ModelBuilder::CUBOID_INDICES),
-                    usage: wgpu::BufferUsages::INDEX,
-                });
-
-        let triangle_index_buffer =
-            gpu.device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("triangle_index_buffer"),
-                    contents: bytemuck::cast_slice(&ModelBuilder::TRIANGLE_INDICES),
-                    usage: wgpu::BufferUsages::INDEX,
-                });
-
         Self {
             unit_model,
             sprite_sheet_uniform,
             sprite_sheet,
-            cuboid_index_buffer,
-            triangle_index_buffer,
             unit_camera,
             sprite,
             rainbow,
@@ -624,7 +573,7 @@ impl GpuDefaults {
     pub(crate) fn apply_render_scale(&mut self, gpu: &Gpu, scale: f32) {
         let size = gpu.render_size(scale);
         if self.world_target.size() != size {
-            self.world_target = gpu.create_render_target(size);
+            self.world_target = gpu.create_render_target(SpriteDescriptor::empty(size));
         }
     }
 

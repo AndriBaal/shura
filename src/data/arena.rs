@@ -348,15 +348,6 @@ pub struct ArenaIter<'a, T> {
     base: slice::Iter<'a, ArenaEntry<T>>,
 }
 
-impl<'a, T> ArenaIter<'a, T> {
-    pub(crate) fn new(base: slice::Iter<'a, ArenaEntry<T>>) -> Self {
-        Self {
-            len: base.len(),
-            base,
-        }
-    }
-}
-
 impl<T> Clone for ArenaIter<'_, T> {
     #[inline]
     fn clone(&self) -> Self {
@@ -428,16 +419,6 @@ impl<'a, T> IntoIterator for &'a mut Arena<T> {
 pub struct ArenaIterMut<'a, T> {
     len: usize,
     base: slice::IterMut<'a, ArenaEntry<T>>,
-}
-
-
-impl<'a, T> ArenaIterMut<'a, T> {
-    pub(crate) fn new(base: slice::IterMut<'a, ArenaEntry<T>>) -> Self {
-        Self {
-            len: base.len(),
-            base,
-        }
-    }
 }
 
 impl<'a, T> Iterator for ArenaIterMut<'a, T> {

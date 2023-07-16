@@ -1,19 +1,9 @@
 #[cfg(feature = "physics")]
 use crate::physics::{Shape, TypedShape};
 use crate::{na::Matrix2, Gpu, Index, Isometry, Rotation, Vector, Vertex};
-use crate::{CameraBuffer, GpuDefaults, AABB};
+use crate::{CameraBuffer, AABB};
 use std::f32::consts::{FRAC_PI_2, PI};
 use wgpu::util::DeviceExt;
-
-#[derive(Debug)]
-/// Indexbuffer of a [Model]. This is either a 'custom' one for the [Model] or a shared one.
-/// For example all rectangles have the same IndexBuffer, so we don't need to have a seperate one
-/// for every Rectangle.
-pub enum ModelIndexBuffer {
-    Triangle,
-    Cuboid,
-    Custom(wgpu::Buffer),
-}
 
 impl Default for ModelBuilder {
     fn default() -> Self {
@@ -626,20 +616,13 @@ impl ModelBuilder {
                 usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             });
 
-        let index_buffer;
-        if self.indices[..] == ModelBuilder::TRIANGLE_INDICES {
-            index_buffer = ModelIndexBuffer::Triangle;
-        } else if self.indices[..] == ModelBuilder::CUBOID_INDICES {
-            index_buffer = ModelIndexBuffer::Cuboid;
-        } else {
-            index_buffer = ModelIndexBuffer::Custom(gpu.device.create_buffer_init(
-                &wgpu::util::BufferInitDescriptor {
-                    label: Some("index_buffer"),
-                    contents: bytemuck::cast_slice(&self.indices[..]),
-                    usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
-                },
-            ));
-        }
+        let index_buffer = gpu
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("index_buffer"),
+                contents: bytemuck::cast_slice(&self.indices[..]),
+                usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
+            });
 
         Model {
             amount_of_vertices: self.vertices.len() as u32,
@@ -657,7 +640,7 @@ pub struct Model {
     amount_of_vertices: u32,
     amount_of_indices: u32,
     vertex_buffer: wgpu::Buffer,
-    index_buffer: ModelIndexBuffer,
+    index_buffer: wgpu::Buffer,
     aabb: AABB,
 }
 
@@ -680,21 +663,8 @@ impl Model {
 
     pub fn write_indices(&mut self, gpu: &Gpu, indices: &[Index]) {
         assert_eq!(indices.len(), self.amount_of_indices as usize);
-        match &self.index_buffer {
-            ModelIndexBuffer::Custom(c) => {
-                gpu.queue
-                    .write_buffer(c, 0, bytemuck::cast_slice(&indices[..]));
-            }
-            _ => {
-                self.index_buffer = ModelIndexBuffer::Custom(gpu.device.create_buffer_init(
-                    &wgpu::util::BufferInitDescriptor {
-                        label: Some("index_buffer"),
-                        contents: bytemuck::cast_slice(&indices[..]),
-                        usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
-                    },
-                ));
-            }
-        };
+        gpu.queue
+            .write_buffer(&self.index_buffer, 0, bytemuck::cast_slice(&indices[..]));
     }
 
     pub fn write_vertices(&mut self, gpu: &Gpu, vertices: &[Vertex]) {
@@ -708,12 +678,8 @@ impl Model {
         &self.vertex_buffer
     }
 
-    pub fn index_buffer<'a>(&'a self, defaults: &'a GpuDefaults) -> &'a wgpu::Buffer {
-        return match &self.index_buffer {
-            ModelIndexBuffer::Triangle => &defaults.triangle_index_buffer,
-            ModelIndexBuffer::Cuboid => &defaults.cuboid_index_buffer,
-            ModelIndexBuffer::Custom(c) => c,
-        };
+    pub fn index_buffer(&self) -> &wgpu::Buffer {
+        &self.index_buffer
     }
 
     pub fn amount_of_indices(&self) -> u32 {

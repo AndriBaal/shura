@@ -120,7 +120,7 @@ impl<'a> Renderer<'a> {
         render_pass.set_bind_group(1, sprite.bind_group(), &[]);
         render_pass.set_vertex_buffer(Self::MODEL_SLOT, model.vertex_buffer().slice(..));
         render_pass.set_index_buffer(
-            model.index_buffer(defaults).slice(..),
+            model.index_buffer().slice(..),
             wgpu::IndexFormat::Uint32,
         );
         render_pass.draw_indexed(0..model.amount_of_indices(), 0, 0..1);
@@ -180,7 +180,7 @@ impl<'a> Renderer<'a> {
     }
 
     pub fn use_model(&mut self, model: &'a Model) {
-        let index_buffer = model.index_buffer(self.defaults);
+        let index_buffer = model.index_buffer();
         let index_ptr = index_buffer as *const _;
         let vertex_ptr = model.vertex_buffer() as *const _;
 

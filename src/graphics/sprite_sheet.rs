@@ -1,63 +1,25 @@
-use image::DynamicImage;
+use std::ops::Deref;
 use wgpu::{util::DeviceExt, ImageCopyTexture};
 
 use crate::{Gpu, RgbaColor, Vector};
-/// Collection of [Sprites](crate::Sprite) that will be loaded from the same image where all sprites have the same size.
-pub struct SpriteSheet {
-    _texture: wgpu::Texture,
-    _size_hint_buffer: wgpu::Buffer,
-    bind_group: wgpu::BindGroup,
-    sprite_size: Vector<u32>,
-    sprite_amount: Vector<u32>,
+
+pub struct SpriteSheetDescriptor<'a, D: Deref<Target = [u8]>> {
+    pub sprite_size: Vector<u32>,
+    pub sprite_amount: Vector<u32>,
+    pub sampler: wgpu::SamplerDescriptor<'a>,
+    pub data: Vec<D>,
 }
 
-impl SpriteSheet {
-    pub fn new(gpu: &Gpu, bytes: &[u8], sprite_size: Vector<u32>) -> Self {
+impl<'a> SpriteSheetDescriptor<'a, image::RgbaImage> {
+    pub fn new(bytes: &[u8], sprite_size: Vector<u32>) -> Self {
         let img = image::load_from_memory(bytes).unwrap();
-        Self::from_image(gpu, img, sprite_size)
+        Self::image(img, sprite_size)
     }
 
-    // /// Create a [SpriteSheet] from multiple, by flattening all provided SpriteSheets to have their own row.
-    // pub fn from_multiple(gpu: &Gpu, sheets: &[&[u8]], sprite_size: Vector<u32>) -> Self {
-    //     let sprite_amount = size.component_div(&sprite_size);
-    //     let mut sprites: Vec<Vec<u8>> = vec![];
-
-    //     for i in 0..sprite_amount.y as u32 {
-    //         for j in 0..sprite_amount.x as u32 {
-    //             let sprite = image.crop(
-    //                 j * sprite_size.x,
-    //                 i * sprite_size.y,
-    //                 sprite_size.x,
-    //                 sprite_size.y,
-    //             );
-    //             sprites.push(sprite.as_rgba8().unwrap_or(&image.to_rgba8()).to_vec());
-    //         }
-    //     }
-    //     return Self::from_raw(gpu, &sprites, sprite_size, sprite_amount);
-    // }
-
-    pub fn from_amount(gpu: &Gpu, bytes: &[u8], sprite_amount: Vector<u32>) -> Self {
-        let img = image::load_from_memory(bytes).unwrap();
-        let sprite_size = Vector::new(
-            img.width() / sprite_amount.x,
-            img.height() / sprite_amount.y,
-        );
-        Self::from_image(gpu, img, sprite_size)
-    }
-
-    pub fn from_colors(gpu: &Gpu, colors: &[RgbaColor]) -> Self {
-        let mut bytes = vec![];
-        let sprite_size = Vector::new(colors.len() as u32, 1);
-        for c in colors {
-            bytes.push(vec![c.r, c.g, c.b, c.a]);
-        }
-        return Self::from_raw(gpu, &bytes, Vector::new(1, 1), sprite_size);
-    }
-
-    pub fn from_image(gpu: &Gpu, mut image: DynamicImage, sprite_size: Vector<u32>) -> Self {
+    pub fn image(mut image: image::DynamicImage, sprite_size: Vector<u32>) -> Self {
         let size = Vector::new(image.width(), image.height());
         let sprite_amount = size.component_div(&sprite_size);
-        let mut sprites: Vec<Vec<u8>> = vec![];
+        let mut data = vec![];
         for i in 0..sprite_amount.y as u32 {
             for j in 0..sprite_amount.x as u32 {
                 let sprite = image.crop(
@@ -66,34 +28,94 @@ impl SpriteSheet {
                     sprite_size.x,
                     sprite_size.y,
                 );
-                sprites.push(sprite.to_rgba8().to_vec());
+                data.push(sprite.to_rgba8());
             }
         }
-        return Self::from_raw(gpu, &sprites, sprite_size, sprite_amount);
+        Self {
+            sprite_size,
+            sprite_amount,
+            sampler: Self::DEFAULT_SAMPLER,
+            data,
+        }
     }
+}
 
-    pub fn from_raw(
-        gpu: &Gpu,
-        // Every Sprite passed seperatley because split crop in image
-        sprites: &[Vec<u8>],
-        sprite_size: Vector<u32>,
-        sprite_amount: Vector<u32>,
-    ) -> Self {
-        let amount = sprite_amount.x * sprite_amount.y;
+impl<'a> SpriteSheetDescriptor<'a, Vec<u8>> {
+    pub fn colors(colors: &[RgbaColor]) -> Self {
+        let mut data = vec![];
+        for c in colors {
+            data.push(vec![c.r, c.g, c.b, c.a]);
+        }
+
+        Self {
+            sprite_size: Vector::new(1, 1),
+            sprite_amount: Vector::new(colors.len() as u32, 1),
+            sampler: Self::DEFAULT_SAMPLER,
+            data,
+        }
+    }
+}
+
+impl<'a> SpriteSheetDescriptor<'a, &'a [u8]> {
+    pub fn raw(sprite_size: Vector<u32>, sprite_amount: Vector<u32>, data: Vec<&'a [u8]>) -> Self {
+        return Self {
+            sprite_size,
+            sprite_amount,
+            sampler: Self::DEFAULT_SAMPLER,
+            data,
+        };
+    }
+}
+
+impl<'a, D: Deref<Target = [u8]>> SpriteSheetDescriptor<'a, D> {
+    pub const DEFAULT_SAMPLER: wgpu::SamplerDescriptor<'static> = wgpu::SamplerDescriptor {
+        label: None,
+        address_mode_u: wgpu::AddressMode::ClampToEdge,
+        address_mode_v: wgpu::AddressMode::ClampToEdge,
+        address_mode_w: wgpu::AddressMode::ClampToEdge,
+        mag_filter: wgpu::FilterMode::Nearest,
+        min_filter: wgpu::FilterMode::Nearest,
+        mipmap_filter: wgpu::FilterMode::Nearest,
+        // Copied from default ..
+        lod_min_clamp: 0.0,
+        lod_max_clamp: 32.0,
+        compare: None,
+        anisotropy_clamp: 1,
+        border_color: None,
+    };
+
+    pub fn sampler(mut self, sampler: wgpu::SamplerDescriptor<'a>) -> Self {
+        self.sampler = sampler;
+        self
+    }
+}
+
+pub struct SpriteSheet {
+    _texture: wgpu::Texture,
+    _size_hint_buffer: wgpu::Buffer,
+    _sampler: wgpu::Sampler,
+    bind_group: wgpu::BindGroup,
+    sprite_size: Vector<u32>,
+    sprite_amount: Vector<u32>,
+}
+
+impl SpriteSheet {
+    pub fn new<D: Deref<Target = [u8]>>(gpu: &Gpu, desc: SpriteSheetDescriptor<D>) -> Self {
+        let amount = desc.sprite_amount.x * desc.sprite_amount.y;
         assert!(amount > 1, "SpriteSheet must atleast have to 2 sprites!");
         let size_hint_buffer = gpu
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("spritesheet_size_hint_buffer"),
-                contents: bytemuck::cast_slice(&[sprite_amount, Vector::new(0, 0)]), // Empty vec needed for 16 Byte alignment
+                contents: bytemuck::cast_slice(&[desc.sprite_amount, Vector::new(0, 0)]), // Empty vec needed for 16 Byte alignment
                 usage: wgpu::BufferUsages::UNIFORM,
             });
 
         let texture_descriptor = wgpu::TextureDescriptor {
             label: Some("sprite_texture"),
             size: wgpu::Extent3d {
-                width: sprite_size.x,
-                height: sprite_size.y,
+                width: desc.sprite_size.x,
+                height: desc.sprite_size.y,
                 depth_or_array_layers: amount,
             },
             mip_level_count: 1,
@@ -107,8 +129,9 @@ impl SpriteSheet {
             view_formats: &[],
         };
         let texture = gpu.device.create_texture(&texture_descriptor);
+        let sampler = gpu.device.create_sampler(&desc.sampler);
 
-        for (layer, bytes) in sprites.iter().enumerate() {
+        for (layer, bytes) in desc.data.iter().enumerate() {
             gpu.queue.write_texture(
                 ImageCopyTexture {
                     texture: &texture,
@@ -123,12 +146,12 @@ impl SpriteSheet {
                 bytes,
                 wgpu::ImageDataLayout {
                     offset: 0,
-                    bytes_per_row: Some(4 * sprite_size.x),
-                    rows_per_image: Some(sprite_size.y),
+                    bytes_per_row: Some(4 * desc.sprite_size.x),
+                    rows_per_image: Some(desc.sprite_size.y),
                 },
                 wgpu::Extent3d {
-                    width: sprite_size.x,
-                    height: sprite_size.y,
+                    width: desc.sprite_size.x,
+                    height: desc.sprite_size.y,
                     depth_or_array_layers: 1,
                 },
             );
@@ -143,7 +166,7 @@ impl SpriteSheet {
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&gpu.base.texture_sampler),
+                    resource: wgpu::BindingResource::Sampler(&sampler),
                 },
                 wgpu::BindGroupEntry {
                     binding: 2,
@@ -161,9 +184,10 @@ impl SpriteSheet {
         return Self {
             _texture: texture,
             _size_hint_buffer: size_hint_buffer,
+            _sampler: sampler,
             bind_group,
-            sprite_size,
-            sprite_amount,
+            sprite_size: desc.sprite_size,
+            sprite_amount: desc.sprite_amount,
         };
     }
 
@@ -183,3 +207,22 @@ impl SpriteSheet {
         &self.sprite_size
     }
 }
+
+// /// Create a [SpriteSheet] from multiple, by flattening all provided SpriteSheets to have their own row.
+// pub fn from_multiple(gpu: &Gpu, sheets: &[&[u8]], sprite_size: Vector<u32>) -> Self {
+//     let sprite_amount = size.component_div(&sprite_size);
+//     let mut sprites: Vec<Vec<u8>> = vec![];
+
+//     for i in 0..sprite_amount.y as u32 {
+//         for j in 0..sprite_amount.x as u32 {
+//             let sprite = image.crop(
+//                 j * sprite_size.x,
+//                 i * sprite_size.y,
+//                 sprite_size.x,
+//                 sprite_size.y,
+//             );
+//             sprites.push(sprite.as_rgba8().unwrap_or(&image.to_rgba8()).to_vec());
+//         }
+//     }
+//     return Self::from_raw(gpu, &sprites, sprite_size, sprite_amount);
+// }

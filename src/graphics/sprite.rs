@@ -1,76 +1,115 @@
 use crate::{Gpu, RgbaColor, Vector};
-use image::DynamicImage;
+use std::ops::Deref;
+
+pub struct SpriteDescriptor<'a, D: Deref<Target = [u8]>> {
+    pub size: Vector<u32>,
+    pub sampler: wgpu::SamplerDescriptor<'a>,
+    pub data: D,
+}
+
+impl<'a> SpriteDescriptor<'a, image::RgbaImage> {
+    pub fn new(bytes: &[u8]) -> Self {
+        let image = image::load_from_memory(bytes).unwrap();
+        let size = Vector::new(image.width(), image.height());
+        return Self {
+            size,
+            sampler: Self::DEFAULT_SAMPLER,
+            data: image.to_rgba8(),
+        };
+    }
+
+    pub fn image(image: image::DynamicImage) -> Self {
+        let size = Vector::new(image.width(), image.height());
+        return Self {
+            size,
+            sampler: Self::DEFAULT_SAMPLER,
+            data: image.to_rgba8(),
+        };
+    }
+}
+
+impl<'a> SpriteDescriptor<'a, &'static [u8]> {
+    pub fn empty(size: Vector<u32>) -> Self {
+        return Self {
+            size,
+            sampler: Self::DEFAULT_SAMPLER,
+            data: &[],
+        };
+    }
+}
+
+impl<'a> SpriteDescriptor<'a, Vec<u8>> {
+    pub fn color(color: RgbaColor) -> Self {
+        Self {
+            size: Vector::new(1, 1),
+            sampler: Self::DEFAULT_SAMPLER,
+            data: vec![color.r, color.g, color.b, color.a],
+        }
+    }
+}
+
+impl<'a> SpriteDescriptor<'a, &'a [u8]> {
+    pub fn raw(size: Vector<u32>, data: &'a [u8]) -> Self {
+        return Self {
+            size,
+            sampler: Self::DEFAULT_SAMPLER,
+            data,
+        };
+    }
+}
+
+impl<'a, D: Deref<Target = [u8]>> SpriteDescriptor<'a, D> {
+    pub const DEFAULT_SAMPLER: wgpu::SamplerDescriptor<'static> = wgpu::SamplerDescriptor {
+        label: None,
+        address_mode_u: wgpu::AddressMode::ClampToEdge,
+        address_mode_v: wgpu::AddressMode::ClampToEdge,
+        address_mode_w: wgpu::AddressMode::ClampToEdge,
+        mag_filter: wgpu::FilterMode::Nearest,
+        min_filter: wgpu::FilterMode::Nearest,
+        mipmap_filter: wgpu::FilterMode::Nearest,
+        // Copied from default ..
+        lod_min_clamp: 0.0,
+        lod_max_clamp: 32.0,
+        compare: None,
+        anisotropy_clamp: 1,
+        border_color: None,
+    };
+
+    pub fn sampler(mut self, sampler: wgpu::SamplerDescriptor<'a>) -> Self {
+        self.sampler = sampler;
+        self
+    }
+}
 
 /// 2D Sprite used for rendering
 #[derive(Debug)]
 pub struct Sprite {
     texture: wgpu::Texture,
     bind_group: wgpu::BindGroup,
+    _sampler: wgpu::Sampler,
     size: Vector<u32>,
 }
 
 impl Sprite {
-    /// Create a new [Sprite](crate::Sprite) from the raw image data.
-    ///
-    /// # Example
-    /// ```
-    /// let sprite = ctx.create_sprite(include_bytes!("path/to/my/image.png"));
-    /// ```
-    pub fn new(gpu: &Gpu, bytes: &[u8]) -> Self {
-        let img = image::load_from_memory(bytes).unwrap();
-        Self::from_image(gpu, img)
-    }
-
-    pub(crate) fn empty(gpu: &Gpu, size: Vector<u32>) -> Self {
-        assert!(size.x != 0 && size.y != 0);
-        let texture = Self::create_texture(gpu, size);
-        let bind_group = Self::create_bind_group(gpu, &texture);
-        Self {
-            size,
+    pub fn new<D: Deref<Target = [u8]>>(gpu: &Gpu, desc: SpriteDescriptor<D>) -> Self {
+        let texture = Self::create_texture(gpu, desc.size);
+        let (bind_group, sampler) = Self::create_bind_group(gpu, &texture, &desc.sampler);
+        let sprite = Self {
+            _sampler: sampler,
+            size: desc.size,
             texture,
             bind_group,
+        };
+
+        if desc.data.len() != 0 {
+            sprite.write_raw(gpu, desc.size, &desc.data);
         }
-    }
 
-    pub fn from_image(gpu: &Gpu, image: DynamicImage) -> Self {
-        let size = Vector::new(image.width(), image.height());
-        return Self::from_raw(gpu, size, image.as_rgba8().unwrap_or(&image.to_rgba8()));
-    }
-
-    pub fn from_color(gpu: &Gpu, color: RgbaColor) -> Self {
-        return Self::from_raw(
-            gpu,
-            Vector::new(1, 1),
-            &[color.r, color.g, color.b, color.a],
-        );
-    }
-
-    pub fn from_raw(gpu: &Gpu, size: Vector<u32>, data: &[u8]) -> Self {
-        let texture = Self::create_texture(gpu, size);
-        gpu.queue.write_texture(
-            texture.as_image_copy(),
-            data,
-            wgpu::ImageDataLayout {
-                offset: 0,
-                bytes_per_row: Some(4 * size.x),
-                rows_per_image: Some(size.y),
-            },
-            wgpu::Extent3d {
-                width: size.x,
-                height: size.y,
-                depth_or_array_layers: 1,
-            },
-        );
-
-        let bind_group = Self::create_bind_group(gpu, &texture);
-        Self {
-            bind_group,
-            texture,
-            size,
-        }
+        return sprite;
     }
 
     fn create_texture(gpu: &Gpu, size: Vector<u32>) -> wgpu::Texture {
+        assert!(size.x != 0 && size.y != 0);
         let texture = gpu.device.create_texture(&wgpu::TextureDescriptor {
             label: Some("sprite_texture"),
             size: wgpu::Extent3d {
@@ -92,8 +131,13 @@ impl Sprite {
         return texture;
     }
 
-    fn create_bind_group(gpu: &Gpu, texture: &wgpu::Texture) -> wgpu::BindGroup {
+    fn create_bind_group(
+        gpu: &Gpu,
+        texture: &wgpu::Texture,
+        sampler: &wgpu::SamplerDescriptor,
+    ) -> (wgpu::BindGroup, wgpu::Sampler) {
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let sampler = gpu.device.create_sampler(&sampler);
         let bind_group = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &gpu.base.sprite_layout,
             entries: &[
@@ -103,28 +147,32 @@ impl Sprite {
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&gpu.base.texture_sampler),
+                    resource: wgpu::BindingResource::Sampler(&sampler),
                 },
             ],
             label: Some("texture_bind_group"),
         });
 
-        return bind_group;
+        return (bind_group, sampler);
     }
 
     /// Overwrite with an image of the same dimension
     pub fn write(&self, gpu: &Gpu, rgba: &image::RgbaImage) {
+        Self::write_raw(&self, gpu, Vector::new(rgba.width(), rgba.height()), rgba)
+    }
+
+    pub fn write_raw(&self, gpu: &Gpu, size: Vector<u32>, data: &[u8]) {
         gpu.queue.write_texture(
             self.texture.as_image_copy(),
-            rgba,
+            data,
             wgpu::ImageDataLayout {
                 offset: 0,
                 bytes_per_row: Some(4 * self.size.x),
                 rows_per_image: Some(self.size.y),
             },
             wgpu::Extent3d {
-                width: self.size.x,
-                height: self.size.y,
+                width: size.x,
+                height: size.y,
                 depth_or_array_layers: 1,
             },
         );

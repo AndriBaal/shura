@@ -495,7 +495,6 @@ impl Shura {
                 Self::world_step(&mut ctx);
             }
         }
-        self.input.update();
         scene.world_camera.apply_target(
             #[cfg(feature = "physics")]
             &scene.world,
@@ -512,6 +511,7 @@ impl Shura {
             .groups
             .update(&mut scene.components, &self.defaults.world_camera);
         if !scene.render_components {
+            self.input.update();
             return Ok(());
         }
 
@@ -592,6 +592,7 @@ impl Shura {
 
         encoder.finish();
         self.gpu.submit();
+        self.input.update();
         output.present();
         Ok(())
     }
