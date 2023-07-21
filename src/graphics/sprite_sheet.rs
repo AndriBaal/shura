@@ -3,14 +3,16 @@ use wgpu::{util::DeviceExt, ImageCopyTexture};
 
 use crate::{Gpu, RgbaColor, Vector};
 
-pub struct SpriteSheetDescriptor<'a, D: Deref<Target = [u8]>> {
+pub type SpriteSheetIndex = Vector<u32>;
+
+pub struct SpriteSheetBuilder<'a, D: Deref<Target = [u8]>> {
     pub sprite_size: Vector<u32>,
     pub sprite_amount: Vector<u32>,
     pub sampler: wgpu::SamplerDescriptor<'a>,
     pub data: Vec<D>,
 }
 
-impl<'a> SpriteSheetDescriptor<'a, image::RgbaImage> {
+impl<'a> SpriteSheetBuilder<'a, image::RgbaImage> {
     pub fn new(bytes: &[u8], sprite_size: Vector<u32>) -> Self {
         let img = image::load_from_memory(bytes).unwrap();
         Self::image(img, sprite_size)
@@ -40,7 +42,7 @@ impl<'a> SpriteSheetDescriptor<'a, image::RgbaImage> {
     }
 }
 
-impl<'a> SpriteSheetDescriptor<'a, Vec<u8>> {
+impl<'a> SpriteSheetBuilder<'a, Vec<u8>> {
     pub fn colors(colors: &[RgbaColor]) -> Self {
         let mut data = vec![];
         for c in colors {
@@ -56,7 +58,7 @@ impl<'a> SpriteSheetDescriptor<'a, Vec<u8>> {
     }
 }
 
-impl<'a> SpriteSheetDescriptor<'a, &'a [u8]> {
+impl<'a> SpriteSheetBuilder<'a, &'a [u8]> {
     pub fn raw(sprite_size: Vector<u32>, sprite_amount: Vector<u32>, data: Vec<&'a [u8]>) -> Self {
         return Self {
             sprite_size,
@@ -67,7 +69,7 @@ impl<'a> SpriteSheetDescriptor<'a, &'a [u8]> {
     }
 }
 
-impl<'a, D: Deref<Target = [u8]>> SpriteSheetDescriptor<'a, D> {
+impl<'a, D: Deref<Target = [u8]>> SpriteSheetBuilder<'a, D> {
     pub const DEFAULT_SAMPLER: wgpu::SamplerDescriptor<'static> = wgpu::SamplerDescriptor {
         label: None,
         address_mode_u: wgpu::AddressMode::ClampToEdge,
@@ -100,7 +102,7 @@ pub struct SpriteSheet {
 }
 
 impl SpriteSheet {
-    pub fn new<D: Deref<Target = [u8]>>(gpu: &Gpu, desc: SpriteSheetDescriptor<D>) -> Self {
+    pub fn new<D: Deref<Target = [u8]>>(gpu: &Gpu, desc: SpriteSheetBuilder<D>) -> Self {
         let amount = desc.sprite_amount.x * desc.sprite_amount.y;
         assert!(amount > 1, "SpriteSheet must atleast have to 2 sprites!");
         let size_hint_buffer = gpu

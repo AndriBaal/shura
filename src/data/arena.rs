@@ -255,14 +255,14 @@ impl<T> Arena<T> {
     pub fn iter(&self) -> ArenaIter<T> {
         ArenaIter {
             len: self.len,
-            base: self.items.iter()
+            base: self.items.iter(),
         }
     }
 
     pub fn iter_mut(&mut self) -> ArenaIterMut<T> {
         ArenaIterMut {
             len: self.len,
-            base: self.items.iter_mut()
+            base: self.items.iter_mut(),
         }
     }
 

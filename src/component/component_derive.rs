@@ -107,12 +107,10 @@ pub struct BufferHelper<'a> {
 
 impl<'a> BufferHelper<'a> {
     pub(crate) fn new(inner: BufferHelperType<'a>) -> Self {
-        Self {
-            inner
-        }
+        Self { inner }
     }
 
-    pub fn buffer<C: ComponentDerive, B: bytemuck::Pod + bytemuck::Zeroable + Send + Sync>(
+    pub fn buffer<C: ComponentDerive, B: bytemuck::Pod + bytemuck::Zeroable + Send>(
         &mut self,
         buffer: &mut InstanceBuffer,
         gpu: &Gpu,
@@ -166,7 +164,7 @@ pub trait ComponentBuffer {
         buffer: &mut InstanceBuffer,
         #[cfg(feature = "physics")] world: &World,
         gpu: &Gpu,
-        mut helper: BufferHelper
+        mut helper: BufferHelper,
     ) {
         helper.buffer_uncasted(buffer, gpu, world)
     }

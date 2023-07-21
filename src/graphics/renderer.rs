@@ -119,10 +119,7 @@ impl<'a> Renderer<'a> {
         render_pass.set_pipeline(shader.pipeline());
         render_pass.set_bind_group(1, sprite.bind_group(), &[]);
         render_pass.set_vertex_buffer(Self::MODEL_SLOT, model.vertex_buffer().slice(..));
-        render_pass.set_index_buffer(
-            model.index_buffer().slice(..),
-            wgpu::IndexFormat::Uint32,
-        );
+        render_pass.set_index_buffer(model.index_buffer().slice(..), wgpu::IndexFormat::Uint32);
         render_pass.draw_indexed(0..model.amount_of_indices(), 0, 0..1);
 
         // renderer.use_camera_buffer(&defaults.relative_camera.0);

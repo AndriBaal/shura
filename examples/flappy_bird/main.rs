@@ -50,7 +50,9 @@ impl FlappyState {
             ),
             point_sink: audio.create_sink(),
             point_sound: audio.create_sound(include_bytes!("./audio/point.wav")),
-            pipe_sprite: gpu.create_sprite(include_bytes!("./sprites/pipe-green.png")),
+            pipe_sprite: gpu.create_sprite(SpriteBuilder::new(include_bytes!(
+                "./sprites/pipe-green.png"
+            ))),
             spawn_timer: Pipe::SPAWN_TIME,
             score: 0,
             high_score: 0,
@@ -89,10 +91,10 @@ impl Bird {
             ),
 
             model: gpu.create_model(ModelBuilder::cuboid(Self::HALF_EXTENTS)),
-            sprite_sheet: gpu.create_sprite_sheet(
+            sprite_sheet: gpu.create_sprite_sheet(SpriteSheetBuilder::new(
                 include_bytes!("./sprites/yellowbird.png"),
                 Vector::new(17, 12),
-            ),
+            )),
             sink: audio.create_sink(),
             hit_sound: audio.create_sound(include_bytes!("./audio/hit.wav")),
             wing_sound: audio.create_sound(include_bytes!("./audio/wing.wav")),
@@ -209,7 +211,7 @@ impl Ground {
         Self {
             model: gpu
                 .create_model(ModelBuilder::cuboid(Self::HALF_EXTENTS).vertex_translation(pos)),
-            sprite: gpu.create_sprite(include_bytes!("./sprites/base.png")),
+            sprite: gpu.create_sprite(SpriteBuilder::new(include_bytes!("./sprites/base.png"))),
             collider: ColliderComponent::new(ColliderBuilder::compound(vec![
                 (
                     pos.into(),
@@ -252,9 +254,9 @@ struct Background {
 
 impl Background {
     pub fn new(ctx: &Context) -> Self {
-        let sprite = ctx
-            .gpu
-            .create_sprite(include_bytes!("./sprites/background-night.png"));
+        let sprite = ctx.gpu.create_sprite(SpriteBuilder::new(include_bytes!(
+            "./sprites/background-night.png"
+        )));
         Self {
             model: ctx.gpu.create_model(ModelBuilder::cuboid(GAME_SIZE)),
             sprite,

@@ -1,13 +1,13 @@
 use crate::{Gpu, RgbaColor, Vector};
 use std::ops::Deref;
 
-pub struct SpriteDescriptor<'a, D: Deref<Target = [u8]>> {
+pub struct SpriteBuilder<'a, D: Deref<Target = [u8]>> {
     pub size: Vector<u32>,
     pub sampler: wgpu::SamplerDescriptor<'a>,
     pub data: D,
 }
 
-impl<'a> SpriteDescriptor<'a, image::RgbaImage> {
+impl<'a> SpriteBuilder<'a, image::RgbaImage> {
     pub fn new(bytes: &[u8]) -> Self {
         let image = image::load_from_memory(bytes).unwrap();
         let size = Vector::new(image.width(), image.height());
@@ -28,7 +28,7 @@ impl<'a> SpriteDescriptor<'a, image::RgbaImage> {
     }
 }
 
-impl<'a> SpriteDescriptor<'a, &'static [u8]> {
+impl<'a> SpriteBuilder<'a, &'static [u8]> {
     pub fn empty(size: Vector<u32>) -> Self {
         return Self {
             size,
@@ -38,7 +38,7 @@ impl<'a> SpriteDescriptor<'a, &'static [u8]> {
     }
 }
 
-impl<'a> SpriteDescriptor<'a, Vec<u8>> {
+impl<'a> SpriteBuilder<'a, Vec<u8>> {
     pub fn color(color: RgbaColor) -> Self {
         Self {
             size: Vector::new(1, 1),
@@ -48,7 +48,7 @@ impl<'a> SpriteDescriptor<'a, Vec<u8>> {
     }
 }
 
-impl<'a> SpriteDescriptor<'a, &'a [u8]> {
+impl<'a> SpriteBuilder<'a, &'a [u8]> {
     pub fn raw(size: Vector<u32>, data: &'a [u8]) -> Self {
         return Self {
             size,
@@ -58,7 +58,7 @@ impl<'a> SpriteDescriptor<'a, &'a [u8]> {
     }
 }
 
-impl<'a, D: Deref<Target = [u8]>> SpriteDescriptor<'a, D> {
+impl<'a, D: Deref<Target = [u8]>> SpriteBuilder<'a, D> {
     pub const DEFAULT_SAMPLER: wgpu::SamplerDescriptor<'static> = wgpu::SamplerDescriptor {
         label: None,
         address_mode_u: wgpu::AddressMode::ClampToEdge,
@@ -91,7 +91,7 @@ pub struct Sprite {
 }
 
 impl Sprite {
-    pub fn new<D: Deref<Target = [u8]>>(gpu: &Gpu, desc: SpriteDescriptor<D>) -> Self {
+    pub fn new<D: Deref<Target = [u8]>>(gpu: &Gpu, desc: SpriteBuilder<D>) -> Self {
         let texture = Self::create_texture(gpu, desc.size);
         let (bind_group, sampler) = Self::create_bind_group(gpu, &texture, &desc.sampler);
         let sprite = Self {

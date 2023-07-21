@@ -185,19 +185,23 @@ impl ComponentManager {
     }
 
     pub(crate) fn buffer(&mut self, #[cfg(feature = "physics")] world: &World, gpu: &Gpu) {
-        for (idx, ty) in self.types.iter_with_index_mut() {
-            let callable = self.callables.get(&TypeIndex(idx)).unwrap();
+        rayon::scope(|t| {
+            for (idx, ty) in self.types.iter_with_index_mut() {
+                let callable = self.callables.get(&TypeIndex(idx)).unwrap();
 
-            if ty.config().buffer != BufferOperation::Never {
-                ty.buffer(
-                    #[cfg(feature = "physics")]
-                    world,
-                    callable.callbacks.buffer,
-                    &self.active_groups,
-                    &gpu,
-                );
+                if ty.config().buffer != BufferOperation::Never {
+                    t.spawn(|_| {
+                        ty.buffer(
+                            #[cfg(feature = "physics")]
+                            world,
+                            callable.callbacks.buffer,
+                            &self.active_groups,
+                            &gpu,
+                        );
+                    })
+                }
             }
-        }
+        });
     }
 
     pub(crate) fn apply_priorities(&mut self) {
@@ -744,12 +748,8 @@ impl ComponentManager {
         self.for_each_mut_of(ComponentFilter::Active, each)
     }
 
-
     #[inline]
-    pub fn par_for_each<C: ComponentController>(
-        &self,
-        each: impl Fn(&C) + Send + Sync,
-    ) {
+    pub fn par_for_each<C: ComponentController>(&self, each: impl Fn(&C) + Send + Sync) {
         self.par_for_each_of(ComponentFilter::Active, each)
     }
 
@@ -762,7 +762,7 @@ impl ComponentManager {
         let ty = type_ref!(self, C);
         ty.par_for_each(groups, each);
     }
-    
+
     pub fn for_each_mut_of<C: ComponentController>(
         &mut self,
         filter: ComponentFilter,
@@ -790,7 +790,6 @@ impl ComponentManager {
         let ty = type_mut!(self, C);
         ty.par_for_each_mut(groups, each);
     }
-
 
     #[inline]
     pub fn retain<C: ComponentController>(

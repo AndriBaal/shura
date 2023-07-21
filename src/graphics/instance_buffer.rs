@@ -115,6 +115,7 @@ impl InstanceBuffer {
     }
 
     pub fn write(&mut self, gpu: &Gpu, data: &[u8]) {
+        self.instances = data.len() as u64 / self.instance_size;
         self.write_offset(gpu, 0, data);
     }
 

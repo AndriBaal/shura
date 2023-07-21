@@ -18,6 +18,9 @@ struct GuiComponent {
     demo: egui_demo_lib::DemoWindows,
 }
 
+unsafe impl Send for GuiComponent {}
+unsafe impl Sync for GuiComponent {}
+
 impl ComponentController for GuiComponent {
     const CONFIG: ComponentConfig = ComponentConfig {
         buffer: BufferOperation::Never,

@@ -28,10 +28,9 @@ impl<'a, C: ComponentController> ComponentSet<'a, C> {
         self.ty.for_each(self.groups, each);
     }
 
-    pub fn par_for_each(&self, each: impl Fn(&C) + Send + Sync,) {
+    pub fn par_for_each(&self, each: impl Fn(&C) + Send + Sync) {
         self.ty.par_for_each(self.groups, each);
     }
-
 
     pub fn index(&self, index: usize) -> Option<&C> {
         self.index_of(GroupHandle::DEFAULT_GROUP, index)
@@ -84,11 +83,11 @@ impl<'a, C: ComponentController> ComponentSetMut<'a, C> {
         }
     }
 
-    pub fn par_for_each(&self, each: impl Fn(&C) + Send + Sync,) {
+    pub fn par_for_each(&self, each: impl Fn(&C) + Send + Sync) {
         self.ty.par_for_each(self.groups, each);
     }
 
-    pub fn par_for_each_mut(&mut self, each: impl Fn(&mut C) + Send + Sync,) {
+    pub fn par_for_each_mut(&mut self, each: impl Fn(&mut C) + Send + Sync) {
         self.ty.par_for_each_mut(self.groups, each);
     }
 

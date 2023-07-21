@@ -65,7 +65,9 @@ impl LightResources {
                 }],
                 ..Default::default()
             }),
-            light_map: ctx.gpu.create_render_target(vector(SIZE.y, SIZE.y)),
+            light_map: ctx
+                .gpu
+                .create_render_target(SpriteBuilder::empty(vector(SIZE.y, SIZE.y))),
             light_model: ctx.gpu.create_model(ModelBuilder::cuboid(vector(1.0, 1.0))),
         }
     }
@@ -85,7 +87,9 @@ impl Background {
             model: ctx
                 .gpu
                 .create_model(ModelBuilder::cuboid(vector(10.0, 10.0))),
-            level: ctx.gpu.create_sprite(include_bytes!("./level.png")),
+            level: ctx
+                .gpu
+                .create_sprite(SpriteBuilder::new(include_bytes!("./level.png"))),
             base: Default::default(),
         }
     }

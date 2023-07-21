@@ -57,12 +57,12 @@ struct PhysicsState {
 
 impl PhysicsState {
     pub fn new(ctx: &Context) -> Self {
-        let box_colors = ctx.gpu.create_color_sheet(&[
+        let box_colors = ctx.gpu.create_sprite_sheet(SpriteSheetBuilder::colors(&[
             RgbaColor::new(0, 255, 0, 255),
             RgbaColor::new(255, 0, 0, 255),
             RgbaColor::new(0, 0, 255, 255),
             RgbaColor::new(0, 0, 255, 255),
-        ]);
+        ]));
         Self {
             box_model: ctx.gpu.create_model(ModelBuilder::from_collider_shape(
                 &PhysicsBox::BOX_SHAPE,
@@ -95,7 +95,9 @@ impl Player {
         let collider = ColliderBuilder::new(SharedShape::new(Self::SHAPE))
             .active_events(ActiveEvents::COLLISION_EVENTS);
         Self {
-            sprite: ctx.gpu.create_sprite(include_bytes!("./img/burger.png")),
+            sprite: ctx
+                .gpu
+                .create_sprite(SpriteBuilder::new(include_bytes!("./img/burger.png"))),
             model: ctx.gpu.create_model(ModelBuilder::from_collider_shape(
                 collider.shape.as_ref(),
                 Self::RESOLUTION,
@@ -252,7 +254,7 @@ impl Floor {
         let collider = ColliderBuilder::new(SharedShape::new(Self::FLOOR_SHAPE))
             .translation(Vector::new(0.0, -1.0));
         Self {
-            color: ctx.gpu.create_color(RgbaColor::BLUE),
+            color: ctx.gpu.create_sprite(SpriteBuilder::color(RgbaColor::BLUE)),
             model: ctx.gpu.create_model(ModelBuilder::from_collider_shape(
                 collider.shape.as_ref(),
                 Self::FLOOR_RESOLUTION,
@@ -281,7 +283,7 @@ struct PhysicsBox {
     #[base]
     body: RigidBodyComponent,
     #[buffer]
-    sprite: Vector<u32>,
+    sprite: SpriteSheetIndex,
 }
 
 impl PhysicsBox {
@@ -355,7 +357,10 @@ impl<'de, 'a> serde::de::Visitor<'de> for FloorVisitor<'a> {
             .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
         Ok(Floor {
             collider,
-            color: self.ctx.gpu.create_color(RgbaColor::BLUE),
+            color: self
+                .ctx
+                .gpu
+                .create_sprite(SpriteBuilder::color(RgbaColor::BLUE)),
             model: self.ctx.gpu.create_model(ModelBuilder::from_collider_shape(
                 &Floor::FLOOR_SHAPE,
                 Floor::FLOOR_RESOLUTION,
@@ -384,7 +389,7 @@ impl<'de, 'a> serde::de::Visitor<'de> for PlayerVisitor<'a> {
             sprite: self
                 .ctx
                 .gpu
-                .create_sprite(include_bytes!("./img/burger.png")),
+                .create_sprite(SpriteBuilder::new(include_bytes!("./img/burger.png"))),
             model: self.ctx.gpu.create_model(ModelBuilder::from_collider_shape(
                 &Player::SHAPE,
                 Player::RESOLUTION,

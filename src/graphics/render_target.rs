@@ -1,6 +1,6 @@
 use std::ops::Deref;
 
-use crate::{Camera, Gpu, GpuDefaults, RenderEncoder, Sprite, Vector, SpriteDescriptor};
+use crate::{Camera, Gpu, GpuDefaults, RenderEncoder, Sprite, SpriteBuilder, Vector};
 
 /// Texture to render onto with a [RenderEncoder]
 pub struct RenderTarget {
@@ -10,7 +10,7 @@ pub struct RenderTarget {
 }
 
 impl RenderTarget {
-    pub fn new<D: Deref<Target = [u8]>>(gpu: &Gpu, sprite: SpriteDescriptor<D>) -> Self {
+    pub fn new<D: Deref<Target = [u8]>>(gpu: &Gpu, sprite: SpriteBuilder<D>) -> Self {
         let size = sprite.size;
         let target = Sprite::new(gpu, sprite);
         let target_view = target
@@ -33,7 +33,7 @@ impl RenderTarget {
     pub fn computed<D: Deref<Target = [u8]>>(
         gpu: &Gpu,
         defaults: &GpuDefaults,
-        sprite: SpriteDescriptor<D>,
+        sprite: SpriteBuilder<D>,
         compute: impl FnMut(&mut RenderEncoder),
     ) -> Self {
         let target = RenderTarget::new(gpu, sprite);

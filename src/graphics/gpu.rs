@@ -4,8 +4,8 @@ use crate::log::info;
 use crate::text::{FontBrush, TextPipeline};
 use crate::{
     Camera, CameraBuffer, ColorWrites, InstanceBuffer, InstanceData, InstanceField, Isometry,
-    Model, ModelBuilder, RenderEncoder, RenderTarget, Shader, ShaderConfig, Sprite,
-    SpriteDescriptor, SpriteSheet, SpriteSheetDescriptor, Uniform, UniformField, Vector,
+    Model, ModelBuilder, RenderEncoder, RenderTarget, Shader, ShaderConfig, Sprite, SpriteBuilder,
+    SpriteSheet, SpriteSheetBuilder, Uniform, UniformField, Vector,
 };
 use std::{ops::Deref, sync::Mutex};
 use wgpu::BlendState;
@@ -183,7 +183,7 @@ impl Gpu {
 
     pub fn create_render_target<D: Deref<Target = [u8]>>(
         &self,
-        sprite: SpriteDescriptor<D>,
+        sprite: SpriteBuilder<D>,
     ) -> RenderTarget {
         RenderTarget::new(self, sprite)
     }
@@ -200,13 +200,13 @@ impl Gpu {
         Model::new(self, builder)
     }
 
-    pub fn create_sprite<D: Deref<Target = [u8]>>(&self, desc: SpriteDescriptor<D>) -> Sprite {
+    pub fn create_sprite<D: Deref<Target = [u8]>>(&self, desc: SpriteBuilder<D>) -> Sprite {
         Sprite::new(self, desc)
     }
 
     pub fn create_sprite_sheet<D: Deref<Target = [u8]>>(
         &self,
-        desc: SpriteSheetDescriptor<D>,
+        desc: SpriteSheetBuilder<D>,
     ) -> SpriteSheet {
         SpriteSheet::new(self, desc)
     }
@@ -227,7 +227,7 @@ impl Gpu {
     pub fn create_computed_target<'caller, D: Deref<Target = [u8]>>(
         &self,
         defaults: &GpuDefaults,
-        sprite: SpriteDescriptor<D>,
+        sprite: SpriteBuilder<D>,
         compute: impl FnMut(&mut RenderEncoder),
     ) -> RenderTarget {
         return RenderTarget::computed(self, defaults, sprite, compute);
@@ -477,7 +477,7 @@ impl GpuDefaults {
         });
 
         let size = gpu.render_size(1.0);
-        let world_target = gpu.create_render_target(SpriteDescriptor::empty(size));
+        let world_target = gpu.create_render_target(SpriteBuilder::empty(size));
         let times = Uniform::new(gpu, [0.0, 0.0]);
         let single_centered_instance = gpu.create_instance_buffer(
             InstanceData::SIZE,
@@ -573,7 +573,7 @@ impl GpuDefaults {
     pub(crate) fn apply_render_scale(&mut self, gpu: &Gpu, scale: f32) {
         let size = gpu.render_size(scale);
         if self.world_target.size() != size {
-            self.world_target = gpu.create_render_target(SpriteDescriptor::empty(size));
+            self.world_target = gpu.create_render_target(SpriteBuilder::empty(size));
         }
     }
 
