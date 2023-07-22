@@ -115,7 +115,11 @@ impl<'a> RenderEncoder<'a> {
         renderer.draw(0);
     }
 
-    pub fn finish(self) {
-        self.gpu.stage(self.inner.finish())
+    pub fn finish(self) -> wgpu::CommandBuffer {
+        self.inner.finish()
+    }
+
+    pub fn submit(self, gpu: &Gpu) -> wgpu::SubmissionIndex {
+        gpu.submit(self)
     }
 }

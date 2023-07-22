@@ -7,8 +7,7 @@ use crate::{
     Model, ModelBuilder, RenderEncoder, RenderTarget, Shader, ShaderConfig, Sprite, SpriteBuilder,
     SpriteSheet, SpriteSheetBuilder, Uniform, UniformField, Vector,
 };
-use std::{ops::Deref, sync::Mutex};
-use wgpu::BlendState;
+use std::ops::Deref;
 
 pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 0.5;
 
@@ -44,7 +43,6 @@ pub struct Gpu {
     pub surface: wgpu::Surface,
     pub config: wgpu::SurfaceConfiguration,
     pub adapter: wgpu::Adapter,
-    pub commands: Mutex<Vec<wgpu::CommandBuffer>>,
     pub(crate) base: WgpuBase,
 }
 
@@ -127,7 +125,6 @@ impl Gpu {
             device,
             adapter,
             base,
-            commands: Mutex::new(vec![]),
         };
 
         return gpu;
@@ -160,14 +157,8 @@ impl Gpu {
             .poll(wgpu::MaintainBase::WaitForSubmissionIndex(handle));
     }
 
-    pub fn submit(&self) -> wgpu::SubmissionIndex {
-        let mut buffers = self.commands.lock().unwrap();
-        self.queue.submit(buffers.drain(..))
-    }
-
-    pub fn stage(&self, buffer: wgpu::CommandBuffer) {
-        let mut buffers = self.commands.lock().unwrap();
-        buffers.push(buffer)
+    pub fn submit(&self, encoder: RenderEncoder) -> wgpu::SubmissionIndex {
+        self.queue.submit(std::iter::once(encoder.finish()))
     }
 
     pub fn render_size(&self, scale: f32) -> Vector<u32> {
@@ -398,7 +389,7 @@ impl GpuDefaults {
             fragment_source: Shader::SPRITE,
             uniforms: &[UniformField::Sprite],
             msaa: false,
-            blend: BlendState::ALPHA_BLENDING,
+            blend: wgpu::BlendState::ALPHA_BLENDING,
             write_mask: ColorWrites::ALL,
             render_to_surface: true,
             ..Default::default()

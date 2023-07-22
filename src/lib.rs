@@ -148,6 +148,7 @@ pub use crate::scene::scene_serde::*;
 // animation
 #[cfg(feature = "animation")]
 mod tween;
+
 /// Access to animations inspired by [bevy_tweening](https://github.com/djeedai/bevy_tweening)
 #[cfg(feature = "animation")]
 pub mod animation {
@@ -157,6 +158,11 @@ pub mod animation {
 /// Access to [nalgebra](https://github.com/dimforge/nalgebra), the math library used by shura
 pub mod na {
     pub use nalgebra::*;
+}
+
+/// Access to [rayon](https://github.com/rayon-rs/rayon)
+pub mod rayon {
+    pub use rayon::*;
 }
 
 /// Access to [mint](https://github.com/kvark/mint) to convert between the diffrent math types

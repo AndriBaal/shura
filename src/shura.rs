@@ -217,9 +217,9 @@ pub struct Shura {
     pub scenes: SceneManager,
     pub window: winit::window::Window,
     pub input: Input,
-    pub gpu: Gpu,
     pub states: StateManager,
     pub defaults: GpuDefaults,
+    pub gpu: Gpu,
     #[cfg(feature = "gui")]
     pub gui: Gui,
     #[cfg(feature = "audio")]
@@ -590,8 +590,7 @@ impl Shura {
             Renderer::output_renderer(&mut encoder.inner, &output_view, &self.defaults);
         }
 
-        encoder.finish();
-        self.gpu.submit();
+        encoder.submit(&self.gpu);
         self.input.update();
         output.present();
         Ok(())
