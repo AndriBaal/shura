@@ -10,7 +10,11 @@ pub struct RenderTarget {
 }
 
 impl RenderTarget {
-    pub fn new<D: Deref<Target = [u8]>>(gpu: &Gpu, sprite: SpriteBuilder<D>) -> Self {
+    pub fn new(gpu: &Gpu, size: Vector<u32>) -> Self {
+        Self::custom(gpu, SpriteBuilder::empty(size))
+    }
+
+    pub fn custom<D: Deref<Target = [u8]>>(gpu: &Gpu, sprite: SpriteBuilder<D>) -> Self {
         let size = sprite.size;
         let target = Sprite::new(gpu, sprite);
         let target_view = target
@@ -36,7 +40,7 @@ impl RenderTarget {
         sprite: SpriteBuilder<D>,
         compute: impl FnMut(&mut RenderEncoder),
     ) -> Self {
-        let target = RenderTarget::new(gpu, sprite);
+        let target = RenderTarget::custom(gpu, sprite);
         target.draw(gpu, defaults, compute);
         return target;
     }
@@ -66,6 +70,12 @@ impl RenderTarget {
         device
             .create_texture(multisampled_frame_descriptor)
             .create_view(&wgpu::TextureViewDescriptor::default())
+    }
+
+    pub fn resize(&mut self, gpu: &Gpu, size: Vector<u32>) {
+        if self.size() != size {
+            *self = Self::new(gpu, size);
+        }
     }
 
     pub fn sprite(&self) -> &Sprite {

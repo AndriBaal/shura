@@ -1,6 +1,41 @@
 use crate::{Gpu, RgbaColor, Vector};
 use std::ops::Deref;
 
+#[macro_export]
+macro_rules! load_file {
+    ($file:expr $(,)?) => {
+        include_bytes!($file)
+    };
+}
+
+#[macro_export]
+macro_rules! load_file_root {
+    ($file:expr $(,)?) => {
+        {
+            if $file.starts_with("/") {
+                include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), $file))
+            } else {
+                include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), r"/", $file))
+            }
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! sprite_file {
+    ($file:expr) => {
+        shura::SpriteBuilder::file(shura::load_file!($file))
+    };
+}
+
+
+#[macro_export]
+macro_rules! sprite_file_root {
+    ($file:expr) => {
+        shura::SpriteBuilder::file(shura::load_file_root!($file))
+    };
+}
+
 pub struct SpriteBuilder<'a, D: Deref<Target = [u8]>> {
     pub size: Vector<u32>,
     pub sampler: wgpu::SamplerDescriptor<'a>,
@@ -8,7 +43,7 @@ pub struct SpriteBuilder<'a, D: Deref<Target = [u8]>> {
 }
 
 impl<'a> SpriteBuilder<'a, image::RgbaImage> {
-    pub fn new(bytes: &[u8]) -> Self {
+    pub fn file(bytes: &[u8]) -> Self {
         let image = image::load_from_memory(bytes).unwrap();
         let size = Vector::new(image.width(), image.height());
         return Self {

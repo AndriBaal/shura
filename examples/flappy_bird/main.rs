@@ -49,10 +49,10 @@ impl FlappyState {
                 )),
             ),
             point_sink: audio.create_sink(),
-            point_sound: audio.create_sound(include_bytes!("./audio/point.wav")),
-            pipe_sprite: gpu.create_sprite(SpriteBuilder::new(include_bytes!(
+            point_sound: audio.create_sound(load_file!("./audio/point.wav")),
+            pipe_sprite: gpu.create_sprite(sprite_file!(
                 "./sprites/pipe-green.png"
-            ))),
+            )),
             spawn_timer: Pipe::SPAWN_TIME,
             score: 0,
             high_score: 0,
@@ -91,13 +91,13 @@ impl Bird {
             ),
 
             model: gpu.create_model(ModelBuilder::cuboid(Self::HALF_EXTENTS)),
-            sprite_sheet: gpu.create_sprite_sheet(SpriteSheetBuilder::new(
-                include_bytes!("./sprites/yellowbird.png"),
+            sprite_sheet: gpu.create_sprite_sheet(sprite_sheet_file!(
+                "./sprites/yellowbird.png",
                 Vector::new(17, 12),
             )),
             sink: audio.create_sink(),
-            hit_sound: audio.create_sound(include_bytes!("./audio/hit.wav")),
-            wing_sound: audio.create_sound(include_bytes!("./audio/wing.wav")),
+            hit_sound: audio.create_sound(load_file!("./audio/hit.wav")),
+            wing_sound: audio.create_sound(load_file!("./audio/wing.wav")),
             sprite: Default::default(),
         }
     }
@@ -211,7 +211,7 @@ impl Ground {
         Self {
             model: gpu
                 .create_model(ModelBuilder::cuboid(Self::HALF_EXTENTS).vertex_translation(pos)),
-            sprite: gpu.create_sprite(SpriteBuilder::new(include_bytes!("./sprites/base.png"))),
+            sprite: gpu.create_sprite(sprite_file!("./sprites/base.png")),
             collider: ColliderComponent::new(ColliderBuilder::compound(vec![
                 (
                     pos.into(),
@@ -254,9 +254,9 @@ struct Background {
 
 impl Background {
     pub fn new(ctx: &Context) -> Self {
-        let sprite = ctx.gpu.create_sprite(SpriteBuilder::new(include_bytes!(
+        let sprite = ctx.gpu.create_sprite(sprite_file!(
             "./sprites/background-night.png"
-        )));
+        ));
         Self {
             model: ctx.gpu.create_model(ModelBuilder::cuboid(GAME_SIZE)),
             sprite,

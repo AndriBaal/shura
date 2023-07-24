@@ -1,5 +1,6 @@
 use rodio::Decoder;
 
+
 /// Sound ressource which can be loaded from a static source using [include_bytes!](include_bytes!)
 pub struct Sound(pub &'static [u8]);
 

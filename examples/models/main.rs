@@ -21,6 +21,7 @@ fn shura_main(config: ShuraConfig) {
                 Vector::new(-1.0, 3.0),
                 ctx.gpu.create_model(ModelBuilder::rounded(
                     ModelBuilder::cuboid(Vector::new(0.5, 0.5)),
+                    RoundingDirection::Outward,
                     0.25,
                     10,
                 )),
@@ -51,6 +52,7 @@ fn shura_main(config: ShuraConfig) {
                         Vector::new(-0.5, -0.5),
                         Vector::new(0.5, -0.5),
                     ),
+                    RoundingDirection::Outward,
                     0.15,
                     10,
                 )),
@@ -73,6 +75,7 @@ fn shura_main(config: ShuraConfig) {
                 Vector::new(-1.0, 1.0),
                 ctx.gpu.create_model(ModelBuilder::rounded(
                     ModelBuilder::regular_polygon(0.5, 5),
+                    RoundingDirection::Outward,
                     0.15,
                     5,
                 )),
@@ -99,6 +102,7 @@ fn shura_main(config: ShuraConfig) {
                 Vector::new(3.0, 1.0),
                 ctx.gpu.create_model(ModelBuilder::rounded(
                     ModelBuilder::segment(Vector::new(-0.5, 0.5), Vector::new(0.5, -0.5), 0.2),
+                    RoundingDirection::Outward,
                     0.2,
                     5,
                 )),
@@ -114,6 +118,7 @@ fn shura_main(config: ShuraConfig) {
                     ModelBuilder::segment(Vector::new(0.5, 0.5), Vector::new(-0.5, -0.5), 0.2),
                     ModelBuilder::rounded(
                         ModelBuilder::segment(Vector::new(-0.5, 0.5), Vector::new(0.5, -0.5), 0.2),
+                        RoundingDirection::Outward,
                         0.2,
                         5,
                     ),

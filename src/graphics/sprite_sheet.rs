@@ -5,6 +5,21 @@ use crate::{Gpu, RgbaColor, Vector};
 
 pub type SpriteSheetIndex = Vector<u32>;
 
+
+#[macro_export]
+macro_rules! sprite_sheet_file {
+    ($file:expr, $sprite_size: expr $(,)?) => {
+        shura::SpriteSheetBuilder::file(shura::load_file!($file), $sprite_size)
+    };
+}
+
+#[macro_export]
+macro_rules! sprite_sheet_file_root {
+    ($file:expr, $sprite_size: expr $(,)?) => {
+        shura::SpriteSheetBuilder::file(shura::load_file_root!($file), $sprite_size)
+    };
+}
+
 pub struct SpriteSheetBuilder<'a, D: Deref<Target = [u8]>> {
     pub sprite_size: Vector<u32>,
     pub sprite_amount: Vector<u32>,
@@ -13,7 +28,7 @@ pub struct SpriteSheetBuilder<'a, D: Deref<Target = [u8]>> {
 }
 
 impl<'a> SpriteSheetBuilder<'a, image::RgbaImage> {
-    pub fn new(bytes: &[u8], sprite_size: Vector<u32>) -> Self {
+    pub fn file(bytes: &[u8], sprite_size: Vector<u32>) -> Self {
         let img = image::load_from_memory(bytes).unwrap();
         Self::image(img, sprite_size)
     }

@@ -97,7 +97,7 @@ impl Player {
         Self {
             sprite: ctx
                 .gpu
-                .create_sprite(SpriteBuilder::new(include_bytes!("./img/burger.png"))),
+                .create_sprite(sprite_file!("./img/burger.png")),
             model: ctx.gpu.create_model(ModelBuilder::from_collider_shape(
                 collider.shape.as_ref(),
                 Self::RESOLUTION,
@@ -247,8 +247,11 @@ struct Floor {
 
 impl Floor {
     const FLOOR_RESOLUTION: u32 = 12;
-    const FLOOR_SHAPE: Cuboid = Cuboid {
-        half_extents: Vector::new(20.0, 0.4),
+    const FLOOR_SHAPE: RoundCuboid = RoundCuboid {
+        inner_shape: Cuboid {
+            half_extents: Vector::new(20.0, 0.4),
+        },
+        border_radius: 0.5,
     };
     pub fn new(ctx: &Context) -> Self {
         let collider = ColliderBuilder::new(SharedShape::new(Self::FLOOR_SHAPE))
@@ -389,7 +392,7 @@ impl<'de, 'a> serde::de::Visitor<'de> for PlayerVisitor<'a> {
             sprite: self
                 .ctx
                 .gpu
-                .create_sprite(SpriteBuilder::new(include_bytes!("./img/burger.png"))),
+                .create_sprite(sprite_file!("./img/burger.png")),
             model: self.ctx.gpu.create_model(ModelBuilder::from_collider_shape(
                 &Player::SHAPE,
                 Player::RESOLUTION,

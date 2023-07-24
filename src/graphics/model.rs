@@ -48,6 +48,7 @@ impl ModelBuilder {
     pub fn capsule(radius: f32, half_height: f32, resolution: u32) -> Self {
         Self::rounded(
             ModelBuilder::cuboid(Vector::new(radius, half_height)),
+            RoundingDirection::Outward,
             radius,
             resolution,
         )
@@ -175,7 +176,12 @@ impl ModelBuilder {
             ..Default::default()
         }
     }
-    pub fn rounded(inner: ModelBuilder, border_radius: f32, resolution: u32) -> Self {
+    pub fn rounded(
+        inner: ModelBuilder,
+        direction: RoundingDirection,
+        border_radius: f32,
+        resolution: u32,
+    ) -> Self {
         let v = inner.vertices.iter().map(|v| v.pos).collect();
         let border = border_radius;
 
@@ -217,7 +223,9 @@ impl ModelBuilder {
             }
         }
 
-        let ccw_left = Matrix2::from(Rotation::new(FRAC_PI_2));
+        let factor = -1.0;
+        let ccw_left = Matrix2::from(Rotation::new(factor * FRAC_PI_2));
+
         let n: Vec<Vector<f32>> = WrapIter::new(&v)
             .map(|(__, _, v0, v1)| (ccw_left * (v1 - v0).normalize() * border))
             .collect();
@@ -235,17 +243,23 @@ impl ModelBuilder {
         let mut v_prime = v.clone();
 
         for (i, j, _, v1) in WrapIter::new(&v) {
-            let a_prime = (PI - a[i]) / 2.0;
-            let h = border / a_prime.sin();
-            let v_h = ((n[j] + n[i]) * -1.0).normalize() * h;
-            v_prime[j] = v1 + v_h;
-            o[j] = Some(v1 - v_h * d[i]);
+            let h = border / (a[i] / 2.0).cos();
+            let v_h = ((n[i] + n[j]) * -1.0).normalize() * h;
+            match direction {
+                RoundingDirection::Inward => {
+                    v_prime[j] = v1 + v_h;
+                }
+                RoundingDirection::Outward => {
+                    v_prime[j] = v1;
+                }
+            }
+            o[j] = Some(v_prime[j] - v_h * (factor * d[i] + 1.0));
         }
         for (i, j, _, _) in WrapIter::new(&v) {
             if s[i] > 0 {
                 a[i] /= s[i] as f32
             } else {
-                o[j] = Some(v[j] + n[i] * d[i]);
+                o[j] = Some(v[j] + n[i] * factor * d[i]);
             }
         }
 
@@ -257,7 +271,7 @@ impl ModelBuilder {
 
         for (i, j, _, _) in WrapIter::new(&v_prime) {
             let m = Matrix2::from(Rotation::new(d[i] * a[i]));
-            let mut step = n[i] * -d[i];
+            let mut step = n[i] * (-factor * d[i]);
             let anchor = o[j];
             v_new[index] = Some(anchor.unwrap() + step);
             index += 1;
@@ -364,6 +378,7 @@ impl ModelBuilder {
             TypedShape::RoundCuboid(round_cuboid) => {
                 return Self::rounded(
                     ModelBuilder::cuboid(round_cuboid.inner_shape.half_extents.into()),
+                    RoundingDirection::Outward,
                     round_cuboid.border_radius,
                     resolution,
                 );
@@ -372,6 +387,7 @@ impl ModelBuilder {
                 let inner = round_triangle.inner_shape;
                 return Self::rounded(
                     ModelBuilder::triangle(inner.a.coords, inner.b.coords, inner.c.coords),
+                    RoundingDirection::Outward,
                     round_triangle.border_radius,
                     resolution,
                 );
@@ -381,6 +397,7 @@ impl ModelBuilder {
                 let vertices = inner.points().iter().map(|p| p.coords).collect();
                 return Self::rounded(
                     ModelBuilder::convex_polygon(vertices),
+                    RoundingDirection::Outward,
                     round_convex_polygon.border_radius,
                     resolution,
                 );
@@ -693,4 +710,10 @@ impl Model {
     pub fn aabb(&self, position: Isometry<f32>) -> AABB {
         self.aabb.with_position(position)
     }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
+pub enum RoundingDirection {
+    Inward,
+    Outward,
 }

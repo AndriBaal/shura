@@ -178,11 +178,18 @@ impl Gpu {
         self.queue.submit(std::iter::once(encoder.finish()))
     }
 
-    pub fn create_render_target<D: Deref<Target = [u8]>>(
+    pub fn create_render_target(
+        &self,
+        size: Vector<u32>
+    ) -> RenderTarget {
+        RenderTarget::new(self, size)
+    }
+
+    pub fn create_custom_render_target<D: Deref<Target = [u8]>>(
         &self,
         sprite: SpriteBuilder<D>,
     ) -> RenderTarget {
-        RenderTarget::new(self, sprite)
+        RenderTarget::custom(self, sprite)
     }
 
     pub fn create_camera_buffer(&self, camera: &Camera) -> CameraBuffer {
@@ -474,7 +481,7 @@ impl GpuDefaults {
         });
 
         let size = gpu.render_size(1.0);
-        let world_target = gpu.create_render_target(SpriteBuilder::empty(size));
+        let world_target = gpu.create_render_target(size);
         let times = Uniform::new(gpu, [0.0, 0.0]);
         let single_centered_instance = gpu.create_instance_buffer(
             InstanceData::SIZE,
@@ -569,9 +576,7 @@ impl GpuDefaults {
 
     pub(crate) fn apply_render_scale(&mut self, gpu: &Gpu, scale: f32) {
         let size = gpu.render_size(scale);
-        if self.world_target.size() != size {
-            self.world_target = gpu.create_render_target(SpriteBuilder::empty(size));
-        }
+        self.world_target.resize(gpu, size);
     }
 
     fn relative_fov(window_size: Vector<u32>) -> Vector<f32> {

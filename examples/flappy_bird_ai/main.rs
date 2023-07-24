@@ -47,9 +47,9 @@ impl BirdSimulation {
             bird_model: ctx
                 .gpu
                 .create_model(ModelBuilder::cuboid(Bird::HALF_EXTENTS)),
-            bird_sprite: ctx.gpu.create_sprite(SpriteBuilder::new(include_bytes!(
-                "./sprites/yellowbird-downflap.png"
-            ))),
+            bird_sprite: ctx
+                .gpu
+                .create_sprite(sprite_file!("./sprites/yellowbird-downflap.png")),
             top_pipe_model: ctx.gpu.create_model(
                 ModelBuilder::cuboid(Pipe::HALF_EXTENTS)
                     .vertex_translation(Vector::new(
@@ -64,9 +64,9 @@ impl BirdSimulation {
                     -Pipe::HALF_HOLE_SIZE - Pipe::HALF_EXTENTS.y,
                 )),
             ),
-            pipe_sprite: ctx.gpu.create_sprite(SpriteBuilder::new(include_bytes!(
-                "./sprites/pipe-green.png"
-            ))),
+            pipe_sprite: ctx
+                .gpu
+                .create_sprite(sprite_file!("./sprites/pipe-green.png")),
             spawn_timer: Pipe::SPAWN_TIME,
             generation: 0,
             high_score: 0,
@@ -267,9 +267,7 @@ impl Ground {
             model: ctx
                 .gpu
                 .create_model(ModelBuilder::cuboid(Self::HALF_EXTENTS)),
-            sprite: ctx
-                .gpu
-                .create_sprite(SpriteBuilder::new(include_bytes!("./sprites/base.png"))),
+            sprite: ctx.gpu.create_sprite(sprite_file!("./sprites/base.png")),
             pos: PositionComponent::new()
                 .with_translation(Vector::new(0.0, -GAME_SIZE.y + Self::HALF_EXTENTS.y)),
         }
@@ -301,9 +299,9 @@ struct Background {
 
 impl Background {
     pub fn new(ctx: &Context) -> Self {
-        let sprite = ctx.gpu.create_sprite(SpriteBuilder::new(include_bytes!(
-            "./sprites/background-night.png"
-        )));
+        let sprite = ctx
+            .gpu
+            .create_sprite(sprite_file!("./sprites/background-night.png"));
         Self {
             model: ctx.gpu.create_model(ModelBuilder::cuboid(GAME_SIZE)),
             sprite,
