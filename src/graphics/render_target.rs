@@ -84,7 +84,7 @@ impl RenderTarget {
         &self.target_msaa
     }
 
-    pub fn draw<'caller>(
+    pub fn draw(
         &self,
         gpu: &Gpu,
         defaults: &GpuDefaults,
@@ -92,7 +92,7 @@ impl RenderTarget {
     ) {
         let mut encoder = RenderEncoder::new(gpu, defaults);
         compute(&mut encoder);
-        encoder.finish();
+        encoder.submit(gpu);
     }
 
     pub fn compute_target_size(

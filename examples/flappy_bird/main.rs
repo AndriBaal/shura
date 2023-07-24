@@ -7,10 +7,10 @@ fn shura_main(config: ShuraConfig) {
     config.init(NewScene::new(1, |ctx| {
         register!(ctx.components, ctx.groups, [Background, Ground, Pipe, Bird]);
         ctx.scene_states
-            .insert(FlappyState::new(ctx.gpu, ctx.audio));
+            .insert(FlappyState::new(&ctx.gpu, ctx.audio));
         ctx.components.add(ctx.world, Background::new(ctx));
-        ctx.components.add(ctx.world, Ground::new(ctx.gpu));
-        ctx.components.add(ctx.world, Bird::new(ctx.gpu, ctx.audio));
+        ctx.components.add(ctx.world, Ground::new(&ctx.gpu));
+        ctx.components.add(ctx.world, Bird::new(&ctx.gpu, ctx.audio));
         ctx.world.set_physics_priority(Some(10));
         ctx.world.set_gravity(Vector::new(0.0, -15.0));
         ctx.world_camera

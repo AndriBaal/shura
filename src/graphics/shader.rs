@@ -193,7 +193,7 @@ impl Shader {
                     entry_point: "main",
                     targets: &[Some(wgpu::ColorTargetState {
                         format: if config.render_to_surface {
-                            gpu.config.format
+                            gpu.format
                         } else {
                             wgpu::TextureFormat::Rgba8UnormSrgb
                         },

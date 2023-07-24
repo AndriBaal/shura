@@ -1,4 +1,4 @@
-use std::{cell::RefCell, ops::DerefMut, rc::Rc};
+use std::{cell::RefCell, ops::DerefMut, rc::Rc, sync::Arc};
 
 #[cfg(feature = "gui")]
 use crate::gui::Gui;
@@ -219,7 +219,7 @@ pub struct Shura {
     pub input: Input,
     pub states: StateManager,
     pub defaults: GpuDefaults,
-    pub gpu: Gpu,
+    pub gpu: Arc<Gpu>,
     #[cfg(feature = "gui")]
     pub gui: Gui,
     #[cfg(feature = "audio")]
@@ -252,7 +252,7 @@ impl Shura {
             #[cfg(feature = "gui")]
             gui: Gui::new(_event_loop, &gpu),
             window,
-            gpu: gpu,
+            gpu: Arc::new(gpu),
             defaults,
             #[cfg(target_arch = "wasm32")]
             auto_scale_canvas,
@@ -407,17 +407,17 @@ impl Shura {
 
         if self.scenes.switched() || scene.screen_config.changed {
             let scale = scene.screen_config.render_scale();
+            let render_size = self.gpu.render_size(scale);
             #[cfg(feature = "log")]
             {
                 if self.scenes.switched() {
                     info!("Switched to scene {}!", scene.id);
                 }
 
-                let size = self.gpu.render_size(scale);
                 info!(
                     "Resizing render target to: {} x {} using VSYNC: {}",
-                    size.x,
-                    size.y,
+                    render_size.x,
+                    render_size.y,
                     scene.screen_config.vsync()
                 );
             }
@@ -428,7 +428,7 @@ impl Shura {
             self.defaults.apply_render_scale(&self.gpu, scale);
 
             #[cfg(feature = "gui")]
-            self.gui.resize(&self.gpu.render_size(scale));
+            self.gui.resize(render_size);
         }
 
         self.frame.update();
@@ -539,7 +539,7 @@ impl Shura {
             frame: &self.frame,
             defaults: &self.defaults,
             input: &self.input,
-            gpu: &self.gpu,
+            gpu: self.gpu.clone(),
             #[cfg(feature = "gui")]
             gui: &self.gui,
             #[cfg(feature = "audio")]

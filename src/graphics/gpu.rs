@@ -7,7 +7,7 @@ use crate::{
     Model, ModelBuilder, RenderEncoder, RenderTarget, Shader, ShaderConfig, Sprite, SpriteBuilder,
     SpriteSheet, SpriteSheetBuilder, Uniform, UniformField, Vector,
 };
-use std::ops::Deref;
+use std::{ops::Deref, sync::Mutex};
 
 pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 0.5;
 
@@ -41,8 +41,9 @@ pub struct Gpu {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub surface: wgpu::Surface,
-    pub config: wgpu::SurfaceConfiguration,
     pub adapter: wgpu::Adapter,
+    config: Mutex<wgpu::SurfaceConfiguration>,
+    pub(crate) format: wgpu::TextureFormat,
     pub(crate) base: WgpuBase,
 }
 
@@ -121,10 +122,11 @@ impl Gpu {
             instance,
             queue,
             surface,
-            config,
             device,
             adapter,
             base,
+            format: config.format,
+            config: Mutex::new(config),
         };
 
         return gpu;
@@ -136,20 +138,35 @@ impl Gpu {
         self.surface.configure(&self.device, &self.config);
     }
 
-    pub(crate) fn resize(&mut self, window_size: Vector<u32>) {
-        self.config.width = window_size.x;
-        self.config.height = window_size.y;
-        self.surface.configure(&self.device, &self.config);
+    pub(crate) fn resize(&self, window_size: Vector<u32>) {
+        let mut config = self.config.lock().unwrap();
+        config.width = window_size.x;
+        config.height = window_size.y;
+        self.surface.configure(&self.device, &config);
     }
 
-    pub(crate) fn apply_vsync(&mut self, vsync: bool) {
+    pub(crate) fn apply_vsync(&self, vsync: bool) {
+        let mut config = self.config.lock().unwrap();
         let new_mode = if vsync {
             wgpu::PresentMode::AutoVsync
         } else {
             wgpu::PresentMode::AutoNoVsync
         };
-        self.config.present_mode = new_mode;
-        self.surface.configure(&self.device, &self.config);
+        config.present_mode = new_mode;
+        self.surface.configure(&self.device, &config);
+    }
+
+    pub fn render_size(&self, scale: f32) -> Vector<u32> {
+        let config = self.config.lock().unwrap();
+        Vector::new(
+            (config.width as f32 * scale) as u32,
+            (config.height as f32 * scale) as u32,
+        )
+    }
+
+    pub fn render_size_no_scale(&self) -> Vector<u32> {
+        let config = self.config.lock().unwrap();
+        Vector::new(config.width, config.height)
     }
 
     pub fn block(&self, handle: wgpu::SubmissionIndex) {
@@ -159,17 +176,6 @@ impl Gpu {
 
     pub fn submit(&self, encoder: RenderEncoder) -> wgpu::SubmissionIndex {
         self.queue.submit(std::iter::once(encoder.finish()))
-    }
-
-    pub fn render_size(&self, scale: f32) -> Vector<u32> {
-        Vector::new(
-            (self.config.width as f32 * scale) as u32,
-            (self.config.height as f32 * scale) as u32,
-        )
-    }
-
-    pub fn render_size_no_scale(&self) -> Vector<u32> {
-        Vector::new(self.config.width, self.config.height)
     }
 
     pub fn create_render_target<D: Deref<Target = [u8]>>(

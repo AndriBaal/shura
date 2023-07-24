@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::{
     ComponentManager, FrameManager, Gpu, GpuDefaults, GroupManager, Input, Scene, SceneManager,
     ScreenConfig, Shura, StateManager, Vector, WorldCamera,
@@ -37,7 +39,7 @@ pub struct Context<'a> {
     pub frame: &'a FrameManager,
     pub defaults: &'a GpuDefaults,
     pub input: &'a Input,
-    pub gpu: &'a Gpu,
+    pub gpu: Arc<Gpu>,
     #[cfg(feature = "gui")]
     pub gui: &'a Gui,
     #[cfg(feature = "audio")]
@@ -73,7 +75,7 @@ impl<'a> Context<'a> {
             frame: &shura.frame,
             defaults: &shura.defaults,
             input: &shura.input,
-            gpu: &shura.gpu,
+            gpu: shura.gpu.clone(),
             #[cfg(feature = "gui")]
             gui: &shura.gui,
             #[cfg(feature = "audio")]

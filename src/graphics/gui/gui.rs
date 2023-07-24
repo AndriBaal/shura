@@ -18,19 +18,19 @@ impl Gui {
         event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
         gpu: &Gpu,
     ) -> Self {
-        let config = &gpu.config;
         let device = &gpu.device;
         let renderer = Renderer::new(
             device,
-            wgpu::TextureFormat::Rgba8UnormSrgb,
+            wgpu::TextureFormat::Rgba8UnormSrgb, // All render targets are Rgba8UnormSrgb
             None,
             gpu.base.sample_count,
         );
         let state = State::new(event_loop);
         let context = GuiContext::default();
+        let size = gpu.render_size(1.0);
 
         let screen_descriptor = ScreenDescriptor {
-            size_in_pixels: [config.width, config.height],
+            size_in_pixels: [size.x, size.y],
             pixels_per_point: 1.0,
         };
         Self {
@@ -41,7 +41,7 @@ impl Gui {
         }
     }
 
-    pub(crate) fn resize(&mut self, size: &Vector<u32>) {
+    pub(crate) fn resize(&mut self, size: Vector<u32>) {
         self.screen_descriptor = ScreenDescriptor {
             size_in_pixels: [size.x, size.y],
             pixels_per_point: 1.0,
