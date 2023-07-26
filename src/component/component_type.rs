@@ -1,9 +1,11 @@
 use instant::Instant;
-use rayon::prelude::*;
 use std::fmt::{Display, Formatter, Result};
 
 #[cfg(feature = "physics")]
 use crate::physics::{CollideType, ColliderHandle, World};
+
+#[cfg(feature = "rayon")]
+use crate::rayon::prelude::*;
 
 use crate::{
     data::arena::ArenaEntry, Arena, BoxedComponent, BufferHelper, BufferOperation, Color,
@@ -341,6 +343,7 @@ impl ComponentType {
         group_handles: &[GroupHandle],
         each: impl Fn(&C) + Send + Sync,
     ) {
+        #[cfg(feature = "rayon")]
         match &self.storage {
             ComponentTypeStorage::Single { component, .. } => {
                 if let Some(component) = component {
@@ -368,6 +371,8 @@ impl ComponentType {
                 }
             }
         };
+        #[cfg(not(feature = "rayon"))]
+        self.for_each(group_handles, each)
     }
 
     pub fn par_for_each_mut<C: ComponentController>(
@@ -375,6 +380,7 @@ impl ComponentType {
         group_handles: &[GroupHandle],
         each: impl Fn(&mut C) + Send + Sync,
     ) {
+        #[cfg(feature = "rayon")]
         match &mut self.storage {
             ComponentTypeStorage::Single { component, .. } => {
                 if let Some(component) = component {
@@ -404,6 +410,8 @@ impl ComponentType {
                 }
             }
         };
+        #[cfg(not(feature = "rayon"))]
+        self.for_each_mut(group_handles, each)
     }
 
     pub fn for_each<C: ComponentController>(

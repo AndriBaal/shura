@@ -161,6 +161,7 @@ pub mod na {
 }
 
 /// Access to [rayon](https://github.com/rayon-rs/rayon)
+#[cfg(feature = "rayon")]
 pub mod rayon {
     pub use rayon::*;
 }

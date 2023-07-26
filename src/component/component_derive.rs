@@ -1,7 +1,6 @@
 use crate::{
-    data::arena::{Arena, ArenaEntry},
-    Color, ComponentConfig, ComponentIdentifier, ComponentTypeId, Context, EndReason, Gpu,
-    InstanceBuffer, InstanceData, RenderTarget, Renderer,
+    data::arena::Arena, Color, ComponentConfig, ComponentIdentifier, ComponentTypeId, Context,
+    EndReason, Gpu, InstanceBuffer, InstanceData, RenderTarget, Renderer,
 };
 #[cfg(feature = "physics")]
 use crate::{
@@ -9,7 +8,9 @@ use crate::{
     ComponentHandle,
 };
 use downcast_rs::*;
-use rayon::prelude::*;
+
+#[cfg(feature = "rayon")]
+use crate::{data::arena::ArenaEntry, rayon::prelude::*};
 
 /// Fields names of a struct used for deserialization and serialization
 pub trait FieldNames {
@@ -28,7 +29,14 @@ pub trait BaseComponent: Downcast {
 impl_downcast!(BaseComponent);
 
 /// All components need to implement from this trait. This is not done manually, but with the derive macro [Component](crate::Component).
+#[cfg(feature = "rayon")]
 pub trait ComponentDerive: Downcast + Send + Sync {
+    fn base(&self) -> &dyn BaseComponent;
+    fn base_mut(&mut self) -> &mut dyn BaseComponent;
+    fn component_type_id(&self) -> ComponentTypeId;
+}
+#[cfg(not(feature = "rayon"))]
+pub trait ComponentDerive: Downcast {
     fn base(&self) -> &dyn BaseComponent;
     fn base_mut(&mut self) -> &mut dyn BaseComponent;
     fn component_type_id(&self) -> ComponentTypeId;
@@ -122,6 +130,7 @@ impl<'a> BufferHelper<'a> {
                 buffer.write_offset(gpu, *offset, bytemuck::cast_slice(&[data]));
             }
             BufferHelperType::All { components } => {
+                #[cfg(feature = "rayon")]
                 let instances = components
                     .items
                     .par_iter()
@@ -131,6 +140,11 @@ impl<'a> BufferHelper<'a> {
                             Some(each(data.downcast_ref::<C>().unwrap()))
                         }
                     })
+                    .collect::<Vec<B>>();
+                #[cfg(not(feature = "rayon"))]
+                let instances = components
+                    .iter()
+                    .map(|component| each(component.downcast_ref::<C>().unwrap()))
                     .collect::<Vec<B>>();
                 buffer.write(gpu, bytemuck::cast_slice(&instances));
             }
@@ -144,6 +158,7 @@ impl<'a> BufferHelper<'a> {
                 buffer.write_offset(gpu, *offset, bytemuck::cast_slice(&[data]));
             }
             BufferHelperType::All { components } => {
+                #[cfg(feature = "rayon")]
                 let instances = components
                     .items
                     .par_iter()
@@ -151,6 +166,11 @@ impl<'a> BufferHelper<'a> {
                         ArenaEntry::Free { .. } => None,
                         ArenaEntry::Occupied { data, .. } => Some(data.base().instance(world)),
                     })
+                    .collect::<Vec<InstanceData>>();
+                #[cfg(not(feature = "rayon"))]
+                let instances = components
+                    .iter()
+                    .map(|component| component.base().instance(world))
                     .collect::<Vec<InstanceData>>();
                 buffer.write(gpu, bytemuck::cast_slice(&instances));
             }

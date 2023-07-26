@@ -11,13 +11,7 @@ macro_rules! load_file {
 #[macro_export]
 macro_rules! load_file_root {
     ($file:expr $(,)?) => {
-        {
-            if $file.starts_with("/") {
-                include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), $file))
-            } else {
-                include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), r"/", $file))
-            }
-        }
+        include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), '/', $file))
     };
 }
 
@@ -102,7 +96,7 @@ impl<'a, D: Deref<Target = [u8]>> SpriteBuilder<'a, D> {
         mag_filter: wgpu::FilterMode::Nearest,
         min_filter: wgpu::FilterMode::Nearest,
         mipmap_filter: wgpu::FilterMode::Nearest,
-        // Copied from default ..
+        // Copied from default ...
         lod_min_clamp: 0.0,
         lod_max_clamp: 32.0,
         compare: None,

@@ -17,7 +17,7 @@ use std::rc::Rc;
 #[macro_export]
 /// Register multiple components at once
 macro_rules! register {
-    ($components: expr, $groups: expr, [$($C:ty),*]) => {
+    ($components: expr, $groups: expr, [$($C:ty),* $(,)?]) => {
         {
             $(
                 $components.register::<$C>($groups);
@@ -185,6 +185,7 @@ impl ComponentManager {
     }
 
     pub(crate) fn buffer(&mut self, #[cfg(feature = "physics")] world: &World, gpu: &Gpu) {
+        #[cfg(feature = "rayon")]
         rayon::scope(|t| {
             for (idx, ty) in self.types.iter_with_index_mut() {
                 let callable = self.callables.get(&TypeIndex(idx)).unwrap();
@@ -202,6 +203,19 @@ impl ComponentManager {
                 }
             }
         });
+        #[cfg(not(feature = "rayon"))]
+        for (idx, ty) in self.types.iter_with_index_mut() {
+            let callable = self.callables.get(&TypeIndex(idx)).unwrap();
+            if ty.config().buffer != BufferOperation::Never {
+                ty.buffer(
+                    #[cfg(feature = "physics")]
+                    world,
+                    callable.callbacks.buffer,
+                    &self.active_groups,
+                    &gpu,
+                );
+            }
+        }
     }
 
     pub(crate) fn apply_priorities(&mut self) {

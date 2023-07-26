@@ -374,6 +374,7 @@ impl World {
         return collider;
     }
 
+    #[cfg(feature = "serde")]
     pub(crate) fn remove_no_maintain(&mut self, component: &dyn ComponentDerive) {
         if let Some(component) = component.base().downcast_ref::<RigidBodyComponent>() {
             match component.status {
