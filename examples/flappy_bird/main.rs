@@ -66,7 +66,7 @@ struct Bird {
     #[base]
     body: RigidBodyComponent,
     #[buffer]
-    sprite: Vector<u32>,
+    sprite: SpriteSheetIndex,
     model: Model,
     sprite_sheet: SpriteSheet,
     sink: AudioSink,

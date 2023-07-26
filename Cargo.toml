@@ -47,6 +47,7 @@ default = [
     "serde",
     "gui",
     "log",
+    "rayon"
 ]
 
 [lib]

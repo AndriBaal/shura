@@ -332,7 +332,7 @@ impl World {
                 }
                 RigidBodyStatus::Pending { .. } => return,
             }
-        } else if let Some(mut component) = component.base_mut().downcast_mut::<ColliderComponent>()
+        } else if let Some(component) = component.base_mut().downcast_mut::<ColliderComponent>()
         {
             match component.status {
                 ColliderStatus::Added { collider_handle } => {

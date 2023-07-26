@@ -2,32 +2,10 @@ use crate::{
     CameraBuffer, Color, Gpu, GpuDefaults, InstanceBuffer, InstanceIndices, Model, RenderCamera,
     RenderConfigInstances, RenderTarget, Shader, Sprite, SpriteSheet, Uniform, Vector,
 };
-use std::{ops::Range, ptr::null};
+use std::ops::Range;
 
 #[cfg(feature = "text")]
 use crate::text::{FontBrush, TextSection};
-
-struct RenderCache {
-    pub bound_shader: *const Shader,
-    pub bound_camera: *const CameraBuffer,
-    pub bound_vertex_buffer: *const wgpu::Buffer,
-    pub bound_index_buffer: *const wgpu::Buffer,
-    pub bound_instances: *const InstanceBuffer,
-    pub bound_uniforms: [*const wgpu::BindGroup; 5],
-}
-
-impl Default for RenderCache {
-    fn default() -> Self {
-        Self {
-            bound_shader: null(),
-            bound_camera: null(),
-            bound_vertex_buffer: null(),
-            bound_index_buffer: null(),
-            bound_instances: null(),
-            bound_uniforms: [null(), null(), null(), null(), null()],
-        }
-    }
-}
 
 /// Render grpahics to the screen or a sprite. The renderer can be extended with custom graphcis throught
 /// the [RenderPass](wgpu::RenderPass) or the provided methods for shura's shader system.
@@ -39,7 +17,6 @@ pub struct Renderer<'a> {
     msaa: bool,
     indices: u32,
     render_pass: wgpu::RenderPass<'a>,
-    cache: RenderCache,
 }
 
 impl<'a> Renderer<'a> {
@@ -76,7 +53,6 @@ impl<'a> Renderer<'a> {
             render_pass,
             indices: 0,
             msaa: msaa,
-            cache: Default::default(),
             defaults: defaults,
             target,
             gpu,
@@ -136,21 +112,13 @@ impl<'a> Renderer<'a> {
 
     /// Sets the instance buffer at the position 1
     pub fn use_instance_buffer(&mut self, buffer: &'a InstanceBuffer) {
-        let ptr = buffer as *const _;
-        if ptr != self.cache.bound_instances {
-            self.cache.bound_instances = ptr;
-            self.render_pass
-                .set_vertex_buffer(Self::INSTANCE_SLOT, buffer.slice());
-        }
+        self.render_pass
+            .set_vertex_buffer(Self::INSTANCE_SLOT, buffer.slice());
     }
 
     pub fn use_camera_buffer(&mut self, camera: &'a CameraBuffer) {
-        let ptr = camera as *const _;
-        if ptr != self.cache.bound_camera {
-            self.cache.bound_camera = ptr;
-            self.render_pass
-                .set_bind_group(Self::CAMERA_SLOT, camera.uniform().bind_group(), &[]);
-        }
+        self.render_pass
+            .set_bind_group(Self::CAMERA_SLOT, camera.uniform().bind_group(), &[]);
     }
 
     pub fn use_instances(&mut self, instances: RenderConfigInstances<'a>) {
@@ -169,31 +137,15 @@ impl<'a> Renderer<'a> {
             self.msaa,
             "The Renderer and the Shader both need to have msaa enabled / disabled!"
         );
-        let ptr = shader as *const _;
-        if ptr != self.cache.bound_shader {
-            self.cache.bound_shader = ptr;
-            self.render_pass.set_pipeline(shader.pipeline());
-        }
+        self.render_pass.set_pipeline(shader.pipeline());
     }
 
     pub fn use_model(&mut self, model: &'a Model) {
-        let index_buffer = model.index_buffer();
-        let index_ptr = index_buffer as *const _;
-        let vertex_ptr = model.vertex_buffer() as *const _;
-
-        if index_ptr != self.cache.bound_index_buffer {
-            self.cache.bound_index_buffer = index_ptr;
-
-            self.render_pass
-                .set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-            self.indices = model.amount_of_indices();
-        }
-
-        if vertex_ptr != self.cache.bound_vertex_buffer {
-            self.cache.bound_vertex_buffer = vertex_ptr;
-            self.render_pass
-                .set_vertex_buffer(Self::MODEL_SLOT, model.vertex_buffer().slice(..));
-        }
+        self.indices = model.amount_of_indices();
+        self.render_pass
+            .set_index_buffer(model.index_buffer().slice(..), wgpu::IndexFormat::Uint32);
+        self.render_pass
+            .set_vertex_buffer(Self::MODEL_SLOT, model.vertex_buffer().slice(..));
     }
 
     pub fn use_sprite(&mut self, sprite: &'a Sprite, slot: u32) {
@@ -209,15 +161,7 @@ impl<'a> Renderer<'a> {
     }
 
     pub fn use_bind_group(&mut self, bind_group: &'a wgpu::BindGroup, slot: u32) {
-        let ptr = bind_group as *const _;
-        if let Some(cache_slot) = self.cache.bound_uniforms.get_mut(slot as usize) {
-            if *cache_slot != ptr {
-                *cache_slot = ptr;
-                self.render_pass.set_bind_group(slot, bind_group, &[]);
-            }
-        } else {
-            self.render_pass.set_bind_group(slot, bind_group, &[]);
-        }
+        self.render_pass.set_bind_group(slot, bind_group, &[]);
     }
 
     pub fn draw(&mut self, instances: impl Into<InstanceIndices>) {
@@ -235,7 +179,6 @@ impl<'a> Renderer<'a> {
 
     #[cfg(feature = "text")]
     pub fn render_font(&mut self, font: &'a FontBrush) {
-        self.cache = Default::default();
         font.render(
             self.gpu,
             &mut self.render_pass,

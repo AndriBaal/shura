@@ -360,7 +360,7 @@ impl Shura {
 
         let scene = self.scenes.get_active_scene();
         let mut scene = scene.borrow_mut();
-        let mut scene = scene.deref_mut();
+        let scene = scene.deref_mut();
         if let Some(max_frame_time) = scene.screen_config.max_frame_time() {
             let now = self.frame.now();
             let update_time = self.frame.update_time();
