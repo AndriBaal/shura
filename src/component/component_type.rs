@@ -1466,21 +1466,29 @@ impl ComponentType {
     ) {
         renderer.use_camera(camera);
         match &self.storage {
-            ComponentTypeStorage::Single { buffer, .. } => {
-                let buffer = buffer.as_ref().expect(BUFFER_ERROR);
-                renderer.use_instance_buffer(buffer);
-                (all)(renderer, buffer.instances());
+            ComponentTypeStorage::Single {
+                buffer, component, ..
+            } => {
+                if component.is_some() {
+                    let buffer = buffer.as_ref().expect(BUFFER_ERROR);
+                    renderer.use_instance_buffer(buffer);
+                    (all)(renderer, buffer.instances());
+                }
             }
             ComponentTypeStorage::Multiple(multiple) => {
-                let buffer = multiple.buffer.as_ref().expect(BUFFER_ERROR);
-                renderer.use_instance_buffer(buffer);
-                (all)(renderer, buffer.instances());
+                if !multiple.components.is_empty() {
+                    let buffer = multiple.buffer.as_ref().expect(BUFFER_ERROR);
+                    renderer.use_instance_buffer(buffer);
+                    (all)(renderer, buffer.instances());
+                }
             }
             ComponentTypeStorage::MultipleGroups(groups) => {
                 for group in groups {
-                    let buffer = group.buffer.as_ref().expect(BUFFER_ERROR);
-                    renderer.use_instance_buffer(buffer);
-                    (all)(renderer, buffer.instances());
+                    if !group.components.is_empty() {
+                        let buffer = group.buffer.as_ref().expect(BUFFER_ERROR);
+                        renderer.use_instance_buffer(buffer);
+                        (all)(renderer, buffer.instances());
+                    }
                 }
             }
         }

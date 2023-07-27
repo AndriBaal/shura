@@ -155,7 +155,7 @@ impl ComponentController for Bird {
         let x = closest.x;
         assert!(x >= 0.0);
 
-        for bird in ctx.components.iter_mut::<Bird>() {
+        ctx.components.par_for_each_mut::<Bird>(|bird| {
             bird.linvel += delta * Bird::GRAVITY;
             let new_pos = bird.pos.translation() + delta * bird.linvel;
             bird.pos.set_translation(new_pos);
@@ -170,7 +170,7 @@ impl ComponentController for Bird {
             }
 
             if bird.pos.disabled() {
-                continue;
+                return;
             }
 
             bird.score += delta * 1.0;
@@ -185,7 +185,7 @@ impl ComponentController for Bird {
             if out >= 0.5 {
                 bird.linvel.y = 5.0;
             }
-        }
+        });
 
         let dead_count = ctx
             .components

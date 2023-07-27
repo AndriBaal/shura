@@ -107,7 +107,7 @@ impl ComponentController for Bunny {
 
         let frame = ctx.frame.frame_time();
         let fov = ctx.world_camera.fov();
-        ctx.components.for_each_mut::<Self>(|bunny| {
+        ctx.components.par_for_each_mut::<Self>(|bunny| {
             let mut linvel = bunny.linvel;
             let mut translation = bunny.base.translation();
 
