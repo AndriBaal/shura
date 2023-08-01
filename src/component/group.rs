@@ -48,7 +48,7 @@ impl GroupManager {
 
     pub fn add(&mut self, components: &mut ComponentManager, group: Group) -> GroupHandle {
         let handle = GroupHandle(self.groups.insert(group));
-        for ty in &mut components.types {
+        for ty in components.types_mut() {
             ty.add_group();
         }
         components.all_groups.push(handle);
@@ -67,7 +67,7 @@ impl GroupManager {
         let group = self.groups.remove(handle.0);
         components.active_groups.retain(|g| *g != handle);
         components.all_groups.retain(|g| *g != handle);
-        for ty in &mut components.types {
+        for ty in components.types_mut() {
             ty.remove_group(
                 #[cfg(feature = "physics")]
                 world,

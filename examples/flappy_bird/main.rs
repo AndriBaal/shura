@@ -10,7 +10,8 @@ fn shura_main(config: ShuraConfig) {
             .insert(FlappyState::new(&ctx.gpu, ctx.audio));
         ctx.components.add(ctx.world, Background::new(ctx));
         ctx.components.add(ctx.world, Ground::new(&ctx.gpu));
-        ctx.components.add(ctx.world, Bird::new(&ctx.gpu, ctx.audio));
+        ctx.components
+            .add(ctx.world, Bird::new(&ctx.gpu, ctx.audio));
         ctx.world.set_physics_priority(Some(10));
         ctx.world.set_gravity(Vector::new(0.0, -15.0));
         ctx.world_camera
@@ -50,9 +51,7 @@ impl FlappyState {
             ),
             point_sink: audio.create_sink(),
             point_sound: audio.create_sound(load_file!("./audio/point.wav")),
-            pipe_sprite: gpu.create_sprite(sprite_file!(
-                "./sprites/pipe-green.png"
-            )),
+            pipe_sprite: gpu.create_sprite(sprite_file!("./sprites/pipe-green.png")),
             spawn_timer: Pipe::SPAWN_TIME,
             score: 0,
             high_score: 0,
@@ -254,9 +253,9 @@ struct Background {
 
 impl Background {
     pub fn new(ctx: &Context) -> Self {
-        let sprite = ctx.gpu.create_sprite(sprite_file!(
-            "./sprites/background-night.png"
-        ));
+        let sprite = ctx
+            .gpu
+            .create_sprite(sprite_file!("./sprites/background-night.png"));
         Self {
             model: ctx.gpu.create_model(ModelBuilder::cuboid(GAME_SIZE)),
             sprite,

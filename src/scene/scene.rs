@@ -75,7 +75,7 @@ impl<N: 'static + FnMut(&mut Context)> SceneCreator for RecycleScene<N> {
 /// [states](StateManager) and [camera](WorldCamera) identified by an Id
 pub struct Scene {
     pub(crate) id: u32,
-    pub update_components: bool,
+    pub update_components: i16,
     pub started: bool,
     pub render_components: bool,
     pub screen_config: ScreenConfig,
@@ -104,7 +104,7 @@ impl Scene {
             screen_config: ScreenConfig::new(),
             states: StateManager::default(),
             render_components: true,
-            update_components: true,
+            update_components: 0,
             #[cfg(feature = "physics")]
             world: World::new(),
             started: true,

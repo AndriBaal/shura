@@ -29,9 +29,7 @@ impl BunnyState {
         let bunny_model = ctx
             .gpu
             .create_model(ModelBuilder::cuboid(Vector::new(0.06, 0.09)));
-        let bunny_sprite = ctx
-            .gpu
-            .create_sprite(sprite_file!("./img/wabbit.png"));
+        let bunny_sprite = ctx.gpu.create_sprite(sprite_file!("./img/wabbit.png"));
         BunnyState {
             screenshot: None,
             bunny_model,
@@ -108,10 +106,7 @@ impl ComponentController for Bunny {
             info!("Saving Screenshot!");
             screenshot.sprite().save(&ctx.gpu, "screenshot.png").ok();
         } else if ctx.input.is_pressed(Key::S) {
-            bunny_state.screenshot = Some(
-                ctx.gpu
-                    .create_render_target(ctx.window_size),
-            );
+            bunny_state.screenshot = Some(ctx.gpu.create_render_target(ctx.window_size));
         }
 
         let frame = ctx.frame.frame_time();

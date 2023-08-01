@@ -22,7 +22,6 @@ macro_rules! sprite_file {
     };
 }
 
-
 #[macro_export]
 macro_rules! sprite_file_root {
     ($file:expr) => {

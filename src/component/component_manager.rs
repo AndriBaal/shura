@@ -1,17 +1,13 @@
 use rustc_hash::FxHashMap;
 
-#[cfg(feature = "log")]
-use crate::log::info;
 #[cfg(feature = "physics")]
 use crate::physics::World;
 use crate::{
-    Arena, BoxedComponent, BufferOperation, CallableType, ComponentConfig, ComponentController,
-    ComponentHandle, ComponentSet, ComponentSetMut, ComponentType, ComponentTypeId, Gpu,
-    GroupHandle, GroupManager, InstanceBuffer, InstanceIndex, InstanceIndices, RenderCamera,
-    RenderOperation, Renderer, TypeIndex, UpdateOperation,
+    Arena, BoxedComponent, ComponentConfig, ComponentController, ComponentHandle, ComponentSet,
+    ComponentSetMut, ComponentType, ComponentTypeId, ControllerManager, Gpu, GroupHandle,
+    GroupManager, InstanceBuffer, InstanceIndex, InstanceIndices, RenderCamera, Renderer,
+    TypeIndex,
 };
-use std::cell::RefCell;
-use std::collections::BTreeMap;
 use std::rc::Rc;
 
 #[macro_export]
@@ -152,22 +148,12 @@ impl ComponentFilter<'static> {
 /// Access to the component system
 pub struct ComponentManager {
     type_map: FxHashMap<ComponentTypeId, TypeIndex>,
-    pub(super) types: Arena<ComponentType>,
-
-    #[cfg_attr(feature = "serde", serde(skip))]
-    #[cfg_attr(feature = "serde", serde(default))]
-    callables: FxHashMap<TypeIndex, CallableType>,
-    #[cfg_attr(feature = "serde", serde(skip))]
-    #[cfg_attr(feature = "serde", serde(default))]
-    update_priorities: Rc<RefCell<BTreeMap<(i16, ComponentTypeId), TypeIndex>>>,
-    #[cfg_attr(feature = "serde", serde(skip))]
-    #[cfg_attr(feature = "serde", serde(default))]
-    render_priorities: Rc<RefCell<BTreeMap<(i16, ComponentTypeId), TypeIndex>>>,
-    #[cfg_attr(feature = "serde", serde(skip))]
-    #[cfg_attr(feature = "serde", serde(default))]
-    new_priorities: Vec<(Option<i16>, Option<i16>, ComponentTypeId, TypeIndex)>,
+    types: Arena<ComponentType>,
     pub(super) active_groups: Vec<GroupHandle>,
     pub(super) all_groups: Vec<GroupHandle>,
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub(crate) controllers: Rc<ControllerManager>,
 }
 
 impl ComponentManager {
@@ -175,109 +161,44 @@ impl ComponentManager {
         Self {
             types: Default::default(),
             type_map: Default::default(),
-            callables: Default::default(),
-            new_priorities: Default::default(),
-            update_priorities: Default::default(),
-            render_priorities: Default::default(),
             all_groups: Vec::from_iter([GroupHandle::DEFAULT_GROUP]),
             active_groups: Vec::from_iter([GroupHandle::DEFAULT_GROUP]),
+            controllers: Rc::new(ControllerManager::new()),
         }
     }
 
     pub(crate) fn buffer(&mut self, #[cfg(feature = "physics")] world: &World, gpu: &Gpu) {
         #[cfg(feature = "rayon")]
-        rayon::scope(|t| {
-            for (idx, ty) in self.types.iter_with_index_mut() {
-                let callable = self.callables.get(&TypeIndex(idx)).unwrap();
-
-                if ty.config().buffer != BufferOperation::Never {
-                    t.spawn(|_| {
-                        ty.buffer(
-                            #[cfg(feature = "physics")]
-                            world,
-                            callable.callbacks.buffer,
-                            &self.active_groups,
-                            &gpu,
-                        );
-                    })
-                }
-            }
-        });
+        // This is safe here because we dont't expand the arena and we don't access the same arena entry twice
+        unsafe {
+            use rayon::prelude::*;
+            self.controllers
+                .buffers()
+                .par_iter()
+                .for_each(|(buffer, index)| {
+                    let ty = &self.types[index.0];
+                    let ptr = ty as *const ComponentType as *mut ComponentType;
+                    let ty = ptr.as_mut().unwrap();
+                    (*ty).buffer(
+                        #[cfg(feature = "physics")]
+                        world,
+                        *buffer,
+                        &self.active_groups,
+                        &gpu,
+                    );
+                });
+        }
         #[cfg(not(feature = "rayon"))]
-        for (idx, ty) in self.types.iter_with_index_mut() {
-            let callable = self.callables.get(&TypeIndex(idx)).unwrap();
-            if ty.config().buffer != BufferOperation::Never {
-                ty.buffer(
-                    #[cfg(feature = "physics")]
-                    world,
-                    callable.callbacks.buffer,
-                    &self.active_groups,
-                    &gpu,
-                );
-            }
+        for (buffer, index) in self.controllers.buffers() {
+            let ty = &mut self.types[index.0];
+            ty.buffer(
+                #[cfg(feature = "physics")]
+                world,
+                *buffer,
+                &self.active_groups,
+                &gpu,
+            );
         }
-    }
-
-    pub(crate) fn apply_priorities(&mut self) {
-        if self.new_priorities.len() > 0 {
-            let mut update_priorities = self.update_priorities.borrow_mut();
-            let mut render_priorities = self.render_priorities.borrow_mut();
-            for (update_priority, render_priority, type_id, index) in self.new_priorities.drain(..)
-            {
-                if let Some(update_priority) = update_priority {
-                    update_priorities.insert((update_priority, type_id), index);
-                }
-                if let Some(render_priority) = render_priority {
-                    render_priorities.insert((render_priority, type_id), index);
-                }
-            }
-        }
-    }
-
-    pub(crate) fn update_priorities(
-        &self,
-    ) -> Rc<RefCell<BTreeMap<(i16, ComponentTypeId), TypeIndex>>> {
-        return self.update_priorities.clone();
-    }
-
-    pub(crate) fn render_priorities(
-        &self,
-    ) -> Rc<RefCell<BTreeMap<(i16, ComponentTypeId), TypeIndex>>> {
-        return self.render_priorities.clone();
-    }
-
-    pub(crate) fn callable(&self, t: &TypeIndex) -> &CallableType {
-        self.callables.get(t).unwrap()
-    }
-
-    pub(crate) fn callable_mut(&mut self, t: &TypeIndex) -> &mut CallableType {
-        self.callables.get_mut(t).unwrap()
-    }
-
-    #[cfg(feature = "serde")]
-    pub(crate) fn reregister<C: ComponentController>(&mut self) {
-        let index = *self.type_map.get(&C::IDENTIFIER).unwrap();
-        #[cfg(feature = "log")]
-        info!(
-            "Reregister component '{}' with ID '{}'",
-            C::TYPE_NAME,
-            C::IDENTIFIER
-        );
-        self.new_priorities.push((
-            if C::CONFIG.update != UpdateOperation::Never {
-                Some(C::CONFIG.update_priority)
-            } else {
-                None
-            },
-            if C::CONFIG.render != RenderOperation::Never {
-                Some(C::CONFIG.render_priority)
-            } else {
-                None
-            },
-            C::IDENTIFIER,
-            index,
-        ));
-        self.callables.insert(index, CallableType::new::<C>());
     }
 
     #[cfg(feature = "serde")]
@@ -290,17 +211,12 @@ impl ComponentManager {
         type_mut!(self, C)
     }
 
-    #[cfg(all(feature = "serde", feature = "physics"))]
-    pub(crate) fn types(&self) -> &Arena<ComponentType> {
-        &self.types
+    pub(crate) fn types_mut(&mut self) -> &mut Arena<ComponentType> {
+        &mut self.types
     }
 
     pub fn register<C: ComponentController>(&mut self, groups: &GroupManager) {
         self.register_with_config::<C>(groups, C::CONFIG);
-    }
-
-    pub fn type_id(&self, component: ComponentHandle) -> ComponentTypeId {
-        self.callables.get(&component.type_index()).unwrap().type_id
     }
 
     pub fn register_with_config<C: ComponentController>(
@@ -308,33 +224,14 @@ impl ComponentManager {
         groups: &GroupManager,
         config: ComponentConfig,
     ) {
-        if !self.type_map.contains_key(&C::IDENTIFIER) {
-            let index = self
-                .types
-                .insert_with(|idx| ComponentType::with_config::<C>(config, TypeIndex(idx), groups));
-            #[cfg(feature = "log")]
-            info!(
-                "Register component '{}' with ID '{}'",
-                C::TYPE_NAME,
-                C::IDENTIFIER
-            );
-            self.type_map.insert(C::IDENTIFIER, TypeIndex(index));
-            self.new_priorities.push((
-                if C::CONFIG.update != UpdateOperation::Never {
-                    Some(C::CONFIG.update_priority)
-                } else {
-                    None
-                },
-                if C::CONFIG.render != RenderOperation::Never {
-                    Some(C::CONFIG.render_priority)
-                } else {
-                    None
-                },
-                C::IDENTIFIER,
-                TypeIndex(index),
-            ));
-            self.callables
-                .insert(TypeIndex(index), CallableType::new::<C>());
+        if let Some(type_index) = self.type_map.get(&C::IDENTIFIER) {
+            self.controllers.register::<C>(config, *type_index);
+        } else {
+            let type_index = TypeIndex(self.types.insert_with(|idx| {
+                ComponentType::with_config::<C>(config, TypeIndex(idx), groups)
+            }));
+            self.controllers.register::<C>(config, type_index);
+            self.type_map.insert(C::IDENTIFIER, type_index);
         }
     }
 

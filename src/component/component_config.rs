@@ -57,6 +57,13 @@ pub enum ComponentStorage {
     Groups,
 }
 
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum EndOperation {
+    Never,
+    Always,
+}
+
 /// The configuration of a component type. This configuration is used to statically define
 /// behaviour of a component type for perfomance and utility reason.
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
@@ -66,26 +73,29 @@ pub struct ComponentConfig {
     pub update_priority: i16,
     /// Describes the order in which components are rendered
     pub render_priority: i16,
-    // /// When this flag is set, the component is automatically registered when adding one
-    // pub auto_register: bool,
+    pub end_priority: i16,
     pub update: UpdateOperation,
     pub render: RenderOperation,
     pub buffer: BufferOperation,
+    pub end: EndOperation,
     pub storage: ComponentStorage,
     // Update even when the game is paused
-    pub force_update: bool,
+    pub force_update_level: i16,
 }
 
 impl ComponentConfig {
     pub const DEFAULT_PRIORITY: i16 = 16;
+    pub const DEFAULT_FORCE_UPDATE_LEVEL: i16 = 1;
     pub const DEFAULT: ComponentConfig = ComponentConfig {
         buffer: BufferOperation::EveryFrame,
         render: RenderOperation::EveryFrame,
         update: UpdateOperation::EveryFrame,
+        end: EndOperation::Never,
         storage: ComponentStorage::Multiple,
         update_priority: Self::DEFAULT_PRIORITY,
         render_priority: Self::DEFAULT_PRIORITY,
-        force_update: false,
+        end_priority: Self::DEFAULT_PRIORITY,
+        force_update_level: Self::DEFAULT_FORCE_UPDATE_LEVEL,
     };
 }
 

@@ -5,7 +5,6 @@ use crate::{Gpu, RgbaColor, Vector};
 
 pub type SpriteSheetIndex = Vector<u32>;
 
-
 #[macro_export]
 macro_rules! sprite_sheet_file {
     ($file:expr, $sprite_size: expr $(,)?) => {

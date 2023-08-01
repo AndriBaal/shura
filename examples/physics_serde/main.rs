@@ -95,9 +95,7 @@ impl Player {
         let collider = ColliderBuilder::new(SharedShape::new(Self::SHAPE))
             .active_events(ActiveEvents::COLLISION_EVENTS);
         Self {
-            sprite: ctx
-                .gpu
-                .create_sprite(sprite_file!("./img/burger.png")),
+            sprite: ctx.gpu.create_sprite(sprite_file!("./img/burger.png")),
             model: ctx.gpu.create_model(ModelBuilder::from_collider_shape(
                 collider.shape.as_ref(),
                 Self::RESOLUTION,
@@ -126,6 +124,7 @@ impl Player {
 impl ComponentController for Player {
     const CONFIG: ComponentConfig = ComponentConfig {
         storage: ComponentStorage::Single,
+        end: EndOperation::Always,
         ..ComponentConfig::DEFAULT
     };
 
@@ -389,10 +388,7 @@ impl<'de, 'a> serde::de::Visitor<'de> for PlayerVisitor<'a> {
             .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
         Ok(Player {
             body,
-            sprite: self
-                .ctx
-                .gpu
-                .create_sprite(sprite_file!("./img/burger.png")),
+            sprite: self.ctx.gpu.create_sprite(sprite_file!("./img/burger.png")),
             model: self.ctx.gpu.create_model(ModelBuilder::from_collider_shape(
                 &Player::SHAPE,
                 Player::RESOLUTION,

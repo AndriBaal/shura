@@ -178,10 +178,7 @@ impl Gpu {
         self.queue.submit(std::iter::once(encoder.finish()))
     }
 
-    pub fn create_render_target(
-        &self,
-        size: Vector<u32>
-    ) -> RenderTarget {
+    pub fn create_render_target(&self, size: Vector<u32>) -> RenderTarget {
         RenderTarget::new(self, size)
     }
 

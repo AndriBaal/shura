@@ -51,7 +51,8 @@ impl FrameManager {
             self.fps = self.fps_counter;
             self.fps_time = self.total_time;
             self.fps_counter = 0;
-            #[cfg(feature = "log")] {
+            #[cfg(feature = "log")]
+            {
                 info!("fps: {}\tdelta: {}", self.fps, self.frame_time());
                 #[cfg(feature = "rayon")]
                 info!("threads: {}", rayon::current_num_threads())

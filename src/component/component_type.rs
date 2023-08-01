@@ -1,63 +1,17 @@
-use instant::Instant;
 use std::fmt::{Display, Formatter, Result};
 
 #[cfg(feature = "physics")]
-use crate::physics::{CollideType, ColliderHandle, World};
+use crate::physics::World;
 
 #[cfg(feature = "rayon")]
 use crate::rayon::prelude::*;
 
 use crate::{
-    data::arena::ArenaEntry, Arena, BoxedComponent, BufferHelper, BufferOperation, Color,
+    data::arena::ArenaEntry, Arena, BoxedComponent, BufferCallback, BufferHelper, BufferOperation,
     ComponentConfig, ComponentController, ComponentDerive, ComponentHandle, ComponentIndex,
-    ComponentStorage, Context, EndReason, Gpu, GroupHandle, GroupManager, InstanceBuffer,
-    InstanceIndex, InstanceIndices, RenderCamera, RenderTarget, Renderer, TypeIndex,
+    ComponentStorage, Gpu, GroupHandle, GroupManager, InstanceBuffer, InstanceIndex,
+    InstanceIndices, RenderCamera, Renderer, TypeIndex,
 };
-
-type BufferCallback = fn(
-    buffer: &mut InstanceBuffer,
-    #[cfg(feature = "physics")] world: &World,
-    gpu: &Gpu,
-    helper: BufferHelper,
-);
-type UpdateCallback = fn(ctx: &mut Context);
-type RenderCallback = for<'a> fn(ctx: &'a Context, renderer: &mut Renderer<'a>);
-type TargetCallback = for<'a> fn(ctx: &'a Context) -> (Option<Color>, &'a RenderTarget);
-#[cfg(feature = "physics")]
-type CollisionCallback = fn(
-    ctx: &mut Context,
-    self_handle: ComponentHandle,
-    other_handle: ComponentHandle,
-    self_collider: ColliderHandle,
-    other_collider: ColliderHandle,
-    collision_type: CollideType,
-);
-type EndCallback = fn(&mut Context, reason: EndReason);
-
-#[derive(Clone, Copy)]
-pub(crate) struct ComponentCallbacks {
-    pub update: UpdateCallback,
-    pub render: RenderCallback,
-    #[cfg(feature = "physics")]
-    pub collision: CollisionCallback,
-    pub end: EndCallback,
-    pub buffer: BufferCallback,
-    pub render_target: TargetCallback,
-}
-
-impl ComponentCallbacks {
-    pub fn new<C: ComponentController>() -> Self {
-        return Self {
-            update: C::update,
-            #[cfg(feature = "physics")]
-            collision: C::collision,
-            render: C::render,
-            end: C::end,
-            buffer: C::buffer,
-            render_target: C::render_target,
-        };
-    }
-}
 
 #[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -113,6 +67,23 @@ pub(crate) enum ComponentTypeStorage {
     MultipleGroups(Arena<ComponentTypeGroup>),
 }
 
+impl Clone for ComponentTypeStorage {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Single {
+                force_buffer,
+                ..
+            } => Self::Single {
+                force_buffer: force_buffer.clone(),
+                component: None,
+                buffer: None,
+            },
+            Self::Multiple(a) => Self::Multiple(a.clone()),
+            Self::MultipleGroups(a) => Self::MultipleGroups(a.clone()),
+        }
+    }
+}
+
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct ComponentTypeGroup {
     #[cfg_attr(feature = "serde", serde(skip))]
@@ -123,6 +94,17 @@ pub(crate) struct ComponentTypeGroup {
     #[cfg_attr(feature = "serde", serde(default))]
     buffer: Option<InstanceBuffer>,
     last_len: u64,
+}
+
+impl Clone for ComponentTypeGroup {
+    fn clone(&self) -> Self {
+        Self {
+            buffer: None,
+            components: Default::default(),
+            force_buffer: self.force_buffer.clone(),
+            last_len: self.last_len.clone(),
+        }
+    }
 }
 
 impl ComponentTypeGroup {
@@ -174,31 +156,11 @@ impl ComponentTypeGroup {
     }
 }
 
-pub(crate) struct CallableType {
-    pub config: ComponentConfig,
-    pub callbacks: ComponentCallbacks,
-    pub last_update: Option<Instant>,
-    pub type_id: ComponentTypeId,
-}
-
-impl CallableType {
-    pub fn new<C: ComponentController>() -> CallableType {
-        Self {
-            last_update: match &C::CONFIG.update {
-                crate::UpdateOperation::AfterDuration(_) => Some(Instant::now()),
-                _ => None,
-            },
-            callbacks: ComponentCallbacks::new::<C>(),
-            config: C::CONFIG,
-            type_id: C::IDENTIFIER,
-        }
-    }
-}
-
 const BUFFER_ERROR: &'static str =
     "This component either has no buffer or it has not been initialized yet!";
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone)]
 pub(crate) struct ComponentType {
     index: TypeIndex,
     type_id: ComponentTypeId,
@@ -250,10 +212,6 @@ impl ComponentType {
 
     pub fn component_type_id(&self) -> ComponentTypeId {
         self.type_id
-    }
-
-    pub fn config(&self) -> &ComponentConfig {
-        &self.config
     }
 
     pub(crate) fn buffer(

@@ -25,7 +25,7 @@ pub struct Context<'a> {
     // Scene
     pub scene_id: &'a u32,
     pub scene_started: &'a bool,
-    pub update_components: &'a mut bool,
+    pub update_components: &'a mut i16,
     pub render_components: &'a mut bool,
     pub screen_config: &'a mut ScreenConfig,
     pub scene_states: &'a mut StateManager,
@@ -100,12 +100,13 @@ impl<'a> Context<'a> {
             SceneSerializer::new(components, &self.global_states, &self.scene_states);
         (serialize)(&mut serializer);
 
+        
         #[derive(serde::Serialize)]
         struct Scene<'a> {
             id: u32,
+            update_components: i16,
             started: bool,
             render_components: bool,
-            update_components: bool,
             screen_config: &'a ScreenConfig,
             world_camera: &'a WorldCamera,
             components: &'a ComponentManager,
@@ -118,7 +119,7 @@ impl<'a> Context<'a> {
         {
             let (ser_components, ser_scene_state, ser_global_state) = serializer.finish();
             let mut world_cpy = self.world.clone();
-            for ty in self.components.types() {
+            for ty in self.components.types_mut() {
                 if !ser_components.contains_key(&ty.component_type_id()) {
                     match &ty.storage {
                         crate::ComponentTypeStorage::Single { component, .. } => {

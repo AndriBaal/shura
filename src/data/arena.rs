@@ -4,6 +4,8 @@ use core::mem;
 use core::ops;
 use core::slice;
 
+
+#[derive(Clone)]
 pub(crate) struct Arena<T> {
     pub(crate) items: Vec<ArenaEntry<T>>,
     pub(crate) generation: u32,

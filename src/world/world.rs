@@ -140,6 +140,7 @@ pub enum CollideType {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct World {
     pub physics_priority: Option<i16>,
+    pub force_update_level: i16,
     pub time_scale: f32,
     pub gravity: Vector<f32>,
     bodies: RigidBodySet,
@@ -167,6 +168,7 @@ impl Clone for World {
     fn clone(&self) -> Self {
         Self {
             physics_priority: self.physics_priority.clone(),
+            force_update_level: self.force_update_level.clone(),
             bodies: self.bodies.clone(),
             colliders: self.colliders.clone(),
             collider_mapping: self.collider_mapping.clone(),
@@ -205,53 +207,11 @@ impl World {
             collider_mapping: Default::default(),
             rigid_body_mapping: Default::default(),
             physics_priority: Some(i16::MAX),
+            force_update_level: i16::MAX,
             gravity: vector![0.0, 0.0],
             time_scale: 1.0,
         }
     }
-
-    // pub(crate) fn register_collider(
-    //     &mut self,
-    //     component_handle: ComponentHandle,
-    //     collider_handle: ColliderHandle,
-    // ) {
-    //     self.collider_mapping
-    //         .insert(collider_handle, component_handle);
-    // }
-
-    // pub(crate) fn register_rigid_body(
-    //     &mut self,
-    //     component_handle: ComponentHandle,
-    //     rigid_body_handle: RigidBodyHandle,
-    // ) {
-    //     if let Some(body) = self.bodies.get(rigid_body_handle) {
-    //         for collider_handle in body.colliders() {
-    //             self.collider_mapping
-    //                 .insert(*collider_handle, component_handle);
-    //         }
-    //     }
-    // }
-
-    // pub(crate) fn unregister_collider(&mut self, collider_handle: ColliderHandle) {
-    //     self.colliders
-    //         .remove(collider_handle, &mut self.islands, &mut self.bodies, false);
-    //     self.collider_mapping.remove(&collider_handle);
-    // }
-
-    // pub(crate) fn unregister_rigid_body(&mut self, rigid_body_handle: RigidBodyHandle) {
-    //     if let Some(body) = self.bodies.remove(
-    //         rigid_body_handle,
-    //         &mut self.islands,
-    //         &mut self.colliders,
-    //         &mut self.impulse_joints,
-    //         &mut self.multibody_joints,
-    //         true,
-    //     ) {
-    //         for collider_handle in body.colliders() {
-    //             self.collider_mapping.remove(collider_handle);
-    //         }
-    //     }
-    // }
 
     pub(crate) fn add(
         &mut self,
@@ -332,8 +292,7 @@ impl World {
                 }
                 RigidBodyStatus::Pending { .. } => return,
             }
-        } else if let Some(component) = component.base_mut().downcast_mut::<ColliderComponent>()
-        {
+        } else if let Some(component) = component.base_mut().downcast_mut::<ColliderComponent>() {
             match component.status {
                 ColliderStatus::Added { collider_handle } => {
                     self.collider_mapping.remove(&collider_handle);
@@ -695,6 +654,10 @@ impl World {
         self.physics_priority
     }
 
+    pub fn force_update_level(&self) -> i16 {
+        self.force_update_level
+    }
+
     pub fn set_gravity(&mut self, gravity: Vector<f32>) {
         self.gravity = gravity;
     }
@@ -705,5 +668,9 @@ impl World {
 
     pub fn set_physics_priority(&mut self, step: Option<i16>) {
         self.physics_priority = step;
+    }
+
+    pub fn set_force_update_level(&mut self, step: i16) {
+        self.force_update_level = step;
     }
 }

@@ -10,8 +10,8 @@ use crate::{
     VERSION,
 };
 use crate::{
-    Context, EndReason, FrameManager, Gpu, GpuConfig, GpuDefaults, Input, RenderEncoder, Renderer,
-    SceneCreator, SceneManager, StateManager, Vector,
+    Context, ControllerManager, EndReason, FrameManager, Gpu, GpuConfig, GpuDefaults, Input,
+    RenderEncoder, Renderer, SceneCreator, SceneManager, StateManager, Vector,
 };
 #[cfg(target_arch = "wasm32")]
 use rustc_hash::FxHashMap;
@@ -283,7 +283,7 @@ impl Shura {
     }
 
     #[cfg(feature = "physics")]
-    fn world_step(ctx: &mut Context) {
+    fn world_step(ctx: &mut Context, controllers: &ControllerManager) {
         macro_rules! skip_fail {
             ($res:expr) => {
                 match $res {
@@ -296,8 +296,6 @@ impl Shura {
         }
 
         ctx.world.step(ctx.frame);
-        // while let Ok(contact_force_event) = ctx.components.event_receivers.1.try_recv() {
-        // }
         while let Ok(collision_event) = ctx.world.collision_event() {
             let collision_type = if collision_event.started() {
                 CollideType::Started
@@ -311,10 +309,8 @@ impl Shura {
             let collider1_events = skip_fail!(ctx.world.collider(collider_handle1)).active_events();
             let collider2_events = skip_fail!(ctx.world.collider(collider_handle2)).active_events();
 
-            let callable1 = ctx.components.callable(&component1.type_index());
-            let callable2 = ctx.components.callable(&component2.type_index());
-            let callback1 = callable1.callbacks.collision;
-            let callback2 = callable2.callbacks.collision;
+            let callback1 = skip_fail!(controllers.collisions().get(&component1.type_index()));
+            let callback2 = skip_fail!(controllers.collisions().get(&component2.type_index()));
 
             if collider1_events == ActiveEvents::COLLISION_EVENTS {
                 (callback1)(
@@ -345,8 +341,7 @@ impl Shura {
             if let Some(removed) = self.scenes.scenes.remove(&remove) {
                 let mut removed = removed.borrow_mut();
                 let mut ctx = Context::new(self, &mut removed);
-                for (_, type_index) in ctx.components.update_priorities().borrow().iter() {
-                    let end = ctx.components.callable(type_index).callbacks.end;
+                for (_, end) in ctx.components.controllers.clone().ends() {
                     (end)(&mut ctx, EndReason::RemoveScene)
                 }
             }
@@ -440,34 +435,39 @@ impl Shura {
         #[cfg(feature = "gui")]
         self.gui
             .begin(&self.frame.total_time_duration(), &self.window);
+        Rc::get_mut(&mut scene.components.controllers).unwrap().apply();
+        let callbacks_rc = scene.components.controllers.clone();
+        let callbacks: &ControllerManager = &callbacks_rc;
         {
             let mut ctx = Context::new(self, scene);
             #[cfg(feature = "physics")]
-            let (mut done_step, physics_priority) = {
+            let (mut done_step, physics_priority, world_force_update_level) = {
                 if let Some(physics_priority) = ctx.world.physics_priority() {
-                    (false, physics_priority)
+                    (false, physics_priority, ctx.world.force_update_level)
                 } else {
-                    (true, 0)
+                    (true, 0, 0)
                 }
             };
+            let update_components = *ctx.update_components;
             let now = ctx.frame.update_time();
             {
-                ctx.components.apply_priorities();
-                for ((_priority, _), type_index) in
-                    ctx.components.update_priorities().borrow().iter()
+                for (_priority, force_update_level, update, last_update, update_operation) in
+                    callbacks.updates()
                 {
                     #[cfg(feature = "physics")]
-                    if !done_step && *_priority > physics_priority && *ctx.update_components {
+                    if !done_step
+                        && *_priority > physics_priority
+                        && world_force_update_level > update_components
+                    {
                         done_step = true;
-                        Self::world_step(&mut ctx);
+                        Self::world_step(&mut ctx, callbacks);
                     }
 
-                    let ty = ctx.components.callable_mut(type_index);
-                    if !*ctx.update_components && !ty.config.force_update {
+                    if *force_update_level < update_components {
                         continue;
                     }
 
-                    match ty.config.update {
+                    match update_operation {
                         crate::UpdateOperation::EveryFrame => {}
                         crate::UpdateOperation::Never => {
                             continue;
@@ -478,21 +478,22 @@ impl Shura {
                             }
                         }
                         crate::UpdateOperation::AfterDuration(dur) => {
-                            if now < ty.last_update.unwrap() + dur {
+                            let last_update = last_update.as_ref().unwrap();
+                            if now < *last_update.borrow() + *dur {
                                 continue;
                             } else {
-                                ty.last_update = Some(now);
+                                last_update.replace(now);
                             }
                         }
                     }
 
-                    (ty.callbacks.update)(&mut ctx);
+                    (update)(&mut ctx);
                 }
             }
 
             #[cfg(feature = "physics")]
-            if !done_step && ctx.world.physics_priority().is_some() && *ctx.update_components {
-                Self::world_step(&mut ctx);
+            if !done_step && world_force_update_level > update_components {
+                Self::world_step(&mut ctx, callbacks);
             }
         }
         scene.world_camera.apply_target(
@@ -560,14 +561,13 @@ impl Shura {
                 ctx.screen_config.clear_color,
                 true,
             );
-            for (_, type_index) in ctx.components.render_priorities().borrow().iter() {
-                let ty = ctx.components.callable(type_index);
-                let (clear, target) = (ty.callbacks.render_target)(&ctx);
+            for (_priority, render, target) in callbacks.renders() {
+                let (clear, target) = (target)(&ctx);
                 if target as *const _ != renderer.target() as *const _ {
                     drop(renderer);
                     renderer = encoder.renderer(&target, clear, true);
                 }
-                (ty.callbacks.render)(&ctx, &mut renderer);
+                (render)(&ctx, &mut renderer);
                 if let Some(screenshot) = renderer.screenshot.take() {
                     let screenshot =
                         unsafe { (screenshot as *const crate::RenderTarget).as_ref().unwrap() };
@@ -602,8 +602,7 @@ impl Drop for Shura {
         for (_, scene) in self.scenes.end_scenes() {
             let mut scene = scene.borrow_mut();
             let mut ctx = Context::new(self, &mut scene);
-            for (_, type_index) in ctx.components.update_priorities().borrow().iter() {
-                let end = ctx.components.callable(type_index).callbacks.end;
+            for (_, end) in ctx.components.controllers.clone().ends() {
                 (end)(&mut ctx, EndReason::EndProgram)
             }
         }

@@ -162,7 +162,7 @@ impl SceneDeserializer {
         &mut self,
         ctx: &mut Context,
     ) {
-        ctx.components.reregister::<C>();
+        ctx.components.register::<C>(&ctx.groups);
         let type_id = C::IDENTIFIER;
         let ty = ctx.components.type_mut::<C>();
         if let Some(storage) = self.ser_components.remove(&type_id) {
@@ -241,7 +241,7 @@ impl SceneDeserializer {
         ctx: &mut Context,
         mut de: impl for<'de> FnMut(DeserializeWrapper<'de, C>, &'de Context<'de>) -> C,
     ) {
-        ctx.components.reregister::<C>();
+        ctx.components.register::<C>(ctx.groups);
         let type_id = C::IDENTIFIER;
         if let Some(storage) = self.ser_components.remove(&type_id) {
             match storage {

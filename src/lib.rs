@@ -20,12 +20,13 @@ pub use shura_proc::*;
 #[cfg(target_os = "android")]
 pub use ::winit::platform::android::activity::AndroidApp;
 
-pub(crate) use data::arena::*;
+pub(crate) use {component::controller_manager::*, data::arena::*};
 
 pub use crate::{
     component::{
         component_config::*, component_derive::*, component_handle::*, component_manager::*,
-        component_set::*, component_type::*, empty_component::*, group::*, position_component::*,
+        component_set::*, component_type::*, empty_component::*, group::*,
+        position_component::*,
     },
     graphics::{
         camera::*, color::*, frame_manager::*, gpu::*, instance_buffer::*, model::*,
