@@ -7,7 +7,7 @@ use crate::physics::{CollideType, ColliderHandle, World};
 use crate::{
     BufferHelper, BufferOperation, Color, ComponentConfig, ComponentController, ComponentHandle,
     ComponentTypeId, Context, EndOperation, EndReason, FxHashMap, Gpu, InstanceBuffer, Instant,
-    RenderOperation, RenderTarget, Renderer, TypeIndex, UpdateOperation,
+    RenderOperation, RenderTarget, Renderer, UpdateOperation,
 };
 
 pub(crate) type BufferCallback = fn(
@@ -32,7 +32,7 @@ type EndCallback = fn(&mut Context, reason: EndReason);
 
 struct NewEntry {
     config: ComponentConfig,
-    type_index: TypeIndex,
+    type_id: ComponentTypeId,
     update: UpdateCallback,
     render: RenderCallback,
     #[cfg(feature = "physics")]
@@ -47,9 +47,9 @@ pub(crate) struct ControllerManager {
     update_callbacks: Vec<(i16, i16, UpdateCallback, Option<RefCell<Instant>>, UpdateOperation)>,
     end_callbacks: Vec<(i16, EndCallback)>,
     render_callbacks: Vec<(i16, RenderCallback, TargetCallback)>,
-    buffer_callbacks: Vec<(BufferCallback, TypeIndex)>,
+    buffer_callbacks: Vec<(BufferCallback, ComponentTypeId)>,
     #[cfg(feature = "physics")]
-    collision_callbacks: FxHashMap<TypeIndex, CollisionCallback>,
+    collision_callbacks: FxHashMap<ComponentTypeId, CollisionCallback>,
     new_entries: RefCell<(FxHashSet<ComponentTypeId>, Vec<NewEntry>)>,
 }
 
@@ -62,7 +62,7 @@ impl ControllerManager {
         &self.update_callbacks
     }
 
-    pub fn buffers(&self) -> &Vec<(BufferCallback, TypeIndex)> {
+    pub fn buffers(&self) -> &Vec<(BufferCallback, ComponentTypeId)> {
         &self.buffer_callbacks
     }
 
@@ -74,16 +74,16 @@ impl ControllerManager {
         &self.render_callbacks
     }
 
-    pub fn collisions(&self) -> &FxHashMap<TypeIndex, CollisionCallback> {
+    pub fn collisions(&self) -> &FxHashMap<ComponentTypeId, CollisionCallback> {
         &self.collision_callbacks
     }
 
-    pub fn register<C: ComponentController>(&self, config: ComponentConfig, type_index: TypeIndex) {
+    pub fn register<C: ComponentController>(&self, config: ComponentConfig) {
         let mut new = self.new_entries.borrow_mut();
         if !new.0.contains(&C::IDENTIFIER) {
             new.0.insert(C::IDENTIFIER);
             new.1.push(NewEntry {
-                type_index,
+                type_id: C::IDENTIFIER,
                 config,
                 update: C::update,
                 #[cfg(feature = "physics")]
@@ -108,7 +108,7 @@ impl ControllerManager {
             for entry in new.1.drain(..) {
                 let config = entry.config;
                 #[cfg(feature = "physics")]
-                self.collision_callbacks.insert(entry.type_index, entry.collision);
+                self.collision_callbacks.insert(entry.type_id, entry.collision);
                 match config.update {
                     UpdateOperation::EveryFrame => self.update_callbacks.push((
                         config.update_priority,
@@ -136,10 +136,10 @@ impl ControllerManager {
 
                 match config.buffer {
                     BufferOperation::Manual => {
-                        self.buffer_callbacks.push((entry.buffer, entry.type_index))
+                        self.buffer_callbacks.push((entry.buffer, entry.type_id))
                     }
                     BufferOperation::EveryFrame => {
-                        self.buffer_callbacks.push((entry.buffer, entry.type_index))
+                        self.buffer_callbacks.push((entry.buffer, entry.type_id))
                     }
                     BufferOperation::Never => (),
                 }

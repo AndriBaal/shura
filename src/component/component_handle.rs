@@ -1,4 +1,4 @@
-use crate::ArenaIndex;
+use crate::{ArenaIndex, ComponentTypeId, ComponentController};
 use core::hash::Hash;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
@@ -8,9 +8,6 @@ pub(crate) struct ComponentIndex(pub(crate) ArenaIndex);
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// Unique identifier of a group
 pub struct GroupHandle(pub(crate) ArenaIndex);
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub(crate) struct TypeIndex(pub(crate) ArenaIndex);
 
 impl GroupHandle {
     pub const INVALID: Self = GroupHandle(ArenaIndex::INVALID);
@@ -39,15 +36,15 @@ impl Default for GroupHandle {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ComponentHandle {
     component_index: ComponentIndex,
-    type_index: TypeIndex,
     group_handle: GroupHandle,
+    type_id: ComponentTypeId,
 }
 
 impl ComponentHandle {
     pub const INVALID: Self = ComponentHandle {
-        component_index: ComponentIndex(ArenaIndex::INVALID),
-        type_index: TypeIndex(ArenaIndex::INVALID),
-        group_handle: GroupHandle(ArenaIndex::INVALID),
+        component_index: ComponentIndex::INVALID,
+        group_handle: GroupHandle::INVALID,
+        type_id: ComponentTypeId::INVALID,
     };
 }
 
@@ -60,22 +57,26 @@ impl Default for ComponentHandle {
 impl ComponentHandle {
     pub(crate) const fn new(
         component_index: ComponentIndex,
-        type_index: TypeIndex,
+        type_id: ComponentTypeId,
         group_handle: GroupHandle,
     ) -> Self {
         Self {
             component_index,
-            type_index,
+            type_id,
             group_handle,
         }
     }
 
-    pub(crate) fn type_index(&self) -> TypeIndex {
-        self.type_index
+    pub fn type_id(&self) -> ComponentTypeId {
+        self.type_id
     }
 
     pub fn group_handle(&self) -> GroupHandle {
         self.group_handle
+    }
+
+    pub fn type_of<C: ComponentController>(&self) -> bool {
+        self.type_id == C::IDENTIFIER
     }
 
     pub(crate) fn component_index(&self) -> ComponentIndex {

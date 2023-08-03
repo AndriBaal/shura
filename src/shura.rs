@@ -309,8 +309,8 @@ impl Shura {
             let collider1_events = skip_fail!(ctx.world.collider(collider_handle1)).active_events();
             let collider2_events = skip_fail!(ctx.world.collider(collider_handle2)).active_events();
 
-            let callback1 = skip_fail!(controllers.collisions().get(&component1.type_index()));
-            let callback2 = skip_fail!(controllers.collisions().get(&component2.type_index()));
+            let callback1 = skip_fail!(controllers.collisions().get(&component1.type_id()));
+            let callback2 = skip_fail!(controllers.collisions().get(&component2.type_id()));
 
             if collider1_events == ActiveEvents::COLLISION_EVENTS {
                 (callback1)(

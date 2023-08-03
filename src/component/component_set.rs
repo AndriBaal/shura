@@ -2,21 +2,21 @@ use crate::{
     BoxedComponent, ComponentController, ComponentHandle, ComponentType, GroupHandle,
     InstanceBuffer, InstanceIndex,
 };
-use std::marker::PhantomData;
+use std::{marker::PhantomData, cell::{Ref, RefMut}};
 
 #[cfg(feature = "physics")]
 use crate::physics::World;
 
-#[derive(Clone, Copy)]
+// #[derive(Clone, Copy)]
 /// Set of components from  the same type only from the specified (groups)[crate::Group]
 pub struct ComponentSet<'a, C: ComponentController> {
-    ty: &'a ComponentType,
+    ty: Ref<'a, ComponentType>,
     groups: &'a [GroupHandle],
     marker: PhantomData<C>,
 }
 
 impl<'a, C: ComponentController> ComponentSet<'a, C> {
-    pub(crate) fn new(ty: &'a ComponentType, groups: &'a [GroupHandle]) -> ComponentSet<'a, C> {
+    pub(crate) fn new(ty: Ref<'a, ComponentType>, groups: &'a [GroupHandle]) -> ComponentSet<'a, C> {
         Self {
             ty,
             groups,
@@ -63,7 +63,7 @@ impl<'a, C: ComponentController> ComponentSet<'a, C> {
 
 /// Set of mutable components from  the same type only from the specified (groups)[crate::Group]
 pub struct ComponentSetMut<'a, C: ComponentController> {
-    ty: &'a mut ComponentType,
+    ty: RefMut<'a, ComponentType>,
     groups: &'a [GroupHandle],
     marker: PhantomData<C>,
     check: bool,
@@ -71,7 +71,7 @@ pub struct ComponentSetMut<'a, C: ComponentController> {
 
 impl<'a, C: ComponentController> ComponentSetMut<'a, C> {
     pub(crate) fn new(
-        ty: &'a mut ComponentType,
+        ty: RefMut<'a, ComponentType>,
         groups: &'a [GroupHandle],
         check: bool,
     ) -> ComponentSetMut<'a, C> {

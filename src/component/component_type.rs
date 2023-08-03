@@ -10,7 +10,7 @@ use crate::{
     data::arena::ArenaEntry, Arena, BoxedComponent, BufferCallback, BufferHelper, BufferOperation,
     ComponentConfig, ComponentController, ComponentDerive, ComponentHandle, ComponentIndex,
     ComponentStorage, Gpu, GroupHandle, GroupManager, InstanceBuffer, InstanceIndex,
-    InstanceIndices, RenderCamera, Renderer, TypeIndex,
+    InstanceIndices, RenderCamera, Renderer,
 };
 
 #[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
@@ -27,6 +27,7 @@ pub struct ComponentTypeId {
 }
 
 impl ComponentTypeId {
+    pub const INVALID: Self = Self { id: 0 };
     pub const fn new(id: u32) -> Self {
         Self { id }
     }
@@ -162,7 +163,6 @@ const BUFFER_ERROR: &'static str =
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone)]
 pub(crate) struct ComponentType {
-    index: TypeIndex,
     type_id: ComponentTypeId,
     config: ComponentConfig,
     buffer_size: u64,
@@ -173,7 +173,6 @@ pub(crate) struct ComponentType {
 impl ComponentType {
     pub(crate) fn with_config<C: ComponentController>(
         config: ComponentConfig,
-        index: TypeIndex,
         group_structure: &GroupManager,
     ) -> Self {
         let storage = match config.storage {
@@ -202,7 +201,6 @@ impl ComponentType {
             }),
         };
         Self {
-            index,
             storage,
             config,
             buffer_size: C::INSTANCE_SIZE,
@@ -883,7 +881,7 @@ impl ComponentType {
             } => {
                 assert!(component.is_none(), "Single component is already set!");
                 let handle =
-                    ComponentHandle::new(ComponentIndex::INVALID, self.index, GroupHandle::INVALID);
+                    ComponentHandle::new(ComponentIndex::INVALID, self.type_id, GroupHandle::INVALID);
                 #[cfg(feature = "physics")]
                 world.add(handle, &mut new);
                 *component = Some(Box::new(new));
@@ -894,7 +892,7 @@ impl ComponentType {
                 let mut handle = Default::default();
                 multiple.components.insert_with(|idx| {
                     handle =
-                        ComponentHandle::new(ComponentIndex(idx), self.index, GroupHandle::INVALID);
+                        ComponentHandle::new(ComponentIndex(idx), self.type_id, GroupHandle::INVALID);
                     #[cfg(feature = "physics")]
                     world.add(handle, &mut new);
                     Box::new(new)
@@ -905,7 +903,7 @@ impl ComponentType {
                 let group = &mut groups[group_handle.0];
                 let mut handle = Default::default();
                 group.components.insert_with(|idx| {
-                    handle = ComponentHandle::new(ComponentIndex(idx), self.index, group_handle);
+                    handle = ComponentHandle::new(ComponentIndex(idx), self.type_id, group_handle);
                     #[cfg(feature = "physics")]
                     world.add(handle, &mut new);
                     Box::new(new)
@@ -929,7 +927,7 @@ impl ComponentType {
             } => {
                 assert!(component.is_none(), "Single component is already set!");
                 let handle =
-                    ComponentHandle::new(ComponentIndex::INVALID, self.index, GroupHandle::INVALID);
+                    ComponentHandle::new(ComponentIndex::INVALID, self.type_id, GroupHandle::INVALID);
                 let mut new = create(handle);
                 #[cfg(feature = "physics")]
                 world.add(handle, &mut new);
@@ -941,7 +939,7 @@ impl ComponentType {
                 let mut handle = Default::default();
                 multiple.components.insert_with(|idx| {
                     handle =
-                        ComponentHandle::new(ComponentIndex(idx), self.index, GroupHandle::INVALID);
+                        ComponentHandle::new(ComponentIndex(idx), self.type_id, GroupHandle::INVALID);
                     let mut new = create(handle);
                     #[cfg(feature = "physics")]
                     world.add(handle, &mut new);
@@ -953,7 +951,7 @@ impl ComponentType {
                 let group = &mut groups[group_handle.0];
                 let mut handle = Default::default();
                 group.components.insert_with(|idx| {
-                    handle = ComponentHandle::new(ComponentIndex(idx), self.index, group_handle);
+                    handle = ComponentHandle::new(ComponentIndex(idx), self.type_id, group_handle);
                     let mut new = create(handle);
                     #[cfg(feature = "physics")]
                     world.add(handle, &mut new);
@@ -981,7 +979,7 @@ impl ComponentType {
                     multiple.components.insert_with(|idx| {
                         let handle = ComponentHandle::new(
                             ComponentIndex(idx),
-                            self.index,
+                            self.type_id,
                             GroupHandle::INVALID,
                         );
                         #[cfg(feature = "physics")]
@@ -999,7 +997,7 @@ impl ComponentType {
                     for mut component in components {
                         group.components.insert_with(|idx| {
                             let handle =
-                                ComponentHandle::new(ComponentIndex(idx), self.index, group_handle);
+                                ComponentHandle::new(ComponentIndex(idx), self.type_id, group_handle);
                             #[cfg(feature = "physics")]
                             world.add(handle, &mut component);
                             handles.push(handle);
@@ -1099,7 +1097,7 @@ impl ComponentType {
                     return Box::new(std::iter::once((
                         ComponentHandle::new(
                             ComponentIndex::INVALID,
-                            self.index,
+                            self.type_id,
                             GroupHandle::INVALID,
                         ),
                         component.downcast_ref::<C>().unwrap(),
@@ -1111,7 +1109,7 @@ impl ComponentType {
             ComponentTypeStorage::Multiple(multiple) => {
                 return Box::new(multiple.components.iter_with_index().map(|(idx, c)| {
                     (
-                        ComponentHandle::new(ComponentIndex(idx), self.index, GroupHandle::INVALID),
+                        ComponentHandle::new(ComponentIndex(idx), self.type_id, GroupHandle::INVALID),
                         c.downcast_ref::<C>().unwrap(),
                     )
                 }));
@@ -1125,7 +1123,7 @@ impl ComponentType {
                                 (
                                     ComponentHandle::new(
                                         ComponentIndex(idx),
-                                        self.index,
+                                        self.type_id,
                                         *group_handle,
                                     ),
                                     c.downcast_ref::<C>().unwrap(),
@@ -1198,7 +1196,7 @@ impl ComponentType {
                     return Box::new(std::iter::once((
                         ComponentHandle::new(
                             ComponentIndex::INVALID,
-                            self.index,
+                            self.type_id,
                             GroupHandle::INVALID,
                         ),
                         component.downcast_mut::<C>().unwrap(),
@@ -1210,7 +1208,7 @@ impl ComponentType {
             ComponentTypeStorage::Multiple(multiple) => {
                 return Box::new(multiple.components.iter_with_index_mut().map(|(idx, c)| {
                     (
-                        ComponentHandle::new(ComponentIndex(idx), self.index, GroupHandle::INVALID),
+                        ComponentHandle::new(ComponentIndex(idx), self.type_id, GroupHandle::INVALID),
                         c.downcast_mut::<C>().unwrap(),
                     )
                 }));
@@ -1228,14 +1226,14 @@ impl ComponentType {
                 unsafe {
                     for group_handle in group_handles {
                         if let Some(group) = (&mut *ptr).get_mut(group_handle.0) {
-                            let type_index = &self.index;
+                            let type_id = &self.type_id;
 
                             iters.push(group.components.iter_with_index_mut().map(
                                 move |(idx, c)| {
                                     (
                                         ComponentHandle::new(
                                             ComponentIndex(idx),
-                                            *type_index,
+                                            *type_id,
                                             *group_handle,
                                         ),
                                         c.downcast_mut::<C>().unwrap(),
@@ -1511,7 +1509,7 @@ impl ComponentType {
             } => {
                 *force_buffer = true;
                 let handle =
-                    ComponentHandle::new(ComponentIndex::INVALID, self.index, GroupHandle::INVALID);
+                    ComponentHandle::new(ComponentIndex::INVALID, self.type_id, GroupHandle::INVALID);
                 #[cfg(feature = "physics")]
                 world.add(handle, &mut new);
                 if let Some(mut _old) = component.replace(Box::new(new)) {
@@ -1536,7 +1534,7 @@ impl ComponentType {
                 ..
             } => {
                 let handle =
-                    ComponentHandle::new(ComponentIndex::INVALID, self.index, GroupHandle::INVALID);
+                    ComponentHandle::new(ComponentIndex::INVALID, self.type_id, GroupHandle::INVALID);
                 let mut new = create(handle);
                 #[cfg(feature = "physics")]
                 world.add(handle, &mut new);
