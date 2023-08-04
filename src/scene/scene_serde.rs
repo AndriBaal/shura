@@ -164,7 +164,7 @@ impl SceneDeserializer {
     ) {
         ctx.components.register::<C>(&ctx.groups);
         let type_id = C::IDENTIFIER;
-        let ty = ctx.components.type_mut::<C>();
+        let mut ty = ctx.components.type_mut::<C>();
         if let Some(storage) = self.ser_components.remove(&type_id) {
             match storage {
                 SerializedComponentStorage::Single(single) => match &mut ty.storage {
@@ -249,7 +249,7 @@ impl SceneDeserializer {
                     if let Some(single) = single {
                         let wrapper = DeserializeWrapper::new(&single);
                         let c: BoxedComponent = Box::new((de)(wrapper, ctx));
-                        let ty = ctx.components.type_mut::<C>();
+                        let mut ty = ctx.components.type_mut::<C>();
                         match &mut ty.storage {
                             ComponentTypeStorage::Single { component, .. } => {
                                 *component = Some(c);
@@ -279,7 +279,7 @@ impl SceneDeserializer {
                     }
 
                     let components = Arena::from_items(items, generation);
-                    let ty = ctx.components.type_mut::<C>();
+                    let mut ty = ctx.components.type_mut::<C>();
                     match &mut ty.storage {
                         ComponentTypeStorage::Multiple(multiple) => {
                             multiple.components = components;
@@ -308,7 +308,7 @@ impl SceneDeserializer {
                             items.push(item);
                         }
 
-                        let ty = ctx.components.type_mut::<C>();
+                        let mut ty = ctx.components.type_mut::<C>();
                         match &mut ty.storage {
                             ComponentTypeStorage::MultipleGroups(groups) => {
                                 let components = Arena::from_items(items, generation);

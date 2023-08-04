@@ -10,9 +10,11 @@ fn shura_main(config: ShuraConfig) {
             ctx.screen_config
                 .set_clear_color(Some(RgbaColor::new(220, 220, 220, 255).into()));
             ctx.world_camera.set_scaling(WorldCameraScale::Min(3.0));
-            ctx.components.add_with(ctx.world, |handle| {
-                Bunny::new(Vector::new(0.0, 0.0), handle)
-            });
+            ctx.components
+                .get_mut::<Bunny>()
+                .add_with(ctx.world, |handle| {
+                    Bunny::new(Vector::new(0.0, 0.0), handle)
+                });
         },
     });
 }
@@ -71,10 +73,10 @@ impl ComponentController for Bunny {
             .collapsible(false)
             .show(&ctx.gui.clone(), |ui| {
                 ui.label(format!("FPS: {}", ctx.frame.fps()));
-                ui.label(format!("Bunnies: {}", ctx.components.len::<Bunny>()));
+                ui.label(format!("Bunnies: {}", ctx.components.get::<Bunny>().len()));
                 if ui.button("Clear Bunnies").clicked() {
                     ctx.screen_config.set_render_scale(0.5);
-                    ctx.components.remove_all::<Bunny>(ctx.world);
+                    ctx.components.get_mut::<Bunny>().remove_all(ctx.world);
                 }
             });
 
@@ -82,12 +84,13 @@ impl ComponentController for Bunny {
             let cursor = ctx.input.cursor(ctx.world_camera);
             for _ in 0..MODIFY_STEP {
                 ctx.components
+                    .get_mut::<Bunny>()
                     .add_with(ctx.world, |handle| Bunny::new(cursor, handle));
             }
         }
         if ctx.input.is_held(MouseButton::Right) {
             let mut dead: Vec<ComponentHandle> = vec![];
-            let bunnies = ctx.components.set::<Bunny>();
+            let mut bunnies = ctx.components.get_mut::<Bunny>();
             if bunnies.len() != 1 {
                 for bunny in bunnies.iter().rev() {
                     if dead.len() == MODIFY_STEP {
@@ -96,7 +99,7 @@ impl ComponentController for Bunny {
                     dead.push(bunny.handle);
                 }
                 for handle in dead {
-                    ctx.components.remove_boxed(ctx.world, handle);
+                    bunnies.remove_boxed(ctx.world, handle);
                 }
             }
         }
@@ -111,7 +114,7 @@ impl ComponentController for Bunny {
 
         let frame = ctx.frame.frame_time();
         let fov = ctx.world_camera.fov();
-        ctx.components.par_for_each_mut::<Self>(|bunny| {
+        ctx.components.get_mut::<Self>().par_for_each_mut(|bunny| {
             let mut linvel = bunny.linvel;
             let mut translation = bunny.base.translation();
 
@@ -137,10 +140,11 @@ impl ComponentController for Bunny {
         });
     }
 
-    fn render<'a>(ctx: &'a Context, renderer: &mut Renderer<'a>) {
+    fn render<'a>(ctx: &'a Context<'a>, renderer: &mut Renderer<'a>) {
         let scene = ctx.scene_states.get::<BunnyState>();
         ctx.components
-            .render_all::<Self>(renderer, RenderCamera::World, |r, instances| {
+            .get::<Self>()
+            .render_all(renderer, RenderCamera::World, |r, instances| {
                 r.render_sprite(instances, &scene.bunny_model, &scene.bunny_sprite)
             });
         if let Some(screenshot) = &scene.screenshot {

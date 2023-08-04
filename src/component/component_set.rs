@@ -1,22 +1,22 @@
 use crate::{
     BoxedComponent, ComponentController, ComponentHandle, ComponentType, GroupHandle,
-    InstanceBuffer, InstanceIndex,
+    InstanceBuffer, InstanceIndex, InstanceIndices, RenderCamera, Renderer,
 };
-use std::{marker::PhantomData, cell::{Ref, RefMut}};
+use std::marker::PhantomData;
 
 #[cfg(feature = "physics")]
 use crate::physics::World;
 
-// #[derive(Clone, Copy)]
+#[derive(Clone, Copy)]
 /// Set of components from  the same type only from the specified (groups)[crate::Group]
 pub struct ComponentSet<'a, C: ComponentController> {
-    ty: Ref<'a, ComponentType>,
+    ty: &'a ComponentType,
     groups: &'a [GroupHandle],
     marker: PhantomData<C>,
 }
 
 impl<'a, C: ComponentController> ComponentSet<'a, C> {
-    pub(crate) fn new(ty: Ref<'a, ComponentType>, groups: &'a [GroupHandle]) -> ComponentSet<'a, C> {
+    pub(crate) fn new(ty: &'a ComponentType, groups: &'a [GroupHandle]) -> ComponentSet<'a, C> {
         Self {
             ty,
             groups,
@@ -56,14 +56,55 @@ impl<'a, C: ComponentController> ComponentSet<'a, C> {
         self.ty.iter(self.groups)
     }
 
+    pub fn iter_with_handles(&self) -> impl DoubleEndedIterator<Item = (ComponentHandle, &C)> {
+        self.ty.iter_with_handles(self.groups)
+    }
+
     pub fn single(&self) -> Option<&C> {
         self.ty.single()
+    }
+
+    pub fn render_each(
+        &self,
+        renderer: &mut Renderer<'a>,
+        camera: RenderCamera<'a>,
+        each: impl FnMut(&mut Renderer<'a>, &'a C, InstanceIndex),
+    ) {
+        self.ty.render_each(renderer, camera, each)
+    }
+
+    pub fn render_single(
+        &self,
+        renderer: &mut Renderer<'a>,
+        camera: RenderCamera<'a>,
+        each: impl FnOnce(&mut Renderer<'a>, &'a C, InstanceIndex),
+    ) {
+        self.ty.render_single(renderer, camera, each)
+    }
+
+    pub fn render_each_prepare(
+        &self,
+        renderer: &mut Renderer<'a>,
+        camera: RenderCamera<'a>,
+        prepare: impl FnOnce(&mut Renderer<'a>),
+        each: impl FnMut(&mut Renderer<'a>, &'a C, InstanceIndex),
+    ) {
+        self.ty.render_each_prepare(renderer, camera, prepare, each)
+    }
+
+    pub fn render_all(
+        &self,
+        renderer: &mut Renderer<'a>,
+        camera: RenderCamera<'a>,
+        all: impl FnMut(&mut Renderer<'a>, InstanceIndices),
+    ) {
+        self.ty.render_all(renderer, camera, all)
     }
 }
 
 /// Set of mutable components from  the same type only from the specified (groups)[crate::Group]
 pub struct ComponentSetMut<'a, C: ComponentController> {
-    ty: RefMut<'a, ComponentType>,
+    ty: &'a mut ComponentType,
     groups: &'a [GroupHandle],
     marker: PhantomData<C>,
     check: bool,
@@ -71,7 +112,7 @@ pub struct ComponentSetMut<'a, C: ComponentController> {
 
 impl<'a, C: ComponentController> ComponentSetMut<'a, C> {
     pub(crate) fn new(
-        ty: RefMut<'a, ComponentType>,
+        ty: &'a mut ComponentType,
         groups: &'a [GroupHandle],
         check: bool,
     ) -> ComponentSetMut<'a, C> {
@@ -151,6 +192,14 @@ impl<'a, C: ComponentController> ComponentSetMut<'a, C> {
 
     pub fn get_boxed_mut(&mut self, handle: ComponentHandle) -> Option<&mut BoxedComponent> {
         self.ty.get_boxed_mut(handle)
+    }
+
+    pub fn get2_boxed_mut(
+        &mut self,
+        handle1: ComponentHandle,
+        handle2: ComponentHandle,
+    ) -> (Option<&mut BoxedComponent>, Option<&mut BoxedComponent>) {
+        self.ty.get2_boxed_mut(handle1, handle2)
     }
 
     pub fn remove(
