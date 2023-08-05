@@ -1,6 +1,6 @@
 use crate::{
     BoxedComponent, ComponentController, ComponentHandle, ComponentType, GroupHandle,
-    InstanceBuffer, InstanceIndex, InstanceIndices, RenderCamera, Renderer,
+    InstanceBuffer, InstanceIndex, InstanceIndices, RenderCamera, Renderer, Gpu, ComponentBuffer,
 };
 use std::marker::PhantomData;
 
@@ -103,14 +103,14 @@ impl<'a, C: ComponentController> ComponentSet<'a, C> {
 }
 
 /// Set of mutable components from  the same type only from the specified (groups)[crate::Group]
-pub struct ComponentSetMut<'a, C: ComponentController> {
+pub struct ComponentSetMut<'a, C: ComponentController + ComponentBuffer> {
     ty: &'a mut ComponentType,
     groups: &'a [GroupHandle],
     marker: PhantomData<C>,
     check: bool,
 }
 
-impl<'a, C: ComponentController> ComponentSetMut<'a, C> {
+impl<'a, C: ComponentController + ComponentBuffer> ComponentSetMut<'a, C> {
     pub(crate) fn new(
         ty: &'a mut ComponentType,
         groups: &'a [GroupHandle],
@@ -138,6 +138,15 @@ impl<'a, C: ComponentController> ComponentSetMut<'a, C> {
 
     pub fn for_each_mut(&mut self, each: impl FnMut(&mut C)) {
         self.ty.for_each_mut(self.groups, each);
+    }
+
+    pub fn par_buffer_for_each_mut(
+        &mut self,
+        #[cfg(feature = "physics")] world: &World,
+        gpu: &Gpu,
+        each: impl Fn(&mut C) + Send + Sync + Copy,
+    ) {
+        self.ty.par_buffer_for_each_mut::<C>(world, gpu, self.groups, each)
     }
 
     pub fn retain(

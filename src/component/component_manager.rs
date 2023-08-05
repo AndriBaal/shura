@@ -5,7 +5,7 @@ use crate::physics::World;
 use crate::{
     ComponentConfig, ComponentController, ComponentHandle, ComponentSet, ComponentSetMut,
     ComponentType, ComponentTypeId, ControllerManager, Gpu, GroupHandle, GroupManager,
-    InstanceData,
+    InstanceData, ComponentBuffer,
 };
 use std::{
     ops::{Deref, DerefMut},
@@ -160,11 +160,11 @@ impl ComponentManager {
         self.types.values_mut()
     }
 
-    pub fn register<C: ComponentController>(&mut self, groups: &GroupManager) {
+    pub fn register<C: ComponentController + ComponentBuffer>(&mut self, groups: &GroupManager) {
         self.register_with_config::<C>(groups, C::CONFIG);
     }
 
-    pub fn register_with_config<C: ComponentController>(
+    pub fn register_with_config<C: ComponentController + ComponentBuffer>(
         &mut self,
         groups: &GroupManager,
         config: ComponentConfig,
@@ -213,11 +213,11 @@ impl ComponentManager {
     }
 
     #[inline]
-    pub fn get_mut<'a, C: ComponentController>(&'a mut self) -> ComponentSetMut<'a, C> {
+    pub fn get_mut<'a, C: ComponentController + ComponentBuffer>(&'a mut self) -> ComponentSetMut<'a, C> {
         self.get_mut_of(ComponentFilter::Active)
     }
 
-    pub fn get_mut_of<'a, C: ComponentController>(
+    pub fn get_mut_of<'a, C: ComponentController + ComponentBuffer>(
         &'a mut self,
         filter: ComponentFilter<'a>,
     ) -> ComponentSetMut<'a, C> {
@@ -225,45 +225,4 @@ impl ComponentManager {
         let ty = type_mut!(self, C);
         return ComponentSetMut::new(ty, groups, check);
     }
-
-    // pub fn render_each<'a, C: ComponentController>(
-    //     &'a self,
-    //     renderer: &mut Renderer<'a>,
-    //     camera: RenderCamera<'a>,
-    //     each: impl FnMut(&mut Renderer<'a>, &'a C, InstanceIndex),
-    // ) {
-    //     let ty = type_ref!(self, C);
-    //     ty.render_each(renderer, camera, each)
-    // }
-
-    // pub fn render_single<'a, C: ComponentController>(
-    //     &'a self,
-    //     renderer: &mut Renderer<'a>,
-    //     camera: RenderCamera<'a>,
-    //     each: impl FnOnce(&mut Renderer<'a>, &'a C, InstanceIndex),
-    // ) {
-    //     let ty = type_ref!(self, C);
-    //     ty.render_single(renderer, camera, each)
-    // }
-
-    // pub fn render_each_prepare<'a, C: ComponentController>(
-    //     &'a self,
-    //     renderer: &mut Renderer<'a>,
-    //     camera: RenderCamera<'a>,
-    //     prepare: impl FnOnce(&mut Renderer<'a>),
-    //     each: impl FnMut(&mut Renderer<'a>, &'a C, InstanceIndex),
-    // ) {
-    //     let ty = type_ref!(self, C);
-    //     ty.render_each_prepare(renderer, camera, prepare, each)
-    // }
-
-    // pub fn render_all<'a, C: ComponentController>(
-    //     &'a self,
-    //     renderer: &mut Renderer<'a>,
-    //     camera: RenderCamera<'a>,
-    //     all: impl FnMut(&mut Renderer<'a>, InstanceIndices),
-    // ) {
-    //     let ty = type_ref!(self, C);
-    //     ty.render_all::<C>(renderer, camera, all)
-    // }
 }

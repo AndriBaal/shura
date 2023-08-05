@@ -97,6 +97,14 @@ impl ComponentConfig {
         end_priority: Self::DEFAULT_PRIORITY,
         force_update_level: Self::DEFAULT_FORCE_UPDATE_LEVEL,
     };
+    pub const RESOURCE: ComponentConfig = ComponentConfig {
+        buffer: BufferOperation::Never,
+        render: RenderOperation::Never,
+        update: UpdateOperation::Never,
+        end: EndOperation::Never,
+        storage: ComponentStorage::Single,
+        ..Self::DEFAULT
+    };
 }
 
 impl Default for ComponentConfig {

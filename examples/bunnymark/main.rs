@@ -64,6 +64,11 @@ impl Bunny {
 }
 
 impl ComponentController for Bunny {
+    const CONFIG: ComponentConfig = ComponentConfig {
+        buffer: BufferOperation::Manual,
+        ..ComponentConfig::DEFAULT
+    };
+
     fn update(ctx: &mut Context) {
         const MODIFY_STEP: usize = 1500;
         const GRAVITY: f32 = -2.5;
@@ -114,30 +119,32 @@ impl ComponentController for Bunny {
 
         let frame = ctx.frame.frame_time();
         let fov = ctx.world_camera.fov();
-        ctx.components.get_mut::<Self>().par_for_each_mut(|bunny| {
-            let mut linvel = bunny.linvel;
-            let mut translation = bunny.base.translation();
+        ctx.components
+            .get_mut::<Self>()
+            .par_buffer_for_each_mut(ctx.world, &ctx.gpu, |bunny| {
+                let mut linvel = bunny.linvel;
+                let mut translation = bunny.base.translation();
 
-            linvel.y += GRAVITY * frame;
-            translation += linvel * frame;
-            if translation.x >= fov.x {
-                linvel.x = -linvel.x;
-                translation.x = fov.x;
-            } else if translation.x <= -fov.x {
-                linvel.x = -linvel.x;
-                translation.x = -fov.x;
-            }
+                linvel.y += GRAVITY * frame;
+                translation += linvel * frame;
+                if translation.x >= fov.x {
+                    linvel.x = -linvel.x;
+                    translation.x = fov.x;
+                } else if translation.x <= -fov.x {
+                    linvel.x = -linvel.x;
+                    translation.x = -fov.x;
+                }
 
-            if translation.y < -fov.y {
-                linvel.y = gen_range(0.0..15.0);
-                translation.y = -fov.y;
-            } else if translation.y > fov.y {
-                linvel.y = -1.0;
-                translation.y = fov.y;
-            }
-            bunny.linvel = linvel;
-            bunny.base.set_translation(translation);
-        });
+                if translation.y < -fov.y {
+                    linvel.y = gen_range(0.0..15.0);
+                    translation.y = -fov.y;
+                } else if translation.y > fov.y {
+                    linvel.y = -1.0;
+                    translation.y = fov.y;
+                }
+                bunny.linvel = linvel;
+                bunny.base.set_translation(translation);
+            });
     }
 
     fn render<'a>(ctx: &'a Context<'a>, renderer: &mut Renderer<'a>) {

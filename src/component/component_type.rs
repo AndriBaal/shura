@@ -7,10 +7,10 @@ use crate::physics::World;
 use crate::rayon::prelude::*;
 
 use crate::{
-    data::arena::ArenaEntry, Arena, BoxedComponent, BufferCallback, BufferHelper, BufferOperation,
-    ComponentConfig, ComponentController, ComponentDerive, ComponentHandle, ComponentIndex,
-    ComponentStorage, Gpu, GroupHandle, GroupManager, InstanceBuffer, InstanceIndex,
-    InstanceIndices, RenderCamera, Renderer,
+    data::arena::ArenaEntry, Arena, BoxedComponent, BufferCallback, BufferHelper, BufferHelperType,
+    BufferOperation, ComponentBuffer, ComponentConfig, ComponentController, ComponentDerive,
+    ComponentHandle, ComponentIndex, ComponentStorage, Gpu, GroupHandle, GroupManager,
+    InstanceBuffer, InstanceIndex, InstanceIndices, RenderCamera, Renderer,
 };
 
 #[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
@@ -91,6 +91,7 @@ pub(crate) struct ComponentTypeGroup {
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
     buffer: Option<InstanceBuffer>,
+    // TODO: Maybe change this to a flag, since now you have to manually force_buffer to cover all cases
     last_len: u64,
 }
 
@@ -115,40 +116,43 @@ impl ComponentTypeGroup {
         }
     }
 
+    fn resize_buffer(&mut self, gpu: &Gpu, instance_size: u64) {
+        let new_len = self.components.len() as u64;
+        let instance_capacity = self
+            .buffer
+            .as_ref()
+            .map(|b| b.instance_capacity())
+            .unwrap_or(0);
+        if new_len > instance_capacity {
+            self.buffer = Some(InstanceBuffer::empty(gpu, instance_size, new_len));
+        }
+    }
+
     fn buffer(
         &mut self,
         gpu: &Gpu,
         config: &ComponentConfig,
-        buffer_size: u64,
+        instance_size: u64,
         callback: BufferCallback,
         #[cfg(feature = "physics")] world: &World,
     ) {
-        // Additional allocation
-        const BUFFER_STEP: u64 = 12;
-        let new_len = self.components.len() as u64;
-        let buffer_capacity = self.buffer.as_ref().map(|b| b.capacity()).unwrap_or(0);
-        if self.buffer.is_none() || new_len > buffer_capacity {
-            self.buffer = Some(InstanceBuffer::empty(
-                gpu,
-                buffer_size,
-                new_len + BUFFER_STEP,
-            ));
-        }
-
-        if config.buffer == BufferOperation::EveryFrame
-            || self.force_buffer
-            || new_len != self.last_len
+        let len = self.components.len() as u64;
+        self.resize_buffer(gpu, instance_size);
+        if config.buffer == BufferOperation::EveryFrame || self.force_buffer || len != self.last_len
         {
-            self.last_len = new_len;
+            self.last_len = len;
             self.force_buffer = false;
             let buffer = self.buffer.as_mut().unwrap();
             callback(
-                buffer,
-                world,
                 gpu,
-                BufferHelper::new(crate::BufferHelperType::All {
-                    components: &self.components,
-                }),
+                BufferHelper::new(
+                    #[cfg(feature = "physics")]
+                    world,
+                    buffer,
+                    BufferHelperType::All {
+                        components: &mut self.components,
+                    },
+                ),
             )
         }
     }
@@ -162,13 +166,13 @@ const BUFFER_ERROR: &'static str =
 pub(crate) struct ComponentType {
     type_id: ComponentTypeId,
     config: ComponentConfig,
-    buffer_size: u64,
+    instance_size: u64,
     pub storage: ComponentTypeStorage,
 }
 
 #[cfg_attr(not(feature = "physics"), allow(unused_mut))]
 impl ComponentType {
-    pub(crate) fn with_config<C: ComponentController>(
+    pub(crate) fn with_config<C: ComponentController + ComponentBuffer>(
         config: ComponentConfig,
         group_structure: &GroupManager,
     ) -> Self {
@@ -200,7 +204,7 @@ impl ComponentType {
         Self {
             storage,
             config,
-            buffer_size: C::INSTANCE_SIZE,
+            instance_size: C::INSTANCE_SIZE,
             type_id: C::IDENTIFIER,
         }
     }
@@ -223,7 +227,7 @@ impl ComponentType {
                     group.buffer(
                         gpu,
                         &self.config,
-                        self.buffer_size,
+                        self.instance_size,
                         callback,
                         #[cfg(feature = "physics")]
                         world,
@@ -233,7 +237,7 @@ impl ComponentType {
             ComponentTypeStorage::Multiple(multiple) => multiple.buffer(
                 gpu,
                 &self.config,
-                self.buffer_size,
+                self.instance_size,
                 callback,
                 #[cfg(feature = "physics")]
                 world,
@@ -246,18 +250,21 @@ impl ComponentType {
                 if let Some(component) = component {
                     if self.config.buffer == BufferOperation::EveryFrame || *force_buffer {
                         if buffer.is_none() {
-                            *buffer = Some(InstanceBuffer::empty(gpu, self.buffer_size, 1));
+                            *buffer = Some(InstanceBuffer::empty(gpu, self.instance_size, 1));
                         }
                         *force_buffer = false;
                         let buffer = buffer.as_mut().unwrap();
                         callback(
-                            buffer,
-                            world,
                             gpu,
-                            BufferHelper::new(crate::BufferHelperType::Single {
-                                offset: 0,
-                                component,
-                            }),
+                            BufferHelper::new(
+                                #[cfg(feature = "physics")]
+                                world,
+                                buffer,
+                                crate::BufferHelperType::Single {
+                                    offset: 0,
+                                    component,
+                                },
+                            ),
                         );
                     }
                 }
@@ -1574,5 +1581,68 @@ impl ComponentType {
             }
             _ => panic!("Cannot get single on component without ComponentStorage::Single!"),
         }
+    }
+
+    pub fn par_buffer_for_each_mut<C: ComponentController + ComponentBuffer>(
+        &mut self,
+        #[cfg(feature = "physics")] world: &World,
+        gpu: &Gpu,
+        group_handles: &[GroupHandle],
+        each: impl Fn(&mut C) + Send + Sync + Copy,
+    ) {
+        assert!(C::CONFIG.buffer != BufferOperation::Never);
+        #[cfg(feature = "rayon")]
+        match &mut self.storage {
+            ComponentTypeStorage::Single {
+                component, buffer, ..
+            } => {
+                if let Some(component) = component {
+                    if buffer.is_none() {
+                        *buffer = Some(InstanceBuffer::empty(gpu, self.instance_size, 1));
+                    }
+                    let buffer = buffer.as_mut().unwrap();
+                    let helper = BufferHelper::new(
+                        #[cfg(feature = "physics")]
+                        world,
+                        buffer,
+                        BufferHelperType::Single {
+                            offset: 0,
+                            component: component,
+                        },
+                    );
+                    C::buffer_with(gpu, helper, each);
+                }
+            }
+            ComponentTypeStorage::Multiple(multiple) => {
+                multiple.resize_buffer(gpu, C::INSTANCE_SIZE);
+                let helper = BufferHelper::new(
+                    #[cfg(feature = "physics")]
+                    world,
+                    multiple.buffer.as_mut().unwrap(),
+                    BufferHelperType::All {
+                        components: &mut multiple.components,
+                    },
+                );
+                C::buffer_with(gpu, helper, each);
+            }
+            ComponentTypeStorage::MultipleGroups(groups) => {
+                for group in group_handles {
+                    if let Some(group) = groups.get_mut(group.0) {
+                        group.resize_buffer(gpu, C::INSTANCE_SIZE);
+                        let helper = BufferHelper::new(
+                            #[cfg(feature = "physics")]
+                            world,
+                            group.buffer.as_mut().unwrap(),
+                            BufferHelperType::All {
+                                components: &mut group.components,
+                            },
+                        );
+                        C::buffer_with(gpu, helper, each);
+                    }
+                }
+            }
+        };
+        #[cfg(not(feature = "rayon"))]
+        self.buffer_for_each_mut(group_handles, each)
     }
 }

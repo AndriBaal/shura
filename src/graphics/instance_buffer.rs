@@ -84,6 +84,7 @@ pub struct InstanceBuffer {
 
 impl InstanceBuffer {
     pub fn new(gpu: &Gpu, instance_size: u64, data: &[u8]) -> Self {
+        assert!(data.len() as u64 % instance_size == 0);
         let buffer = gpu
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -94,7 +95,7 @@ impl InstanceBuffer {
 
         return Self {
             buffer,
-            instances: data.len() as u64,
+            instances: data.len() as u64 / instance_size,
             instance_size,
         };
     }
@@ -110,40 +111,48 @@ impl InstanceBuffer {
         return Self {
             buffer,
             instance_size,
-            instances: amount,
+            instances: 0,
         };
     }
 
     pub fn write(&mut self, gpu: &Gpu, data: &[u8]) {
         self.instances = data.len() as u64 / self.instance_size;
         self.write_offset(gpu, 0, data);
+
+        // if data.len() as u64 > self.buffer.size() {
+        //     *self = Self::new(gpu, self.instance_size, data)
+        // } else {
+        //     self.instances = data.len() as u64 / self.instance_size;
+        //     self.write_offset(gpu, 0, data);
+        // }
     }
 
-    pub fn write_offset(&mut self, gpu: &Gpu, offset: u64, data: &[u8]) {
-        gpu.queue.write_buffer(&self.buffer, offset, data);
+    pub fn write_offset(&mut self, gpu: &Gpu, instance_offset: u64, data: &[u8]) {
+        assert!(data.len() as u64 % self.instance_size == 0);
+        assert!(instance_offset * self.instance_size + data.len() as u64 <= self.buffer.size());
+        gpu.queue.write_buffer(&self.buffer, instance_offset * self.instance_size, data);
     }
 
     pub fn slice(&self) -> wgpu::BufferSlice {
-        self.buffer.slice(..self.size())
+        self.buffer.slice(..self.instance_size * self.instances)
     }
 
-    pub fn size(&self) -> u64 {
+    pub fn buffer_capacity(&self) -> u64 {
         self.buffer.size()
     }
 
     pub fn instances(&self) -> InstanceIndices {
         InstanceIndices {
-            range: 0..self.len() as u32,
+            range: 0..self.instance_amount() as u32,
         }
     }
 
-    pub fn len(&self) -> u64 {
-        self.instances
+    pub fn instance_capacity(&self) -> u64 {
+        return self.buffer_capacity() / self.instance_size;
     }
 
-    pub fn capacity(&self) -> u64 {
-        let buffer_size = self.size();
-        return buffer_size / self.instance_size;
+    pub fn instance_amount(&self) -> u64 {
+        self.instances
     }
 }
 

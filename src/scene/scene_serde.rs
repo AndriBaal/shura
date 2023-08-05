@@ -8,9 +8,9 @@ use serde::{de::Visitor, Deserializer, Serialize};
 use std::marker::PhantomData;
 
 use crate::{
-    Arena, ArenaEntry, BoxedComponent, ComponentController, ComponentManager, ComponentTypeId,
-    ComponentTypeStorage, Context, FieldNames, GroupHandle, Scene, SceneCreator, Shura,
-    StateDerive, StateIdentifier, StateManager, StateTypeId,
+    Arena, ArenaEntry, BoxedComponent, ComponentBuffer, ComponentController, ComponentManager,
+    ComponentTypeId, ComponentTypeStorage, Context, FieldNames, GroupHandle, Scene, SceneCreator,
+    Shura, StateDerive, StateIdentifier, StateManager, StateTypeId,
 };
 
 #[cfg(feature = "serde")]
@@ -158,7 +158,9 @@ impl SceneDeserializer {
         }
     }
 
-    pub fn deserialize_components<C: serde::de::DeserializeOwned + ComponentController>(
+    pub fn deserialize_components<
+        C: serde::de::DeserializeOwned + ComponentController + ComponentBuffer,
+    >(
         &mut self,
         ctx: &mut Context,
     ) {
@@ -236,7 +238,7 @@ impl SceneDeserializer {
         }
     }
 
-    pub fn deserialize_components_with<C: ComponentController + FieldNames>(
+    pub fn deserialize_components_with<C: ComponentController + FieldNames + ComponentBuffer>(
         &mut self,
         ctx: &mut Context,
         mut de: impl for<'de> FnMut(DeserializeWrapper<'de, C>, &'de Context<'de>) -> C,

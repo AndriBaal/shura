@@ -3,19 +3,14 @@ use std::cell::RefCell;
 use rustc_hash::FxHashSet;
 
 #[cfg(feature = "physics")]
-use crate::physics::{CollideType, ColliderHandle, World};
+use crate::physics::{CollideType, ColliderHandle};
 use crate::{
-    BufferHelper, BufferOperation, Color, ComponentConfig, ComponentController, ComponentHandle,
-    ComponentTypeId, Context, EndOperation, EndReason, FxHashMap, Gpu, InstanceBuffer, Instant,
+    BufferHelper, BufferOperation, Color, ComponentBuffer, ComponentConfig, ComponentController,
+    ComponentHandle, ComponentTypeId, Context, EndOperation, EndReason, FxHashMap, Gpu, Instant,
     RenderOperation, RenderTarget, Renderer, UpdateOperation,
 };
 
-pub(crate) type BufferCallback = fn(
-    buffer: &mut InstanceBuffer,
-    #[cfg(feature = "physics")] world: &World,
-    gpu: &Gpu,
-    helper: BufferHelper,
-);
+pub(crate) type BufferCallback = fn(gpu: &Gpu, helper: BufferHelper);
 type UpdateCallback = fn(ctx: &mut Context);
 type RenderCallback = for<'a> fn(ctx: &'a Context, renderer: &mut Renderer<'a>);
 type TargetCallback = for<'a> fn(ctx: &'a Context) -> (Option<Color>, &'a RenderTarget);
@@ -44,7 +39,13 @@ struct NewEntry {
 
 #[derive(Default)]
 pub(crate) struct ControllerManager {
-    update_callbacks: Vec<(i16, i16, UpdateCallback, Option<RefCell<Instant>>, UpdateOperation)>,
+    update_callbacks: Vec<(
+        i16,
+        i16,
+        UpdateCallback,
+        Option<RefCell<Instant>>,
+        UpdateOperation,
+    )>,
     end_callbacks: Vec<(i16, EndCallback)>,
     render_callbacks: Vec<(i16, RenderCallback, TargetCallback)>,
     buffer_callbacks: Vec<(BufferCallback, ComponentTypeId)>,
@@ -58,7 +59,15 @@ impl ControllerManager {
         Self::default()
     }
 
-    pub fn updates(&self) -> &Vec<(i16, i16, UpdateCallback, Option<RefCell<Instant>>, UpdateOperation)> {
+    pub fn updates(
+        &self,
+    ) -> &Vec<(
+        i16,
+        i16,
+        UpdateCallback,
+        Option<RefCell<Instant>>,
+        UpdateOperation,
+    )> {
         &self.update_callbacks
     }
 
@@ -78,7 +87,7 @@ impl ControllerManager {
         &self.collision_callbacks
     }
 
-    pub fn register<C: ComponentController>(&self, config: ComponentConfig) {
+    pub fn register<C: ComponentController + ComponentBuffer>(&self, config: ComponentConfig) {
         let mut new = self.new_entries.borrow_mut();
         if !new.0.contains(&C::IDENTIFIER) {
             new.0.insert(C::IDENTIFIER);
@@ -108,7 +117,8 @@ impl ControllerManager {
             for entry in new.1.drain(..) {
                 let config = entry.config;
                 #[cfg(feature = "physics")]
-                self.collision_callbacks.insert(entry.type_id, entry.collision);
+                self.collision_callbacks
+                    .insert(entry.type_id, entry.collision);
                 match config.update {
                     UpdateOperation::EveryFrame => self.update_callbacks.push((
                         config.update_priority,
