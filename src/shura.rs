@@ -137,6 +137,7 @@ impl ShuraConfig {
                                     WindowEvent::CloseRequested | WindowEvent::Destroyed => {
                                         shura.end = true;
                                         *control_flow = winit::event_loop::ControlFlow::Exit;
+                                        shura.end();
                                     }
                                     WindowEvent::Resized(physical_size) => {
                                         let mint: mint::Vector2<u32> = (*physical_size).into();
@@ -176,6 +177,7 @@ impl ShuraConfig {
 
                             if shura.end {
                                 *control_flow = winit::event_loop::ControlFlow::Exit;
+                                shura.end();
                             }
                         }
                         Event::MainEventsCleared => {
@@ -435,7 +437,9 @@ impl Shura {
         #[cfg(feature = "gui")]
         self.gui
             .begin(&self.frame.total_time_duration(), &self.window);
-        Rc::get_mut(&mut scene.components.controllers).unwrap().apply();
+        Rc::get_mut(&mut scene.components.controllers)
+            .unwrap()
+            .apply();
         let callbacks_rc = scene.components.controllers.clone();
         let callbacks: &ControllerManager = &callbacks_rc;
         {
@@ -595,10 +599,8 @@ impl Shura {
         output.present();
         Ok(())
     }
-}
 
-impl Drop for Shura {
-    fn drop(&mut self) {
+    pub fn end(&mut self) {
         for (_, scene) in self.scenes.end_scenes() {
             let mut scene = scene.borrow_mut();
             let mut ctx = Context::new(self, &mut scene);

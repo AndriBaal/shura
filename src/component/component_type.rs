@@ -1163,7 +1163,6 @@ impl ComponentType {
     pub fn iter_mut<'a, C: ComponentController>(
         &'a mut self,
         group_handles: &[GroupHandle],
-        check: bool,
     ) -> Box<dyn DoubleEndedIterator<Item = &'a mut C> + 'a> {
         match &mut self.storage {
             ComponentTypeStorage::Single { component, .. } => {
@@ -1182,13 +1181,6 @@ impl ComponentType {
                 );
             }
             ComponentTypeStorage::MultipleGroups(groups) => {
-                if check && groups.len() > 1 {
-                    for (index, value) in groups.iter_with_index().enumerate() {
-                        for other in groups.iter_with_index().skip(index + 1) {
-                            assert_ne!(value.0.index(), other.0.index(), "Duplicate GroupHandle!");
-                        }
-                    }
-                }
                 let mut iters = Vec::with_capacity(groups.len());
                 let ptr: *mut Arena<ComponentTypeGroup> = groups as *mut _;
                 unsafe {
@@ -1212,7 +1204,6 @@ impl ComponentType {
     pub fn iter_mut_with_handles<'a, C: ComponentController>(
         &'a mut self,
         group_handles: &'a [GroupHandle],
-        check: bool,
     ) -> Box<dyn DoubleEndedIterator<Item = (ComponentHandle, &'a mut C)> + 'a> {
         match &mut self.storage {
             ComponentTypeStorage::Single { component, .. } => {
@@ -1242,13 +1233,6 @@ impl ComponentType {
                 }));
             }
             ComponentTypeStorage::MultipleGroups(groups) => {
-                if check && groups.len() > 1 {
-                    for (index, value) in groups.iter_with_index().enumerate() {
-                        for other in groups.iter_with_index().skip(index + 1) {
-                            assert_ne!(value.0.index(), other.0.index(), "Duplicate GroupHandle!");
-                        }
-                    }
-                }
                 let mut iters = Vec::with_capacity(groups.len());
                 let ptr: *mut Arena<ComponentTypeGroup> = groups as *mut _;
                 unsafe {

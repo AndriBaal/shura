@@ -107,7 +107,6 @@ pub struct ComponentSetMut<'a, C: ComponentController + ComponentBuffer> {
     ty: &'a mut ComponentType,
     groups: &'a [GroupHandle],
     marker: PhantomData<C>,
-    check: bool,
 }
 
 impl<'a, C: ComponentController + ComponentBuffer> ComponentSetMut<'a, C> {
@@ -116,10 +115,16 @@ impl<'a, C: ComponentController + ComponentBuffer> ComponentSetMut<'a, C> {
         groups: &'a [GroupHandle],
         check: bool,
     ) -> ComponentSetMut<'a, C> {
+        if check && groups.len() > 1 {
+            for (index, value) in groups.iter().enumerate() {
+                for other in groups.iter().skip(index + 1) {
+                    assert_ne!(value.0.index(), other.0.index(), "Duplicate GroupHandle!");
+                }
+            }
+        }
         Self {
             ty,
             groups,
-            check,
             marker: PhantomData,
         }
     }
@@ -337,7 +342,7 @@ impl<'a, C: ComponentController + ComponentBuffer> ComponentSetMut<'a, C> {
     }
 
     pub fn iter_mut(&mut self) -> impl DoubleEndedIterator<Item = &mut C> {
-        self.ty.iter_mut(self.groups, self.check)
+        self.ty.iter_mut(self.groups)
     }
 
     pub fn iter_render(
@@ -353,7 +358,7 @@ impl<'a, C: ComponentController + ComponentBuffer> ComponentSetMut<'a, C> {
     pub fn iter_mut_with_handles(
         &mut self,
     ) -> impl DoubleEndedIterator<Item = (ComponentHandle, &mut C)> {
-        self.ty.iter_mut_with_handles(self.groups, self.check)
+        self.ty.iter_mut_with_handles(self.groups)
     }
 
     pub fn single(&self) -> Option<&C> {

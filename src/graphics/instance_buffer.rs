@@ -134,7 +134,7 @@ impl InstanceBuffer {
     }
 
     pub fn slice(&self) -> wgpu::BufferSlice {
-        self.buffer.slice(..self.instance_size * self.instances)
+        self.buffer.slice(..)
     }
 
     pub fn buffer_capacity(&self) -> u64 {
