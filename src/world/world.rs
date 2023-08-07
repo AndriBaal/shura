@@ -386,6 +386,7 @@ impl World {
             &(),
             self.events.collector(),
         );
+        self.query_pipeline.update(&self.bodies, &self.colliders);
     }
 
     // pub(crate) fn move_shape(

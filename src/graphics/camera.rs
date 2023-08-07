@@ -169,7 +169,7 @@ impl WorldCamera {
         man: &ComponentManager,
     ) {
         if let Some(target) = self.target() {
-            if let Some(instance) = man.instance_data(target, world) {
+            if let Some(instance) = man.instance_data(target, #[cfg(feature = "physics")] world) {
                 self.camera.set_translation(instance.pos());
             } else {
                 self.set_target(None);

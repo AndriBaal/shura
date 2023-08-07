@@ -10,8 +10,9 @@ use crate::{
     VERSION,
 };
 use crate::{
-    Context, ControllerManager, EndReason, FrameManager, Gpu, GpuConfig, GpuDefaults, Input,
-    RenderEncoder, Renderer, SceneCreator, SceneManager, StateManager, Vector,
+    ComponentRenderer, Context, ContextUse, ControllerManager, EndReason, FrameManager, Gpu,
+    GpuConfig, GpuDefaults, Input, RenderEncoder, Renderer, SceneCreator, SceneManager,
+    StateManager, Vector,
 };
 #[cfg(target_arch = "wasm32")]
 use rustc_hash::FxHashMap;
@@ -137,6 +138,7 @@ impl ShuraConfig {
                                     WindowEvent::CloseRequested | WindowEvent::Destroyed => {
                                         shura.end = true;
                                         *control_flow = winit::event_loop::ControlFlow::Exit;
+                                        shura.end();
                                     }
                                     WindowEvent::Resized(physical_size) => {
                                         let mint: mint::Vector2<u32> = (*physical_size).into();
@@ -176,6 +178,7 @@ impl ShuraConfig {
 
                             if shura.end {
                                 *control_flow = winit::event_loop::ControlFlow::Exit;
+                                shura.end();
                             }
                         }
                         Event::MainEventsCleared => {
@@ -340,7 +343,7 @@ impl Shura {
         while let Some(remove) = self.scenes.remove.pop() {
             if let Some(removed) = self.scenes.scenes.remove(&remove) {
                 let mut removed = removed.borrow_mut();
-                let mut ctx = Context::new(self, &mut removed);
+                let mut ctx = Context::new(self, &mut removed, ContextUse::Update);
                 for (_, end) in ctx.components.controllers.clone().ends() {
                     (end)(&mut ctx, EndReason::RemoveScene)
                 }
@@ -435,11 +438,13 @@ impl Shura {
         #[cfg(feature = "gui")]
         self.gui
             .begin(&self.frame.total_time_duration(), &self.window);
-        Rc::get_mut(&mut scene.components.controllers).unwrap().apply();
+        Rc::get_mut(&mut scene.components.controllers)
+            .unwrap()
+            .apply();
         let callbacks_rc = scene.components.controllers.clone();
         let callbacks: &ControllerManager = &callbacks_rc;
         {
-            let mut ctx = Context::new(self, scene);
+            let mut ctx = Context::new(self, scene, ContextUse::Update);
             #[cfg(feature = "physics")]
             let (mut done_step, physics_priority, world_force_update_level) = {
                 if let Some(physics_priority) = ctx.world.physics_priority() {
@@ -522,50 +527,26 @@ impl Shura {
             &self.gpu,
         );
 
-        let ctx = Context {
-            // Scene
-            scene_id: &scene.id,
-            scene_started: &scene.started,
-            render_components: &mut scene.render_components,
-            update_components: &mut scene.update_components,
-            screen_config: &mut scene.screen_config,
-            world_camera: &mut scene.world_camera,
-            components: &mut scene.components,
-            groups: &mut scene.groups,
-            scene_states: &mut scene.states,
-            #[cfg(feature = "physics")]
-            world: &mut scene.world,
-
-            // Shura
-            frame: &self.frame,
-            defaults: &self.defaults,
-            input: &self.input,
-            gpu: self.gpu.clone(),
-            #[cfg(feature = "gui")]
-            gui: &self.gui,
-            #[cfg(feature = "audio")]
-            audio: &self.audio,
-            end: &mut self.end,
-            scenes: &mut self.scenes,
-            window: &mut self.window,
-            global_states: &mut self.states,
-
-            // Misc
-            window_size,
-        };
-        let mut encoder = RenderEncoder::new(&self.gpu, &self.defaults);
+        let ctx = Context::new(self, scene, ContextUse::Render);
+        let mut encoder = RenderEncoder::new(&ctx.gpu, &ctx.defaults);
 
         {
-            let mut renderer = encoder.renderer(
-                &ctx.defaults.world_target,
-                ctx.screen_config.clear_color,
-                true,
-            );
+            let mut renderer = ComponentRenderer {
+                screenshot: None,
+                renderer: encoder.renderer(
+                    &ctx.defaults.world_target,
+                    ctx.screen_config.clear_color,
+                    true,
+                ),
+            };
             for (_priority, render, target) in callbacks.renders() {
                 let (clear, target) = (target)(&ctx);
                 if target as *const _ != renderer.target() as *const _ {
                     drop(renderer);
-                    renderer = encoder.renderer(&target, clear, true);
+                    renderer = ComponentRenderer {
+                        screenshot: None,
+                        renderer: encoder.renderer(&ctx.defaults.world_target, clear, true),
+                    };
                 }
                 (render)(&ctx, &mut renderer);
                 if let Some(screenshot) = renderer.screenshot.take() {
@@ -573,35 +554,39 @@ impl Shura {
                         unsafe { (screenshot as *const crate::RenderTarget).as_ref().unwrap() };
                     drop(renderer);
                     encoder.copy_to_target(ctx.defaults.world_target.sprite(), screenshot);
-                    renderer = encoder.renderer(&ctx.defaults.world_target, None, true);
+                    renderer = ComponentRenderer {
+                        screenshot: None,
+                        renderer: encoder.renderer(
+                            &ctx.defaults.world_target,
+                            ctx.screen_config.clear_color,
+                            true,
+                        ),
+                    };
                 }
             }
         }
 
-        drop(ctx);
-
         #[cfg(feature = "gui")]
-        self.gui.render(&self.gpu, &self.defaults, &mut encoder);
+        ctx.gui.render(&ctx.gpu, &ctx.defaults, &mut encoder);
         let output_view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
 
         {
-            Renderer::output_renderer(&mut encoder.inner, &output_view, &self.defaults);
+            Renderer::output_renderer(&mut encoder.inner, &output_view, &ctx.defaults);
         }
 
-        encoder.submit(&self.gpu);
+        encoder.submit(&ctx.gpu);
+        drop(ctx);
         self.input.update();
         output.present();
         Ok(())
     }
-}
 
-impl Drop for Shura {
-    fn drop(&mut self) {
+    pub fn end(&mut self) {
         for (_, scene) in self.scenes.end_scenes() {
             let mut scene = scene.borrow_mut();
-            let mut ctx = Context::new(self, &mut scene);
+            let mut ctx = Context::new(self, &mut scene, ContextUse::Update);
             for (_, end) in ctx.components.controllers.clone().ends() {
                 (end)(&mut ctx, EndReason::EndProgram)
             }

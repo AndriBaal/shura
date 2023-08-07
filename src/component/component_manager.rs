@@ -3,11 +3,13 @@ use rustc_hash::FxHashMap;
 #[cfg(feature = "physics")]
 use crate::physics::World;
 use crate::{
-    ComponentConfig, ComponentController, ComponentHandle, ComponentSet, ComponentSetMut,
-    ComponentType, ComponentTypeId, ControllerManager, Gpu, GroupHandle, GroupManager,
-    InstanceData, ComponentBuffer,
+    ComponentBuffer, ComponentConfig, ComponentController, ComponentHandle, ComponentSet,
+    ComponentSetMut, ComponentType, ComponentTypeId, ContextUse, ControllerManager, Gpu,
+    GroupHandle, GroupManager, InstanceData, InstanceIndex, InstanceIndices, RenderCamera,
+    Renderer,
 };
 use std::{
+    cell::{RefCell, RefMut},
     ops::{Deref, DerefMut},
     rc::Rc,
 };
@@ -39,7 +41,8 @@ macro_rules! type_ref {
         let ty = $self
             .types
             .get(&$C::IDENTIFIER)
-            .expect(&no_type_error::<$C>());
+            .expect(&no_type_error::<$C>())
+            .borrow();
         ty
     }};
 }
@@ -49,9 +52,24 @@ macro_rules! type_mut {
         let ty = $self
             .types
             .get_mut(&$C::IDENTIFIER)
-            .expect(&no_type_error::<$C>());
+            .expect(&no_type_error::<$C>())
+            .borrow_mut();
         ty
     }};
+}
+
+macro_rules! type_render {
+    ($self:ident, $C: ident) => {
+        unsafe {
+            let ty = $self
+                .types
+                .get(&$C::IDENTIFIER)
+                .expect(&no_type_error::<$C>())
+                .try_borrow_unguarded()
+                .unwrap();
+            ty
+        }
+    };
 }
 
 fn no_type_error<C: ComponentController>() -> String {
@@ -79,7 +97,8 @@ impl ComponentFilter<'static> {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// Access to the component system
 pub struct ComponentManager {
-    types: FxHashMap<ComponentTypeId, ComponentType>,
+    types: FxHashMap<ComponentTypeId, RefCell<ComponentType>>,
+    context_use: ContextUse,
     pub(super) active_groups: Vec<GroupHandle>,
     pub(super) all_groups: Vec<GroupHandle>,
     #[cfg_attr(feature = "serde", serde(skip))]
@@ -94,14 +113,20 @@ impl ComponentManager {
             all_groups: Vec::from_iter([GroupHandle::DEFAULT_GROUP]),
             active_groups: Vec::from_iter([GroupHandle::DEFAULT_GROUP]),
             controllers: Rc::new(ControllerManager::new()),
+            context_use: ContextUse::Update,
         }
+    }
+
+    pub(crate) fn with_use(&mut self, context_use: ContextUse) -> &mut Self {
+        self.context_use = context_use;
+        self
     }
 
     pub(crate) fn buffer(&mut self, #[cfg(feature = "physics")] world: &World, gpu: &Gpu) {
         #[cfg(feature = "rayon")]
         // This is safe here because we dont't expand the map and we don't access the same map entry twice
         unsafe {
-            struct UnsafeWrapper<'a>(&'a FxHashMap<ComponentTypeId, ComponentType>);
+            struct UnsafeWrapper<'a>(&'a FxHashMap<ComponentTypeId, RefCell<ComponentType>>);
             impl<'a> UnsafeWrapper<'a> {
                 pub unsafe fn get(&self, type_id: &ComponentTypeId) -> &mut ComponentType {
                     let ptr = &self.0[type_id] as *const _ as *mut ComponentType;
@@ -131,8 +156,8 @@ impl ComponentManager {
 
         #[cfg(not(feature = "rayon"))]
         for (buffer, index) in self.controllers.buffers() {
-            let ty = &mut self.types[index.0];
-            ty.buffer(
+            let ty = &self.types[index];
+            ty.borrow_mut().buffer(
                 #[cfg(feature = "physics")]
                 world,
                 *buffer,
@@ -140,6 +165,12 @@ impl ComponentManager {
                 &gpu,
             );
         }
+    }
+
+    pub(crate) fn type_render<C: ComponentController>(
+        &self,
+    ) -> &ComponentType {
+        type_render!(self, C)
     }
 
     #[cfg(feature = "serde")]
@@ -156,8 +187,8 @@ impl ComponentManager {
         type_mut!(self, C)
     }
 
-    pub(crate) fn types_mut(&mut self) -> impl Iterator<Item = &mut ComponentType> {
-        self.types.values_mut()
+    pub(crate) fn types_mut(&mut self) -> impl Iterator<Item = RefMut<'_, ComponentType>> {
+        self.types.values_mut().map(|r| r.borrow_mut())
     }
 
     pub fn register<C: ComponentController + ComponentBuffer>(&mut self, groups: &GroupManager) {
@@ -172,7 +203,7 @@ impl ComponentManager {
         if !self.types.contains_key(&C::IDENTIFIER) {
             self.types.insert(
                 C::IDENTIFIER,
-                ComponentType::with_config::<C>(config, groups),
+                RefCell::new(ComponentType::with_config::<C>(config, groups)),
             );
         }
         self.controllers.register::<C>(config);
@@ -194,8 +225,9 @@ impl ComponentManager {
         self.types
             .get(&handle.type_id())
             .unwrap()
+            .borrow()
             .get_boxed(handle)
-            .map(|c| c.base().instance(world))
+            .map(|c| c.base().instance(#[cfg(feature = "physics")] world))
     }
 
     #[inline]
@@ -213,7 +245,9 @@ impl ComponentManager {
     }
 
     #[inline]
-    pub fn get_mut<'a, C: ComponentController + ComponentBuffer>(&'a mut self) -> ComponentSetMut<'a, C> {
+    pub fn get_mut<'a, C: ComponentController + ComponentBuffer>(
+        &'a mut self,
+    ) -> ComponentSetMut<'a, C> {
         self.get_mut_of(ComponentFilter::Active)
     }
 

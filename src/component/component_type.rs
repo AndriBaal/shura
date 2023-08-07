@@ -1163,7 +1163,6 @@ impl ComponentType {
     pub fn iter_mut<'a, C: ComponentController>(
         &'a mut self,
         group_handles: &[GroupHandle],
-        check: bool,
     ) -> Box<dyn DoubleEndedIterator<Item = &'a mut C> + 'a> {
         match &mut self.storage {
             ComponentTypeStorage::Single { component, .. } => {
@@ -1182,13 +1181,6 @@ impl ComponentType {
                 );
             }
             ComponentTypeStorage::MultipleGroups(groups) => {
-                if check && groups.len() > 1 {
-                    for (index, value) in groups.iter_with_index().enumerate() {
-                        for other in groups.iter_with_index().skip(index + 1) {
-                            assert_ne!(value.0.index(), other.0.index(), "Duplicate GroupHandle!");
-                        }
-                    }
-                }
                 let mut iters = Vec::with_capacity(groups.len());
                 let ptr: *mut Arena<ComponentTypeGroup> = groups as *mut _;
                 unsafe {
@@ -1212,7 +1204,6 @@ impl ComponentType {
     pub fn iter_mut_with_handles<'a, C: ComponentController>(
         &'a mut self,
         group_handles: &'a [GroupHandle],
-        check: bool,
     ) -> Box<dyn DoubleEndedIterator<Item = (ComponentHandle, &'a mut C)> + 'a> {
         match &mut self.storage {
             ComponentTypeStorage::Single { component, .. } => {
@@ -1242,13 +1233,6 @@ impl ComponentType {
                 }));
             }
             ComponentTypeStorage::MultipleGroups(groups) => {
-                if check && groups.len() > 1 {
-                    for (index, value) in groups.iter_with_index().enumerate() {
-                        for other in groups.iter_with_index().skip(index + 1) {
-                            assert_ne!(value.0.index(), other.0.index(), "Duplicate GroupHandle!");
-                        }
-                    }
-                }
                 let mut iters = Vec::with_capacity(groups.len());
                 let ptr: *mut Arena<ComponentTypeGroup> = groups as *mut _;
                 unsafe {
@@ -1391,53 +1375,6 @@ impl ComponentType {
             }
             _ => {
                 panic!("Cannot get single on component without ComponentStorage::Single!")
-            }
-        }
-    }
-
-    pub fn render_each_prepare<'a, C: ComponentController>(
-        &'a self,
-        renderer: &mut Renderer<'a>,
-        camera: RenderCamera<'a>,
-        prepare: impl FnOnce(&mut Renderer<'a>),
-        mut each: impl FnMut(&mut Renderer<'a>, &'a C, InstanceIndex),
-    ) {
-        renderer.use_camera(camera);
-        prepare(renderer);
-        match &self.storage {
-            ComponentTypeStorage::Single {
-                buffer, component, ..
-            } => {
-                renderer.use_instance_buffer(buffer.as_ref().expect(BUFFER_ERROR));
-                if let Some(component) = component {
-                    (each)(
-                        renderer,
-                        component.downcast_ref::<C>().unwrap(),
-                        InstanceIndex::new(0),
-                    );
-                }
-            }
-            ComponentTypeStorage::Multiple(multiple) => {
-                renderer.use_instance_buffer(multiple.buffer.as_ref().expect(BUFFER_ERROR));
-                for (instance, component) in multiple.components.iter().enumerate() {
-                    (each)(
-                        renderer,
-                        component.downcast_ref::<C>().unwrap(),
-                        InstanceIndex::new(instance as u32),
-                    );
-                }
-            }
-            ComponentTypeStorage::MultipleGroups(groups) => {
-                for group in groups {
-                    renderer.use_instance_buffer(group.buffer.as_ref().expect(BUFFER_ERROR));
-                    for (instance, component) in group.components.iter().enumerate() {
-                        (each)(
-                            renderer,
-                            component.downcast_ref::<C>().unwrap(),
-                            InstanceIndex::new(instance as u32),
-                        );
-                    }
-                }
             }
         }
     }
@@ -1591,7 +1528,6 @@ impl ComponentType {
         each: impl Fn(&mut C) + Send + Sync + Copy,
     ) {
         assert!(C::CONFIG.buffer != BufferOperation::Never);
-        #[cfg(feature = "rayon")]
         match &mut self.storage {
             ComponentTypeStorage::Single {
                 component, buffer, ..
@@ -1642,7 +1578,5 @@ impl ComponentType {
                 }
             }
         };
-        #[cfg(not(feature = "rayon"))]
-        self.buffer_for_each_mut(group_handles, each)
     }
 }

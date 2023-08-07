@@ -35,7 +35,7 @@ pub use crate::{
     },
     input::input::{Input, InputEvent, InputTrigger, Key, Modifier, MouseButton, ScreenTouch},
     math::{aabb::*, math::*},
-    scene::{context::Context, scene::*, scene_manager::*},
+    scene::{context::*, scene::*, scene_manager::*},
     shura::*,
     state::{state::*, state_manager::*},
 };

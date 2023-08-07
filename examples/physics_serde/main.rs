@@ -35,15 +35,15 @@ fn shura_main(config: ShuraConfig) {
                             x as f32 * (PhysicsBox::HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING),
                             y as f32 * (PhysicsBox::HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING * 2.0),
                         ));
-                        ctx.components.add(ctx.world, b);
+                        ctx.components.get_mut::<PhysicsBox>().add(ctx.world, b);
                     }
                 }
 
                 let player = Player::new(ctx);
-                let player_handle = ctx.components.add(ctx.world, player);
+                let player_handle = ctx.components.get_mut::<Player>().add(ctx.world, player);
                 ctx.world_camera.set_target(Some(player_handle));
                 let floor = Floor::new(ctx);
-                ctx.components.add(ctx.world, floor);
+                ctx.components.get_mut::<Floor>().add(ctx.world, floor);
             },
         })
     };
@@ -152,7 +152,7 @@ impl ComponentController for Player {
                 .is_none()
             {
                 let b = PhysicsBox::new(cursor);
-                ctx.components.add(ctx.world, b);
+                ctx.components.get_mut::<PhysicsBox>().add(ctx.world, b);
             }
         }
 
@@ -182,7 +182,7 @@ impl ComponentController for Player {
         let delta = ctx.frame.frame_time();
         let input = &mut ctx.input;
 
-        for player in &mut ctx.components.iter_mut::<Self>() {
+        ctx.components.get_mut::<Self>().for_each_mut(|player| {
             let body = player.body.get_mut(ctx.world);
             let mut linvel = *body.linvel();
 
@@ -203,14 +203,15 @@ impl ComponentController for Player {
             }
 
             body.set_linvel(linvel, true);
-        }
+        });
     }
 
     fn render<'a>(ctx: &'a Context, renderer: &mut Renderer<'a>) {
-        ctx.components
-            .render_single::<Self>(renderer, RenderCamera::World, |r, player, index| {
-                r.render_sprite(index, &player.model, &player.sprite)
-            });
+        ctx.components.get::<Self>().render_single(
+            renderer,
+            RenderCamera::World,
+            |r, player, index| r.render_sprite(index, &player.model, &player.sprite),
+        );
     }
 
     fn collision(
@@ -221,7 +222,7 @@ impl ComponentController for Player {
         _other_collider: ColliderHandle,
         collision_type: CollideType,
     ) {
-        if let Some(b) = ctx.components.get_mut::<PhysicsBox>(other_handle) {
+        if let Some(b) = ctx.components.get_mut::<PhysicsBox>().get_mut(other_handle) {
             match collision_type {
                 CollideType::Started => b.sprite = Vector::new(2, 0),
                 CollideType::Stopped => b.sprite = Vector::new(0, 0),
@@ -273,10 +274,11 @@ impl ComponentController for Floor {
         ..ComponentConfig::DEFAULT
     };
     fn render<'a>(ctx: &'a Context, renderer: &mut Renderer<'a>) {
-        ctx.components
-            .render_single::<Self>(renderer, RenderCamera::World, |r, floor, index| {
-                r.render_sprite(index, &floor.model, &floor.color)
-            });
+        ctx.components.get::<Self>().render_single(
+            renderer,
+            RenderCamera::World,
+            |r, floor, index| r.render_sprite(index, &floor.model, &floor.color),
+        );
     }
 }
 
@@ -309,20 +311,23 @@ impl PhysicsBox {
 impl ComponentController for PhysicsBox {
     fn render<'a>(ctx: &'a Context, renderer: &mut Renderer<'a>) {
         let state = ctx.scene_states.get::<PhysicsState>();
-        ctx.components
-            .render_all::<Self>(renderer, RenderCamera::World, |renderer, instance| {
+        ctx.components.get::<Self>().render_all(
+            renderer,
+            RenderCamera::World,
+            |renderer, instance| {
                 renderer.render_sprite_sheet(instance, &state.box_model, &state.box_colors);
-            });
+            },
+        );
     }
 
     fn update(ctx: &mut Context) {
         let cursor_world: Point<f32> = (ctx.input.cursor(ctx.world_camera)).into();
         let remove = ctx.input.is_held(MouseButton::Left) || ctx.input.is_pressed(ScreenTouch);
-        for physics_box in ctx.components.iter_mut::<Self>() {
+        ctx.components.get_mut::<Self>().for_each_mut(|physics_box| {
             if physics_box.sprite == vector(1, 0) {
                 physics_box.sprite = Vector::new(0, 0);
             }
-        }
+        });
         let mut component: Option<ComponentHandle> = None;
         ctx.world.intersections_with_point(
             &cursor_world,
@@ -333,10 +338,11 @@ impl ComponentController for PhysicsBox {
             },
         );
         if let Some(handle) = component {
-            if let Some(physics_box) = ctx.components.get_mut::<Self>(handle) {
+            let mut boxes = ctx.components.get_mut::<Self>();
+            if let Some(physics_box) = boxes.get_mut(handle) {
                 physics_box.sprite = Vector::new(1, 0);
                 if remove {
-                    ctx.components.remove_boxed(ctx.world, handle);
+                    boxes.remove_boxed(ctx.world, handle);
                 }
             }
         }

@@ -7,12 +7,12 @@ use crate::physics::{CollideType, ColliderHandle};
 use crate::{
     BufferHelper, BufferOperation, Color, ComponentBuffer, ComponentConfig, ComponentController,
     ComponentHandle, ComponentTypeId, Context, EndOperation, EndReason, FxHashMap, Gpu, Instant,
-    RenderOperation, RenderTarget, Renderer, UpdateOperation,
+    RenderOperation, RenderTarget, Renderer, UpdateOperation, ComponentRenderer,
 };
 
 pub(crate) type BufferCallback = fn(gpu: &Gpu, helper: BufferHelper);
 type UpdateCallback = fn(ctx: &mut Context);
-type RenderCallback = for<'a> fn(ctx: &'a Context, renderer: &mut Renderer<'a>);
+type RenderCallback = for<'a> fn(ctx: &'a Context, renderer: &mut ComponentRenderer<'a>);
 type TargetCallback = for<'a> fn(ctx: &'a Context) -> (Option<Color>, &'a RenderTarget);
 #[cfg(feature = "physics")]
 type CollisionCallback = fn(
@@ -83,6 +83,7 @@ impl ControllerManager {
         &self.render_callbacks
     }
 
+    #[cfg(feature = "physics")]
     pub fn collisions(&self) -> &FxHashMap<ComponentTypeId, CollisionCallback> {
         &self.collision_callbacks
     }

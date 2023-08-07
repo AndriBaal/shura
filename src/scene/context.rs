@@ -20,6 +20,13 @@ use crate::physics::World;
 #[cfg(feature = "gui")]
 use crate::gui::Gui;
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(PartialEq, Eq)]
+pub(crate) enum ContextUse {
+    Render,
+    Update
+}
+
 /// Context to communicate with the game engine to access components, scenes, camera, physics and much more.
 pub struct Context<'a> {
     // Scene
@@ -41,7 +48,7 @@ pub struct Context<'a> {
     pub input: &'a Input,
     pub gpu: Arc<Gpu>,
     #[cfg(feature = "gui")]
-    pub gui: &'a Gui,
+    pub gui: &'a mut Gui,
     #[cfg(feature = "audio")]
     pub audio: &'a AudioManager,
     pub end: &'a mut bool,
@@ -54,7 +61,7 @@ pub struct Context<'a> {
 }
 
 impl<'a> Context<'a> {
-    pub(crate) fn new(shura: &'a mut Shura, scene: &'a mut Scene) -> Context<'a> {
+    pub(crate) fn new(shura: &'a mut Shura, scene: &'a mut Scene, context_use: ContextUse) -> Context<'a> {
         let mint: mint::Vector2<u32> = shura.window.inner_size().into();
         let window_size = mint.into();
         Self {
@@ -65,7 +72,7 @@ impl<'a> Context<'a> {
             update_components: &mut scene.update_components,
             screen_config: &mut scene.screen_config,
             world_camera: &mut scene.world_camera,
-            components: &mut scene.components,
+            components: scene.components.with_use(context_use),
             groups: &mut scene.groups,
             scene_states: &mut scene.states,
             #[cfg(feature = "physics")]
@@ -77,7 +84,7 @@ impl<'a> Context<'a> {
             input: &shura.input,
             gpu: shura.gpu.clone(),
             #[cfg(feature = "gui")]
-            gui: &shura.gui,
+            gui: &mut shura.gui,
             #[cfg(feature = "audio")]
             audio: &shura.audio,
             end: &mut shura.end,

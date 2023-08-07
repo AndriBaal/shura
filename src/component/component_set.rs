@@ -2,21 +2,20 @@ use crate::{
     BoxedComponent, ComponentController, ComponentHandle, ComponentType, GroupHandle,
     InstanceBuffer, InstanceIndex, InstanceIndices, RenderCamera, Renderer, Gpu, ComponentBuffer,
 };
-use std::marker::PhantomData;
+use std::{marker::PhantomData, cell::{RefMut, Ref}};
 
 #[cfg(feature = "physics")]
 use crate::physics::World;
 
-#[derive(Clone, Copy)]
 /// Set of components from  the same type only from the specified (groups)[crate::Group]
 pub struct ComponentSet<'a, C: ComponentController> {
-    ty: &'a ComponentType,
+    ty: Ref<'a, ComponentType>,
     groups: &'a [GroupHandle],
     marker: PhantomData<C>,
 }
 
 impl<'a, C: ComponentController> ComponentSet<'a, C> {
-    pub(crate) fn new(ty: &'a ComponentType, groups: &'a [GroupHandle]) -> ComponentSet<'a, C> {
+    pub(crate) fn new(ty: Ref<'a, ComponentType>, groups: &'a [GroupHandle]) -> ComponentSet<'a, C> {
         Self {
             ty,
             groups,
@@ -63,63 +62,31 @@ impl<'a, C: ComponentController> ComponentSet<'a, C> {
     pub fn single(&self) -> Option<&C> {
         self.ty.single()
     }
-
-    pub fn render_each(
-        &self,
-        renderer: &mut Renderer<'a>,
-        camera: RenderCamera<'a>,
-        each: impl FnMut(&mut Renderer<'a>, &'a C, InstanceIndex),
-    ) {
-        self.ty.render_each(renderer, camera, each)
-    }
-
-    pub fn render_single(
-        &self,
-        renderer: &mut Renderer<'a>,
-        camera: RenderCamera<'a>,
-        each: impl FnOnce(&mut Renderer<'a>, &'a C, InstanceIndex),
-    ) {
-        self.ty.render_single(renderer, camera, each)
-    }
-
-    pub fn render_each_prepare(
-        &self,
-        renderer: &mut Renderer<'a>,
-        camera: RenderCamera<'a>,
-        prepare: impl FnOnce(&mut Renderer<'a>),
-        each: impl FnMut(&mut Renderer<'a>, &'a C, InstanceIndex),
-    ) {
-        self.ty.render_each_prepare(renderer, camera, prepare, each)
-    }
-
-    pub fn render_all(
-        &self,
-        renderer: &mut Renderer<'a>,
-        camera: RenderCamera<'a>,
-        all: impl FnMut(&mut Renderer<'a>, InstanceIndices),
-    ) {
-        self.ty.render_all(renderer, camera, all)
-    }
 }
 
 /// Set of mutable components from  the same type only from the specified (groups)[crate::Group]
 pub struct ComponentSetMut<'a, C: ComponentController + ComponentBuffer> {
-    ty: &'a mut ComponentType,
+    ty: RefMut<'a, ComponentType>,
     groups: &'a [GroupHandle],
     marker: PhantomData<C>,
-    check: bool,
 }
 
 impl<'a, C: ComponentController + ComponentBuffer> ComponentSetMut<'a, C> {
     pub(crate) fn new(
-        ty: &'a mut ComponentType,
+        ty: RefMut<'a, ComponentType>,
         groups: &'a [GroupHandle],
         check: bool,
     ) -> ComponentSetMut<'a, C> {
+        if check && groups.len() > 1 {
+            for (index, value) in groups.iter().enumerate() {
+                for other in groups.iter().skip(index + 1) {
+                    assert_ne!(value.0.index(), other.0.index(), "Duplicate GroupHandle!");
+                }
+            }
+        }
         Self {
             ty,
             groups,
-            check,
             marker: PhantomData,
         }
     }
@@ -146,7 +113,7 @@ impl<'a, C: ComponentController + ComponentBuffer> ComponentSetMut<'a, C> {
         gpu: &Gpu,
         each: impl Fn(&mut C) + Send + Sync + Copy,
     ) {
-        self.ty.par_buffer_for_each_mut::<C>(world, gpu, self.groups, each)
+        self.ty.par_buffer_for_each_mut::<C>(#[cfg(feature = "physics")] world, gpu, self.groups, each)
     }
 
     pub fn retain(
@@ -337,11 +304,11 @@ impl<'a, C: ComponentController + ComponentBuffer> ComponentSetMut<'a, C> {
     }
 
     pub fn iter_mut(&mut self) -> impl DoubleEndedIterator<Item = &mut C> {
-        self.ty.iter_mut(self.groups, self.check)
+        self.ty.iter_mut(self.groups)
     }
 
     pub fn iter_render(
-        &self,
+        &'a self,
     ) -> impl DoubleEndedIterator<Item = (&InstanceBuffer, InstanceIndex, &C)> {
         self.ty.iter_render(self.groups)
     }
@@ -353,7 +320,7 @@ impl<'a, C: ComponentController + ComponentBuffer> ComponentSetMut<'a, C> {
     pub fn iter_mut_with_handles(
         &mut self,
     ) -> impl DoubleEndedIterator<Item = (ComponentHandle, &mut C)> {
-        self.ty.iter_mut_with_handles(self.groups, self.check)
+        self.ty.iter_mut_with_handles(self.groups)
     }
 
     pub fn single(&self) -> Option<&C> {

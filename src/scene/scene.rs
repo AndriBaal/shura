@@ -3,7 +3,7 @@ use crate::physics::World;
 
 use crate::{
     ComponentManager, Context, GroupManager, ScreenConfig, Shura, StateManager, Vector,
-    WorldCamera, WorldCameraScale,
+    WorldCamera, WorldCameraScale, ContextUse
 };
 
 /// Origin of a [Scene]
@@ -35,7 +35,7 @@ impl<N: 'static + FnMut(&mut Context)> SceneCreator for NewScene<N> {
         let mut scene = Scene::new(window_size, self.id);
         scene.id = self.id;
         scene.started = true;
-        let mut ctx = Context::new(shura, &mut scene);
+        let mut ctx = Context::new(shura, &mut scene, ContextUse::Update);
         (self.init)(&mut ctx);
         return scene;
     }
@@ -65,7 +65,7 @@ impl<N: 'static + FnMut(&mut Context)> SceneCreator for RecycleScene<N> {
         self.scene.world_camera.resize(window_size);
         self.scene.id = self.id;
         self.scene.started = true;
-        let mut ctx = Context::new(shura, &mut self.scene);
+        let mut ctx = Context::new(shura, &mut self.scene, ContextUse::Update);
         (self.init)(&mut ctx);
         return self.scene;
     }

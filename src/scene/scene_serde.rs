@@ -10,7 +10,7 @@ use std::marker::PhantomData;
 use crate::{
     Arena, ArenaEntry, BoxedComponent, ComponentBuffer, ComponentController, ComponentManager,
     ComponentTypeId, ComponentTypeStorage, Context, FieldNames, GroupHandle, Scene, SceneCreator,
-    Shura, StateDerive, StateIdentifier, StateManager, StateTypeId,
+    Shura, StateDerive, StateIdentifier, StateManager, StateTypeId, ContextUse
 };
 
 #[cfg(feature = "serde")]
@@ -131,7 +131,7 @@ impl<N: 'static + FnMut(&mut Context, &mut SceneDeserializer)> SceneCreator for 
         ) = bincode::deserialize(&self.scene).unwrap();
         scene.id = self.id;
         let mut de = SceneDeserializer::new(ser_components, ser_scene_state, ser_global_state);
-        let mut ctx = Context::new(shura, &mut scene);
+        let mut ctx = Context::new(shura, &mut scene, ContextUse::Update);
         (self.init)(&mut ctx, &mut de);
         return scene;
     }

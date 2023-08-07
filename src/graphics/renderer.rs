@@ -1,11 +1,59 @@
 use crate::{
     CameraBuffer, Color, Gpu, GpuDefaults, InstanceBuffer, InstanceIndices, Model, RenderCamera,
-    RenderConfigInstances, RenderTarget, Shader, Sprite, SpriteSheet, Uniform, Vector,
+    RenderConfigInstances, RenderTarget, Shader, Sprite, SpriteSheet, Uniform, Vector, ComponentManager, ComponentController, InstanceIndex, Context,
 };
-use std::ops::Range;
+use std::ops::{Range, DerefMut, Deref};
 
 #[cfg(feature = "text")]
 use crate::text::{FontBrush, TextSection};
+
+pub struct ComponentRenderer<'a>{
+    pub renderer: Renderer<'a>,
+    // pub components: &'a ComponentManager,
+    pub screenshot: Option<&'a RenderTarget>,
+}
+
+impl <'a>Deref for ComponentRenderer<'a> {
+    type Target=Renderer<'a>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.renderer
+    }
+}
+
+impl <'a>DerefMut for ComponentRenderer<'a> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.renderer
+    }
+}
+
+impl <'a>ComponentRenderer<'a> {
+
+    // pub fn render_each<C: ComponentController>(
+    //     &'a mut self,
+    //     camera: RenderCamera<'a>,
+    //     each: impl FnMut(&mut Renderer<'a>, &C, InstanceIndex),
+    // ) {
+    //     self.components.type_render::<C>().render_each(&mut self.renderer, camera, each)
+    // }
+
+    // pub fn render_single<C: ComponentController>(
+    //     &'a mut self,
+    //     camera: RenderCamera<'a>,
+    //     each: impl FnOnce(&mut Renderer<'a>, &C, InstanceIndex),
+    // ) {
+    //     self.components.type_render::<C>().render_single(&mut self.renderer, camera, each)
+    // }
+
+    pub fn render_all<C: ComponentController>(
+        &mut self,
+        ctx: &'a Context<'a>,
+        camera: RenderCamera<'a>,
+        all: impl FnMut(&mut Renderer<'a>, InstanceIndices),
+    ) {
+        ctx.components.type_render::<C>().render_all(&mut self.renderer, camera, all)
+    }
+}
 
 /// Render grpahics to the screen or a sprite. The renderer can be extended with custom graphcis throught
 /// the [RenderPass](wgpu::RenderPass) or the provided methods for shura's shader system.

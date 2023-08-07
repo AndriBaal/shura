@@ -147,15 +147,25 @@ impl ComponentController for Bunny {
             });
     }
 
-    fn render<'a>(ctx: &'a Context<'a>, renderer: &mut Renderer<'a>) {
+    fn render<'a>(ctx: &'a Context, renderer: &mut ComponentRenderer<'a>) {
         let scene = ctx.scene_states.get::<BunnyState>();
-        ctx.components
-            .get::<Self>()
-            .render_all(renderer, RenderCamera::World, |r, instances| {
-                r.render_sprite(instances, &scene.bunny_model, &scene.bunny_sprite)
-            });
-        if let Some(screenshot) = &scene.screenshot {
-            renderer.screenshot = Some(screenshot);
-        }
+        renderer.render_all::<Bunny>(ctx, RenderCamera::World, |r, instances| {
+            r.render_sprite(instances, &scene.bunny_model, &scene.bunny_sprite)
+        });
+        // if let Some(screenshot) = &scene.screenshot {
+        //     renderer.screenshot = Some(screenshot);
+        // }
     }
+
 }
+
+// fn render<'a>(ctx: &'a Context<'a>, renderer: &'a mut ComponentRenderer) {
+//     let scene = ctx.scene_states.get::<BunnyState>();
+//     renderer.render_all::<Bunny>(RenderCamera::World, |r, instances| {
+//         r.render_sprite(instances, &scene.bunny_model, &scene.bunny_sprite)
+//     });
+//     if let Some(screenshot) = &scene.screenshot {
+//         renderer.screenshot = Some(screenshot);
+//     }
+// }
+

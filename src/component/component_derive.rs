@@ -1,6 +1,6 @@
 use crate::{
-    data::arena::Arena, Color, ComponentConfig, ComponentIdentifier, ComponentTypeId, Context,
-    EndReason, Gpu, InstanceBuffer, InstanceData, RenderTarget, Renderer,
+    data::arena::Arena, Color, ComponentConfig, ComponentIdentifier, ComponentRenderer,
+    ComponentTypeId, Context, EndReason, Gpu, InstanceBuffer, InstanceData, RenderTarget, Renderer,
 };
 #[cfg(feature = "physics")]
 use crate::{
@@ -70,7 +70,7 @@ where
     ) {
     }
 
-    fn render<'a>(ctx: &'a Context, renderer: &mut Renderer<'a>) {}
+    fn render<'a>(ctx: &'a Context, renderer: &mut ComponentRenderer<'a>) {}
 
     /// Method called when the game is closed or the scene gets removed
     fn end(ctx: &mut Context, reason: EndReason) {}
@@ -117,7 +117,12 @@ impl<'a> BufferHelper<'a> {
         buffer: &'a mut InstanceBuffer,
         inner: BufferHelperType<'a>,
     ) -> Self {
-        Self { world, inner, buffer }
+        Self {
+            #[cfg(feature = "physics")]
+            world,
+            inner,
+            buffer,
+        }
     }
 
     pub fn buffer<C: ComponentDerive, B: bytemuck::Pod + bytemuck::Zeroable + Send>(
@@ -145,7 +150,7 @@ impl<'a> BufferHelper<'a> {
                     .collect::<Vec<B>>();
                 #[cfg(not(feature = "rayon"))]
                 let instances = components
-                    .iter()
+                    .iter_mut()
                     .map(|component| each(component.downcast_mut::<C>().unwrap()))
                     .collect::<Vec<B>>();
                 self.buffer.write(gpu, bytemuck::cast_slice(&instances));
@@ -156,7 +161,7 @@ impl<'a> BufferHelper<'a> {
     pub fn buffer_uncasted(&mut self, gpu: &Gpu) {
         match &self.inner {
             BufferHelperType::Single { offset, component } => {
-                let data = component.base().instance(self.world);
+                let data = component.base().instance(#[cfg(feature = "physics")] self.world);
                 self.buffer
                     .write_offset(gpu, *offset, bytemuck::cast_slice(&[data]));
             }
@@ -167,13 +172,13 @@ impl<'a> BufferHelper<'a> {
                     .par_iter()
                     .filter_map(|component| match component {
                         ArenaEntry::Free { .. } => None,
-                        ArenaEntry::Occupied { data, .. } => Some(data.base().instance(self.world)),
+                        ArenaEntry::Occupied { data, .. } => Some(data.base().instance(#[cfg(feature = "physics")] self.world)),
                     })
                     .collect::<Vec<InstanceData>>();
                 #[cfg(not(feature = "rayon"))]
                 let instances = components
                     .iter()
-                    .map(|component| component.base().instance(self.world))
+                    .map(|component| component.base().instance(#[cfg(feature = "physics")] self.world))
                     .collect::<Vec<InstanceData>>();
                 self.buffer.write(gpu, bytemuck::cast_slice(&instances));
             }
@@ -183,10 +188,10 @@ impl<'a> BufferHelper<'a> {
 
 pub trait ComponentBuffer: Sized + ComponentDerive {
     const INSTANCE_SIZE: u64 = InstanceData::SIZE;
-    fn buffer_with(gpu: &Gpu, mut helper: BufferHelper,  each: impl Fn(&mut Self) + Send + Sync) {
+    fn buffer_with(gpu: &Gpu, mut helper: BufferHelper, each: impl Fn(&mut Self) + Send + Sync) {
         helper.buffer(gpu, |c: &mut Self| {
             each(c);
-            c.base().instance(helper.world)
+            c.base().instance(#[cfg(feature = "physics")] helper.world)
         })
     }
     fn buffer(gpu: &Gpu, mut helper: BufferHelper) {
