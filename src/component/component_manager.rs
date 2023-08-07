@@ -129,7 +129,7 @@ impl ComponentManager {
             struct UnsafeWrapper<'a>(&'a FxHashMap<ComponentTypeId, RefCell<ComponentType>>);
             impl<'a> UnsafeWrapper<'a> {
                 pub unsafe fn get(&self, type_id: &ComponentTypeId) -> &mut ComponentType {
-                    let ptr = &self.0[type_id] as *const _ as *mut ComponentType;
+                    let ptr = self.0[type_id].as_ptr();
                     let ty = ptr.as_mut().unwrap();
                     return ty;
                 }

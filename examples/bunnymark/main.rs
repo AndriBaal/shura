@@ -152,9 +152,9 @@ impl ComponentController for Bunny {
         renderer.render_all::<Bunny>(ctx, RenderCamera::World, |r, instances| {
             r.render_sprite(instances, &scene.bunny_model, &scene.bunny_sprite)
         });
-        // if let Some(screenshot) = &scene.screenshot {
-        //     renderer.screenshot = Some(screenshot);
-        // }
+        if let Some(screenshot) = &scene.screenshot {
+            renderer.screenshot = Some(screenshot);
+        }
     }
 
 }
