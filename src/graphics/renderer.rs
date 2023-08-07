@@ -29,21 +29,23 @@ impl <'a>DerefMut for ComponentRenderer<'a> {
 
 impl <'a>ComponentRenderer<'a> {
 
-    // pub fn render_each<C: ComponentController>(
-    //     &'a mut self,
-    //     camera: RenderCamera<'a>,
-    //     each: impl FnMut(&mut Renderer<'a>, &C, InstanceIndex),
-    // ) {
-    //     self.components.type_render::<C>().render_each(&mut self.renderer, camera, each)
-    // }
+    pub fn render_each<C: ComponentController>(
+        &mut self,
+        ctx: &'a Context<'a>,
+        camera: RenderCamera<'a>,
+        each: impl FnMut(&mut Renderer<'a>, &C, InstanceIndex),
+    ) {
+        ctx.components.type_render::<C>().render_each(&mut self.renderer, camera, each)
+    }
 
-    // pub fn render_single<C: ComponentController>(
-    //     &'a mut self,
-    //     camera: RenderCamera<'a>,
-    //     each: impl FnOnce(&mut Renderer<'a>, &C, InstanceIndex),
-    // ) {
-    //     self.components.type_render::<C>().render_single(&mut self.renderer, camera, each)
-    // }
+    pub fn render_single<C: ComponentController>(
+        &mut self,
+        ctx: &'a Context<'a>,
+        camera: RenderCamera<'a>,
+        each: impl FnOnce(&mut Renderer<'a>, &C, InstanceIndex),
+    ) {
+        ctx.components.type_render::<C>().render_single(&mut self.renderer, camera, each)
+    }
 
     pub fn render_all<C: ComponentController>(
         &mut self,
