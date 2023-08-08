@@ -1,8 +1,11 @@
 use crate::{
-    BoxedComponent, ComponentController, ComponentHandle, ComponentType, GroupHandle,
-    InstanceBuffer, InstanceIndex, InstanceIndices, RenderCamera, Renderer, Gpu, ComponentBuffer,
+    BoxedComponent, ComponentBuffer, ComponentController, ComponentHandle, ComponentType, Gpu,
+    GroupHandle, InstanceBuffer, InstanceIndex
 };
-use std::{marker::PhantomData, cell::{RefMut, Ref}};
+use std::{
+    cell::{Ref, RefMut},
+    marker::PhantomData,
+};
 
 #[cfg(feature = "physics")]
 use crate::physics::World;
@@ -15,7 +18,10 @@ pub struct ComponentSet<'a, C: ComponentController> {
 }
 
 impl<'a, C: ComponentController> ComponentSet<'a, C> {
-    pub(crate) fn new(ty: Ref<'a, ComponentType>, groups: &'a [GroupHandle]) -> ComponentSet<'a, C> {
+    pub(crate) fn new(
+        ty: Ref<'a, ComponentType>,
+        groups: &'a [GroupHandle],
+    ) -> ComponentSet<'a, C> {
         Self {
             ty,
             groups,
@@ -113,7 +119,13 @@ impl<'a, C: ComponentController + ComponentBuffer> ComponentSetMut<'a, C> {
         gpu: &Gpu,
         each: impl Fn(&mut C) + Send + Sync + Copy,
     ) {
-        self.ty.par_buffer_for_each_mut::<C>(#[cfg(feature = "physics")] world, gpu, self.groups, each)
+        self.ty.par_buffer_for_each_mut::<C>(
+            #[cfg(feature = "physics")]
+            world,
+            gpu,
+            self.groups,
+            each,
+        )
     }
 
     pub fn retain(

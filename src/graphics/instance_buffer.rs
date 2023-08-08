@@ -130,7 +130,8 @@ impl InstanceBuffer {
     pub fn write_offset(&mut self, gpu: &Gpu, instance_offset: u64, data: &[u8]) {
         assert!(data.len() as u64 % self.instance_size == 0);
         assert!(instance_offset * self.instance_size + data.len() as u64 <= self.buffer.size());
-        gpu.queue.write_buffer(&self.buffer, instance_offset * self.instance_size, data);
+        gpu.queue
+            .write_buffer(&self.buffer, instance_offset * self.instance_size, data);
     }
 
     pub fn slice(&self) -> wgpu::BufferSlice {

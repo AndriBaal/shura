@@ -24,7 +24,7 @@ use crate::gui::Gui;
 #[derive(PartialEq, Eq)]
 pub(crate) enum ContextUse {
     Render,
-    Update
+    Update,
 }
 
 /// Context to communicate with the game engine to access components, scenes, camera, physics and much more.
@@ -61,7 +61,11 @@ pub struct Context<'a> {
 }
 
 impl<'a> Context<'a> {
-    pub(crate) fn new(shura: &'a mut Shura, scene: &'a mut Scene, context_use: ContextUse) -> Context<'a> {
+    pub(crate) fn new(
+        shura: &'a mut Shura,
+        scene: &'a mut Scene,
+        context_use: ContextUse,
+    ) -> Context<'a> {
         let mint: mint::Vector2<u32> = shura.window.inner_size().into();
         let window_size = mint.into();
         Self {
@@ -107,7 +111,6 @@ impl<'a> Context<'a> {
             SceneSerializer::new(components, &self.global_states, &self.scene_states);
         (serialize)(&mut serializer);
 
-        
         #[derive(serde::Serialize)]
         struct Scene<'a> {
             id: u32,

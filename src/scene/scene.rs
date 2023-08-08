@@ -2,8 +2,8 @@
 use crate::physics::World;
 
 use crate::{
-    ComponentManager, Context, GroupManager, ScreenConfig, Shura, StateManager, Vector,
-    WorldCamera, WorldCameraScale, ContextUse
+    ComponentManager, Context, ContextUse, GroupManager, ScreenConfig, Shura, StateManager, Vector,
+    WorldCamera, WorldCameraScale,
 };
 
 /// Origin of a [Scene]

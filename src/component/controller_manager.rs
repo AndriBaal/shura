@@ -6,8 +6,8 @@ use rustc_hash::FxHashSet;
 use crate::physics::{CollideType, ColliderHandle};
 use crate::{
     BufferHelper, BufferOperation, Color, ComponentBuffer, ComponentConfig, ComponentController,
-    ComponentHandle, ComponentTypeId, Context, EndOperation, EndReason, FxHashMap, Gpu, Instant,
-    RenderOperation, RenderTarget, Renderer, UpdateOperation, ComponentRenderer,
+    ComponentHandle, ComponentRenderer, ComponentTypeId, Context, EndOperation, EndReason,
+    FxHashMap, Gpu, Instant, RenderOperation, RenderTarget, UpdateOperation,
 };
 
 pub(crate) type BufferCallback = fn(gpu: &Gpu, helper: BufferHelper);

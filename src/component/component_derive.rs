@@ -1,6 +1,6 @@
 use crate::{
     data::arena::Arena, Color, ComponentConfig, ComponentIdentifier, ComponentRenderer,
-    ComponentTypeId, Context, EndReason, Gpu, InstanceBuffer, InstanceData, RenderTarget, Renderer,
+    ComponentTypeId, Context, EndReason, Gpu, InstanceBuffer, InstanceData, RenderTarget, 
 };
 #[cfg(feature = "physics")]
 use crate::{
@@ -161,7 +161,10 @@ impl<'a> BufferHelper<'a> {
     pub fn buffer_uncasted(&mut self, gpu: &Gpu) {
         match &self.inner {
             BufferHelperType::Single { offset, component } => {
-                let data = component.base().instance(#[cfg(feature = "physics")] self.world);
+                let data = component.base().instance(
+                    #[cfg(feature = "physics")]
+                    self.world,
+                );
                 self.buffer
                     .write_offset(gpu, *offset, bytemuck::cast_slice(&[data]));
             }
@@ -172,13 +175,21 @@ impl<'a> BufferHelper<'a> {
                     .par_iter()
                     .filter_map(|component| match component {
                         ArenaEntry::Free { .. } => None,
-                        ArenaEntry::Occupied { data, .. } => Some(data.base().instance(#[cfg(feature = "physics")] self.world)),
+                        ArenaEntry::Occupied { data, .. } => Some(data.base().instance(
+                            #[cfg(feature = "physics")]
+                            self.world,
+                        )),
                     })
                     .collect::<Vec<InstanceData>>();
                 #[cfg(not(feature = "rayon"))]
                 let instances = components
                     .iter()
-                    .map(|component| component.base().instance(#[cfg(feature = "physics")] self.world))
+                    .map(|component| {
+                        component.base().instance(
+                            #[cfg(feature = "physics")]
+                            self.world,
+                        )
+                    })
                     .collect::<Vec<InstanceData>>();
                 self.buffer.write(gpu, bytemuck::cast_slice(&instances));
             }
@@ -191,7 +202,10 @@ pub trait ComponentBuffer: Sized + ComponentDerive {
     fn buffer_with(gpu: &Gpu, mut helper: BufferHelper, each: impl Fn(&mut Self) + Send + Sync) {
         helper.buffer(gpu, |c: &mut Self| {
             each(c);
-            c.base().instance(#[cfg(feature = "physics")] helper.world)
+            c.base().instance(
+                #[cfg(feature = "physics")]
+                helper.world,
+            )
         })
     }
     fn buffer(gpu: &Gpu, mut helper: BufferHelper) {

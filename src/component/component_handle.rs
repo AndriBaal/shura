@@ -1,4 +1,4 @@
-use crate::{ArenaIndex, ComponentTypeId, ComponentController};
+use crate::{ArenaIndex, ComponentController, ComponentTypeId};
 use core::hash::Hash;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]

@@ -2,7 +2,7 @@ use crate::{
     physics::{ColliderComponent, ColliderStatus, RigidBodyComponent, RigidBodyStatus},
     ComponentDerive, ComponentHandle, FrameManager,
 };
-use rapier2d::prelude::*;
+use rapier2d::{prelude::*, crossbeam};
 use rustc_hash::FxHashMap;
 
 type EventReceiver<T> = crossbeam::channel::Receiver<T>;

@@ -156,7 +156,6 @@ impl ComponentController for Bunny {
             renderer.screenshot = Some(screenshot);
         }
     }
-
 }
 
 // fn render<'a>(ctx: &'a Context<'a>, renderer: &'a mut ComponentRenderer) {
@@ -168,4 +167,3 @@ impl ComponentController for Bunny {
 //         renderer.screenshot = Some(screenshot);
 //     }
 // }
-

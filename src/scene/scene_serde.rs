@@ -9,8 +9,8 @@ use std::marker::PhantomData;
 
 use crate::{
     Arena, ArenaEntry, BoxedComponent, ComponentBuffer, ComponentController, ComponentManager,
-    ComponentTypeId, ComponentTypeStorage, Context, FieldNames, GroupHandle, Scene, SceneCreator,
-    Shura, StateDerive, StateIdentifier, StateManager, StateTypeId, ContextUse
+    ComponentTypeId, ComponentTypeStorage, Context, ContextUse, FieldNames, GroupHandle, Scene,
+    SceneCreator, Shura, StateDerive, StateIdentifier, StateManager, StateTypeId,
 };
 
 #[cfg(feature = "serde")]

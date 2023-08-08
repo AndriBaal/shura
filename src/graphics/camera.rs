@@ -12,6 +12,7 @@ use crate::physics::World;
 
 const MINIMAL_FOV: f32 = 0.0001;
 
+// Trait to avoid
 pub trait CursorCompute {
     fn fov(&self) -> Vector<f32>;
     fn translation(&self) -> Vector<f32>;
@@ -169,7 +170,11 @@ impl WorldCamera {
         man: &ComponentManager,
     ) {
         if let Some(target) = self.target() {
-            if let Some(instance) = man.instance_data(target, #[cfg(feature = "physics")] world) {
+            if let Some(instance) = man.instance_data(
+                target,
+                #[cfg(feature = "physics")]
+                world,
+            ) {
                 self.camera.set_translation(instance.pos());
             } else {
                 self.set_target(None);

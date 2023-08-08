@@ -206,12 +206,10 @@ impl ComponentController for Player {
         });
     }
 
-    fn render<'a>(ctx: &'a Context, renderer: &mut Renderer<'a>) {
-        ctx.components.get::<Self>().render_single(
-            renderer,
-            RenderCamera::World,
-            |r, player, index| r.render_sprite(index, &player.model, &player.sprite),
-        );
+    fn render<'a>(ctx: &'a Context, renderer: &mut ComponentRenderer<'a>) {
+        renderer.render_single::<Self>(ctx, RenderCamera::World, |r, player, index| {
+            r.render_sprite(index, &player.model, &player.sprite)
+        });
     }
 
     fn collision(
@@ -273,12 +271,10 @@ impl ComponentController for Floor {
         storage: ComponentStorage::Single,
         ..ComponentConfig::DEFAULT
     };
-    fn render<'a>(ctx: &'a Context, renderer: &mut Renderer<'a>) {
-        ctx.components.get::<Self>().render_single(
-            renderer,
-            RenderCamera::World,
-            |r, floor, index| r.render_sprite(index, &floor.model, &floor.color),
-        );
+    fn render<'a>(ctx: &'a Context, renderer: &mut ComponentRenderer<'a>) {
+        renderer.render_single::<Self>(ctx, RenderCamera::World, |r, floor, index| {
+            r.render_sprite(index, &floor.model, &floor.color)
+        });
     }
 }
 
@@ -309,25 +305,23 @@ impl PhysicsBox {
 }
 
 impl ComponentController for PhysicsBox {
-    fn render<'a>(ctx: &'a Context, renderer: &mut Renderer<'a>) {
+    fn render<'a>(ctx: &'a Context, renderer: &mut ComponentRenderer<'a>) {
         let state = ctx.scene_states.get::<PhysicsState>();
-        ctx.components.get::<Self>().render_all(
-            renderer,
-            RenderCamera::World,
-            |renderer, instance| {
-                renderer.render_sprite_sheet(instance, &state.box_model, &state.box_colors);
-            },
-        );
+        renderer.render_all::<Self>(ctx, RenderCamera::World, |renderer, instance| {
+            renderer.render_sprite_sheet(instance, &state.box_model, &state.box_colors);
+        });
     }
 
     fn update(ctx: &mut Context) {
         let cursor_world: Point<f32> = (ctx.input.cursor(ctx.world_camera)).into();
         let remove = ctx.input.is_held(MouseButton::Left) || ctx.input.is_pressed(ScreenTouch);
-        ctx.components.get_mut::<Self>().for_each_mut(|physics_box| {
-            if physics_box.sprite == vector(1, 0) {
-                physics_box.sprite = Vector::new(0, 0);
-            }
-        });
+        ctx.components
+            .get_mut::<Self>()
+            .for_each_mut(|physics_box| {
+                if physics_box.sprite == vector(1, 0) {
+                    physics_box.sprite = Vector::new(0, 0);
+                }
+            });
         let mut component: Option<ComponentHandle> = None;
         ctx.world.intersections_with_point(
             &cursor_world,

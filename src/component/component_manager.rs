@@ -5,8 +5,7 @@ use crate::physics::World;
 use crate::{
     ComponentBuffer, ComponentConfig, ComponentController, ComponentHandle, ComponentSet,
     ComponentSetMut, ComponentType, ComponentTypeId, ContextUse, ControllerManager, Gpu,
-    GroupHandle, GroupManager, InstanceData, InstanceIndex, InstanceIndices, RenderCamera,
-    Renderer,
+    GroupHandle, GroupManager, InstanceData
 };
 use std::{
     cell::{RefCell, RefMut},
@@ -51,7 +50,7 @@ macro_rules! type_mut {
     ($self:ident, $C: ident) => {{
         let ty = $self
             .types
-            .get_mut(&$C::IDENTIFIER)
+            .get(&$C::IDENTIFIER)
             .expect(&no_type_error::<$C>())
             .borrow_mut();
         ty
@@ -167,9 +166,7 @@ impl ComponentManager {
         }
     }
 
-    pub(crate) fn type_render<C: ComponentController>(
-        &self,
-    ) -> &ComponentType {
+    pub(crate) fn type_render<C: ComponentController>(&self) -> &ComponentType {
         type_render!(self, C)
     }
 
@@ -227,7 +224,12 @@ impl ComponentManager {
             .unwrap()
             .borrow()
             .get_boxed(handle)
-            .map(|c| c.base().instance(#[cfg(feature = "physics")] world))
+            .map(|c| {
+                c.base().instance(
+                    #[cfg(feature = "physics")]
+                    world,
+                )
+            })
     }
 
     #[inline]
@@ -253,6 +255,22 @@ impl ComponentManager {
 
     pub fn get_mut_of<'a, C: ComponentController + ComponentBuffer>(
         &'a mut self,
+        filter: ComponentFilter<'a>,
+    ) -> ComponentSetMut<'a, C> {
+        let (check, groups) = group_filter!(self, filter);
+        let ty = type_mut!(self, C);
+        return ComponentSetMut::new(ty, groups, check);
+    }
+
+    #[inline]
+    pub fn get_ref<'a, C: ComponentController + ComponentBuffer>(
+        &'a self,
+    ) -> ComponentSetMut<'a, C> {
+        self.get_ref_of(ComponentFilter::Active)
+    }
+
+    pub fn get_ref_of<'a, C: ComponentController + ComponentBuffer>(
+        &'a self,
         filter: ComponentFilter<'a>,
     ) -> ComponentSetMut<'a, C> {
         let (check, groups) = group_filter!(self, filter);
