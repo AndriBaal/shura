@@ -5,6 +5,13 @@ pub enum EndReason {
     RemoveScene,
 }
 
+#[derive(Clone, Copy, Eq, PartialEq, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum ComponentScope {
+    Scene,
+    Global
+}
+
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// Describes when the [Matrix](crate::Matrix) of the components should be bufferd.
@@ -79,6 +86,7 @@ pub struct ComponentConfig {
     pub buffer: BufferOperation,
     pub end: EndOperation,
     pub storage: ComponentStorage,
+    pub scope: ComponentScope,
     // Update even when the game is paused
     pub force_update_level: i16,
 }
@@ -96,6 +104,7 @@ impl ComponentConfig {
         render_priority: Self::DEFAULT_PRIORITY,
         end_priority: Self::DEFAULT_PRIORITY,
         force_update_level: Self::DEFAULT_FORCE_UPDATE_LEVEL,
+        scope: ComponentScope::Scene
     };
     pub const RESOURCE: ComponentConfig = ComponentConfig {
         buffer: BufferOperation::Never,
@@ -104,6 +113,10 @@ impl ComponentConfig {
         end: EndOperation::Never,
         storage: ComponentStorage::Single,
         ..Self::DEFAULT
+    };
+    pub const GLOBAL_RESOURCE: ComponentConfig = ComponentConfig {
+        scope: ComponentScope::Global,
+        ..Self::RESOURCE
     };
 }
 

@@ -4,11 +4,9 @@ use std::ops::*;
 
 use crate::{
     ComponentHandle, ComponentManager, Gpu, Isometry, Model, ModelBuilder, Rotation, Uniform,
-    Vector,
+    Vector, World
 };
 
-#[cfg(feature = "physics")]
-use crate::physics::World;
 
 const MINIMAL_FOV: f32 = 0.0001;
 
@@ -166,13 +164,12 @@ impl WorldCamera {
 
     pub fn apply_target(
         &mut self,
-        #[cfg(feature = "physics")] world: &World,
+        world: &World,
         man: &ComponentManager,
     ) {
         if let Some(target) = self.target() {
             if let Some(instance) = man.instance_data(
                 target,
-                #[cfg(feature = "physics")]
                 world,
             ) {
                 self.camera.set_translation(instance.pos());

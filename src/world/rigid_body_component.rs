@@ -1,6 +1,6 @@
 use crate::{
-    physics::{Collider, ColliderHandle, RigidBody, RigidBodyHandle, World},
-    BaseComponent, InstanceData, Vector,
+    physics::{Collider, ColliderHandle, RigidBody, RigidBodyHandle},
+    ComponentHandle, InstancePosition, Position, Vector, World,
 };
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -122,12 +122,12 @@ impl RigidBodyComponent {
     }
 }
 
-impl BaseComponent for RigidBodyComponent {
-    fn instance(&self, world: &World) -> crate::InstanceData {
+impl Position for RigidBodyComponent {
+    fn instance(&self, world: &World) -> InstancePosition {
         match &self.status {
             RigidBodyStatus::Added { rigid_body_handle } => {
                 if let Some(rigid_body) = world.rigid_body(*rigid_body_handle) {
-                    return InstanceData::new(
+                    return InstancePosition::new(
                         *rigid_body.position(),
                         if rigid_body.is_enabled() {
                             self.scale
@@ -138,7 +138,7 @@ impl BaseComponent for RigidBodyComponent {
                 }
             }
             RigidBodyStatus::Pending { rigid_body, .. } => {
-                return InstanceData::new(
+                return InstancePosition::new(
                     *rigid_body.position(),
                     if rigid_body.is_enabled() {
                         self.scale
@@ -148,6 +148,36 @@ impl BaseComponent for RigidBodyComponent {
                 );
             }
         }
-        return InstanceData::default();
+        return InstancePosition::default();
+    }
+
+    fn init(&mut self, handle: ComponentHandle, world: &mut World) {
+        match self.status {
+            RigidBodyStatus::Added { .. } => {
+                return;
+            }
+            RigidBodyStatus::Pending {
+                ref rigid_body,
+                ref colliders,
+            } => {
+                let rigid_body_handle =
+                    world.add_rigid_body(rigid_body.clone(), colliders.clone(), handle);
+                self.status = RigidBodyStatus::Added { rigid_body_handle };
+            }
+        }
+    }
+
+    fn finish(&mut self, world: &mut World) {
+        match self.status {
+            RigidBodyStatus::Added { rigid_body_handle } => {
+                if let Some((rigid_body, colliders)) = world.remove_rigid_body(rigid_body_handle) {
+                    self.status = RigidBodyStatus::Pending {
+                        rigid_body,
+                        colliders,
+                    }
+                }
+            }
+            RigidBodyStatus::Pending { .. } => return,
+        }
     }
 }

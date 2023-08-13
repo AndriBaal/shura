@@ -1,4 +1,4 @@
-use crate::{Gpu, InstanceData, Vertex};
+use crate::{Gpu, InstancePosition, Vertex};
 use std::borrow::Cow;
 use wgpu::VertexAttribute;
 pub use wgpu::{
@@ -119,8 +119,8 @@ impl Shader {
                 });
 
         let mut buffers = vec![Vertex::desc()];
-        let mut attributes = InstanceData::attributes();
-        let mut array_stride = InstanceData::size();
+        let mut attributes = InstancePosition::attributes();
+        let mut array_stride = InstancePosition::size();
         let vertex_shader = if let Some(vertex_shader) = config.vertex_shader {
             for (index, field) in config.instance_fields.iter().enumerate() {
                 let vertex_input = index as u32 + Self::VERTEX_INPUT_OFFSET;

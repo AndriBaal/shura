@@ -10,10 +10,11 @@ use crate::{
     VERSION,
 };
 use crate::{
-    ComponentRenderer, Context, ContextUse, ControllerManager, EndReason, FrameManager, Gpu,
-    GpuConfig, GpuDefaults, Input, RenderEncoder, Renderer, SceneCreator, SceneManager,
-    StateManager, Vector,
+    ComponentRenderer, ComponentType, ComponentTypeId, Context, ContextUse, ControllerManager,
+    EndReason, FrameManager, Gpu, GpuConfig, GpuDefaults, Input, RenderEncoder, Renderer,
+    SceneCreator, SceneManager, Vector,
 };
+use rustc_hash::FxHashMap;
 #[cfg(target_arch = "wasm32")]
 use rustc_hash::FxHashMap;
 #[cfg(target_os = "android")]
@@ -25,7 +26,6 @@ use crate::audio::AudioManager;
 /// Configuration for the base of the game engine
 pub struct ShuraConfig {
     pub window: winit::window::WindowBuilder,
-    // pub global_states: Vec<Box<dyn GlobalStateController>>,
     pub gpu: GpuConfig,
     #[cfg(target_os = "android")]
     pub app: AndroidApp,
@@ -213,14 +213,22 @@ impl ShuraConfig {
     }
 }
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone)]
+// The Option<> is here to keep track of component, that have already been added to scenes and therefore
+// can not be registered as a global component.
+pub struct GlobalComponents(
+    pub(crate) Rc<RefCell<FxHashMap<ComponentTypeId, Option<Rc<RefCell<ComponentType>>>>>>,
+);
+
 /// Core of the game engine.
 pub struct Shura {
     pub end: bool,
     pub frame: FrameManager,
     pub scenes: SceneManager,
+    pub globals: GlobalComponents,
     pub window: winit::window::Window,
     pub input: Input,
-    pub states: StateManager,
     pub defaults: GpuDefaults,
     pub gpu: Arc<Gpu>,
     #[cfg(feature = "gui")]
@@ -247,8 +255,8 @@ impl Shura {
         Self {
             scenes: SceneManager::new(creator.new_id(), creator),
             frame: FrameManager::new(),
+            globals: GlobalComponents(Default::default()),
             input: Input::new(window_size),
-            states: StateManager::default(),
             #[cfg(feature = "audio")]
             audio: AudioManager::new(),
             end: false,
@@ -502,7 +510,6 @@ impl Shura {
             }
         }
         scene.world_camera.apply_target(
-            #[cfg(feature = "physics")]
             &scene.world,
             &scene.components,
         );
@@ -522,7 +529,6 @@ impl Shura {
         }
 
         scene.components.buffer(
-            #[cfg(feature = "physics")]
             &mut scene.world,
             &self.gpu,
         );

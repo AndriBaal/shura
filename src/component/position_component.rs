@@ -1,7 +1,4 @@
-use crate::{BaseComponent, InstanceData, Isometry, Rotation, Vector};
-
-#[cfg(feature = "physics")]
-use crate::physics::World;
+use crate::{InstancePosition, Isometry, Position, Rotation, Vector, World};
 
 /// Component that is rendered to the screen by its given position and scale.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -9,7 +6,7 @@ use crate::physics::World;
 pub struct PositionComponent {
     scale: Vector<f32>,
     position: Isometry<f32>,
-    instance: InstanceData,
+    instance: InstancePosition,
     disabled: bool,
 }
 
@@ -17,15 +14,17 @@ impl Default for PositionComponent {
     fn default() -> Self {
         Self {
             scale: Vector::new(1.0, 1.0),
-            instance: InstanceData::default(),
+            instance: InstancePosition::default(),
             position: Isometry::default(),
             disabled: false,
         }
     }
 }
 
+
 #[allow(unreachable_patterns)]
 impl PositionComponent {
+
     pub fn new() -> Self {
         Self::default()
     }
@@ -86,7 +85,7 @@ impl PositionComponent {
 
     pub fn set_position(&mut self, position: Isometry<f32>) {
         self.position = position;
-        self.instance = InstanceData::new(
+        self.instance = InstancePosition::new(
             position,
             if self.disabled {
                 Vector::default()
@@ -129,8 +128,8 @@ impl PositionComponent {
     }
 }
 
-impl BaseComponent for PositionComponent {
-    fn instance(&self, #[cfg(feature = "physics")] _world: &World) -> InstanceData {
+impl Position for PositionComponent {
+    fn instance(&self, _world: &World) -> InstancePosition {
         self.instance
     }
 }

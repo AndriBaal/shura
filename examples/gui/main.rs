@@ -6,15 +6,15 @@ fn shura_main(config: ShuraConfig) {
         id: 0,
         init: |ctx| {
             ctx.components.register::<GuiComponent>(ctx.groups);
-            ctx.components.add(ctx.world, GuiComponent::default());
+            ctx.components
+                .set_mut::<GuiComponent>()
+                .add(ctx.world, GuiComponent::default());
         },
     });
 }
 
 #[derive(Component, Default)]
 struct GuiComponent {
-    #[base]
-    _empty: EmptyComponent,
     demo: egui_demo_lib::DemoWindows,
 }
 
@@ -28,7 +28,7 @@ impl ComponentController for GuiComponent {
     };
 
     fn update(ctx: &mut Context) {
-        for gui in ctx.components.iter_mut::<Self>() {
+        for gui in ctx.components.set_mut::<Self>().iter_mut() {
             gui.demo.ui(ctx.gui);
         }
     }

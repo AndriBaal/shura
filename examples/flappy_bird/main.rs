@@ -5,13 +5,16 @@ const GAME_SIZE: Vector<f32> = Vector::new(11.25, 5.0);
 #[shura::main]
 fn shura_main(config: ShuraConfig) {
     config.init(NewScene::new(1, |ctx| {
-        register!(ctx.components, ctx.groups, [Background, Ground, Pipe, Bird]);
+        register!(ctx, [Background, Ground, Pipe, Bird]);
         ctx.scene_states
             .insert(FlappyState::new(&ctx.gpu, ctx.audio));
-        ctx.components.add(ctx.world, Background::new(ctx));
+        ctx.components.add(ctx.world, );
         ctx.components.add(ctx.world, Ground::new(&ctx.gpu));
         ctx.components
             .add(ctx.world, Bird::new(&ctx.gpu, ctx.audio));
+
+        ctx.components.set_mut::<Background>().add(ctx.world, Background::new(ctx));
+
         ctx.world.set_physics_priority(Some(10));
         ctx.world.set_gravity(Vector::new(0.0, -15.0));
         ctx.world_camera
@@ -62,7 +65,7 @@ impl FlappyState {
 
 #[derive(Component)]
 struct Bird {
-    #[base]
+    #[position]
     body: RigidBodyComponent,
     #[buffer]
     sprite: SpriteSheetIndex,
@@ -199,7 +202,7 @@ impl ComponentController for Bird {
 struct Ground {
     model: Model,
     sprite: Sprite,
-    #[base]
+    #[position]
     collider: ColliderComponent,
 }
 
@@ -210,7 +213,7 @@ impl Ground {
         Self {
             model: gpu
                 .create_model(ModelBuilder::cuboid(Self::HALF_EXTENTS).vertex_translation(pos)),
-            sprite: gpu.create_sprite(sprite_file!("./sprites/base.png")),
+            sprite: gpu.create_sprite(sprite_file!("./sprites/position.png")),
             collider: ColliderComponent::new(ColliderBuilder::compound(vec![
                 (
                     pos.into(),
@@ -247,8 +250,8 @@ impl ComponentController for Ground {
 struct Background {
     model: Model,
     sprite: Sprite,
-    #[base]
-    base: PositionComponent,
+    #[position]
+    position: PositionComponent,
 }
 
 impl Background {
@@ -259,7 +262,7 @@ impl Background {
         Self {
             model: ctx.gpu.create_model(ModelBuilder::cuboid(GAME_SIZE)),
             sprite,
-            base: PositionComponent::default(),
+            position: PositionComponent::default(),
         }
     }
 }
@@ -285,7 +288,7 @@ impl ComponentController for Background {
 
 #[derive(Component)]
 struct Pipe {
-    #[base]
+    #[position]
     body: RigidBodyComponent,
     point_awarded: bool,
 }

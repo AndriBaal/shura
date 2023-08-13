@@ -1,20 +1,19 @@
-use crate::{BaseComponent, InstanceData};
-
-#[cfg(feature = "physics")]
-use crate::physics::World;
+use crate::{Position, InstancePosition, World};
 
 #[derive(Copy, Clone, Default)]
 /// Dummy component that should not be rendered to the screen
 pub struct EmptyComponent;
+pub static EMPTY_DEFAULT_COMPONENT: EmptyComponent = EmptyComponent;
 
 impl EmptyComponent {
+
     pub fn new() -> Self {
         Self
     }
 }
 
-impl BaseComponent for EmptyComponent {
-    fn instance(&self, #[cfg(feature = "physics")] _world: &World) -> InstanceData {
-        InstanceData::default()
+impl Position for EmptyComponent {
+    fn instance(&self, _world: &World) -> InstancePosition {
+        InstancePosition::default()
     }
 }

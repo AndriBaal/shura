@@ -1,16 +1,16 @@
 use crate::{
-    CameraBuffer, Color, ComponentController, Context, Gpu, GpuDefaults, InstanceBuffer,
-    InstanceIndex, InstanceIndices, Model, RenderCamera, RenderConfigInstances, RenderTarget,
-    Shader, Sprite, SpriteSheet, Uniform, Vector,
+    CameraBuffer, Color, ComponentController, ComponentFilter, ComponentSetResource, Context, Gpu,
+    GpuDefaults, InstanceBuffer, InstanceIndex, InstanceIndices, Model, RenderCamera,
+    RenderConfigInstances, RenderTarget, Shader, Sprite, SpriteSheet, Uniform, Vector,
 };
 use std::ops::{Deref, DerefMut, Range};
 
 #[cfg(feature = "text")]
 use crate::text::{FontBrush, TextSection};
 
+#[non_exhaustive]
 pub struct ComponentRenderer<'a> {
     pub renderer: Renderer<'a>,
-    // pub components: &'a ComponentManager,
     pub screenshot: Option<&'a RenderTarget>,
 }
 
@@ -29,15 +29,29 @@ impl<'a> DerefMut for ComponentRenderer<'a> {
 }
 
 impl<'a> ComponentRenderer<'a> {
+    pub fn resource<'b, C: ComponentController>(
+        &self,
+        ctx: &'b Context,
+    ) -> ComponentSetResource<'b, C> {
+        return self.resource_of(ctx, ComponentFilter::Active);
+    }
+
+    pub fn resource_of<'b, C: ComponentController>(
+        &self,
+        ctx: &'b Context,
+        filter: ComponentFilter<'b>,
+    ) -> ComponentSetResource<'b, C> {
+        return ctx.components.resource_of::<C>(filter);
+    }
+
     pub fn render_each<C: ComponentController>(
         &mut self,
         ctx: &'a Context<'a>,
         camera: RenderCamera<'a>,
         each: impl FnMut(&mut Renderer<'a>, &'a C, InstanceIndex),
     ) {
-        ctx.components
-            .type_render::<C>()
-            .render_each(&mut self.renderer, camera, each)
+        let resource = self.resource::<C>(ctx);
+        resource.render_each(&mut self.renderer, camera, each)
     }
 
     pub fn render_single<C: ComponentController>(
@@ -46,9 +60,8 @@ impl<'a> ComponentRenderer<'a> {
         camera: RenderCamera<'a>,
         each: impl FnOnce(&mut Renderer<'a>, &'a C, InstanceIndex),
     ) {
-        ctx.components
-            .type_render::<C>()
-            .render_single(&mut self.renderer, camera, each)
+        let resource = self.resource::<C>(ctx);
+        resource.render_single(self, camera, each)
     }
 
     pub fn render_all<C: ComponentController>(
@@ -57,9 +70,8 @@ impl<'a> ComponentRenderer<'a> {
         camera: RenderCamera<'a>,
         all: impl FnMut(&mut Renderer<'a>, InstanceIndices),
     ) {
-        ctx.components
-            .type_render::<C>()
-            .render_all(&mut self.renderer, camera, all)
+        let resource = self.resource::<C>(ctx);
+        resource.render_all(&mut self.renderer, camera, all)
     }
 }
 

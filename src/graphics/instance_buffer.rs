@@ -7,12 +7,12 @@ use wgpu::util::DeviceExt;
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct InstanceData {
+pub struct InstancePosition {
     pos: Vector<f32>,
     rot: Matrix<f32>,
 }
 
-impl InstanceData {
+impl InstancePosition {
     pub const SIZE: u64 = std::mem::size_of::<Self>() as u64;
     pub fn new(pos: Isometry<f32>, scale: Vector<f32>) -> Self {
         Self {
@@ -25,18 +25,6 @@ impl InstanceData {
             pos: pos.translation.vector,
         }
     }
-
-    // pub const fn desc() -> wgpu::VertexBufferLayout<'static> {
-    //     const ATTRIBUTES: [wgpu::VertexAttribute; 2] = wgpu::vertex_attr_array![
-    //         5 => Float32x2,
-    //         6 => Float32x4
-    //     ];
-    //     wgpu::VertexBufferLayout {
-    //         array_stride: mem::size_of::<Self>() as wgpu::BufferAddress,
-    //         step_mode: wgpu::VertexStepMode::Instance,
-    //         attributes: &ATTRIBUTES,
-    //     }
-    // }
 
     pub fn size() -> wgpu::BufferAddress {
         mem::size_of::<Self>() as wgpu::BufferAddress
@@ -69,7 +57,7 @@ impl InstanceData {
     }
 }
 
-impl Default for InstanceData {
+impl Default for InstancePosition {
     fn default() -> Self {
         return Self::new(Isometry::new(Vector::default(), 0.0), Vector::new(1.0, 1.0));
     }

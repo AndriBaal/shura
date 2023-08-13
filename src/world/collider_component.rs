@@ -1,6 +1,6 @@
 use crate::{
-    physics::{Collider, ColliderHandle, World},
-    BaseComponent, InstanceData, Vector,
+    physics::{Collider, ColliderHandle},
+    Position, InstancePosition, Vector, World, ComponentHandle
 };
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -70,12 +70,12 @@ impl ColliderComponent {
     }
 }
 
-impl BaseComponent for ColliderComponent {
-    fn instance(&self, world: &World) -> InstanceData {
+impl Position for ColliderComponent {
+    fn instance(&self, world: &World) -> InstancePosition {
         match &self.status {
             ColliderStatus::Added { collider_handle } => {
                 if let Some(collider) = world.collider(*collider_handle) {
-                    return InstanceData::new(
+                    return InstancePosition::new(
                         *collider.position(),
                         if collider.is_enabled() {
                             self.scale
@@ -86,7 +86,7 @@ impl BaseComponent for ColliderComponent {
                 }
             }
             ColliderStatus::Pending { collider } => {
-                return InstanceData::new(
+                return InstancePosition::new(
                     *collider.position(),
                     if collider.is_enabled() {
                         self.scale
@@ -96,6 +96,34 @@ impl BaseComponent for ColliderComponent {
                 );
             }
         }
-        return InstanceData::default();
+        return InstancePosition::default();
+    }
+
+
+    fn init(&mut self, handle: ComponentHandle, world: &mut World) {
+        match self.status {
+            ColliderStatus::Added { .. } => {
+                return;
+            }
+            ColliderStatus::Pending {
+                ref collider,
+            } => {
+                let collider_handle = world.add_collider(handle, collider.clone());
+                self.status = ColliderStatus::Added { collider_handle };
+            }
+        }
+    }
+
+    fn finish(&mut self, world: &mut World) {
+        match self.status {
+            ColliderStatus::Added { collider_handle } => {
+                if let Some(collider) = world.remove_collider(collider_handle) {
+                    self.status = ColliderStatus::Pending {
+                        collider,
+                    }
+                }
+            }
+            ColliderStatus::Pending { .. } => return,
+        }
     }
 }

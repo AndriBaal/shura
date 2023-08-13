@@ -5,7 +5,8 @@ fn shura_main(config: ShuraConfig) {
     config.init(NewScene::new(1, |ctx| {
         ctx.world_camera.set_scaling(WorldCameraScale::Min(10.0));
         ctx.components.register::<ModelTest>(ctx.groups);
-        ctx.components.add(
+        let mut model_tests = ctx.components.set_mut::<ModelTest>();
+        model_tests.add(
             ctx.world,
             ModelTest::new(
                 Vector::new(-3.0, 3.0),
@@ -15,7 +16,7 @@ fn shura_main(config: ShuraConfig) {
             ),
         );
 
-        ctx.components.add(
+        model_tests.add(
             ctx.world,
             ModelTest::new(
                 Vector::new(-1.0, 3.0),
@@ -29,7 +30,7 @@ fn shura_main(config: ShuraConfig) {
             ),
         );
 
-        ctx.components.add(
+        model_tests.add(
             ctx.world,
             ModelTest::new(
                 Vector::new(1.0, 3.0),
@@ -42,7 +43,7 @@ fn shura_main(config: ShuraConfig) {
             ),
         );
 
-        ctx.components.add(
+        model_tests.add(
             ctx.world,
             ModelTest::new(
                 Vector::new(3.0, 3.0),
@@ -60,7 +61,7 @@ fn shura_main(config: ShuraConfig) {
             ),
         );
 
-        ctx.components.add(
+        model_tests.add(
             ctx.world,
             ModelTest::new(
                 Vector::new(-3.0, 1.0),
@@ -69,7 +70,7 @@ fn shura_main(config: ShuraConfig) {
             ),
         );
 
-        ctx.components.add(
+        model_tests.add(
             ctx.world,
             ModelTest::new(
                 Vector::new(-1.0, 1.0),
@@ -83,7 +84,7 @@ fn shura_main(config: ShuraConfig) {
             ),
         );
 
-        ctx.components.add(
+        model_tests.add(
             ctx.world,
             ModelTest::new(
                 Vector::new(1.0, 1.0),
@@ -96,7 +97,7 @@ fn shura_main(config: ShuraConfig) {
             ),
         );
 
-        ctx.components.add(
+        model_tests.add(
             ctx.world,
             ModelTest::new(
                 Vector::new(3.0, 1.0),
@@ -110,7 +111,7 @@ fn shura_main(config: ShuraConfig) {
             ),
         );
 
-        ctx.components.add(
+        model_tests.add(
             ctx.world,
             ModelTest::new(
                 Vector::new(-3.0, -1.0),
@@ -127,7 +128,7 @@ fn shura_main(config: ShuraConfig) {
             ),
         );
 
-        ctx.components.add(
+        model_tests.add(
             ctx.world,
             ModelTest::new(
                 Vector::new(-1.0, -1.0),
@@ -141,7 +142,7 @@ fn shura_main(config: ShuraConfig) {
 #[derive(Component)]
 struct ModelTest {
     model: Model,
-    #[base]
+    #[position]
     base: PositionComponent,
     #[buffer]
     color: Color,
@@ -164,10 +165,9 @@ impl ComponentController for ModelTest {
         ..ComponentConfig::DEFAULT
     };
 
-    fn render<'a>(ctx: &'a Context, renderer: &mut Renderer<'a>) {
-        ctx.components
-            .render_each::<Self>(renderer, RenderCamera::World, |r, model, index| {
-                r.render_color(index, &model.model)
-            });
+    fn render<'a>(ctx: &'a Context, renderer: &mut ComponentRenderer<'a>) {
+        renderer.render_each::<Self>(ctx, RenderCamera::World, |r, model, index| {
+            r.render_color(index, &model.model)
+        });
     }
 }

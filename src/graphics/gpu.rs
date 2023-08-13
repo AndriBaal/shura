@@ -3,7 +3,7 @@ use crate::log::info;
 #[cfg(feature = "text")]
 use crate::text::{FontBrush, TextPipeline};
 use crate::{
-    Camera, CameraBuffer, ColorWrites, InstanceBuffer, InstanceData, InstanceField, Isometry,
+    Camera, CameraBuffer, ColorWrites, InstanceBuffer, InstancePosition, InstanceField, Isometry,
     Model, ModelBuilder, RenderEncoder, RenderTarget, Shader, ShaderConfig, Sprite, SpriteBuilder,
     SpriteSheet, SpriteSheetBuilder, Uniform, UniformField, Vector,
 };
@@ -481,10 +481,10 @@ impl GpuDefaults {
         let world_target = gpu.create_render_target(size);
         let times = Uniform::new(gpu, [0.0, 0.0]);
         let single_centered_instance = gpu.create_instance_buffer(
-            InstanceData::SIZE,
-            bytemuck::cast_slice(&[InstanceData::new(Default::default(), Vector::new(1.0, 1.0))]),
+            InstancePosition::SIZE,
+            bytemuck::cast_slice(&[InstancePosition::new(Default::default(), Vector::new(1.0, 1.0))]),
         );
-        let empty_instance = gpu.create_instance_buffer(InstanceData::SIZE, &[]);
+        let empty_instance = gpu.create_instance_buffer(InstancePosition::SIZE, &[]);
 
         let fov = Self::relative_fov(window_size);
         let unit_model = gpu.create_model(ModelBuilder::square(0.5));

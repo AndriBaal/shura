@@ -1,14 +1,11 @@
 use crate::{
     BoxedComponent, ComponentBuffer, ComponentController, ComponentHandle, ComponentType, Gpu,
-    GroupHandle, InstanceBuffer, InstanceIndex
+    GroupHandle, InstanceBuffer, InstanceIndex, InstanceIndices, RenderCamera, Renderer, World
 };
 use std::{
     cell::{Ref, RefMut},
     marker::PhantomData,
 };
-
-#[cfg(feature = "physics")]
-use crate::physics::World;
 
 /// Set of components from  the same type only from the specified (groups)[crate::Group]
 pub struct ComponentSet<'a, C: ComponentController> {
@@ -29,7 +26,7 @@ impl<'a, C: ComponentController> ComponentSet<'a, C> {
         }
     }
 
-    pub fn for_each(&mut self, each: impl FnMut(&C)) {
+    pub fn for_each(&self, each: impl FnMut(&C)) {
         self.ty.for_each(self.groups, each);
     }
 
@@ -65,8 +62,104 @@ impl<'a, C: ComponentController> ComponentSet<'a, C> {
         self.ty.iter_with_handles(self.groups)
     }
 
-    pub fn single(&self) -> Option<&C> {
-        self.ty.single()
+    pub fn try_single(&self) -> Option<&C> {
+        self.ty.try_single()
+    }
+
+    pub fn single(&self) -> &C {
+        self.ty.try_single().unwrap()
+    }
+}
+
+/// Set of components from  the same type only from the specified (groups)[crate::Group]
+#[derive(Clone, Copy)]
+pub struct ComponentSetResource<'a, C: ComponentController> {
+    ty: &'a ComponentType,
+    groups: &'a [GroupHandle],
+    marker: PhantomData<C>,
+}
+
+impl<'a, C: ComponentController> ComponentSetResource<'a, C> {
+    pub(crate) fn new(
+        ty: &'a ComponentType,
+        groups: &'a [GroupHandle],
+    ) -> ComponentSetResource<'a, C> {
+        Self {
+            ty,
+            groups,
+            marker: PhantomData,
+        }
+    }
+
+    pub fn for_each(&self, each: impl FnMut(&C) + 'a) {
+        self.ty.for_each(self.groups, each);
+    }
+
+    pub fn par_for_each(&self, each: impl Fn(&C) + Send + Sync + 'a) {
+        self.ty.par_for_each(self.groups, each);
+    }
+
+    pub fn index(&self, index: usize) -> Option<&'a C> {
+        self.index_of(GroupHandle::DEFAULT_GROUP, index)
+    }
+
+    pub fn index_of(&self, group: GroupHandle, index: usize) -> Option<&'a C> {
+        self.ty.index(group, index)
+    }
+
+    pub fn get(&self, handle: ComponentHandle) -> Option<&'a C> {
+        self.ty.get(handle)
+    }
+
+    pub fn get_boxed(&self, handle: ComponentHandle) -> Option<&'a BoxedComponent> {
+        self.ty.get_boxed(handle)
+    }
+
+    pub fn len(&self) -> usize {
+        self.ty.len(self.groups)
+    }
+
+    pub fn iter(&self) -> impl DoubleEndedIterator<Item = &'a C> {
+        self.ty.iter(self.groups)
+    }
+
+    pub fn iter_with_handles(&self) -> impl DoubleEndedIterator<Item = (ComponentHandle, &'a C)> {
+        self.ty.iter_with_handles(self.groups)
+    }
+
+    pub fn try_single(&self) -> Option<&'a C> {
+        self.ty.try_single()
+    }
+
+    pub fn single(&self) -> &'a C {
+        self.ty.try_single().unwrap()
+    }
+
+    pub fn render_each(
+        &self,
+        renderer: &mut Renderer<'a>,
+        camera: RenderCamera<'a>,
+        each: impl FnMut(&mut Renderer<'a>, &'a C, InstanceIndex),
+    ) {
+        self.ty.render_each(renderer, camera, each)
+    }
+
+    pub fn render_single(
+        &self,
+        renderer: &mut Renderer<'a>,
+        camera: RenderCamera<'a>,
+        each: impl FnOnce(&mut Renderer<'a>, &'a C, InstanceIndex),
+    ) {
+        self.ty.render_single(renderer, camera, each)
+    }
+
+    pub fn render_all(
+        &self,
+        renderer: &mut Renderer<'a>,
+        camera: RenderCamera<'a>,
+        all: impl FnMut(&mut Renderer<'a>, InstanceIndices),
+    ) {
+        self.ty.render_all(renderer, camera, all)
     }
 }
 
@@ -113,14 +206,13 @@ impl<'a, C: ComponentController + ComponentBuffer> ComponentSetMut<'a, C> {
         self.ty.for_each_mut(self.groups, each);
     }
 
-    pub fn par_buffer_for_each_mut(
+    pub fn buffer_for_each_mut(
         &mut self,
-        #[cfg(feature = "physics")] world: &World,
+        world: &World,
         gpu: &Gpu,
         each: impl Fn(&mut C) + Send + Sync + Copy,
     ) {
-        self.ty.par_buffer_for_each_mut::<C>(
-            #[cfg(feature = "physics")]
+        self.ty.buffer_for_each_mut::<C>(
             world,
             gpu,
             self.groups,
@@ -130,12 +222,10 @@ impl<'a, C: ComponentController + ComponentBuffer> ComponentSetMut<'a, C> {
 
     pub fn retain(
         &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
-        #[cfg(feature = "physics")] keep: impl FnMut(&mut C, &mut World) -> bool,
-        #[cfg(not(feature = "physics"))] keep: impl FnMut(&mut C) -> bool,
+        world: &mut World,
+        keep: impl FnMut(&mut C, &mut World) -> bool,
     ) {
         self.ty.retain(
-            #[cfg(feature = "physics")]
             world,
             self.groups,
             keep,
@@ -192,11 +282,10 @@ impl<'a, C: ComponentController + ComponentBuffer> ComponentSetMut<'a, C> {
 
     pub fn remove(
         &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
+        world: &mut World,
         handle: ComponentHandle,
     ) -> Option<C> {
         self.ty.remove(
-            #[cfg(feature = "physics")]
             world,
             handle,
         )
@@ -204,19 +293,17 @@ impl<'a, C: ComponentController + ComponentBuffer> ComponentSetMut<'a, C> {
 
     pub fn remove_boxed(
         &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
+        world: &mut World,
         handle: ComponentHandle,
     ) -> Option<BoxedComponent> {
         self.ty.remove_boxed(
-            #[cfg(feature = "physics")]
             world,
             handle,
         )
     }
 
-    pub fn remove_all(&mut self, #[cfg(feature = "physics")] world: &mut World) -> Vec<C> {
+    pub fn remove_all(&mut self, world: &mut World) -> Vec<C> {
         self.ty.remove_all(
-            #[cfg(feature = "physics")]
             world,
             self.groups,
         )
@@ -224,11 +311,10 @@ impl<'a, C: ComponentController + ComponentBuffer> ComponentSetMut<'a, C> {
 
     pub fn add(
         &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
+        world: &mut World,
         component: C,
     ) -> ComponentHandle {
         self.add_to(
-            #[cfg(feature = "physics")]
             world,
             GroupHandle::DEFAULT_GROUP,
             component,
@@ -237,12 +323,11 @@ impl<'a, C: ComponentController + ComponentBuffer> ComponentSetMut<'a, C> {
 
     pub fn add_to(
         &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
+        world: &mut World,
         group_handle: GroupHandle,
         component: C,
     ) -> ComponentHandle {
         self.ty.add(
-            #[cfg(feature = "physics")]
             world,
             group_handle,
             component,
@@ -251,11 +336,10 @@ impl<'a, C: ComponentController + ComponentBuffer> ComponentSetMut<'a, C> {
 
     pub fn add_many(
         &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
+        world: &mut World,
         components: impl IntoIterator<Item = C>,
     ) -> Vec<ComponentHandle> {
         self.add_many_to(
-            #[cfg(feature = "physics")]
             world,
             GroupHandle::DEFAULT_GROUP,
             components,
@@ -264,12 +348,11 @@ impl<'a, C: ComponentController + ComponentBuffer> ComponentSetMut<'a, C> {
 
     pub fn add_many_to(
         &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
+        world: &mut World,
         group_handle: GroupHandle,
         components: impl IntoIterator<Item = C>,
     ) -> Vec<ComponentHandle> {
         self.ty.add_many::<C>(
-            #[cfg(feature = "physics")]
             world,
             group_handle,
             components,
@@ -278,11 +361,10 @@ impl<'a, C: ComponentController + ComponentBuffer> ComponentSetMut<'a, C> {
 
     pub fn add_with(
         &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
+        world: &mut World,
         create: impl FnOnce(ComponentHandle) -> C,
     ) -> ComponentHandle {
         self.add_with_to(
-            #[cfg(feature = "physics")]
             world,
             GroupHandle::DEFAULT_GROUP,
             create,
@@ -291,12 +373,11 @@ impl<'a, C: ComponentController + ComponentBuffer> ComponentSetMut<'a, C> {
 
     pub fn add_with_to(
         &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
+        world: &mut World,
         group_handle: GroupHandle,
         create: impl FnOnce(ComponentHandle) -> C,
     ) -> ComponentHandle {
         self.ty.add_with(
-            #[cfg(feature = "physics")]
             world,
             group_handle,
             create,
@@ -335,28 +416,34 @@ impl<'a, C: ComponentController + ComponentBuffer> ComponentSetMut<'a, C> {
         self.ty.iter_mut_with_handles(self.groups)
     }
 
-    pub fn single(&self) -> Option<&C> {
-        self.ty.single()
+    pub fn try_single(&self) -> Option<&C> {
+        self.ty.try_single()
     }
 
-    pub fn single_mut(&mut self) -> Option<&mut C> {
-        self.ty.single_mut()
+    pub fn single(&self) -> &C {
+        self.ty.try_single().unwrap()
     }
 
-    pub fn remove_single(&mut self, #[cfg(feature = "physics")] world: &mut World) -> Option<C> {
+    pub fn try_single_mut(&mut self) -> Option<&mut C> {
+        self.ty.try_single_mut()
+    }
+
+    pub fn single_mut(&mut self) -> &mut C {
+        self.ty.try_single_mut().unwrap()
+    }
+
+    pub fn remove_single(&mut self, world: &mut World) -> Option<C> {
         self.ty.remove_single(
-            #[cfg(feature = "physics")]
             world,
         )
     }
 
     pub fn set_single(
         &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
+        world: &mut World,
         new: C,
     ) -> ComponentHandle {
         self.ty.set_single(
-            #[cfg(feature = "physics")]
             world,
             new,
         )
@@ -364,11 +451,10 @@ impl<'a, C: ComponentController + ComponentBuffer> ComponentSetMut<'a, C> {
 
     pub fn set_single_with(
         &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
+        world: &mut World,
         create: impl FnOnce(ComponentHandle) -> C,
     ) -> ComponentHandle {
         self.ty.set_single_with(
-            #[cfg(feature = "physics")]
             world,
             create,
         )

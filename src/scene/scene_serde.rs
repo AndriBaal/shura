@@ -4,13 +4,13 @@ use bincode::{
     DefaultOptions, Options,
 };
 use rustc_hash::FxHashMap;
-use serde::{de::Visitor, Deserializer, Serialize};
+use serde::{de::Visitor, Deserializer};
 use std::marker::PhantomData;
 
 use crate::{
     Arena, ArenaEntry, BoxedComponent, ComponentBuffer, ComponentController, ComponentManager,
     ComponentTypeId, ComponentTypeStorage, Context, ContextUse, FieldNames, GroupHandle, Scene,
-    SceneCreator, Shura, StateDerive, StateIdentifier, StateManager, StateTypeId,
+    SceneCreator, Shura,
 };
 
 #[cfg(feature = "serde")]
@@ -24,42 +24,19 @@ pub(crate) enum SerializedComponentStorage {
 /// Helper to serialize [Components](crate::Component) and [States](crate::State) of a [Scene]
 pub struct SceneSerializer<'a> {
     components: &'a ComponentManager,
-    global_states: &'a StateManager,
-    scene_states: &'a StateManager,
-
     ser_components: FxHashMap<ComponentTypeId, SerializedComponentStorage>,
-    ser_scene_states: FxHashMap<StateTypeId, Vec<u8>>,
-    ser_global_states: FxHashMap<StateTypeId, Vec<u8>>,
 }
 
 impl<'a> SceneSerializer<'a> {
-    pub(crate) fn new(
-        components: &'a ComponentManager,
-        global_states: &'a StateManager,
-        scene_states: &'a StateManager,
-    ) -> Self {
+    pub(crate) fn new(components: &'a ComponentManager) -> Self {
         Self {
             components,
-            global_states,
-            scene_states,
             ser_components: Default::default(),
-            ser_scene_states: Default::default(),
-            ser_global_states: Default::default(),
         }
     }
 
-    pub(crate) fn finish(
-        self,
-    ) -> (
-        FxHashMap<ComponentTypeId, SerializedComponentStorage>,
-        FxHashMap<StateTypeId, Vec<u8>>,
-        FxHashMap<StateTypeId, Vec<u8>>,
-    ) {
-        (
-            self.ser_components,
-            self.ser_scene_states,
-            self.ser_global_states,
-        )
+    pub(crate) fn finish(self) -> FxHashMap<ComponentTypeId, SerializedComponentStorage> {
+        self.ser_components
     }
 
     pub fn serialize_components<C: ComponentController + serde::Serialize>(&mut self) {
@@ -88,20 +65,6 @@ impl<'a> SceneSerializer<'a> {
         };
         self.ser_components.insert(C::IDENTIFIER, ser);
     }
-
-    pub fn serialize_global_state<G: StateDerive + StateIdentifier + Serialize>(&mut self) {
-        if let Some(state) = self.global_states.try_get::<G>() {
-            self.ser_global_states
-                .insert(G::IDENTIFIER, bincode::serialize(state).unwrap());
-        }
-    }
-
-    pub fn serialize_scene_state<S: StateDerive + StateIdentifier + Serialize>(&mut self) {
-        if let Some(state) = self.scene_states.try_get::<S>() {
-            self.ser_scene_states
-                .insert(S::IDENTIFIER, bincode::serialize(state).unwrap());
-        }
-    }
 }
 
 /// Reload a [Scene] from its serialized state
@@ -123,14 +86,12 @@ impl<N: 'static + FnMut(&mut Context, &mut SceneDeserializer)> SceneCreator for 
     }
 
     fn create(mut self: Box<Self>, shura: &mut Shura) -> Scene {
-        let (mut scene, ser_components, ser_scene_state, ser_global_state): (
+        let (mut scene, ser_components): (
             Scene,
             FxHashMap<ComponentTypeId, SerializedComponentStorage>,
-            FxHashMap<StateTypeId, Vec<u8>>,
-            FxHashMap<StateTypeId, Vec<u8>>,
         ) = bincode::deserialize(&self.scene).unwrap();
         scene.id = self.id;
-        let mut de = SceneDeserializer::new(ser_components, ser_scene_state, ser_global_state);
+        let mut de = SceneDeserializer::new(ser_components);
         let mut ctx = Context::new(shura, &mut scene, ContextUse::Update);
         (self.init)(&mut ctx, &mut de);
         return scene;
@@ -141,21 +102,13 @@ impl<N: 'static + FnMut(&mut Context, &mut SceneDeserializer)> SceneCreator for 
 /// Helper to deserialize [Components](crate::Component) and [States](crate::State) of a serialized [Scene]
 pub struct SceneDeserializer {
     ser_components: FxHashMap<ComponentTypeId, SerializedComponentStorage>,
-    ser_scene_states: FxHashMap<StateTypeId, Vec<u8>>,
-    ser_global_states: FxHashMap<StateTypeId, Vec<u8>>,
 }
 
 impl SceneDeserializer {
     pub(crate) fn new(
         ser_components: FxHashMap<ComponentTypeId, SerializedComponentStorage>,
-        ser_scene_states: FxHashMap<StateTypeId, Vec<u8>>,
-        ser_global_states: FxHashMap<StateTypeId, Vec<u8>>,
     ) -> Self {
-        Self {
-            ser_components,
-            ser_scene_states,
-            ser_global_states,
-        }
+        Self { ser_components }
     }
 
     pub fn deserialize_components<
@@ -164,7 +117,6 @@ impl SceneDeserializer {
         &mut self,
         ctx: &mut Context,
     ) {
-        ctx.components.register::<C>(&ctx.groups);
         let type_id = C::IDENTIFIER;
         let mut ty = ctx.components.type_mut::<C>();
         if let Some(storage) = self.ser_components.remove(&type_id) {
@@ -243,7 +195,6 @@ impl SceneDeserializer {
         ctx: &mut Context,
         mut de: impl for<'de> FnMut(DeserializeWrapper<'de, C>, &'de Context<'de>) -> C,
     ) {
-        ctx.components.register::<C>(ctx.groups);
         let type_id = C::IDENTIFIER;
         if let Some(storage) = self.ser_components.remove(&type_id) {
             match storage {
@@ -321,53 +272,6 @@ impl SceneDeserializer {
                     }
                 }
             }
-        }
-    }
-
-    pub fn deserialize_global_state<
-        G: StateDerive + StateIdentifier + serde::de::DeserializeOwned,
-    >(
-        &mut self,
-        ctx: &mut Context,
-    ) {
-        if let Some(ser_global_state) = self.ser_global_states.get(&G::IDENTIFIER) {
-            let de: G = bincode::deserialize(&ser_global_state).unwrap();
-            ctx.global_states.insert(de);
-        }
-    }
-
-    pub fn deserialize_scene_state<
-        S: StateDerive + StateIdentifier + serde::de::DeserializeOwned,
-    >(
-        &mut self,
-        ctx: &mut Context,
-    ) {
-        if let Some(ser_scene_state) = self.ser_scene_states.get(&S::IDENTIFIER) {
-            let de: S = bincode::deserialize(&ser_scene_state).unwrap();
-            ctx.scene_states.insert(de);
-        }
-    }
-
-    pub fn deserialize_global_state_with<G: StateDerive + StateIdentifier + FieldNames>(
-        &mut self,
-        ctx: &mut Context,
-        mut de: impl for<'de> FnMut(DeserializeWrapper<'de, G>, &'de Context<'de>) -> G,
-    ) {
-        if let Some(ser_global_state) = self.ser_global_states.get(&G::IDENTIFIER) {
-            let wrapper = DeserializeWrapper::new(&ser_global_state);
-            let state: G = (de)(wrapper, ctx);
-            ctx.global_states.insert(state);
-        }
-    }
-    pub fn deserialize_scene_state_with<S: StateDerive + StateIdentifier + FieldNames>(
-        &mut self,
-        ctx: &mut Context,
-        mut de: impl for<'de> FnMut(DeserializeWrapper<'de, S>, &'de Context<'de>) -> S,
-    ) {
-        if let Some(ser_scene_state) = self.ser_scene_states.get(&S::IDENTIFIER) {
-            let wrapper = DeserializeWrapper::new(&ser_scene_state);
-            let state: S = (de)(wrapper, ctx);
-            ctx.scene_states.insert(state);
         }
     }
 }

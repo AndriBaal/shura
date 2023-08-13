@@ -1,11 +1,9 @@
-use crate::{
-    data::arena::Arena, Color, ComponentConfig, ComponentIdentifier, ComponentRenderer,
-    ComponentTypeId, Context, EndReason, Gpu, InstanceBuffer, InstanceData, RenderTarget, 
-};
 #[cfg(feature = "physics")]
+use crate::physics::{CollideType, ColliderHandle};
 use crate::{
-    physics::{CollideType, ColliderHandle, World},
-    ComponentHandle,
+    data::arena::Arena, Color, ComponentConfig, ComponentHandle, ComponentIdentifier,
+    ComponentRenderer, ComponentTypeId, Context, EndReason, Gpu, InstanceBuffer, InstancePosition,
+    RenderTarget, World,
 };
 use downcast_rs::*;
 
@@ -21,24 +19,25 @@ pub trait FieldNames {
 /// using downcast_ref or downcast_mut.
 pub type BoxedComponent = Box<dyn ComponentDerive>;
 
-/// Base of every component. Provides a method to generate a 2D Matrix, so the component can be rendered
-/// to the screen.
-pub trait BaseComponent: Downcast {
-    fn instance(&self, #[cfg(feature = "physics")] world: &World) -> InstanceData;
+#[allow(unused_variables)]
+pub trait Position: Downcast {
+    fn instance(&self, world: &World) -> InstancePosition;
+    fn init(&mut self, handle: ComponentHandle, world: &mut World) {}
+    fn finish(&mut self, world: &mut World) {}
 }
-impl_downcast!(BaseComponent);
+impl_downcast!(Position);
 
 /// All components need to implement from this trait. This is not done manually, but with the derive macro [Component](crate::Component).
 #[cfg(feature = "rayon")]
 pub trait ComponentDerive: Downcast + Send + Sync {
-    fn base(&self) -> &dyn BaseComponent;
-    fn base_mut(&mut self) -> &mut dyn BaseComponent;
+    fn position(&self) -> &dyn Position;
     fn component_type_id(&self) -> ComponentTypeId;
+    fn init(&mut self, handle: ComponentHandle, world: &mut World);
+    fn finish(&mut self, world: &mut World);
 }
 #[cfg(not(feature = "rayon"))]
 pub trait ComponentDerive: Downcast {
-    fn base(&self) -> &dyn BaseComponent;
-    fn base_mut(&mut self) -> &mut dyn BaseComponent;
+    fn position(&self) -> InstancePosition;
     fn component_type_id(&self) -> ComponentTypeId;
 }
 impl_downcast!(ComponentDerive);
@@ -81,16 +80,20 @@ where
 }
 
 impl<C: ComponentDerive + ?Sized> ComponentDerive for Box<C> {
-    fn base(&self) -> &dyn BaseComponent {
-        (**self).base()
-    }
-
-    fn base_mut(&mut self) -> &mut dyn BaseComponent {
-        (**self).base_mut()
+    fn position(&self) -> &dyn Position {
+        (**self).position()
     }
 
     fn component_type_id(&self) -> ComponentTypeId {
         (**self).component_type_id()
+    }
+
+    fn init(&mut self, handle: ComponentHandle, world: &mut World) {
+        (**self).init(handle, world)
+    }
+
+    fn finish(&mut self, world: &mut World) {
+        (**self).finish(world)
     }
 }
 
@@ -106,19 +109,17 @@ pub(crate) enum BufferHelperType<'a> {
 
 pub struct BufferHelper<'a> {
     inner: BufferHelperType<'a>,
-    #[cfg(feature = "physics")]
     pub world: &'a World,
     pub buffer: &'a mut InstanceBuffer,
 }
 
 impl<'a> BufferHelper<'a> {
     pub(crate) fn new(
-        #[cfg(feature = "physics")] world: &'a World,
+        world: &'a World,
         buffer: &'a mut InstanceBuffer,
         inner: BufferHelperType<'a>,
     ) -> Self {
         Self {
-            #[cfg(feature = "physics")]
             world,
             inner,
             buffer,
@@ -161,10 +162,7 @@ impl<'a> BufferHelper<'a> {
     pub fn buffer_uncasted(&mut self, gpu: &Gpu) {
         match &self.inner {
             BufferHelperType::Single { offset, component } => {
-                let data = component.base().instance(
-                    #[cfg(feature = "physics")]
-                    self.world,
-                );
+                let data = component.position().instance(self.world);
                 self.buffer
                     .write_offset(gpu, *offset, bytemuck::cast_slice(&[data]));
             }
@@ -175,22 +173,16 @@ impl<'a> BufferHelper<'a> {
                     .par_iter()
                     .filter_map(|component| match component {
                         ArenaEntry::Free { .. } => None,
-                        ArenaEntry::Occupied { data, .. } => Some(data.base().instance(
-                            #[cfg(feature = "physics")]
-                            self.world,
-                        )),
+                        ArenaEntry::Occupied { data, .. } => {
+                            Some(data.position().instance(self.world))
+                        }
                     })
-                    .collect::<Vec<InstanceData>>();
+                    .collect::<Vec<InstancePosition>>();
                 #[cfg(not(feature = "rayon"))]
                 let instances = components
                     .iter()
-                    .map(|component| {
-                        component.base().instance(
-                            #[cfg(feature = "physics")]
-                            self.world,
-                        )
-                    })
-                    .collect::<Vec<InstanceData>>();
+                    .map(|component| component.base().instance(self.world))
+                    .collect::<Vec<InstancePosition>>();
                 self.buffer.write(gpu, bytemuck::cast_slice(&instances));
             }
         };
@@ -198,14 +190,11 @@ impl<'a> BufferHelper<'a> {
 }
 
 pub trait ComponentBuffer: Sized + ComponentDerive {
-    const INSTANCE_SIZE: u64 = InstanceData::SIZE;
+    const INSTANCE_SIZE: u64 = InstancePosition::SIZE;
     fn buffer_with(gpu: &Gpu, mut helper: BufferHelper, each: impl Fn(&mut Self) + Send + Sync) {
         helper.buffer(gpu, |c: &mut Self| {
             each(c);
-            c.base().instance(
-                #[cfg(feature = "physics")]
-                helper.world,
-            )
+            c.position().instance(helper.world)
         })
     }
     fn buffer(gpu: &Gpu, mut helper: BufferHelper) {

@@ -2,20 +2,17 @@ use std::sync::Arc;
 
 use crate::{
     ComponentManager, FrameManager, Gpu, GpuDefaults, GroupManager, Input, Scene, SceneManager,
-    ScreenConfig, Shura, StateManager, Vector, WorldCamera,
+    ScreenConfig, Shura, Vector, World, WorldCamera,
 };
 
 #[cfg(feature = "serde")]
-use crate::{ComponentTypeId, SceneSerializer, SerializedComponentStorage, StateTypeId};
+use crate::{ComponentTypeId, SceneSerializer, SerializedComponentStorage};
 
 #[cfg(feature = "serde")]
 use rustc_hash::FxHashMap;
 
 #[cfg(feature = "audio")]
 use crate::audio::AudioManager;
-
-#[cfg(feature = "physics")]
-use crate::physics::World;
 
 #[cfg(feature = "gui")]
 use crate::gui::Gui;
@@ -35,11 +32,9 @@ pub struct Context<'a> {
     pub update_components: &'a mut i16,
     pub render_components: &'a mut bool,
     pub screen_config: &'a mut ScreenConfig,
-    pub scene_states: &'a mut StateManager,
     pub world_camera: &'a mut WorldCamera,
     pub components: &'a mut ComponentManager,
     pub groups: &'a mut GroupManager,
-    #[cfg(feature = "physics")]
     pub world: &'a mut World,
 
     // Shura
@@ -54,7 +49,6 @@ pub struct Context<'a> {
     pub end: &'a mut bool,
     pub scenes: &'a mut SceneManager,
     pub window: &'a mut winit::window::Window,
-    pub global_states: &'a mut StateManager,
 
     // Misc
     pub window_size: Vector<u32>,
@@ -78,8 +72,6 @@ impl<'a> Context<'a> {
             world_camera: &mut scene.world_camera,
             components: scene.components.with_use(context_use),
             groups: &mut scene.groups,
-            scene_states: &mut scene.states,
-            #[cfg(feature = "physics")]
             world: &mut scene.world,
 
             // Shura
@@ -94,7 +86,6 @@ impl<'a> Context<'a> {
             end: &mut shura.end,
             scenes: &mut shura.scenes,
             window: &mut shura.window,
-            global_states: &mut shura.states,
 
             // Misc
             window_size,
@@ -107,8 +98,7 @@ impl<'a> Context<'a> {
         mut serialize: impl FnMut(&mut SceneSerializer),
     ) -> Result<Vec<u8>, Box<bincode::ErrorKind>> {
         let components = &self.components;
-        let mut serializer =
-            SceneSerializer::new(components, &self.global_states, &self.scene_states);
+        let mut serializer = SceneSerializer::new(components);
         (serialize)(&mut serializer);
 
         #[derive(serde::Serialize)]
@@ -121,13 +111,12 @@ impl<'a> Context<'a> {
             world_camera: &'a WorldCamera,
             components: &'a ComponentManager,
             groups: &'a GroupManager,
-            #[cfg(feature = "physics")]
             world: &'a World,
         }
 
         #[cfg(feature = "physics")]
         {
-            let (ser_components, ser_scene_state, ser_global_state) = serializer.finish();
+            let ser_components = serializer.finish();
             let mut world_cpy = self.world.clone();
             for ty in self.components.types_mut() {
                 if !ser_components.contains_key(&ty.component_type_id()) {
@@ -167,16 +156,14 @@ impl<'a> Context<'a> {
             let scene: (
                 &Scene,
                 FxHashMap<ComponentTypeId, SerializedComponentStorage>,
-                FxHashMap<StateTypeId, Vec<u8>>,
-                FxHashMap<StateTypeId, Vec<u8>>,
-            ) = (&scene, ser_components, ser_scene_state, ser_global_state);
+            ) = (&scene, ser_components);
             let result = bincode::serialize(&scene);
             return result;
         }
 
         #[cfg(not(feature = "physics"))]
         {
-            let (ser_components, ser_scene_state, ser_global_state) = serializer.finish();
+            let ser_components = serializer.finish();
             let scene = Scene {
                 id: *self.scene_id,
                 started: true,
@@ -186,13 +173,12 @@ impl<'a> Context<'a> {
                 groups: self.groups,
                 render_components: *self.render_components,
                 update_components: *self.update_components,
+                world: self.world,
             };
             let scene: (
                 &Scene,
                 FxHashMap<ComponentTypeId, SerializedComponentStorage>,
-                FxHashMap<StateTypeId, Vec<u8>>,
-                FxHashMap<StateTypeId, Vec<u8>>,
-            ) = (&scene, ser_components, ser_scene_state, ser_global_state);
+            ) = (&scene, ser_components);
             let result = bincode::serialize(&scene);
             return result;
         }

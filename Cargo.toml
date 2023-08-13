@@ -22,7 +22,7 @@ animation = []
 gamepad = ["dep:gilrs"]
 text = ["dep:glyph_brush"]
 audio = ["dep:rodio"]
-physics = ["dep:rapier2d", "shura_proc/physics"]
+physics = ["dep:rapier2d"]
 gui = ["dep:egui", "dep:egui-wgpu", "dep:egui-winit"]
 log = ["dep:log"]
 rayon = ["dep:rayon"]
@@ -82,7 +82,7 @@ image = { version = "0.24", default-features = false, features = [
     "png",
     "jpeg",
 ] }
-serde = { version = "1", features = ["derive", "rc"], optional = true }
+serde = { version = "1", features = ["derive"], optional = true }
 bincode = { version = "1.3.3", optional = true }
 rand = "0.8.5"
 

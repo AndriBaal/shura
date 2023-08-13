@@ -3,11 +3,14 @@ use std::cell::RefCell;
 use rustc_hash::FxHashSet;
 
 #[cfg(feature = "physics")]
-use crate::physics::{CollideType, ColliderHandle};
+use crate::{
+    physics::{CollideType, ColliderHandle},
+    ComponentHandle, FxHashMap,
+};
 use crate::{
     BufferHelper, BufferOperation, Color, ComponentBuffer, ComponentConfig, ComponentController,
-    ComponentHandle, ComponentRenderer, ComponentTypeId, Context, EndOperation, EndReason,
-    FxHashMap, Gpu, Instant, RenderOperation, RenderTarget, UpdateOperation,
+    ComponentRenderer, ComponentTypeId, Context, EndOperation, EndReason, Gpu, Instant,
+    RenderOperation, RenderTarget, UpdateOperation,
 };
 
 pub(crate) type BufferCallback = fn(gpu: &Gpu, helper: BufferHelper);

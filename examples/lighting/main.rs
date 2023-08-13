@@ -5,7 +5,7 @@ const SIZE: Vector<u32> = vector(800, 800);
 #[shura::main]
 fn shura_main(config: ShuraConfig) {
     config.init(NewScene::new(1, |ctx| {
-        register!(ctx.components, ctx.groups, [Background, Light]);
+        register!(ctx, [Background, Light]);
         ctx.world_camera.set_scaling(WorldCameraScale::Min(10.0));
         ctx.window
             .set_inner_size(winit::dpi::PhysicalSize::new(SIZE.x, SIZE.y));
@@ -27,7 +27,7 @@ fn shura_main(config: ShuraConfig) {
     }))
 }
 
-#[derive(State)]
+#[derive(Component)]
 pub struct LightResources {
     light_model: Model,
     light_map: RenderTarget,
@@ -75,8 +75,8 @@ impl LightResources {
 struct Background {
     model: Model,
     level: Sprite,
-    #[base]
-    base: PositionComponent,
+    #[position]
+    position: PositionComponent,
 }
 
 impl Background {
@@ -86,7 +86,7 @@ impl Background {
                 .gpu
                 .create_model(ModelBuilder::cuboid(vector(10.0, 10.0))),
             level: ctx.gpu.create_sprite(sprite_file!("./level.png")),
-            base: Default::default(),
+            position: Default::default(),
         }
     }
 }
@@ -117,7 +117,7 @@ impl ComponentController for Background {
 
 #[derive(Component)]
 struct Light {
-    #[base]
+    #[position]
     pos: PositionComponent,
     #[buffer]
     color: Color,

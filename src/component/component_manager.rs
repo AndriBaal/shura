@@ -1,14 +1,13 @@
 use rustc_hash::FxHashMap;
 
-#[cfg(feature = "physics")]
-use crate::physics::World;
 use crate::{
-    ComponentBuffer, ComponentConfig, ComponentController, ComponentHandle, ComponentSet,
-    ComponentSetMut, ComponentType, ComponentTypeId, ContextUse, ControllerManager, Gpu,
-    GroupHandle, GroupManager, InstanceData
+    ComponentBuffer, ComponentConfig, ComponentController, ComponentHandle, ComponentScope,
+    ComponentSet, ComponentSetMut, ComponentSetResource, ComponentType, ComponentTypeId,
+    ContextUse, ControllerManager, GlobalComponents, Gpu, GroupHandle, GroupManager, InstancePosition,
+    World
 };
 use std::{
-    cell::{RefCell, RefMut},
+    cell::{Ref, RefCell, RefMut},
     ops::{Deref, DerefMut},
     rc::Rc,
 };
@@ -16,10 +15,10 @@ use std::{
 #[macro_export]
 /// Register multiple components at once
 macro_rules! register {
-    ($components: expr, $groups: expr, [$($C:ty),* $(,)?]) => {
+    ($ctx: expr, [$($C:ty),* $(,)?]) => {
         {
             $(
-                $components.register::<$C>($groups);
+                $ctx.components.register::<$C>($ctx.groups);
             )*
         }
     };
@@ -41,38 +40,74 @@ macro_rules! type_ref {
             .types
             .get(&$C::IDENTIFIER)
             .expect(&no_type_error::<$C>())
-            .borrow();
+            .get();
         ty
     }};
 }
 
 macro_rules! type_mut {
     ($self:ident, $C: ident) => {{
+        assert!(
+            $self.context_use == ContextUse::Update,
+            "This operation is only allowed while updating!"
+        );
         let ty = $self
             .types
             .get(&$C::IDENTIFIER)
             .expect(&no_type_error::<$C>())
-            .borrow_mut();
+            .get_mut();
         ty
     }};
 }
 
 macro_rules! type_render {
-    ($self:ident, $C: ident) => {
-        unsafe {
-            let ty = $self
-                .types
-                .get(&$C::IDENTIFIER)
-                .expect(&no_type_error::<$C>())
-                .try_borrow_unguarded()
-                .unwrap();
-            ty
-        }
-    };
+    ($self:ident, $C: ident) => {{
+        assert!(
+            $self.context_use == ContextUse::Render,
+            "This operation is only allowed while rendering!"
+        );
+        let ty = $self
+            .types
+            .get(&$C::IDENTIFIER)
+            .expect(&no_type_error::<$C>())
+            .get_render();
+        ty
+    }};
 }
 
 fn no_type_error<C: ComponentController>() -> String {
     format!("The type '{}' first needs to be registered!", C::TYPE_NAME)
+}
+
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub(crate) enum ComponentTypeScope {
+    Scene(RefCell<ComponentType>),
+    Global(Rc<RefCell<ComponentType>>),
+}
+
+impl ComponentTypeScope {
+    fn get(&self) -> Ref<ComponentType> {
+        match &self {
+            ComponentTypeScope::Scene(scene) => scene.borrow(),
+            ComponentTypeScope::Global(global) => global.borrow(),
+        }
+    }
+
+    fn get_mut(&self) -> RefMut<ComponentType> {
+        match &self {
+            ComponentTypeScope::Scene(scene) => scene.borrow_mut(),
+            ComponentTypeScope::Global(global) => global.borrow_mut(),
+        }
+    }
+
+    fn get_render(&self) -> &ComponentType {
+        unsafe {
+            match &self {
+                ComponentTypeScope::Scene(scene) => scene.try_borrow_unguarded().unwrap(),
+                ComponentTypeScope::Global(global) => global.try_borrow_unguarded().unwrap(),
+            }
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Ord, Eq)]
@@ -96,7 +131,8 @@ impl ComponentFilter<'static> {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// Access to the component system
 pub struct ComponentManager {
-    types: FxHashMap<ComponentTypeId, RefCell<ComponentType>>,
+    types: FxHashMap<ComponentTypeId, ComponentTypeScope>,
+    global: GlobalComponents,
     context_use: ContextUse,
     pub(super) active_groups: Vec<GroupHandle>,
     pub(super) all_groups: Vec<GroupHandle>,
@@ -106,9 +142,10 @@ pub struct ComponentManager {
 }
 
 impl ComponentManager {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(global: GlobalComponents) -> Self {
         Self {
             types: Default::default(),
+            global,
             all_groups: Vec::from_iter([GroupHandle::DEFAULT_GROUP]),
             active_groups: Vec::from_iter([GroupHandle::DEFAULT_GROUP]),
             controllers: Rc::new(ControllerManager::new()),
@@ -121,30 +158,19 @@ impl ComponentManager {
         self
     }
 
-    pub(crate) fn buffer(&mut self, #[cfg(feature = "physics")] world: &World, gpu: &Gpu) {
+    pub(crate) fn buffer(&mut self, world: &World, gpu: &Gpu) {
         #[cfg(feature = "rayon")]
-        // This is safe here because we dont't expand the map and we don't access the same map entry twice
-        unsafe {
-            struct UnsafeWrapper<'a>(&'a FxHashMap<ComponentTypeId, RefCell<ComponentType>>);
-            impl<'a> UnsafeWrapper<'a> {
-                pub unsafe fn get(&self, type_id: &ComponentTypeId) -> &mut ComponentType {
-                    let ptr = self.0[type_id].as_ptr();
-                    let ty = ptr.as_mut().unwrap();
-                    return ty;
-                }
-            }
-            unsafe impl<'a> Send for UnsafeWrapper<'a> {}
-            unsafe impl<'a> Sync for UnsafeWrapper<'a> {}
-            let wrapper = UnsafeWrapper(&self.types);
-
+        {
             use rayon::prelude::*;
+            // This is safe here because we dont't expand the map and we don't access the same map entry twice
+            unsafe impl Send for ComponentTypeScope {}
+            unsafe impl Sync for ComponentTypeScope {}
             self.controllers
                 .buffers()
                 .par_iter()
                 .for_each(|(buffer, type_id)| {
-                    let ty = wrapper.get(type_id);
+                    let mut ty = self.types[type_id].get_mut();
                     (*ty).buffer(
-                        #[cfg(feature = "physics")]
                         world,
                         *buffer,
                         &self.active_groups,
@@ -156,18 +182,13 @@ impl ComponentManager {
         #[cfg(not(feature = "rayon"))]
         for (buffer, index) in self.controllers.buffers() {
             let ty = &self.types[index];
-            ty.borrow_mut().buffer(
-                #[cfg(feature = "physics")]
+            ty.get_mut().buffer(
                 world,
                 *buffer,
                 &self.active_groups,
                 &gpu,
             );
         }
-    }
-
-    pub(crate) fn type_render<C: ComponentController>(&self) -> &ComponentType {
-        type_render!(self, C)
     }
 
     #[cfg(feature = "serde")]
@@ -185,7 +206,7 @@ impl ComponentManager {
     }
 
     pub(crate) fn types_mut(&mut self) -> impl Iterator<Item = RefMut<'_, ComponentType>> {
-        self.types.values_mut().map(|r| r.borrow_mut())
+        self.types.values_mut().map(|r| r.get_mut())
     }
 
     pub fn register<C: ComponentController + ComponentBuffer>(&mut self, groups: &GroupManager) {
@@ -197,11 +218,50 @@ impl ComponentManager {
         groups: &GroupManager,
         config: ComponentConfig,
     ) {
-        if !self.types.contains_key(&C::IDENTIFIER) {
-            self.types.insert(
-                C::IDENTIFIER,
-                RefCell::new(ComponentType::with_config::<C>(config, groups)),
-            );
+        let mut globals = self.global.0.borrow_mut();
+        match config.scope {
+            ComponentScope::Scene => {
+                if let Some(ty) = globals.get(&C::IDENTIFIER) {
+                    assert!(
+                        ty.is_none(),
+                        "This component already exists as a global component!"
+                    );
+                } else {
+                    globals.insert(C::IDENTIFIER, None);
+                }
+                if !self.types.contains_key(&C::IDENTIFIER) {
+                    self.types.insert(
+                        C::IDENTIFIER,
+                        ComponentTypeScope::Scene(RefCell::new(ComponentType::with_config::<C>(
+                            config, groups,
+                        ))),
+                    );
+                }
+            }
+            ComponentScope::Global => {
+                if let Some(ty) = globals.get(&C::IDENTIFIER) {
+                    if let Some(ty) = ty {
+                        if !self.types.contains_key(&C::IDENTIFIER) {
+                            self.types
+                                .insert(C::IDENTIFIER, ComponentTypeScope::Global(ty.clone()));
+                        }
+                    } else {
+                        panic!("This component already exists as a non global component!");
+                    }
+                } else {
+                    globals.insert(
+                        C::IDENTIFIER,
+                        Some(Rc::new(RefCell::new(ComponentType::with_config::<C>(
+                            config, groups,
+                        )))),
+                    );
+                    let ty = globals[&C::IDENTIFIER].as_ref().unwrap();
+                    if !self.types.contains_key(&C::IDENTIFIER) {
+                        self.types
+                            .insert(C::IDENTIFIER, ComponentTypeScope::Global(ty.clone()));
+                    }
+                }
+            }
         }
         self.controllers.register::<C>(config);
     }
@@ -217,27 +277,35 @@ impl ComponentManager {
     pub(crate) fn instance_data(
         &self,
         handle: ComponentHandle,
-        #[cfg(feature = "physics")] world: &World,
-    ) -> Option<InstanceData> {
+        world: &World,
+    ) -> Option<InstancePosition> {
         self.types
             .get(&handle.type_id())
             .unwrap()
-            .borrow()
+            .get()
             .get_boxed(handle)
             .map(|c| {
-                c.base().instance(
-                    #[cfg(feature = "physics")]
+                c.position().instance(
                     world,
                 )
             })
     }
 
-    #[inline]
-    pub fn get<'a, C: ComponentController>(&'a self) -> ComponentSet<'a, C> {
-        self.get_of(ComponentFilter::Active)
+    pub(crate) fn resource_of<'a, C: ComponentController>(
+        &'a self,
+        filter: ComponentFilter<'a>,
+    ) -> ComponentSetResource<'a, C> {
+        let groups = group_filter!(self, filter).1;
+        let ty = type_render!(self, C);
+        return ComponentSetResource::new(ty, groups);
     }
 
-    pub fn get_of<'a, C: ComponentController>(
+    #[inline]
+    pub fn set_ref<'a, C: ComponentController>(&'a self) -> ComponentSet<'a, C> {
+        self.set_ref_of(ComponentFilter::Active)
+    }
+
+    pub fn set_ref_of<'a, C: ComponentController>(
         &'a self,
         filter: ComponentFilter<'a>,
     ) -> ComponentSet<'a, C> {
@@ -247,13 +315,13 @@ impl ComponentManager {
     }
 
     #[inline]
-    pub fn get_mut<'a, C: ComponentController + ComponentBuffer>(
+    pub fn set_mut<'a, C: ComponentController + ComponentBuffer>(
         &'a mut self,
     ) -> ComponentSetMut<'a, C> {
-        self.get_mut_of(ComponentFilter::Active)
+        self.set_mut_of(ComponentFilter::Active)
     }
 
-    pub fn get_mut_of<'a, C: ComponentController + ComponentBuffer>(
+    pub fn set_mut_of<'a, C: ComponentController + ComponentBuffer>(
         &'a mut self,
         filter: ComponentFilter<'a>,
     ) -> ComponentSetMut<'a, C> {
@@ -263,13 +331,13 @@ impl ComponentManager {
     }
 
     #[inline]
-    pub fn get_ref<'a, C: ComponentController + ComponentBuffer>(
+    pub fn set<'a, C: ComponentController + ComponentBuffer>(
         &'a self,
     ) -> ComponentSetMut<'a, C> {
-        self.get_ref_of(ComponentFilter::Active)
+        self.set_of(ComponentFilter::Active)
     }
 
-    pub fn get_ref_of<'a, C: ComponentController + ComponentBuffer>(
+    pub fn set_of<'a, C: ComponentController + ComponentBuffer>(
         &'a self,
         filter: ComponentFilter<'a>,
     ) -> ComponentSetMut<'a, C> {

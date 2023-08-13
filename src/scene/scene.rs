@@ -1,9 +1,6 @@
-#[cfg(feature = "physics")]
-use crate::physics::World;
-
 use crate::{
-    ComponentManager, Context, ContextUse, GroupManager, ScreenConfig, Shura, StateManager, Vector,
-    WorldCamera, WorldCameraScale,
+    ComponentManager, Context, ContextUse, GroupManager, ScreenConfig, Shura, Vector, WorldCamera,
+    WorldCameraScale, World
 };
 
 /// Origin of a [Scene]
@@ -30,9 +27,7 @@ impl<N: 'static + FnMut(&mut Context)> SceneCreator for NewScene<N> {
     }
 
     fn create(mut self: Box<Self>, shura: &mut Shura) -> Scene {
-        let mint: mint::Vector2<u32> = shura.window.inner_size().into();
-        let window_size: Vector<u32> = mint.into();
-        let mut scene = Scene::new(window_size, self.id);
+        let mut scene = Scene::new(shura, self.id);
         scene.id = self.id;
         scene.started = true;
         let mut ctx = Context::new(shura, &mut scene, ContextUse::Update);
@@ -82,16 +77,14 @@ pub struct Scene {
     pub world_camera: WorldCamera,
     pub components: ComponentManager,
     pub groups: GroupManager,
-    #[cfg_attr(feature = "serde", serde(skip))]
-    #[cfg_attr(feature = "serde", serde(default))]
-    pub states: StateManager,
-    #[cfg(feature = "physics")]
     pub world: World,
 }
 
 impl Scene {
     pub const DEFAULT_VERTICAL_CAMERA_FOV: f32 = 3.0;
-    pub(crate) fn new(window_size: Vector<u32>, id: u32) -> Self {
+    pub(crate) fn new(shura: &Shura, id: u32) -> Self {
+        let mint: mint::Vector2<u32> = shura.window.inner_size().into();
+        let window_size: Vector<u32> = mint.into();
         Self {
             id,
             world_camera: WorldCamera::new(
@@ -99,13 +92,11 @@ impl Scene {
                 WorldCameraScale::Min(Self::DEFAULT_VERTICAL_CAMERA_FOV),
                 window_size,
             ),
-            components: ComponentManager::new(),
+            components: ComponentManager::new(shura.globals.clone()),
             groups: GroupManager::new(),
             screen_config: ScreenConfig::new(),
-            states: StateManager::default(),
             render_components: true,
             update_components: 0,
-            #[cfg(feature = "physics")]
             world: World::new(),
             started: true,
         }

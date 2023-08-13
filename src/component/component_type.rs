@@ -1,8 +1,5 @@
 use std::fmt::{Display, Formatter, Result};
 
-#[cfg(feature = "physics")]
-use crate::physics::World;
-
 #[cfg(feature = "rayon")]
 use crate::rayon::prelude::*;
 
@@ -10,10 +7,10 @@ use crate::{
     data::arena::ArenaEntry, Arena, BoxedComponent, BufferCallback, BufferHelper, BufferHelperType,
     BufferOperation, ComponentBuffer, ComponentConfig, ComponentController, ComponentDerive,
     ComponentHandle, ComponentIndex, ComponentStorage, Gpu, GroupHandle, GroupManager,
-    InstanceBuffer, InstanceIndex, InstanceIndices, RenderCamera, Renderer,
+    InstanceBuffer, InstanceIndex, InstanceIndices, RenderCamera, Renderer, World,
 };
 
-#[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// TypeId of a struct that derives from the [component](crate::Component) macro. The diffrence to the [std::any::TypeId] is, that
 /// this TypeId is const and is the same on every system.
@@ -36,6 +33,12 @@ impl ComponentTypeId {
 impl Display for ComponentTypeId {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "{}", self.id)
+    }
+}
+
+impl std::hash::Hash for ComponentTypeId {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.id.hash(state)
     }
 }
 
@@ -91,8 +94,9 @@ pub(crate) struct ComponentTypeGroup {
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
     buffer: Option<InstanceBuffer>,
-    // TODO: Maybe change this to a flag, since now you have to manually force_buffer to cover all cases
-    last_len: u64,
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[cfg_attr(feature = "serde", serde(default))]
+    last_gen_len: (u32, usize),
 }
 
 impl Clone for ComponentTypeGroup {
@@ -101,7 +105,7 @@ impl Clone for ComponentTypeGroup {
             buffer: None,
             components: Default::default(),
             force_buffer: self.force_buffer.clone(),
-            last_len: self.last_len.clone(),
+            last_gen_len: self.last_gen_len.clone(),
         }
     }
 }
@@ -111,8 +115,8 @@ impl ComponentTypeGroup {
         Self {
             components: Arena::new(),
             buffer: None,
-            last_len: 0,
             force_buffer: true,
+            last_gen_len: (0, 0),
         }
     }
 
@@ -134,19 +138,20 @@ impl ComponentTypeGroup {
         config: &ComponentConfig,
         instance_size: u64,
         callback: BufferCallback,
-        #[cfg(feature = "physics")] world: &World,
+        world: &World,
     ) {
-        let len = self.components.len() as u64;
-        self.resize_buffer(gpu, instance_size);
-        if config.buffer == BufferOperation::EveryFrame || self.force_buffer || len != self.last_len
+        let gen_length = (self.components.generation, self.components.len());
+        if config.buffer == BufferOperation::EveryFrame
+            || self.force_buffer
+            || gen_length != self.last_gen_len
         {
-            self.last_len = len;
+            self.last_gen_len = gen_length;
+            self.resize_buffer(gpu, instance_size);
             self.force_buffer = false;
             let buffer = self.buffer.as_mut().unwrap();
             callback(
                 gpu,
                 BufferHelper::new(
-                    #[cfg(feature = "physics")]
                     world,
                     buffer,
                     BufferHelperType::All {
@@ -209,13 +214,14 @@ impl ComponentType {
         }
     }
 
+    #[cfg(feature = "physics")]
     pub fn component_type_id(&self) -> ComponentTypeId {
         self.type_id
     }
 
     pub(crate) fn buffer(
         &mut self,
-        #[cfg(feature = "physics")] world: &World,
+        world: &World,
         callback: BufferCallback,
         active: &[GroupHandle],
         gpu: &Gpu,
@@ -224,24 +230,12 @@ impl ComponentType {
             ComponentTypeStorage::MultipleGroups(groups) => {
                 for index in active {
                     let group = &mut groups[index.0];
-                    group.buffer(
-                        gpu,
-                        &self.config,
-                        self.instance_size,
-                        callback,
-                        #[cfg(feature = "physics")]
-                        world,
-                    )
+                    group.buffer(gpu, &self.config, self.instance_size, callback, world)
                 }
             }
-            ComponentTypeStorage::Multiple(multiple) => multiple.buffer(
-                gpu,
-                &self.config,
-                self.instance_size,
-                callback,
-                #[cfg(feature = "physics")]
-                world,
-            ),
+            ComponentTypeStorage::Multiple(multiple) => {
+                multiple.buffer(gpu, &self.config, self.instance_size, callback, world)
+            }
             ComponentTypeStorage::Single {
                 buffer,
                 force_buffer,
@@ -257,7 +251,6 @@ impl ComponentType {
                         callback(
                             gpu,
                             BufferHelper::new(
-                                #[cfg(feature = "physics")]
                                 world,
                                 buffer,
                                 crate::BufferHelperType::Single {
@@ -281,17 +274,12 @@ impl ComponentType {
         }
     }
 
-    pub(crate) fn remove_group(
-        &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
-        handle: GroupHandle,
-    ) {
+    pub(crate) fn remove_group(&mut self, world: &mut World, handle: GroupHandle) {
         match &mut self.storage {
             ComponentTypeStorage::MultipleGroups(groups) => {
                 let _group = groups.remove(handle.0).unwrap();
-                #[cfg(feature = "physics")]
                 for mut component in _group.components {
-                    world.remove(&mut component)
+                    component.finish(world)
                 }
             }
             _ => {}
@@ -432,10 +420,9 @@ impl ComponentType {
 
     pub fn retain<C: ComponentController + ComponentDerive>(
         &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
+        world: &mut World,
         group_handles: &[GroupHandle],
-        #[cfg(feature = "physics")] mut keep: impl FnMut(&mut C, &mut World) -> bool,
-        #[cfg(not(feature = "physics"))] mut keep: impl FnMut(&mut C) -> bool,
+        mut keep: impl FnMut(&mut C, &mut World) -> bool,
     ) {
         match &mut self.storage {
             ComponentTypeStorage::Single {
@@ -445,13 +432,8 @@ impl ComponentType {
             } => {
                 if let Some(c) = component {
                     let c = c.downcast_mut::<C>().unwrap();
-                    #[cfg(feature = "physics")]
-                    world.remove(c);
-                    if !keep(
-                        c,
-                        #[cfg(feature = "physics")]
-                        world,
-                    ) {
+                    c.finish(world);
+                    if !keep(c, world) {
                         *force_buffer = true;
                         *component = None;
                     }
@@ -460,15 +442,10 @@ impl ComponentType {
             ComponentTypeStorage::Multiple(multiple) => {
                 multiple.components.retain(|_, component| {
                     let component = component.downcast_mut::<C>().unwrap();
-                    if keep(
-                        component,
-                        #[cfg(feature = "physics")]
-                        world,
-                    ) {
+                    if keep(component, world) {
                         true
                     } else {
-                        #[cfg(feature = "physics")]
-                        world.remove(component);
+                        component.finish(world);
                         false
                     }
                 });
@@ -478,15 +455,10 @@ impl ComponentType {
                     if let Some(group) = groups.get_mut(group.0) {
                         group.components.retain(|_, component| {
                             let component = component.downcast_mut::<C>().unwrap();
-                            if keep(
-                                component,
-                                #[cfg(feature = "physics")]
-                                world,
-                            ) {
+                            if keep(component, world) {
                                 true
                             } else {
-                                #[cfg(feature = "physics")]
-                                world.remove(component);
+                                component.finish(world);
                                 false
                             }
                         });
@@ -741,7 +713,7 @@ impl ComponentType {
 
     pub fn remove<C: ComponentController>(
         &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
+        world: &mut World,
         handle: ComponentHandle,
     ) -> Option<C> {
         match &mut self.storage {
@@ -751,8 +723,7 @@ impl ComponentType {
                 ..
             } => {
                 if let Some(mut component) = component.take() {
-                    #[cfg(feature = "physics")]
-                    world.remove(&mut component);
+                    component.finish(world);
                     *force_buffer = true;
                     return component.downcast::<C>().ok().and_then(|b| Some(*b));
                 }
@@ -761,8 +732,7 @@ impl ComponentType {
             ComponentTypeStorage::Multiple(multiple) => {
                 if let Some(mut component) = multiple.components.remove(handle.component_index().0)
                 {
-                    #[cfg(feature = "physics")]
-                    world.remove(&mut component);
+                    component.finish(world);
                     return component.downcast::<C>().ok().and_then(|b| Some(*b));
                 }
                 return None;
@@ -771,8 +741,7 @@ impl ComponentType {
                 if let Some(group) = groups.get_mut(handle.group_handle().0) {
                     if let Some(mut component) = group.components.remove(handle.component_index().0)
                     {
-                        #[cfg(feature = "physics")]
-                        world.remove(&mut component);
+                        component.finish(world);
                         return component.downcast::<C>().ok().and_then(|b| Some(*b));
                     }
                 }
@@ -783,7 +752,7 @@ impl ComponentType {
 
     pub fn remove_boxed(
         &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
+        world: &mut World,
         handle: ComponentHandle,
     ) -> Option<BoxedComponent> {
         match &mut self.storage {
@@ -793,8 +762,7 @@ impl ComponentType {
                 ..
             } => {
                 if let Some(mut component) = component.take() {
-                    #[cfg(feature = "physics")]
-                    world.remove(&mut component);
+                    component.finish(world);
                     *force_buffer = true;
                     return Some(component);
                 }
@@ -803,8 +771,7 @@ impl ComponentType {
             ComponentTypeStorage::Multiple(multiple) => {
                 if let Some(mut component) = multiple.components.remove(handle.component_index().0)
                 {
-                    #[cfg(feature = "physics")]
-                    world.remove(&mut component);
+                    component.finish(world);
                     return Some(component);
                 }
                 return None;
@@ -813,8 +780,7 @@ impl ComponentType {
                 if let Some(group) = groups.get_mut(handle.group_handle().0) {
                     if let Some(mut component) = group.components.remove(handle.component_index().0)
                     {
-                        #[cfg(feature = "physics")]
-                        world.remove(&mut component);
+                        component.finish(world);
                         return Some(component);
                     }
                 }
@@ -825,7 +791,7 @@ impl ComponentType {
 
     pub fn remove_all<C: ComponentController>(
         &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
+        world: &mut World,
         group_handles: &[GroupHandle],
     ) -> Vec<C> {
         match &mut self.storage {
@@ -836,8 +802,7 @@ impl ComponentType {
             } => {
                 let mut result = Vec::with_capacity(1);
                 if let Some(mut component) = component.take() {
-                    #[cfg(feature = "physics")]
-                    world.remove(&mut component);
+                    component.finish(world);
                     *force_buffer = true;
                     result.push(*component.downcast::<C>().ok().unwrap());
                 }
@@ -847,8 +812,7 @@ impl ComponentType {
                 let mut result = Vec::with_capacity(multiple.components.len());
                 let components = std::mem::replace(&mut multiple.components, Default::default());
                 for mut component in components {
-                    #[cfg(feature = "physics")]
-                    world.remove(&mut component);
+                    component.finish(world);
                     result.push(*component.downcast::<C>().ok().unwrap())
                 }
                 return result;
@@ -860,8 +824,7 @@ impl ComponentType {
                         let components =
                             std::mem::replace(&mut group.components, Default::default());
                         for mut component in components {
-                            #[cfg(feature = "physics")]
-                            world.remove(&mut component);
+                            component.finish(world);
                             result.push(*component.downcast::<C>().ok().unwrap());
                         }
                     }
@@ -873,7 +836,7 @@ impl ComponentType {
 
     pub fn add<C: ComponentDerive + ComponentController>(
         &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
+        world: &mut World,
         group_handle: GroupHandle,
         mut new: C,
     ) -> ComponentHandle {
@@ -889,8 +852,7 @@ impl ComponentType {
                     self.type_id,
                     GroupHandle::INVALID,
                 );
-                #[cfg(feature = "physics")]
-                world.add(handle, &mut new);
+                new.init(handle, world);
                 *component = Some(Box::new(new));
                 *force_buffer = true;
                 return handle;
@@ -903,8 +865,7 @@ impl ComponentType {
                         self.type_id,
                         GroupHandle::INVALID,
                     );
-                    #[cfg(feature = "physics")]
-                    world.add(handle, &mut new);
+                    new.init(handle, world);
                     Box::new(new)
                 });
                 return handle;
@@ -914,8 +875,7 @@ impl ComponentType {
                 let mut handle = Default::default();
                 group.components.insert_with(|idx| {
                     handle = ComponentHandle::new(ComponentIndex(idx), self.type_id, group_handle);
-                    #[cfg(feature = "physics")]
-                    world.add(handle, &mut new);
+                    new.init(handle, world);
                     Box::new(new)
                 });
                 return handle;
@@ -925,7 +885,7 @@ impl ComponentType {
 
     pub fn add_with<C: ComponentDerive + ComponentController>(
         &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
+        world: &mut World,
         group_handle: GroupHandle,
         create: impl FnOnce(ComponentHandle) -> C,
     ) -> ComponentHandle {
@@ -942,8 +902,7 @@ impl ComponentType {
                     GroupHandle::INVALID,
                 );
                 let mut new = create(handle);
-                #[cfg(feature = "physics")]
-                world.add(handle, &mut new);
+                new.init(handle, world);
                 *component = Some(Box::new(new));
                 *force_buffer = true;
                 return handle;
@@ -957,8 +916,7 @@ impl ComponentType {
                         GroupHandle::INVALID,
                     );
                     let mut new = create(handle);
-                    #[cfg(feature = "physics")]
-                    world.add(handle, &mut new);
+                    new.init(handle, world);
                     Box::new(new)
                 });
                 return handle;
@@ -969,8 +927,7 @@ impl ComponentType {
                 group.components.insert_with(|idx| {
                     handle = ComponentHandle::new(ComponentIndex(idx), self.type_id, group_handle);
                     let mut new = create(handle);
-                    #[cfg(feature = "physics")]
-                    world.add(handle, &mut new);
+                    new.init(handle, world);
                     Box::new(new)
                 });
                 return handle;
@@ -980,7 +937,7 @@ impl ComponentType {
 
     pub fn add_many<C: ComponentController>(
         &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
+        world: &mut World,
         group_handle: GroupHandle,
         components: impl IntoIterator<Item = C>,
     ) -> Vec<ComponentHandle> {
@@ -998,8 +955,7 @@ impl ComponentType {
                             self.type_id,
                             GroupHandle::INVALID,
                         );
-                        #[cfg(feature = "physics")]
-                        world.add(handle, &mut component);
+                        component.init(handle, world);
                         handles.push(handle);
                         Box::new(component)
                     });
@@ -1017,8 +973,7 @@ impl ComponentType {
                                 self.type_id,
                                 group_handle,
                             );
-                            #[cfg(feature = "physics")]
-                            world.add(handle, &mut component);
+                            component.init(handle, world);
                             handles.push(handle);
                             Box::new(component)
                         });
@@ -1415,7 +1370,7 @@ impl ComponentType {
         }
     }
 
-    pub fn single<C: ComponentController>(&self) -> Option<&C> {
+    pub fn try_single<C: ComponentController>(&self) -> Option<&C> {
         match &self.storage {
             ComponentTypeStorage::Single { component, .. } => {
                 if let Some(component) = component {
@@ -1427,7 +1382,7 @@ impl ComponentType {
         }
     }
 
-    pub fn single_mut<C: ComponentController>(&mut self) -> Option<&mut C> {
+    pub fn try_single_mut<C: ComponentController>(&mut self) -> Option<&mut C> {
         match &mut self.storage {
             ComponentTypeStorage::Single { component, .. } => {
                 if let Some(component) = component {
@@ -1439,10 +1394,7 @@ impl ComponentType {
         }
     }
 
-    pub fn remove_single<C: ComponentController>(
-        &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
-    ) -> Option<C> {
+    pub fn remove_single<C: ComponentController>(&mut self, world: &mut World) -> Option<C> {
         match &mut self.storage {
             ComponentTypeStorage::Single {
                 force_buffer,
@@ -1451,8 +1403,7 @@ impl ComponentType {
             } => {
                 if let Some(mut component) = component.take() {
                     *force_buffer = true;
-                    #[cfg(feature = "physics")]
-                    world.remove(&mut component);
+                    component.finish(world);
                     return component.downcast::<C>().ok().and_then(|b| Some(*b));
                 }
                 return None;
@@ -1463,7 +1414,7 @@ impl ComponentType {
 
     pub fn set_single<C: ComponentController>(
         &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
+        world: &mut World,
         mut new: C,
     ) -> ComponentHandle {
         match &mut self.storage {
@@ -1478,11 +1429,9 @@ impl ComponentType {
                     self.type_id,
                     GroupHandle::INVALID,
                 );
-                #[cfg(feature = "physics")]
-                world.add(handle, &mut new);
+                new.init(handle, world);
                 if let Some(mut _old) = component.replace(Box::new(new)) {
-                    #[cfg(feature = "physics")]
-                    world.remove(&mut _old);
+                    _old.finish(world);
                 }
                 return handle;
             }
@@ -1492,7 +1441,7 @@ impl ComponentType {
 
     pub fn set_single_with<C: ComponentController>(
         &mut self,
-        #[cfg(feature = "physics")] world: &mut World,
+        world: &mut World,
         create: impl FnOnce(ComponentHandle) -> C,
     ) -> ComponentHandle {
         match &mut self.storage {
@@ -1507,12 +1456,10 @@ impl ComponentType {
                     GroupHandle::INVALID,
                 );
                 let mut new = create(handle);
-                #[cfg(feature = "physics")]
-                world.add(handle, &mut new);
+                new.init(handle, world);
                 *force_buffer = true;
                 if let Some(mut _old) = component.replace(Box::new(new)) {
-                    #[cfg(feature = "physics")]
-                    world.remove(&mut _old);
+                    _old.finish(world);
                 }
                 return handle;
             }
@@ -1520,9 +1467,9 @@ impl ComponentType {
         }
     }
 
-    pub fn par_buffer_for_each_mut<C: ComponentController + ComponentBuffer>(
+    pub fn buffer_for_each_mut<C: ComponentController + ComponentBuffer>(
         &mut self,
-        #[cfg(feature = "physics")] world: &World,
+        world: &World,
         gpu: &Gpu,
         group_handles: &[GroupHandle],
         each: impl Fn(&mut C) + Send + Sync + Copy,
@@ -1538,7 +1485,6 @@ impl ComponentType {
                     }
                     let buffer = buffer.as_mut().unwrap();
                     let helper = BufferHelper::new(
-                        #[cfg(feature = "physics")]
                         world,
                         buffer,
                         BufferHelperType::Single {
@@ -1552,7 +1498,6 @@ impl ComponentType {
             ComponentTypeStorage::Multiple(multiple) => {
                 multiple.resize_buffer(gpu, C::INSTANCE_SIZE);
                 let helper = BufferHelper::new(
-                    #[cfg(feature = "physics")]
                     world,
                     multiple.buffer.as_mut().unwrap(),
                     BufferHelperType::All {
@@ -1566,7 +1511,6 @@ impl ComponentType {
                     if let Some(group) = groups.get_mut(group.0) {
                         group.resize_buffer(gpu, C::INSTANCE_SIZE);
                         let helper = BufferHelper::new(
-                            #[cfg(feature = "physics")]
                             world,
                             group.buffer.as_mut().unwrap(),
                             BufferHelperType::All {

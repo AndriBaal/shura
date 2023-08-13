@@ -3,7 +3,7 @@ use crate::{
         Collider, KinematicCharacterController, RigidBody, RigidBodyHandle, Shape, SharedShape,
         TypedShape, World,
     },
-    BaseComponent, InstanceData, Isometry, Rotation, Vector,
+    BaseComponent, InstancePosition, Isometry, Rotation, Vector,
 };
 
 // #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -12,7 +12,7 @@ pub struct CharacterControllerComponent {
     pub shape: SharedShape,
     scale: Vector<f32>,
     position: Isometry<f32>,
-    instance: InstanceData,
+    instance: InstancePosition,
     disabled: bool,
 }
 
@@ -115,7 +115,7 @@ impl CharacterControllerComponent {
 
     pub fn set_position(&mut self, position: Isometry<f32>) {
         self.position = position;
-        self.instance = InstanceData::new(
+        self.instance = InstancePosition::new(
             position,
             if self.disabled {
                 Vector::default()
@@ -169,7 +169,7 @@ impl CharacterControllerComponent {
 }
 
 impl BaseComponent for CharacterControllerComponent {
-    fn instance(&self, world: &World) -> crate::InstanceData {
+    fn instance(&self, world: &World) -> crate::InstancePosition {
         self.instance
     }
 }

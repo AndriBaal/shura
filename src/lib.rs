@@ -11,7 +11,7 @@ mod input;
 mod math;
 mod scene;
 mod shura;
-mod state;
+mod world;
 
 pub use instant::Duration;
 pub use rustc_hash::{FxHashMap, FxHashSet};
@@ -36,7 +36,6 @@ pub use crate::{
     math::{aabb::*, math::*},
     scene::{context::*, scene::*, scene_manager::*},
     shura::*,
-    state::{state::*, state_manager::*},
 };
 
 /// Access to [wgpu](https://github.com/gfx-rs/wgpu) for creating custom graphics.
@@ -70,8 +69,12 @@ pub mod bytemuck {
     pub use bytemuck::*;
 }
 
+#[cfg(not(feature = "physics"))]
+pub use world::world_no_rapier::World;
+
 #[cfg(feature = "physics")]
-mod world;
+pub use world::world::World;
+
 #[cfg(feature = "physics")]
 /// Access to the to [rapier2d](https://github.com/dimforge/rapier)
 pub mod physics {
@@ -79,7 +82,7 @@ pub mod physics {
         // character_controller_component::*,
         collider_component::*,
         rigid_body_component::*,
-        world::*,
+        world::CollideType,
     };
     pub use rapier2d::control::{
         CharacterAutostep, CharacterCollision, CharacterLength, EffectiveCharacterMovement,

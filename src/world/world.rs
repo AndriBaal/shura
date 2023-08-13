@@ -1,13 +1,10 @@
-use crate::{
-    physics::{ColliderComponent, ColliderStatus, RigidBodyComponent, RigidBodyStatus},
-    ComponentDerive, ComponentHandle, FrameManager,
-};
-use rapier2d::{prelude::*, crossbeam};
+use crate::{ComponentHandle, FrameManager};
+use rapier2d::{crossbeam, prelude::*};
 use rustc_hash::FxHashMap;
 
 type EventReceiver<T> = crossbeam::channel::Receiver<T>;
-pub(crate) type ColliderMapping = FxHashMap<ColliderHandle, ComponentHandle>;
-pub(crate) type RigidBodyMapping = FxHashMap<RigidBodyHandle, ComponentHandle>;
+type ColliderMapping = FxHashMap<ColliderHandle, ComponentHandle>;
+type RigidBodyMapping = FxHashMap<RigidBodyHandle, ComponentHandle>;
 
 struct WorldEvents {
     collision: EventReceiver<CollisionEvent>,
@@ -213,101 +210,77 @@ impl World {
         }
     }
 
-    pub(crate) fn add(
+    pub(crate) fn add_collider(
         &mut self,
         component_handle: ComponentHandle,
-        component: &mut dyn ComponentDerive,
-    ) {
-        if let Some(component) = component.base_mut().downcast_mut::<RigidBodyComponent>() {
-            match &mut component.status {
-                RigidBodyStatus::Added { .. } => return,
-                RigidBodyStatus::Pending {
-                    rigid_body,
-                    colliders,
-                } => {
-                    let rigid_body_handle = self.bodies.insert(rigid_body.clone());
-                    self.rigid_body_mapping
-                        .insert(rigid_body_handle, component_handle);
-                    for collider in colliders {
-                        let collider_handle = self.colliders.insert_with_parent(
-                            collider.clone(),
-                            rigid_body_handle,
-                            &mut self.bodies,
-                        );
-                        self.collider_mapping
-                            .insert(collider_handle, component_handle);
-                    }
-                    component.status = RigidBodyStatus::Added { rigid_body_handle }
-                }
-            }
-        } else if let Some(component) = component.base_mut().downcast_mut::<ColliderComponent>() {
-            match &mut component.status {
-                ColliderStatus::Added { .. } => return,
-                ColliderStatus::Pending { collider } => {
-                    let collider_handle = self.colliders.insert(collider.clone());
-                    self.collider_mapping
-                        .insert(collider_handle, component_handle);
-                    component.status = ColliderStatus::Added { collider_handle }
-                }
-            }
-        }
+        collider: Collider,
+    ) -> ColliderHandle {
+        let collider_handle = self.colliders.insert(collider.clone());
+        self.collider_mapping
+            .insert(collider_handle, component_handle);
+        return collider_handle;
     }
 
-    pub(crate) fn remove(&mut self, component: &mut dyn ComponentDerive) {
-        if let Some(component) = component.base_mut().downcast_mut::<RigidBodyComponent>() {
-            match component.status {
-                RigidBodyStatus::Added { rigid_body_handle } => {
-                    self.rigid_body_mapping.remove(&rigid_body_handle);
-                    if let Some(rigid_body) = self.bodies.remove(
-                        rigid_body_handle,
-                        &mut self.islands,
-                        &mut self.colliders,
-                        &mut self.impulse_joints,
-                        &mut self.multibody_joints,
-                        false,
-                    ) {
-                        let colliders = rigid_body.colliders();
-                        let mut status = RigidBodyStatus::Pending {
-                            rigid_body: rigid_body.clone(),
-                            colliders: Vec::with_capacity(colliders.len()),
-                        };
-                        for collider_handle in colliders {
-                            match &mut status {
-                                RigidBodyStatus::Pending { colliders, .. } => {
-                                    if let Some(collider) = self.colliders.remove(
-                                        *collider_handle,
-                                        &mut self.islands,
-                                        &mut self.bodies,
-                                        true,
-                                    ) {
-                                        colliders.push(collider);
-                                    }
-                                    self.collider_mapping.remove(collider_handle);
-                                }
-                                _ => {}
-                            }
-                        }
-                        component.status = status;
-                    }
-                }
-                RigidBodyStatus::Pending { .. } => return,
-            }
-        } else if let Some(component) = component.base_mut().downcast_mut::<ColliderComponent>() {
-            match component.status {
-                ColliderStatus::Added { collider_handle } => {
-                    self.collider_mapping.remove(&collider_handle);
-                    if let Some(collider) = self.colliders.remove(
-                        collider_handle,
-                        &mut self.islands,
-                        &mut self.bodies,
-                        false,
-                    ) {
-                        component.status = ColliderStatus::Pending { collider }
-                    }
-                }
-                ColliderStatus::Pending { .. } => return,
-            }
+    pub(crate) fn add_rigid_body(
+        &mut self,
+        rigid_body: RigidBody,
+        colliders: Vec<Collider>,
+        component_handle: ComponentHandle,
+    ) -> RigidBodyHandle {
+        let rigid_body_handle = self.bodies.insert(rigid_body.clone());
+        self.rigid_body_mapping
+            .insert(rigid_body_handle, component_handle);
+        for collider in colliders {
+            let collider_handle = self.colliders.insert_with_parent(
+                collider.clone(),
+                rigid_body_handle,
+                &mut self.bodies,
+            );
+            self.collider_mapping
+                .insert(collider_handle, component_handle);
         }
+        return rigid_body_handle;
+    }
+
+    pub(crate) fn remove_rigid_body(
+        &mut self,
+        handle: RigidBodyHandle,
+    ) -> Option<(RigidBody, Vec<Collider>)> {
+        self.rigid_body_mapping.remove(&handle);
+        if let Some(rigid_body) = self.bodies.remove(
+            handle,
+            &mut self.islands,
+            &mut self.colliders,
+            &mut self.impulse_joints,
+            &mut self.multibody_joints,
+            false,
+        ) {
+            let mut colliders = vec![];
+            for collider_handle in rigid_body.colliders() {
+                if let Some(collider) = self.colliders.remove(
+                    *collider_handle,
+                    &mut self.islands,
+                    &mut self.bodies,
+                    true,
+                ) {
+                    colliders.push(collider);
+                }
+                self.collider_mapping.remove(collider_handle);
+            }
+            return Some((rigid_body, colliders));
+        }
+        return None;
+    }
+
+    pub(crate) fn remove_collider(&mut self, collider: ColliderHandle) -> Option<Collider> {
+        self.collider_mapping.remove(&collider);
+        if let Some(collider) =
+            self.colliders
+                .remove(collider, &mut self.islands, &mut self.bodies, false)
+        {
+            return Some(collider);
+        }
+        return None;
     }
 
     pub(crate) fn attach_collider(
@@ -334,8 +307,11 @@ impl World {
     }
 
     #[cfg(feature = "serde")]
-    pub(crate) fn remove_no_maintain(&mut self, component: &dyn ComponentDerive) {
-        if let Some(component) = component.base().downcast_ref::<RigidBodyComponent>() {
+    pub(crate) fn remove_no_maintain(&mut self, component: &dyn crate::ComponentDerive) {
+        use crate::physics::{
+            ColliderComponent, ColliderStatus, RigidBodyComponent, RigidBodyStatus,
+        };
+        if let Some(component) = component.position().downcast_ref::<RigidBodyComponent>() {
             match component.status {
                 RigidBodyStatus::Added { rigid_body_handle } => {
                     if let Some(rigid_body) = self.bodies.remove(
@@ -353,7 +329,7 @@ impl World {
                 }
                 RigidBodyStatus::Pending { .. } => return,
             }
-        } else if let Some(component) = component.base().downcast_ref::<ColliderComponent>() {
+        } else if let Some(component) = component.position().downcast_ref::<ColliderComponent>() {
             match component.status {
                 ColliderStatus::Added { collider_handle } => {
                     self.collider_mapping.remove(&collider_handle);

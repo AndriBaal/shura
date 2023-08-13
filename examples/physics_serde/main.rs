@@ -3,6 +3,10 @@ use shura::physics::*;
 use shura::{serde, *};
 use std::{fmt, fs};
 
+fn register(ctx: &mut Context) {
+    register!(ctx, [PhysicsBox, Player, Floor, PhysicsResources]);
+}
+
 #[shura::main]
 fn shura_main(config: ShuraConfig) {
     if let Some(save_game) = fs::read("data.binc").ok() {
@@ -10,24 +14,27 @@ fn shura_main(config: ShuraConfig) {
             id: 1,
             scene: save_game,
             init: |ctx, s| {
+                register(ctx);
                 s.deserialize_components_with(ctx, |w, ctx| w.deserialize(FloorVisitor { ctx }));
                 s.deserialize_components_with(ctx, |w, ctx| w.deserialize(PlayerVisitor { ctx }));
                 s.deserialize_components::<PhysicsBox>(ctx);
-                ctx.scene_states.insert(PhysicsState::new(ctx))
+                ctx.components
+                    .set::<PhysicsResources>()
+                    .add(ctx.world, PhysicsResources::new(ctx));
             },
         })
     } else {
         config.init(NewScene {
             id: 1,
             init: |ctx| {
+                register(ctx);
                 const PYRAMID_ELEMENTS: i32 = 8;
                 const MINIMAL_SPACING: f32 = 0.1;
-                ctx.components.register::<PhysicsBox>(ctx.groups);
-                ctx.components.register::<Player>(ctx.groups);
-                ctx.components.register::<Floor>(ctx.groups);
                 ctx.world_camera.set_scaling(WorldCameraScale::Max(5.0));
                 ctx.world.set_gravity(Vector::new(0.00, -9.81));
-                ctx.scene_states.insert(PhysicsState::new(ctx));
+                ctx.components
+                    .set::<PhysicsResources>()
+                    .add(ctx.world, PhysicsResources::new(ctx));
 
                 for x in -PYRAMID_ELEMENTS..PYRAMID_ELEMENTS {
                     for y in 0..(PYRAMID_ELEMENTS - x.abs()) {
@@ -35,27 +42,31 @@ fn shura_main(config: ShuraConfig) {
                             x as f32 * (PhysicsBox::HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING),
                             y as f32 * (PhysicsBox::HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING * 2.0),
                         ));
-                        ctx.components.get_mut::<PhysicsBox>().add(ctx.world, b);
+                        ctx.components.set::<PhysicsBox>().add(ctx.world, b);
                     }
                 }
 
                 let player = Player::new(ctx);
-                let player_handle = ctx.components.get_mut::<Player>().add(ctx.world, player);
+                let player_handle = ctx.components.set::<Player>().add(ctx.world, player);
                 ctx.world_camera.set_target(Some(player_handle));
                 let floor = Floor::new(ctx);
-                ctx.components.get_mut::<Floor>().add(ctx.world, floor);
+                ctx.components.set::<Floor>().add(ctx.world, floor);
             },
         })
     };
 }
 
-#[derive(State)]
-struct PhysicsState {
+#[derive(Component)]
+struct PhysicsResources {
     box_colors: SpriteSheet,
     box_model: Model,
 }
 
-impl PhysicsState {
+impl ComponentController for PhysicsResources {
+    const CONFIG: ComponentConfig = ComponentConfig::RESOURCE;
+}
+
+impl PhysicsResources {
     pub fn new(ctx: &Context) -> Self {
         let box_colors = ctx.gpu.create_sprite_sheet(SpriteSheetBuilder::colors(&[
             RgbaColor::new(0, 255, 0, 255),
@@ -80,7 +91,7 @@ struct Player {
     sprite: Sprite,
     #[serde(skip)]
     model: Model,
-    #[base]
+    #[position]
     body: RigidBodyComponent,
 }
 
@@ -152,7 +163,7 @@ impl ComponentController for Player {
                 .is_none()
             {
                 let b = PhysicsBox::new(cursor);
-                ctx.components.get_mut::<PhysicsBox>().add(ctx.world, b);
+                ctx.components.set::<PhysicsBox>().add(ctx.world, b);
             }
         }
 
@@ -173,7 +184,9 @@ impl ComponentController for Player {
                             w.deserialize(PlayerVisitor { ctx })
                         });
                         s.deserialize_components::<PhysicsBox>(ctx);
-                        ctx.scene_states.insert(PhysicsState::new(ctx));
+                        ctx.components
+                            .set::<PhysicsResources>()
+                            .add(ctx.world, PhysicsResources::new(ctx));
                     },
                 });
             }
@@ -182,7 +195,7 @@ impl ComponentController for Player {
         let delta = ctx.frame.frame_time();
         let input = &mut ctx.input;
 
-        ctx.components.get_mut::<Self>().for_each_mut(|player| {
+        ctx.components.set::<Self>().for_each_mut(|player| {
             let body = player.body.get_mut(ctx.world);
             let mut linvel = *body.linvel();
 
@@ -207,9 +220,11 @@ impl ComponentController for Player {
     }
 
     fn render<'a>(ctx: &'a Context, renderer: &mut ComponentRenderer<'a>) {
-        renderer.render_single::<Self>(ctx, RenderCamera::World, |r, player, index| {
-            r.render_sprite(index, &player.model, &player.sprite)
-        });
+        renderer.resource::<Self>(ctx).render_single(
+            renderer,
+            RenderCamera::World,
+            |r, player, index| r.render_sprite(index, &player.model, &player.sprite),
+        );
     }
 
     fn collision(
@@ -220,7 +235,7 @@ impl ComponentController for Player {
         _other_collider: ColliderHandle,
         collision_type: CollideType,
     ) {
-        if let Some(b) = ctx.components.get_mut::<PhysicsBox>().get_mut(other_handle) {
+        if let Some(b) = ctx.components.set::<PhysicsBox>().get_mut(other_handle) {
             match collision_type {
                 CollideType::Started => b.sprite = Vector::new(2, 0),
                 CollideType::Stopped => b.sprite = Vector::new(0, 0),
@@ -239,7 +254,7 @@ struct Floor {
     color: Sprite,
     #[serde(skip)]
     model: Model,
-    #[base]
+    #[position]
     collider: ColliderComponent,
 }
 
@@ -280,7 +295,7 @@ impl ComponentController for Floor {
 
 #[derive(Component, serde::Serialize, serde::Deserialize)]
 struct PhysicsBox {
-    #[base]
+    #[position]
     body: RigidBodyComponent,
     #[buffer]
     sprite: SpriteSheetIndex,
@@ -306,7 +321,7 @@ impl PhysicsBox {
 
 impl ComponentController for PhysicsBox {
     fn render<'a>(ctx: &'a Context, renderer: &mut ComponentRenderer<'a>) {
-        let state = ctx.scene_states.get::<PhysicsState>();
+        let state = renderer.resource::<PhysicsResources>(ctx).single();
         renderer.render_all::<Self>(ctx, RenderCamera::World, |renderer, instance| {
             renderer.render_sprite_sheet(instance, &state.box_model, &state.box_colors);
         });
@@ -316,7 +331,7 @@ impl ComponentController for PhysicsBox {
         let cursor_world: Point<f32> = (ctx.input.cursor(ctx.world_camera)).into();
         let remove = ctx.input.is_held(MouseButton::Left) || ctx.input.is_pressed(ScreenTouch);
         ctx.components
-            .get_mut::<Self>()
+            .set::<Self>()
             .for_each_mut(|physics_box| {
                 if physics_box.sprite == vector(1, 0) {
                     physics_box.sprite = Vector::new(0, 0);
@@ -332,7 +347,7 @@ impl ComponentController for PhysicsBox {
             },
         );
         if let Some(handle) = component {
-            let mut boxes = ctx.components.get_mut::<Self>();
+            let mut boxes = ctx.components.set::<Self>();
             if let Some(physics_box) = boxes.get_mut(handle) {
                 physics_box.sprite = Vector::new(1, 0);
                 if remove {

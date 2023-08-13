@@ -1,8 +1,5 @@
-use crate::{data::arena::Arena, CameraBuffer, ComponentManager, GroupHandle, Vector, AABB};
+use crate::{data::arena::Arena, CameraBuffer, ComponentManager, GroupHandle, Vector, World, AABB};
 use std::fmt;
-
-#[cfg(feature = "physics")]
-use crate::physics::World;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GroupManager {
@@ -58,7 +55,7 @@ impl GroupManager {
     pub fn remove(
         &mut self,
         components: &mut ComponentManager,
-        #[cfg(feature = "physics")] world: &mut World,
+        world: &mut World,
         handle: GroupHandle,
     ) -> Option<Group> {
         if handle == GroupHandle::DEFAULT_GROUP {
@@ -69,7 +66,6 @@ impl GroupManager {
         components.all_groups.retain(|g| *g != handle);
         for mut ty in components.types_mut() {
             ty.remove_group(
-                #[cfg(feature = "physics")]
                 world,
                 handle,
             );
