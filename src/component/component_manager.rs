@@ -83,6 +83,7 @@ macro_rules! type_render {
     }};
 }
 
+const ALREADY_BORROWED: &'static str = "This type is already borrowed!";
 fn no_type_error<C: ComponentController>() -> String {
     format!("The type '{}' first needs to be registered!", C::TYPE_NAME)
 }
@@ -96,30 +97,38 @@ pub(crate) enum ComponentTypeScope {
 impl ComponentTypeScope {
     fn get_ref_mut_raw(&self) -> RefMut<dyn ComponentTypeImplementation> {
         match &self {
-            ComponentTypeScope::Scene(scene) => scene.borrow_mut(),
-            ComponentTypeScope::Global(global) => global.borrow_mut(),
+            ComponentTypeScope::Scene(scene) => scene.try_borrow_mut().expect(ALREADY_BORROWED),
+            ComponentTypeScope::Global(global) => global.try_borrow_mut().expect(ALREADY_BORROWED),
         }
     }
 
     fn get_ref<C: ComponentController + 'static>(&self) -> Ref<ComponentType<C>> {
         match &self {
-            ComponentTypeScope::Scene(scene) => Ref::map(scene.borrow(), |ty| {
-                ty.downcast_ref::<ComponentType<C>>().unwrap()
-            }),
-            ComponentTypeScope::Global(global) => Ref::map(global.borrow(), |ty| {
-                ty.downcast_ref::<ComponentType<C>>().unwrap()
-            }),
+            ComponentTypeScope::Scene(scene) => {
+                Ref::map(scene.try_borrow().expect(ALREADY_BORROWED), |ty| {
+                    ty.downcast_ref::<ComponentType<C>>().unwrap()
+                })
+            }
+            ComponentTypeScope::Global(global) => {
+                Ref::map(global.try_borrow().expect(ALREADY_BORROWED), |ty| {
+                    ty.downcast_ref::<ComponentType<C>>().unwrap()
+                })
+            }
         }
     }
 
     fn get_ref_mut<C: ComponentController + 'static>(&self) -> RefMut<ComponentType<C>> {
         match &self {
-            ComponentTypeScope::Scene(scene) => RefMut::map(scene.borrow_mut(), |ty| {
-                ty.downcast_mut::<ComponentType<C>>().unwrap()
-            }),
-            ComponentTypeScope::Global(global) => RefMut::map(global.borrow_mut(), |ty| {
-                ty.downcast_mut::<ComponentType<C>>().unwrap()
-            }),
+            ComponentTypeScope::Scene(scene) => {
+                RefMut::map(scene.try_borrow_mut().expect(ALREADY_BORROWED), |ty| {
+                    ty.downcast_mut::<ComponentType<C>>().unwrap()
+                })
+            }
+            ComponentTypeScope::Global(global) => {
+                RefMut::map(global.try_borrow_mut().expect(ALREADY_BORROWED), |ty| {
+                    ty.downcast_mut::<ComponentType<C>>().unwrap()
+                })
+            }
         }
     }
 
@@ -196,14 +205,11 @@ impl ComponentManager {
             // This is safe here because we dont't expand the map and we don't access the same map entry twice
             unsafe impl Send for ComponentTypeScope {}
             unsafe impl Sync for ComponentTypeScope {}
-            self.controllers
-                .buffers()
-                .par_iter()
-                .for_each(|ty| {
-                    let ty = &self.types[ty];
-                    ty.get_ref_mut_raw()
-                        .buffer(world, &self.active_groups, &gpu);
-                });
+            self.controllers.buffers().par_iter().for_each(|ty| {
+                let ty = &self.types[ty];
+                ty.get_ref_mut_raw()
+                    .buffer(world, &self.active_groups, &gpu);
+            });
         }
 
         // #[cfg(not(feature = "rayon"))]

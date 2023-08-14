@@ -6,7 +6,6 @@ pub struct EmptyComponent;
 pub static EMPTY_DEFAULT_COMPONENT: EmptyComponent = EmptyComponent;
 
 impl EmptyComponent {
-
     pub fn new() -> Self {
         Self
     }
