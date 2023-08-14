@@ -1,37 +1,29 @@
 use crate::{
-    BoxedComponent, ComponentBuffer, ComponentController, ComponentHandle, ComponentType, Gpu,
-    GroupHandle, InstanceBuffer, InstanceIndex, InstanceIndices, RenderCamera, Renderer, World
+    ComponentBuffer, ComponentController, ComponentHandle, ComponentType, ComponentTypeId, Gpu,
+    GroupHandle, InstanceBuffer, InstanceIndex, InstanceIndices, RenderCamera, Renderer, World,
 };
-use std::{
-    cell::{Ref, RefMut},
-    marker::PhantomData,
-};
+use std::cell::{Ref, RefMut};
 
 /// Set of components from  the same type only from the specified (groups)[crate::Group]
 pub struct ComponentSet<'a, C: ComponentController> {
-    ty: Ref<'a, ComponentType>,
+    ty: Ref<'a, ComponentType<C>>,
     groups: &'a [GroupHandle],
-    marker: PhantomData<C>,
 }
 
 impl<'a, C: ComponentController> ComponentSet<'a, C> {
     pub(crate) fn new(
-        ty: Ref<'a, ComponentType>,
+        ty: Ref<'a, ComponentType<C>>,
         groups: &'a [GroupHandle],
     ) -> ComponentSet<'a, C> {
-        Self {
-            ty,
-            groups,
-            marker: PhantomData,
-        }
+        Self { ty, groups }
+    }
+
+    pub fn component_type_id(&self) -> ComponentTypeId {
+        self.ty.component_type_id()
     }
 
     pub fn for_each(&self, each: impl FnMut(&C)) {
         self.ty.for_each(self.groups, each);
-    }
-
-    pub fn par_for_each(&self, each: impl Fn(&C) + Send + Sync) {
-        self.ty.par_for_each(self.groups, each);
     }
 
     pub fn index(&self, index: usize) -> Option<&C> {
@@ -44,10 +36,6 @@ impl<'a, C: ComponentController> ComponentSet<'a, C> {
 
     pub fn get(&self, handle: ComponentHandle) -> Option<&C> {
         self.ty.get(handle)
-    }
-
-    pub fn get_boxed(&self, handle: ComponentHandle) -> Option<&BoxedComponent> {
-        self.ty.get_boxed(handle)
     }
 
     pub fn len(&self) -> usize {
@@ -71,32 +59,34 @@ impl<'a, C: ComponentController> ComponentSet<'a, C> {
     }
 }
 
+#[cfg(feature = "rayon")]
+impl<'a, C: ComponentController + Send + Sync> ComponentSet<'a, C> {
+    pub fn par_for_each(&self, each: impl Fn(&C) + Send + Sync) {
+        self.ty.par_for_each(self.groups, each);
+    }
+}
+
 /// Set of components from  the same type only from the specified (groups)[crate::Group]
 #[derive(Clone, Copy)]
 pub struct ComponentSetResource<'a, C: ComponentController> {
-    ty: &'a ComponentType,
+    ty: &'a ComponentType<C>,
     groups: &'a [GroupHandle],
-    marker: PhantomData<C>,
 }
 
 impl<'a, C: ComponentController> ComponentSetResource<'a, C> {
     pub(crate) fn new(
-        ty: &'a ComponentType,
+        ty: &'a ComponentType<C>,
         groups: &'a [GroupHandle],
     ) -> ComponentSetResource<'a, C> {
-        Self {
-            ty,
-            groups,
-            marker: PhantomData,
-        }
+        Self { ty, groups }
+    }
+
+    pub fn component_type_id(&self) -> ComponentTypeId {
+        self.ty.component_type_id()
     }
 
     pub fn for_each(&self, each: impl FnMut(&C) + 'a) {
         self.ty.for_each(self.groups, each);
-    }
-
-    pub fn par_for_each(&self, each: impl Fn(&C) + Send + Sync + 'a) {
-        self.ty.par_for_each(self.groups, each);
     }
 
     pub fn index(&self, index: usize) -> Option<&'a C> {
@@ -109,10 +99,6 @@ impl<'a, C: ComponentController> ComponentSetResource<'a, C> {
 
     pub fn get(&self, handle: ComponentHandle) -> Option<&'a C> {
         self.ty.get(handle)
-    }
-
-    pub fn get_boxed(&self, handle: ComponentHandle) -> Option<&'a BoxedComponent> {
-        self.ty.get_boxed(handle)
     }
 
     pub fn len(&self) -> usize {
@@ -132,7 +118,7 @@ impl<'a, C: ComponentController> ComponentSetResource<'a, C> {
     }
 
     pub fn single(&self) -> &'a C {
-        self.ty.try_single().unwrap()
+        self.ty.single()
     }
 
     pub fn render_each(
@@ -163,16 +149,22 @@ impl<'a, C: ComponentController> ComponentSetResource<'a, C> {
     }
 }
 
+#[cfg(feature = "rayon")]
+impl<'a, C: ComponentController + Send + Sync> ComponentSetResource<'a, C> {
+    pub fn par_for_each(&self, each: impl Fn(&C) + Send + Sync) {
+        self.ty.par_for_each(self.groups, each);
+    }
+}
+
 /// Set of mutable components from  the same type only from the specified (groups)[crate::Group]
 pub struct ComponentSetMut<'a, C: ComponentController + ComponentBuffer> {
-    ty: RefMut<'a, ComponentType>,
+    ty: RefMut<'a, ComponentType<C>>,
     groups: &'a [GroupHandle],
-    marker: PhantomData<C>,
 }
 
 impl<'a, C: ComponentController + ComponentBuffer> ComponentSetMut<'a, C> {
     pub(crate) fn new(
-        ty: RefMut<'a, ComponentType>,
+        ty: RefMut<'a, ComponentType<C>>,
         groups: &'a [GroupHandle],
         check: bool,
     ) -> ComponentSetMut<'a, C> {
@@ -183,19 +175,11 @@ impl<'a, C: ComponentController + ComponentBuffer> ComponentSetMut<'a, C> {
                 }
             }
         }
-        Self {
-            ty,
-            groups,
-            marker: PhantomData,
-        }
+        Self { ty, groups }
     }
 
-    pub fn par_for_each(&self, each: impl Fn(&C) + Send + Sync) {
-        self.ty.par_for_each(self.groups, each);
-    }
-
-    pub fn par_for_each_mut(&mut self, each: impl Fn(&mut C) + Send + Sync) {
-        self.ty.par_for_each_mut(self.groups, each);
+    pub fn component_type_id(&self) -> ComponentTypeId {
+        self.ty.component_type_id()
     }
 
     pub fn for_each(&self, each: impl FnMut(&C)) {
@@ -212,24 +196,11 @@ impl<'a, C: ComponentController + ComponentBuffer> ComponentSetMut<'a, C> {
         gpu: &Gpu,
         each: impl Fn(&mut C) + Send + Sync + Copy,
     ) {
-        self.ty.buffer_for_each_mut::<C>(
-            world,
-            gpu,
-            self.groups,
-            each,
-        )
+        self.ty.buffer_for_each_mut(world, gpu, self.groups, each)
     }
 
-    pub fn retain(
-        &mut self,
-        world: &mut World,
-        keep: impl FnMut(&mut C, &mut World) -> bool,
-    ) {
-        self.ty.retain(
-            world,
-            self.groups,
-            keep,
-        );
+    pub fn retain(&mut self, world: &mut World, keep: impl FnMut(&mut C, &mut World) -> bool) {
+        self.ty.retain(world, self.groups, keep);
     }
 
     pub fn index(&self, index: usize) -> Option<&C> {
@@ -261,64 +232,19 @@ impl<'a, C: ComponentController + ComponentBuffer> ComponentSetMut<'a, C> {
         handle1: ComponentHandle,
         handle2: ComponentHandle,
     ) -> (Option<&mut C>, Option<&mut C>) {
-        self.ty.get2_mut::<C, C>(handle1, handle2)
+        self.ty.get2_mut(handle1, handle2)
     }
 
-    pub fn get_boxed(&self, handle: ComponentHandle) -> Option<&BoxedComponent> {
-        self.ty.get_boxed(handle)
-    }
-
-    pub fn get_boxed_mut(&mut self, handle: ComponentHandle) -> Option<&mut BoxedComponent> {
-        self.ty.get_boxed_mut(handle)
-    }
-
-    pub fn get2_boxed_mut(
-        &mut self,
-        handle1: ComponentHandle,
-        handle2: ComponentHandle,
-    ) -> (Option<&mut BoxedComponent>, Option<&mut BoxedComponent>) {
-        self.ty.get2_boxed_mut(handle1, handle2)
-    }
-
-    pub fn remove(
-        &mut self,
-        world: &mut World,
-        handle: ComponentHandle,
-    ) -> Option<C> {
-        self.ty.remove(
-            world,
-            handle,
-        )
-    }
-
-    pub fn remove_boxed(
-        &mut self,
-        world: &mut World,
-        handle: ComponentHandle,
-    ) -> Option<BoxedComponent> {
-        self.ty.remove_boxed(
-            world,
-            handle,
-        )
+    pub fn remove(&mut self, world: &mut World, handle: ComponentHandle) -> Option<C> {
+        self.ty.remove(world, handle)
     }
 
     pub fn remove_all(&mut self, world: &mut World) -> Vec<C> {
-        self.ty.remove_all(
-            world,
-            self.groups,
-        )
+        self.ty.remove_all(world, self.groups)
     }
 
-    pub fn add(
-        &mut self,
-        world: &mut World,
-        component: C,
-    ) -> ComponentHandle {
-        self.add_to(
-            world,
-            GroupHandle::DEFAULT_GROUP,
-            component,
-        )
+    pub fn add(&mut self, world: &mut World, component: C) -> ComponentHandle {
+        self.add_to(world, GroupHandle::DEFAULT_GROUP, component)
     }
 
     pub fn add_to(
@@ -327,11 +253,7 @@ impl<'a, C: ComponentController + ComponentBuffer> ComponentSetMut<'a, C> {
         group_handle: GroupHandle,
         component: C,
     ) -> ComponentHandle {
-        self.ty.add(
-            world,
-            group_handle,
-            component,
-        )
+        self.ty.add(world, group_handle, component)
     }
 
     pub fn add_many(
@@ -339,11 +261,7 @@ impl<'a, C: ComponentController + ComponentBuffer> ComponentSetMut<'a, C> {
         world: &mut World,
         components: impl IntoIterator<Item = C>,
     ) -> Vec<ComponentHandle> {
-        self.add_many_to(
-            world,
-            GroupHandle::DEFAULT_GROUP,
-            components,
-        )
+        self.add_many_to(world, GroupHandle::DEFAULT_GROUP, components)
     }
 
     pub fn add_many_to(
@@ -352,11 +270,7 @@ impl<'a, C: ComponentController + ComponentBuffer> ComponentSetMut<'a, C> {
         group_handle: GroupHandle,
         components: impl IntoIterator<Item = C>,
     ) -> Vec<ComponentHandle> {
-        self.ty.add_many::<C>(
-            world,
-            group_handle,
-            components,
-        )
+        self.ty.add_many(world, group_handle, components)
     }
 
     pub fn add_with(
@@ -364,11 +278,7 @@ impl<'a, C: ComponentController + ComponentBuffer> ComponentSetMut<'a, C> {
         world: &mut World,
         create: impl FnOnce(ComponentHandle) -> C,
     ) -> ComponentHandle {
-        self.add_with_to(
-            world,
-            GroupHandle::DEFAULT_GROUP,
-            create,
-        )
+        self.add_with_to(world, GroupHandle::DEFAULT_GROUP, create)
     }
 
     pub fn add_with_to(
@@ -377,11 +287,7 @@ impl<'a, C: ComponentController + ComponentBuffer> ComponentSetMut<'a, C> {
         group_handle: GroupHandle,
         create: impl FnOnce(ComponentHandle) -> C,
     ) -> ComponentHandle {
-        self.ty.add_with(
-            world,
-            group_handle,
-            create,
-        )
+        self.ty.add_with(world, group_handle, create)
     }
 
     pub fn force_buffer(&mut self) {
@@ -421,7 +327,7 @@ impl<'a, C: ComponentController + ComponentBuffer> ComponentSetMut<'a, C> {
     }
 
     pub fn single(&self) -> &C {
-        self.ty.try_single().unwrap()
+        self.ty.single()
     }
 
     pub fn try_single_mut(&mut self) -> Option<&mut C> {
@@ -429,24 +335,15 @@ impl<'a, C: ComponentController + ComponentBuffer> ComponentSetMut<'a, C> {
     }
 
     pub fn single_mut(&mut self) -> &mut C {
-        self.ty.try_single_mut().unwrap()
+        self.ty.single_mut()
     }
 
     pub fn remove_single(&mut self, world: &mut World) -> Option<C> {
-        self.ty.remove_single(
-            world,
-        )
+        self.ty.remove_single(world)
     }
 
-    pub fn set_single(
-        &mut self,
-        world: &mut World,
-        new: C,
-    ) -> ComponentHandle {
-        self.ty.set_single(
-            world,
-            new,
-        )
+    pub fn set_single(&mut self, world: &mut World, new: C) -> ComponentHandle {
+        self.ty.set_single(world, new)
     }
 
     pub fn set_single_with(
@@ -454,9 +351,17 @@ impl<'a, C: ComponentController + ComponentBuffer> ComponentSetMut<'a, C> {
         world: &mut World,
         create: impl FnOnce(ComponentHandle) -> C,
     ) -> ComponentHandle {
-        self.ty.set_single_with(
-            world,
-            create,
-        )
+        self.ty.set_single_with(world, create)
+    }
+}
+
+#[cfg(feature = "rayon")]
+impl<'a, C: ComponentController + Send + Sync> ComponentSetMut<'a, C> {
+    pub fn par_for_each(&self, each: impl Fn(&C) + Send + Sync) {
+        self.ty.par_for_each(self.groups, each);
+    }
+
+    pub fn par_for_each_mut(&mut self, each: impl Fn(&mut C) + Send + Sync) {
+        self.ty.par_for_each_mut(self.groups, each);
     }
 }

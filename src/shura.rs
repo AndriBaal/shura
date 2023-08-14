@@ -10,9 +10,9 @@ use crate::{
     VERSION,
 };
 use crate::{
-    ComponentRenderer, ComponentType, ComponentTypeId, Context, ContextUse, ControllerManager,
-    EndReason, FrameManager, Gpu, GpuConfig, GpuDefaults, Input, RenderEncoder, Renderer,
-    SceneCreator, SceneManager, Vector,
+    ComponentRenderer, ComponentTypeId, ComponentTypeImplementation, Context, ContextUse,
+    ControllerManager, EndReason, FrameManager, Gpu, GpuConfig, GpuDefaults, Input, RenderEncoder,
+    Renderer, SceneCreator, SceneManager, Vector,
 };
 use rustc_hash::FxHashMap;
 #[cfg(target_arch = "wasm32")]
@@ -218,7 +218,9 @@ impl ShuraConfig {
 // The Option<> is here to keep track of component, that have already been added to scenes and therefore
 // can not be registered as a global component.
 pub struct GlobalComponents(
-    pub(crate) Rc<RefCell<FxHashMap<ComponentTypeId, Option<Rc<RefCell<ComponentType>>>>>>,
+    pub(crate)  Rc<
+        RefCell<FxHashMap<ComponentTypeId, Option<Rc<RefCell<dyn ComponentTypeImplementation>>>>>,
+    >,
 );
 
 /// Core of the game engine.
@@ -509,10 +511,9 @@ impl Shura {
                 Self::world_step(&mut ctx, callbacks);
             }
         }
-        scene.world_camera.apply_target(
-            &scene.world,
-            &scene.components,
-        );
+        scene
+            .world_camera
+            .apply_target(&scene.world, &scene.components);
         self.defaults.buffer(
             &mut scene.world_camera.camera,
             &self.gpu,
@@ -528,10 +529,7 @@ impl Shura {
             return Ok(());
         }
 
-        scene.components.buffer(
-            &mut scene.world,
-            &self.gpu,
-        );
+        scene.components.buffer(&mut scene.world, &self.gpu);
 
         let ctx = Context::new(self, scene, ContextUse::Render);
         let mut encoder = RenderEncoder::new(&ctx.gpu, &ctx.defaults);

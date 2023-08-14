@@ -8,12 +8,11 @@ use crate::{
     ComponentHandle, FxHashMap,
 };
 use crate::{
-    BufferHelper, BufferOperation, Color, ComponentBuffer, ComponentConfig, ComponentController,
-    ComponentRenderer, ComponentTypeId, Context, EndOperation, EndReason, Gpu, Instant,
-    RenderOperation, RenderTarget, UpdateOperation,
+    Color, ComponentBuffer, ComponentConfig, ComponentController, ComponentRenderer,
+    ComponentTypeId, Context, EndOperation, EndReason, Instant, RenderOperation, RenderTarget,
+    UpdateOperation, BufferOperation,
 };
 
-pub(crate) type BufferCallback = fn(gpu: &Gpu, helper: BufferHelper);
 type UpdateCallback = fn(ctx: &mut Context);
 type RenderCallback = for<'a> fn(ctx: &'a Context, renderer: &mut ComponentRenderer<'a>);
 type TargetCallback = for<'a> fn(ctx: &'a Context) -> (Option<Color>, &'a RenderTarget);
@@ -36,7 +35,6 @@ struct NewEntry {
     #[cfg(feature = "physics")]
     collision: CollisionCallback,
     end: EndCallback,
-    buffer: BufferCallback,
     render_target: TargetCallback,
 }
 
@@ -51,7 +49,7 @@ pub(crate) struct ControllerManager {
     )>,
     end_callbacks: Vec<(i16, EndCallback)>,
     render_callbacks: Vec<(i16, RenderCallback, TargetCallback)>,
-    buffer_callbacks: Vec<(BufferCallback, ComponentTypeId)>,
+    buffer_callbacks: Vec<ComponentTypeId>,
     #[cfg(feature = "physics")]
     collision_callbacks: FxHashMap<ComponentTypeId, CollisionCallback>,
     new_entries: RefCell<(FxHashSet<ComponentTypeId>, Vec<NewEntry>)>,
@@ -74,7 +72,7 @@ impl ControllerManager {
         &self.update_callbacks
     }
 
-    pub fn buffers(&self) -> &Vec<(BufferCallback, ComponentTypeId)> {
+    pub fn buffers(&self) -> &Vec<ComponentTypeId> {
         &self.buffer_callbacks
     }
 
@@ -103,7 +101,6 @@ impl ControllerManager {
                 collision: C::collision,
                 render: C::render,
                 end: C::end,
-                buffer: C::buffer,
                 render_target: C::render_target,
             });
             #[cfg(feature = "log")]
@@ -150,10 +147,10 @@ impl ControllerManager {
 
                 match config.buffer {
                     BufferOperation::Manual => {
-                        self.buffer_callbacks.push((entry.buffer, entry.type_id))
+                        self.buffer_callbacks.push(entry.type_id)
                     }
                     BufferOperation::EveryFrame => {
-                        self.buffer_callbacks.push((entry.buffer, entry.type_id))
+                        self.buffer_callbacks.push(entry.type_id)
                     }
                     BufferOperation::Never => (),
                 }

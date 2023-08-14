@@ -14,7 +14,9 @@ impl GroupManager {
             Group::new(GroupActivation::Always, 0, Some(Self::DEFAULT_GROUP_NAME));
         let mut groups = Arena::default();
         groups.insert(default_component_group);
-        Self { groups }
+        Self {
+            groups,
+        }
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (GroupHandle, &Group)> + Clone {
@@ -65,10 +67,7 @@ impl GroupManager {
         components.active_groups.retain(|g| *g != handle);
         components.all_groups.retain(|g| *g != handle);
         for mut ty in components.types_mut() {
-            ty.remove_group(
-                world,
-                handle,
-            );
+            ty.remove_group(world, handle);
         }
         components.all_groups.retain(|h| *h != handle);
         return group;

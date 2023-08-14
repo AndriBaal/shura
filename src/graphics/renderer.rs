@@ -1,7 +1,8 @@
 use crate::{
-    CameraBuffer, Color, ComponentController, ComponentFilter, ComponentSetResource, Context, Gpu,
-    GpuDefaults, InstanceBuffer, InstanceIndex, InstanceIndices, Model, RenderCamera,
-    RenderConfigInstances, RenderTarget, Shader, Sprite, SpriteSheet, Uniform, Vector,
+    CameraBuffer, Color, ComponentBuffer, ComponentController, ComponentFilter,
+    ComponentSetResource, Context, Gpu, GpuDefaults, InstanceBuffer, InstanceIndex,
+    InstanceIndices, Model, RenderCamera, RenderConfigInstances, RenderTarget, Shader, Sprite,
+    SpriteSheet, Uniform, Vector,
 };
 use std::ops::{Deref, DerefMut, Range};
 
@@ -29,14 +30,14 @@ impl<'a> DerefMut for ComponentRenderer<'a> {
 }
 
 impl<'a> ComponentRenderer<'a> {
-    pub fn resource<'b, C: ComponentController>(
+    pub fn resource<'b, C: ComponentController + 'static>(
         &self,
         ctx: &'b Context,
     ) -> ComponentSetResource<'b, C> {
         return self.resource_of(ctx, ComponentFilter::Active);
     }
 
-    pub fn resource_of<'b, C: ComponentController>(
+    pub fn resource_of<'b, C: ComponentController + 'static>(
         &self,
         ctx: &'b Context,
         filter: ComponentFilter<'b>,
@@ -44,7 +45,7 @@ impl<'a> ComponentRenderer<'a> {
         return ctx.components.resource_of::<C>(filter);
     }
 
-    pub fn render_each<C: ComponentController>(
+    pub fn render_each<C: ComponentController + ComponentBuffer + 'static>(
         &mut self,
         ctx: &'a Context<'a>,
         camera: RenderCamera<'a>,
@@ -54,7 +55,7 @@ impl<'a> ComponentRenderer<'a> {
         resource.render_each(&mut self.renderer, camera, each)
     }
 
-    pub fn render_single<C: ComponentController>(
+    pub fn render_single<C: ComponentController + ComponentBuffer + 'static>(
         &mut self,
         ctx: &'a Context<'a>,
         camera: RenderCamera<'a>,
@@ -64,7 +65,7 @@ impl<'a> ComponentRenderer<'a> {
         resource.render_single(self, camera, each)
     }
 
-    pub fn render_all<C: ComponentController>(
+    pub fn render_all<C: ComponentController + ComponentBuffer + 'static>(
         &mut self,
         ctx: &'a Context<'a>,
         camera: RenderCamera<'a>,
