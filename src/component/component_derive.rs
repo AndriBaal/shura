@@ -33,7 +33,7 @@ pub trait ComponentDerive {
 
 #[allow(unused_variables)]
 /// A controller is used to define the behaviour of a component, by the given config and callbacks.
-pub trait ComponentController: ComponentDerive + ComponentIdentifier + ComponentBuffer
+pub trait ComponentController: ComponentDerive + ComponentIdentifier + ComponentBuffer + 'static
 where
     Self: Sized,
 {
@@ -93,6 +93,7 @@ pub(crate) enum BufferHelperType<'a, C: ComponentDerive> {
 
 pub struct BufferHelper<'a, C: ComponentDerive> {
     inner: BufferHelperType<'a, C>,
+    pub gpu: &'a Gpu,
     pub world: &'a World,
     pub buffer: &'a mut InstanceBuffer,
 }
@@ -100,6 +101,7 @@ pub struct BufferHelper<'a, C: ComponentDerive> {
 impl<'a, C: ComponentDerive> BufferHelper<'a, C> {
     pub(crate) fn new(
         world: &'a World,
+        gpu: &'a Gpu,
         buffer: &'a mut InstanceBuffer,
         inner: BufferHelperType<'a, C>,
     ) -> Self {
@@ -107,27 +109,45 @@ impl<'a, C: ComponentDerive> BufferHelper<'a, C> {
             world,
             inner,
             buffer,
+            gpu,
         }
     }
 
     pub fn buffer<B: bytemuck::Pod + bytemuck::Zeroable + Send>(
         &mut self,
-        gpu: &Gpu,
         each: impl Fn(&mut C) -> B + Send + Sync,
     ) {
         match &mut self.inner {
             BufferHelperType::Single { offset, component } => {
                 let data = each(component);
                 self.buffer
-                    .write_offset(gpu, *offset, bytemuck::cast_slice(&[data]));
+                    .write_offset(self.gpu, *offset, bytemuck::cast_slice(&[data]));
             }
             BufferHelperType::All { components } => {
-                #[cfg(not(feature = "rayon"))]
                 let instances = components
                     .iter_mut()
                     .map(|component| each(component))
                     .collect::<Vec<B>>();
-                #[cfg(feature = "rayon")]
+                self.buffer.write(self.gpu, bytemuck::cast_slice(&instances));
+            }
+        };
+    }
+}
+
+
+#[cfg(feature = "rayon")]
+impl<'a, C: ComponentDerive + Send + Sync> BufferHelper<'a, C> {
+    pub fn par_buffer<B: bytemuck::Pod + bytemuck::Zeroable + Send>(
+        &mut self,
+        each: impl Fn(&mut C) -> B + Send + Sync,
+    ) {
+        match &mut self.inner {
+            BufferHelperType::Single { offset, component } => {
+                let data = each(component);
+                self.buffer
+                    .write_offset(self.gpu, *offset, bytemuck::cast_slice(&[data]));
+            }
+            BufferHelperType::All { components } => {
                 let instances = components
                     .items
                     .par_iter_mut()
@@ -136,54 +156,17 @@ impl<'a, C: ComponentDerive> BufferHelper<'a, C> {
                         ArenaEntry::Occupied { data, .. } => Some(each(data)),
                     })
                     .collect::<Vec<B>>();
-                self.buffer.write(gpu, bytemuck::cast_slice(&instances));
-            }
-        };
-    }
-
-    pub fn buffer_uncasted(&mut self, gpu: &Gpu) {
-        match &self.inner {
-            BufferHelperType::Single { offset, component } => {
-                let data = component.position().instance(self.world);
-                self.buffer
-                    .write_offset(gpu, *offset, bytemuck::cast_slice(&[data]));
-            }
-            BufferHelperType::All { components } => {
-                #[cfg(not(feature = "rayon"))]
-                let instances = components
-                    .iter()
-                    .map(|component| component.position().instance(self.world))
-                    .collect::<Vec<InstancePosition>>();
-                #[cfg(feature = "rayon")]
-                let instances = components
-                    .items
-                    .par_iter()
-                    .filter_map(|component| match component {
-                        ArenaEntry::Free { .. } => None,
-                        ArenaEntry::Occupied { data, .. } => {
-                            Some(data.position().instance(self.world))
-                        }
-                    })
-                    .collect::<Vec<InstancePosition>>();
-                self.buffer.write(gpu, bytemuck::cast_slice(&instances));
+                self.buffer.write(self.gpu, bytemuck::cast_slice(&instances));
             }
         };
     }
 }
 
 pub trait ComponentBuffer: Sized + ComponentDerive {
-    const INSTANCE_SIZE: u64 = InstancePosition::SIZE;
+    const INSTANCE_SIZE: u64;
     fn buffer_with(
-        gpu: &Gpu,
-        mut helper: BufferHelper<Self>,
+        helper: BufferHelper<Self>,
         each: impl Fn(&mut Self) + Send + Sync,
-    ) {
-        helper.buffer(gpu, |c: &mut Self| {
-            each(c);
-            c.position().instance(helper.world)
-        })
-    }
-    fn buffer(gpu: &Gpu, mut helper: BufferHelper<Self>) {
-        helper.buffer_uncasted(gpu)
-    }
+    );
+    fn buffer(helper: BufferHelper<Self>);
 }

@@ -14,12 +14,10 @@ fn shura_main(config: ShuraConfig) {
 }
 
 #[derive(Component, Default)]
+#[non_parallel]
 struct GuiComponent {
     demo: egui_demo_lib::DemoWindows,
 }
-
-unsafe impl Send for GuiComponent {}
-unsafe impl Sync for GuiComponent {}
 
 impl ComponentController for GuiComponent {
     const CONFIG: ComponentConfig = ComponentConfig {

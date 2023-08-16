@@ -25,7 +25,7 @@ audio = ["dep:rodio"]
 physics = ["dep:rapier2d"]
 gui = ["dep:egui", "dep:egui-wgpu", "dep:egui-winit"]
 log = ["dep:log"]
-rayon = ["dep:rayon"]
+rayon = ["dep:rayon", "shura_proc/rayon"]
 serde = [
     "dep:serde",
     "dep:bincode",

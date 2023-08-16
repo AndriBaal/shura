@@ -6,14 +6,16 @@ const GAME_SIZE: Vector<f32> = Vector::new(11.25, 5.0);
 fn shura_main(config: ShuraConfig) {
     config.init(NewScene::new(1, |ctx| {
         register!(ctx, [Background, Ground, Pipe, Bird]);
-        ctx.scene_states
-            .insert(FlappyState::new(&ctx.gpu, ctx.audio));
-        ctx.components.add(ctx.world, );
+        ctx.components
+            .add(ctx.world, FlappyState::new(&ctx.gpu, ctx.audio));
+        ctx.components.add(ctx.world, Background::new(ctx));
         ctx.components.add(ctx.world, Ground::new(&ctx.gpu));
         ctx.components
             .add(ctx.world, Bird::new(&ctx.gpu, ctx.audio));
 
-        ctx.components.set_mut::<Background>().add(ctx.world, Background::new(ctx));
+        ctx.components
+            .set::<Background>()
+            .add(ctx.world, Background::new(ctx));
 
         ctx.world.set_physics_priority(Some(10));
         ctx.world.set_gravity(Vector::new(0.0, -15.0));
@@ -22,7 +24,7 @@ fn shura_main(config: ShuraConfig) {
     }))
 }
 
-#[derive(State)]
+#[derive(Component)]
 struct FlappyState {
     top_pipe_model: Model,
     bottom_pipe_model: Model,
@@ -33,6 +35,10 @@ struct FlappyState {
     started: bool,
     point_sink: AudioSink,
     point_sound: Sound,
+}
+
+impl ComponentController for FlappyState {
+    const CONFIG: ComponentConfig = ComponentConfig::RESOURCE;
 }
 
 impl FlappyState {
@@ -111,11 +117,10 @@ impl ComponentController for Bird {
         ..ComponentConfig::DEFAULT
     };
 
-    fn render<'a>(ctx: &'a Context, renderer: &mut Renderer<'a>) {
-        ctx.components
-            .render_single::<Self>(renderer, RenderCamera::World, |r, bird, instance| {
-                r.render_sprite_sheet(instance, &bird.model, &bird.sprite_sheet)
-            });
+    fn render<'a>(ctx: &'a Context, renderer: &mut ComponentRenderer<'a>) {
+        renderer.render_single::<Self>(ctx, RenderCamera::World, |r, bird, instance| {
+            r.render_sprite_sheet(instance, &bird.model, &bird.sprite_sheet)
+        });
     }
 
     fn update(ctx: &mut Context) {
@@ -237,7 +242,7 @@ impl ComponentController for Ground {
         storage: ComponentStorage::Single,
         ..ComponentConfig::DEFAULT
     };
-    fn render<'a>(ctx: &'a Context, renderer: &mut Renderer<'a>) {
+    fn render<'a>(ctx: &'a Context, renderer: &mut ComponentRenderer<'a>) {
         ctx.components.render_single::<Self>(
             renderer,
             RenderCamera::World,
@@ -275,7 +280,7 @@ impl ComponentController for Background {
         storage: ComponentStorage::Single,
         ..ComponentConfig::DEFAULT
     };
-    fn render<'a>(ctx: &'a Context, renderer: &mut Renderer<'a>) {
+    fn render<'a>(ctx: &'a Context, renderer: &mut ComponentRenderer<'a>) {
         ctx.components.render_single::<Self>(
             renderer,
             RenderCamera::World,
@@ -349,7 +354,7 @@ impl ComponentController for Pipe {
         });
     }
 
-    fn render<'a>(ctx: &'a Context, renderer: &mut Renderer<'a>) {
+    fn render<'a>(ctx: &'a Context, renderer: &mut ComponentRenderer<'a>) {
         let scene = ctx.scene_states.get::<FlappyState>();
         ctx.components
             .render_all::<Self>(renderer, RenderCamera::World, |r, instances| {

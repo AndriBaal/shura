@@ -149,9 +149,9 @@ impl<C: ComponentController> ComponentTypeGroup<C> {
             self.force_buffer = false;
             let buffer = self.buffer.as_mut().unwrap();
             C::buffer(
-                gpu,
                 BufferHelper::new(
                     world,
+                    gpu,
                     buffer,
                     BufferHelperType::All {
                         components: &mut self.components,
@@ -1092,9 +1092,8 @@ impl<C: ComponentController> ComponentType<C> {
             _ => panic!("Cannot get single on component without ComponentStorage::Single!"),
         }
     }
-}
 
-impl<C: ComponentController + ComponentBuffer> ComponentType<C> {
+
     pub fn buffer_for_each_mut(
         &mut self,
         world: &World,
@@ -1114,25 +1113,27 @@ impl<C: ComponentController + ComponentBuffer> ComponentType<C> {
                     let buffer = buffer.as_mut().unwrap();
                     let helper = BufferHelper::new(
                         world,
+                        gpu,
                         buffer,
                         BufferHelperType::Single {
                             offset: 0,
                             component: component,
                         },
                     );
-                    C::buffer_with(gpu, helper, each);
+                    C::buffer_with(helper, each);
                 }
             }
             ComponentTypeStorage::Multiple(multiple) => {
                 multiple.resize_buffer(gpu, C::INSTANCE_SIZE);
                 let helper = BufferHelper::new(
                     world,
+                    gpu,
                     multiple.buffer.as_mut().unwrap(),
                     BufferHelperType::All {
                         components: &mut multiple.components,
                     },
                 );
-                C::buffer_with(gpu, helper, each);
+                C::buffer_with(helper, each);
             }
             ComponentTypeStorage::MultipleGroups(groups) => {
                 for group in group_handles {
@@ -1140,12 +1141,13 @@ impl<C: ComponentController + ComponentBuffer> ComponentType<C> {
                         group.resize_buffer(gpu, C::INSTANCE_SIZE);
                         let helper = BufferHelper::new(
                             world,
+                            gpu,
                             group.buffer.as_mut().unwrap(),
                             BufferHelperType::All {
                                 components: &mut group.components,
                             },
                         );
-                        C::buffer_with(gpu, helper, each);
+                        C::buffer_with(helper, each);
                     }
                 }
             }
@@ -1205,9 +1207,9 @@ impl<C: ComponentController + ComponentBuffer + 'static> ComponentTypeImplementa
                         *force_buffer = false;
                         let buffer = buffer.as_mut().unwrap();
                         C::buffer(
-                            gpu,
                             BufferHelper::new(
                                 world,
+                                gpu,
                                 buffer,
                                 BufferHelperType::Single {
                                     offset: 0,

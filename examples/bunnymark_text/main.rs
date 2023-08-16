@@ -112,7 +112,7 @@ impl ComponentController for Bunny {
                     dead.push(bunny.handle);
                 }
                 for handle in dead {
-                    bunnies.remove_boxed(ctx.world, handle);
+                    bunnies.remove(ctx.world, handle);
                 }
             }
         }

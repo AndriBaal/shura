@@ -537,7 +537,7 @@ impl Shura {
         {
             let mut renderer = ComponentRenderer {
                 screenshot: None,
-                renderer: encoder.renderer(
+                inner: encoder.renderer(
                     &ctx.defaults.world_target,
                     ctx.screen_config.clear_color,
                     true,
@@ -545,11 +545,11 @@ impl Shura {
             };
             for (_priority, render, target) in callbacks.renders() {
                 let (clear, target) = (target)(&ctx);
-                if target as *const _ != renderer.target() as *const _ {
+                if target as *const _ != renderer.inner.target() as *const _ {
                     drop(renderer);
                     renderer = ComponentRenderer {
                         screenshot: None,
-                        renderer: encoder.renderer(&ctx.defaults.world_target, clear, true),
+                        inner: encoder.renderer(&ctx.defaults.world_target, clear, true),
                     };
                 }
                 (render)(&ctx, &mut renderer);
@@ -560,7 +560,7 @@ impl Shura {
                     encoder.copy_to_target(ctx.defaults.world_target.sprite(), screenshot);
                     renderer = ComponentRenderer {
                         screenshot: None,
-                        renderer: encoder.renderer(
+                        inner: encoder.renderer(
                             &ctx.defaults.world_target,
                             ctx.screen_config.clear_color,
                             true,
