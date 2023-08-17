@@ -7,14 +7,14 @@ fn shura_main(config: ShuraConfig) {
         init: |ctx| {
             register!(ctx, [Bunny, Resources]);
             ctx.components
-                .set::<Resources>()
-                .add(ctx.world, Resources::new(ctx));
+                
+                .add::<Resources>(ctx.world, Resources::new(ctx));
             ctx.screen_config
                 .set_clear_color(Some(RgbaColor::new(220, 220, 220, 255).into()));
             ctx.world_camera.set_scaling(WorldCameraScale::Min(3.0));
             ctx.components
-                .set::<Bunny>()
-                .add_with(ctx.world, |handle| {
+                
+                .add_with::<Bunny>(ctx.world, |handle| {
                     Bunny::new(Vector::new(0.0, 0.0), handle)
                 });
         },
@@ -86,10 +86,10 @@ impl ComponentController for Bunny {
             .collapsible(false)
             .show(&ctx.gui.clone(), |ui| {
                 ui.label(format!("FPS: {}", ctx.frame.fps()));
-                ui.label(format!("Bunnies: {}", ctx.components.set::<Bunny>().len()));
+                ui.label(format!("Bunnies: {}", ctx.components.len::<Bunny>()));
                 if ui.button("Clear Bunnies").clicked() {
                     ctx.screen_config.set_render_scale(0.5);
-                    ctx.components.set::<Bunny>().remove_all(ctx.world);
+                    ctx.components.remove_all::<Bunny>(ctx.world);
                 }
             });
 
@@ -97,8 +97,8 @@ impl ComponentController for Bunny {
             let cursor = ctx.input.cursor(ctx.world_camera);
             for _ in 0..MODIFY_STEP {
                 ctx.components
-                    .set::<Bunny>()
-                    .add_with(ctx.world, |handle| Bunny::new(cursor, handle));
+                    
+                    .add_with::<Bunny>(ctx.world, |handle| Bunny::new(cursor, handle));
             }
         }
         if ctx.input.is_held(MouseButton::Right) {
@@ -118,8 +118,7 @@ impl ComponentController for Bunny {
         }
 
         {
-            let mut set = ctx.components.set::<Resources>();
-            let resources = set.single_mut();
+            let mut resources = ctx.components.single_mut::<Resources>();
             if let Some(screenshot) = resources.screenshot.take() {
                 log::info!("Saving Screenshot!");
                 screenshot.sprite().save(&ctx.gpu, "screenshot.png").ok();
@@ -131,8 +130,8 @@ impl ComponentController for Bunny {
         let frame = ctx.frame.frame_time();
         let fov = ctx.world_camera.fov();
         ctx.components
-            .set::<Self>()
-            .buffer_for_each_mut(ctx.world, &ctx.gpu, |bunny| {
+            
+            .buffer_for_each_mut::<Self>(ctx.world, &ctx.gpu, |bunny| {
                 let mut linvel = bunny.linvel;
                 let mut translation = bunny.position.translation();
 
@@ -174,7 +173,7 @@ impl ComponentController for Bunny {
                         text: vec![Text::new(&format!(
                             "FPS: {}\nBunnies: {}",
                             ctx.frame.fps(),
-                            ctx.components.set::<Bunny>().len()
+                            ctx.components.len::<Bunny>()
                         ))
                         .with_scale(0.05)
                         .with_color(Color::RED)],

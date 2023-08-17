@@ -1,6 +1,6 @@
-use std::cell::RefCell;
-
+use crate::Component;
 use rustc_hash::FxHashSet;
+use std::cell::RefCell;
 
 #[cfg(feature = "physics")]
 use crate::{
@@ -8,14 +8,16 @@ use crate::{
     ComponentHandle, FxHashMap,
 };
 use crate::{
-    Color, ComponentBuffer, ComponentConfig, ComponentController, ComponentRenderer,
-    ComponentTypeId, Context, EndOperation, EndReason, Instant, RenderOperation, RenderTarget,
-    UpdateOperation, BufferOperation,
+    BufferOperation, Color, ComponentConfig, ComponentRenderer, ComponentTypeId, Context,
+    EndOperation, EndReason, Instant, RenderOperation, RenderTarget, UpdateOperation,
 };
 
 type UpdateCallback = fn(ctx: &mut Context);
 type RenderCallback = for<'a> fn(ctx: &'a Context, renderer: &mut ComponentRenderer<'a>);
-type TargetCallback = for<'a> fn(ctx: &'a Context) -> (Option<Color>, &'a RenderTarget);
+type TargetCallback = for<'a> fn(
+    ctx: &'a Context,
+    renderer: &mut ComponentRenderer<'a>,
+) -> (Option<Color>, &'a RenderTarget);
 #[cfg(feature = "physics")]
 type CollisionCallback = fn(
     ctx: &mut Context,
@@ -89,7 +91,7 @@ impl ControllerManager {
         &self.collision_callbacks
     }
 
-    pub fn register<C: ComponentController + ComponentBuffer>(&self, config: ComponentConfig) {
+    pub fn register<C: Component>(&self, config: ComponentConfig) {
         let mut new = self.new_entries.borrow_mut();
         if !new.0.contains(&C::IDENTIFIER) {
             new.0.insert(C::IDENTIFIER);
@@ -146,12 +148,8 @@ impl ControllerManager {
                 }
 
                 match config.buffer {
-                    BufferOperation::Manual => {
-                        self.buffer_callbacks.push(entry.type_id)
-                    }
-                    BufferOperation::EveryFrame => {
-                        self.buffer_callbacks.push(entry.type_id)
-                    }
+                    BufferOperation::Manual => self.buffer_callbacks.push(entry.type_id),
+                    BufferOperation::EveryFrame => self.buffer_callbacks.push(entry.type_id),
                     BufferOperation::Never => (),
                 }
 

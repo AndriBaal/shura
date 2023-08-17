@@ -24,7 +24,7 @@ pub(crate) use {component::controller_manager::*, data::arena::*};
 
 pub use crate::{
     component::{
-        component_config::*, component_derive::*, component_handle::*, component_manager::*,
+        component_config::*, component::*, component_handle::*, component_manager::*,
         component_set::*, component_type::*, empty_component::*, group::*, position_component::*,
     },
     graphics::{

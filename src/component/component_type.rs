@@ -4,10 +4,10 @@ use std::fmt::{Display, Formatter, Result};
 use crate::rayon::prelude::*;
 
 use crate::{
-    data::arena::ArenaEntry, Arena, BufferHelper, BufferHelperType, BufferOperation,
-    ComponentBuffer, ComponentConfig, ComponentController, ComponentHandle, ComponentIndex,
-    ComponentStorage, ComponentTypeImplementation, Gpu, GroupHandle, GroupManager, InstanceBuffer,
-    InstanceIndex, InstanceIndices, InstancePosition, RenderCamera, Renderer, World,
+    data::arena::ArenaEntry, Arena, BufferHelper, BufferHelperType, BufferOperation, Component,
+    ComponentConfig, ComponentHandle, ComponentIndex, ComponentStorage,
+    ComponentTypeImplementation, Gpu, GroupHandle, GroupManager, InstanceBuffer, InstanceIndex,
+    InstanceIndices, InstancePosition, RenderCamera, Renderer, World,
 };
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
@@ -55,7 +55,7 @@ fn default_true() -> bool {
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub(crate) enum ComponentTypeStorage<C: ComponentController> {
+pub(crate) enum ComponentTypeStorage<C: Component> {
     Single {
         #[cfg_attr(feature = "serde", serde(skip))]
         #[cfg_attr(feature = "serde", serde(default))]
@@ -71,7 +71,7 @@ pub(crate) enum ComponentTypeStorage<C: ComponentController> {
     MultipleGroups(Arena<ComponentTypeGroup<C>>),
 }
 
-impl<C: ComponentController> Clone for ComponentTypeStorage<C> {
+impl<C: Component> Clone for ComponentTypeStorage<C> {
     fn clone(&self) -> Self {
         match self {
             Self::Single { force_buffer, .. } => Self::Single {
@@ -86,7 +86,7 @@ impl<C: ComponentController> Clone for ComponentTypeStorage<C> {
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub(crate) struct ComponentTypeGroup<C: ComponentController> {
+pub(crate) struct ComponentTypeGroup<C: Component> {
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
     pub components: Arena<C>,
@@ -99,7 +99,7 @@ pub(crate) struct ComponentTypeGroup<C: ComponentController> {
     last_gen_len: (u32, usize),
 }
 
-impl<C: ComponentController> Clone for ComponentTypeGroup<C> {
+impl<C: Component> Clone for ComponentTypeGroup<C> {
     fn clone(&self) -> Self {
         Self {
             buffer: None,
@@ -110,7 +110,7 @@ impl<C: ComponentController> Clone for ComponentTypeGroup<C> {
     }
 }
 
-impl<C: ComponentController> ComponentTypeGroup<C> {
+impl<C: Component> ComponentTypeGroup<C> {
     pub fn new() -> Self {
         Self {
             components: Arena::new(),
@@ -127,18 +127,12 @@ impl<C: ComponentController> ComponentTypeGroup<C> {
             .as_ref()
             .map(|b| b.instance_capacity())
             .unwrap_or(0);
-        if new_len > instance_capacity {
+        if new_len > instance_capacity || self.buffer.is_none() {
             self.buffer = Some(InstanceBuffer::empty(gpu, instance_size, new_len));
         }
     }
 
-    fn buffer(
-        &mut self,
-        gpu: &Gpu,
-        config: &ComponentConfig,
-        instance_size: u64,
-        world: &World,
-    ) {
+    fn buffer(&mut self, gpu: &Gpu, config: &ComponentConfig, instance_size: u64, world: &World) {
         let gen_length = (self.components.generation, self.components.len());
         if config.buffer == BufferOperation::EveryFrame
             || self.force_buffer
@@ -148,16 +142,14 @@ impl<C: ComponentController> ComponentTypeGroup<C> {
             self.resize_buffer(gpu, instance_size);
             self.force_buffer = false;
             let buffer = self.buffer.as_mut().unwrap();
-            C::buffer(
-                BufferHelper::new(
-                    world,
-                    gpu,
-                    buffer,
-                    BufferHelperType::All {
-                        components: &mut self.components,
-                    },
-                ),
-            )
+            C::buffer(BufferHelper::new(
+                world,
+                gpu,
+                buffer,
+                BufferHelperType::All {
+                    components: &mut self.components,
+                },
+            ))
         }
     }
 }
@@ -167,14 +159,14 @@ const BUFFER_ERROR: &'static str =
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone)]
-pub(crate) struct ComponentType<C: ComponentController> {
+pub(crate) struct ComponentType<C: Component> {
     type_id: ComponentTypeId,
     config: ComponentConfig,
     instance_size: u64,
     pub(crate) storage: ComponentTypeStorage<C>,
 }
 
-impl<C: ComponentController + ComponentIdentifier + ComponentBuffer> ComponentType<C> {
+impl<C: Component> ComponentType<C> {
     pub(crate) fn with_config(config: ComponentConfig, group_structure: &GroupManager) -> Self {
         let storage = match config.storage {
             ComponentStorage::Single => ComponentTypeStorage::Single {
@@ -211,7 +203,7 @@ impl<C: ComponentController + ComponentIdentifier + ComponentBuffer> ComponentTy
 }
 
 #[cfg_attr(not(feature = "physics"), allow(unused_mut))]
-impl<C: ComponentController> ComponentType<C> {
+impl<C: Component> ComponentType<C> {
     pub fn component_type_id(&self) -> ComponentTypeId {
         self.type_id
     }
@@ -1093,7 +1085,6 @@ impl<C: ComponentController> ComponentType<C> {
         }
     }
 
-
     pub fn buffer_for_each_mut(
         &mut self,
         world: &World,
@@ -1155,9 +1146,7 @@ impl<C: ComponentController> ComponentType<C> {
     }
 }
 
-impl<C: ComponentController + ComponentBuffer + 'static> ComponentTypeImplementation
-    for ComponentType<C>
-{
+impl<C: Component> ComponentTypeImplementation for ComponentType<C> {
     fn add_group(&mut self) {
         match &mut self.storage {
             ComponentTypeStorage::MultipleGroups(groups) => {
@@ -1206,17 +1195,15 @@ impl<C: ComponentController + ComponentBuffer + 'static> ComponentTypeImplementa
                         }
                         *force_buffer = false;
                         let buffer = buffer.as_mut().unwrap();
-                        C::buffer(
-                            BufferHelper::new(
-                                world,
-                                gpu,
-                                buffer,
-                                BufferHelperType::Single {
-                                    offset: 0,
-                                    component,
-                                },
-                            ),
-                        );
+                        C::buffer(BufferHelper::new(
+                            world,
+                            gpu,
+                            buffer,
+                            BufferHelperType::Single {
+                                offset: 0,
+                                component,
+                            },
+                        ));
                     }
                 }
             }
@@ -1225,7 +1212,7 @@ impl<C: ComponentController + ComponentBuffer + 'static> ComponentTypeImplementa
 }
 
 #[cfg(feature = "rayon")]
-impl<C: ComponentController + Send + Sync> ComponentType<C> {
+impl<C: Component + Send + Sync> ComponentType<C> {
     pub fn par_for_each(&self, group_handles: &[GroupHandle], each: impl Fn(&C) + Send + Sync) {
         match &self.storage {
             ComponentTypeStorage::Single { component, .. } => {

@@ -1,6 +1,6 @@
 use super::arena::{Arena, ArenaEntry, ArenaIndex, DEFAULT_CAPACITY};
 use crate::BoxedComponent;
-use crate::ComponentDerive;
+use crate::Component;
 use core::cmp;
 use core::fmt;
 use core::iter;
@@ -46,7 +46,7 @@ where
 }
 
 impl Arena<BoxedComponent> {
-    pub fn serialize_components<C: ComponentDerive + Serialize>(
+    pub fn serialize_components<C: Component + Serialize>(
         &self,
     ) -> Vec<Option<(u32, Vec<u8>)>> {
         let e = self

@@ -5,14 +5,14 @@ const SIZE: Vector<u32> = vector(800, 800);
 #[shura::main]
 fn shura_main(config: ShuraConfig) {
     config.init(NewScene::new(1, |ctx| {
-        register!(ctx, [Background, Light]);
+        register!(ctx, [Background, Light, LightResources]);
         ctx.world_camera.set_scaling(WorldCameraScale::Min(10.0));
         ctx.window
             .set_inner_size(winit::dpi::PhysicalSize::new(SIZE.x, SIZE.y));
         ctx.window.set_resizable(false);
         ctx.window
             .set_enabled_buttons(winit::window::WindowButtons::CLOSE);
-        ctx.scene_states.insert(LightResources::new(ctx));
+        ctx.components.add(ctx.world, LightResources::new(ctx));
         ctx.components.add(ctx.world, Background::new(ctx));
 
         ctx.components.add(
@@ -33,6 +33,10 @@ pub struct LightResources {
     light_map: RenderTarget,
     light_shader: Shader,
     present_shader: Shader,
+}
+
+impl ComponentController for LightResources {
+    const CONFIG: ComponentConfig = ComponentConfig::RESOURCE;
 }
 
 impl LightResources {
@@ -98,20 +102,16 @@ impl ComponentController for Background {
         storage: ComponentStorage::Single,
         ..ComponentConfig::DEFAULT
     };
-    fn render<'a>(ctx: &'a Context, renderer: &mut Renderer<'a>) {
-        let res = ctx.scene_states.get::<LightResources>();
-        ctx.components.render_single::<Self>(
-            renderer,
-            RenderCamera::World,
-            |r, background, index| {
-                r.render_sprite(index, &background.model, &background.level);
-                r.use_model(ctx.defaults.unit_camera.0.model());
-                r.use_camera(RenderCamera::Unit);
-                r.use_shader(&res.present_shader);
-                r.use_sprite(res.light_map.sprite(), 1);
-                r.draw(index)
-            },
-        );
+    fn render<'a>(ctx: &'a Context, renderer: &mut ComponentRenderer<'a>) {
+        let res = renderer.single::<LightResources>(ctx);
+        renderer.render_single::<Self>(ctx, RenderCamera::World, |r, background, index| {
+            r.render_sprite(index, &background.model, &background.level);
+            r.use_model(ctx.defaults.unit_camera.0.model());
+            r.use_camera(RenderCamera::Unit);
+            r.use_shader(&res.present_shader);
+            r.use_sprite(res.light_map.sprite(), 1);
+            r.draw(index)
+        });
     }
 }
 
@@ -143,17 +143,20 @@ impl ComponentController for Light {
     };
 
     fn update(ctx: &mut Context) {
-        for light in ctx.components.iter_mut::<Self>() {
+        ctx.components.for_each_mut::<Self>(|light| {
             if light.follow_cursor {
                 light
                     .pos
                     .set_translation(ctx.input.cursor(ctx.world_camera));
             }
-        }
+        });
     }
 
-    fn render_target<'a>(ctx: &'a Context) -> (Option<Color>, &'a RenderTarget) {
-        let res = ctx.scene_states.get::<LightResources>();
+    fn render_target<'a>(
+        ctx: &'a Context,
+        renderer: &mut ComponentRenderer<'a>,
+    ) -> (Option<Color>, &'a RenderTarget) {
+        let res = renderer.single::<LightResources>(ctx);
         return (
             Some(Color::new(
                 0.12941176470588237,
@@ -165,13 +168,12 @@ impl ComponentController for Light {
         );
     }
 
-    fn render<'a>(ctx: &'a Context, renderer: &mut Renderer<'a>) {
-        let res = ctx.scene_states.get::<LightResources>();
-        ctx.components
-            .render_all::<Self>(renderer, RenderCamera::World, |r, i| {
-                r.use_shader(&res.light_shader);
-                r.use_model(&res.light_model);
-                r.draw(i)
-            });
+    fn render<'a>(ctx: &'a Context, renderer: &mut ComponentRenderer<'a>) {
+        let res = renderer.single::<LightResources>(ctx);
+        renderer.render_all::<Self>(ctx, RenderCamera::World, |r, i| {
+            r.use_shader(&res.light_shader);
+            r.use_model(&res.light_model);
+            r.draw(i)
+        });
     }
 }

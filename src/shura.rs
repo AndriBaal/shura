@@ -544,7 +544,7 @@ impl Shura {
                 ),
             };
             for (_priority, render, target) in callbacks.renders() {
-                let (clear, target) = (target)(&ctx);
+                let (clear, target) = (target)(&ctx, &mut renderer);
                 if target as *const _ != renderer.inner.target() as *const _ {
                     drop(renderer);
                     renderer = ComponentRenderer {

@@ -14,10 +14,10 @@ const AMOUNT_BIRDS: u32 = 1000;
 #[shura::main]
 fn shura_main(config: ShuraConfig) {
     config.init(NewScene::new(1, |ctx| {
-        register!(ctx.components, ctx.groups, [Background, Ground, Pipe, Bird]);
+        register!(ctx, [Background, Ground, Pipe, Bird]);
         ctx.world_camera
             .set_scaling(WorldCameraScale::Vertical(GAME_SIZE.y));
-        ctx.scene_states.insert(BirdSimulation::new(ctx));
+        ctx.components.add(ctx.world, BirdSimulation::new(ctx));
         ctx.components.add(ctx.world, Background::new(ctx));
         ctx.components.add(ctx.world, Ground::new(ctx));
         ctx.window.set_resizable(false);
@@ -28,7 +28,7 @@ fn shura_main(config: ShuraConfig) {
     }))
 }
 
-#[derive(State)]
+#[derive(Component)]
 struct BirdSimulation {
     bird_model: Model,
     bird_sprite: Sprite,
@@ -39,6 +39,10 @@ struct BirdSimulation {
     generation: u32,
     high_score: u32,
     time_scale: f32,
+}
+
+impl ComponentController for BirdSimulation {
+    const CONFIG: ComponentConfig = ComponentConfig::RESOURCE;
 }
 
 impl BirdSimulation {
@@ -76,7 +80,7 @@ impl BirdSimulation {
 
     fn spawn_pipes(
         &mut self,
-        world: &mut crate::physics::World,
+        world: &mut World,
         components: &mut ComponentManager,
     ) {
         self.spawn_timer = 0.0;
@@ -86,7 +90,7 @@ impl BirdSimulation {
 
 #[derive(Component)]
 struct Bird {
-    #[base]
+    #[position]
     pos: PositionComponent,
     brain: NeuralNetwork,
     score: f32,
@@ -256,7 +260,7 @@ impl ComponentController for Bird {
 struct Ground {
     model: Model,
     sprite: Sprite,
-    #[base]
+    #[position]
     pos: PositionComponent,
 }
 
@@ -293,7 +297,7 @@ impl ComponentController for Ground {
 struct Background {
     model: Model,
     sprite: Sprite,
-    #[base]
+    #[position]
     pos: PositionComponent,
 }
 
@@ -331,7 +335,7 @@ impl ComponentController for Background {
 
 #[derive(Component)]
 struct Pipe {
-    #[base]
+    #[position]
     pos: PositionComponent,
 }
 

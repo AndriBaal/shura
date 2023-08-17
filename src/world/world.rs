@@ -307,7 +307,7 @@ impl World {
     }
 
     #[cfg(feature = "serde")]
-    pub(crate) fn remove_no_maintain(&mut self, component: &dyn crate::ComponentDerive) {
+    pub(crate) fn remove_no_maintain(&mut self, component: &dyn crate::Component) {
         use crate::physics::{
             ColliderComponent, ColliderStatus, RigidBodyComponent, RigidBodyStatus,
         };

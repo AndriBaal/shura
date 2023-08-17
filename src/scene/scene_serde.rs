@@ -39,7 +39,7 @@ impl<'a> SceneSerializer<'a> {
         self.ser_components
     }
 
-    pub fn serialize_components<C: ComponentController + serde::Serialize>(&mut self) {
+    pub fn serialize_components<C: Component + serde::Serialize>(&mut self) {
         let ty = self.components.type_ref::<C>();
         let ser = match &ty.storage {
             ComponentTypeStorage::Single { component, .. } => {
@@ -190,7 +190,7 @@ impl SceneDeserializer {
         }
     }
 
-    pub fn deserialize_components_with<C: ComponentController + FieldNames + ComponentBuffer>(
+    pub fn deserialize_components_with<C: Component + FieldNames + ComponentBuffer>(
         &mut self,
         ctx: &mut Context,
         mut de: impl for<'de> FnMut(DeserializeWrapper<'de, C>, &'de Context<'de>) -> C,

@@ -1,16 +1,16 @@
 use crate::{
-    ComponentBuffer, ComponentController, ComponentHandle, ComponentType, ComponentTypeId, Gpu,
-    GroupHandle, InstanceBuffer, InstanceIndex, InstanceIndices, RenderCamera, Renderer, World, ComponentRenderer,
+    Component, ComponentHandle, ComponentRenderer, ComponentType, ComponentTypeId, Gpu,
+    GroupHandle, InstanceBuffer, InstanceIndex, InstanceIndices, RenderCamera, Renderer, World,
 };
 use std::cell::{Ref, RefMut};
 
 /// Set of components from  the same type only from the specified (groups)[crate::Group]
-pub struct ComponentSet<'a, C: ComponentController> {
+pub struct ComponentSet<'a, C: Component> {
     ty: Ref<'a, ComponentType<C>>,
     groups: &'a [GroupHandle],
 }
 
-impl<'a, C: ComponentController> ComponentSet<'a, C> {
+impl<'a, C: Component> ComponentSet<'a, C> {
     pub(crate) fn new(
         ty: Ref<'a, ComponentType<C>>,
         groups: &'a [GroupHandle],
@@ -60,7 +60,7 @@ impl<'a, C: ComponentController> ComponentSet<'a, C> {
 }
 
 #[cfg(feature = "rayon")]
-impl<'a, C: ComponentController + Send + Sync> ComponentSet<'a, C> {
+impl<'a, C: Component + Send + Sync> ComponentSet<'a, C> {
     pub fn par_for_each(&self, each: impl Fn(&C) + Send + Sync) {
         self.ty.par_for_each(self.groups, each);
     }
@@ -68,12 +68,12 @@ impl<'a, C: ComponentController + Send + Sync> ComponentSet<'a, C> {
 
 /// Set of components from  the same type only from the specified (groups)[crate::Group]
 #[derive(Clone, Copy)]
-pub struct ComponentSetResource<'a, C: ComponentController> {
+pub struct ComponentSetResource<'a, C: Component> {
     ty: &'a ComponentType<C>,
     groups: &'a [GroupHandle],
 }
 
-impl<'a, C: ComponentController> ComponentSetResource<'a, C> {
+impl<'a, C: Component> ComponentSetResource<'a, C> {
     pub(crate) fn new(
         ty: &'a ComponentType<C>,
         groups: &'a [GroupHandle],
@@ -150,19 +150,19 @@ impl<'a, C: ComponentController> ComponentSetResource<'a, C> {
 }
 
 #[cfg(feature = "rayon")]
-impl<'a, C: ComponentController + Send + Sync> ComponentSetResource<'a, C> {
+impl<'a, C: Component + Send + Sync> ComponentSetResource<'a, C> {
     pub fn par_for_each(&self, each: impl Fn(&C) + Send + Sync) {
         self.ty.par_for_each(self.groups, each);
     }
 }
 
 /// Set of mutable components from  the same type only from the specified (groups)[crate::Group]
-pub struct ComponentSetMut<'a, C: ComponentController + ComponentBuffer> {
+pub struct ComponentSetMut<'a, C: Component> {
     ty: RefMut<'a, ComponentType<C>>,
     groups: &'a [GroupHandle],
 }
 
-impl<'a, C: ComponentController + ComponentBuffer> ComponentSetMut<'a, C> {
+impl<'a, C: Component> ComponentSetMut<'a, C> {
     pub(crate) fn new(
         ty: RefMut<'a, ComponentType<C>>,
         groups: &'a [GroupHandle],
@@ -356,7 +356,7 @@ impl<'a, C: ComponentController + ComponentBuffer> ComponentSetMut<'a, C> {
 }
 
 #[cfg(feature = "rayon")]
-impl<'a, C: ComponentController + Send + Sync> ComponentSetMut<'a, C> {
+impl<'a, C: Component + Send + Sync> ComponentSetMut<'a, C> {
     pub fn par_for_each(&self, each: impl Fn(&C) + Send + Sync) {
         self.ty.par_for_each(self.groups, each);
     }

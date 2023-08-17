@@ -1,7 +1,8 @@
 use crate::{
-    CameraBuffer, Color, ComponentController, ComponentFilter, ComponentSetResource, Context, Gpu,
-    GpuDefaults, InstanceBuffer, InstanceIndex, InstanceIndices, Model, RenderCamera,
-    RenderConfigInstances, RenderTarget, Shader, Sprite, SpriteSheet, Uniform, Vector,
+    CameraBuffer, Color, Component, ComponentHandle, ComponentSetResource, Context, Gpu,
+    GpuDefaults, GroupFilter, GroupHandle, InstanceBuffer, InstanceIndex, InstanceIndices, Model,
+    RenderCamera, RenderConfigInstances, RenderTarget, Shader, Sprite, SpriteSheet, Uniform,
+    Vector,
 };
 use std::ops::Range;
 
@@ -15,49 +16,116 @@ pub struct ComponentRenderer<'a> {
 }
 
 impl<'a> ComponentRenderer<'a> {
-    pub fn resource<'b, C: ComponentController>(
-        &self,
-        ctx: &'b Context,
-    ) -> ComponentSetResource<'b, C> {
-        return self.resource_of(ctx, ComponentFilter::Active);
+    pub fn for_each<C: Component>(&self, ctx: &'a Context, each: impl FnMut(&C) + 'a) {
+        let ty = ctx.components.resource();
+        ty.for_each(ctx.components.active_groups(), each);
     }
 
-    pub fn resource_of<'b, C: ComponentController>(
+    pub fn index<C: Component>(
         &self,
-        ctx: &'b Context,
-        filter: ComponentFilter<'b>,
-    ) -> ComponentSetResource<'b, C> {
-        return ctx.components.resource_of::<C>(filter);
+        ctx: &'a Context,
+        group: GroupHandle,
+        index: usize,
+    ) -> Option<&'a C> {
+        self.index_of(ctx, group, index)
     }
 
-    pub fn render_each<C: ComponentController>(
+    pub fn index_of<C: Component>(
+        &self,
+        ctx: &'a Context,
+        group: GroupHandle,
+        index: usize,
+    ) -> Option<&'a C> {
+        let ty = ctx.components.resource();
+        ty.index(group, index)
+    }
+
+    pub fn get<C: Component>(&self, ctx: &'a Context, handle: ComponentHandle) -> Option<&'a C> {
+        let ty = ctx.components.resource();
+        ty.get(handle)
+    }
+
+    pub fn len<C: Component>(&self, ctx: &'a Context) -> usize {
+        let ty = ctx.components.resource::<C>();
+        ty.len(ctx.components.active_groups())
+    }
+
+    pub fn iter<C: Component>(&self, ctx: &'a Context) -> impl DoubleEndedIterator<Item = &'a C> {
+        let ty = ctx.components.resource();
+        ty.iter(ctx.components.active_groups())
+    }
+
+    pub fn iter_with_handles<C: Component>(
+        &self,
+        ctx: &'a Context,
+    ) -> impl DoubleEndedIterator<Item = (ComponentHandle, &'a C)> {
+        let ty = ctx.components.resource();
+        ty.iter_with_handles(ctx.components.active_groups())
+    }
+
+    pub fn try_single<C: Component>(&self, ctx: &'a Context) -> Option<&'a C> {
+        let ty = ctx.components.resource();
+        ty.try_single()
+    }
+
+    pub fn single<C: Component>(&self, ctx: &'a Context) -> &'a C {
+        let ty = ctx.components.resource();
+        ty.single()
+    }
+
+    pub fn resource<'b, C: Component>(&self, ctx: &'b Context) -> ComponentSetResource<'b, C> {
+        let ty = ctx.components.resource();
+        return ComponentSetResource::new(ty, ctx.components.active_groups());
+    }
+
+    pub fn resource_oof<'b, C: Component>(
+        &self,
+        ctx: &'b Context,
+        filter: GroupFilter<'b>,
+    ) -> ComponentSetResource<'b, C> {
+        let ty = ctx.components.resource();
+        let groups = ctx.components.group_filter(filter);
+        return ComponentSetResource::new(ty, groups);
+    }
+
+    pub fn render_each<C: Component>(
         &mut self,
         ctx: &'a Context<'a>,
         camera: RenderCamera<'a>,
         each: impl FnMut(&mut Renderer<'a>, &'a C, InstanceIndex),
     ) {
-        let resource = self.resource::<C>(ctx);
-        resource.render_each(self, camera, each)
+        let ty = ctx.components.resource::<C>();
+        ty.render_each(&mut self.inner, camera, each)
     }
 
-    pub fn render_single<C: ComponentController>(
+    #[cfg(feature = "rayon")]
+    pub fn par_for_each<C: Component + Send + Sync>(
+        &self,
+        ctx: &'a Context<'a>,
+        each: impl Fn(&C) + Send + Sync,
+    ) {
+        let ty = ctx.components.resource::<C>();
+        ty.par_for_each(ctx.components.active_groups(), each);
+    }
+
+    pub fn render_single<C: Component>(
         &mut self,
         ctx: &'a Context<'a>,
         camera: RenderCamera<'a>,
         each: impl FnOnce(&mut Renderer<'a>, &'a C, InstanceIndex),
     ) {
-        let resource = self.resource::<C>(ctx);
-        resource.render_single(self, camera, each)
+        let ty = ctx.components.resource::<C>();
+        ty.render_single(&mut self.inner, camera, each)
     }
 
-    pub fn render_all<C: ComponentController>(
+    pub fn render_all<C: Component>(
         &mut self,
         ctx: &'a Context<'a>,
         camera: RenderCamera<'a>,
         all: impl FnMut(&mut Renderer<'a>, InstanceIndices),
     ) {
-        let resource = self.resource::<C>(ctx);
-        resource.render_all(self, camera, all)
+        let ty = ctx.components.resource::<C>();
+        ty.render_all(&mut self.inner, camera, all)
     }
 }
 

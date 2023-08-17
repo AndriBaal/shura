@@ -1,4 +1,4 @@
-use crate::{ArenaIndex, ComponentController, ComponentTypeId};
+use crate::{ArenaIndex, Component, ComponentTypeId};
 use core::hash::Hash;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
@@ -75,7 +75,7 @@ impl ComponentHandle {
         self.group_handle
     }
 
-    pub fn type_of<C: ComponentController>(&self) -> bool {
+    pub fn type_of<C: Component>(&self) -> bool {
         self.type_id == C::IDENTIFIER
     }
 

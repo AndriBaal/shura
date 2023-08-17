@@ -5,17 +5,13 @@ const GAME_SIZE: Vector<f32> = Vector::new(11.25, 5.0);
 #[shura::main]
 fn shura_main(config: ShuraConfig) {
     config.init(NewScene::new(1, |ctx| {
-        register!(ctx, [Background, Ground, Pipe, Bird]);
+        register!(ctx, [Background, Ground, Pipe, Bird, FlappyManager]);
         ctx.components
-            .add(ctx.world, FlappyState::new(&ctx.gpu, ctx.audio));
+            .add(ctx.world, FlappyManager::new(&ctx.gpu, ctx.audio));
         ctx.components.add(ctx.world, Background::new(ctx));
         ctx.components.add(ctx.world, Ground::new(&ctx.gpu));
         ctx.components
             .add(ctx.world, Bird::new(&ctx.gpu, ctx.audio));
-
-        ctx.components
-            .set::<Background>()
-            .add(ctx.world, Background::new(ctx));
 
         ctx.world.set_physics_priority(Some(10));
         ctx.world.set_gravity(Vector::new(0.0, -15.0));
@@ -25,7 +21,7 @@ fn shura_main(config: ShuraConfig) {
 }
 
 #[derive(Component)]
-struct FlappyState {
+struct FlappyManager {
     top_pipe_model: Model,
     bottom_pipe_model: Model,
     pipe_sprite: Sprite,
@@ -37,11 +33,11 @@ struct FlappyState {
     point_sound: Sound,
 }
 
-impl ComponentController for FlappyState {
+impl ComponentController for FlappyManager {
     const CONFIG: ComponentConfig = ComponentConfig::RESOURCE;
 }
 
-impl FlappyState {
+impl FlappyManager {
     pub fn new(gpu: &Gpu, audio: &AudioManager) -> Self {
         return Self {
             top_pipe_model: gpu.create_model(
@@ -126,27 +122,29 @@ impl ComponentController for Bird {
     fn update(ctx: &mut Context) {
         let fps = ctx.frame.fps();
         let delta = ctx.frame.frame_time();
-        let scene = ctx.scene_states.get_mut::<FlappyState>();
-        if !scene.started
+        let mut managers = ctx.components.set::<FlappyManager>();
+        let mut birds = ctx.components.set::<Bird>();
+        let manager = managers.single_mut();
+        let bird = birds.single_mut();
+        if !manager.started
             && (ctx.input.is_pressed(Key::Space)
                 || ctx.input.is_pressed(MouseButton::Left)
                 || ctx.input.is_pressed(ScreenTouch))
         {
-            scene.started = true;
-            for bird in ctx.components.iter_mut::<Bird>() {
-                bird.body.get_mut(ctx.world).set_gravity_scale(1.0, true);
-            }
+            manager.started = true;
+            bird.body.get_mut(ctx.world).set_gravity_scale(1.0, true);
         }
 
-        if scene.started {
-            scene.spawn_timer += delta;
-            if scene.score > scene.high_score {
-                scene.high_score = scene.score;
+        if manager.started {
+            manager.spawn_timer += delta;
+            if manager.score > manager.high_score {
+                manager.high_score = manager.score;
             }
 
-            if scene.spawn_timer >= Pipe::SPAWN_TIME {
-                scene.spawn_timer = 0.0;
-                ctx.components.add(ctx.world, Pipe::new());
+            if manager.spawn_timer >= Pipe::SPAWN_TIME {
+                manager.spawn_timer = 0.0;
+                let mut pipes = ctx.components.set::<Pipe>();
+                pipes.add(ctx.world, Pipe::new());
                 info!("Spawning new pipe!");
             }
         }
@@ -157,11 +155,10 @@ impl ComponentController for Bird {
             .collapsible(false)
             .show(&ctx.gui.clone(), |ui| {
                 ui.label(&format!("FPS: {}", fps));
-                ui.label(format!("Score: {}", scene.score));
-                ui.label(format!("High Score: {}", scene.high_score));
+                ui.label(format!("Score: {}", manager.score));
+                ui.label(format!("High Score: {}", manager.high_score));
             });
 
-        let bird = ctx.components.single_mut::<Self>().unwrap();
         bird.sprite = Vector::new((ctx.frame.total_time() * 7.0 % 3.0) as u32, 0);
         if ctx.input.is_pressed(Key::Space)
             || ctx.input.is_pressed(MouseButton::Left)
@@ -186,7 +183,7 @@ impl ComponentController for Bird {
         if collision_type == CollideType::Started {
             ctx.components.remove_all::<Pipe>(ctx.world);
             {
-                let bird = ctx.components.get_mut::<Self>(self_handle).unwrap();
+                let mut bird = ctx.components.get_mut::<Self>(self_handle).unwrap();
                 bird.sink = ctx.audio.create_sink();
                 bird.sink.append(bird.hit_sound.decode());
                 let bird_body = bird.body.get_mut(ctx.world);
@@ -195,7 +192,7 @@ impl ComponentController for Bird {
                 bird_body.set_gravity_scale(0.0, true);
             }
 
-            let state = ctx.scene_states.get_mut::<FlappyState>();
+            let mut state = ctx.components.single_mut::<FlappyManager>();
             state.score = 0;
             state.spawn_timer = 0.0;
             state.started = false;
@@ -218,7 +215,7 @@ impl Ground {
         Self {
             model: gpu
                 .create_model(ModelBuilder::cuboid(Self::HALF_EXTENTS).vertex_translation(pos)),
-            sprite: gpu.create_sprite(sprite_file!("./sprites/position.png")),
+            sprite: gpu.create_sprite(sprite_file!("./sprites/base.png")),
             collider: ColliderComponent::new(ColliderBuilder::compound(vec![
                 (
                     pos.into(),
@@ -243,11 +240,9 @@ impl ComponentController for Ground {
         ..ComponentConfig::DEFAULT
     };
     fn render<'a>(ctx: &'a Context, renderer: &mut ComponentRenderer<'a>) {
-        ctx.components.render_single::<Self>(
-            renderer,
-            RenderCamera::World,
-            |r, ground, instance| r.render_sprite(instance, &ground.model, &ground.sprite),
-        );
+        renderer.render_single::<Self>(ctx, RenderCamera::World, |r, ground, instance| {
+            r.render_sprite(instance, &ground.model, &ground.sprite)
+        });
     }
 }
 
@@ -281,13 +276,9 @@ impl ComponentController for Background {
         ..ComponentConfig::DEFAULT
     };
     fn render<'a>(ctx: &'a Context, renderer: &mut ComponentRenderer<'a>) {
-        ctx.components.render_single::<Self>(
-            renderer,
-            RenderCamera::World,
-            |r, background, instance| {
-                r.render_sprite(instance, &background.model, &background.sprite)
-            },
-        );
+        renderer.render_single::<Self>(ctx, RenderCamera::World, |r, background, instance| {
+            r.render_sprite(instance, &background.model, &background.sprite)
+        });
     }
 }
 
@@ -338,13 +329,15 @@ impl ComponentController for Pipe {
         ..ComponentConfig::DEFAULT
     };
     fn update(ctx: &mut Context) {
-        let state = ctx.scene_states.get_mut::<FlappyState>();
-        ctx.components.retain::<Self>(ctx.world, |pipe, world| {
+        let mut managers = ctx.components.set::<FlappyManager>();
+        let mut pipes = ctx.components.set::<Self>();
+        let manager = managers.single_mut();
+        pipes.retain(ctx.world, |pipe, world| {
             let x = pipe.body.get(world).translation().x;
             if !pipe.point_awarded && x < 0.0 {
                 pipe.point_awarded = true;
-                state.score += 1;
-                state.point_sink.append(state.point_sound.decode())
+                manager.score += 1;
+                manager.point_sink.append(manager.point_sound.decode())
             }
             if x <= -GAME_SIZE.x {
                 info!("Removing Pipe!");
@@ -355,11 +348,10 @@ impl ComponentController for Pipe {
     }
 
     fn render<'a>(ctx: &'a Context, renderer: &mut ComponentRenderer<'a>) {
-        let scene = ctx.scene_states.get::<FlappyState>();
-        ctx.components
-            .render_all::<Self>(renderer, RenderCamera::World, |r, instances| {
-                r.render_sprite(instances.clone(), &scene.top_pipe_model, &scene.pipe_sprite);
-                r.render_sprite(instances, &scene.bottom_pipe_model, &scene.pipe_sprite);
-            });
+        let scene = renderer.single::<FlappyManager>(ctx);
+        renderer.render_all::<Self>(ctx, RenderCamera::World, |r, instances| {
+            r.render_sprite(instances.clone(), &scene.top_pipe_model, &scene.pipe_sprite);
+            r.render_sprite(instances, &scene.bottom_pipe_model, &scene.pipe_sprite);
+        });
     }
 }

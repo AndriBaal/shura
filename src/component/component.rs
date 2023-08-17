@@ -24,16 +24,19 @@ pub trait Position: Downcast {
 impl_downcast!(Position);
 
 /// All components need to implement from this trait. This is not done manually, but with the derive macro [Component](crate::Component).
-pub trait ComponentDerive {
+pub trait Component: ComponentController + ComponentIdentifier + 'static {
+    const INSTANCE_SIZE: u64;
     fn position(&self) -> &dyn Position;
     fn component_type_id(&self) -> ComponentTypeId;
     fn init(&mut self, handle: ComponentHandle, world: &mut World);
     fn finish(&mut self, world: &mut World);
+    fn buffer_with(helper: BufferHelper<Self>, each: impl Fn(&mut Self) + Send + Sync);
+    fn buffer(helper: BufferHelper<Self>);
 }
 
 #[allow(unused_variables)]
 /// A controller is used to define the behaviour of a component, by the given config and callbacks.
-pub trait ComponentController: ComponentDerive + ComponentIdentifier + ComponentBuffer + 'static
+pub trait ComponentController
 where
     Self: Sized,
 {
@@ -63,42 +66,27 @@ where
     /// Method called when the game is closed or the scene gets removed
     fn end(ctx: &mut Context, reason: EndReason) {}
 
-    fn render_target<'a>(ctx: &'a Context) -> (Option<Color>, &'a RenderTarget) {
+    fn render_target<'a>(
+        ctx: &'a Context,
+        renderer: &mut ComponentRenderer<'a>,
+    ) -> (Option<Color>, &'a RenderTarget) {
         return (None, &ctx.defaults.world_target);
     }
 }
 
-impl<C: ComponentDerive + ?Sized> ComponentDerive for Box<C> {
-    fn position(&self) -> &dyn Position {
-        (**self).position()
-    }
-
-    fn component_type_id(&self) -> ComponentTypeId {
-        (**self).component_type_id()
-    }
-
-    fn init(&mut self, handle: ComponentHandle, world: &mut World) {
-        (**self).init(handle, world)
-    }
-
-    fn finish(&mut self, world: &mut World) {
-        (**self).finish(world)
-    }
-}
-
-pub(crate) enum BufferHelperType<'a, C: ComponentDerive> {
+pub(crate) enum BufferHelperType<'a, C: Component> {
     Single { offset: u64, component: &'a mut C },
     All { components: &'a mut Arena<C> },
 }
 
-pub struct BufferHelper<'a, C: ComponentDerive> {
+pub struct BufferHelper<'a, C: Component> {
     inner: BufferHelperType<'a, C>,
     pub gpu: &'a Gpu,
     pub world: &'a World,
     pub buffer: &'a mut InstanceBuffer,
 }
 
-impl<'a, C: ComponentDerive> BufferHelper<'a, C> {
+impl<'a, C: Component> BufferHelper<'a, C> {
     pub(crate) fn new(
         world: &'a World,
         gpu: &'a Gpu,
@@ -128,15 +116,15 @@ impl<'a, C: ComponentDerive> BufferHelper<'a, C> {
                     .iter_mut()
                     .map(|component| each(component))
                     .collect::<Vec<B>>();
-                self.buffer.write(self.gpu, bytemuck::cast_slice(&instances));
+                self.buffer
+                    .write(self.gpu, bytemuck::cast_slice(&instances));
             }
         };
     }
 }
 
-
 #[cfg(feature = "rayon")]
-impl<'a, C: ComponentDerive + Send + Sync> BufferHelper<'a, C> {
+impl<'a, C: Component + Send + Sync> BufferHelper<'a, C> {
     pub fn par_buffer<B: bytemuck::Pod + bytemuck::Zeroable + Send>(
         &mut self,
         each: impl Fn(&mut C) -> B + Send + Sync,
@@ -156,17 +144,9 @@ impl<'a, C: ComponentDerive + Send + Sync> BufferHelper<'a, C> {
                         ArenaEntry::Occupied { data, .. } => Some(each(data)),
                     })
                     .collect::<Vec<B>>();
-                self.buffer.write(self.gpu, bytemuck::cast_slice(&instances));
+                self.buffer
+                    .write(self.gpu, bytemuck::cast_slice(&instances));
             }
         };
     }
-}
-
-pub trait ComponentBuffer: Sized + ComponentDerive {
-    const INSTANCE_SIZE: u64;
-    fn buffer_with(
-        helper: BufferHelper<Self>,
-        each: impl Fn(&mut Self) + Send + Sync,
-    );
-    fn buffer(helper: BufferHelper<Self>);
 }
