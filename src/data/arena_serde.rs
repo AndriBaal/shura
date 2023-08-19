@@ -1,6 +1,4 @@
 use super::arena::{Arena, ArenaEntry, ArenaIndex, DEFAULT_CAPACITY};
-use crate::BoxedComponent;
-use crate::Component;
 use core::cmp;
 use core::fmt;
 use core::iter;
@@ -45,24 +43,24 @@ where
     }
 }
 
-impl Arena<BoxedComponent> {
-    pub fn serialize_components<C: Component + Serialize>(
-        &self,
-    ) -> Vec<Option<(u32, Vec<u8>)>> {
-        let e = self
-            .items
-            .iter()
-            .map(|entry| match entry {
-                ArenaEntry::Occupied { generation, data } => Some((
-                    *generation,
-                    bincode::serialize(data.downcast_ref::<C>().unwrap()).unwrap(),
-                )),
-                ArenaEntry::Free { .. } => None,
-            })
-            .collect();
-        return e;
-    }
-}
+// impl Arena<BoxedComponent> {
+//     pub fn serialize_components<C: Component + Serialize>(
+//         &self,
+//     ) -> Vec<Option<(u32, Vec<u8>)>> {
+//         let e = self
+//             .items
+//             .iter()
+//             .map(|entry| match entry {
+//                 ArenaEntry::Occupied { generation, data } => Some((
+//                     *generation,
+//                     bincode::serialize(data.downcast_ref::<C>().unwrap()).unwrap(),
+//                 )),
+//                 ArenaEntry::Free { .. } => None,
+//             })
+//             .collect();
+//         return e;
+//     }
+// }
 
 // impl Arena<Group> {
 //     pub fn serialize_groups(

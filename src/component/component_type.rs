@@ -63,8 +63,6 @@ pub(crate) enum ComponentTypeStorage<C: Component> {
         #[cfg_attr(feature = "serde", serde(skip))]
         #[cfg_attr(feature = "serde", serde(default = "default_true"))]
         force_buffer: bool,
-        #[cfg_attr(feature = "serde", serde(skip))]
-        #[cfg_attr(feature = "serde", serde(default))]
         component: Option<C>,
     },
     Multiple(ComponentTypeGroup<C>),
@@ -87,8 +85,6 @@ impl<C: Component> Clone for ComponentTypeStorage<C> {
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct ComponentTypeGroup<C: Component> {
-    #[cfg_attr(feature = "serde", serde(skip))]
-    #[cfg_attr(feature = "serde", serde(default))]
     pub components: Arena<C>,
     force_buffer: bool,
     #[cfg_attr(feature = "serde", serde(skip))]
@@ -160,9 +156,7 @@ const BUFFER_ERROR: &'static str =
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone)]
 pub(crate) struct ComponentType<C: Component> {
-    type_id: ComponentTypeId,
     config: ComponentConfig,
-    instance_size: u64,
     pub(crate) storage: ComponentTypeStorage<C>,
 }
 
@@ -193,19 +187,14 @@ impl<C: Component> ComponentType<C> {
                 len: group_structure.groups.len(),
             }),
         };
-        Self {
-            storage,
-            config,
-            instance_size: C::INSTANCE_SIZE,
-            type_id: C::IDENTIFIER,
-        }
+        Self { storage, config }
     }
 }
 
 #[cfg_attr(not(feature = "physics"), allow(unused_mut))]
 impl<C: Component> ComponentType<C> {
     pub fn component_type_id(&self) -> ComponentTypeId {
-        self.type_id
+        C::IDENTIFIER
     }
 
     pub fn for_each(&self, group_handles: &[GroupHandle], mut each: impl FnMut(&C)) {
@@ -505,7 +494,7 @@ impl<C: Component> ComponentType<C> {
                 assert!(component.is_none(), "Single component is already set!");
                 let handle = ComponentHandle::new(
                     ComponentIndex::INVALID,
-                    self.type_id,
+                    C::IDENTIFIER,
                     GroupHandle::INVALID,
                 );
                 new.init(handle, world);
@@ -518,7 +507,7 @@ impl<C: Component> ComponentType<C> {
                 multiple.components.insert_with(|idx| {
                     handle = ComponentHandle::new(
                         ComponentIndex(idx),
-                        self.type_id,
+                        C::IDENTIFIER,
                         GroupHandle::INVALID,
                     );
                     new.init(handle, world);
@@ -530,7 +519,7 @@ impl<C: Component> ComponentType<C> {
                 let group = &mut groups[group_handle.0];
                 let mut handle = Default::default();
                 group.components.insert_with(|idx| {
-                    handle = ComponentHandle::new(ComponentIndex(idx), self.type_id, group_handle);
+                    handle = ComponentHandle::new(ComponentIndex(idx), C::IDENTIFIER, group_handle);
                     new.init(handle, world);
                     new
                 });
@@ -554,7 +543,7 @@ impl<C: Component> ComponentType<C> {
                 assert!(component.is_none(), "Single component is already set!");
                 let handle = ComponentHandle::new(
                     ComponentIndex::INVALID,
-                    self.type_id,
+                    C::IDENTIFIER,
                     GroupHandle::INVALID,
                 );
                 let mut new = create(handle);
@@ -568,7 +557,7 @@ impl<C: Component> ComponentType<C> {
                 multiple.components.insert_with(|idx| {
                     handle = ComponentHandle::new(
                         ComponentIndex(idx),
-                        self.type_id,
+                        C::IDENTIFIER,
                         GroupHandle::INVALID,
                     );
                     let mut new = create(handle);
@@ -581,7 +570,7 @@ impl<C: Component> ComponentType<C> {
                 let group = &mut groups[group_handle.0];
                 let mut handle = Default::default();
                 group.components.insert_with(|idx| {
-                    handle = ComponentHandle::new(ComponentIndex(idx), self.type_id, group_handle);
+                    handle = ComponentHandle::new(ComponentIndex(idx), C::IDENTIFIER, group_handle);
                     let mut new = create(handle);
                     new.init(handle, world);
                     new
@@ -608,7 +597,7 @@ impl<C: Component> ComponentType<C> {
                     multiple.components.insert_with(|idx| {
                         let handle = ComponentHandle::new(
                             ComponentIndex(idx),
-                            self.type_id,
+                            C::IDENTIFIER,
                             GroupHandle::INVALID,
                         );
                         component.init(handle, world);
@@ -626,7 +615,7 @@ impl<C: Component> ComponentType<C> {
                         group.components.insert_with(|idx| {
                             let handle = ComponentHandle::new(
                                 ComponentIndex(idx),
-                                self.type_id,
+                                C::IDENTIFIER,
                                 group_handle,
                             );
                             component.init(handle, world);
@@ -717,7 +706,7 @@ impl<C: Component> ComponentType<C> {
                     return Box::new(std::iter::once((
                         ComponentHandle::new(
                             ComponentIndex::INVALID,
-                            self.type_id,
+                            C::IDENTIFIER,
                             GroupHandle::INVALID,
                         ),
                         component,
@@ -731,7 +720,7 @@ impl<C: Component> ComponentType<C> {
                     (
                         ComponentHandle::new(
                             ComponentIndex(idx),
-                            self.type_id,
+                            C::IDENTIFIER,
                             GroupHandle::INVALID,
                         ),
                         c,
@@ -747,7 +736,7 @@ impl<C: Component> ComponentType<C> {
                                 (
                                     ComponentHandle::new(
                                         ComponentIndex(idx),
-                                        self.type_id,
+                                        C::IDENTIFIER,
                                         *group_handle,
                                     ),
                                     c,
@@ -802,7 +791,7 @@ impl<C: Component> ComponentType<C> {
                     return Box::new(std::iter::once((
                         ComponentHandle::new(
                             ComponentIndex::INVALID,
-                            self.type_id,
+                            C::IDENTIFIER,
                             GroupHandle::INVALID,
                         ),
                         component,
@@ -816,7 +805,7 @@ impl<C: Component> ComponentType<C> {
                     (
                         ComponentHandle::new(
                             ComponentIndex(idx),
-                            self.type_id,
+                            C::IDENTIFIER,
                             GroupHandle::INVALID,
                         ),
                         c,
@@ -829,7 +818,7 @@ impl<C: Component> ComponentType<C> {
                 unsafe {
                     for group_handle in group_handles {
                         if let Some(group) = (&mut *ptr).get_mut(group_handle.0) {
-                            let type_id = &self.type_id;
+                            let type_id = &C::IDENTIFIER;
 
                             iters.push(group.components.iter_with_index_mut().map(
                                 move |(idx, c)| {
@@ -1044,7 +1033,7 @@ impl<C: Component> ComponentType<C> {
                 *force_buffer = true;
                 let handle = ComponentHandle::new(
                     ComponentIndex::INVALID,
-                    self.type_id,
+                    C::IDENTIFIER,
                     GroupHandle::INVALID,
                 );
                 new.init(handle, world);
@@ -1070,7 +1059,7 @@ impl<C: Component> ComponentType<C> {
             } => {
                 let handle = ComponentHandle::new(
                     ComponentIndex::INVALID,
-                    self.type_id,
+                    C::IDENTIFIER,
                     GroupHandle::INVALID,
                 );
                 let mut new = create(handle);
@@ -1099,7 +1088,7 @@ impl<C: Component> ComponentType<C> {
             } => {
                 if let Some(component) = component {
                     if buffer.is_none() {
-                        *buffer = Some(InstanceBuffer::empty(gpu, self.instance_size, 1));
+                        *buffer = Some(InstanceBuffer::empty(gpu, C::INSTANCE_SIZE, 1));
                     }
                     let buffer = buffer.as_mut().unwrap();
                     let helper = BufferHelper::new(
@@ -1177,11 +1166,11 @@ impl<C: Component> ComponentTypeImplementation for ComponentType<C> {
             ComponentTypeStorage::MultipleGroups(groups) => {
                 for index in active {
                     let group = &mut groups[index.0];
-                    group.buffer(gpu, &self.config, self.instance_size, world)
+                    group.buffer(gpu, &self.config, C::INSTANCE_SIZE, world)
                 }
             }
             ComponentTypeStorage::Multiple(multiple) => {
-                multiple.buffer(gpu, &self.config, self.instance_size, world)
+                multiple.buffer(gpu, &self.config, C::INSTANCE_SIZE, world)
             }
             ComponentTypeStorage::Single {
                 buffer,
@@ -1191,7 +1180,7 @@ impl<C: Component> ComponentTypeImplementation for ComponentType<C> {
                 if let Some(component) = component {
                     if self.config.buffer == BufferOperation::EveryFrame || *force_buffer {
                         if buffer.is_none() {
-                            *buffer = Some(InstanceBuffer::empty(gpu, self.instance_size, 1));
+                            *buffer = Some(InstanceBuffer::empty(gpu, C::INSTANCE_SIZE, 1));
                         }
                         *force_buffer = false;
                         let buffer = buffer.as_mut().unwrap();
@@ -1208,6 +1197,38 @@ impl<C: Component> ComponentTypeImplementation for ComponentType<C> {
                 }
             }
         }
+    }
+
+    #[cfg(feature = "serde")]
+    fn deinit_non_serialized(&mut self, world: &mut World) {
+        match &self.storage {
+            ComponentTypeStorage::Single { component, .. } => {
+                if let Some(component) = component {
+                    world.remove_no_maintain(component.position())
+                }
+            }
+            ComponentTypeStorage::Multiple(multiple) => {
+                for component in &multiple.components {
+                    world.remove_no_maintain(component.position())
+                }
+            }
+            ComponentTypeStorage::MultipleGroups(groups) => {
+                for group in groups {
+                    for component in &group.components {
+                        world.remove_no_maintain(component.position())
+                    }
+                }
+            }
+        }
+    }
+
+    fn component_type_id(&self) -> ComponentTypeId {
+        C::IDENTIFIER
+    }
+
+
+    fn config(&self) -> ComponentConfig {
+        self.config
     }
 }
 

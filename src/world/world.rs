@@ -306,45 +306,6 @@ impl World {
         return collider;
     }
 
-    #[cfg(feature = "serde")]
-    pub(crate) fn remove_no_maintain(&mut self, component: &dyn crate::Component) {
-        use crate::physics::{
-            ColliderComponent, ColliderStatus, RigidBodyComponent, RigidBodyStatus,
-        };
-        if let Some(component) = component.position().downcast_ref::<RigidBodyComponent>() {
-            match component.status {
-                RigidBodyStatus::Added { rigid_body_handle } => {
-                    if let Some(rigid_body) = self.bodies.remove(
-                        rigid_body_handle,
-                        &mut self.islands,
-                        &mut self.colliders,
-                        &mut self.impulse_joints,
-                        &mut self.multibody_joints,
-                        true,
-                    ) {
-                        for collider_handle in rigid_body.colliders() {
-                            self.collider_mapping.remove(collider_handle);
-                        }
-                    }
-                }
-                RigidBodyStatus::Pending { .. } => return,
-            }
-        } else if let Some(component) = component.position().downcast_ref::<ColliderComponent>() {
-            match component.status {
-                ColliderStatus::Added { collider_handle } => {
-                    self.collider_mapping.remove(&collider_handle);
-                    self.colliders.remove(
-                        collider_handle,
-                        &mut self.islands,
-                        &mut self.bodies,
-                        false,
-                    );
-                }
-                ColliderStatus::Pending { .. } => return,
-            }
-        }
-    }
-
     pub(crate) fn step(&mut self, frame: &FrameManager) {
         self.integration_parameters.dt = frame.frame_time() * self.time_scale;
         self.physics_pipeline.step(
@@ -363,6 +324,45 @@ impl World {
             self.events.collector(),
         );
         self.query_pipeline.update(&self.bodies, &self.colliders);
+    }
+
+    #[cfg(feature = "serde")]
+    pub(crate) fn remove_no_maintain(&mut self, position: &dyn crate::Position) {
+        use crate::physics::{
+            ColliderComponent, ColliderStatus, RigidBodyComponent, RigidBodyStatus,
+        };
+        if let Some(component) = position.downcast_ref::<RigidBodyComponent>() {
+            match component.status {
+                RigidBodyStatus::Added { rigid_body_handle } => {
+                    if let Some(rigid_body) = self.bodies.remove(
+                        rigid_body_handle,
+                        &mut self.islands,
+                        &mut self.colliders,
+                        &mut self.impulse_joints,
+                        &mut self.multibody_joints,
+                        true,
+                    ) {
+                        for collider_handle in rigid_body.colliders() {
+                            self.collider_mapping.remove(collider_handle);
+                        }
+                    }
+                }
+                RigidBodyStatus::Pending { .. } => return,
+            }
+        } else if let Some(component) = position.downcast_ref::<ColliderComponent>() {
+            match component.status {
+                ColliderStatus::Added { collider_handle } => {
+                    self.collider_mapping.remove(&collider_handle);
+                    self.colliders.remove(
+                        collider_handle,
+                        &mut self.islands,
+                        &mut self.bodies,
+                        false,
+                    );
+                }
+                ColliderStatus::Pending { .. } => return,
+            }
+        }
     }
 
     // pub(crate) fn move_shape(

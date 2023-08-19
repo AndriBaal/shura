@@ -1,4 +1,11 @@
-use std::{cell::RefCell, ops::DerefMut, rc::Rc, sync::Arc};
+use std::{
+    cell::RefCell,
+    ops::DerefMut,
+    rc::Rc,
+    sync::{Arc, OnceLock},
+};
+
+pub static GLOBAL_GPU: OnceLock<Arc<Gpu>> = OnceLock::new();
 
 #[cfg(feature = "gui")]
 use crate::gui::Gui;
@@ -213,8 +220,7 @@ impl ShuraConfig {
     }
 }
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone)]
+#[derive(Clone, Default)]
 // The Option<> is here to keep track of component, that have already been added to scenes and therefore
 // can not be registered as a global component.
 pub struct GlobalComponents(
@@ -253,6 +259,9 @@ impl Shura {
         let mint: mint::Vector2<u32> = (window.inner_size()).into();
         let window_size: Vector<u32> = mint.into();
         let defaults = GpuDefaults::new(&gpu, window_size);
+        let gpu = Arc::new(gpu);
+
+        GLOBAL_GPU.set(gpu.clone()).ok().unwrap();
 
         Self {
             scenes: SceneManager::new(creator.new_id(), creator),
@@ -265,7 +274,7 @@ impl Shura {
             #[cfg(feature = "gui")]
             gui: Gui::new(_event_loop, &gpu),
             window,
-            gpu: Arc::new(gpu),
+            gpu,
             defaults,
             #[cfg(target_arch = "wasm32")]
             auto_scale_canvas,
@@ -546,11 +555,11 @@ impl Shura {
             for (_priority, render, target) in callbacks.renders() {
                 let (clear, target) = (target)(&ctx, &mut renderer);
                 if target as *const _ != renderer.inner.target() as *const _ {
-                    drop(renderer);
-                    renderer = ComponentRenderer {
-                        screenshot: None,
-                        inner: encoder.renderer(&ctx.defaults.world_target, clear, true),
-                    };
+                    // drop(renderer);
+                    // renderer = ComponentRenderer {
+                    //     screenshot: None,
+                    //     inner: encoder.renderer(target, clear, true),
+                    // };
                 }
                 (render)(&ctx, &mut renderer);
                 if let Some(screenshot) = renderer.screenshot.take() {

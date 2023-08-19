@@ -1,6 +1,6 @@
 #[cfg(feature = "physics")]
 use crate::physics::{Shape, TypedShape};
-use crate::{na::Matrix2, Gpu, Index, Isometry, Rotation, Vector, Vertex};
+use crate::{Matrix, Gpu, Index, Isometry, Rotation, Vector, Vertex};
 use crate::{CameraBuffer, AABB};
 use std::f32::consts::{FRAC_PI_2, PI};
 use wgpu::util::DeviceExt;
@@ -224,7 +224,7 @@ impl ModelBuilder {
         }
 
         let factor = -1.0;
-        let ccw_left = Matrix2::from(Rotation::new(factor * FRAC_PI_2));
+        let ccw_left = Matrix::from(Rotation::new(factor * FRAC_PI_2));
 
         let n: Vec<Vector<f32>> = WrapIter::new(&v)
             .map(|(__, _, v0, v1)| (ccw_left * (v1 - v0).normalize() * border))
@@ -270,7 +270,7 @@ impl ModelBuilder {
             .collect();
 
         for (i, j, _, _) in WrapIter::new(&v_prime) {
-            let m = Matrix2::from(Rotation::new(d[i] * a[i]));
+            let m = Matrix::from(Rotation::new(d[i] * a[i]));
             let mut step = n[i] * (-factor * d[i]);
             let anchor = o[j];
             v_new[index] = Some(anchor.unwrap() + step);

@@ -57,6 +57,14 @@ impl<'a, C: Component> ComponentSet<'a, C> {
     pub fn single(&self) -> &C {
         self.ty.try_single().unwrap()
     }
+
+    pub fn try_single_ref(self) -> Option<Ref<'a, C>> {
+        Ref::filter_map(self.ty, |ty| ty.try_single()).ok()
+    }
+
+    pub fn single_ref(self) -> Ref<'a, C> {
+        Ref::map(self.ty, |ty| ty.single())
+    }
 }
 
 #[cfg(feature = "rayon")]
@@ -336,6 +344,14 @@ impl<'a, C: Component> ComponentSetMut<'a, C> {
 
     pub fn single_mut(&mut self) -> &mut C {
         self.ty.single_mut()
+    }
+
+    pub fn try_single_ref(self) -> Option<RefMut<'a, C>> {
+        RefMut::filter_map(self.ty, |ty| ty.try_single_mut()).ok()
+    }
+
+    pub fn single_ref(self) -> RefMut<'a, C> {
+        RefMut::map(self.ty, |ty| ty.single_mut())
     }
 
     pub fn remove_single(&mut self, world: &mut World) -> Option<C> {

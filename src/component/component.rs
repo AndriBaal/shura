@@ -10,11 +10,6 @@ use downcast_rs::*;
 #[cfg(feature = "rayon")]
 use crate::{data::arena::ArenaEntry, rayon::prelude::*};
 
-/// Fields names of a struct used for deserialization and serialization
-pub trait FieldNames {
-    const FIELDS: &'static [&'static str];
-}
-
 #[allow(unused_variables)]
 pub trait Position: Downcast {
     fn instance(&self, world: &World) -> InstancePosition;
@@ -68,7 +63,7 @@ where
 
     fn render_target<'a>(
         ctx: &'a Context,
-        renderer: &mut ComponentRenderer<'a>,
+        renderer: &mut ComponentRenderer,
     ) -> (Option<Color>, &'a RenderTarget) {
         return (None, &ctx.defaults.world_target);
     }

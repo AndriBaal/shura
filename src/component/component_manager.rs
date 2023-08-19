@@ -16,6 +16,10 @@ pub(crate) trait ComponentTypeImplementation: Downcast {
     fn remove_group(&mut self, world: &mut World, handle: GroupHandle);
     fn camera_target(&self, world: &World, handle: ComponentHandle) -> Option<InstancePosition>;
     fn buffer(&mut self, world: &World, active: &[GroupHandle], gpu: &Gpu);
+    fn component_type_id(&self) -> ComponentTypeId;
+    fn config(&self) -> ComponentConfig;
+    #[cfg(feature = "serde")]
+    fn deinit_non_serialized(&mut self, world: &mut World);
 }
 impl_downcast!(ComponentTypeImplementation);
 
@@ -47,7 +51,7 @@ macro_rules! type_ref {
             .types
             .get(&$C::IDENTIFIER)
             .expect(&no_type_error::<$C>())
-            .get_ref::<$C>();
+            ._ref::<$C>();
         ty
     }};
 }
@@ -62,7 +66,7 @@ macro_rules! type_ref_mut {
             .types
             .get(&$C::IDENTIFIER)
             .expect(&no_type_error::<$C>())
-            .get_ref_mut::<$C>();
+            .ref_mut::<$C>();
         ty
     }};
 }
@@ -77,7 +81,7 @@ macro_rules! type_render {
             .types
             .get(&$C::IDENTIFIER)
             .expect(&no_type_error::<$C>())
-            .get_resource::<$C>();
+            .resource::<$C>();
         ty
     }};
 }
@@ -87,21 +91,20 @@ fn no_type_error<C: Component>() -> String {
     format!("The type '{}' first needs to be registered!", C::TYPE_NAME)
 }
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) enum ComponentTypeScope {
     Scene(Box<RefCell<dyn ComponentTypeImplementation>>),
     Global(Rc<RefCell<dyn ComponentTypeImplementation>>),
 }
 
 impl ComponentTypeScope {
-    fn get_ref_mut_raw(&self) -> RefMut<dyn ComponentTypeImplementation> {
+    fn ref_mut_raw(&self) -> RefMut<dyn ComponentTypeImplementation> {
         match &self {
             ComponentTypeScope::Scene(scene) => scene.try_borrow_mut().expect(ALREADY_BORROWED),
             ComponentTypeScope::Global(global) => global.try_borrow_mut().expect(ALREADY_BORROWED),
         }
     }
 
-    fn get_ref<C: Component>(&self) -> Ref<ComponentType<C>> {
+    fn _ref<C: Component>(&self) -> Ref<ComponentType<C>> {
         match &self {
             ComponentTypeScope::Scene(scene) => {
                 Ref::map(scene.try_borrow().expect(ALREADY_BORROWED), |ty| {
@@ -116,7 +119,7 @@ impl ComponentTypeScope {
         }
     }
 
-    fn get_ref_mut<C: Component>(&self) -> RefMut<ComponentType<C>> {
+    fn ref_mut<C: Component>(&self) -> RefMut<ComponentType<C>> {
         match &self {
             ComponentTypeScope::Scene(scene) => {
                 RefMut::map(scene.try_borrow_mut().expect(ALREADY_BORROWED), |ty| {
@@ -131,7 +134,8 @@ impl ComponentTypeScope {
         }
     }
 
-    fn get_resource<C: Component>(&self) -> &ComponentType<C> {
+    fn resource<C: Component>(&self) -> &ComponentType<C> {
+        // This is safe, because we disallow .borrow_mut() with the ContextUse
         unsafe {
             match &self {
                 ComponentTypeScope::Scene(scene) => scene
@@ -170,14 +174,18 @@ impl GroupFilter<'static> {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// Access to the component system
 pub struct ComponentManager {
-    types: FxHashMap<ComponentTypeId, ComponentTypeScope>,
-    global: GlobalComponents,
     context_use: ContextUse,
     pub(super) active_groups: Vec<GroupHandle>,
     pub(super) all_groups: Vec<GroupHandle>,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
     pub(crate) controllers: Rc<ControllerManager>,
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub(crate) types: FxHashMap<ComponentTypeId, ComponentTypeScope>,
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[cfg_attr(feature = "serde", serde(default))]
+    global: GlobalComponents,
 }
 
 impl ComponentManager {
@@ -206,7 +214,7 @@ impl ComponentManager {
             unsafe impl Sync for ComponentTypeScope {}
             self.controllers.buffers().par_iter().for_each(|ty| {
                 let ty = &self.types[ty];
-                ty.get_ref_mut_raw()
+                ty.ref_mut_raw()
                     .buffer(world, &self.active_groups, &gpu);
             });
         }
@@ -214,21 +222,9 @@ impl ComponentManager {
         #[cfg(not(feature = "rayon"))]
         for ty in self.controllers.buffers() {
             let ty = &self.types[ty];
-            ty.get_ref_mut_raw()
+            ty.ref_mut_raw()
                 .buffer(world, &self.active_groups, &gpu);
         }
-    }
-
-    #[cfg(feature = "serde")]
-    pub(crate) fn type_ref<C: Component>(&self) -> impl Deref<Target = ComponentType<C>> + '_ {
-        type_ref!(self, C)
-    }
-
-    #[cfg(feature = "serde")]
-    pub(crate) fn type_mut<C: Component>(
-        &mut self,
-    ) -> impl DerefMut<Target = ComponentType<C>> + '_ {
-        type_mut!(self, C)
     }
 
     pub fn active_groups(&self) -> &[GroupHandle] {
@@ -242,11 +238,26 @@ impl ComponentManager {
     pub(crate) fn types_mut(
         &mut self,
     ) -> impl Iterator<Item = RefMut<'_, dyn ComponentTypeImplementation>> {
-        self.types.values_mut().map(|r| r.get_ref_mut_raw())
+        self.types.values_mut().map(|r| r.ref_mut_raw())
     }
 
     pub fn register<C: Component>(&mut self, groups: &GroupManager) {
         self.register_with_config::<C>(groups, C::CONFIG);
+    }
+
+    #[cfg(feature = "serde")]
+    pub(crate) fn deserialize<C: Component + serde::de::DeserializeOwned>(
+        &mut self,
+        data: Vec<u8>,
+    ) {
+        let deserialized: ComponentType<C> = bincode::deserialize(&data).unwrap();
+        let mut ty = type_ref_mut!(self, C);
+        *ty = deserialized;
+    }
+
+    #[cfg(feature = "serde")]
+    pub(crate) fn serialize<C: Component + serde::Serialize>(&self) -> Vec<u8> {
+        bincode::serialize(&*type_ref!(self, C)).unwrap()
     }
 
     pub fn register_with_config<C: Component>(
@@ -310,7 +321,7 @@ impl ComponentManager {
         self.types
             .get(&handle.type_id())
             .unwrap()
-            .get_ref_mut_raw()
+            .ref_mut_raw()
             .camera_target(world, handle)
     }
 
@@ -327,10 +338,7 @@ impl ComponentManager {
         self.set_ref_of(GroupFilter::Active)
     }
 
-    pub fn set_ref_of<'a, C: Component>(
-        &'a self,
-        filter: GroupFilter<'a>,
-    ) -> ComponentSet<'a, C> {
+    pub fn set_ref_of<'a, C: Component>(&'a self, filter: GroupFilter<'a>) -> ComponentSet<'a, C> {
         let groups = group_filter!(self, filter).1;
         let ty = type_ref!(self, C);
         return ComponentSet::new(ty, groups);
@@ -355,10 +363,7 @@ impl ComponentManager {
         self.set_of(GroupFilter::Active)
     }
 
-    pub fn set_of<'a, C: Component>(
-        &'a self,
-        filter: GroupFilter<'a>,
-    ) -> ComponentSetMut<'a, C> {
+    pub fn set_of<'a, C: Component>(&'a self, filter: GroupFilter<'a>) -> ComponentSetMut<'a, C> {
         let (check, groups) = group_filter!(self, filter);
         let ty = type_ref_mut!(self, C);
         return ComponentSetMut::new(ty, groups, check);
@@ -611,11 +616,7 @@ impl ComponentManager {
         ty.buffer_for_each_mut(world, gpu, groups, each);
     }
 
-    pub fn for_each_mut_of<C: Component>(
-        &mut self,
-        filter: GroupFilter,
-        each: impl FnMut(&mut C),
-    ) {
+    pub fn for_each_mut_of<C: Component>(&mut self, filter: GroupFilter, each: impl FnMut(&mut C)) {
         let groups = group_filter!(self, filter).1;
         let mut ty = type_ref_mut!(self, C);
         ty.for_each_mut(groups, each);
@@ -646,7 +647,6 @@ impl ComponentManager {
         &mut self,
         world: &mut World,
         keep: impl FnMut(&mut C, &mut World) -> bool,
-        #[cfg(not(feature = "physics"))] keep: impl FnMut(&mut C) -> bool,
     ) {
         self.retain_of(world, GroupFilter::Active, keep)
     }
@@ -656,7 +656,6 @@ impl ComponentManager {
         world: &mut World,
         filter: GroupFilter,
         keep: impl FnMut(&mut C, &mut World) -> bool,
-        #[cfg(not(feature = "physics"))] keep: impl FnMut(&mut C) -> bool,
     ) {
         let groups = group_filter!(self, filter).1;
         let mut ty = type_ref_mut!(self, C);
@@ -669,6 +668,11 @@ impl ComponentManager {
     }
 
     pub fn single_mut<C: Component>(&mut self) -> RefMut<C> {
+        let ty = type_ref_mut!(self, C);
+        RefMut::map(ty, |ty| ty.single_mut())
+    }
+
+    pub fn single_ref<C: Component>(&self) -> RefMut<C> {
         let ty = type_ref_mut!(self, C);
         RefMut::map(ty, |ty| ty.single_mut())
     }

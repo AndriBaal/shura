@@ -21,10 +21,8 @@ impl Default for PositionComponent {
     }
 }
 
-
 #[allow(unreachable_patterns)]
 impl PositionComponent {
-
     pub fn new() -> Self {
         Self::default()
     }

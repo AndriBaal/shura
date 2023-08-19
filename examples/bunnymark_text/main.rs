@@ -159,8 +159,8 @@ impl ComponentController for Bunny {
 
     fn render<'a>(ctx: &'a Context, renderer: &mut ComponentRenderer<'a>) {
         let resources = renderer.resource::<Resources>(ctx).single();
-        renderer.resource::<Bunny>(ctx).render_all(
-            renderer,
+        renderer.render_all::<Bunny>(
+            ctx,
             RenderCamera::World,
             |r, instances| {
                 r.render_sprite(instances, &resources.bunny_model, &resources.bunny_sprite);

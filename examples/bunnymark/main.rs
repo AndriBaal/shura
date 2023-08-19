@@ -13,31 +13,27 @@ fn shura_main(config: ShuraConfig) {
                 .set_clear_color(Some(RgbaColor::new(220, 220, 220, 255).into()));
             ctx.world_camera.set_scaling(WorldCameraScale::Min(3.0));
             ctx.components.set::<Bunny>().add_with(ctx.world, |handle| {
-                Bunny::new(Vector::new(0.0, 0.0), handle)
+                Bunny::new(vector(0.0, 0.0), handle)
             });
         },
     });
 }
 
-#[derive(Component)]
+#[derive(Resource)]
 struct Resources {
     screenshot: Option<RenderTarget>,
-    bunny_model: Model,
     bunny_sprite: Sprite,
-}
-impl ComponentController for Resources {
-    const CONFIG: ComponentConfig = ComponentConfig::RESOURCE;
 }
 
 impl Resources {
     pub fn new(ctx: &Context) -> Self {
-        let bunny_model = ctx
-            .gpu
-            .create_model(ModelBuilder::cuboid(Vector::new(0.06, 0.09)));
+        // let bunny_model = ctx
+        //     .gpu
+        //     .create_model(ModelBuilder::cuboid(vector(0.06, 0.09)));
         let bunny_sprite = ctx.gpu.create_sprite(sprite_file!("./img/wabbit.png"));
         Resources {
             screenshot: None,
-            bunny_model,
+            // bunny_model,
             bunny_sprite,
         }
     }
@@ -52,12 +48,12 @@ struct Bunny {
 }
 impl Bunny {
     pub fn new(translation: Vector<f32>, handle: ComponentHandle) -> Bunny {
-        let scale = rand::gen_range(0.75..2.0);
+        let scale = rand::gen_range(0.75_f32..2.0);
         let position = PositionComponent::new()
             .with_translation(translation)
             .with_rotation(Rotation::new(rand::gen_range(-1.0..1.0)))
-            .with_scale(Vector::new(scale, scale));
-        let linvel = Vector::new(rand::gen_range(-2.5..2.5), rand::gen_range(-7.5..7.5));
+            .with_scale(scale * vector(0.12, 0.18));
+        let linvel = vector(rand::gen_range(-2.5..2.5), rand::gen_range(-7.5..7.5));
         Bunny {
             position,
             linvel,
@@ -152,13 +148,9 @@ impl ComponentController for Bunny {
 
     fn render<'a>(ctx: &'a Context, renderer: &mut ComponentRenderer<'a>) {
         let resources = renderer.single::<Resources>(ctx);
-        renderer.render_all::<Bunny>(
-            ctx,
-            RenderCamera::World,
-            |r, instances| {
-                r.render_sprite(instances, &resources.bunny_model, &resources.bunny_sprite)
-            },
-        );
+        renderer.render_all::<Bunny>(ctx, RenderCamera::World, |r, instances| {
+            r.render_sprite(instances, &ctx.defaults.unit_model, &resources.bunny_sprite)
+        });
         if let Some(screenshot) = &resources.screenshot {
             renderer.screenshot = Some(screenshot);
         }

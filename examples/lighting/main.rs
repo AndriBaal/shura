@@ -106,6 +106,7 @@ impl ComponentController for Background {
         let res = renderer.single::<LightResources>(ctx);
         renderer.render_single::<Self>(ctx, RenderCamera::World, |r, background, index| {
             r.render_sprite(index, &background.model, &background.level);
+            
             r.use_model(ctx.defaults.unit_camera.0.model());
             r.use_camera(RenderCamera::Unit);
             r.use_shader(&res.present_shader);
@@ -152,9 +153,9 @@ impl ComponentController for Light {
         });
     }
 
-    fn render_target<'a>(
+    fn render_target<'a, 'b: 'a>(
         ctx: &'a Context,
-        renderer: &mut ComponentRenderer<'a>,
+        renderer: &mut ComponentRenderer<'b>,
     ) -> (Option<Color>, &'a RenderTarget) {
         let res = renderer.single::<LightResources>(ctx);
         return (

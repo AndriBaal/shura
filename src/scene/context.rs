@@ -6,7 +6,7 @@ use crate::{
 };
 
 #[cfg(feature = "serde")]
-use crate::{ComponentTypeId, SceneSerializer, SerializedComponentStorage};
+use crate::{ComponentTypeId, serde::SceneSerializer};
 
 #[cfg(feature = "serde")]
 use rustc_hash::FxHashMap;
@@ -118,27 +118,9 @@ impl<'a> Context<'a> {
         {
             let ser_components = serializer.finish();
             let mut world_cpy = self.world.clone();
-            for ty in self.components.types_mut() {
+            for mut ty in self.components.types_mut() {
                 if !ser_components.contains_key(&ty.component_type_id()) {
-                    match &ty.storage {
-                        crate::ComponentTypeStorage::Single { component, .. } => {
-                            if let Some(component) = component {
-                                world_cpy.remove_no_maintain(component);
-                            }
-                        }
-                        crate::ComponentTypeStorage::Multiple(multiple) => {
-                            for component in &multiple.components {
-                                world_cpy.remove_no_maintain(component);
-                            }
-                        }
-                        crate::ComponentTypeStorage::MultipleGroups(groups) => {
-                            for group in groups {
-                                for component in &group.components {
-                                    world_cpy.remove_no_maintain(component);
-                                }
-                            }
-                        }
-                    }
+                    ty.deinit_non_serialized(&mut world_cpy);
                 }
             }
 
@@ -155,7 +137,7 @@ impl<'a> Context<'a> {
             };
             let scene: (
                 &Scene,
-                FxHashMap<ComponentTypeId, SerializedComponentStorage>,
+                FxHashMap<ComponentTypeId, Vec<u8>>,
             ) = (&scene, ser_components);
             let result = bincode::serialize(&scene);
             return result;

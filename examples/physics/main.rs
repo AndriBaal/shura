@@ -1,45 +1,35 @@
-use shura::log::*;
 use shura::physics::*;
-use shura::{serde::*, *};
-use std::fs;
+use shura::*;
 
 #[shura::main]
 fn shura_main(config: ShuraConfig) {
-    if let Some(save_game) = fs::read("data.binc").ok() {
-        config.init(SerializedScene {
-            id: 1,
-            scene: save_game,
-            init: Player::deserialize_scene,
-        })
-    } else {
-        config.init(NewScene {
-            id: 1,
-            init: |ctx| {
-                register!(ctx, [PhysicsBox, Player, Floor, PhysicsResources]);
-                const PYRAMID_ELEMENTS: i32 = 8;
-                const MINIMAL_SPACING: f32 = 0.1;
-                ctx.world_camera.set_scaling(WorldCameraScale::Max(5.0));
-                ctx.world.set_gravity(Vector::new(0.00, -9.81));
-                ctx.components.add(ctx.world, PhysicsResources::new(ctx));
+    config.init(NewScene {
+        id: 1,
+        init: |ctx| {
+            register!(ctx, [PhysicsBox, Player, Floor, PhysicsResources]);
+            const PYRAMID_ELEMENTS: i32 = 8;
+            const MINIMAL_SPACING: f32 = 0.1;
+            ctx.world_camera.set_scaling(WorldCameraScale::Max(5.0));
+            ctx.world.set_gravity(Vector::new(0.00, -9.81));
+            ctx.components.add(ctx.world, PhysicsResources::new(ctx));
 
-                for x in -PYRAMID_ELEMENTS..PYRAMID_ELEMENTS {
-                    for y in 0..(PYRAMID_ELEMENTS - x.abs()) {
-                        let b = PhysicsBox::new(Vector::new(
-                            x as f32 * (PhysicsBox::HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING),
-                            y as f32 * (PhysicsBox::HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING * 2.0),
-                        ));
-                        ctx.components.add(ctx.world, b);
-                    }
+            for x in -PYRAMID_ELEMENTS..PYRAMID_ELEMENTS {
+                for y in 0..(PYRAMID_ELEMENTS - x.abs()) {
+                    let b = PhysicsBox::new(Vector::new(
+                        x as f32 * (PhysicsBox::HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING),
+                        y as f32 * (PhysicsBox::HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING * 2.0),
+                    ));
+                    ctx.components.add(ctx.world, b);
                 }
+            }
 
-                let player = Player::new();
-                let player_handle = ctx.components.add(ctx.world, player);
-                ctx.world_camera.set_target(Some(player_handle));
-                let floor = Floor::new();
-                ctx.components.add(ctx.world, floor);
-            },
-        })
-    };
+            let player = Player::new(ctx);
+            let player_handle = ctx.components.add(ctx.world, player);
+            ctx.world_camera.set_target(Some(player_handle));
+            let floor = Floor::new(ctx);
+            ctx.components.add(ctx.world, floor);
+        },
+    })
 }
 
 #[derive(Component)]
@@ -71,27 +61,9 @@ impl PhysicsResources {
     }
 }
 
-fn player_model() -> Model {
-    let gpu = GLOBAL_GPU.get().unwrap();
-    gpu.create_model(ModelBuilder::from_collider_shape(
-        &Player::SHAPE,
-        Player::RESOLUTION,
-        0.0,
-    ))
-}
-
-fn player_sprite() -> Sprite {
-    let gpu = GLOBAL_GPU.get().unwrap();
-    gpu.create_sprite(sprite_file!("./img/burger.png"))
-}
-
-#[derive(Component, ::serde::Serialize, ::serde::Deserialize)]
+#[derive(Component)]
 struct Player {
-    #[serde(skip)]
-    #[serde(default = "player_sprite")]
     sprite: Sprite,
-    #[serde(skip)]
-    #[serde(default = "player_model")]
     model: Model,
     #[position]
     body: RigidBodyComponent,
@@ -104,44 +76,27 @@ impl Player {
         radius: Self::RADIUS,
     };
 
-    pub fn new() -> Self {
+    pub fn new(ctx: &Context) -> Self {
         let collider = ColliderBuilder::new(SharedShape::new(Self::SHAPE))
             .active_events(ActiveEvents::COLLISION_EVENTS);
         Self {
-            sprite: player_sprite(),
-            model: player_model(),
+            sprite: ctx.gpu.create_sprite(sprite_file!("./img/burger.png")),
+            model: ctx.gpu.create_model(ModelBuilder::from_collider_shape(
+                collider.shape.as_ref(),
+                Self::RESOLUTION,
+                0.0,
+            )),
             body: RigidBodyComponent::new(
                 RigidBodyBuilder::dynamic().translation(Vector::new(5.0, 4.0)),
                 [collider],
             ),
         }
     }
-
-    fn serialize_scene(ctx: &mut Context) {
-        info!("Serializing scene!");
-        let ser = ctx
-            .serialize_scene(|s| {
-                s.serialize::<Floor>();
-                s.serialize::<Player>();
-                s.serialize::<PhysicsBox>();
-            })
-            .unwrap();
-        fs::write("data.binc", ser).expect("Unable to write file");
-    }
-
-    fn deserialize_scene(ctx: &mut Context, scene: &mut SceneDeserializer) {
-        register!(ctx, [PhysicsBox, Player, Floor, PhysicsResources]);
-        scene.deserialize::<Floor>(ctx);
-        scene.deserialize::<Player>(ctx);
-        scene.deserialize::<PhysicsBox>(ctx);
-        ctx.components.add(ctx.world, PhysicsResources::new(ctx));
-    }
 }
 
 impl ComponentController for Player {
     const CONFIG: ComponentConfig = ComponentConfig {
         storage: ComponentStorage::Single,
-        end: EndOperation::Always,
         ..ComponentConfig::DEFAULT
     };
 
@@ -172,21 +127,6 @@ impl ComponentController for Player {
                 ctx.components.add(ctx.world, b);
             }
         }
-
-        if ctx.input.is_pressed(Key::Z) {
-            Self::serialize_scene(ctx);
-        }
-
-        if ctx.input.is_pressed(Key::R) {
-            if let Some(save_game) = fs::read("data.binc").ok() {
-                ctx.scenes.add(SerializedScene {
-                    id: 1,
-                    scene: save_game,
-                    init: Player::deserialize_scene,
-                });
-            }
-        }
-
         let delta = ctx.frame.frame_time();
         let input = &mut ctx.input;
 
@@ -235,33 +175,11 @@ impl ComponentController for Player {
             }
         }
     }
-
-    fn end(ctx: &mut Context, _reason: EndReason) {
-        Self::serialize_scene(ctx)
-    }
 }
 
-fn floor_model() -> Model {
-    let gpu = GLOBAL_GPU.get().unwrap();
-    gpu.create_model(ModelBuilder::from_collider_shape(
-        &Floor::FLOOR_SHAPE,
-        Floor::FLOOR_RESOLUTION,
-        0.0,
-    ))
-}
-
-fn floor_sprite() -> Sprite {
-    let gpu = GLOBAL_GPU.get().unwrap();
-    gpu.create_sprite(SpriteBuilder::color(RgbaColor::BLUE))
-}
-
-#[derive(Component, ::serde::Serialize, ::serde::Deserialize)]
+#[derive(Component)]
 struct Floor {
-    #[serde(skip)]
-    #[serde(default = "floor_sprite")]
     color: Sprite,
-    #[serde(skip)]
-    #[serde(default = "floor_model")]
     model: Model,
     #[position]
     collider: ColliderComponent,
@@ -275,12 +193,16 @@ impl Floor {
         },
         border_radius: 0.5,
     };
-    pub fn new() -> Self {
+    pub fn new(ctx: &Context) -> Self {
         let collider = ColliderBuilder::new(SharedShape::new(Self::FLOOR_SHAPE))
             .translation(Vector::new(0.0, -1.0));
         Self {
-            color: floor_sprite(),
-            model: floor_model(),
+            color: ctx.gpu.create_sprite(SpriteBuilder::color(RgbaColor::BLUE)),
+            model: ctx.gpu.create_model(ModelBuilder::from_collider_shape(
+                collider.shape.as_ref(),
+                Self::FLOOR_RESOLUTION,
+                0.0,
+            )),
             collider: ColliderComponent::new(collider),
         }
     }
@@ -298,7 +220,7 @@ impl ComponentController for Floor {
     }
 }
 
-#[derive(Component, ::serde::Serialize, ::serde::Deserialize)]
+#[derive(Component)]
 struct PhysicsBox {
     #[position]
     body: RigidBodyComponent,

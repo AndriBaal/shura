@@ -39,14 +39,10 @@ pub use crate::{
 };
 
 /// Access to [wgpu](https://github.com/gfx-rs/wgpu) for creating custom graphics.
-pub mod wgpu {
-    pub use wgpu::*;
-}
+pub use wgpu;
 
 /// Access to [winit](https://github.com/rust-windowing/winit).
-pub mod winit {
-    pub use winit::*;
-}
+pub use winit;
 
 // Rodio
 #[cfg(feature = "audio")]
@@ -61,13 +57,8 @@ pub mod audio {
 }
 
 /// Access to [image](https://github.com/image-rs/image)
-pub mod image {
-    pub use image::*;
-}
-
-pub mod bytemuck {
-    pub use bytemuck::*;
-}
+pub use image;
+pub use bytemuck;
 
 #[cfg(not(feature = "physics"))]
 pub use world::world_no_rapier::World;
@@ -114,9 +105,12 @@ pub mod gui {
     pub use egui::*;
 }
 
+
+// serde
 #[cfg(feature = "serde")]
 pub mod serde {
     pub use serde::*;
+    pub use crate::scene::scene_serde::*;
     pub mod bincode {
         pub use bincode::*;
     }
@@ -144,10 +138,6 @@ pub mod gamepad {
     };
 }
 
-// serde
-#[cfg(feature = "serde")]
-pub use crate::scene::scene_serde::*;
-
 // animation
 #[cfg(feature = "animation")]
 mod tween;
@@ -159,20 +149,14 @@ pub mod animation {
 }
 
 /// Access to [nalgebra](https://github.com/dimforge/nalgebra), the math library used by shura
-pub mod na {
-    pub use nalgebra::*;
-}
+pub use nalgebra;
 
 /// Access to [rayon](https://github.com/rayon-rs/rayon)
 #[cfg(feature = "rayon")]
-pub mod rayon {
-    pub use rayon::*;
-}
+pub use rayon;
 
 /// Access to [mint](https://github.com/kvark/mint) to convert between the diffrent math types
-pub mod mint {
-    pub use mint::*;
-}
+pub use mint;
 
 /// Access to some easy randomizer functions
 pub mod rand {
