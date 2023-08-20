@@ -957,7 +957,7 @@ impl<C: Component> ComponentType<C> {
                 if component.is_some() {
                     let buffer = buffer.as_ref().expect(BUFFER_ERROR);
                     renderer.use_instance_buffer(buffer);
-                    (all)(renderer, buffer.instances());
+                    (all)(renderer, InstanceIndices::new(0, 1));
                 }
             }
             ComponentTypeStorage::Multiple(multiple) => {

@@ -28,6 +28,41 @@ fn shura_main(config: ShuraConfig) {
 }
 
 #[derive(Component)]
+struct Background {
+    model: Model,
+    level: Sprite,
+    #[position]
+    position: PositionComponent,
+}
+
+impl Background {
+    pub fn new(ctx: &Context) -> Self {
+        Self {
+            model: ctx
+                .gpu
+                .create_model(ModelBuilder::cuboid(vector(10.0, 10.0))),
+            level: ctx.gpu.create_sprite(sprite_file!("./level.png")),
+            position: Default::default(),
+        }
+    }
+}
+
+impl ComponentController for Background {
+    const CONFIG: ComponentConfig = ComponentConfig {
+        update: UpdateOperation::Never,
+        buffer: BufferOperation::Manual,
+        storage: ComponentStorage::Single,
+        render_priority: 1,
+        ..ComponentConfig::DEFAULT
+    };
+    fn render<'a>(renderer: &mut ComponentRenderer<'a>) {
+        renderer.render_single::<Self>(RenderCamera::World, |r, background, index| {
+            r.render_sprite(index, &background.model, &background.level);
+        });
+    }
+}
+
+#[derive(Component)]
 pub struct LightResources {
     light_model: Model,
     light_map: RenderTarget,
@@ -36,7 +71,23 @@ pub struct LightResources {
 }
 
 impl ComponentController for LightResources {
-    const CONFIG: ComponentConfig = ComponentConfig::RESOURCE;
+    const CONFIG: ComponentConfig = ComponentConfig {
+        update: UpdateOperation::Never,
+        buffer: BufferOperation::Manual,
+        storage: ComponentStorage::Single,
+        render_priority: 3,
+        ..ComponentConfig::DEFAULT
+    };
+
+    fn render<'a>(renderer: &mut ComponentRenderer<'a>) {
+        renderer.render_single::<Self>(RenderCamera::World, |r, res, index| {
+            r.use_model(r.defaults.unit_model());
+            r.use_camera(RenderCamera::Unit);
+            r.use_shader(&res.present_shader);
+            r.use_sprite(res.light_map.sprite(), 1);
+            r.draw(index);
+        });
+    }
 }
 
 impl LightResources {
@@ -69,50 +120,9 @@ impl LightResources {
                 }],
                 ..Default::default()
             }),
-            light_map: ctx.gpu.create_render_target(vector(SIZE.y, SIZE.y)),
+            light_map: ctx.gpu.create_render_target(ctx.window_size),
             light_model: ctx.gpu.create_model(ModelBuilder::cuboid(vector(1.0, 1.0))),
         }
-    }
-}
-
-#[derive(Component)]
-struct Background {
-    model: Model,
-    level: Sprite,
-    #[position]
-    position: PositionComponent,
-}
-
-impl Background {
-    pub fn new(ctx: &Context) -> Self {
-        Self {
-            model: ctx
-                .gpu
-                .create_model(ModelBuilder::cuboid(vector(10.0, 10.0))),
-            level: ctx.gpu.create_sprite(sprite_file!("./level.png")),
-            position: Default::default(),
-        }
-    }
-}
-
-impl ComponentController for Background {
-    const CONFIG: ComponentConfig = ComponentConfig {
-        update: UpdateOperation::Never,
-        buffer: BufferOperation::Manual,
-        storage: ComponentStorage::Single,
-        ..ComponentConfig::DEFAULT
-    };
-    fn render<'a>(renderer: &mut ComponentRenderer<'a>) {
-        let res = renderer.single::<LightResources>();
-        renderer.render_single::<Self>(RenderCamera::World, |r, background, index| {
-            r.render_sprite(index, &background.model, &background.level);
-            
-            r.use_model(r.defaults.unit_model());
-            r.use_shader(&res.present_shader);
-            r.use_camera(RenderCamera::Unit);
-            r.use_sprite(res.light_map.sprite(), 1);
-            r.draw(index)
-        });
     }
 }
 
@@ -122,33 +132,36 @@ struct Light {
     pos: PositionComponent,
     #[buffer]
     color: Color,
-    follow_cursor: bool,
+    follow_player: bool,
 }
 
 impl Light {
-    pub fn new(translation: Vector<f32>, color: Color, radius: f32, follow_cursor: bool) -> Self {
+    pub fn new(translation: Vector<f32>, color: Color, radius: f32, follow_player: bool) -> Self {
         Self {
             pos: PositionComponent::new()
                 .with_translation(translation)
                 .with_scale(vector(radius, radius)),
             color,
-            follow_cursor,
+            follow_player,
         }
     }
 }
 
 impl ComponentController for Light {
     const CONFIG: ComponentConfig = ComponentConfig {
-        render_priority: 15,
+        render_priority: 2,
         ..ComponentConfig::DEFAULT
     };
 
     fn update(ctx: &mut Context) {
+        if ctx.screen_config.resized() {
+            let mut res = ctx.components.single_mut::<LightResources>();
+            res.light_map.resize(&ctx.gpu, ctx.window_size);
+        }
+
         ctx.components.for_each_mut::<Self>(|light| {
-            if light.follow_cursor {
-                light
-                    .pos
-                    .set_translation(ctx.input.cursor(ctx.world_camera));
+            if light.follow_player {
+                light.pos.set_translation(ctx.cursor);
             }
         });
     }
@@ -157,15 +170,7 @@ impl ComponentController for Light {
         renderer: &mut ComponentRenderer<'a>,
     ) -> (Option<Color>, &'a RenderTarget) {
         let res = renderer.single::<LightResources>();
-        return (
-            Some(Color::new(
-                0.12941176470588237,
-                0.1803921568627451,
-                0.27450980392156865,
-                1.0,
-            )),
-            &res.light_map,
-        );
+        return (Some(Color::new(0.06, 0.08, 0.13, 1.0)), &res.light_map);
     }
 
     fn render<'a>(renderer: &mut ComponentRenderer<'a>) {
@@ -173,7 +178,7 @@ impl ComponentController for Light {
         renderer.render_all::<Self>(RenderCamera::World, |r, i| {
             r.use_shader(&res.light_shader);
             r.use_model(&res.light_model);
-            r.draw(i)
+            r.draw(i);
         });
     }
 }

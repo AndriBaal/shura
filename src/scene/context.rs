@@ -25,6 +25,7 @@ pub(crate) enum ContextUse {
 }
 
 /// Context to communicate with the game engine to access components, scenes, camera, physics and much more.
+#[non_exhaustive]
 pub struct Context<'a> {
     // Scene
     pub scene_id: &'a u32,
@@ -52,6 +53,7 @@ pub struct Context<'a> {
 
     // Misc
     pub window_size: Vector<u32>,
+    pub cursor: Vector<f32>
 }
 
 impl<'a> Context<'a> {
@@ -62,6 +64,7 @@ impl<'a> Context<'a> {
     ) -> Context<'a> {
         let mint: mint::Vector2<u32> = shura.window.inner_size().into();
         let window_size = mint.into();
+        let cursor = shura.input.cursor(&scene.world_camera);
         Self {
             // Scene
             scene_id: &scene.id,
@@ -89,6 +92,7 @@ impl<'a> Context<'a> {
 
             // Misc
             window_size,
+            cursor,
         }
     }
 

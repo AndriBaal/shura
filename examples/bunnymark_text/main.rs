@@ -94,7 +94,7 @@ impl ComponentController for Bunny {
             });
 
         if ctx.input.is_held(MouseButton::Left) || ctx.input.is_held(ScreenTouch) {
-            let cursor = ctx.input.cursor(ctx.world_camera);
+            let cursor = ctx.cursor;
             for _ in 0..MODIFY_STEP {
                 ctx.components
                     

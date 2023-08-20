@@ -154,12 +154,10 @@ impl ComponentController for Player {
         }
 
         if ctx.input.is_held(MouseButton::Right) {
-            let cursor = ctx.input.cursor(ctx.world_camera);
-            let cursor_pos = Isometry::new(cursor, 0.0);
             if ctx
                 .world
                 .intersection_with_shape(
-                    &cursor_pos,
+                    &ctx.cursor.into(),
                     &Cuboid::new(Vector::new(
                         PhysicsBox::HALF_BOX_SIZE,
                         PhysicsBox::HALF_BOX_SIZE,
@@ -168,7 +166,7 @@ impl ComponentController for Player {
                 )
                 .is_none()
             {
-                let b = PhysicsBox::new(cursor);
+                let b = PhysicsBox::new(ctx.cursor);
                 ctx.components.add(ctx.world, b);
             }
         }
@@ -333,7 +331,7 @@ impl ComponentController for PhysicsBox {
     }
 
     fn update(ctx: &mut Context) {
-        let cursor_world: Point<f32> = (ctx.input.cursor(ctx.world_camera)).into();
+        let cursor_world: Point<f32> = (ctx.cursor).into();
         let remove = ctx.input.is_held(MouseButton::Left) || ctx.input.is_pressed(ScreenTouch);
         let mut boxes = ctx.components.set::<Self>();
         boxes.for_each_mut(|physics_box| {
