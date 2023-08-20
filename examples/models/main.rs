@@ -165,8 +165,8 @@ impl ComponentController for ModelTest {
         ..ComponentConfig::DEFAULT
     };
 
-    fn render<'a>(ctx: &'a Context, renderer: &mut ComponentRenderer<'a>) {
-        renderer.render_each::<Self>(ctx, RenderCamera::World, |r, model, index| {
+    fn render<'a>(renderer: &mut ComponentRenderer<'a>) {
+        renderer.render_each::<Self>(RenderCamera::World, |r, model, index| {
             r.render_color(index, &model.model)
         });
     }

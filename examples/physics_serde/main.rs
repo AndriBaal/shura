@@ -214,8 +214,8 @@ impl ComponentController for Player {
         });
     }
 
-    fn render<'a>(ctx: &'a Context, renderer: &mut ComponentRenderer<'a>) {
-        renderer.render_single::<Self>(ctx, RenderCamera::World, |r, player, index| {
+    fn render<'a>(renderer: &mut ComponentRenderer<'a>) {
+        renderer.render_single::<Self>(RenderCamera::World, |r, player, index| {
             r.render_sprite(index, &player.model, &player.sprite)
         });
     }
@@ -291,8 +291,8 @@ impl ComponentController for Floor {
         storage: ComponentStorage::Single,
         ..ComponentConfig::DEFAULT
     };
-    fn render<'a>(ctx: &'a Context, renderer: &mut ComponentRenderer<'a>) {
-        renderer.render_single::<Self>(ctx, RenderCamera::World, |r, floor, index| {
+    fn render<'a>(renderer: &mut ComponentRenderer<'a>) {
+        renderer.render_single::<Self>(RenderCamera::World, |r, floor, index| {
             r.render_sprite(index, &floor.model, &floor.color)
         });
     }
@@ -325,9 +325,9 @@ impl PhysicsBox {
 }
 
 impl ComponentController for PhysicsBox {
-    fn render<'a>(ctx: &'a Context, renderer: &mut ComponentRenderer<'a>) {
-        let state = renderer.resource::<PhysicsResources>(ctx).single();
-        renderer.render_all::<Self>(ctx, RenderCamera::World, |renderer, instance| {
+    fn render<'a>(renderer: &mut ComponentRenderer<'a>) {
+        let state = renderer.resource::<PhysicsResources>().single();
+        renderer.render_all::<Self>(RenderCamera::World, |renderer, instance| {
             renderer.render_sprite_sheet(instance, &state.box_model, &state.box_colors);
         });
     }

@@ -157,10 +157,9 @@ impl ComponentController for Bunny {
             });
     }
 
-    fn render<'a>(ctx: &'a Context, renderer: &mut ComponentRenderer<'a>) {
-        let resources = renderer.resource::<Resources>(ctx).single();
+    fn render<'a>(renderer: &mut ComponentRenderer<'a>) {
+        let resources = renderer.resource::<Resources>().single();
         renderer.render_all::<Bunny>(
-            ctx,
             RenderCamera::World,
             |r, instances| {
                 r.render_sprite(instances, &resources.bunny_model, &resources.bunny_sprite);
@@ -172,8 +171,8 @@ impl ComponentController for Bunny {
                         position: Vector::new(0.0, 0.0),
                         text: vec![Text::new(&format!(
                             "FPS: {}\nBunnies: {}",
-                            ctx.frame.fps(),
-                            ctx.components.len::<Bunny>()
+                            renderer.ctx.frame.fps(),
+                            renderer.ctx.components.len::<Bunny>()
                         ))
                         .with_scale(0.05)
                         .with_color(Color::RED)],

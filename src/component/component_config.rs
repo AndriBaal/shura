@@ -93,7 +93,7 @@ pub struct ComponentConfig {
 
 impl ComponentConfig {
     pub const DEFAULT_PRIORITY: i16 = 16;
-    pub const DEFAULT_FORCE_UPDATE_LEVEL: i16 = 1;
+    pub const DEFAULT_FORCE_UPDATE_LEVEL: i16 = 0;
     pub const DEFAULT: ComponentConfig = ComponentConfig {
         buffer: BufferOperation::EveryFrame,
         render: RenderOperation::EveryFrame,

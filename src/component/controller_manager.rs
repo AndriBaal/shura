@@ -13,9 +13,8 @@ use crate::{
 };
 
 type UpdateCallback = fn(ctx: &mut Context);
-type RenderCallback = for<'a> fn(ctx: &'a Context, renderer: &mut ComponentRenderer<'a>);
+type RenderCallback = for<'a> fn(renderer: &mut ComponentRenderer<'a>);
 type TargetCallback = for<'a> fn(
-    ctx: &'a Context,
     renderer: &mut ComponentRenderer<'a>,
 ) -> (Option<Color>, &'a RenderTarget);
 #[cfg(feature = "physics")]

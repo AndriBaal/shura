@@ -13,118 +13,111 @@ use crate::text::{FontBrush, TextSection};
 pub struct ComponentRenderer<'a> {
     pub inner: Renderer<'a>,
     pub screenshot: Option<&'a RenderTarget>,
+    pub ctx: &'a Context<'a>
 }
 
 impl<'a> ComponentRenderer<'a> {
-    pub fn for_each<C: Component>(&self, ctx: &'a Context, each: impl FnMut(&C) + 'a) {
-        let ty = ctx.components.resource();
-        ty.for_each(ctx.components.active_groups(), each);
+    pub fn for_each<C: Component>(&self, each: impl FnMut(&C) + 'a) {
+        let ty = self.ctx.components.resource();
+        ty.for_each(self.ctx.components.active_groups(), each);
     }
 
     pub fn index<C: Component>(
         &self,
-        ctx: &'a Context,
         group: GroupHandle,
         index: usize,
     ) -> Option<&'a C> {
-        self.index_of(ctx, group, index)
+        self.index_of(group, index)
     }
 
     pub fn index_of<C: Component>(
         &self,
-        ctx: &'a Context,
         group: GroupHandle,
         index: usize,
     ) -> Option<&'a C> {
-        let ty = ctx.components.resource();
+        let ty = self.ctx.components.resource();
         ty.index(group, index)
     }
 
-    pub fn get<C: Component>(&self, ctx: &'a Context, handle: ComponentHandle) -> Option<&'a C> {
-        let ty = ctx.components.resource();
+    pub fn get<C: Component>(&self, handle: ComponentHandle) -> Option<&'a C> {
+        let ty = self.ctx.components.resource();
         ty.get(handle)
     }
 
-    pub fn len<C: Component>(&self, ctx: &'a Context) -> usize {
-        let ty = ctx.components.resource::<C>();
-        ty.len(ctx.components.active_groups())
+    pub fn len<C: Component>(&self) -> usize {
+        let ty = self.ctx.components.resource::<C>();
+        ty.len(self.ctx.components.active_groups())
     }
 
-    pub fn iter<C: Component>(&self, ctx: &'a Context) -> impl DoubleEndedIterator<Item = &'a C> {
-        let ty = ctx.components.resource();
-        ty.iter(ctx.components.active_groups())
+    pub fn iter<C: Component>(&self) -> impl DoubleEndedIterator<Item = &'a C> {
+        let ty = self.ctx.components.resource();
+        ty.iter(self.ctx.components.active_groups())
     }
 
     pub fn iter_with_handles<C: Component>(
         &self,
-        ctx: &'a Context,
     ) -> impl DoubleEndedIterator<Item = (ComponentHandle, &'a C)> {
-        let ty = ctx.components.resource();
-        ty.iter_with_handles(ctx.components.active_groups())
+        let ty = self.ctx.components.resource();
+        ty.iter_with_handles(self.ctx.components.active_groups())
     }
 
-    pub fn try_single<C: Component>(&self, ctx: &'a Context) -> Option<&'a C> {
-        let ty = ctx.components.resource();
+    pub fn try_single<C: Component>(&self) -> Option<&'a C> {
+        let ty = self.ctx.components.resource();
         ty.try_single()
     }
 
-    pub fn single<C: Component>(&self, ctx: &'a Context) -> &'a C {
-        let ty = ctx.components.resource();
+    pub fn single<C: Component>(&self) -> &'a C {
+        let ty = self.ctx.components.resource();
         ty.single()
     }
 
-    pub fn resource<'b, C: Component>(&self, ctx: &'b Context) -> ComponentSetResource<'b, C> {
-        let ty = ctx.components.resource();
-        return ComponentSetResource::new(ty, ctx.components.active_groups());
+    pub fn resource<C: Component>(&self) -> ComponentSetResource<'a, C> {
+        let ty = self.ctx.components.resource();
+        return ComponentSetResource::new(ty, self.ctx.components.active_groups());
     }
 
-    pub fn resource_oof<'b, C: Component>(
+    pub fn resource_of<C: Component>(
         &self,
-        ctx: &'b Context,
-        filter: GroupFilter<'b>,
-    ) -> ComponentSetResource<'b, C> {
-        let ty = ctx.components.resource();
-        let groups = ctx.components.group_filter(filter);
+        filter: GroupFilter<'a>,
+    ) -> ComponentSetResource<'a, C> {
+        let ty = self.ctx.components.resource();
+        let groups = self.ctx.components.group_filter(filter);
         return ComponentSetResource::new(ty, groups);
     }
 
     pub fn render_each<C: Component>(
         &mut self,
-        ctx: &'a Context<'a>,
         camera: RenderCamera<'a>,
         each: impl FnMut(&mut Renderer<'a>, &'a C, InstanceIndex),
     ) {
-        let ty = ctx.components.resource::<C>();
+        let ty = self.ctx.components.resource::<C>();
         ty.render_each(&mut self.inner, camera, each)
     }
 
     #[cfg(feature = "rayon")]
     pub fn par_for_each<C: Component + Send + Sync>(
         &self,
-        ctx: &'a Context<'a>,
         each: impl Fn(&C) + Send + Sync,
     ) {
-        let ty = ctx.components.resource::<C>();
-        ty.par_for_each(ctx.components.active_groups(), each);
+        let ty = self.ctx.components.resource::<C>();
+        ty.par_for_each(self.ctx.components.active_groups(), each);
     }
 
     pub fn render_single<C: Component>(
         &mut self,
-        ctx: &'a Context<'a>,
         camera: RenderCamera<'a>,
         each: impl FnOnce(&mut Renderer<'a>, &'a C, InstanceIndex),
     ) {
-        let ty = ctx.components.resource::<C>();
+        let ty = self.ctx.components.resource::<C>();
         ty.render_single(&mut self.inner, camera, each)
     }
 
     pub fn render_all<C: Component>(
         &mut self,
-        ctx: &'a Context<'a>,
         camera: RenderCamera<'a>,
         all: impl FnMut(&mut Renderer<'a>, InstanceIndices),
     ) {
-        let ty = ctx.components.resource::<C>();
+        let ty = self.ctx.components.resource::<C>();
         ty.render_all(&mut self.inner, camera, all)
     }
 }

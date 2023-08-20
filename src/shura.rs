@@ -545,6 +545,7 @@ impl Shura {
 
         {
             let mut renderer = ComponentRenderer {
+                ctx: &ctx,
                 screenshot: None,
                 inner: encoder.renderer(
                     &ctx.defaults.world_target,
@@ -553,21 +554,25 @@ impl Shura {
                 ),
             };
             for (_priority, render, target) in callbacks.renders() {
-                let (clear, target) = (target)(&ctx, &mut renderer);
+                let (clear, target) = (target)(&mut renderer);
                 if target as *const _ != renderer.inner.target() as *const _ {
-                    // drop(renderer);
-                    // renderer = ComponentRenderer {
-                    //     screenshot: None,
-                    //     inner: encoder.renderer(target, clear, true),
-                    // };
+                    let target =
+                        unsafe { (target as *const crate::RenderTarget).as_ref().unwrap() };
+                    drop(renderer);
+                    renderer = ComponentRenderer {
+                        ctx: &ctx,
+                        screenshot: None,
+                        inner: encoder.renderer(target, clear, true),
+                    };
                 }
-                (render)(&ctx, &mut renderer);
+                (render)(&mut renderer);
                 if let Some(screenshot) = renderer.screenshot.take() {
                     let screenshot =
                         unsafe { (screenshot as *const crate::RenderTarget).as_ref().unwrap() };
                     drop(renderer);
                     encoder.copy_to_target(ctx.defaults.world_target.sprite(), screenshot);
                     renderer = ComponentRenderer {
+                        ctx: &ctx,
                         screenshot: None,
                         inner: encoder.renderer(
                             &ctx.defaults.world_target,

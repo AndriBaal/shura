@@ -113,8 +113,8 @@ impl ComponentController for Bird {
         ..ComponentConfig::DEFAULT
     };
 
-    fn render<'a>(ctx: &'a Context, renderer: &mut ComponentRenderer<'a>) {
-        renderer.render_single::<Self>(ctx, RenderCamera::World, |r, bird, instance| {
+    fn render<'a>(renderer: &mut ComponentRenderer<'a>) {
+        renderer.render_single::<Self>(RenderCamera::World, |r, bird, instance| {
             r.render_sprite_sheet(instance, &bird.model, &bird.sprite_sheet)
         });
     }
@@ -239,8 +239,8 @@ impl ComponentController for Ground {
         storage: ComponentStorage::Single,
         ..ComponentConfig::DEFAULT
     };
-    fn render<'a>(ctx: &'a Context, renderer: &mut ComponentRenderer<'a>) {
-        renderer.render_single::<Self>(ctx, RenderCamera::World, |r, ground, instance| {
+    fn render<'a>(renderer: &mut ComponentRenderer<'a>) {
+        renderer.render_single::<Self>(RenderCamera::World, |r, ground, instance| {
             r.render_sprite(instance, &ground.model, &ground.sprite)
         });
     }
@@ -275,8 +275,8 @@ impl ComponentController for Background {
         storage: ComponentStorage::Single,
         ..ComponentConfig::DEFAULT
     };
-    fn render<'a>(ctx: &'a Context, renderer: &mut ComponentRenderer<'a>) {
-        renderer.render_single::<Self>(ctx, RenderCamera::World, |r, background, instance| {
+    fn render<'a>(renderer: &mut ComponentRenderer<'a>) {
+        renderer.render_single::<Self>(RenderCamera::World, |r, background, instance| {
             r.render_sprite(instance, &background.model, &background.sprite)
         });
     }
@@ -347,9 +347,9 @@ impl ComponentController for Pipe {
         });
     }
 
-    fn render<'a>(ctx: &'a Context, renderer: &mut ComponentRenderer<'a>) {
-        let scene = renderer.single::<FlappyManager>(ctx);
-        renderer.render_all::<Self>(ctx, RenderCamera::World, |r, instances| {
+    fn render<'a>(renderer: &mut ComponentRenderer<'a>) {
+        let scene = renderer.single::<FlappyManager>();
+        renderer.render_all::<Self>(RenderCamera::World, |r, instances| {
             r.render_sprite(instances.clone(), &scene.top_pipe_model, &scene.pipe_sprite);
             r.render_sprite(instances, &scene.bottom_pipe_model, &scene.pipe_sprite);
         });

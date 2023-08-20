@@ -102,14 +102,14 @@ impl ComponentController for Background {
         storage: ComponentStorage::Single,
         ..ComponentConfig::DEFAULT
     };
-    fn render<'a>(ctx: &'a Context, renderer: &mut ComponentRenderer<'a>) {
-        let res = renderer.single::<LightResources>(ctx);
-        renderer.render_single::<Self>(ctx, RenderCamera::World, |r, background, index| {
+    fn render<'a>(renderer: &mut ComponentRenderer<'a>) {
+        let res = renderer.single::<LightResources>();
+        renderer.render_single::<Self>(RenderCamera::World, |r, background, index| {
             r.render_sprite(index, &background.model, &background.level);
             
-            r.use_model(ctx.defaults.unit_camera.0.model());
-            r.use_camera(RenderCamera::Unit);
+            r.use_model(r.defaults.unit_model());
             r.use_shader(&res.present_shader);
+            r.use_camera(RenderCamera::Unit);
             r.use_sprite(res.light_map.sprite(), 1);
             r.draw(index)
         });
@@ -153,11 +153,10 @@ impl ComponentController for Light {
         });
     }
 
-    fn render_target<'a, 'b: 'a>(
-        ctx: &'a Context,
-        renderer: &mut ComponentRenderer<'b>,
+    fn render_target<'a>(
+        renderer: &mut ComponentRenderer<'a>,
     ) -> (Option<Color>, &'a RenderTarget) {
-        let res = renderer.single::<LightResources>(ctx);
+        let res = renderer.single::<LightResources>();
         return (
             Some(Color::new(
                 0.12941176470588237,
@@ -169,9 +168,9 @@ impl ComponentController for Light {
         );
     }
 
-    fn render<'a>(ctx: &'a Context, renderer: &mut ComponentRenderer<'a>) {
-        let res = renderer.single::<LightResources>(ctx);
-        renderer.render_all::<Self>(ctx, RenderCamera::World, |r, i| {
+    fn render<'a>(renderer: &mut ComponentRenderer<'a>) {
+        let res = renderer.single::<LightResources>();
+        renderer.render_all::<Self>(RenderCamera::World, |r, i| {
             r.use_shader(&res.light_shader);
             r.use_model(&res.light_model);
             r.draw(i)

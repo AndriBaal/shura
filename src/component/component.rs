@@ -56,16 +56,15 @@ where
     ) {
     }
 
-    fn render<'a>(ctx: &'a Context, renderer: &mut ComponentRenderer<'a>) {}
+    fn render<'a>(renderer: &mut ComponentRenderer<'a>) {}
 
     /// Method called when the game is closed or the scene gets removed
     fn end(ctx: &mut Context, reason: EndReason) {}
 
     fn render_target<'a>(
-        ctx: &'a Context,
-        renderer: &mut ComponentRenderer,
+        renderer: &mut ComponentRenderer<'a>,
     ) -> (Option<Color>, &'a RenderTarget) {
-        return (None, &ctx.defaults.world_target);
+        return (None, &renderer.ctx.defaults.world_target);
     }
 }
 

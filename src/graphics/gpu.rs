@@ -372,7 +372,6 @@ pub struct GpuDefaults {
     pub grey: Shader,
     pub blurr: Shader,
     pub sprite_no_msaa: Shader,
-    pub unit_model: Model,
 
     /// This field holds both total time and the frame time. Both are stored as f32 in the buffer.
     /// The first f32 is the `total_time` and the second f32 is the `frame_time`. In the shader
@@ -487,7 +486,6 @@ impl GpuDefaults {
         let empty_instance = gpu.create_instance_buffer(InstancePosition::SIZE, &[]);
 
         let fov = Self::relative_fov(window_size);
-        let unit_model = gpu.create_model(ModelBuilder::square(0.5));
 
         let camera = Camera::new(Isometry::new(fov, 0.0), fov);
         let relative_bottom_left_camera = (camera.create_buffer(gpu), camera);
@@ -509,7 +507,6 @@ impl GpuDefaults {
         let unit_camera = (camera.create_buffer(gpu), camera);
 
         Self {
-            unit_model,
             sprite_sheet_uniform,
             sprite_sheet,
             unit_camera,
@@ -574,6 +571,10 @@ impl GpuDefaults {
     pub(crate) fn apply_render_scale(&mut self, gpu: &Gpu, scale: f32) {
         let size = gpu.render_size(scale);
         self.world_target.resize(gpu, size);
+    }
+
+    pub fn unit_model(&self) -> &Model {
+        return &self.unit_camera.0.model()
     }
 
     fn relative_fov(window_size: Vector<u32>) -> Vector<f32> {
