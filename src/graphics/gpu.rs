@@ -1,7 +1,7 @@
 #[cfg(feature = "log")]
 use crate::log::info;
 #[cfg(feature = "text")]
-use crate::text::{FontBrush, TextPipeline};
+use crate::text::{FontBrush, TextPipeline, FontSource};
 use crate::{
     Camera, CameraBuffer, ColorWrites, InstanceBuffer, InstancePosition, InstanceField, Isometry,
     Model, ModelBuilder, RenderEncoder, RenderTarget, Shader, ShaderConfig, Sprite, SpriteBuilder,
@@ -213,8 +213,8 @@ impl Gpu {
     }
 
     #[cfg(feature = "text")]
-    pub fn create_font(&self, bytes: &'static [u8], max_chars: u64) -> FontBrush {
-        FontBrush::new(self, bytes, max_chars).unwrap()
+    pub fn create_font(&self, source: &FontSource, max_chars: u64) -> FontBrush {
+        FontBrush::new(self, source, max_chars).unwrap()
     }
 
     pub fn create_uniform<T: bytemuck::Pod>(&self, data: T) -> Uniform<T> {

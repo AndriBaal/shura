@@ -1,4 +1,4 @@
-use instant::Duration;
+use crate::Duration;
 
 pub enum EndReason {
     EndProgram,

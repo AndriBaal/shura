@@ -1,4 +1,4 @@
-pub use instant::{Duration, Instant};
+pub use crate::{Duration, Instant};
 #[cfg(feature = "log")]
 use log::info;
 

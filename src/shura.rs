@@ -22,8 +22,6 @@ use crate::{
     Renderer, SceneCreator, SceneManager, Vector,
 };
 use rustc_hash::FxHashMap;
-#[cfg(target_arch = "wasm32")]
-use rustc_hash::FxHashMap;
 #[cfg(target_os = "android")]
 use winit::platform::android::activity::AndroidApp;
 

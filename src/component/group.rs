@@ -1,3 +1,5 @@
+use crate::Instant;
+
 use crate::{data::arena::Arena, CameraBuffer, ComponentManager, GroupHandle, Vector, World, AABB};
 use std::fmt;
 
@@ -76,9 +78,10 @@ impl GroupManager {
     pub(crate) fn update(&mut self, components: &mut ComponentManager, camera: &CameraBuffer) {
         let cam_aabb = camera.model().aabb(Vector::new(0.0, 0.0).into()); // Translation is already applied
         components.active_groups.clear();
+        let now = Instant::now();
         for (index, group) in self.groups.iter_with_index_mut() {
             if group.intersects_camera(cam_aabb) {
-                group.set_active(true);
+                group.set_active(true, now);
                 components.active_groups.push(GroupHandle(index));
             }
         }
@@ -117,6 +120,9 @@ impl fmt::Display for GroupActivation {
 #[derive(Debug, Clone)]
 pub struct Group {
     active: bool,
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[cfg_attr(feature = "serde", serde(default="Instant::now"))]
+    last_update: Instant,
     pub name: String,
     pub activation: GroupActivation,
     pub user_data: u64,
@@ -129,6 +135,7 @@ impl Group {
             activation,
             user_data,
             active: false,
+            last_update: Instant::now()
         }
     }
 
@@ -144,13 +151,18 @@ impl Group {
         }
     }
 
-    pub(crate) fn set_active(&mut self, active: bool) {
+    pub(crate) fn set_active(&mut self, active: bool, now: Instant) {
         self.active = active;
+        self.last_update = now;
     }
 
     /// Set the activation of this group.
     pub fn set_activation(&mut self, activation: GroupActivation) {
         self.activation = activation;
+    }
+
+    pub fn last_update(&self) -> Instant {
+        self.last_update
     }
 
     pub fn set_user_data(&mut self, user_data: u64) {

@@ -13,7 +13,7 @@ mod scene;
 mod shura;
 mod world;
 
-pub use instant::Duration;
+pub use instant::{Duration, Instant};
 pub use rustc_hash::{FxHashMap, FxHashSet};
 pub use shura_proc::*;
 
@@ -111,9 +111,7 @@ pub mod gui {
 pub mod serde {
     pub use serde::*;
     pub use crate::scene::scene_serde::*;
-    pub mod bincode {
-        pub use bincode::*;
-    }
+    pub use bincode;
 }
 
 // text
@@ -183,7 +181,5 @@ mod logging;
 pub mod log {
     pub use crate::logging::logging::LoggerBuilder;
     pub use log::{debug, error, info, trace, warn, Level, LevelFilter, SetLoggerError};
-    pub mod env_logger {
-        pub use env_logger::*;
-    }
+    pub use env_logger;
 }
