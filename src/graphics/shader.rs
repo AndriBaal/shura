@@ -84,7 +84,7 @@ impl Shader {
     pub const RAINBOW: &'static str = include_str!("../../res/shader/rainbow.wgsl");
     pub const GREY: &'static str = include_str!("../../res/shader/grey.wgsl");
     pub const BLURR: &'static str = include_str!("../../res/shader/blurr.wgsl");
-    pub const VERTEX_INPUT_OFFSET: u32 = 7;
+    pub const VERTEX_INPUT_OFFSET: u32 = 4;
     pub const VETEX_OUTPUT_OFFSET: u32 = 1;
 
     pub fn new(gpu: &Gpu, config: ShaderConfig) -> Self {

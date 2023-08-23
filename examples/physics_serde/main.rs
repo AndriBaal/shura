@@ -6,13 +6,14 @@ use std::fs;
 #[shura::main]
 fn shura_main(config: ShuraConfig) {
     if let Some(save_game) = fs::read("data.binc").ok() {
-        config.init(SerializedScene {
-            id: 1,
-            scene: save_game,
-            init: Player::deserialize_scene,
-        })
+        config.init(|| SerializedScene::new(
+            1,
+            save_game,
+            Player::deserialize_scene,
+            Player::init_scene,
+        ))
     } else {
-        config.init(NewScene {
+        config.init(|| NewScene {
             id: 1,
             init: |ctx| {
                 register!(ctx, [PhysicsBox, Player, Floor, PhysicsResources]);
@@ -129,11 +130,14 @@ impl Player {
         fs::write("data.binc", ser).expect("Unable to write file");
     }
 
-    fn deserialize_scene(ctx: &mut Context, scene: &mut SceneDeserializer) {
-        register!(ctx, [PhysicsBox, Player, Floor, PhysicsResources]);
-        scene.deserialize::<Floor>(ctx);
-        scene.deserialize::<Player>(ctx);
-        scene.deserialize::<PhysicsBox>(ctx);
+    fn deserialize_scene(des: &mut SceneDeserializer) {
+        register!(des.scene, [PhysicsBox, Player, Floor, PhysicsResources]);
+        des.deserialize::<Floor>();
+        des.deserialize::<Player>();
+        des.deserialize::<PhysicsBox>();
+    }
+
+    fn init_scene(ctx: &mut Context) {
         ctx.components.add(ctx.world, PhysicsResources::new(ctx));
     }
 }
@@ -177,11 +181,12 @@ impl ComponentController for Player {
 
         if ctx.input.is_pressed(Key::R) {
             if let Some(save_game) = fs::read("data.binc").ok() {
-                ctx.scenes.add(SerializedScene {
-                    id: 1,
-                    scene: save_game,
-                    init: Player::deserialize_scene,
-                });
+                ctx.scenes.add(SerializedScene::new(
+                    1,
+                    save_game,
+                    Player::deserialize_scene,
+                    Player::init_scene,
+                ));
             }
         }
 

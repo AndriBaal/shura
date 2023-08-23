@@ -13,7 +13,7 @@ const AMOUNT_BIRDS: u32 = 1000;
 
 #[shura::main]
 fn shura_main(config: ShuraConfig) {
-    config.init(NewScene::new(1, |ctx| {
+    config.init(|| NewScene::new(1, |ctx| {
         register!(ctx, [Background, Ground, Pipe, Bird, BirdSimulation]);
         ctx.world_camera
             .set_scaling(WorldCameraScale::Vertical(GAME_SIZE.y));

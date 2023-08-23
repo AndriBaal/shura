@@ -22,9 +22,8 @@ impl<T: bytemuck::Pod> Uniform<T> {
 
     pub(crate) fn new_custom(gpu: &Gpu, layout: &wgpu::BindGroupLayout, data: T) -> Uniform<T> {
         const BUFFER_ALIGNMENT: u64 = 16;
-        let data_size = std::mem::size_of_val(&data);
-        let buffer_size =
-            (data_size as f32 / BUFFER_ALIGNMENT as f32).ceil() as u64 * BUFFER_ALIGNMENT;
+        let data_size = std::mem::size_of_val(&data) as u64;
+        let buffer_size = wgpu::util::align_to(data_size, BUFFER_ALIGNMENT);
         assert!(
             buffer_size % BUFFER_ALIGNMENT == 0,
             "Unaligned buffer size: {}",

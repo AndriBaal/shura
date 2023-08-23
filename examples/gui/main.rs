@@ -2,7 +2,7 @@ use shura::*;
 
 #[shura::main]
 fn shura_main(config: ShuraConfig) {
-    config.init(NewScene {
+    config.init(|| NewScene {
         id: 0,
         init: |ctx| {
             ctx.components.register::<GuiComponent>(ctx.groups);

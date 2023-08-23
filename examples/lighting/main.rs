@@ -4,7 +4,7 @@ const SIZE: Vector<u32> = vector(800, 800);
 
 #[shura::main]
 fn shura_main(config: ShuraConfig) {
-    config.init(NewScene::new(1, |ctx| {
+    config.init(|| NewScene::new(1, |ctx| {
         register!(ctx, [Background, Light, LightResources]);
         ctx.world_camera.set_scaling(WorldCameraScale::Min(10.0));
         ctx.window

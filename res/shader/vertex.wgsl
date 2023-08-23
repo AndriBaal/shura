@@ -13,8 +13,8 @@ struct VertexInput {
 }
 
 struct InstanceInput {
-    @location(5) position: vec2<f32>,
-    @location(6) rotation: vec4<f32>,
+    @location(2) position: vec2<f32>,
+    @location(3) rotation: vec4<f32>,
     // SHURA_MARKER_INSTANCE_INPUT
 }
 

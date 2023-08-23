@@ -6,7 +6,7 @@ use crate::{
 };
 
 #[cfg(feature = "serde")]
-use crate::{ComponentTypeId, serde::SceneSerializer};
+use crate::{ComponentTypeId, serde::{SceneSerializer, GroupSerializer, GroupDeserializer}};
 
 #[cfg(feature = "serde")]
 use rustc_hash::FxHashMap;
@@ -168,5 +168,18 @@ impl<'a> Context<'a> {
             let result = bincode::serialize(&scene);
             return result;
         }
+    }
+
+
+    #[cfg(feature = "serde")]
+    pub fn serialize_group(&self, serialize: impl FnOnce(GroupSerializer)) -> Vec<u8> {
+        let ser = GroupSerializer::new();
+
+        return ser.finish();
+    }
+
+    #[cfg(feature = "serde")]
+    pub fn deserialize_group(&self, deserialize: GroupDeserializer) -> GroupHandle {
+
     }
 }

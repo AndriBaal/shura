@@ -6,6 +6,10 @@ use crate::{
     ComponentType, ComponentTypeId, ContextUse, ControllerManager, GlobalComponents, Gpu,
     GroupHandle, GroupManager, InstancePosition, World,
 };
+
+#[cfg(feature = "serde")]
+use crate::{serde::GroupSerializer, ComponentTypeStorage};
+
 use std::{
     cell::{Ref, RefCell, RefMut},
     rc::Rc,
@@ -29,7 +33,7 @@ macro_rules! register {
     ($ctx: expr, [$($C:ty),* $(,)?]) => {
         {
             $(
-                $ctx.components.register::<$C>($ctx.groups);
+                $ctx.components.register::<$C>(&$ctx.groups);
             )*
         }
     };
@@ -214,16 +218,14 @@ impl ComponentManager {
             unsafe impl Sync for ComponentTypeScope {}
             self.controllers.buffers().par_iter().for_each(|ty| {
                 let ty = &self.types[ty];
-                ty.ref_mut_raw()
-                    .buffer(world, &self.active_groups, &gpu);
+                ty.ref_mut_raw().buffer(world, &self.active_groups, &gpu);
             });
         }
 
         #[cfg(not(feature = "rayon"))]
         for ty in self.controllers.buffers() {
             let ty = &self.types[ty];
-            ty.ref_mut_raw()
-                .buffer(world, &self.active_groups, &gpu);
+            ty.ref_mut_raw().buffer(world, &self.active_groups, &gpu);
         }
     }
 
@@ -243,6 +245,25 @@ impl ComponentManager {
 
     pub fn register<C: Component>(&mut self, groups: &GroupManager) {
         self.register_with_config::<C>(groups, C::CONFIG);
+    }
+
+    #[cfg(feature = "serde")]
+    pub(crate) fn deserialize_group<C: Component + serde::de::DeserializeOwned>(
+        &mut self,
+        storage: ComponentTypeStorage<C>,
+    ) {
+        match &storage {
+            ComponentTypeStorage::MultipleGroups(_) => (),
+            _ => panic!("Cannot deserialize group that does not have ComponentStorage::Groups"),
+        }
+
+        let mut ty = type_ref_mut!(self, C);
+        match &mut ty.storage {
+            ComponentTypeStorage::MultipleGroups(_) => (),
+            _ => panic!("Component does not have ComponentStorage::Groups"),
+        }
+
+        ty.storage = storage;
     }
 
     #[cfg(feature = "serde")]

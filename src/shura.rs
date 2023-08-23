@@ -73,7 +73,7 @@ impl ShuraConfig {
 
 impl ShuraConfig {
     /// Start a new game with the given callback to initialize the first [Scene](crate::Scene).
-    pub fn init<C: SceneCreator + 'static>(self, init: C) {
+    pub fn init<C: SceneCreator + 'static>(self, init: impl FnOnce() -> C) {
         #[cfg(target_os = "android")]
         use winit::platform::android::EventLoopBuilderExtAndroid;
 
@@ -250,7 +250,7 @@ impl Shura {
         window: winit::window::Window,
         _event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
         gpu: GpuConfig,
-        creator: C,
+        creator: impl FnOnce() -> C,
         #[cfg(target_arch = "wasm32")] auto_scale_canvas: bool,
     ) -> Self {
         let gpu = pollster::block_on(Gpu::new(&window, gpu));
@@ -260,9 +260,9 @@ impl Shura {
         let gpu = Arc::new(gpu);
 
         GLOBAL_GPU.set(gpu.clone()).ok().unwrap();
-
+        let scene = (creator)();
         Self {
-            scenes: SceneManager::new(creator.new_id(), creator),
+            scenes: SceneManager::new(scene.new_id(), scene),
             frame: FrameManager::new(),
             globals: GlobalComponents(Default::default()),
             input: Input::new(window_size),

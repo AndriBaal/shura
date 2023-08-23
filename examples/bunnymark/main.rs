@@ -2,7 +2,7 @@ use shura::{log, rand, *};
 
 #[shura::main]
 fn shura_main(config: ShuraConfig) {
-    config.init(NewScene {
+    config.init(|| NewScene {
         id: 1,
         init: |ctx| {
             register!(ctx, [Bunny, Resources]);

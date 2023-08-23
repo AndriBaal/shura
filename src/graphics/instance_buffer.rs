@@ -32,8 +32,8 @@ impl InstancePosition {
 
     pub fn attributes() -> Vec<wgpu::VertexAttribute> {
         wgpu::vertex_attr_array![
-            5 => Float32x2,
-            6 => Float32x4
+            2 => Float32x2,
+            3 => Float32x4
         ]
         .to_vec()
     }

@@ -119,11 +119,14 @@ impl SpriteSheet {
     pub fn new<D: Deref<Target = [u8]>>(gpu: &Gpu, desc: SpriteSheetBuilder<D>) -> Self {
         let amount = desc.sprite_amount.x * desc.sprite_amount.y;
         assert!(amount > 1, "SpriteSheet must atleast have to 2 sprites!");
+
+        let data = [desc.sprite_amount, Vector::new(0, 0)]; // Empty vec needed for 16 Byte alignment
+        assert!(std::mem::size_of_val(&data) % 16 == 0);
         let size_hint_buffer = gpu
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("spritesheet_size_hint_buffer"),
-                contents: bytemuck::cast_slice(&[desc.sprite_amount, Vector::new(0, 0)]), // Empty vec needed for 16 Byte alignment
+                contents: bytemuck::cast_slice(&data), 
                 usage: wgpu::BufferUsages::UNIFORM,
             });
 
