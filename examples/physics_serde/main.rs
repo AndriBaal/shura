@@ -8,7 +8,7 @@ fn shura_main(config: ShuraConfig) {
     if let Some(save_game) = fs::read("data.binc").ok() {
         config.init(|| SerializedScene::new(
             1,
-            save_game,
+            &save_game,
             Player::deserialize_scene,
             Player::init_scene,
         ))
@@ -183,7 +183,7 @@ impl ComponentController for Player {
             if let Some(save_game) = fs::read("data.binc").ok() {
                 ctx.scenes.add(SerializedScene::new(
                     1,
-                    save_game,
+                    &save_game,
                     Player::deserialize_scene,
                     Player::init_scene,
                 ));

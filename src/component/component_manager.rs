@@ -614,7 +614,6 @@ impl ComponentManager {
         ty.par_for_each(groups, each);
     }
 
-    #[cfg(feature = "rayon")]
     pub fn buffer_for_each_mut<C: Component>(
         &mut self,
         world: &World,
@@ -624,7 +623,6 @@ impl ComponentManager {
         self.buffer_for_each_mut_of(world, gpu, GroupFilter::Active, each)
     }
 
-    #[cfg(feature = "rayon")]
     pub fn buffer_for_each_mut_of<C: Component>(
         &mut self,
         world: &World,

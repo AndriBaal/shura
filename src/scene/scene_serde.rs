@@ -4,7 +4,7 @@ use rustc_hash::FxHashMap;
 
 use crate::{
     Component, ComponentConfig, ComponentManager, ComponentTypeId, ComponentTypeStorage, Context,
-    ContextUse, Gpu, Group, GroupHandle, Scene, SceneCreator, Shura, GLOBAL_GPU,
+    ContextUse, Gpu, Group, GroupHandle, Scene, SceneCreator, Shura, GLOBAL_GPU, GroupManager,
 };
 
 pub fn gpu() -> Arc<Gpu> {
@@ -121,8 +121,15 @@ impl<'a> GroupSerializer<'a> {
         }
     }
 
-    pub fn serialize(&self) -> Self {
+    pub fn serialize<C: Component + Clone + serde::Serialize>(&mut self) {
+        // TODO: deinit
 
+    }
+
+
+    pub fn finish(self, groups: &GroupManager) -> Vec<u8> {
+        let group = groups.get(self.group).unwrap();
+        return bincode::serialize(&(group, self.ser_components)).unwrap();
     }
 }
 
@@ -154,6 +161,7 @@ impl GroupDeserializer {
                 if let Some(data) = des.remove(&C::IDENTIFIER) {
                     let storage = *data.downcast::<ComponentTypeStorage<C>>().ok().unwrap();
                     ctx.components.deserialize_group(storage);
+                    // TODO: init
                 }
             }));
         }

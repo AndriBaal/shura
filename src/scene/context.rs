@@ -6,7 +6,7 @@ use crate::{
 };
 
 #[cfg(feature = "serde")]
-use crate::{ComponentTypeId, serde::{SceneSerializer, GroupSerializer, GroupDeserializer}};
+use crate::{ComponentTypeId, GroupHandle, serde::{SceneSerializer, GroupSerializer, GroupDeserializer}};
 
 #[cfg(feature = "serde")]
 use rustc_hash::FxHashMap;
@@ -172,14 +172,14 @@ impl<'a> Context<'a> {
 
 
     #[cfg(feature = "serde")]
-    pub fn serialize_group(&self, serialize: impl FnOnce(GroupSerializer)) -> Vec<u8> {
-        let ser = GroupSerializer::new();
-
-        return ser.finish();
+    pub fn serialize_group(&self, group: GroupHandle, serialize: impl FnOnce(&mut GroupSerializer)) -> Vec<u8> {
+        let mut ser = GroupSerializer::new(group, self.components);
+        serialize(&mut ser);
+        return ser.finish(&self.groups);
     }
 
-    #[cfg(feature = "serde")]
-    pub fn deserialize_group(&self, deserialize: GroupDeserializer) -> GroupHandle {
+    // #[cfg(feature = "serde")]
+    // pub fn deserialize_group(&self, deserialize: GroupDeserializer) -> GroupHandle {
 
-    }
+    // }
 }
