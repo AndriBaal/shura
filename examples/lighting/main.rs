@@ -4,27 +4,29 @@ const SIZE: Vector<u32> = vector(800, 800);
 
 #[shura::main]
 fn shura_main(config: ShuraConfig) {
-    config.init(|| NewScene::new(1, |ctx| {
-        register!(ctx, [Background, Light, LightResources]);
-        ctx.world_camera.set_scaling(WorldCameraScale::Min(10.0));
-        ctx.window
-            .set_inner_size(winit::dpi::PhysicalSize::new(SIZE.x, SIZE.y));
-        ctx.window.set_resizable(false);
-        ctx.window
-            .set_enabled_buttons(winit::window::WindowButtons::CLOSE);
-        ctx.components.add(ctx.world, LightResources::new(ctx));
-        ctx.components.add(ctx.world, Background::new(ctx));
+    config.init(|| {
+        NewScene::new(1, |ctx| {
+            register!(ctx, [Background, Light, LightResources]);
+            ctx.world_camera.set_scaling(WorldCameraScale::Min(10.0));
+            ctx.window
+                .set_inner_size(winit::dpi::PhysicalSize::new(SIZE.x, SIZE.y));
+            ctx.window.set_resizable(false);
+            ctx.window
+                .set_enabled_buttons(winit::window::WindowButtons::CLOSE);
+            ctx.components.add(ctx.world, LightResources::new(ctx));
+            ctx.components.add(ctx.world, Background::new(ctx));
 
-        ctx.components.add(
-            ctx.world,
-            Light::new(vector(0.0, -2.0), Color::ORANGE, 6.0, false),
-        );
+            ctx.components.add(
+                ctx.world,
+                Light::new(vector(0.0, -2.0), Color::ORANGE, 6.0, false),
+            );
 
-        ctx.components.add(
-            ctx.world,
-            Light::new(vector(0.0, 0.0), Color::WHITE, 5.0, true),
-        );
-    }))
+            ctx.components.add(
+                ctx.world,
+                Light::new(vector(0.0, 0.0), Color::WHITE, 5.0, true),
+            );
+        })
+    })
 }
 
 #[derive(Component)]

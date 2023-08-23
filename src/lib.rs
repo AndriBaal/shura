@@ -24,7 +24,7 @@ pub(crate) use {component::controller_manager::*, data::arena::*};
 
 pub use crate::{
     component::{
-        component_config::*, component::*, component_handle::*, component_manager::*,
+        component::*, component_config::*, component_handle::*, component_manager::*,
         component_set::*, component_type::*, empty_component::*, group::*, position_component::*,
     },
     graphics::{
@@ -56,9 +56,9 @@ pub mod audio {
     pub use rodio::*;
 }
 
+pub use bytemuck;
 /// Access to [image](https://github.com/image-rs/image)
 pub use image;
-pub use bytemuck;
 
 #[cfg(not(feature = "physics"))]
 pub use world::world_no_rapier::World;
@@ -105,13 +105,12 @@ pub mod gui {
     pub use egui::*;
 }
 
-
 // serde
 #[cfg(feature = "serde")]
 pub mod serde {
-    pub use serde::*;
     pub use crate::scene::scene_serde::*;
     pub use bincode;
+    pub use serde::*;
 }
 
 // text
@@ -180,6 +179,6 @@ mod logging;
 /// Access to the logging abstraction over [env_logger](https://github.com/rust-cli/env_logger) and modified version of [wasm_logger](https://gitlab.com/limira-rs/wasm-logger)
 pub mod log {
     pub use crate::logging::logging::LoggerBuilder;
-    pub use log::{debug, error, info, trace, warn, Level, LevelFilter, SetLoggerError};
     pub use env_logger;
+    pub use log::{debug, error, info, trace, warn, Level, LevelFilter, SetLoggerError};
 }

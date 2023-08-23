@@ -13,19 +13,21 @@ const AMOUNT_BIRDS: u32 = 1000;
 
 #[shura::main]
 fn shura_main(config: ShuraConfig) {
-    config.init(|| NewScene::new(1, |ctx| {
-        register!(ctx, [Background, Ground, Pipe, Bird, BirdSimulation]);
-        ctx.world_camera
-            .set_scaling(WorldCameraScale::Vertical(GAME_SIZE.y));
-        ctx.components.add(ctx.world, BirdSimulation::new(ctx));
-        ctx.components.add(ctx.world, Background::new(ctx));
-        ctx.components.add(ctx.world, Ground::new(ctx));
-        ctx.window.set_resizable(false);
-        ctx.window.set_enabled_buttons(WindowButtons::CLOSE);
-        for _ in 0..AMOUNT_BIRDS {
-            ctx.components.add(ctx.world, Bird::new());
-        }
-    }))
+    config.init(|| {
+        NewScene::new(1, |ctx| {
+            register!(ctx, [Background, Ground, Pipe, Bird, BirdSimulation]);
+            ctx.world_camera
+                .set_scaling(WorldCameraScale::Vertical(GAME_SIZE.y));
+            ctx.components.add(ctx.world, BirdSimulation::new(ctx));
+            ctx.components.add(ctx.world, Background::new(ctx));
+            ctx.components.add(ctx.world, Ground::new(ctx));
+            ctx.window.set_resizable(false);
+            ctx.window.set_enabled_buttons(WindowButtons::CLOSE);
+            for _ in 0..AMOUNT_BIRDS {
+                ctx.components.add(ctx.world, Bird::new());
+            }
+        })
+    })
 }
 
 #[derive(Component)]

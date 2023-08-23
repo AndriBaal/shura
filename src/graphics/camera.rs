@@ -4,9 +4,8 @@ use std::ops::*;
 
 use crate::{
     ComponentHandle, ComponentManager, Gpu, Isometry, Model, ModelBuilder, Rotation, Uniform,
-    Vector, World
+    Vector, World,
 };
-
 
 const MINIMAL_FOV: f32 = 0.0001;
 
@@ -162,16 +161,9 @@ impl WorldCamera {
         }
     }
 
-    pub fn apply_target(
-        &mut self,
-        world: &World,
-        man: &ComponentManager,
-    ) {
+    pub fn apply_target(&mut self, world: &World, man: &ComponentManager) {
         if let Some(target) = self.target() {
-            if let Some(instance) = man.instance_data(
-                target,
-                world,
-            ) {
+            if let Some(instance) = man.instance_data(target, world) {
                 self.camera.set_translation(instance.pos());
             } else {
                 self.set_target(None);

@@ -4,16 +4,36 @@ use crate::{
     RenderCamera, RenderConfigInstances, RenderTarget, Shader, Sprite, SpriteSheet, Uniform,
     Vector,
 };
-use std::ops::Range;
+use std::{ops::Range, ptr::null};
 
 #[cfg(feature = "text")]
 use crate::text::{FontBrush, TextSection};
+
+struct RenderCache {
+    pub bound_shader: *const Shader,
+    pub bound_camera: *const CameraBuffer,
+    pub bound_model: *const Model,
+    pub bound_instances: *const InstanceBuffer,
+    pub bound_uniforms: [*const wgpu::BindGroup; 16],
+}
+
+impl Default for RenderCache {
+    fn default() -> Self {
+        Self {
+            bound_shader: null(),
+            bound_camera: null(),
+            bound_model: null(),
+            bound_instances: null(),
+            bound_uniforms: [null(); 16],
+        }
+    }
+}
 
 #[non_exhaustive]
 pub struct ComponentRenderer<'a> {
     pub inner: Renderer<'a>,
     pub screenshot: Option<&'a RenderTarget>,
-    pub ctx: &'a Context<'a>
+    pub ctx: &'a Context<'a>,
 }
 
 impl<'a> ComponentRenderer<'a> {
@@ -22,19 +42,11 @@ impl<'a> ComponentRenderer<'a> {
         ty.for_each(self.ctx.components.active_groups(), each);
     }
 
-    pub fn index<C: Component>(
-        &self,
-        group: GroupHandle,
-        index: usize,
-    ) -> Option<&'a C> {
+    pub fn index<C: Component>(&self, group: GroupHandle, index: usize) -> Option<&'a C> {
         self.index_of(group, index)
     }
 
-    pub fn index_of<C: Component>(
-        &self,
-        group: GroupHandle,
-        index: usize,
-    ) -> Option<&'a C> {
+    pub fn index_of<C: Component>(&self, group: GroupHandle, index: usize) -> Option<&'a C> {
         let ty = self.ctx.components.resource();
         ty.index(group, index)
     }
@@ -95,10 +107,7 @@ impl<'a> ComponentRenderer<'a> {
     }
 
     #[cfg(feature = "rayon")]
-    pub fn par_for_each<C: Component + Send + Sync>(
-        &self,
-        each: impl Fn(&C) + Send + Sync,
-    ) {
+    pub fn par_for_each<C: Component + Send + Sync>(&self, each: impl Fn(&C) + Send + Sync) {
         let ty = self.ctx.components.resource::<C>();
         ty.par_for_each(self.ctx.components.active_groups(), each);
     }
@@ -132,6 +141,7 @@ pub struct Renderer<'a> {
     msaa: bool,
     indices: u32,
     render_pass: wgpu::RenderPass<'a>,
+    cache: RenderCache,
 }
 
 impl<'a> Renderer<'a> {
@@ -172,6 +182,7 @@ impl<'a> Renderer<'a> {
             target,
             gpu,
             screenshot: None,
+            cache: RenderCache::default(),
         };
     }
 
@@ -225,15 +236,28 @@ impl<'a> Renderer<'a> {
         self.target
     }
 
+    pub fn pass(&'a mut self) -> &mut wgpu::RenderPass {
+        self.cache = Default::default();
+        return &mut self.render_pass;
+    }
+
     /// Sets the instance buffer at the position 1
     pub fn use_instance_buffer(&mut self, buffer: &'a InstanceBuffer) {
-        self.render_pass
-            .set_vertex_buffer(Self::INSTANCE_SLOT, buffer.slice());
+        let ptr = buffer as *const _;
+        if ptr != self.cache.bound_instances {
+            self.cache.bound_instances = ptr;
+            self.render_pass
+                .set_vertex_buffer(Self::INSTANCE_SLOT, buffer.slice());
+        }
     }
 
     pub fn use_camera_buffer(&mut self, camera: &'a CameraBuffer) {
-        self.render_pass
-            .set_bind_group(Self::CAMERA_SLOT, camera.uniform().bind_group(), &[]);
+        let ptr = camera as *const _;
+        if ptr != self.cache.bound_camera {
+            self.cache.bound_camera = ptr;
+            self.render_pass
+                .set_bind_group(Self::CAMERA_SLOT, camera.uniform().bind_group(), &[]);
+        }
     }
 
     pub fn use_instances(&mut self, instances: RenderConfigInstances<'a>) {
@@ -252,15 +276,35 @@ impl<'a> Renderer<'a> {
             self.msaa,
             "The Renderer and the Shader both need to have msaa enabled / disabled!"
         );
-        self.render_pass.set_pipeline(shader.pipeline());
+        let ptr = shader as *const _;
+        if ptr != self.cache.bound_shader {
+            self.cache.bound_shader = ptr;
+            self.render_pass.set_pipeline(shader.pipeline());
+        }
     }
 
     pub fn use_model(&mut self, model: &'a Model) {
-        self.indices = model.amount_of_indices();
-        self.render_pass
-            .set_index_buffer(model.index_buffer().slice(..), wgpu::IndexFormat::Uint32);
-        self.render_pass
-            .set_vertex_buffer(Self::MODEL_SLOT, model.vertex_buffer().slice(..));
+        let ptr = model as *const _;
+        if ptr != self.cache.bound_model {
+            self.cache.bound_model = ptr;
+            self.indices = model.amount_of_indices();
+            self.render_pass
+                .set_index_buffer(model.index_buffer().slice(..), wgpu::IndexFormat::Uint32);
+            self.render_pass
+                .set_vertex_buffer(Self::MODEL_SLOT, model.vertex_buffer().slice(..));
+        }
+    }
+
+    pub fn use_bind_group(&mut self, bind_group: &'a wgpu::BindGroup, slot: u32) {
+        let ptr = bind_group as *const _;
+        if let Some(cache_slot) = self.cache.bound_uniforms.get_mut(slot as usize) {
+            if *cache_slot != ptr {
+                *cache_slot = ptr;
+                self.render_pass.set_bind_group(slot, bind_group, &[]);
+            }
+        } else {
+            self.render_pass.set_bind_group(slot, bind_group, &[]);
+        }
     }
 
     pub fn use_sprite(&mut self, sprite: &'a Sprite, slot: u32) {
@@ -273,10 +317,6 @@ impl<'a> Renderer<'a> {
 
     pub fn use_uniform<T: bytemuck::Pod>(&mut self, uniform: &'a Uniform<T>, slot: u32) {
         self.use_bind_group(uniform.bind_group(), slot);
-    }
-
-    pub fn use_bind_group(&mut self, bind_group: &'a wgpu::BindGroup, slot: u32) {
-        self.render_pass.set_bind_group(slot, bind_group, &[]);
     }
 
     pub fn draw(&mut self, instances: impl Into<InstanceIndices>) {
@@ -294,6 +334,7 @@ impl<'a> Renderer<'a> {
 
     #[cfg(feature = "text")]
     pub fn render_font(&mut self, font: &'a FontBrush) {
+        self.cache = Default::default();
         font.render(
             self.gpu,
             &mut self.render_pass,

@@ -1,4 +1,4 @@
-use crate::{Position, InstancePosition, World};
+use crate::{InstancePosition, Position, World};
 
 #[derive(Copy, Clone, Default)]
 /// Dummy component that should not be rendered to the screen

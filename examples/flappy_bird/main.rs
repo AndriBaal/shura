@@ -4,20 +4,22 @@ const GAME_SIZE: Vector<f32> = Vector::new(11.25, 5.0);
 
 #[shura::main]
 fn shura_main(config: ShuraConfig) {
-    config.init(|| NewScene::new(1, |ctx| {
-        register!(ctx, [Background, Ground, Pipe, Bird, FlappyManager]);
-        ctx.components
-            .add(ctx.world, FlappyManager::new(&ctx.gpu, ctx.audio));
-        ctx.components.add(ctx.world, Background::new(ctx));
-        ctx.components.add(ctx.world, Ground::new(&ctx.gpu));
-        ctx.components
-            .add(ctx.world, Bird::new(&ctx.gpu, ctx.audio));
+    config.init(|| {
+        NewScene::new(1, |ctx| {
+            register!(ctx, [Background, Ground, Pipe, Bird, FlappyManager]);
+            ctx.components
+                .add(ctx.world, FlappyManager::new(&ctx.gpu, ctx.audio));
+            ctx.components.add(ctx.world, Background::new(ctx));
+            ctx.components.add(ctx.world, Ground::new(&ctx.gpu));
+            ctx.components
+                .add(ctx.world, Bird::new(&ctx.gpu, ctx.audio));
 
-        ctx.world.set_physics_priority(Some(10));
-        ctx.world.set_gravity(Vector::new(0.0, -15.0));
-        ctx.world_camera
-            .set_scaling(WorldCameraScale::Vertical(GAME_SIZE.y));
-    }))
+            ctx.world.set_physics_priority(Some(10));
+            ctx.world.set_gravity(Vector::new(0.0, -15.0));
+            ctx.world_camera
+                .set_scaling(WorldCameraScale::Vertical(GAME_SIZE.y));
+        })
+    })
 }
 
 #[derive(Component)]

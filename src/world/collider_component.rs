@@ -1,6 +1,6 @@
 use crate::{
     physics::{Collider, ColliderHandle},
-    Position, InstancePosition, Vector, World, ComponentHandle
+    ComponentHandle, InstancePosition, Position, Vector, World,
 };
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -99,15 +99,12 @@ impl Position for ColliderComponent {
         return InstancePosition::default();
     }
 
-
     fn init(&mut self, handle: ComponentHandle, world: &mut World) {
         match self.status {
             ColliderStatus::Added { .. } => {
                 return;
             }
-            ColliderStatus::Pending {
-                ref collider,
-            } => {
+            ColliderStatus::Pending { ref collider } => {
                 let collider_handle = world.add_collider(handle, collider.clone());
                 self.status = ColliderStatus::Added { collider_handle };
             }
@@ -118,9 +115,7 @@ impl Position for ColliderComponent {
         match self.status {
             ColliderStatus::Added { collider_handle } => {
                 if let Some(collider) = world.remove_collider(collider_handle) {
-                    self.status = ColliderStatus::Pending {
-                        collider,
-                    }
+                    self.status = ColliderStatus::Pending { collider }
                 }
             }
             ColliderStatus::Pending { .. } => return,

@@ -1226,7 +1226,6 @@ impl<C: Component> ComponentTypeImplementation for ComponentType<C> {
         C::IDENTIFIER
     }
 
-
     fn config(&self) -> ComponentConfig {
         self.config
     }

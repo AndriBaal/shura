@@ -6,7 +6,10 @@ use crate::{
 };
 
 #[cfg(feature = "serde")]
-use crate::{ComponentTypeId, GroupHandle, serde::{SceneSerializer, GroupSerializer, GroupDeserializer}};
+use crate::{
+    serde::{GroupDeserializer, GroupSerializer, SceneSerializer},
+    ComponentTypeId, GroupHandle,
+};
 
 #[cfg(feature = "serde")]
 use rustc_hash::FxHashMap;
@@ -53,7 +56,7 @@ pub struct Context<'a> {
 
     // Misc
     pub window_size: Vector<u32>,
-    pub cursor: Vector<f32>
+    pub cursor: Vector<f32>,
 }
 
 impl<'a> Context<'a> {
@@ -139,10 +142,7 @@ impl<'a> Context<'a> {
                 groups: self.groups,
                 world: &world_cpy,
             };
-            let scene: (
-                &Scene,
-                FxHashMap<ComponentTypeId, Vec<u8>>,
-            ) = (&scene, ser_components);
+            let scene: (&Scene, FxHashMap<ComponentTypeId, Vec<u8>>) = (&scene, ser_components);
             let result = bincode::serialize(&scene);
             return result;
         }
@@ -170,16 +170,19 @@ impl<'a> Context<'a> {
         }
     }
 
-
     #[cfg(feature = "serde")]
-    pub fn serialize_group(&self, group: GroupHandle, serialize: impl FnOnce(&mut GroupSerializer)) -> Vec<u8> {
+    pub fn serialize_group(
+        &self,
+        group: GroupHandle,
+        serialize: impl FnOnce(&mut GroupSerializer),
+    ) -> Vec<u8> {
         let mut ser = GroupSerializer::new(group, self.components);
         serialize(&mut ser);
         return ser.finish(&self.groups);
     }
 
-    // #[cfg(feature = "serde")]
-    // pub fn deserialize_group(&self, deserialize: GroupDeserializer) -> GroupHandle {
+    #[cfg(feature = "serde")]
+    pub fn deserialize_group(&self, deserialize: GroupDeserializer) -> GroupHandle {
 
-    // }
+    }
 }

@@ -16,9 +16,7 @@ impl GroupManager {
             Group::new(GroupActivation::Always, 0, Some(Self::DEFAULT_GROUP_NAME));
         let mut groups = Arena::default();
         groups.insert(default_component_group);
-        Self {
-            groups,
-        }
+        Self { groups }
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (GroupHandle, &Group)> + Clone {
@@ -121,7 +119,7 @@ impl fmt::Display for GroupActivation {
 pub struct Group {
     active: bool,
     #[cfg_attr(feature = "serde", serde(skip))]
-    #[cfg_attr(feature = "serde", serde(default="Instant::now"))]
+    #[cfg_attr(feature = "serde", serde(default = "Instant::now"))]
     last_update: Instant,
     pub name: String,
     pub activation: GroupActivation,
@@ -135,7 +133,7 @@ impl Group {
             activation,
             user_data,
             active: false,
-            last_update: Instant::now()
+            last_update: Instant::now(),
         }
     }
 

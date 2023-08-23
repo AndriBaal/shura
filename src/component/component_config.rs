@@ -9,7 +9,7 @@ pub enum EndReason {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ComponentScope {
     Scene,
-    Global
+    Global,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -104,7 +104,7 @@ impl ComponentConfig {
         render_priority: Self::DEFAULT_PRIORITY,
         end_priority: Self::DEFAULT_PRIORITY,
         force_update_level: Self::DEFAULT_FORCE_UPDATE_LEVEL,
-        scope: ComponentScope::Scene
+        scope: ComponentScope::Scene,
     };
     pub const RESOURCE: ComponentConfig = ComponentConfig {
         buffer: BufferOperation::Never,

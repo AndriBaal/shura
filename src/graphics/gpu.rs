@@ -1,9 +1,9 @@
 #[cfg(feature = "log")]
 use crate::log::info;
 #[cfg(feature = "text")]
-use crate::text::{FontBrush, TextPipeline, FontSource};
+use crate::text::{FontBrush, FontSource, TextPipeline};
 use crate::{
-    Camera, CameraBuffer, ColorWrites, InstanceBuffer, InstancePosition, InstanceField, Isometry,
+    Camera, CameraBuffer, ColorWrites, InstanceBuffer, InstanceField, InstancePosition, Isometry,
     Model, ModelBuilder, RenderEncoder, RenderTarget, Shader, ShaderConfig, Sprite, SpriteBuilder,
     SpriteSheet, SpriteSheetBuilder, Uniform, UniformField, Vector,
 };
@@ -481,7 +481,10 @@ impl GpuDefaults {
         let times = Uniform::new(gpu, [0.0, 0.0]);
         let single_centered_instance = gpu.create_instance_buffer(
             InstancePosition::SIZE,
-            bytemuck::cast_slice(&[InstancePosition::new(Default::default(), Vector::new(1.0, 1.0))]),
+            bytemuck::cast_slice(&[InstancePosition::new(
+                Default::default(),
+                Vector::new(1.0, 1.0),
+            )]),
         );
         let empty_instance = gpu.create_instance_buffer(InstancePosition::SIZE, &[]);
 
@@ -574,7 +577,7 @@ impl GpuDefaults {
     }
 
     pub fn unit_model(&self) -> &Model {
-        return &self.unit_camera.0.model()
+        return &self.unit_camera.0.model();
     }
 
     fn relative_fov(window_size: Vector<u32>) -> Vector<f32> {

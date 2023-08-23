@@ -1,6 +1,6 @@
 use crate::{
-    ComponentManager, Context, ContextUse, GroupManager, ScreenConfig, Shura, Vector, WorldCamera,
-    WorldCameraScale, World
+    ComponentManager, Context, ContextUse, GroupManager, ScreenConfig, Shura, Vector, World,
+    WorldCamera, WorldCameraScale,
 };
 
 /// Origin of a [Scene]

@@ -12,9 +12,9 @@ fn shura_main(config: ShuraConfig) {
             ctx.screen_config
                 .set_clear_color(Some(RgbaColor::new(220, 220, 220, 255).into()));
             ctx.world_camera.set_scaling(WorldCameraScale::Min(3.0));
-            ctx.components.set::<Bunny>().add_with(ctx.world, |handle| {
-                Bunny::new(vector(0.0, 0.0), handle)
-            });
+            ctx.components
+                .set::<Bunny>()
+                .add_with(ctx.world, |handle| Bunny::new(vector(0.0, 0.0), handle));
         },
     });
 }
@@ -156,4 +156,3 @@ impl ComponentController for Bunny {
         }
     }
 }
-

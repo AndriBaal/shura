@@ -8,4 +8,3 @@ pub mod rigid_body_component;
 pub mod world;
 #[cfg(not(feature = "physics"))]
 pub mod world_no_rapier;
-

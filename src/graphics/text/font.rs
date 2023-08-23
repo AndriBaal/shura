@@ -1,7 +1,7 @@
 use super::{text::TextSection, text_cache::TextCache};
 use crate::{text::TextVertex, CameraMatrix, Gpu, GpuDefaults, RenderCamera, Vector};
 use glyph_brush::{
-    ab_glyph::{InvalidFont, FontArc},
+    ab_glyph::{FontArc, InvalidFont},
     BrushAction, DefaultSectionHasher, Extra,
 };
 use std::sync::Mutex;
@@ -20,20 +20,18 @@ macro_rules! font_file_root {
     };
 }
 
-
 #[derive(Clone)]
 pub struct FontSource {
-    pub arc: FontArc
+    pub arc: FontArc,
 }
 
 impl FontSource {
     pub fn new(data: &'static [u8]) -> Self {
         Self {
-            arc: FontArc::try_from_slice(data).unwrap()
+            arc: FontArc::try_from_slice(data).unwrap(),
         }
     }
 }
-
 
 pub(crate) type GlyphBrush =
     glyph_brush::GlyphBrush<TextVertex, Extra, FontArc, DefaultSectionHasher>;

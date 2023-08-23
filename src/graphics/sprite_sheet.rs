@@ -126,7 +126,7 @@ impl SpriteSheet {
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("spritesheet_size_hint_buffer"),
-                contents: bytemuck::cast_slice(&data), 
+                contents: bytemuck::cast_slice(&data),
                 usage: wgpu::BufferUsages::UNIFORM,
             });
 
