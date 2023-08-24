@@ -8,12 +8,12 @@ struct Camera {
 var<uniform> camera: Camera;
 
 struct VertexInput {
-    @location(0) position: vec2<f32>,
+    @location(0) v_position: vec2<f32>,
     @location(1) tex: vec2<f32>,
 }
 
 struct InstanceInput {
-    @location(2) position: vec2<f32>,
+    @location(2) i_position: vec2<f32>,
     @location(3) rotation: vec4<f32>,
     // SHURA_MARKER_INSTANCE_INPUT
 }
@@ -33,7 +33,7 @@ fn main(
     out.tex = model.tex;
     // SHURA_MARKER_VARIABLE_ASSIGNMENT
 
-    let pos = model.position * mat2x2<f32>(instance.rotation.xy, instance.rotation.zw) + instance.position;
+    let pos = model.v_position * mat2x2<f32>(instance.rotation.xy, instance.rotation.zw) + instance.i_position;
     out.clip_position = camera.view_proj * vec4<f32>(pos, 0.0, 1.0);
 
     return out;

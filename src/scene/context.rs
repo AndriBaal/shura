@@ -181,8 +181,8 @@ impl<'a> Context<'a> {
         return ser.finish(&self.groups);
     }
 
-    #[cfg(feature = "serde")]
-    pub fn deserialize_group(&self, deserialize: GroupDeserializer) -> GroupHandle {
+    // #[cfg(feature = "serde")]
+    // pub fn deserialize_group(&self, deserialize: GroupDeserializer) -> GroupHandle {
 
-    }
+    // }
 }
