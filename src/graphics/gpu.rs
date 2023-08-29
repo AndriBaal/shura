@@ -59,7 +59,7 @@ impl Gpu {
         let surface = unsafe { instance.create_surface(window).unwrap() };
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::default(),
+                power_preference: wgpu::PowerPreference::HighPerformance,
                 compatible_surface: Some(&surface),
                 force_fallback_adapter: false,
             })
@@ -477,7 +477,9 @@ impl GpuDefaults {
         });
 
         let size = gpu.render_size(1.0);
-        let world_target = gpu.create_render_target(size);
+        let world_target = gpu.create_custom_render_target(
+            SpriteBuilder::empty(size).sampler(Sprite::DEFAULT_SAMPLER),
+        );
         let times = Uniform::new(gpu, [0.0, 0.0]);
         let single_centered_instance = gpu.create_instance_buffer(
             InstancePosition::SIZE,

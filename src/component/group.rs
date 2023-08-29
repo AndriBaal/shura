@@ -1,6 +1,9 @@
-use crate::Instant;
+#[cfg(feature = "serde")]
+use crate::{ComponentTypeId, FxHashMap};
 
-use crate::{data::arena::Arena, CameraBuffer, ComponentManager, GroupHandle, Vector, World, AABB};
+use crate::{
+    data::arena::Arena, CameraBuffer, ComponentManager, GroupHandle, Instant, Vector, World, AABB,
+};
 use std::fmt;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -64,13 +67,42 @@ impl GroupManager {
             panic!("Cannot remove default group!");
         }
         let group = self.groups.remove(handle.0);
-        components.active_groups.retain(|g| *g != handle);
-        components.all_groups.retain(|g| *g != handle);
-        for mut ty in components.types_mut() {
-            ty.remove_group(world, handle);
+        if group.is_some() {
+            components.active_groups.retain(|g| *g != handle);
+            components.all_groups.retain(|g| *g != handle);
+            for mut ty in components.types_mut() {
+                ty.remove_group(world, handle);
+            }
+            components.all_groups.retain(|h| *h != handle);
         }
-        components.all_groups.retain(|h| *h != handle);
         return group;
+    }
+
+    #[cfg(feature = "serde")]
+    pub fn remove_serialize(
+        &mut self,
+        components: &mut ComponentManager,
+        world: &mut World,
+        handle: GroupHandle,
+    ) -> Option<(Group, FxHashMap<ComponentTypeId, Box<dyn std::any::Any>>)> {
+        if handle == GroupHandle::DEFAULT_GROUP {
+            panic!("Cannot remove default group!");
+        }
+        let group = self.groups.remove(handle.0);
+        if let Some(group) = group {
+            components.active_groups.retain(|g| *g != handle);
+            components.all_groups.retain(|g| *g != handle);
+            let mut out = FxHashMap::default();
+            for mut ty in components.types_mut() {
+                if let Some(g) = ty.remove_group_serialize(world, handle) {
+                    out.insert(ty.component_type_id(), g);
+                }
+            }
+            components.all_groups.retain(|h| *h != handle);
+            return Some((group, out));
+        } else {
+            return None;
+        }
     }
 
     pub(crate) fn update(&mut self, components: &mut ComponentManager, camera: &CameraBuffer) {

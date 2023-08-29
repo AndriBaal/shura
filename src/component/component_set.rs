@@ -190,6 +190,14 @@ impl<'a, C: Component> ComponentSetMut<'a, C> {
         self.ty.component_type_id()
     }
 
+    pub fn change_group(
+        &mut self,
+        component: ComponentHandle,
+        new_group_handle: GroupHandle,
+    ) -> Option<ComponentHandle> {
+        self.ty.change_group(component, new_group_handle)
+    }
+
     pub fn for_each(&self, each: impl FnMut(&C)) {
         self.ty.for_each(self.groups, each);
     }

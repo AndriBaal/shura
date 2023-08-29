@@ -3,8 +3,9 @@ use std::{any::Any, sync::Arc};
 use rustc_hash::FxHashMap;
 
 use crate::{
-    Component, ComponentConfig, ComponentManager, ComponentTypeId, ComponentTypeStorage, Context,
-    ContextUse, Gpu, Group, GroupHandle, GroupManager, Scene, SceneCreator, Shura, GLOBAL_GPU,
+    Component, ComponentConfig, ComponentManager, ComponentTypeGroup, ComponentTypeId,
+    ComponentTypeStorage, Context, ContextUse, Gpu, Group, GroupHandle, GroupManager, Scene,
+    SceneCreator, Shura, World, GLOBAL_GPU,
 };
 
 pub fn gpu() -> Arc<Gpu> {
@@ -106,28 +107,39 @@ impl<'a> SceneDeserializer<'a> {
     }
 }
 
-pub struct GroupSerializer<'a> {
-    components: &'a ComponentManager,
+pub struct GroupSerializer {
+    components: FxHashMap<ComponentTypeId, Box<dyn Any>>,
     ser_components: FxHashMap<ComponentTypeId, Vec<u8>>,
-    group: GroupHandle,
+    group: Group,
 }
 
-impl<'a> GroupSerializer<'a> {
-    pub fn new(group: GroupHandle, components: &'a ComponentManager) -> Self {
-        Self {
-            components,
-            group,
-            ser_components: Default::default(),
+impl GroupSerializer {
+    pub fn new(
+        world: &mut World,
+        groups: &mut GroupManager,
+        components: &mut ComponentManager,
+        group: GroupHandle,
+    ) -> Option<Self> {
+        if let Some((group, components)) = groups.remove_serialize(components, world, group) {
+            return Some(Self {
+                group,
+                components,
+                ser_components: Default::default(),
+            });
+        }
+        return None;
+    }
+
+    pub fn remove_serialize<C: Component + Clone + serde::Serialize>(&mut self) {
+        if let Some(data) = self.components.remove(&C::IDENTIFIER) {
+            let components = data.downcast_ref::<ComponentTypeGroup<C>>().unwrap();
+            let data = bincode::serialize(components).unwrap();
+            self.ser_components.insert(C::IDENTIFIER, data);
         }
     }
 
-    pub fn serialize<C: Component + Clone + serde::Serialize>(&mut self) {
-        // TODO: deinit
-    }
-
-    pub fn finish(self, groups: &GroupManager) -> Vec<u8> {
-        let group = groups.get(self.group).unwrap();
-        return bincode::serialize(&(group, self.ser_components)).unwrap();
+    pub fn finish(self) -> Result<Vec<u8>, Box<bincode::ErrorKind>> {
+        return bincode::serialize(&(self.group, self.ser_components));
     }
 }
 
@@ -158,9 +170,8 @@ impl GroupDeserializer {
             self.components.insert(type_id, Box::new(deserialized));
             self.init_callbacks.push(Box::new(|des, ctx| {
                 if let Some(data) = des.remove(&C::IDENTIFIER) {
-                    let storage = *data.downcast::<ComponentTypeStorage<C>>().ok().unwrap();
-                    ctx.components.deserialize_group(storage);
-                    // TODO: init
+                    let storage = *data.downcast::<ComponentTypeGroup<C>>().ok().unwrap();
+                    ctx.components.deserialize_group(storage, ctx.world);
                 }
             }));
         }

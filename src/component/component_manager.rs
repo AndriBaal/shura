@@ -8,7 +8,7 @@ use crate::{
 };
 
 #[cfg(feature = "serde")]
-use crate::{serde::GroupSerializer, ComponentTypeStorage};
+use crate::{ComponentTypeGroup, ComponentTypeStorage};
 
 use std::{
     cell::{Ref, RefCell, RefMut},
@@ -23,7 +23,13 @@ pub(crate) trait ComponentTypeImplementation: Downcast {
     fn component_type_id(&self) -> ComponentTypeId;
     fn config(&self) -> ComponentConfig;
     #[cfg(feature = "serde")]
-    fn deinit_non_serialized(&mut self, world: &mut World);
+    fn deinit_non_serialized(&self, world: &mut World);
+    #[cfg(feature = "serde")]
+    fn remove_group_serialize(
+        &mut self,
+        world: &mut World,
+        handle: GroupHandle,
+    ) -> Option<Box<dyn std::any::Any>>;
 }
 impl_downcast!(ComponentTypeImplementation);
 
@@ -250,20 +256,32 @@ impl ComponentManager {
     #[cfg(feature = "serde")]
     pub(crate) fn deserialize_group<C: Component + serde::de::DeserializeOwned>(
         &mut self,
-        storage: ComponentTypeStorage<C>,
-    ) {
-        match &storage {
-            ComponentTypeStorage::MultipleGroups(_) => (),
-            _ => panic!("Cannot deserialize group that does not have ComponentStorage::Groups"),
-        }
+        mut storage: ComponentTypeGroup<C>,
+        world: &mut World,
+    ) -> GroupHandle {
+        use crate::ComponentIndex;
 
         let mut ty = type_ref_mut!(self, C);
         match &mut ty.storage {
-            ComponentTypeStorage::MultipleGroups(_) => (),
+            ComponentTypeStorage::MultipleGroups(groups) => {
+                let index = groups.insert_with(|group_index| {
+                    for (component_index, component) in storage.components.iter_with_index_mut() {
+                        component.init(
+                            ComponentHandle::new(
+                                ComponentIndex(component_index),
+                                C::IDENTIFIER,
+                                GroupHandle(group_index),
+                            ),
+                            world,
+                        )
+                    }
+
+                    storage
+                });
+                return GroupHandle(index);
+            }
             _ => panic!("Component does not have ComponentStorage::Groups"),
         }
-
-        ty.storage = storage;
     }
 
     #[cfg(feature = "serde")]
@@ -348,6 +366,15 @@ impl ComponentManager {
 
     pub(crate) fn resource<'a, C: Component>(&'a self) -> &'a ComponentType<C> {
         return type_render!(self, C);
+    }
+
+    pub fn change_group<C: Component>(
+        &mut self,
+        component: ComponentHandle,
+        new_group_handle: GroupHandle,
+    ) -> Option<ComponentHandle> {
+        let mut ty = type_ref_mut!(self, C);
+        return ty.change_group(component, new_group_handle);
     }
 
     pub fn group_filter<'a>(&'a self, filter: GroupFilter<'a>) -> &'a [GroupHandle] {

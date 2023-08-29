@@ -41,7 +41,7 @@ impl<'a> SpriteBuilder<'a, image::RgbaImage> {
         let size = Vector::new(image.width(), image.height());
         return Self {
             size,
-            sampler: Self::DEFAULT_SAMPLER,
+            sampler: Sprite::DEFAULT_SAMPLER,
             data: image.to_rgba8(),
         };
     }
@@ -50,7 +50,7 @@ impl<'a> SpriteBuilder<'a, image::RgbaImage> {
         let size = Vector::new(image.width(), image.height());
         return Self {
             size,
-            sampler: Self::DEFAULT_SAMPLER,
+            sampler: Sprite::DEFAULT_SAMPLER,
             data: image.to_rgba8(),
         };
     }
@@ -60,7 +60,7 @@ impl<'a> SpriteBuilder<'a, &'static [u8]> {
     pub fn empty(size: Vector<u32>) -> Self {
         return Self {
             size,
-            sampler: Self::DEFAULT_SAMPLER,
+            sampler: Sprite::DEFAULT_SAMPLER,
             data: &[],
         };
     }
@@ -70,7 +70,7 @@ impl<'a> SpriteBuilder<'a, Vec<u8>> {
     pub fn color(color: RgbaColor) -> Self {
         Self {
             size: Vector::new(1, 1),
-            sampler: Self::DEFAULT_SAMPLER,
+            sampler: Sprite::DEFAULT_SAMPLER,
             data: vec![color.r, color.g, color.b, color.a],
         }
     }
@@ -80,29 +80,13 @@ impl<'a> SpriteBuilder<'a, &'a [u8]> {
     pub fn raw(size: Vector<u32>, data: &'a [u8]) -> Self {
         return Self {
             size,
-            sampler: Self::DEFAULT_SAMPLER,
+            sampler: Sprite::DEFAULT_SAMPLER,
             data,
         };
     }
 }
 
 impl<'a, D: Deref<Target = [u8]>> SpriteBuilder<'a, D> {
-    pub const DEFAULT_SAMPLER: wgpu::SamplerDescriptor<'static> = wgpu::SamplerDescriptor {
-        label: None,
-        address_mode_u: wgpu::AddressMode::ClampToEdge,
-        address_mode_v: wgpu::AddressMode::ClampToEdge,
-        address_mode_w: wgpu::AddressMode::ClampToEdge,
-        mag_filter: wgpu::FilterMode::Nearest,
-        min_filter: wgpu::FilterMode::Nearest,
-        mipmap_filter: wgpu::FilterMode::Nearest,
-        // Copied from default ...
-        lod_min_clamp: 0.0,
-        lod_max_clamp: 32.0,
-        compare: None,
-        anisotropy_clamp: 1,
-        border_color: None,
-    };
-
     pub fn sampler(mut self, sampler: wgpu::SamplerDescriptor<'a>) -> Self {
         self.sampler = sampler;
         self
@@ -119,6 +103,22 @@ pub struct Sprite {
 }
 
 impl Sprite {
+    pub const DEFAULT_SAMPLER: wgpu::SamplerDescriptor<'static> = wgpu::SamplerDescriptor {
+        label: None,
+        address_mode_u: wgpu::AddressMode::ClampToEdge,
+        address_mode_v: wgpu::AddressMode::ClampToEdge,
+        address_mode_w: wgpu::AddressMode::ClampToEdge,
+        mag_filter: wgpu::FilterMode::Nearest,
+        min_filter: wgpu::FilterMode::Nearest,
+        mipmap_filter: wgpu::FilterMode::Nearest,
+        // Copied from default ...
+        lod_min_clamp: 0.0,
+        lod_max_clamp: 32.0,
+        compare: None,
+        anisotropy_clamp: 1,
+        border_color: None,
+    };
+
     pub fn new<D: Deref<Target = [u8]>>(gpu: &Gpu, desc: SpriteBuilder<D>) -> Self {
         let texture = Self::create_texture(gpu, desc.size);
         let (bind_group, sampler) = Self::create_bind_group(gpu, &texture, &desc.sampler);

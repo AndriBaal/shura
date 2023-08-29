@@ -109,7 +109,7 @@ impl Player {
             sprite: player_sprite(),
             model: player_model(),
             body: RigidBodyComponent::new(
-                RigidBodyBuilder::dynamic().translation(Vector::new(5.0, 4.0)),
+                RigidBodyBuilder::dynamic().translation(Vector::new(9.0, 4.0)),
                 [collider],
             ),
         }

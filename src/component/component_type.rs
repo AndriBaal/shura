@@ -899,22 +899,26 @@ impl<C: Component> ComponentType<C> {
             ComponentTypeStorage::Single {
                 buffer, component, ..
             } => {
-                renderer.use_instance_buffer(buffer.as_ref().expect(BUFFER_ERROR));
                 if let Some(component) = component {
+                    renderer.use_instance_buffer(buffer.as_ref().expect(BUFFER_ERROR));
                     (each)(renderer, component, InstanceIndex::new(0));
                 }
             }
             ComponentTypeStorage::Multiple(multiple) => {
-                renderer.use_instance_buffer(multiple.buffer.as_ref().expect(BUFFER_ERROR));
-                for (instance, component) in multiple.components.iter().enumerate() {
-                    (each)(renderer, component, InstanceIndex::new(instance as u32));
+                if !multiple.components.is_empty() {
+                    renderer.use_instance_buffer(multiple.buffer.as_ref().expect(BUFFER_ERROR));
+                    for (instance, component) in multiple.components.iter().enumerate() {
+                        (each)(renderer, component, InstanceIndex::new(instance as u32));
+                    }
                 }
             }
             ComponentTypeStorage::MultipleGroups(groups) => {
                 for group in groups {
-                    renderer.use_instance_buffer(group.buffer.as_ref().expect(BUFFER_ERROR));
-                    for (instance, component) in group.components.iter().enumerate() {
-                        (each)(renderer, component, InstanceIndex::new(instance as u32));
+                    if !group.components.is_empty() {
+                        renderer.use_instance_buffer(group.buffer.as_ref().expect(BUFFER_ERROR));
+                        for (instance, component) in group.components.iter().enumerate() {
+                            (each)(renderer, component, InstanceIndex::new(instance as u32));
+                        }
                     }
                 }
             }
@@ -932,8 +936,8 @@ impl<C: Component> ComponentType<C> {
             ComponentTypeStorage::Single {
                 buffer, component, ..
             } => {
-                renderer.use_instance_buffer(buffer.as_ref().expect(BUFFER_ERROR));
                 if let Some(component) = component {
+                    renderer.use_instance_buffer(buffer.as_ref().expect(BUFFER_ERROR));
                     (each)(renderer, component, InstanceIndex::new(0));
                 }
             }
@@ -976,6 +980,30 @@ impl<C: Component> ComponentType<C> {
                     }
                 }
             }
+        }
+    }
+
+    pub fn change_group(
+        &mut self,
+        component: ComponentHandle,
+        new_group_handle: GroupHandle,
+    ) -> Option<ComponentHandle> {
+        match &mut self.storage {
+            ComponentTypeStorage::MultipleGroups(groups) => {
+                let (old_group, new_group) =
+                    groups.get2_mut(component.group_handle().0, new_group_handle.0);
+                let old_group = old_group?;
+                let new_group = new_group?;
+                let component = old_group.components.remove(component.component_index().0)?;
+                let component_index = ComponentIndex(new_group.components.insert(component));
+
+                return Some(ComponentHandle::new(
+                    component_index,
+                    C::IDENTIFIER,
+                    new_group_handle,
+                ));
+            }
+            _ => panic!("Cannot get change group on component without ComponentStorage::Group!"),
         }
     }
 
@@ -1148,9 +1176,11 @@ impl<C: Component> ComponentTypeImplementation for ComponentType<C> {
     fn remove_group(&mut self, world: &mut World, handle: GroupHandle) {
         match &mut self.storage {
             ComponentTypeStorage::MultipleGroups(groups) => {
-                let _group = groups.remove(handle.0).unwrap();
-                for mut component in _group.components {
-                    component.finish(world)
+                if let Some(group) = groups.remove(handle.0) {
+                    // Checked because of serializing groups
+                    for mut component in group.components {
+                        component.finish(world)
+                    }
                 }
             }
             _ => {}
@@ -1200,7 +1230,7 @@ impl<C: Component> ComponentTypeImplementation for ComponentType<C> {
     }
 
     #[cfg(feature = "serde")]
-    fn deinit_non_serialized(&mut self, world: &mut World) {
+    fn deinit_non_serialized(&self, world: &mut World) {
         match &self.storage {
             ComponentTypeStorage::Single { component, .. } => {
                 if let Some(component) = component {
@@ -1220,6 +1250,26 @@ impl<C: Component> ComponentTypeImplementation for ComponentType<C> {
                 }
             }
         }
+    }
+
+    #[cfg(feature = "serde")]
+    fn remove_group_serialize(
+        &mut self,
+        world: &mut World,
+        handle: GroupHandle,
+    ) -> Option<Box<dyn std::any::Any>> {
+        match &mut self.storage {
+            ComponentTypeStorage::MultipleGroups(groups) => {
+                if let Some(mut group) = groups.remove(handle.0) {
+                    for component in &mut group.components {
+                        component.finish(world)
+                    }
+                    return Some(Box::new(group));
+                }
+            }
+            _ => {}
+        }
+        return None;
     }
 
     fn component_type_id(&self) -> ComponentTypeId {

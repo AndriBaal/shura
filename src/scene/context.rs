@@ -125,7 +125,7 @@ impl<'a> Context<'a> {
         {
             let ser_components = serializer.finish();
             let mut world_cpy = self.world.clone();
-            for mut ty in self.components.types_mut() {
+            for ty in self.components.types_mut() {
                 if !ser_components.contains_key(&ty.component_type_id()) {
                     ty.deinit_non_serialized(&mut world_cpy);
                 }
@@ -172,17 +172,20 @@ impl<'a> Context<'a> {
 
     #[cfg(feature = "serde")]
     pub fn serialize_group(
-        &self,
+        &mut self,
         group: GroupHandle,
         serialize: impl FnOnce(&mut GroupSerializer),
-    ) -> Vec<u8> {
-        let mut ser = GroupSerializer::new(group, self.components);
-        serialize(&mut ser);
-        return ser.finish(&self.groups);
+    ) -> Option<Result<Vec<u8>, Box<bincode::ErrorKind>>> {
+        if let Some(mut ser) = GroupSerializer::new(self.world, self.groups, self.components, group)
+        {
+            serialize(&mut ser);
+            return Some(ser.finish());
+        }
+        return None;
     }
 
-    // #[cfg(feature = "serde")]
-    // pub fn deserialize_group(&self, deserialize: GroupDeserializer) -> GroupHandle {
-
-    // }
+    #[cfg(feature = "serde")]
+    pub fn deserialize_group(&mut self, deserialize: GroupDeserializer) -> GroupHandle {
+        deserialize.finish(self)
+    }
 }
