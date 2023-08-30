@@ -156,6 +156,10 @@ impl Gpu {
         self.surface.configure(&self.device, &config);
     }
 
+    pub fn format(&self) -> wgpu::TextureFormat {
+        self.format
+    }
+
     pub fn render_size(&self, scale: f32) -> Vector<u32> {
         let config = self.config.lock().unwrap();
         Vector::new(
