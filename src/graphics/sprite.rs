@@ -33,6 +33,7 @@ pub struct SpriteBuilder<'a, D: Deref<Target = [u8]>> {
     pub size: Vector<u32>,
     pub sampler: wgpu::SamplerDescriptor<'a>,
     pub data: D,
+    pub format: wgpu::TextureFormat,
 }
 
 impl<'a> SpriteBuilder<'a, image::RgbaImage> {
@@ -41,6 +42,7 @@ impl<'a> SpriteBuilder<'a, image::RgbaImage> {
         let size = Vector::new(image.width(), image.height());
         return Self {
             size,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
             sampler: Sprite::DEFAULT_SAMPLER,
             data: image.to_rgba8(),
         };
@@ -50,6 +52,7 @@ impl<'a> SpriteBuilder<'a, image::RgbaImage> {
         let size = Vector::new(image.width(), image.height());
         return Self {
             size,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
             sampler: Sprite::DEFAULT_SAMPLER,
             data: image.to_rgba8(),
         };
@@ -60,6 +63,7 @@ impl<'a> SpriteBuilder<'a, &'static [u8]> {
     pub fn empty(size: Vector<u32>) -> Self {
         return Self {
             size,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
             sampler: Sprite::DEFAULT_SAMPLER,
             data: &[],
         };
@@ -72,6 +76,7 @@ impl<'a> SpriteBuilder<'a, Vec<u8>> {
             size: Vector::new(1, 1),
             sampler: Sprite::DEFAULT_SAMPLER,
             data: vec![color.r, color.g, color.b, color.a],
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
         }
     }
 }
@@ -80,6 +85,7 @@ impl<'a> SpriteBuilder<'a, &'a [u8]> {
     pub fn raw(size: Vector<u32>, data: &'a [u8]) -> Self {
         return Self {
             size,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
             sampler: Sprite::DEFAULT_SAMPLER,
             data,
         };
@@ -91,6 +97,11 @@ impl<'a, D: Deref<Target = [u8]>> SpriteBuilder<'a, D> {
         self.sampler = sampler;
         self
     }
+
+    pub fn format(mut self, format: wgpu::TextureFormat) -> Self {
+        self.format = format;
+        self
+    }
 }
 
 /// 2D Sprite used for rendering
@@ -99,6 +110,7 @@ pub struct Sprite {
     texture: wgpu::Texture,
     bind_group: wgpu::BindGroup,
     _sampler: wgpu::Sampler,
+    format: wgpu::TextureFormat,
     size: Vector<u32>,
 }
 
@@ -120,11 +132,12 @@ impl Sprite {
     };
 
     pub fn new<D: Deref<Target = [u8]>>(gpu: &Gpu, desc: SpriteBuilder<D>) -> Self {
-        let texture = Self::create_texture(gpu, desc.size);
+        let texture = Self::create_texture(gpu, desc.format, desc.size);
         let (bind_group, sampler) = Self::create_bind_group(gpu, &texture, &desc.sampler);
         let sprite = Self {
             _sampler: sampler,
             size: desc.size,
+            format: desc.format,
             texture,
             bind_group,
         };
@@ -136,7 +149,7 @@ impl Sprite {
         return sprite;
     }
 
-    fn create_texture(gpu: &Gpu, size: Vector<u32>) -> wgpu::Texture {
+    fn create_texture(gpu: &Gpu, format: wgpu::TextureFormat, size: Vector<u32>) -> wgpu::Texture {
         assert!(size.x != 0 && size.y != 0);
         let texture = gpu.device.create_texture(&wgpu::TextureDescriptor {
             label: Some("sprite_texture"),
@@ -145,7 +158,7 @@ impl Sprite {
                 height: size.y,
                 depth_or_array_layers: 1,
             },
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            format,
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
@@ -282,7 +295,7 @@ impl Sprite {
     }
 
     pub const fn format(&self) -> wgpu::TextureFormat {
-        return wgpu::TextureFormat::Rgba8UnormSrgb;
+        return self.format;
     }
 
     pub const fn texture(&self) -> &wgpu::Texture {

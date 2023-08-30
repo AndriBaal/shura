@@ -7,7 +7,6 @@ use crate::Color;
 /// Configurations of handling the Screen. This can be configured per [Scene](crate::Scene)
 pub struct ScreenConfig {
     pub clear_color: Option<Color>,
-    pub render_scale: f32,
     pub max_fps: Option<u32>,
     pub vsync: bool,
     #[cfg_attr(feature = "serde", serde(skip))]
@@ -24,7 +23,6 @@ impl Default for ScreenConfig {
     fn default() -> Self {
         Self {
             clear_color: Some(Color::BLACK),
-            render_scale: 1.0,
             max_fps: None,
             vsync: false,
             changed: true,
@@ -35,10 +33,6 @@ impl Default for ScreenConfig {
 impl ScreenConfig {
     pub(crate) fn new() -> Self {
         Default::default()
-    }
-
-    pub fn render_scale(&self) -> f32 {
-        self.render_scale
     }
 
     pub fn resized(&self) -> bool {
@@ -60,11 +54,6 @@ impl ScreenConfig {
     pub fn set_vsync(&mut self, vsync: bool) {
         self.changed = true;
         self.vsync = vsync;
-    }
-
-    pub fn set_render_scale(&mut self, render_scale: f32) {
-        self.changed = true;
-        self.render_scale = render_scale;
     }
 
     pub fn set_clear_color(&mut self, clear_color: Option<Color>) {

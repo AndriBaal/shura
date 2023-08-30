@@ -19,7 +19,7 @@ use crate::{
 use crate::{
     ComponentRenderer, ComponentTypeId, ComponentTypeImplementation, Context, ContextUse,
     ControllerManager, EndReason, FrameManager, Gpu, GpuConfig, GpuDefaults, Input, RenderEncoder,
-    Renderer, SceneCreator, SceneManager, Vector,
+    RenderTarget, SceneCreator, SceneManager, Vector,
 };
 use rustc_hash::FxHashMap;
 #[cfg(target_os = "android")]
@@ -73,7 +73,7 @@ impl ShuraConfig {
 
 impl ShuraConfig {
     /// Start a new game with the given callback to initialize the first [Scene](crate::Scene).
-    pub fn init<C: SceneCreator + 'static>(self, init: impl FnOnce() -> C) {
+    pub fn init<C: SceneCreator + 'static>(self, init: impl FnOnce() -> C + 'static) {
         #[cfg(target_os = "android")]
         use winit::platform::android::EventLoopBuilderExtAndroid;
 
@@ -187,8 +187,6 @@ impl ShuraConfig {
                             }
                         }
                         Event::MainEventsCleared => {
-                            // #[cfg(target_os = "windows")]
-                            // shura.gpu.instance.poll_all(true);
                             shura.window.request_redraw();
                         }
                         #[cfg(target_os = "android")]
@@ -421,8 +419,7 @@ impl Shura {
         }
 
         if self.scenes.switched() || scene.screen_config.changed {
-            let scale = scene.screen_config.render_scale();
-            let render_size = self.gpu.render_size(scale);
+            let render_size = self.gpu.render_size();
             #[cfg(feature = "log")]
             {
                 if self.scenes.switched() {
@@ -440,8 +437,6 @@ impl Shura {
             scene.world_camera.resize(window_size);
 
             self.gpu.apply_vsync(scene.screen_config.vsync());
-            self.defaults.apply_render_scale(&self.gpu, scale);
-
             #[cfg(feature = "gui")]
             self.gui.resize(render_size);
         }
@@ -450,7 +445,7 @@ impl Shura {
         #[cfg(feature = "gamepad")]
         self.input.sync_gamepad();
 
-        let output = self.gpu.surface.get_current_texture()?;
+        self.defaults.surface.start_frame(&self.gpu);
 
         #[cfg(feature = "gui")]
         self.gui
@@ -541,42 +536,37 @@ impl Shura {
         let ctx = Context::new(self, scene, ContextUse::Render);
         let mut encoder = RenderEncoder::new(&ctx.gpu, &ctx.defaults);
 
+        let encoder_ptr = &mut encoder as *mut RenderEncoder;
+
         {
             let mut renderer = ComponentRenderer {
                 ctx: &ctx,
                 screenshot: None,
-                inner: encoder.renderer(
-                    &ctx.defaults.world_target,
-                    ctx.screen_config.clear_color,
-                    true,
-                ),
+                inner: encoder.renderer(&ctx.defaults.surface, ctx.screen_config.clear_color, true),
             };
             for (_priority, render, target) in callbacks.renders() {
-                let (clear, target) = (target)(&mut renderer);
-                if target as *const _ != renderer.inner.target() as *const _ {
-                    let target =
-                        unsafe { (target as *const crate::RenderTarget).as_ref().unwrap() };
-                    drop(renderer);
-                    renderer = ComponentRenderer {
-                        ctx: &ctx,
-                        screenshot: None,
-                        inner: encoder.renderer(target, clear, true),
-                    };
+                if let Some((clear, target)) = (target)(&mut renderer) {
+                    if target as *const _ != renderer.inner.target() as *const _ {
+                        let encoder = unsafe { &mut *encoder_ptr };
+                        drop(renderer);
+                        renderer = ComponentRenderer {
+                            ctx: &ctx,
+                            screenshot: None,
+                            inner: encoder.renderer(target, clear, true),
+                        };
+                    }
                 }
                 (render)(&mut renderer);
                 if let Some(screenshot) = renderer.screenshot.take() {
-                    let screenshot =
-                        unsafe { (screenshot as *const crate::RenderTarget).as_ref().unwrap() };
+                    let encoder = unsafe { &mut *encoder_ptr };
+                    let target_ptr: *const dyn RenderTarget = renderer.inner.target as *const _;
+                    let target = unsafe { target_ptr.as_ref().unwrap() };
                     drop(renderer);
-                    encoder.copy_to_target(ctx.defaults.world_target.sprite(), screenshot);
+                    encoder.copy_target(target, screenshot);
                     renderer = ComponentRenderer {
                         ctx: &ctx,
                         screenshot: None,
-                        inner: encoder.renderer(
-                            &ctx.defaults.world_target,
-                            ctx.screen_config.clear_color,
-                            true,
-                        ),
+                        inner: encoder.renderer(target, ctx.screen_config.clear_color, true),
                     };
                 }
             }
@@ -584,18 +574,11 @@ impl Shura {
 
         #[cfg(feature = "gui")]
         ctx.gui.render(&ctx.gpu, &ctx.defaults, &mut encoder);
-        let output_view = output
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
-
-        {
-            Renderer::output_renderer(&mut encoder.inner, &output_view, &ctx.defaults);
-        }
 
         encoder.submit(&ctx.gpu);
         drop(ctx);
         self.input.update();
-        output.present();
+        self.defaults.surface.finish_frame();
         Ok(())
     }
 

@@ -1,6 +1,6 @@
 use std::ops::{Deref, DerefMut};
 
-use crate::{gui::GuiContext, Gpu, GpuDefaults, RenderEncoder, Vector};
+use crate::{gui::GuiContext, Gpu, GpuDefaults, RenderEncoder, RenderTarget, Vector};
 use egui_wgpu::renderer::{Renderer, ScreenDescriptor};
 use egui_winit::State;
 use instant::Duration;
@@ -19,15 +19,10 @@ impl Gui {
         gpu: &Gpu,
     ) -> Self {
         let device = &gpu.device;
-        let renderer = Renderer::new(
-            device,
-            wgpu::TextureFormat::Rgba8UnormSrgb, // All render targets are Rgba8UnormSrgb
-            None,
-            gpu.base.sample_count,
-        );
+        let renderer = Renderer::new(device, gpu.format, None, gpu.base.sample_count);
         let state = State::new(event_loop);
         let context = GuiContext::default();
-        let size = gpu.render_size(1.0);
+        let size = gpu.render_size();
 
         let screen_descriptor = ScreenDescriptor {
             size_in_pixels: [size.x, size.y],
@@ -85,8 +80,8 @@ impl Gui {
                 .inner
                 .begin_render_pass(&wgpu::RenderPassDescriptor {
                     color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                        view: defaults.world_target.msaa(),
-                        resolve_target: Some(defaults.world_target.view()),
+                        view: defaults.surface.msaa(),
+                        resolve_target: Some(defaults.surface.view()),
                         ops: wgpu::Operations {
                             load: wgpu::LoadOp::Load,
                             store: true,

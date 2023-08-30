@@ -67,7 +67,7 @@ impl ComponentController for Background {
 #[derive(Component)]
 pub struct LightResources {
     light_model: Model,
-    light_map: RenderTarget,
+    light_map: SpriteRenderTarget,
     light_shader: Shader,
     present_shader: Shader,
 }
@@ -80,6 +80,12 @@ impl ComponentController for LightResources {
         render_priority: 3,
         ..ComponentConfig::DEFAULT
     };
+
+    fn render_target<'a>(
+        renderer: &mut ComponentRenderer<'a>,
+    ) -> Option<(Option<Color>, &'a dyn RenderTarget)> {
+        return Some((None, &renderer.ctx.defaults.surface));
+    }
 
     fn render<'a>(renderer: &mut ComponentRenderer<'a>) {
         renderer.render_single::<Self>(RenderCamera::World, |r, res, index| {
@@ -170,9 +176,9 @@ impl ComponentController for Light {
 
     fn render_target<'a>(
         renderer: &mut ComponentRenderer<'a>,
-    ) -> (Option<Color>, &'a RenderTarget) {
+    ) -> Option<(Option<Color>, &'a dyn RenderTarget)> {
         let res = renderer.single::<LightResources>();
-        return (Some(Color::new(0.06, 0.08, 0.13, 1.0)), &res.light_map);
+        return Some((Some(Color::new(0.06, 0.08, 0.13, 1.0)), &res.light_map));
     }
 
     fn render<'a>(renderer: &mut ComponentRenderer<'a>) {

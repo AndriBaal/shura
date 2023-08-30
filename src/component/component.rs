@@ -63,8 +63,8 @@ where
 
     fn render_target<'a>(
         renderer: &mut ComponentRenderer<'a>,
-    ) -> (Option<Color>, &'a RenderTarget) {
-        return (None, &renderer.ctx.defaults.world_target);
+    ) -> Option<(Option<Color>, &'a dyn RenderTarget)> {
+        None
     }
 }
 

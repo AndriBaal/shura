@@ -1,31 +1,117 @@
 use std::ops::Deref;
 
+use wgpu::SurfaceTexture;
+
 use crate::{Camera, Gpu, GpuDefaults, RenderEncoder, Sprite, SpriteBuilder, Vector};
 
+pub trait RenderTarget {
+    fn msaa(&self) -> &wgpu::TextureView;
+    fn view(&self) -> &wgpu::TextureView;
+    fn as_copy(&self) -> wgpu::ImageCopyTexture;
+    fn size(&self) -> Vector<u32>;
+}
+
+pub struct SurfaceRenderTarget {
+    surface: Option<SurfaceTexture>,
+    target_view: Option<wgpu::TextureView>,
+    target_msaa: wgpu::TextureView,
+    size: Vector<u32>,
+}
+
+impl SurfaceRenderTarget {
+    pub fn new(gpu: &Gpu, size: Vector<u32>) -> Self {
+        Self {
+            surface: None,
+            target_view: None,
+            target_msaa: SpriteRenderTarget::create_msaa(gpu, size),
+            size,
+        }
+    }
+
+    pub(crate) fn resize(&mut self, gpu: &Gpu, new_size: Vector<u32>) {
+        if new_size != self.size {
+            self.size = new_size;
+            self.target_msaa = SpriteRenderTarget::create_msaa(gpu, new_size)
+        }
+    }
+
+    pub(crate) fn start_frame(&mut self, gpu: &Gpu) {
+        let surface = gpu.surface.lock().unwrap();
+        let surface = surface.get_current_texture().unwrap();
+        self.target_view = Some(surface.texture.create_view(&Default::default()));
+        self.surface = Some(surface);
+    }
+
+    pub(crate) fn finish_frame(&mut self) {
+        self.target_view.take();
+        let surface = self.surface.take().unwrap();
+        surface.present();
+    }
+}
+
+impl RenderTarget for SurfaceRenderTarget {
+    fn view(&self) -> &wgpu::TextureView {
+        self.target_view
+            .as_ref()
+            .expect("Surface texture only available while rendering!")
+    }
+
+    fn as_copy(&self) -> wgpu::ImageCopyTexture {
+        self.surface
+            .as_ref()
+            .expect("Surface texture only available while rendering!")
+            .texture
+            .as_image_copy()
+    }
+
+    fn msaa(&self) -> &wgpu::TextureView {
+        &self.target_msaa
+    }
+
+    fn size(&self) -> Vector<u32> {
+        self.size
+    }
+}
+
+impl SurfaceRenderTarget {}
+
+impl RenderTarget for SpriteRenderTarget {
+    fn view(&self) -> &wgpu::TextureView {
+        &self.target_view
+    }
+
+    fn msaa(&self) -> &wgpu::TextureView {
+        &self.target_msaa
+    }
+
+    fn size(&self) -> Vector<u32> {
+        self.target.size()
+    }
+
+    fn as_copy(&self) -> wgpu::ImageCopyTexture {
+        self.sprite().texture().as_image_copy()
+    }
+}
+
 /// Texture to render onto with a [RenderEncoder]
-pub struct RenderTarget {
+pub struct SpriteRenderTarget {
     target_msaa: wgpu::TextureView,
     target_view: wgpu::TextureView,
     target: Sprite,
 }
 
-impl RenderTarget {
+impl SpriteRenderTarget {
     pub fn new(gpu: &Gpu, size: Vector<u32>) -> Self {
-        Self::custom(gpu, SpriteBuilder::empty(size))
+        Self::custom(gpu, SpriteBuilder::empty(size).format(gpu.format()))
     }
 
     pub fn custom<D: Deref<Target = [u8]>>(gpu: &Gpu, sprite: SpriteBuilder<D>) -> Self {
         let size = sprite.size;
-        let target = Sprite::new(gpu, sprite);
+        let target = Sprite::new(gpu, sprite.format(gpu.format()));
         let target_view = target
             .texture()
             .create_view(&wgpu::TextureViewDescriptor::default());
-        let target_msaa = Self::create_msaa(
-            &gpu.device,
-            wgpu::TextureFormat::Rgba8UnormSrgb,
-            gpu.base.sample_count,
-            size,
-        );
+        let target_msaa = Self::create_msaa(gpu, size);
 
         return Self {
             target_msaa,
@@ -40,18 +126,12 @@ impl RenderTarget {
         sprite: SpriteBuilder<D>,
         compute: impl FnMut(&mut RenderEncoder),
     ) -> Self {
-        let target = RenderTarget::custom(gpu, sprite);
+        let target = SpriteRenderTarget::custom(gpu, sprite);
         target.draw(gpu, defaults, compute);
         return target;
     }
 
-    pub fn create_msaa(
-        device: &wgpu::Device,
-        format: wgpu::TextureFormat,
-        sample_count: u32,
-        size: Vector<u32>,
-    ) -> wgpu::TextureView {
-        // let size = Self::validate_webgl_size(size);
+    pub fn create_msaa(gpu: &Gpu, size: Vector<u32>) -> wgpu::TextureView {
         let multisampled_frame_descriptor = &wgpu::TextureDescriptor {
             size: wgpu::Extent3d {
                 width: size.x,
@@ -59,15 +139,15 @@ impl RenderTarget {
                 depth_or_array_layers: 1,
             },
             mip_level_count: 1,
-            sample_count,
+            sample_count: gpu.sample_count(),
             dimension: wgpu::TextureDimension::D2,
-            format: format,
+            format: gpu.format(),
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             label: None,
             view_formats: &[],
         };
 
-        device
+        gpu.device
             .create_texture(multisampled_frame_descriptor)
             .create_view(&wgpu::TextureViewDescriptor::default())
     }
@@ -80,18 +160,6 @@ impl RenderTarget {
 
     pub fn sprite(&self) -> &Sprite {
         &self.target
-    }
-
-    pub fn size(&self) -> Vector<u32> {
-        self.target.size()
-    }
-
-    pub fn view(&self) -> &wgpu::TextureView {
-        &self.target_view
-    }
-
-    pub fn msaa(&self) -> &wgpu::TextureView {
-        &self.target_msaa
     }
 
     pub fn draw(
@@ -133,7 +201,7 @@ impl RenderTarget {
     // }
 }
 
-impl Into<Sprite> for RenderTarget {
+impl Into<Sprite> for SpriteRenderTarget {
     fn into(self) -> Sprite {
         return self.target;
     }

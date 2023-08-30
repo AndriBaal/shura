@@ -22,10 +22,8 @@ pub struct ShaderConfig<'a> {
     pub vertex_shader: Option<&'a str>,
     pub uniforms: &'a [UniformField],
     pub instance_fields: &'a [InstanceField<'a>],
-    pub msaa: bool,
     pub blend: BlendState,
     pub write_mask: ColorWrites,
-    pub render_to_surface: bool,
 }
 
 impl Default for ShaderConfig<'static> {
@@ -35,10 +33,8 @@ impl Default for ShaderConfig<'static> {
             fragment_source: "",
             uniforms: &[],
             instance_fields: &[],
-            msaa: true,
             blend: BlendState::ALPHA_BLENDING,
             write_mask: ColorWrites::ALL,
-            render_to_surface: false,
             vertex_shader: None,
         }
     }
@@ -69,7 +65,6 @@ pub enum UniformField {
 
 pub struct Shader {
     pipeline: wgpu::RenderPipeline,
-    msaa: bool,
     instance_size: u64,
 }
 
@@ -192,11 +187,7 @@ impl Shader {
                     module: &fragment_shader,
                     entry_point: "main",
                     targets: &[Some(wgpu::ColorTargetState {
-                        format: if config.render_to_surface {
-                            gpu.format
-                        } else {
-                            wgpu::TextureFormat::Rgba8UnormSrgb
-                        },
+                        format: gpu.format,
                         blend: Some(config.blend),
                         write_mask: config.write_mask,
                     })],
@@ -211,11 +202,7 @@ impl Shader {
                     conservative: false,
                 },
                 depth_stencil: None,
-                multisample: if config.msaa {
-                    gpu.base.multisample
-                } else {
-                    gpu.base.no_multisample
-                },
+                multisample: gpu.base.multisample,
                 multiview: None,
             });
 
@@ -224,7 +211,6 @@ impl Shader {
 
         Shader {
             pipeline,
-            msaa: config.msaa,
             instance_size: array_stride,
         }
     }
@@ -235,9 +221,5 @@ impl Shader {
 
     pub fn instance_size(&self) -> u64 {
         self.instance_size
-    }
-
-    pub fn msaa(&self) -> bool {
-        self.msaa
     }
 }

@@ -21,7 +21,7 @@ fn shura_main(config: ShuraConfig) {
 
 #[derive(Resource)]
 struct Resources {
-    screenshot: Option<RenderTarget>,
+    screenshot: Option<SpriteRenderTarget>,
     bunny_sprite: Sprite,
 }
 
@@ -79,7 +79,6 @@ impl ComponentController for Bunny {
                 ui.label(format!("FPS: {}", ctx.frame.fps()));
                 ui.label(format!("Bunnies: {}", ctx.components.len::<Bunny>()));
                 if ui.button("Clear Bunnies").clicked() {
-                    ctx.screen_config.set_render_scale(0.5);
                     ctx.components.remove_all::<Bunny>(ctx.world);
                 }
             });

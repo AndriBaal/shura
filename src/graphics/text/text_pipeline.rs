@@ -11,7 +11,11 @@ pub struct TextPipeline {
 }
 
 impl TextPipeline {
-    pub(crate) fn new(device: &wgpu::Device, multisample: wgpu::MultisampleState) -> TextPipeline {
+    pub(crate) fn new(
+        device: &wgpu::Device,
+        format: wgpu::TextureFormat,
+        multisample: wgpu::MultisampleState,
+    ) -> TextPipeline {
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("wgpu-text Matrix, Texture and Sampler Bind Group Layout"),
             entries: &[
@@ -72,7 +76,7 @@ impl TextPipeline {
                 module: &shader,
                 entry_point: "fs_main",
                 targets: &[Some(wgpu::ColorTargetState {
-                    format: wgpu::TextureFormat::Rgba8UnormSrgb,
+                    format: format,
                     blend: Some(wgpu::BlendState::ALPHA_BLENDING),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],

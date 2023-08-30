@@ -1,8 +1,7 @@
 use crate::{
     CameraBuffer, Color, Component, ComponentHandle, ComponentSetResource, Context, Gpu,
     GpuDefaults, GroupFilter, GroupHandle, InstanceBuffer, InstanceIndex, InstanceIndices, Model,
-    RenderCamera, RenderConfigInstances, RenderTarget, Shader, Sprite, SpriteSheet, Uniform,
-    Vector,
+    RenderTarget, Shader, Sprite, SpriteRenderTarget, SpriteSheet, Uniform, Vector,
 };
 use std::{ops::Range, ptr::null};
 
@@ -29,10 +28,39 @@ impl Default for RenderCache {
     }
 }
 
+#[derive(Clone, Copy)]
+/// Camera used for rendering. Allow to easily select a default camera from shura or
+/// to use a custom camera. All default cameras are living inside the [GpuDefaults](crate::GpuDefaults).
+pub enum RenderCamera<'a> {
+    World,
+    Unit,
+    Relative,
+    RelativeBottomLeft,
+    RelativeBottomRight,
+    RelativeTopLeft,
+    RelativeTopRight,
+    Custom(&'a CameraBuffer),
+}
+
+impl<'a> RenderCamera<'a> {
+    pub fn camera(self, defaults: &'a GpuDefaults) -> &'a CameraBuffer {
+        return match self {
+            RenderCamera::World => &defaults.world_camera,
+            RenderCamera::Unit => &defaults.unit_camera.0,
+            RenderCamera::Relative => &defaults.relative_camera.0,
+            RenderCamera::RelativeBottomLeft => &defaults.relative_bottom_left_camera.0,
+            RenderCamera::RelativeBottomRight => &defaults.relative_bottom_right_camera.0,
+            RenderCamera::RelativeTopLeft => &defaults.relative_top_left_camera.0,
+            RenderCamera::RelativeTopRight => &defaults.relative_top_right_camera.0,
+            RenderCamera::Custom(c) => c,
+        };
+    }
+}
+
 #[non_exhaustive]
 pub struct ComponentRenderer<'a> {
     pub inner: Renderer<'a>,
-    pub screenshot: Option<&'a RenderTarget>,
+    pub screenshot: Option<&'a SpriteRenderTarget>,
     pub ctx: &'a Context<'a>,
 }
 
@@ -136,8 +164,7 @@ impl<'a> ComponentRenderer<'a> {
 pub struct Renderer<'a> {
     pub gpu: &'a Gpu,
     pub defaults: &'a GpuDefaults,
-    pub screenshot: Option<&'a RenderTarget>,
-    target: &'a RenderTarget,
+    pub(crate) target: &'a dyn RenderTarget,
     msaa: bool,
     indices: u32,
     render_pass: wgpu::RenderPass<'a>,
@@ -152,15 +179,15 @@ impl<'a> Renderer<'a> {
         render_encoder: &'a mut wgpu::CommandEncoder,
         defaults: &'a GpuDefaults,
         gpu: &'a Gpu,
-        target: &'a RenderTarget,
+        target: &'a dyn RenderTarget,
         msaa: bool,
         clear: Option<Color>,
     ) -> Renderer<'a> {
         let render_pass = render_encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("render_pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: if msaa { target.msaa() } else { target.view() },
-                resolve_target: if msaa { Some(target.view()) } else { None },
+                view: target.msaa(),
+                resolve_target: Some(target.view()),
                 ops: wgpu::Operations {
                     load: if let Some(clear_color) = clear {
                         wgpu::LoadOp::Clear(clear_color.into())
@@ -181,58 +208,56 @@ impl<'a> Renderer<'a> {
             defaults: defaults,
             target,
             gpu,
-            screenshot: None,
             cache: RenderCache::default(),
         };
     }
 
-    pub(crate) fn output_renderer(
-        encoder: &'a mut wgpu::CommandEncoder,
-        output: &'a wgpu::TextureView,
-        defaults: &'a GpuDefaults,
-    ) {
-        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("render_pass"),
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: &output,
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Load,
-                    store: true,
-                },
-            })],
+    // pub(crate) fn output_renderer(
+    //     encoder: &'a mut wgpu::CommandEncoder,
+    //     output: &'a wgpu::TextureView,
+    //     defaults: &'a GpuDefaults,
+    // ) {
+    //     let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+    //         label: Some("render_pass"),
+    //         color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+    //             view: &output,
+    //             resolve_target: None,
+    //             ops: wgpu::Operations {
+    //                 load: wgpu::LoadOp::Load,
+    //                 store: true,
+    //             },
+    //         })],
 
-            depth_stencil_attachment: None,
-        });
+    //         depth_stencil_attachment: None,
+    //     });
 
-        let shader = &defaults.sprite_no_msaa;
-        let sprite = &defaults.world_target.sprite();
-        let model = &defaults.relative_camera.0.model();
+    //     let sprite = &defaults.world_target.sprite();
+    //     let model = &defaults.relative_camera.0.model();
 
-        render_pass.set_bind_group(
-            Self::CAMERA_SLOT,
-            &defaults.relative_camera.0.uniform().bind_group(),
-            &[],
-        );
-        render_pass.set_vertex_buffer(
-            Self::INSTANCE_SLOT,
-            defaults.single_centered_instance.slice(),
-        );
-        render_pass.set_pipeline(shader.pipeline());
-        render_pass.set_bind_group(1, sprite.bind_group(), &[]);
-        render_pass.set_vertex_buffer(Self::MODEL_SLOT, model.vertex_buffer().slice(..));
-        render_pass.set_index_buffer(model.index_buffer().slice(..), wgpu::IndexFormat::Uint32);
-        render_pass.draw_indexed(0..model.amount_of_indices(), 0, 0..1);
+    //     render_pass.set_bind_group(
+    //         Self::CAMERA_SLOT,
+    //         &defaults.relative_camera.0.uniform().bind_group(),
+    //         &[],
+    //     );
+    //     render_pass.set_vertex_buffer(
+    //         Self::INSTANCE_SLOT,
+    //         defaults.single_centered_instance.slice(),
+    //     );
+    //     render_pass.set_pipeline(shader.pipeline());
+    //     render_pass.set_bind_group(1, sprite.bind_group(), &[]);
+    //     render_pass.set_vertex_buffer(Self::MODEL_SLOT, model.vertex_buffer().slice(..));
+    //     render_pass.set_index_buffer(model.index_buffer().slice(..), wgpu::IndexFormat::Uint32);
+    //     render_pass.draw_indexed(0..model.amount_of_indices(), 0, 0..1);
 
-        // renderer.use_camera_buffer(&defaults.relative_camera.0);
-        // renderer.use_instance_buffer(&defaults.single_centered_instance);
-        // renderer.use_shader(&ctx.defaults.sprite_no_msaa);
-        // renderer.use_model(ctx.defaults.relative_camera.0.model());
-        // renderer.use_sprite(ctx.defaults.world_target.sprite(), 1);
-        // renderer.draw(0);
-    }
+    //     // renderer.use_camera_buffer(&defaults.relative_camera.0);
+    //     // renderer.use_instance_buffer(&defaults.single_centered_instance);
+    //     // renderer.use_shader(&ctx.defaults.sprite_no_msaa);
+    //     // renderer.use_model(ctx.defaults.relative_camera.0.model());
+    //     // renderer.use_sprite(ctx.defaults.world_target.sprite(), 1);
+    //     // renderer.draw(0);
+    // }
 
-    pub fn target(&self) -> &RenderTarget {
+    pub fn target(&self) -> &dyn RenderTarget {
         self.target
     }
 
@@ -242,7 +267,7 @@ impl<'a> Renderer<'a> {
     }
 
     /// Sets the instance buffer at the position 1
-    pub fn use_instance_buffer(&mut self, buffer: &'a InstanceBuffer) {
+    pub fn use_instances(&mut self, buffer: &'a InstanceBuffer) {
         let ptr = buffer as *const _;
         if ptr != self.cache.bound_instances {
             self.cache.bound_instances = ptr;
@@ -260,22 +285,12 @@ impl<'a> Renderer<'a> {
         }
     }
 
-    pub fn use_instances(&mut self, instances: RenderConfigInstances<'a>) {
-        let buffer = instances.instances(self.defaults);
-        self.use_instance_buffer(buffer);
-    }
-
     pub fn use_camera(&mut self, camera: RenderCamera<'a>) {
         let buffer = camera.camera(self.defaults);
         self.use_camera_buffer(buffer);
     }
 
     pub fn use_shader(&mut self, shader: &'a Shader) {
-        assert_eq!(
-            shader.msaa(),
-            self.msaa,
-            "The Renderer and the Shader both need to have msaa enabled / disabled!"
-        );
         let ptr = shader as *const _;
         if ptr != self.cache.bound_shader {
             self.cache.bound_shader = ptr;
@@ -427,18 +442,6 @@ impl<'a> Renderer<'a> {
         sprite: &'a Sprite,
     ) {
         self.use_shader(&self.defaults.blurr);
-        self.use_model(model);
-        self.use_sprite(sprite, 1);
-        self.draw(instances);
-    }
-
-    pub fn render_sprite_no_msaa(
-        &mut self,
-        instances: impl Into<InstanceIndices>,
-        model: &'a Model,
-        sprite: &'a Sprite,
-    ) {
-        self.use_shader(&self.defaults.sprite_no_msaa);
         self.use_model(model);
         self.use_sprite(sprite, 1);
         self.draw(instances);

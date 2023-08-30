@@ -900,13 +900,13 @@ impl<C: Component> ComponentType<C> {
                 buffer, component, ..
             } => {
                 if let Some(component) = component {
-                    renderer.use_instance_buffer(buffer.as_ref().expect(BUFFER_ERROR));
+                    renderer.use_instances(buffer.as_ref().expect(BUFFER_ERROR));
                     (each)(renderer, component, InstanceIndex::new(0));
                 }
             }
             ComponentTypeStorage::Multiple(multiple) => {
                 if !multiple.components.is_empty() {
-                    renderer.use_instance_buffer(multiple.buffer.as_ref().expect(BUFFER_ERROR));
+                    renderer.use_instances(multiple.buffer.as_ref().expect(BUFFER_ERROR));
                     for (instance, component) in multiple.components.iter().enumerate() {
                         (each)(renderer, component, InstanceIndex::new(instance as u32));
                     }
@@ -915,7 +915,7 @@ impl<C: Component> ComponentType<C> {
             ComponentTypeStorage::MultipleGroups(groups) => {
                 for group in groups {
                     if !group.components.is_empty() {
-                        renderer.use_instance_buffer(group.buffer.as_ref().expect(BUFFER_ERROR));
+                        renderer.use_instances(group.buffer.as_ref().expect(BUFFER_ERROR));
                         for (instance, component) in group.components.iter().enumerate() {
                             (each)(renderer, component, InstanceIndex::new(instance as u32));
                         }
@@ -937,7 +937,7 @@ impl<C: Component> ComponentType<C> {
                 buffer, component, ..
             } => {
                 if let Some(component) = component {
-                    renderer.use_instance_buffer(buffer.as_ref().expect(BUFFER_ERROR));
+                    renderer.use_instances(buffer.as_ref().expect(BUFFER_ERROR));
                     (each)(renderer, component, InstanceIndex::new(0));
                 }
             }
@@ -960,14 +960,14 @@ impl<C: Component> ComponentType<C> {
             } => {
                 if component.is_some() {
                     let buffer = buffer.as_ref().expect(BUFFER_ERROR);
-                    renderer.use_instance_buffer(buffer);
+                    renderer.use_instances(buffer);
                     (all)(renderer, InstanceIndices::new(0, 1));
                 }
             }
             ComponentTypeStorage::Multiple(multiple) => {
                 if !multiple.components.is_empty() {
                     let buffer = multiple.buffer.as_ref().expect(BUFFER_ERROR);
-                    renderer.use_instance_buffer(buffer);
+                    renderer.use_instances(buffer);
                     (all)(renderer, buffer.instances());
                 }
             }
@@ -975,7 +975,7 @@ impl<C: Component> ComponentType<C> {
                 for group in groups {
                     if !group.components.is_empty() {
                         let buffer = group.buffer.as_ref().expect(BUFFER_ERROR);
-                        renderer.use_instance_buffer(buffer);
+                        renderer.use_instances(buffer);
                         (all)(renderer, buffer.instances());
                     }
                 }
