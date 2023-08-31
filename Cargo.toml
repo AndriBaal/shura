@@ -15,7 +15,7 @@ categories = [
     "game-engines",
     "game-development",
 ]
-exclude = ["arch_android_setup.sh", "docs"]
+exclude = ["docs"]
 
 [features]
 animation = []

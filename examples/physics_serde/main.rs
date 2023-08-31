@@ -6,7 +6,7 @@ use std::fs;
 #[shura::main]
 fn shura_main(config: ShuraConfig) {
     if let Some(save_game) = fs::read("data.binc").ok() {
-        config.init(|| {
+        config.init(move || {
             SerializedScene::new(1, &save_game, Player::deserialize_scene, Player::init_scene)
         })
     } else {
