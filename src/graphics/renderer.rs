@@ -165,7 +165,6 @@ pub struct Renderer<'a> {
     pub gpu: &'a Gpu,
     pub defaults: &'a GpuDefaults,
     pub(crate) target: &'a dyn RenderTarget,
-    msaa: bool,
     indices: u32,
     render_pass: wgpu::RenderPass<'a>,
     cache: RenderCache,
@@ -180,7 +179,6 @@ impl<'a> Renderer<'a> {
         defaults: &'a GpuDefaults,
         gpu: &'a Gpu,
         target: &'a dyn RenderTarget,
-        msaa: bool,
         clear: Option<Color>,
     ) -> Renderer<'a> {
         let render_pass = render_encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -204,7 +202,6 @@ impl<'a> Renderer<'a> {
         return Self {
             render_pass,
             indices: 0,
-            msaa: msaa,
             defaults: defaults,
             target,
             gpu,
@@ -341,10 +338,6 @@ impl<'a> Renderer<'a> {
     pub fn draw_indexed(&mut self, indices: Range<u32>, instances: impl Into<InstanceIndices>) {
         self.render_pass
             .draw_indexed(indices, 0, instances.into().range);
-    }
-
-    pub const fn msaa(&self) -> bool {
-        self.msaa
     }
 
     #[cfg(feature = "text")]

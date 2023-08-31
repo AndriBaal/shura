@@ -5,7 +5,7 @@ use crate::text::{FontBrush, FontSource, TextPipeline};
 use crate::{
     Camera, CameraBuffer, InstanceBuffer, InstanceField, InstancePosition, Isometry, Model,
     ModelBuilder, RenderEncoder, Shader, ShaderConfig, Sprite, SpriteBuilder, SpriteRenderTarget,
-    SpriteSheet, SpriteSheetBuilder, SurfaceRenderTarget, Uniform, UniformField, Vector,
+    SpriteSheet, SpriteSheetBuilder, SurfaceRenderTarget, Uniform, UniformField, Vector, RenderTarget,
 };
 use std::{ops::Deref, sync::Mutex};
 
@@ -401,6 +401,8 @@ pub struct GpuDefaults {
     pub empty_instance: InstanceBuffer,
 
     pub surface: SurfaceRenderTarget,
+    #[cfg(feature="framebuffer")]
+    pub framebuffer: SpriteRenderTarget
 }
 
 impl GpuDefaults {
@@ -510,6 +512,9 @@ impl GpuDefaults {
         let unit_camera = (camera.create_buffer(gpu), camera);
 
         let surface = SurfaceRenderTarget::new(gpu, size);
+        
+        #[cfg(feature="framebuffer")]
+        let framebuffer = SpriteRenderTarget::new(gpu, size); 
 
         Self {
             surface,
@@ -531,11 +536,26 @@ impl GpuDefaults {
             world_camera,
             color,
             color_uniform,
+
+            #[cfg(feature="framebuffer")]
+            framebuffer
+        }
+    }
+
+    #[cfg(feature="framebuffer")]
+    pub(crate) fn apply_render_scale(&mut self, gpu: &Gpu, scale: f32) {
+        let size = gpu.render_size().cast::<f32>() * scale;
+        let size = Vector::new(size.x as u32, size.y as u32);
+        if self.framebuffer.size() != size {
+            self.framebuffer = gpu.create_render_target(size);
         }
     }
 
     pub(crate) fn resize(&mut self, gpu: &Gpu, window_size: Vector<u32>) {
         self.surface.resize(gpu, window_size);
+
+        #[cfg(feature="framebuffer")]
+        self.framebuffer.resize(gpu, window_size);
 
         let fov = Self::relative_fov(window_size);
         self.relative_bottom_left_camera.1 = Camera::new(Isometry::new(fov, 0.0), fov);
@@ -576,6 +596,13 @@ impl GpuDefaults {
 
     pub fn unit_model(&self) -> &Model {
         return &self.unit_camera.0.model();
+    }
+
+    pub fn default_target(&self) -> &dyn RenderTarget {
+        #[cfg(feature="framebuffer")]
+        return &self.framebuffer;
+        #[cfg(not(feature="framebuffer"))]
+        return &self.surface;
     }
 
     fn relative_fov(window_size: Vector<u32>) -> Vector<f32> {

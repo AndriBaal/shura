@@ -279,24 +279,22 @@ impl Shura {
 
     fn resize(&mut self, new_size: Vector<u32>) {
         if new_size.x > 0 && new_size.y > 0 {
-            // #[cfg(target_os = "android")]
-            // let new_size = {
-            //     match self.window.config().orientation() {
-            //         Orientation::Port => {
-            //             Vector::new(new_size.x.min(new_size.y), new_size.x.max(new_size.y))
-            //         },
-            //         Orientation::Land => {
-            //             Vector::new(new_size.x.max(new_size.y), new_size.x.min(new_size.y))
-            //         },
-            //         _ => new_size
-            //     }
-            // };
             #[cfg(feature = "log")]
             info!("Resizing window to: {} x {}", new_size.x, new_size.y,);
             self.scenes.resize();
             self.input.resize(new_size);
             self.gpu.resize(new_size);
             self.defaults.resize(&self.gpu, new_size);
+
+            #[cfg(feature = "framebuffer")]
+            {
+                if let Some(scene) = self.scenes.try_get_active_scene() {
+                    let scene = scene.borrow();
+
+                    self.defaults
+                        .apply_render_scale(&self.gpu, scene.screen_config.render_scale());
+                }
+            }
         }
     }
 
@@ -419,7 +417,18 @@ impl Shura {
         }
 
         if self.scenes.switched() || scene.screen_config.changed {
-            let render_size = self.gpu.render_size();
+            #[cfg(feature = "framebuffer")]
+            let scale = scene.screen_config.render_scale();
+            let render_size = if cfg!(feature = "framebuffer") {
+                let render_size = self.gpu.render_size();
+                Vector::new(
+                    (render_size.x as f32 * scale) as u32,
+                    (render_size.y as f32 * scale) as u32,
+                )
+            } else {
+                self.gpu.render_size()
+            };
+
             #[cfg(feature = "log")]
             {
                 if self.scenes.switched() {
@@ -432,13 +441,18 @@ impl Shura {
                     render_size.y,
                     scene.screen_config.vsync()
                 );
+
+                #[cfg(feature = "framebuffer")]
+                info!("Using framebuffer scale: {}", scale);
             }
             scene.screen_config.changed = false;
             scene.world_camera.resize(window_size);
 
             self.gpu.apply_vsync(scene.screen_config.vsync());
+            #[cfg(feature = "framebuffer")]
+            self.defaults.apply_render_scale(&self.gpu, scale);
             #[cfg(feature = "gui")]
-            self.gui.resize(render_size);
+            self.gui.resize(render_size, #[cfg(feature = "framebuffer")] scale);
         }
 
         self.frame.update();
@@ -542,7 +556,8 @@ impl Shura {
             let mut renderer = ComponentRenderer {
                 ctx: &ctx,
                 screenshot: None,
-                inner: encoder.renderer(&ctx.defaults.surface, ctx.screen_config.clear_color, true),
+                inner: encoder
+                    .renderer(ctx.defaults.default_target(), ctx.screen_config.clear_color),
             };
             for (_priority, render, target) in callbacks.renders() {
                 if let Some((clear, target)) = (target)(&mut renderer) {
@@ -552,7 +567,7 @@ impl Shura {
                         renderer = ComponentRenderer {
                             ctx: &ctx,
                             screenshot: None,
-                            inner: encoder.renderer(target, clear, true),
+                            inner: encoder.renderer(target, clear),
                         };
                     }
                 }
@@ -562,11 +577,17 @@ impl Shura {
                     let target_ptr: *const dyn RenderTarget = renderer.inner.target as *const _;
                     let target = unsafe { target_ptr.as_ref().unwrap() };
                     drop(renderer);
-                    encoder.copy_target(target, screenshot);
+
+                    if let Some(sprite) = target.downcast_ref::<crate::SpriteRenderTarget>() {
+                        encoder.copy_target(sprite, screenshot);
+                    } else {
+                        encoder.copy_target_hard(target, screenshot);
+                    }
+
                     renderer = ComponentRenderer {
                         ctx: &ctx,
                         screenshot: None,
-                        inner: encoder.renderer(target, ctx.screen_config.clear_color, true),
+                        inner: encoder.renderer(target, ctx.screen_config.clear_color),
                     };
                 }
             }
@@ -574,6 +595,9 @@ impl Shura {
 
         #[cfg(feature = "gui")]
         ctx.gui.render(&ctx.gpu, &ctx.defaults, &mut encoder);
+
+        #[cfg(feature = "framebuffer")]
+        encoder.copy_target(&ctx.defaults.framebuffer, &ctx.defaults.surface);
 
         encoder.submit(&ctx.gpu);
         drop(ctx);

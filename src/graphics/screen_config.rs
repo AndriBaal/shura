@@ -8,6 +8,8 @@ use crate::Color;
 pub struct ScreenConfig {
     pub clear_color: Option<Color>,
     pub max_fps: Option<u32>,
+    #[cfg(feature = "framebuffer")]
+    pub render_scale: f32,
     pub vsync: bool,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default = "default_true"))]
@@ -26,6 +28,8 @@ impl Default for ScreenConfig {
             max_fps: None,
             vsync: false,
             changed: true,
+            #[cfg(feature = "framebuffer")]
+            render_scale: 1.0,
         }
     }
 }
@@ -51,9 +55,20 @@ impl ScreenConfig {
         self.vsync
     }
 
+    #[cfg(feature = "framebuffer")]
+    pub fn render_scale(&self) -> f32 {
+        self.render_scale
+    }
+
     pub fn set_vsync(&mut self, vsync: bool) {
         self.changed = true;
         self.vsync = vsync;
+    }
+
+    #[cfg(feature = "framebuffer")]
+    pub fn set_render_scale(&mut self, render_scale: f32) {
+        self.changed = true;
+        self.render_scale = render_scale;
     }
 
     pub fn set_clear_color(&mut self, clear_color: Option<Color>) {

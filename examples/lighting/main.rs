@@ -84,7 +84,7 @@ impl ComponentController for LightResources {
     fn render_target<'a>(
         renderer: &mut ComponentRenderer<'a>,
     ) -> Option<(Option<Color>, &'a dyn RenderTarget)> {
-        return Some((None, &renderer.ctx.defaults.surface));
+        return Some((None, renderer.ctx.defaults.default_target()));
     }
 
     fn render<'a>(renderer: &mut ComponentRenderer<'a>) {

@@ -19,6 +19,7 @@ exclude = ["docs"]
 
 [features]
 animation = []
+framebuffer = []
 gamepad = ["dep:gilrs"]
 text = ["dep:glyph_brush"]
 audio = ["dep:rodio"]
@@ -47,7 +48,8 @@ default = [
     "serde",
     "gui",
     "log",
-    "rayon"
+    "rayon",
+    "framebuffer"
 ]
 
 [lib]

@@ -1,5 +1,4 @@
 use crate::{Scene, SceneCreator};
-use core::panic;
 use rustc_hash::FxHashMap;
 use std::{cell::RefCell, rc::Rc};
 
@@ -66,6 +65,13 @@ impl SceneManager {
     }
 
     pub(crate) fn get_active_scene(&mut self) -> Rc<RefCell<Scene>> {
+        return self.try_get_active_scene().expect(&format!(
+            "Cannot find the currently active scene {}!",
+            self.active_scene
+        ));
+    }
+
+    pub(crate) fn try_get_active_scene(&mut self) -> Option<Rc<RefCell<Scene>>> {
         if let Some(scene) = self.scenes.get(&self.active_scene) {
             if let Some(last) = self.last_active {
                 self.scene_switched = last != self.active_scene;
@@ -73,12 +79,9 @@ impl SceneManager {
                 self.scene_switched = true;
             }
             self.last_active = Some(self.active_scene);
-            return scene.clone();
+            return Some(scene.clone());
         } else {
-            panic!(
-                "Cannot find the currently active scene {}!",
-                self.active_scene
-            );
+            return None;
         }
     }
 }

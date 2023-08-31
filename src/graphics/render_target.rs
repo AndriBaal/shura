@@ -1,15 +1,17 @@
 use std::ops::Deref;
 
+use downcast_rs::{Downcast, impl_downcast};
 use wgpu::SurfaceTexture;
 
 use crate::{Camera, Gpu, GpuDefaults, RenderEncoder, Sprite, SpriteBuilder, Vector};
 
-pub trait RenderTarget {
+pub trait RenderTarget: Downcast {
     fn msaa(&self) -> &wgpu::TextureView;
     fn view(&self) -> &wgpu::TextureView;
     fn as_copy(&self) -> wgpu::ImageCopyTexture;
     fn size(&self) -> Vector<u32>;
 }
+impl_downcast!(RenderTarget);
 
 pub struct SurfaceRenderTarget {
     surface: Option<SurfaceTexture>,

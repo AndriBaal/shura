@@ -1,4 +1,4 @@
-use crate::{Color, Gpu, GpuDefaults, RenderTarget, Renderer};
+use crate::{Color, Gpu, GpuDefaults, RenderTarget, Renderer, SpriteRenderTarget};
 
 /// Encoder of [Renderers](crate::Renderer) and utilities to copy, clear and render text onto [RenderTargets](crate::RenderTarget)
 pub struct RenderEncoder<'a> {
@@ -42,19 +42,11 @@ impl<'a> RenderEncoder<'a> {
         &'b mut self,
         target: &'b dyn RenderTarget,
         clear: Option<Color>,
-        msaa: bool,
     ) -> Renderer<'b> {
-        Renderer::new(
-            &mut self.inner,
-            self.defaults,
-            self.gpu,
-            target,
-            msaa,
-            clear,
-        )
+        Renderer::new(&mut self.inner, self.defaults, self.gpu, target, clear)
     }
 
-    pub fn copy_target(&mut self, src: &dyn RenderTarget, target: &dyn RenderTarget) {
+    pub fn copy_target_hard(&mut self, src: &dyn RenderTarget, target: &dyn RenderTarget) {
         assert_eq!(src.size(), target.size());
         let size = wgpu::Extent3d {
             width: src.size().x,
@@ -63,6 +55,13 @@ impl<'a> RenderEncoder<'a> {
         };
         self.inner
             .copy_texture_to_texture(src.as_copy(), target.as_copy(), size);
+    }
+
+    pub fn copy_target(&mut self, src: &SpriteRenderTarget, target: &dyn RenderTarget) {
+        let mut renderer = self.renderer(target, None);
+        renderer.use_instances(&renderer.defaults.single_centered_instance);
+        renderer.use_camera(crate::RenderCamera::Unit);
+        renderer.render_sprite(0..1, renderer.defaults.unit_model(), src.sprite());
     }
 
     pub fn finish(self) -> wgpu::CommandBuffer {
