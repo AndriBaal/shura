@@ -419,18 +419,20 @@ impl Shura {
         if self.scenes.switched() || scene.screen_config.changed {
             #[cfg(feature = "framebuffer")]
             let scale = scene.screen_config.render_scale();
-            let render_size = if cfg!(feature = "framebuffer") {
+            #[cfg(feature = "framebuffer")]
+            let render_size = {
                 let render_size = self.gpu.render_size();
                 Vector::new(
                     (render_size.x as f32 * scale) as u32,
                     (render_size.y as f32 * scale) as u32,
                 )
-            } else {
-                self.gpu.render_size()
             };
 
             #[cfg(feature = "log")]
             {
+                #[cfg(not(feature = "framebuffer"))]
+                let render_size = self.gpu.render_size();
+
                 if self.scenes.switched() {
                     info!("Switched to scene {}!", scene.id);
                 }
@@ -452,7 +454,11 @@ impl Shura {
             #[cfg(feature = "framebuffer")]
             self.defaults.apply_render_scale(&self.gpu, scale);
             #[cfg(feature = "gui")]
-            self.gui.resize(render_size, #[cfg(feature = "framebuffer")] scale);
+            self.gui.resize(
+                render_size,
+                #[cfg(feature = "framebuffer")]
+                scale,
+            );
         }
 
         self.frame.update();

@@ -276,7 +276,18 @@ impl Sprite {
             gpu.device.poll(wgpu::Maintain::Wait);
             pollster::block_on(rx.receive()).unwrap().unwrap();
             let data = buffer_slice.get_mapped_range();
-            let raw = data.as_ref().to_vec();
+            let mut raw = data.as_ref().to_vec();
+            if self.format == wgpu::TextureFormat::Bgra8Unorm
+                || self.format == wgpu::TextureFormat::Bgra8UnormSrgb
+            {
+                for chunk in raw.chunks_mut(4) {
+                    let r = chunk[2];
+                    let b = chunk[0];
+
+                    chunk[0] = r;
+                    chunk[2] = b;
+                }
+            }
             let image_buf =
                 image::ImageBuffer::from_vec(texture_width, texture_height, raw).unwrap();
             image::DynamicImage::ImageRgba8(image_buf).crop(0, 0, o_texture_width, texture_height)

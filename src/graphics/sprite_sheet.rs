@@ -107,7 +107,7 @@ impl<'a, D: Deref<Target = [u8]>> SpriteSheetBuilder<'a, D> {
 }
 
 pub struct SpriteSheet {
-    _texture: wgpu::Texture,
+    texture: wgpu::Texture,
     _size_hint_buffer: wgpu::Buffer,
     _sampler: wgpu::Sampler,
     bind_group: wgpu::BindGroup,
@@ -201,13 +201,40 @@ impl SpriteSheet {
         });
 
         return Self {
-            _texture: texture,
+            texture,
             _size_hint_buffer: size_hint_buffer,
             _sampler: sampler,
             bind_group,
             sprite_size: desc.sprite_size,
             sprite_amount: desc.sprite_amount,
         };
+    }
+
+    pub fn write(&self, gpu: &Gpu, index: SpriteSheetIndex, bytes: &[u8]) {
+        let layer = index.y * self.sprite_amount.x + index.x;
+        gpu.queue.write_texture(
+            ImageCopyTexture {
+                texture: &self.texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d {
+                    x: 0,
+                    y: 0,
+                    z: layer as u32,
+                },
+                aspect: wgpu::TextureAspect::All,
+            },
+            bytes,
+            wgpu::ImageDataLayout {
+                offset: 0,
+                bytes_per_row: Some(4 * self.sprite_size.x),
+                rows_per_image: Some(self.sprite_size.y),
+            },
+            wgpu::Extent3d {
+                width: self.sprite_size.x,
+                height: self.sprite_size.y,
+                depth_or_array_layers: 1,
+            },
+        );
     }
 
     pub const fn bind_group(&self) -> &wgpu::BindGroup {

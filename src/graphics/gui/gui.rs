@@ -39,11 +39,10 @@ impl Gui {
     pub(crate) fn resize(&mut self, size: Vector<u32>, #[cfg(feature = "framebuffer")] scale: f32) {
         self.screen_descriptor = ScreenDescriptor {
             size_in_pixels: [size.x, size.y],
-            pixels_per_point: if cfg!(feature = "framebuffer") {
-                scale
-            } else {
-                1.0
-            },
+            #[cfg(feature = "framebuffer")]
+            pixels_per_point: scale,
+            #[cfg(not(feature = "framebuffer"))]
+            pixels_per_point: 1.0,
         };
     }
 

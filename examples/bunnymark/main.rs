@@ -6,7 +6,6 @@ fn shura_main(config: ShuraConfig) {
         id: 1,
         init: |ctx| {
             register!(ctx, [Bunny, Resources]);
-            ctx.screen_config.set_render_scale(0.5);
             ctx.components
                 .set::<Resources>()
                 .add(ctx.world, Resources::new(ctx));

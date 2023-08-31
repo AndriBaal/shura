@@ -1,6 +1,6 @@
 use std::ops::Deref;
 
-use downcast_rs::{Downcast, impl_downcast};
+use downcast_rs::{impl_downcast, Downcast};
 use wgpu::SurfaceTexture;
 
 use crate::{Camera, Gpu, GpuDefaults, RenderEncoder, Sprite, SpriteBuilder, Vector};

@@ -4,8 +4,9 @@ use crate::log::info;
 use crate::text::{FontBrush, FontSource, TextPipeline};
 use crate::{
     Camera, CameraBuffer, InstanceBuffer, InstanceField, InstancePosition, Isometry, Model,
-    ModelBuilder, RenderEncoder, Shader, ShaderConfig, Sprite, SpriteBuilder, SpriteRenderTarget,
-    SpriteSheet, SpriteSheetBuilder, SurfaceRenderTarget, Uniform, UniformField, Vector, RenderTarget,
+    ModelBuilder, RenderEncoder, RenderTarget, Shader, ShaderConfig, Sprite, SpriteBuilder,
+    SpriteRenderTarget, SpriteSheet, SpriteSheetBuilder, SurfaceRenderTarget, Uniform,
+    UniformField, Vector,
 };
 use std::{ops::Deref, sync::Mutex};
 
@@ -401,8 +402,8 @@ pub struct GpuDefaults {
     pub empty_instance: InstanceBuffer,
 
     pub surface: SurfaceRenderTarget,
-    #[cfg(feature="framebuffer")]
-    pub framebuffer: SpriteRenderTarget
+    #[cfg(feature = "framebuffer")]
+    pub framebuffer: SpriteRenderTarget,
 }
 
 impl GpuDefaults {
@@ -512,9 +513,9 @@ impl GpuDefaults {
         let unit_camera = (camera.create_buffer(gpu), camera);
 
         let surface = SurfaceRenderTarget::new(gpu, size);
-        
-        #[cfg(feature="framebuffer")]
-        let framebuffer = SpriteRenderTarget::new(gpu, size); 
+
+        #[cfg(feature = "framebuffer")]
+        let framebuffer = SpriteRenderTarget::new(gpu, size);
 
         Self {
             surface,
@@ -537,12 +538,12 @@ impl GpuDefaults {
             color,
             color_uniform,
 
-            #[cfg(feature="framebuffer")]
-            framebuffer
+            #[cfg(feature = "framebuffer")]
+            framebuffer,
         }
     }
 
-    #[cfg(feature="framebuffer")]
+    #[cfg(feature = "framebuffer")]
     pub(crate) fn apply_render_scale(&mut self, gpu: &Gpu, scale: f32) {
         let size = gpu.render_size().cast::<f32>() * scale;
         let size = Vector::new(size.x as u32, size.y as u32);
@@ -554,7 +555,7 @@ impl GpuDefaults {
     pub(crate) fn resize(&mut self, gpu: &Gpu, window_size: Vector<u32>) {
         self.surface.resize(gpu, window_size);
 
-        #[cfg(feature="framebuffer")]
+        #[cfg(feature = "framebuffer")]
         self.framebuffer.resize(gpu, window_size);
 
         let fov = Self::relative_fov(window_size);
@@ -599,9 +600,9 @@ impl GpuDefaults {
     }
 
     pub fn default_target(&self) -> &dyn RenderTarget {
-        #[cfg(feature="framebuffer")]
+        #[cfg(feature = "framebuffer")]
         return &self.framebuffer;
-        #[cfg(not(feature="framebuffer"))]
+        #[cfg(not(feature = "framebuffer"))]
         return &self.surface;
     }
 
