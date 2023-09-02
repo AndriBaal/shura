@@ -454,11 +454,7 @@ impl Shura {
             #[cfg(feature = "framebuffer")]
             self.defaults.apply_render_scale(&self.gpu, scale);
             #[cfg(feature = "gui")]
-            self.gui.resize(
-                render_size,
-                #[cfg(feature = "framebuffer")]
-                scale,
-            );
+            self.gui.resize(self.gpu.render_size());
         }
 
         self.frame.update();
@@ -587,7 +583,7 @@ impl Shura {
                     if let Some(sprite) = target.downcast_ref::<crate::SpriteRenderTarget>() {
                         encoder.copy_target(sprite, screenshot);
                     } else {
-                        encoder.copy_target_hard(target, screenshot);
+                        encoder.deep_copy_target(target, screenshot);
                     }
 
                     renderer = ComponentRenderer {
@@ -599,11 +595,11 @@ impl Shura {
             }
         }
 
-        #[cfg(feature = "gui")]
-        ctx.gui.render(&ctx.gpu, &ctx.defaults, &mut encoder);
-
         #[cfg(feature = "framebuffer")]
         encoder.copy_target(&ctx.defaults.framebuffer, &ctx.defaults.surface);
+
+        #[cfg(feature = "gui")]
+        ctx.gui.render(&ctx.gpu, &ctx.defaults, &mut encoder);
 
         encoder.submit(&ctx.gpu);
         drop(ctx);

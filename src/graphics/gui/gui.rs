@@ -1,6 +1,6 @@
 use std::ops::{Deref, DerefMut};
 
-use crate::{gui::GuiContext, Gpu, GpuDefaults, RenderEncoder, Vector};
+use crate::{gui::GuiContext, Gpu, GpuDefaults, RenderEncoder, Vector, RenderTarget};
 use egui_wgpu::renderer::{Renderer, ScreenDescriptor};
 use egui_winit::State;
 use instant::Duration;
@@ -36,12 +36,9 @@ impl Gui {
         }
     }
 
-    pub(crate) fn resize(&mut self, size: Vector<u32>, #[cfg(feature = "framebuffer")] scale: f32) {
+    pub(crate) fn resize(&mut self, size: Vector<u32>) {
         self.screen_descriptor = ScreenDescriptor {
             size_in_pixels: [size.x, size.y],
-            #[cfg(feature = "framebuffer")]
-            pixels_per_point: scale,
-            #[cfg(not(feature = "framebuffer"))]
             pixels_per_point: 1.0,
         };
     }
@@ -79,18 +76,11 @@ impl Gui {
         );
 
         {
-            let target = defaults.default_target();
+            let target = &defaults.surface;
             let mut rpass = encoder
                 .inner
                 .begin_render_pass(&wgpu::RenderPassDescriptor {
-                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                        view: target.msaa(),
-                        resolve_target: Some(target.view()),
-                        ops: wgpu::Operations {
-                            load: wgpu::LoadOp::Load,
-                            store: false,
-                        },
-                    })],
+                    color_attachments: &[Some(target.attachment(None))],
                     depth_stencil_attachment: None,
                     label: Some("egui main render pass"),
                 });

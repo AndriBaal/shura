@@ -169,6 +169,10 @@ impl Gpu {
         surface.configure(&self.device, &config);
     }
 
+    pub fn base(&self) -> &WgpuBase {
+        &self.base
+    }
+
     pub fn format(&self) -> wgpu::TextureFormat {
         self.format
     }
@@ -252,7 +256,6 @@ impl Gpu {
 pub struct WgpuBase {
     pub sample_count: u32,
     pub multisample: wgpu::MultisampleState,
-    pub no_multisample: wgpu::MultisampleState,
     pub sprite_sheet_layout: wgpu::BindGroupLayout,
     pub sprite_layout: wgpu::BindGroupLayout,
     pub camera_layout: wgpu::BindGroupLayout,
@@ -351,11 +354,6 @@ impl WgpuBase {
             mask: !0,
             alpha_to_coverage_enabled: false,
         };
-        let no_multisample = wgpu::MultisampleState {
-            count: 1,
-            mask: !0,
-            alpha_to_coverage_enabled: false,
-        };
 
         #[cfg(feature = "text")]
         let text_pipeline = TextPipeline::new(device, _format, multisample);
@@ -364,7 +362,6 @@ impl WgpuBase {
             sample_count: sample_count,
             multisample,
             sprite_sheet_layout,
-            no_multisample,
             sprite_layout,
             camera_layout,
             uniform_layout,

@@ -192,18 +192,7 @@ impl<'a> Renderer<'a> {
     ) -> Renderer<'a> {
         let render_pass = render_encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("render_pass"),
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: target.msaa(),
-                resolve_target: Some(target.view()),
-                ops: wgpu::Operations {
-                    load: if let Some(clear_color) = clear {
-                        wgpu::LoadOp::Clear(clear_color.into())
-                    } else {
-                        wgpu::LoadOp::Load
-                    },
-                    store: true,
-                },
-            })],
+            color_attachments: &[Some(target.attachment(clear))],
 
             depth_stencil_attachment: None,
         });

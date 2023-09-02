@@ -30,7 +30,7 @@ impl<'a> RenderEncoder<'a> {
         Renderer::new(&mut self.inner, self.defaults, self.gpu, target, clear)
     }
 
-    pub fn copy_target_hard(&mut self, src: &dyn RenderTarget, target: &dyn RenderTarget) {
+    pub fn deep_copy_target(&mut self, src: &dyn RenderTarget, target: &dyn RenderTarget) {
         assert_eq!(src.size(), target.size());
         let size = wgpu::Extent3d {
             width: src.size().x,

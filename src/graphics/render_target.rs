@@ -3,37 +3,64 @@ use std::ops::Deref;
 use downcast_rs::{impl_downcast, Downcast};
 use wgpu::SurfaceTexture;
 
-use crate::{Camera, Gpu, GpuDefaults, RenderEncoder, Sprite, SpriteBuilder, Vector};
+use crate::{Camera, Color, Gpu, GpuDefaults, RenderEncoder, Sprite, SpriteBuilder, Vector};
 
 pub trait RenderTarget: Downcast {
-    fn msaa(&self) -> &wgpu::TextureView;
+    fn msaa(&self) -> Option<&wgpu::TextureView>;
     fn view(&self) -> &wgpu::TextureView;
     fn as_copy(&self) -> wgpu::ImageCopyTexture;
     fn size(&self) -> Vector<u32>;
+    fn attachment(&self, clear: Option<Color>) -> wgpu::RenderPassColorAttachment {
+        wgpu::RenderPassColorAttachment {
+            view: if let Some(msaa) = self.msaa() {
+                msaa
+            } else {
+                self.view()
+            },
+            resolve_target: if self.msaa().is_some() {
+                Some(self.view())
+            } else {
+                None
+            },
+            ops: wgpu::Operations {
+                load: if let Some(clear_color) = clear {
+                    wgpu::LoadOp::Clear(clear_color.into())
+                } else {
+                    wgpu::LoadOp::Load
+                },
+                store: true,
+            },
+        }
+    }
 }
 impl_downcast!(RenderTarget);
 
 pub struct SurfaceRenderTarget {
     surface: Option<SurfaceTexture>,
     target_view: Option<wgpu::TextureView>,
-    target_msaa: wgpu::TextureView,
+    target_msaa: Option<wgpu::TextureView>,
     size: Vector<u32>,
 }
 
 impl SurfaceRenderTarget {
     pub fn new(gpu: &Gpu, size: Vector<u32>) -> Self {
+        let target_msaa = if gpu.sample_count() == 1 {
+            None
+        } else {
+            Some(SpriteRenderTarget::create_msaa(gpu, size))
+        };
         Self {
             surface: None,
             target_view: None,
-            target_msaa: SpriteRenderTarget::create_msaa(gpu, size),
+            target_msaa,
             size,
         }
     }
 
     pub(crate) fn resize(&mut self, gpu: &Gpu, new_size: Vector<u32>) {
-        if new_size != self.size {
+        if gpu.sample_count() != 1 && new_size != self.size {
             self.size = new_size;
-            self.target_msaa = SpriteRenderTarget::create_msaa(gpu, new_size)
+            self.target_msaa = Some(SpriteRenderTarget::create_msaa(gpu, new_size));
         }
     }
 
@@ -75,8 +102,8 @@ impl RenderTarget for SurfaceRenderTarget {
             .as_image_copy()
     }
 
-    fn msaa(&self) -> &wgpu::TextureView {
-        &self.target_msaa
+    fn msaa(&self) -> Option<&wgpu::TextureView> {
+        self.target_msaa.as_ref()
     }
 
     fn size(&self) -> Vector<u32> {
@@ -91,8 +118,8 @@ impl RenderTarget for SpriteRenderTarget {
         &self.target_view
     }
 
-    fn msaa(&self) -> &wgpu::TextureView {
-        &self.target_msaa
+    fn msaa(&self) -> Option<&wgpu::TextureView> {
+        self.target_msaa.as_ref()
     }
 
     fn size(&self) -> Vector<u32> {
@@ -106,7 +133,7 @@ impl RenderTarget for SpriteRenderTarget {
 
 /// Texture to render onto with a [RenderEncoder]
 pub struct SpriteRenderTarget {
-    target_msaa: wgpu::TextureView,
+    target_msaa: Option<wgpu::TextureView>,
     target_view: wgpu::TextureView,
     target: Sprite,
 }
@@ -122,7 +149,11 @@ impl SpriteRenderTarget {
         let target_view = target
             .texture()
             .create_view(&wgpu::TextureViewDescriptor::default());
-        let target_msaa = Self::create_msaa(gpu, size);
+        let target_msaa = if gpu.sample_count() == 1 {
+            None
+        } else {
+            Some(SpriteRenderTarget::create_msaa(gpu, size))
+        };
 
         return Self {
             target_msaa,
