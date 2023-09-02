@@ -88,7 +88,7 @@ impl Gui {
                         resolve_target: Some(target.view()),
                         ops: wgpu::Operations {
                             load: wgpu::LoadOp::Load,
-                            store: true,
+                            store: false,
                         },
                     })],
                     depth_stencil_attachment: None,

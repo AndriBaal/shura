@@ -43,7 +43,7 @@ pub struct Gpu {
     pub queue: wgpu::Queue,
     pub adapter: wgpu::Adapter,
     pub surface: Mutex<wgpu::Surface>,
-    config: Mutex<wgpu::SurfaceConfiguration>,
+    pub(crate) config: Mutex<wgpu::SurfaceConfiguration>,
     pub(crate) format: wgpu::TextureFormat,
     pub(crate) base: WgpuBase,
 }

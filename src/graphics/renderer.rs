@@ -70,6 +70,15 @@ impl<'a> ComponentRenderer<'a> {
         ty.for_each(self.ctx.components.active_groups(), each);
     }
 
+    pub fn unit_model(&self) -> &'a Model {
+        self.inner.defaults.unit_model()
+    }
+
+    pub fn default_target(&self) -> &'a dyn RenderTarget {
+        self.inner.defaults.default_target()
+    }
+
+
     pub fn index<C: Component>(&self, group: GroupHandle, index: usize) -> Option<&'a C> {
         self.index_of(group, index)
     }
@@ -209,54 +218,18 @@ impl<'a> Renderer<'a> {
         };
     }
 
-    // pub(crate) fn output_renderer(
-    //     encoder: &'a mut wgpu::CommandEncoder,
-    //     output: &'a wgpu::TextureView,
-    //     defaults: &'a GpuDefaults,
-    // ) {
-    //     let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-    //         label: Some("render_pass"),
-    //         color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-    //             view: &output,
-    //             resolve_target: None,
-    //             ops: wgpu::Operations {
-    //                 load: wgpu::LoadOp::Load,
-    //                 store: true,
-    //             },
-    //         })],
-
-    //         depth_stencil_attachment: None,
-    //     });
-
-    //     let sprite = &defaults.world_target.sprite();
-    //     let model = &defaults.relative_camera.0.model();
-
-    //     render_pass.set_bind_group(
-    //         Self::CAMERA_SLOT,
-    //         &defaults.relative_camera.0.uniform().bind_group(),
-    //         &[],
-    //     );
-    //     render_pass.set_vertex_buffer(
-    //         Self::INSTANCE_SLOT,
-    //         defaults.single_centered_instance.slice(),
-    //     );
-    //     render_pass.set_pipeline(shader.pipeline());
-    //     render_pass.set_bind_group(1, sprite.bind_group(), &[]);
-    //     render_pass.set_vertex_buffer(Self::MODEL_SLOT, model.vertex_buffer().slice(..));
-    //     render_pass.set_index_buffer(model.index_buffer().slice(..), wgpu::IndexFormat::Uint32);
-    //     render_pass.draw_indexed(0..model.amount_of_indices(), 0, 0..1);
-
-    //     // renderer.use_camera_buffer(&defaults.relative_camera.0);
-    //     // renderer.use_instance_buffer(&defaults.single_centered_instance);
-    //     // renderer.use_shader(&ctx.defaults.sprite_no_msaa);
-    //     // renderer.use_model(ctx.defaults.relative_camera.0.model());
-    //     // renderer.use_sprite(ctx.defaults.world_target.sprite(), 1);
-    //     // renderer.draw(0);
-    // }
-
     pub fn target(&self) -> &dyn RenderTarget {
         self.target
     }
+
+    pub fn unit_model(&self) -> &'a Model {
+        self.defaults.unit_model()
+    }
+
+    pub fn default_target(&self) -> &'a dyn RenderTarget {
+        self.defaults.default_target()
+    }
+
 
     pub fn pass(&'a mut self) -> &mut wgpu::RenderPass {
         self.cache = Default::default();

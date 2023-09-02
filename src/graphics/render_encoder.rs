@@ -22,22 +22,6 @@ impl<'a> RenderEncoder<'a> {
         }
     }
 
-    pub fn clear(&mut self, target: &dyn RenderTarget, color: Color) {
-        self.inner.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("render_pass"),
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: target.msaa(),
-                resolve_target: Some(target.view()),
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(color.into()),
-                    store: true,
-                },
-            })],
-
-            depth_stencil_attachment: None,
-        });
-    }
-
     pub fn renderer<'b>(
         &'b mut self,
         target: &'b dyn RenderTarget,

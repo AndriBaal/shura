@@ -9,8 +9,8 @@ pub struct ScreenConfig {
     pub clear_color: Option<Color>,
     pub max_fps: Option<u32>,
     #[cfg(feature = "framebuffer")]
-    pub render_scale: f32,
-    pub vsync: bool,
+    render_scale: f32,
+    vsync: bool,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default = "default_true"))]
     pub(crate) changed: bool,
