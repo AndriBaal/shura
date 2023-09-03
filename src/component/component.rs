@@ -103,7 +103,7 @@ impl<'a, C: Component> BufferHelper<'a, C> {
             BufferHelperType::Single { offset, component } => {
                 let data = each(component);
                 self.buffer
-                    .write_offset(self.gpu, *offset, bytemuck::cast_slice(&[data]));
+                    .write_offset(self.gpu, *offset, &[data]);
             }
             BufferHelperType::All { components } => {
                 let instances = components
@@ -111,7 +111,7 @@ impl<'a, C: Component> BufferHelper<'a, C> {
                     .map(|component| each(component))
                     .collect::<Vec<B>>();
                 self.buffer
-                    .write(self.gpu, bytemuck::cast_slice(&instances));
+                    .write(self.gpu, &instances);
             }
         };
     }
@@ -127,7 +127,7 @@ impl<'a, C: Component + Send + Sync> BufferHelper<'a, C> {
             BufferHelperType::Single { offset, component } => {
                 let data = each(component);
                 self.buffer
-                    .write_offset(self.gpu, *offset, bytemuck::cast_slice(&[data]));
+                    .write_offset(self.gpu, *offset, &[data]);
             }
             BufferHelperType::All { components } => {
                 let instances = components
@@ -139,7 +139,7 @@ impl<'a, C: Component + Send + Sync> BufferHelper<'a, C> {
                     })
                     .collect::<Vec<B>>();
                 self.buffer
-                    .write(self.gpu, bytemuck::cast_slice(&instances));
+                    .write(self.gpu, &instances);
             }
         };
     }

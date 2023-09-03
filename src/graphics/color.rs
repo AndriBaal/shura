@@ -161,6 +161,7 @@ pub struct Color {
 }
 
 impl Color {
+    pub const SIZE: u64 = std::mem::size_of::<Self>() as u64;
     pub const TRANSPARENT: Self = Self {
         r: 0.0,
         g: 0.0,

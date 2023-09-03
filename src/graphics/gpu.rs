@@ -210,7 +210,7 @@ impl Gpu {
         camera.create_buffer(self)
     }
 
-    pub fn create_instance_buffer(&self, instance_size: u64, instances: &[u8]) -> InstanceBuffer {
+    pub fn create_instance_buffer<D: bytemuck::NoUninit>(&self, instance_size: u64, instances: &[D]) -> InstanceBuffer {
         InstanceBuffer::new(self, instance_size, instances)
     }
 
@@ -396,7 +396,6 @@ pub struct GpuDefaults {
     pub unit_camera: (CameraBuffer, Camera),
     pub world_camera: CameraBuffer,
     pub single_centered_instance: InstanceBuffer,
-    pub empty_instance: InstanceBuffer,
 
     pub surface: SurfaceRenderTarget,
     #[cfg(feature = "framebuffer")]
@@ -481,12 +480,11 @@ impl GpuDefaults {
         let times = Uniform::new(gpu, [0.0, 0.0]);
         let single_centered_instance = gpu.create_instance_buffer(
             InstancePosition::SIZE,
-            bytemuck::cast_slice(&[InstancePosition::new(
+            &[InstancePosition::new(
                 Default::default(),
                 Vector::new(1.0, 1.0),
-            )]),
+            )],
         );
-        let empty_instance = gpu.create_instance_buffer(InstancePosition::SIZE, &[]);
 
         let fov = Self::relative_fov(window_size);
 
@@ -525,7 +523,6 @@ impl GpuDefaults {
             blurr,
             times,
             single_centered_instance,
-            empty_instance,
             relative_camera,
             relative_bottom_left_camera,
             relative_bottom_right_camera,

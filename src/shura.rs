@@ -457,7 +457,7 @@ impl Shura {
             self.gui.resize(self.gpu.render_size());
         }
 
-        self.frame.update();
+        self.frame.update(scene.components.active_groups().len());
         #[cfg(feature = "gamepad")]
         self.input.sync_gamepad();
 

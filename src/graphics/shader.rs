@@ -147,7 +147,7 @@ impl Shader {
                         field.field_name, field.data_type
                     );
                     vertex_outputs += &format!(
-                        "\n\t@location({vertex_output}) {}: {}",
+                        "\n\t@location({vertex_output}) {}: {},",
                         field.field_name, field.data_type
                     );
                     assignments += &format!("\n\tout.{0} = instance.{0};", field.field_name);

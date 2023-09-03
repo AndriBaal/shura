@@ -32,8 +32,8 @@ impl PositionComponent {
         self
     }
 
-    pub fn with_rotation(mut self, rotation: Rotation<f32>) -> Self {
-        self.set_rotation(rotation);
+    pub fn with_rotation(mut self, rotation: f32) -> Self {
+        self.set_rotation(Rotation::new(rotation));
         self
     }
 

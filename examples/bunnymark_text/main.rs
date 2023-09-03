@@ -55,7 +55,7 @@ impl Bunny {
         let scale = rand::gen_range(0.75..2.0);
         let position = PositionComponent::new()
             .with_translation(translation)
-            .with_rotation(Rotation::new(rand::gen_range(-1.0..1.0)))
+            .with_rotation(rand::gen_range(-1.0..1.0))
             .with_scale(Vector::new(scale, scale));
         let linvel = Vector::new(rand::gen_range(-2.5..2.5), rand::gen_range(-7.5..7.5));
         Bunny {

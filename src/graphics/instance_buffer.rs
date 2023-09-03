@@ -71,7 +71,8 @@ pub struct InstanceBuffer {
 }
 
 impl InstanceBuffer {
-    pub fn new(gpu: &Gpu, instance_size: u64, data: &[u8]) -> Self {
+    pub fn new<D: bytemuck::NoUninit>(gpu: &Gpu, instance_size: u64, data: &[D]) -> Self {
+        let data = bytemuck::cast_slice(data);
         assert!(data.len() as u64 % instance_size == 0);
         let buffer = gpu
             .device
@@ -103,7 +104,9 @@ impl InstanceBuffer {
         };
     }
 
-    pub fn write(&mut self, gpu: &Gpu, data: &[u8]) {
+    pub fn write<D: bytemuck::NoUninit>(&mut self, gpu: &Gpu, data: &[D]) {
+        let data: &[u8] = bytemuck::cast_slice(data);
+        assert!(data.len() as u64 % self.instance_size == 0);
         self.instances = data.len() as u64 / self.instance_size;
         self.write_offset(gpu, 0, data);
 
@@ -115,7 +118,13 @@ impl InstanceBuffer {
         // }
     }
 
-    pub fn write_offset(&mut self, gpu: &Gpu, instance_offset: u64, data: &[u8]) {
+    pub fn write_offset<D: bytemuck::NoUninit>(
+        &mut self,
+        gpu: &Gpu,
+        instance_offset: u64,
+        data: &[D],
+    ) {
+        let data = bytemuck::cast_slice(data);
         assert!(data.len() as u64 % self.instance_size == 0);
         assert!(instance_offset * self.instance_size + data.len() as u64 <= self.buffer.size());
         gpu.queue
