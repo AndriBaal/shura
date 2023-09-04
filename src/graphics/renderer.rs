@@ -1,7 +1,7 @@
 use crate::{
     CameraBuffer, Color, Component, ComponentHandle, ComponentSetResource, Context, Gpu,
     GpuDefaults, GroupFilter, GroupHandle, InstanceBuffer, InstanceIndex, InstanceIndices, Model,
-    RenderTarget, Shader, Sprite, SpriteRenderTarget, SpriteSheet, Uniform, Vector,
+    RenderTarget, Shader, Sprite, SpriteRenderTarget, SpriteSheet, SpriteSheetIndex, Uniform,
 };
 use std::{ops::Range, ptr::null};
 
@@ -77,7 +77,6 @@ impl<'a> ComponentRenderer<'a> {
     pub fn default_target(&self) -> &'a dyn RenderTarget {
         self.inner.defaults.default_target()
     }
-
 
     pub fn index<C: Component>(&self, group: GroupHandle, index: usize) -> Option<&'a C> {
         self.index_of(group, index)
@@ -219,7 +218,6 @@ impl<'a> Renderer<'a> {
         self.defaults.default_target()
     }
 
-
     pub fn pass(&'a mut self) -> &mut wgpu::RenderPass {
         self.cache = Default::default();
         return &mut self.render_pass;
@@ -351,7 +349,7 @@ impl<'a> Renderer<'a> {
         instances: impl Into<InstanceIndices>,
         model: &'a Model,
         sprite: &'a SpriteSheet,
-        sprite_index: &'a Uniform<Vector<i32>>,
+        sprite_index: &'a Uniform<SpriteSheetIndex>,
     ) {
         self.use_shader(&self.defaults.sprite_sheet_uniform);
         self.use_model(model);

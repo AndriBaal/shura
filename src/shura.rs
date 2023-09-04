@@ -19,7 +19,7 @@ use crate::{
 use crate::{
     ComponentRenderer, ComponentTypeId, ComponentTypeImplementation, Context, ContextUse,
     ControllerManager, EndReason, FrameManager, Gpu, GpuConfig, GpuDefaults, Input, RenderEncoder,
-    RenderTarget, SceneCreator, SceneManager, Vector,
+    RenderTarget, Scene, SceneCreator, SceneManager, Vector,
 };
 use rustc_hash::FxHashMap;
 #[cfg(target_os = "android")]
@@ -160,8 +160,8 @@ impl ShuraConfig {
                             }
                         }
                         Event::RedrawRequested(window_id) if window_id == shura_window_id => {
-                            let update_status = shura.update();
-                            match update_status {
+                            let frame_result = shura.process_frame();
+                            match frame_result {
                                 Ok(_) => {}
                                 Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
                                     #[cfg(feature = "log")]
@@ -352,7 +352,7 @@ impl Shura {
         }
     }
 
-    fn update(&mut self) -> Result<(), wgpu::SurfaceError> {
+    fn process_frame(&mut self) -> Result<(), wgpu::SurfaceError> {
         while let Some(remove) = self.scenes.remove.pop() {
             if let Some(removed) = self.scenes.scenes.remove(&remove) {
                 let mut removed = removed.borrow_mut();
@@ -457,20 +457,30 @@ impl Shura {
             self.gui.resize(self.gpu.render_size());
         }
 
-        self.frame.update(scene.components.active_groups().len());
-        #[cfg(feature = "gamepad")]
-        self.input.sync_gamepad();
+        self.update(scene);
+        if scene.render_components {
+            self.defaults.surface.start_frame(&self.gpu)?;
+            self.render(scene);
+            self.defaults.surface.finish_frame();
+        }
 
-        self.defaults.surface.start_frame(&self.gpu);
+        self.input.update();
+        return Ok(());
+    }
 
-        #[cfg(feature = "gui")]
-        self.gui
-            .begin(&self.frame.total_time_duration(), &self.window);
+    fn update(&mut self, scene: &mut Scene) {
         Rc::get_mut(&mut scene.components.controllers)
             .unwrap()
             .apply();
         let callbacks_rc = scene.components.controllers.clone();
         let callbacks: &ControllerManager = &callbacks_rc;
+
+        self.frame.update(scene.components.active_groups().len());
+        #[cfg(feature = "gamepad")]
+        self.input.sync_gamepad();
+        #[cfg(feature = "gui")]
+        self.gui
+            .begin(&self.frame.total_time_duration(), &self.window);
         {
             let mut ctx = Context::new(self, scene, ContextUse::Update);
             #[cfg(feature = "physics")]
@@ -529,25 +539,26 @@ impl Shura {
                 Self::world_step(&mut ctx, callbacks);
             }
         }
+
         scene
             .world_camera
             .apply_target(&scene.world, &scene.components);
+        scene
+            .groups
+            .update(&mut scene.components, &self.defaults.world_camera);
+    }
+
+    fn render(&mut self, scene: &mut Scene) {
+        let callbacks_rc = scene.components.controllers.clone();
+        let callbacks: &ControllerManager = &callbacks_rc;
+
+        scene.components.buffer(&mut scene.world, &self.gpu);
         self.defaults.buffer(
             &mut scene.world_camera.camera,
             &self.gpu,
             self.frame.total_time(),
             self.frame.frame_time(),
         );
-
-        scene
-            .groups
-            .update(&mut scene.components, &self.defaults.world_camera);
-        if !scene.render_components {
-            self.input.update();
-            return Ok(());
-        }
-
-        scene.components.buffer(&mut scene.world, &self.gpu);
 
         let ctx = Context::new(self, scene, ContextUse::Render);
         let mut encoder = RenderEncoder::new(&ctx.gpu, &ctx.defaults);
@@ -602,13 +613,9 @@ impl Shura {
         ctx.gui.render(&ctx.gpu, &ctx.defaults, &mut encoder);
 
         encoder.submit(&ctx.gpu);
-        drop(ctx);
-        self.input.update();
-        self.defaults.surface.finish_frame();
-        Ok(())
     }
 
-    pub fn end(&mut self) {
+    fn end(&mut self) {
         for (_, scene) in self.scenes.end_scenes() {
             let mut scene = scene.borrow_mut();
             let mut ctx = Context::new(self, &mut scene, ContextUse::Update);

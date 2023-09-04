@@ -64,7 +64,7 @@ impl SurfaceRenderTarget {
         }
     }
 
-    pub(crate) fn start_frame(&mut self, gpu: &Gpu) {
+    pub(crate) fn start_frame(&mut self, gpu: &Gpu) -> Result<(), wgpu::SurfaceError> {
         let surface = gpu.surface.lock().unwrap();
         let config = gpu.config.lock().unwrap();
         let surface = match surface.get_current_texture() {
@@ -72,12 +72,12 @@ impl SurfaceRenderTarget {
             Err(_) => {
                 surface.configure(&gpu.device, &config);
                 surface
-                    .get_current_texture()
-                    .expect("Failed to acquire next surface texture!")
+                    .get_current_texture()?
             }
         };
         self.target_view = Some(surface.texture.create_view(&Default::default()));
         self.surface = Some(surface);
+        return Ok(())
     }
 
     pub(crate) fn finish_frame(&mut self) {
