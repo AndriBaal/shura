@@ -427,7 +427,7 @@ impl GpuDefaults {
             fragment_shader: Shader::SPRITE_SHEET,
             uniforms: &[UniformField::SpriteSheet],
             vertex_shader: VertexShader::Custom(
-                Shader::VERTEX_CROP,
+                Shader::VERTEX_CROP_SHEET,
                 vec![
                     Vertex::desc(),
                     wgpu::VertexBufferLayout {
@@ -437,6 +437,7 @@ impl GpuDefaults {
                             3 => Float32x4,
                             4 => Float32x2,
                             5 => Float32x4,
+                            6 => Uint32x2,
                         ],
                         step_mode: wgpu::VertexStepMode::Instance,
                     },

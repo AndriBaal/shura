@@ -76,7 +76,7 @@ downcast-rs = "1.2.0"
 rustc-hash = "1.1"
 futures-intrusive = "0.5.0"
 pollster = "0.3.0"
-bytemuck = { version = "1.13", features = ["derive"] }
+bytemuck = { version = "1.14", features = ["derive"] }
 instant = "0.1.12"
 # shura_proc = "0.4.0"
 shura_proc = { path = "./macro" }

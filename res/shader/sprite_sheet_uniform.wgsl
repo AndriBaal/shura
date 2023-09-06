@@ -3,7 +3,7 @@
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) tex: vec2<f32>,
-    @location(1) sprites: vec2<u32>
+    @location(1) sprite: vec2<u32>
 }
 
 @group(1) @binding(0) 
