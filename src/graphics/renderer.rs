@@ -332,6 +332,18 @@ impl<'a> Renderer<'a> {
         self.draw(instances);
     }
 
+    pub fn render_sprite_crop(
+        &mut self,
+        instances: impl Into<InstanceIndices>,
+        model: &'a Model,
+        sprite: &'a Sprite,
+    ) {
+        self.use_shader(&self.defaults.sprite_crop);
+        self.use_model(model);
+        self.use_sprite(sprite, 1);
+        self.draw(instances);
+    }
+
     pub fn render_sprite_sheet(
         &mut self,
         instances: impl Into<InstanceIndices>,
@@ -346,7 +358,7 @@ impl<'a> Renderer<'a> {
 
     pub fn render_sprite_sheet_uniform(
         &mut self,
-        instances: impl Into<InstanceIndices>,
+        instances: impl Into<InstanceIndices>+ Clone,
         model: &'a Model,
         sprite: &'a SpriteSheet,
         sprite_index: &'a Uniform<SpriteSheetIndex>,

@@ -102,7 +102,7 @@ impl LightResources {
     pub fn new(ctx: &Context) -> Self {
         Self {
             present_shader: ctx.gpu.create_shader(ShaderConfig {
-                fragment_source: Shader::SPRITE,
+                fragment_shader: Shader::SPRITE,
                 uniforms: &[UniformField::Sprite],
                 blend: BlendState {
                     color: BlendComponent {
@@ -119,13 +119,13 @@ impl LightResources {
                 ..Default::default()
             }),
             light_shader: ctx.gpu.create_shader(ShaderConfig {
-                fragment_source: include_str!("./light.wgsl"),
+                fragment_shader: include_str!("./light.wgsl"),
                 uniforms: &[],
-                instance_fields: &[InstanceField {
+                vertex_shader: VertexShader::AutoInstance(&[InstanceField {
                     format: VertexFormat::Float32x4,
                     field_name: "color",
                     data_type: "vec4<f32>",
-                }],
+                }]),
                 ..Default::default()
             }),
             light_map: ctx.gpu.create_render_target(ctx.window_size),

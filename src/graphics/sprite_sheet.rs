@@ -120,7 +120,7 @@ impl SpriteSheet {
         let amount = desc.sprite_amount.x * desc.sprite_amount.y;
         // assert!(amount > 1, "SpriteSheet must atleast have to 2 sprites!");
 
-        let data = [desc.sprite_amount, Vector::new(0, 0)]; // Empty vec needed for 16 Byte alignment
+        let data = [desc.sprite_amount, Vector::new(0, 0)]; // Empty vector needed for 16 Byte alignment
         assert!(std::mem::size_of_val(&data) % 16 == 0);
         let size_hint_buffer = gpu
             .device
@@ -135,7 +135,8 @@ impl SpriteSheet {
             size: wgpu::Extent3d {
                 width: desc.sprite_size.x,
                 height: desc.sprite_size.y,
-                depth_or_array_layers: amount,
+                // Fallback to ensure no crash because of only 2 sprite
+                depth_or_array_layers: amount.max(2),
             },
             mip_level_count: 1,
             sample_count: 1,

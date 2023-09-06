@@ -1,4 +1,4 @@
-use std::{mem, ops::Range};
+use std::ops::Range;
 
 use crate::{Gpu, Isometry, Matrix, Rotation, Vector};
 use wgpu::util::DeviceExt;
@@ -26,16 +26,11 @@ impl InstancePosition {
         }
     }
 
-    pub fn size() -> wgpu::BufferAddress {
-        mem::size_of::<Self>() as wgpu::BufferAddress
-    }
-
-    pub fn attributes() -> Vec<wgpu::VertexAttribute> {
+    pub fn attributes() -> [wgpu::VertexAttribute; 2] {
         wgpu::vertex_attr_array![
             2 => Float32x2,
             3 => Float32x4
         ]
-        .to_vec()
     }
 
     pub fn set_translation(&mut self, translation: Vector<f32>) {

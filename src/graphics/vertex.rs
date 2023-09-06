@@ -11,13 +11,14 @@ pub struct Vertex {
 }
 
 impl Vertex {
+    pub const SIZE: u64 = std::mem::size_of::<Self>() as u64;
     pub const fn new(pos: Vector<f32>, tex_coords: Vector<f32>) -> Self {
         Vertex { pos, tex_coords }
     }
 
     pub const fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
         wgpu::VertexBufferLayout {
-            array_stride: mem::size_of::<Self>() as wgpu::BufferAddress,
+            array_stride: Self::SIZE,
             step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &[
                 wgpu::VertexAttribute {

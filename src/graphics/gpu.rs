@@ -6,7 +6,7 @@ use crate::{
     Camera, CameraBuffer, InstanceBuffer, InstanceField, InstancePosition, Isometry, Model,
     ModelBuilder, RenderEncoder, RenderTarget, Shader, ShaderConfig, Sprite, SpriteBuilder,
     SpriteRenderTarget, SpriteSheet, SpriteSheetBuilder, SurfaceRenderTarget, Uniform,
-    UniformField, Vector,
+    UniformField, Vector, Vertex, VertexShader,
 };
 use std::{ops::Deref, sync::Mutex};
 
@@ -210,7 +210,11 @@ impl Gpu {
         camera.create_buffer(self)
     }
 
-    pub fn create_instance_buffer<D: bytemuck::NoUninit>(&self, instance_size: u64, instances: &[D]) -> InstanceBuffer {
+    pub fn create_instance_buffer<D: bytemuck::NoUninit>(
+        &self,
+        instance_size: u64,
+        instances: &[D],
+    ) -> InstanceBuffer {
         InstanceBuffer::new(self, instance_size, instances)
     }
 
@@ -374,6 +378,7 @@ impl WgpuBase {
 /// Holds default buffers, shaders, sprites and layouts needed by shura.
 pub struct GpuDefaults {
     pub sprite: Shader,
+    pub sprite_crop: Shader,
     pub sprite_sheet: Shader,
     pub sprite_sheet_uniform: Shader,
     pub color: Shader,
@@ -406,72 +411,94 @@ impl GpuDefaults {
     pub(crate) fn new(gpu: &Gpu, window_size: Vector<u32>) -> Self {
         let sprite_sheet = gpu.create_shader(ShaderConfig {
             name: "sprite_sheet",
-            fragment_source: Shader::SPRITE_SHEET,
+            fragment_shader: Shader::SPRITE_SHEET,
             uniforms: &[UniformField::SpriteSheet],
-            instance_fields: &[InstanceField {
+            vertex_shader: VertexShader::AutoInstance(&[InstanceField {
                 format: wgpu::VertexFormat::Uint32x2,
                 field_name: "sprite",
                 data_type: "vec2<u32>",
-            }],
+            }]),
             ..Default::default()
         });
 
         let sprite_sheet_uniform = gpu.create_shader(ShaderConfig {
             name: "sprite_sheet_uniform",
-            fragment_source: Shader::SPRITE_SHEET_UNIFORM,
-            uniforms: &[UniformField::SpriteSheet, UniformField::Uniform],
-            instance_fields: &[InstanceField {
+            fragment_shader: Shader::SPRITE_SHEET_UNIFORM,
+            uniforms: &[UniformField::SpriteSheet, UniformField::SingleUniform],
+            vertex_shader: VertexShader::AutoInstance(&[InstanceField {
                 format: wgpu::VertexFormat::Uint32x2,
                 field_name: "sprite",
                 data_type: "vec2<u32>",
-            }],
+            }]),
             ..Default::default()
         });
 
         let color = gpu.create_shader(ShaderConfig {
             name: "color",
-            fragment_source: Shader::COLOR,
+            fragment_shader: Shader::COLOR,
             uniforms: &[],
-            instance_fields: &[InstanceField {
+            vertex_shader: VertexShader::AutoInstance(&[InstanceField {
                 format: wgpu::VertexFormat::Float32x4,
                 field_name: "color",
                 data_type: "vec4<f32>",
-            }],
+            }]),
             ..Default::default()
         });
 
         let color_uniform = gpu.create_shader(ShaderConfig {
             name: "color_uniform",
-            fragment_source: Shader::COLOR_UNIFORM,
-            uniforms: &[UniformField::Uniform],
-            instance_fields: &[],
+            fragment_shader: Shader::COLOR_UNIFORM,
+            uniforms: &[UniformField::SingleUniform],
             ..Default::default()
         });
 
         let sprite = gpu.create_shader(ShaderConfig {
             name: "sprite",
-            fragment_source: Shader::SPRITE,
+            fragment_shader: Shader::SPRITE,
             uniforms: &[UniformField::Sprite],
+            ..Default::default()
+        });
+
+        let sprite_crop = gpu.create_shader(ShaderConfig {
+            name: "sprite_crop",
+            fragment_shader: Shader::SPRITE,
+            uniforms: &[UniformField::Sprite],
+            vertex_shader: VertexShader::Custom(
+                Shader::VERTEX_CROP,
+                vec![
+                    Vertex::desc(),
+                    wgpu::VertexBufferLayout {
+                        array_stride: InstancePosition::SIZE * 2,
+                        attributes: &wgpu::vertex_attr_array![
+                            2 => Float32x2,
+                            3 => Float32x4,
+                            4 => Float32x2,
+                            5 => Float32x4,
+                        ],
+                        step_mode: wgpu::VertexStepMode::Instance,
+                    },
+                ],
+            ),
             ..Default::default()
         });
 
         let rainbow = gpu.create_shader(ShaderConfig {
             name: "rainbow",
-            fragment_source: Shader::RAINBOW,
-            uniforms: &[UniformField::Uniform],
+            fragment_shader: Shader::RAINBOW,
+            uniforms: &[UniformField::SingleUniform],
             ..Default::default()
         });
 
         let grey = gpu.create_shader(ShaderConfig {
             name: "grey",
-            fragment_source: Shader::GREY,
+            fragment_shader: Shader::GREY,
             uniforms: &[UniformField::Sprite],
             ..Default::default()
         });
 
         let blurr = gpu.create_shader(ShaderConfig {
             name: "blurr",
-            fragment_source: Shader::BLURR,
+            fragment_shader: Shader::BLURR,
             uniforms: &[UniformField::Sprite],
             ..Default::default()
         });
@@ -516,6 +543,7 @@ impl GpuDefaults {
             surface,
             sprite_sheet_uniform,
             sprite_sheet,
+            sprite_crop,
             unit_camera,
             sprite,
             rainbow,
