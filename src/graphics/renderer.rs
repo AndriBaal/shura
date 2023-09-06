@@ -344,6 +344,18 @@ impl<'a> Renderer<'a> {
         self.draw(instances);
     }
 
+    pub fn render_sprite_sheet_crop(
+        &mut self,
+        instances: impl Into<InstanceIndices>,
+        model: &'a Model,
+        sprite: &'a Sprite,
+    ) {
+        self.use_shader(&self.defaults.sprite_sheet_crop);
+        self.use_model(model);
+        self.use_sprite(sprite, 1);
+        self.draw(instances);
+    }
+
     pub fn render_sprite_sheet(
         &mut self,
         instances: impl Into<InstanceIndices>,

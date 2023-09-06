@@ -379,6 +379,7 @@ impl WgpuBase {
 pub struct GpuDefaults {
     pub sprite: Shader,
     pub sprite_crop: Shader,
+    pub sprite_sheet_crop: Shader,
     pub sprite_sheet: Shader,
     pub sprite_sheet_uniform: Shader,
     pub color: Shader,
@@ -418,6 +419,29 @@ impl GpuDefaults {
                 field_name: "sprite",
                 data_type: "vec2<u32>",
             }]),
+            ..Default::default()
+        });
+
+        let sprite_sheet_crop = gpu.create_shader(ShaderConfig {
+            name: "sprite_sheet_crop",
+            fragment_shader: Shader::SPRITE_SHEET,
+            uniforms: &[UniformField::SpriteSheet],
+            vertex_shader: VertexShader::Custom(
+                Shader::VERTEX_CROP,
+                vec![
+                    Vertex::desc(),
+                    wgpu::VertexBufferLayout {
+                        array_stride: InstancePosition::SIZE * 2,
+                        attributes: &wgpu::vertex_attr_array![
+                            2 => Float32x2,
+                            3 => Float32x4,
+                            4 => Float32x2,
+                            5 => Float32x4,
+                        ],
+                        step_mode: wgpu::VertexStepMode::Instance,
+                    },
+                ],
+            ),
             ..Default::default()
         });
 
@@ -543,6 +567,7 @@ impl GpuDefaults {
             surface,
             sprite_sheet_uniform,
             sprite_sheet,
+            sprite_sheet_crop,
             sprite_crop,
             unit_camera,
             sprite,

@@ -79,7 +79,7 @@ pollster = "0.3.0"
 bytemuck = { version = "1.13", features = ["derive"] }
 instant = "0.1.12"
 # shura_proc = "0.4.0"
-shura_proc = { path = "../shura_proc" }
+shura_proc = { path = "./macro" }
 image = { version = "0.24", default-features = false, features = [
     "png",
     "jpeg",
