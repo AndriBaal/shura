@@ -26,6 +26,10 @@ impl<'a, C: Component> ComponentSet<'a, C> {
         self.ty.for_each(self.groups, each);
     }
 
+    pub fn for_each_with_handles(&self, each: impl FnMut(ComponentHandle, &C)) {
+        self.ty.for_each_with_handles(self.groups, each);
+    }
+
     pub fn index(&self, index: usize) -> Option<&C> {
         self.index_of(GroupHandle::DEFAULT_GROUP, index)
     }
@@ -204,6 +208,14 @@ impl<'a, C: Component> ComponentSetMut<'a, C> {
 
     pub fn for_each_mut(&mut self, each: impl FnMut(&mut C)) {
         self.ty.for_each_mut(self.groups, each);
+    }
+
+    pub fn for_each_with_handles(&self, each: impl FnMut(ComponentHandle, &C)) {
+        self.ty.for_each_with_handles(self.groups, each);
+    }
+
+    pub fn for_each_mut_with_handles(&mut self, each: impl FnMut(ComponentHandle, &mut C)) {
+        self.ty.for_each_mut_with_handles(self.groups, each);
     }
 
     pub fn buffer_for_each_mut(

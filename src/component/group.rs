@@ -32,7 +32,7 @@ impl GroupManager {
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (GroupHandle, &mut Group)> {
         return self
             .groups
-            .iter_with_index_mut()
+            .iter_mut_with_index()
             .map(|(index, group)| (GroupHandle(index), group));
     }
 
@@ -109,7 +109,7 @@ impl GroupManager {
         let cam_aabb = camera.model().aabb(Vector::new(0.0, 0.0).into()); // Translation is already applied
         components.active_groups.clear();
         let now = Instant::now();
-        for (index, group) in self.groups.iter_with_index_mut() {
+        for (index, group) in self.groups.iter_mut_with_index() {
             if group.intersects_camera(cam_aabb) {
                 group.set_active(true, now);
                 components.active_groups.push(GroupHandle(index));

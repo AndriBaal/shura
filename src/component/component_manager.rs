@@ -265,7 +265,7 @@ impl ComponentManager {
         match &mut ty.storage {
             ComponentTypeStorage::MultipleGroups(groups) => {
                 let index = groups.insert_with(|group_index| {
-                    for (component_index, component) in storage.components.iter_with_index_mut() {
+                    for (component_index, component) in storage.components.iter_mut_with_index() {
                         component.init(
                             ComponentHandle::new(
                                 ComponentIndex(component_index),
@@ -547,67 +547,6 @@ impl ComponentManager {
         ty.len(groups)
     }
 
-    // #[inline]
-    // pub fn iter<C: Component>(&self) -> impl DoubleEndedIterator<Item = &C> {
-    //     self.iter_of::<C>(GroupFilter::Active)
-    // }
-
-    // pub fn iter_of<C: Component>(
-    //     &self,
-    //     filter: GroupFilter,
-    // ) -> Box<dyn DoubleEndedIterator<Item = &'_ C> + '_> {
-    //     let groups = group_filter!(self, filter).1;
-    //     let ty = type_ref!(self, C);
-    //     Ref::map(ty, |ty| ty.iter(groups))
-
-    // }
-
-    // #[inline]
-    // pub fn iter_mut<C: Component>(&mut self) -> impl DoubleEndedIterator<Item = &mut C> {
-    //     self.iter_mut_of::<C>(GroupFilter::Active)
-    // }
-
-    // pub fn iter_mut_of<C: Component>(
-    //     &mut self,
-    //     filter: GroupFilter,
-    // ) -> impl DoubleEndedIterator<Item = &mut C> {
-    //     let (check, groups) = group_filter!(self, filter);
-    //     let mut ty = type_ref_mut!(self, C);
-    //     ty.iter_mut(groups, check)
-    // }
-
-    // #[inline]
-    // pub fn iter_with_handles<'a, C: Component>(
-    //     &'a self,
-    // ) -> impl DoubleEndedIterator<Item = (ComponentHandle, &'a C)> {
-    //     self.iter_with_handles_of::<C>(GroupFilter::Active)
-    // }
-
-    // pub fn iter_with_handles_of<'a, C: Component>(
-    //     &'a self,
-    //     filter: GroupFilter<'a>,
-    // ) -> impl DoubleEndedIterator<Item = (ComponentHandle, &'a C)> {
-    //     let groups = group_filter!(self, filter).1;
-    //     let ty = type_ref!(self, C);
-    //     ty.iter_with_handles(groups)
-    // }
-
-    // #[inline]
-    // pub fn iter_mut_with_handles<'a, C: Component>(
-    //     &'a mut self,
-    // ) -> impl DoubleEndedIterator<Item = (ComponentHandle, &'a mut C)> {
-    //     self.iter_mut_with_handles_of::<C>(GroupFilter::Active)
-    // }
-
-    // pub fn iter_mut_with_handles_of<'a, C: Component>(
-    //     &'a mut self,
-    //     filter: GroupFilter<'a>,
-    // ) -> impl DoubleEndedIterator<Item = (ComponentHandle, &'a mut C)> {
-    //     let (check, groups) = group_filter!(self, filter);
-    //     let mut ty = type_ref_mut!(self, C);
-    //     ty.iter_mut_with_handles(groups, check)
-    // }
-
     #[inline]
     pub fn for_each<C: Component>(&self, each: impl FnMut(&C)) {
         self.for_each_of(GroupFilter::Active, each)
@@ -622,6 +561,34 @@ impl ComponentManager {
     #[inline]
     pub fn for_each_mut<C: Component>(&mut self, each: impl FnMut(&mut C)) {
         self.for_each_mut_of(GroupFilter::Active, each)
+    }
+
+    pub fn for_each_mut_of<C: Component>(&mut self, filter: GroupFilter, each: impl FnMut(&mut C)) {
+        let groups = group_filter!(self, filter).1;
+        let mut ty = type_ref_mut!(self, C);
+        ty.for_each_mut(groups, each);
+    }
+
+    #[inline]
+    pub fn for_each_with_handles<C: Component>(&self, each: impl FnMut(ComponentHandle, &C)) {
+        self.for_each_with_handles_of(GroupFilter::Active, each)
+    }
+
+    pub fn for_each_with_handles_of<C: Component>(&self, filter: GroupFilter, each: impl FnMut(ComponentHandle, &C)) {
+        let groups = group_filter!(self, filter).1;
+        let ty = type_ref!(self, C);
+        ty.for_each_with_handles(groups, each);
+    }
+
+    #[inline]
+    pub fn for_each_mut_with_handles<C: Component>(&mut self, each: impl FnMut(ComponentHandle, &mut C)) {
+        self.for_each_mut_with_handles_of(GroupFilter::Active, each)
+    }
+
+    pub fn for_each_mut_with_handles_of<C: Component>(&mut self, filter: GroupFilter, each: impl FnMut(ComponentHandle, &mut C)) {
+        let groups = group_filter!(self, filter).1;
+        let mut ty = type_ref_mut!(self, C);
+        ty.for_each_mut_with_handles(groups, each);
     }
 
     #[inline]
@@ -660,12 +627,6 @@ impl ComponentManager {
         let groups = group_filter!(self, filter).1;
         let mut ty = type_ref_mut!(self, C);
         ty.buffer_for_each_mut(world, gpu, groups, each);
-    }
-
-    pub fn for_each_mut_of<C: Component>(&mut self, filter: GroupFilter, each: impl FnMut(&mut C)) {
-        let groups = group_filter!(self, filter).1;
-        let mut ty = type_ref_mut!(self, C);
-        ty.for_each_mut(groups, each);
     }
 
     #[inline]

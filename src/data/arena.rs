@@ -274,7 +274,7 @@ impl<T> Arena<T> {
         }
     }
 
-    pub fn iter_with_index_mut(&mut self) -> ArenaIterWithIndexMut<T> {
+    pub fn iter_mut_with_index(&mut self) -> ArenaIterWithIndexMut<T> {
         ArenaIterWithIndexMut {
             len: self.len,
             base: self.items.iter_mut().enumerate(),

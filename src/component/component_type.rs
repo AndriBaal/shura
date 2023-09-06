@@ -245,6 +245,104 @@ impl<C: Component> ComponentType<C> {
         };
     }
 
+    pub fn for_each_with_handles(
+        &self,
+        group_handles: &[GroupHandle],
+        mut each: impl FnMut(ComponentHandle, &C),
+    ) {
+        match &self.storage {
+            ComponentTypeStorage::Single { component, .. } => {
+                if let Some(component) = component {
+                    (each)(
+                        ComponentHandle::new(
+                            ComponentIndex::INVALID,
+                            C::IDENTIFIER,
+                            GroupHandle::INVALID,
+                        ),
+                        component,
+                    );
+                }
+            }
+            ComponentTypeStorage::Multiple(multiple) => {
+                for (idx, component) in multiple.components.iter_with_index() {
+                    (each)(
+                        ComponentHandle::new(
+                            ComponentIndex(idx),
+                            C::IDENTIFIER,
+                            GroupHandle::INVALID,
+                        ),
+                        component,
+                    );
+                }
+            }
+            ComponentTypeStorage::MultipleGroups(groups) => {
+                for group_handle in group_handles {
+                    if let Some(group) = groups.get(group_handle.0) {
+                        for (idx, component) in group.components.iter_with_index() {
+                            (each)(
+                                ComponentHandle::new(
+                                    ComponentIndex(idx),
+                                    C::IDENTIFIER,
+                                    *group_handle,
+                                ),
+                                component,
+                            );
+                        }
+                    }
+                }
+            }
+        };
+    }
+
+    pub fn for_each_mut_with_handles(
+        &mut self,
+        group_handles: &[GroupHandle],
+        mut each: impl FnMut(ComponentHandle, &mut C),
+    ) {
+        match &mut self.storage {
+            ComponentTypeStorage::Single { component, .. } => {
+                if let Some(component) = component {
+                    (each)(
+                        ComponentHandle::new(
+                            ComponentIndex::INVALID,
+                            C::IDENTIFIER,
+                            GroupHandle::INVALID,
+                        ),
+                        component,
+                    );
+                }
+            }
+            ComponentTypeStorage::Multiple(multiple) => {
+                for (idx, component) in multiple.components.iter_mut_with_index() {
+                    (each)(
+                        ComponentHandle::new(
+                            ComponentIndex(idx),
+                            C::IDENTIFIER,
+                            GroupHandle::INVALID,
+                        ),
+                        component,
+                    );
+                }
+            }
+            ComponentTypeStorage::MultipleGroups(groups) => {
+                for group_handle in group_handles {
+                    if let Some(group) = groups.get_mut(group_handle.0) {
+                        for (idx, component) in group.components.iter_mut_with_index() {
+                            (each)(
+                                ComponentHandle::new(
+                                    ComponentIndex(idx),
+                                    C::IDENTIFIER,
+                                    *group_handle,
+                                ),
+                                component,
+                            );
+                        }
+                    }
+                }
+            }
+        };
+    }
+
     pub fn retain(
         &mut self,
         world: &mut World,
@@ -801,7 +899,7 @@ impl<C: Component> ComponentType<C> {
                 }
             }
             ComponentTypeStorage::Multiple(multiple) => {
-                return Box::new(multiple.components.iter_with_index_mut().map(|(idx, c)| {
+                return Box::new(multiple.components.iter_mut_with_index().map(|(idx, c)| {
                     (
                         ComponentHandle::new(
                             ComponentIndex(idx),
@@ -820,7 +918,7 @@ impl<C: Component> ComponentType<C> {
                         if let Some(group) = (&mut *ptr).get_mut(group_handle.0) {
                             let type_id = &C::IDENTIFIER;
 
-                            iters.push(group.components.iter_with_index_mut().map(
+                            iters.push(group.components.iter_mut_with_index().map(
                                 move |(idx, c)| {
                                     (
                                         ComponentHandle::new(
