@@ -57,6 +57,7 @@ pub use bytemuck;
 /// Access to [image](https://github.com/image-rs/image)
 pub use image;
 
+
 #[cfg(not(feature = "physics"))]
 pub use world::world_no_rapier::World;
 

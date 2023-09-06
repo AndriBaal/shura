@@ -5,6 +5,7 @@ use std::sync::Mutex;
 use std::{collections::HashSet, sync::OnceLock};
 use syn::{parse_macro_input, parse_quote, Data, DataStruct, DeriveInput, Fields, Type, TypePath};
 
+
 fn position_field(data_struct: &DataStruct, attr_name: &str) -> Option<Ident> {
     match &data_struct.fields {
         Fields::Named(fields_named) => {
@@ -107,7 +108,7 @@ fn component(ast: &DeriveInput) -> TokenStream2 {
     let var_position_field_name = if has_position {
         quote!(self.#position_field_name)
     } else {
-        quote!(shura::#position_field_name)
+        quote!(::shura::#position_field_name)
     };
 
     let mut hashes = USED_COMPONENT_HASHES
@@ -137,7 +138,7 @@ fn component(ast: &DeriveInput) -> TokenStream2 {
 
     let buffer_impl = if buffer_fields.is_empty() {
         quote!(
-            const INSTANCE_SIZE: u64 = std::mem::size_of::<shura::InstancePosition>() as u64;
+            const INSTANCE_SIZE: u64 = std::mem::size_of::<::shura::InstancePosition>() as u64;
             fn buffer_with(
                 mut helper: BufferHelper<Self>,
                 each: impl Fn(&mut Self) + Send + Sync,
@@ -153,19 +154,19 @@ fn component(ast: &DeriveInput) -> TokenStream2 {
         )
     } else {
         quote!(
-            const INSTANCE_SIZE: u64 = (std::mem::size_of::<shura::InstancePosition>() + #(std::mem::size_of::<#buffer_types>())+*) as u64;
+            const INSTANCE_SIZE: u64 = (std::mem::size_of::<::shura::InstancePosition>() + #(std::mem::size_of::<#buffer_types>())+*) as u64;
             fn buffer_with(
-                mut helper: shura::BufferHelper<Self>,
+                mut helper: ::shura::BufferHelper<Self>,
                 each: impl Fn(&mut Self) + Send + Sync
             ) {
                 #[repr(C)]
                 #[derive(Clone, Copy)]
                 struct Instance {
-                    #position_field_name: shura::InstancePosition,
+                    #position_field_name: ::shura::InstancePosition,
                     #(#struct_fields),*
                 }
-                unsafe impl bytemuck::Pod for Instance {}
-                unsafe impl bytemuck::Zeroable for Instance {}
+                unsafe impl ::shura::bytemuck::Pod for Instance {}
+                unsafe impl ::shura::bytemuck::Zeroable for Instance {}
 
                 helper.#buffer_method(|component| {
                     (each)(component);
@@ -177,16 +178,16 @@ fn component(ast: &DeriveInput) -> TokenStream2 {
             }
 
             fn buffer(
-                mut helper: shura::BufferHelper<Self>
+                mut helper: ::shura::BufferHelper<Self>
             ) {
                 #[repr(C)]
                 #[derive(Clone, Copy)]
                 struct Instance {
-                    #position_field_name: shura::InstancePosition,
+                    #position_field_name: ::shura::InstancePosition,
                     #(#struct_fields),*
                 }
-                unsafe impl bytemuck::Pod for Instance {}
-                unsafe impl bytemuck::Zeroable for Instance {}
+                unsafe impl ::shura::bytemuck::Pod for Instance {}
+                unsafe impl ::shura::bytemuck::Zeroable for Instance {}
 
                 helper.#buffer_method(|component| {
                     Instance {
@@ -200,29 +201,29 @@ fn component(ast: &DeriveInput) -> TokenStream2 {
 
     let init_finish = if has_position {
         quote!(
-            fn init(&mut self, handle: shura::ComponentHandle, world: &mut shura::World) {
+            fn init(&mut self, handle: ::shura::ComponentHandle, world: &mut ::shura::World) {
                 #var_position_field_name.init(handle, world)
             }
 
-            fn finish(&mut self, world: &mut shura::World) {
+            fn finish(&mut self, world: &mut ::shura::World) {
                 #var_position_field_name.finish(world)
             }
         )
     } else {
         quote!(
-            fn init(&mut self, handle: shura::ComponentHandle, world: &mut shura::World) {}
-            fn finish(&mut self, world: &mut shura::World) {}
+            fn init(&mut self, handle: ::shura::ComponentHandle, world: &mut ::shura::World) {}
+            fn finish(&mut self, world: &mut ::shura::World) {}
         )
     };
 
     return quote!(
-        impl #impl_generics shura::ComponentIdentifier for #struct_name #ty_generics #where_clause {
+        impl #impl_generics ::shura::ComponentIdentifier for #struct_name #ty_generics #where_clause {
             const TYPE_NAME: &'static str = #struct_identifier;
-            const IDENTIFIER: shura::ComponentTypeId = shura::ComponentTypeId::new(#hash);
+            const IDENTIFIER: ::shura::ComponentTypeId = ::shura::ComponentTypeId::new(#hash);
         }
 
-        impl #impl_generics shura::Component for #struct_name #ty_generics #where_clause {
-            fn position(&self) -> &dyn shura::Position {
+        impl #impl_generics ::shura::Component for #struct_name #ty_generics #where_clause {
+            fn position(&self) -> &dyn ::shura::Position {
                 &#var_position_field_name
             }
 
@@ -230,7 +231,7 @@ fn component(ast: &DeriveInput) -> TokenStream2 {
 
             #buffer_impl
 
-            fn component_type_id(&self) -> shura::ComponentTypeId {
+            fn component_type_id(&self) -> ::shura::ComponentTypeId {
                 Self::IDENTIFIER
             }
         }
@@ -246,14 +247,14 @@ pub fn main(_args: TokenStream, item: TokenStream) -> TokenStream {
 
         #[cfg(target_os = "android")]
         #[no_mangle]
-        fn android_main(app: shura::AndroidApp) {
-            shura_main(shura::ShuraConfig::default(app));
+        fn android_main(app: ::shura::AndroidApp) {
+            shura_main(::shura::ShuraConfig::default(app));
         }
 
         #[cfg(not(target_os = "android"))]
         #[allow(dead_code)]
         fn main() {
-            shura_main(shura::ShuraConfig::default());
+            shura_main(::shura::ShuraConfig::default());
         }
     )
     .into()
@@ -274,8 +275,8 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
     let resource = quote!(
         #component
 
-        impl shura::ComponentController for #struct_name {
-            const CONFIG: shura::ComponentConfig = shura::ComponentConfig::#config;
+        impl ::shura::ComponentController for #struct_name {
+            const CONFIG: ::shura::ComponentConfig = ::shura::ComponentConfig::#config;
         }
     );
 
