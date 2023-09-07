@@ -63,6 +63,12 @@ impl RgbaColor {
         b: 127,
         a: 255,
     };
+    pub const DARK_GRAY: Self = Self {
+        r: 51,
+        g: 51,
+        b: 51,
+        a: 255,
+    };
     pub const BROWN: Self = Self {
         r: 140,
         g: 68,
@@ -109,6 +115,12 @@ impl RgbaColor {
         r: 255,
         g: 165,
         b: 0,
+        a: 255,
+    };
+    pub const DARK_ORANGE: Self = Self {
+        r: 255,
+        g: 77,
+        b: 1,
         a: 255,
     };
 
@@ -216,6 +228,12 @@ impl Color {
         b: 0.5,
         a: 1.0,
     };
+    pub const DARK_GRAY: Self = Self {
+        r: 0.2,
+        g: 0.2,
+        b: 0.2,
+        a: 1.0,
+    };
     pub const BROWN: Self = Self {
         r: 0.55,
         g: 0.27,
@@ -262,6 +280,12 @@ impl Color {
         r: 1.0,
         g: 0.65,
         b: 0.0,
+        a: 1.0,
+    };
+    pub const DARK_ORANGE: Self = Self {
+        r: 1.0,
+        g: 0.3,
+        b: 0.01,
         a: 1.0,
     };
 

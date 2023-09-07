@@ -287,6 +287,14 @@ impl<'a> Renderer<'a> {
         self.use_bind_group(sprite_sheet.bind_group(), slot);
     }
 
+    pub fn use_sprite_sheet_last(&mut self, sprite_sheet: &'a SpriteSheet, slot: u32) {
+        self.use_bind_group(sprite_sheet.last_sprite_bind_group(), slot);
+    }
+
+    pub fn use_sprite_sheet_first(&mut self, sprite_sheet: &'a SpriteSheet, slot: u32) {
+        self.use_bind_group(sprite_sheet.first_sprite_bind_group(), slot);
+    }
+
     pub fn use_uniform<T: bytemuck::Pod>(&mut self, uniform: &'a Uniform<T>, slot: u32) {
         self.use_bind_group(uniform.bind_group(), slot);
     }
@@ -368,9 +376,33 @@ impl<'a> Renderer<'a> {
         self.draw(instances);
     }
 
+    pub fn render_sprite_sheet_last(
+        &mut self,
+        instances: impl Into<InstanceIndices>,
+        model: &'a Model,
+        sprite: &'a SpriteSheet,
+    ) {
+        self.use_shader(&self.defaults.sprite_sheet_uniform);
+        self.use_model(model);
+        self.use_sprite_sheet_last(sprite, 1);
+        self.draw(instances);
+    }
+
+    pub fn render_sprite_sheet_first(
+        &mut self,
+        instances: impl Into<InstanceIndices>,
+        model: &'a Model,
+        sprite: &'a SpriteSheet,
+    ) {
+        self.use_shader(&self.defaults.sprite_sheet_uniform);
+        self.use_model(model);
+        self.use_sprite_sheet_first(sprite, 1);
+        self.draw(instances);
+    }
+
     pub fn render_sprite_sheet_uniform(
         &mut self,
-        instances: impl Into<InstanceIndices>+ Clone,
+        instances: impl Into<InstanceIndices> + Clone,
         model: &'a Model,
         sprite: &'a SpriteSheet,
         sprite_index: &'a Uniform<SpriteSheetIndex>,

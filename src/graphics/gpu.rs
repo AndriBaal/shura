@@ -292,6 +292,7 @@ impl WgpuBase {
             label: Some("sprite_bind_group_layout"),
         });
 
+
         let uniform_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
@@ -450,11 +451,6 @@ impl GpuDefaults {
             name: "sprite_sheet_uniform",
             fragment_shader: Shader::SPRITE_SHEET_UNIFORM,
             uniforms: &[UniformField::SpriteSheet, UniformField::SingleUniform],
-            vertex_shader: VertexShader::AutoInstance(&[InstanceField {
-                format: wgpu::VertexFormat::Uint32x2,
-                field_name: "sprite",
-                data_type: "vec2<u32>",
-            }]),
             ..Default::default()
         });
 

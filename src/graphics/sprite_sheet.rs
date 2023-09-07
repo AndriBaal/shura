@@ -111,6 +111,8 @@ pub struct SpriteSheet {
     _size_hint_buffer: wgpu::Buffer,
     _sampler: wgpu::Sampler,
     bind_group: wgpu::BindGroup,
+    first_sprite_bind_group: wgpu::BindGroup,
+    last_sprite_bind_group: wgpu::BindGroup,
     sprite_size: Vector<u32>,
     sprite_amount: Vector<u32>,
 }
@@ -201,11 +203,70 @@ impl SpriteSheet {
             label: Some("sprite_sheet_bindgroup"),
         });
 
+        let view = texture.create_view(&wgpu::TextureViewDescriptor {
+            array_layer_count: Some(1),
+            base_array_layer: 0,
+            ..Default::default()
+        });
+
+        let first_sprite_bind_group = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &size_hint_buffer,
+                        offset: 0,
+                        size: None,
+                    }),
+                },
+            ],
+            layout: &gpu.base.sprite_sheet_layout,
+            label: Some("sprite_sheet_first_bindgroup"),
+        });
+
+        let view = texture.create_view(&wgpu::TextureViewDescriptor {
+            array_layer_count: Some(1),
+            base_array_layer: amount-1,
+            ..Default::default()
+        });
+        let last_sprite_bind_group = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &size_hint_buffer,
+                        offset: 0,
+                        size: None,
+                    }),
+                },
+            ],
+            layout: &gpu.base.sprite_sheet_layout,
+            label: Some("sprite_sheet_first_bindgroup"),
+        });
+
         return Self {
             texture,
             _size_hint_buffer: size_hint_buffer,
             _sampler: sampler,
             bind_group,
+            first_sprite_bind_group,
+            last_sprite_bind_group,
             sprite_size: desc.sprite_size,
             sprite_amount: desc.sprite_amount,
         };
@@ -240,6 +301,14 @@ impl SpriteSheet {
 
     pub const fn bind_group(&self) -> &wgpu::BindGroup {
         &self.bind_group
+    }
+
+    pub const fn first_sprite_bind_group(&self) -> &wgpu::BindGroup {
+        &self.first_sprite_bind_group
+    }
+
+    pub const fn last_sprite_bind_group(&self) -> &wgpu::BindGroup {
+        &self.last_sprite_bind_group
     }
 
     pub fn len(&self) -> u32 {
