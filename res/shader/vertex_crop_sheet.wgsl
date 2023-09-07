@@ -17,13 +17,13 @@ struct InstanceInput {
     @location(3) i_rotation: vec4<f32>,
     @location(4) t_position: vec2<f32>,
     @location(5) t_rotation: vec4<f32>,
-    @location(6) sprite: vec2<u32>,
+    @location(6) sprite: u32,
 }
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) tex: vec2<f32>,
-    @location(1) sprite: vec2<u32>
+    @location(1) sprite: u32
 }
 
 @vertex

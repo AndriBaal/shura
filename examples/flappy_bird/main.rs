@@ -161,7 +161,7 @@ impl ComponentController for Bird {
                 ui.label(format!("High Score: {}", manager.high_score));
             });
 
-        bird.sprite = Vector::new((ctx.frame.total_time() * 7.0 % 3.0) as u32, 0);
+        bird.sprite = (ctx.frame.total_time() * 7.0 % 3.0) as u32;
         if ctx.input.is_pressed(Key::Space)
             || ctx.input.is_pressed(MouseButton::Left)
             || ctx.input.is_pressed(ScreenTouch)

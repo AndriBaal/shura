@@ -167,9 +167,9 @@ impl ComponentController for Player {
         collision_type: CollideType,
     ) {
         if let Some(mut b) = ctx.components.get_mut::<PhysicsBox>(other_handle) {
-            match collision_type {
-                CollideType::Started => b.sprite = Vector::new(2, 0),
-                CollideType::Stopped => b.sprite = Vector::new(0, 0),
+            b.sprite = match collision_type {
+                CollideType::Started => 2,
+                CollideType::Stopped => 0,
             }
         }
     }
@@ -239,7 +239,7 @@ impl PhysicsBox {
                     PhysicsBox::BOX_SHAPE,
                 ))],
             ),
-            sprite: vector(0, 0),
+            sprite: 0
         }
     }
 }
@@ -257,8 +257,8 @@ impl ComponentController for PhysicsBox {
         let remove = ctx.input.is_held(MouseButton::Left) || ctx.input.is_pressed(ScreenTouch);
         let mut boxes = ctx.components.set::<Self>();
         boxes.for_each_mut(|physics_box| {
-            if physics_box.sprite == vector(1, 0) {
-                physics_box.sprite = Vector::new(0, 0);
+            if physics_box.sprite == 1 {
+                physics_box.sprite = 0;
             }
         });
         let mut component: Option<ComponentHandle> = None;
@@ -272,7 +272,7 @@ impl ComponentController for PhysicsBox {
         );
         if let Some(handle) = component {
             if let Some(physics_box) = boxes.get_mut(handle) {
-                physics_box.sprite = Vector::new(1, 0);
+                physics_box.sprite = 1;
                 if remove {
                     boxes.remove(ctx.world, handle);
                 }

@@ -1,9 +1,10 @@
 use std::ops::Deref;
-use wgpu::{util::DeviceExt, ImageCopyTexture};
+use wgpu::ImageCopyTexture;
 
 use crate::{Gpu, RgbaColor, Vector};
 
-pub type SpriteSheetIndex = Vector<u32>;
+pub type SpriteSheetIndex = u32;
+pub type SpriteSheetIndex2D = Vector<u32>;
 
 #[macro_export]
 macro_rules! sprite_sheet_file {
@@ -108,7 +109,6 @@ impl<'a, D: Deref<Target = [u8]>> SpriteSheetBuilder<'a, D> {
 
 pub struct SpriteSheet {
     texture: wgpu::Texture,
-    _size_hint_buffer: wgpu::Buffer,
     _sampler: wgpu::Sampler,
     bind_group: wgpu::BindGroup,
     sprite_size: Vector<u32>,
@@ -118,17 +118,6 @@ pub struct SpriteSheet {
 impl SpriteSheet {
     pub fn new<D: Deref<Target = [u8]>>(gpu: &Gpu, desc: SpriteSheetBuilder<D>) -> Self {
         let amount = desc.sprite_amount.x * desc.sprite_amount.y;
-        // assert!(amount > 1, "SpriteSheet must atleast have to 2 sprites!");
-
-        let data = [desc.sprite_amount, Vector::new(0, 0)]; // Empty vector needed for 16 Byte alignment
-        assert!(std::mem::size_of_val(&data) % 16 == 0);
-        let size_hint_buffer = gpu
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("spritesheet_size_hint_buffer"),
-                contents: bytemuck::cast_slice(&data),
-                usage: wgpu::BufferUsages::UNIFORM,
-            });
 
         let texture_descriptor = wgpu::TextureDescriptor {
             label: Some("sprite_texture"),
@@ -188,14 +177,6 @@ impl SpriteSheet {
                     binding: 1,
                     resource: wgpu::BindingResource::Sampler(&sampler),
                 },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer: &size_hint_buffer,
-                        offset: 0,
-                        size: None,
-                    }),
-                },
             ],
             layout: &gpu.base.sprite_sheet_layout,
             label: Some("sprite_sheet_bindgroup"),
@@ -203,7 +184,6 @@ impl SpriteSheet {
 
         return Self {
             texture,
-            _size_hint_buffer: size_hint_buffer,
             _sampler: sampler,
             bind_group,
             sprite_size: desc.sprite_size,
@@ -212,7 +192,6 @@ impl SpriteSheet {
     }
 
     pub fn write(&self, gpu: &Gpu, index: SpriteSheetIndex, bytes: &[u8]) {
-        let layer = index.y * self.sprite_amount.x + index.x;
         gpu.queue.write_texture(
             ImageCopyTexture {
                 texture: &self.texture,
@@ -220,7 +199,7 @@ impl SpriteSheet {
                 origin: wgpu::Origin3d {
                     x: 0,
                     y: 0,
-                    z: layer as u32,
+                    z: index as u32,
                 },
                 aspect: wgpu::TextureAspect::All,
             },
@@ -246,8 +225,16 @@ impl SpriteSheet {
         self.sprite_amount.x * self.sprite_amount.y
     }
 
-    pub fn amount(&self) -> &Vector<u32> {
+    pub fn len_2d(&self) -> &Vector<u32> {
         &self.sprite_amount
+    }
+
+    pub fn index(&self, index_2d: SpriteSheetIndex2D) -> SpriteSheetIndex {
+        return index_2d.y * self.sprite_amount.x + index_2d.x;
+    }
+
+    pub fn compute_index(sprite_amount_x: u32, index_2d: SpriteSheetIndex2D) -> SpriteSheetIndex {
+        return index_2d.y * sprite_amount_x + index_2d.x;
     }
 
     pub fn sprite_size(&self) -> &Vector<u32> {

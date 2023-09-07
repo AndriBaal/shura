@@ -5,8 +5,8 @@ use crate::text::{FontBrush, FontSource, TextPipeline};
 use crate::{
     Camera, CameraBuffer, InstanceBuffer, InstanceField, InstancePosition, Isometry, Model,
     ModelBuilder, RenderEncoder, RenderTarget, Shader, ShaderConfig, Sprite, SpriteBuilder,
-    SpriteRenderTarget, SpriteSheet, SpriteSheetBuilder, SurfaceRenderTarget, Uniform,
-    UniformField, Vector, Vertex, VertexShader,
+    SpriteRenderTarget, SpriteSheet, SpriteSheetBuilder, SpriteSheetIndex, SurfaceRenderTarget,
+    Uniform, UniformField, Vector, Vertex, VertexShader,
 };
 use std::{ops::Deref, sync::Mutex};
 
@@ -292,7 +292,6 @@ impl WgpuBase {
             label: Some("sprite_bind_group_layout"),
         });
 
-
         let uniform_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
@@ -339,16 +338,6 @@ impl WgpuBase {
                         binding: 1,
                         visibility: wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 2,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
-                        },
                         count: None,
                     },
                 ],
@@ -402,6 +391,7 @@ pub struct GpuDefaults {
     pub relative_top_right_camera: (CameraBuffer, Camera),
     pub unit_camera: (CameraBuffer, Camera),
     pub world_camera: CameraBuffer,
+    pub index: [Uniform<SpriteSheetIndex>; 10],
     pub single_centered_instance: InstanceBuffer,
 
     pub surface: SurfaceRenderTarget,
@@ -416,9 +406,9 @@ impl GpuDefaults {
             fragment_shader: Shader::SPRITE_SHEET,
             uniforms: &[UniformField::SpriteSheet],
             vertex_shader: VertexShader::AutoInstance(&[InstanceField {
-                format: wgpu::VertexFormat::Uint32x2,
+                format: wgpu::VertexFormat::Uint32,
                 field_name: "sprite",
-                data_type: "vec2<u32>",
+                data_type: "u32",
             }]),
             ..Default::default()
         });
@@ -438,7 +428,7 @@ impl GpuDefaults {
                             3 => Float32x4,
                             4 => Float32x2,
                             5 => Float32x4,
-                            6 => Uint32x2,
+                            6 => Uint32,
                         ],
                         step_mode: wgpu::VertexStepMode::Instance,
                     },
@@ -560,6 +550,12 @@ impl GpuDefaults {
         #[cfg(feature = "framebuffer")]
         let framebuffer = SpriteRenderTarget::new(gpu, size);
 
+        let index = (0..10)
+            .map(|i| gpu.create_uniform(i))
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
+
         Self {
             surface,
             sprite_sheet_uniform,
@@ -581,6 +577,7 @@ impl GpuDefaults {
             world_camera,
             color,
             color_uniform,
+            index,
 
             #[cfg(feature = "framebuffer")]
             framebuffer,
