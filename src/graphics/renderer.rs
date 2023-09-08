@@ -286,7 +286,7 @@ impl<'a> Renderer<'a> {
     pub fn use_sprite_sheet(&mut self, sprite_sheet: &'a SpriteSheet, slot: u32) {
         self.use_bind_group(sprite_sheet.bind_group(), slot);
     }
-    
+
     pub fn use_uniform<T: bytemuck::Pod>(&mut self, uniform: &'a Uniform<T>, slot: u32) {
         self.use_bind_group(uniform.bind_group(), slot);
     }

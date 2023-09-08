@@ -230,7 +230,7 @@ impl ComponentController for Player {
     ) {
         if let Some(mut b) = ctx.components.get_mut::<PhysicsBox>(other_handle) {
             b.sprite = match collision_type {
-                CollideType::Started => 0,
+                CollideType::Started => 2,
                 CollideType::Stopped => 0,
             }
         }

@@ -127,7 +127,6 @@ impl ShuraConfig {
         };
 
         events.run(move |event, _target, control_flow| {
-            *control_flow = winit::event_loop::ControlFlow::Poll;
             use winit::event::{Event, WindowEvent};
             if let Some(shura) = &mut shura {
                 if !shura.end {
@@ -183,15 +182,20 @@ impl ShuraConfig {
 
                             if shura.end {
                                 *control_flow = winit::event_loop::ControlFlow::Exit;
-                                shura.end();
                             }
                         }
                         Event::MainEventsCleared => {
                             shura.window.request_redraw();
                         }
+                        Event::RedrawEventsCleared => {
+                            shura.input.update();
+                        }
                         #[cfg(target_os = "android")]
                         Event::Resumed => {
                             shura.gpu.resume(&shura.window);
+                        }
+                        Event::LoopDestroyed => {
+                            shura.end();
                         }
                         _ => {}
                     }
@@ -464,7 +468,6 @@ impl Shura {
             self.defaults.surface.finish_frame();
         }
 
-        self.input.update();
         return Ok(());
     }
 

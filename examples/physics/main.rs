@@ -239,7 +239,7 @@ impl PhysicsBox {
                     PhysicsBox::BOX_SHAPE,
                 ))],
             ),
-            sprite: 0
+            sprite: 0,
         }
     }
 }

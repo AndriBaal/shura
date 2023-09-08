@@ -454,6 +454,7 @@ impl ComponentManager {
         world: &mut World,
         handle: ComponentHandle,
     ) -> Option<C> {
+        assert!(C::IDENTIFIER == handle.type_id());
         let mut ty = type_ref_mut!(self, C);
         ty.remove(world, handle)
     }
@@ -574,18 +575,29 @@ impl ComponentManager {
         self.for_each_with_handles_of(GroupFilter::Active, each)
     }
 
-    pub fn for_each_with_handles_of<C: Component>(&self, filter: GroupFilter, each: impl FnMut(ComponentHandle, &C)) {
+    pub fn for_each_with_handles_of<C: Component>(
+        &self,
+        filter: GroupFilter,
+        each: impl FnMut(ComponentHandle, &C),
+    ) {
         let groups = group_filter!(self, filter).1;
         let ty = type_ref!(self, C);
         ty.for_each_with_handles(groups, each);
     }
 
     #[inline]
-    pub fn for_each_mut_with_handles<C: Component>(&mut self, each: impl FnMut(ComponentHandle, &mut C)) {
+    pub fn for_each_mut_with_handles<C: Component>(
+        &mut self,
+        each: impl FnMut(ComponentHandle, &mut C),
+    ) {
         self.for_each_mut_with_handles_of(GroupFilter::Active, each)
     }
 
-    pub fn for_each_mut_with_handles_of<C: Component>(&mut self, filter: GroupFilter, each: impl FnMut(ComponentHandle, &mut C)) {
+    pub fn for_each_mut_with_handles_of<C: Component>(
+        &mut self,
+        filter: GroupFilter,
+        each: impl FnMut(ComponentHandle, &mut C),
+    ) {
         let groups = group_filter!(self, filter).1;
         let mut ty = type_ref_mut!(self, C);
         ty.for_each_mut_with_handles(groups, each);

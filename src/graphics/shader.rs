@@ -78,11 +78,15 @@ pub struct Shader {
 impl Shader {
     pub const VERTEX: &'static str = include_str!("../../res/shader/vertex.wgsl");
     pub const VERTEX_CROP: &'static str = include_str!("../../res/shader/vertex_crop.wgsl");
-    pub const VERTEX_CROP_SHEET: &'static str = include_str!("../../res/shader/vertex_crop_sheet.wgsl");
+    pub const VERTEX_CROP_SHEET: &'static str =
+        include_str!("../../res/shader/vertex_crop_sheet.wgsl");
     pub const SPRITE: &'static str = include_str!("../../res/shader/sprite.wgsl");
     pub const SPRITE_SHEET: &'static str = include_str!("../../res/shader/sprite_sheet.wgsl");
     pub const SPRITE_SHEET_UNIFORM: &'static str =
         include_str!("../../res/shader/sprite_sheet_uniform.wgsl");
+    pub const TRANSPARENT: &'static str = include_str!("../../res/shader/transparent.wgsl");
+    pub const TRANSPARENT_UNIFORM: &'static str =
+        include_str!("../../res/shader/transparent_uniform.wgsl");
     pub const COLOR: &'static str = include_str!("../../res/shader/color.wgsl");
     pub const COLOR_UNIFORM: &'static str = include_str!("../../res/shader/color_uniform.wgsl");
     pub const RAINBOW: &'static str = include_str!("../../res/shader/rainbow.wgsl");

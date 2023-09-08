@@ -10,6 +10,7 @@ pub trait RenderTarget: Downcast {
     fn view(&self) -> &wgpu::TextureView;
     fn as_copy(&self) -> wgpu::ImageCopyTexture;
     fn size(&self) -> Vector<u32>;
+    fn texture(&self) -> &wgpu::Texture;
     fn attachment(&self, clear: Option<Color>) -> wgpu::RenderPassColorAttachment {
         wgpu::RenderPassColorAttachment {
             view: if let Some(msaa) = self.msaa() {
@@ -71,13 +72,12 @@ impl SurfaceRenderTarget {
             Ok(frame) => frame,
             Err(_) => {
                 surface.configure(&gpu.device, &config);
-                surface
-                    .get_current_texture()?
+                surface.get_current_texture()?
             }
         };
         self.target_view = Some(surface.texture.create_view(&Default::default()));
         self.surface = Some(surface);
-        return Ok(())
+        return Ok(());
     }
 
     pub(crate) fn finish_frame(&mut self) {
@@ -100,6 +100,14 @@ impl RenderTarget for SurfaceRenderTarget {
             .expect("Surface texture only available while rendering!")
             .texture
             .as_image_copy()
+    }
+
+    fn texture(&self) -> &wgpu::Texture {
+        &self
+            .surface
+            .as_ref()
+            .expect("Surface texture only available while rendering!")
+            .texture
     }
 
     fn msaa(&self) -> Option<&wgpu::TextureView> {
@@ -128,6 +136,10 @@ impl RenderTarget for SpriteRenderTarget {
 
     fn as_copy(&self) -> wgpu::ImageCopyTexture {
         self.sprite().texture().as_image_copy()
+    }
+
+    fn texture(&self) -> &wgpu::Texture {
+        self.sprite().texture()
     }
 }
 

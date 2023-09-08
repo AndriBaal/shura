@@ -372,6 +372,8 @@ pub struct GpuDefaults {
     pub sprite_sheet_crop: Shader,
     pub sprite_sheet: Shader,
     pub sprite_sheet_uniform: Shader,
+    pub transparent: Shader,
+    pub transparent_uniform: Shader,
     pub color: Shader,
     pub color_uniform: Shader,
     pub rainbow: Shader,
@@ -413,6 +415,32 @@ impl GpuDefaults {
             ..Default::default()
         });
 
+        let sprite_sheet_uniform = gpu.create_shader(ShaderConfig {
+            name: "sprite_sheet_uniform",
+            fragment_shader: Shader::SPRITE_SHEET_UNIFORM,
+            uniforms: &[UniformField::SpriteSheet, UniformField::SingleUniform],
+            ..Default::default()
+        });
+
+        let transparent = gpu.create_shader(ShaderConfig {
+            name: "transparent",
+            fragment_shader: Shader::TRANSPARENT,
+            uniforms: &[UniformField::Sprite],
+            vertex_shader: VertexShader::AutoInstance(&[InstanceField {
+                format: wgpu::VertexFormat::Float32,
+                field_name: "transparent",
+                data_type: "f32",
+            }]),
+            ..Default::default()
+        });
+
+        let transparent_uniform = gpu.create_shader(ShaderConfig {
+            name: "transparent_uniform",
+            fragment_shader: Shader::TRANSPARENT_UNIFORM,
+            uniforms: &[UniformField::Sprite, UniformField::SingleUniform],
+            ..Default::default()
+        });
+
         let sprite_sheet_crop = gpu.create_shader(ShaderConfig {
             name: "sprite_sheet_crop",
             fragment_shader: Shader::SPRITE_SHEET,
@@ -434,13 +462,6 @@ impl GpuDefaults {
                     },
                 ],
             ),
-            ..Default::default()
-        });
-
-        let sprite_sheet_uniform = gpu.create_shader(ShaderConfig {
-            name: "sprite_sheet_uniform",
-            fragment_shader: Shader::SPRITE_SHEET_UNIFORM,
-            uniforms: &[UniformField::SpriteSheet, UniformField::SingleUniform],
             ..Default::default()
         });
 
@@ -581,6 +602,8 @@ impl GpuDefaults {
 
             #[cfg(feature = "framebuffer")]
             framebuffer,
+            transparent,
+            transparent_uniform,
         }
     }
 

@@ -102,16 +102,14 @@ impl<'a, C: Component> BufferHelper<'a, C> {
         match &mut self.inner {
             BufferHelperType::Single { offset, component } => {
                 let data = each(component);
-                self.buffer
-                    .write_offset(self.gpu, *offset, &[data]);
+                self.buffer.write_offset(self.gpu, *offset, &[data]);
             }
             BufferHelperType::All { components } => {
                 let instances = components
                     .iter_mut()
                     .map(|component| each(component))
                     .collect::<Vec<B>>();
-                self.buffer
-                    .write(self.gpu, &instances);
+                self.buffer.write(self.gpu, &instances);
             }
         };
     }
@@ -126,8 +124,7 @@ impl<'a, C: Component + Send + Sync> BufferHelper<'a, C> {
         match &mut self.inner {
             BufferHelperType::Single { offset, component } => {
                 let data = each(component);
-                self.buffer
-                    .write_offset(self.gpu, *offset, &[data]);
+                self.buffer.write_offset(self.gpu, *offset, &[data]);
             }
             BufferHelperType::All { components } => {
                 let instances = components
@@ -138,8 +135,7 @@ impl<'a, C: Component + Send + Sync> BufferHelper<'a, C> {
                         ArenaEntry::Occupied { data, .. } => Some(each(data)),
                     })
                     .collect::<Vec<B>>();
-                self.buffer
-                    .write(self.gpu, &instances);
+                self.buffer.write(self.gpu, &instances);
             }
         };
     }
