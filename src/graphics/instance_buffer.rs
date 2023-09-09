@@ -104,13 +104,6 @@ impl InstanceBuffer {
         assert!(data.len() as u64 % self.instance_size == 0);
         self.instances = data.len() as u64 / self.instance_size;
         self.write_offset(gpu, 0, data);
-
-        // if data.len() as u64 > self.buffer.size() {
-        //     *self = Self::new(gpu, self.instance_size, data)
-        // } else {
-        //     self.instances = data.len() as u64 / self.instance_size;
-        //     self.write_offset(gpu, 0, data);
-        // }
     }
 
     pub fn write_offset<D: bytemuck::NoUninit>(

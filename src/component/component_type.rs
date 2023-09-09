@@ -130,9 +130,10 @@ impl<C: Component> ComponentTypeGroup<C> {
 
     fn buffer(&mut self, gpu: &Gpu, config: &ComponentConfig, instance_size: u64, world: &World) {
         let gen_length = (self.components.generation, self.components.len());
-        if config.buffer == BufferOperation::EveryFrame
-            || self.force_buffer
-            || gen_length != self.last_gen_len
+        if !self.components.is_empty()
+            && (config.buffer == BufferOperation::EveryFrame
+                || self.force_buffer
+                || gen_length != self.last_gen_len)
         {
             self.last_gen_len = gen_length;
             self.resize_buffer(gpu, instance_size);
@@ -1234,30 +1235,34 @@ impl<C: Component> ComponentType<C> {
                 }
             }
             ComponentTypeStorage::Multiple(multiple) => {
-                multiple.resize_buffer(gpu, C::INSTANCE_SIZE);
-                let helper = BufferHelper::new(
-                    world,
-                    gpu,
-                    multiple.buffer.as_mut().unwrap(),
-                    BufferHelperType::All {
-                        components: &mut multiple.components,
-                    },
-                );
-                C::buffer_with(helper, each);
+                if !multiple.components.is_empty() {
+                    multiple.resize_buffer(gpu, C::INSTANCE_SIZE);
+                    let helper = BufferHelper::new(
+                        world,
+                        gpu,
+                        multiple.buffer.as_mut().unwrap(),
+                        BufferHelperType::All {
+                            components: &mut multiple.components,
+                        },
+                    );
+                    C::buffer_with(helper, each);
+                }
             }
             ComponentTypeStorage::MultipleGroups(groups) => {
                 for group in group_handles {
                     if let Some(group) = groups.get_mut(group.0) {
-                        group.resize_buffer(gpu, C::INSTANCE_SIZE);
-                        let helper = BufferHelper::new(
-                            world,
-                            gpu,
-                            group.buffer.as_mut().unwrap(),
-                            BufferHelperType::All {
-                                components: &mut group.components,
-                            },
-                        );
-                        C::buffer_with(helper, each);
+                        if !group.components.is_empty() {
+                            group.resize_buffer(gpu, C::INSTANCE_SIZE);
+                            let helper = BufferHelper::new(
+                                world,
+                                gpu,
+                                group.buffer.as_mut().unwrap(),
+                                BufferHelperType::All {
+                                    components: &mut group.components,
+                                },
+                            );
+                            C::buffer_with(helper, each);
+                        }
                     }
                 }
             }
