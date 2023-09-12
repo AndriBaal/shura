@@ -49,7 +49,7 @@ default = [
     "gui",
     "log",
     "rayon",
-    "framebuffer",
+    # "framebuffer",
 ]
 
 [lib]

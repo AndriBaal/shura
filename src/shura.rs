@@ -442,9 +442,10 @@ impl Shura {
                 }
 
                 info!(
-                    "Resizing render target to: {} x {} using VSYNC: {}",
+                    "Resizing render target to: {} x {} using present mode: {:?} (VSYNC: {})",
                     render_size.x,
                     render_size.y,
+                    self.gpu.config.lock().unwrap().present_mode,
                     scene.screen_config.vsync()
                 );
 

@@ -123,8 +123,9 @@ impl Gpu {
             let adapter_info = adapter.get_info();
             info!("Using GPU: {}", adapter_info.name);
             info!("Using WGPU backend: {:?}", adapter_info.backend);
-            info!("Using Multisample X{sample_count}");
-            info!("Using TextureFormat: {:?}", config.format);
+            info!("Using multisample X{sample_count}");
+            info!("Using texture format: {:?}", config.format);
+            info!("Using Present mode: {:?}", config.present_mode);
         }
 
         let gpu = Self {
