@@ -75,17 +75,6 @@ impl ComponentController for Bunny {
     fn update(ctx: &mut Context) {
         const MODIFY_STEP: usize = 1500;
         const GRAVITY: f32 = -2.5;
-        gui::Window::new("bunnymark")
-            .anchor(gui::Align2::LEFT_TOP, gui::Vec2::default())
-            .resizable(false)
-            .collapsible(false)
-            .show(&ctx.gui.clone(), |ui| {
-                ui.label(format!("FPS: {}", ctx.frame.fps()));
-                ui.label(format!("Bunnies: {}", ctx.components.len::<Bunny>()));
-                if ui.button("Clear Bunnies").clicked() {
-                    ctx.components.remove_all::<Bunny>(ctx.world);
-                }
-            });
 
         if ctx.input.is_held(MouseButton::Left) || ctx.input.is_held(ScreenTouch) {
             let cursor = ctx.cursor;
