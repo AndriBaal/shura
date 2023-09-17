@@ -417,7 +417,7 @@ impl Shura {
             scene.started = false;
             scene
                 .groups
-                .update(&mut scene.components, &self.defaults.world_camera);
+                .update(&mut scene.components, &scene.world_camera);
         }
 
         if self.scenes.switched() || scene.screen_config.changed {
@@ -549,7 +549,7 @@ impl Shura {
             .apply_target(&scene.world, &scene.components);
         scene
             .groups
-            .update(&mut scene.components, &self.defaults.world_camera);
+            .update(&mut scene.components, &scene.world_camera);
     }
 
     fn render(&mut self, scene: &mut Scene) {
@@ -557,12 +557,9 @@ impl Shura {
         let callbacks: &ControllerManager = &callbacks_rc;
 
         scene.components.buffer(&mut scene.world, &self.gpu);
-        self.defaults.buffer(
-            &mut scene.world_camera.camera,
-            &self.gpu,
-            self.frame.total_time(),
-            self.frame.frame_time(),
-        );
+        scene.world_camera.update_buffer(&self.gpu);
+        self.defaults
+            .buffer(&self.gpu, self.frame.total_time(), self.frame.frame_time());
 
         let ctx = Context::new(self, scene, ContextUse::Render);
         let mut encoder = RenderEncoder::new(&ctx.gpu, &ctx.defaults);
@@ -570,22 +567,16 @@ impl Shura {
         let encoder_ptr = &mut encoder as *mut RenderEncoder;
 
         {
-            let mut renderer = ComponentRenderer {
-                ctx: &ctx,
-                screenshot: None,
-                inner: encoder
-                    .renderer(ctx.defaults.default_target(), ctx.screen_config.clear_color),
-            };
+            let mut renderer = ComponentRenderer::new(
+                &ctx,
+                encoder.renderer(ctx.defaults.default_target(), ctx.screen_config.clear_color),
+            );
             for (_priority, render, target) in callbacks.renders() {
                 if let Some((clear, target)) = (target)(&mut renderer) {
                     if target as *const _ != renderer.inner.target() as *const _ {
                         let encoder = unsafe { &mut *encoder_ptr };
                         drop(renderer);
-                        renderer = ComponentRenderer {
-                            ctx: &ctx,
-                            screenshot: None,
-                            inner: encoder.renderer(target, clear),
-                        };
+                        renderer = ComponentRenderer::new(&ctx, encoder.renderer(target, clear));
                     }
                 }
                 (render)(&mut renderer);
@@ -601,11 +592,7 @@ impl Shura {
                         encoder.deep_copy_target(target, screenshot);
                     }
 
-                    renderer = ComponentRenderer {
-                        ctx: &ctx,
-                        screenshot: None,
-                        inner: encoder.renderer(target, ctx.screen_config.clear_color),
-                    };
+                    renderer = ComponentRenderer::new(&ctx, encoder.renderer(target, None));
                 }
             }
         }

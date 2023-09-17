@@ -21,7 +21,7 @@ exclude = ["docs"]
 animation = []
 framebuffer = []
 gamepad = ["dep:gilrs"]
-text = ["dep:glyph_brush"]
+text = ["dep:fontdue"]
 audio = ["dep:rodio"]
 physics = ["dep:rapier2d"]
 gui = ["dep:egui", "dep:egui-wgpu", "dep:egui-winit"]
@@ -62,7 +62,7 @@ delaunator = "1"
 rayon = { version = "1.7", optional = true }
 mint = { version = "0.5" }
 nalgebra = { version = "0.32", features = ["convert-bytemuck", "mint"] }
-glyph_brush = { version = "0.7", optional = true }
+fontdue = { version = "0.7", optional = true }
 gilrs = { version = "0.10", optional = true }
 egui-wgpu = { version = "0.22", features = ["winit"], optional = true }
 egui = { version = "0.22", default-features = false, optional = true, features = [

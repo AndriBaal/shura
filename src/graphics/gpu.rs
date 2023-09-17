@@ -1,12 +1,11 @@
 #[cfg(feature = "log")]
 use crate::log::info;
-#[cfg(feature = "text")]
-use crate::text::{FontBrush, FontSource, TextPipeline};
 use crate::{
-    Camera, CameraBuffer, InstanceBuffer, InstanceField, InstancePosition, Isometry, Model,
-    ModelBuilder, RenderEncoder, RenderTarget, Shader, ShaderConfig, Sprite, SpriteBuilder,
-    SpriteRenderTarget, SpriteSheet, SpriteSheetBuilder, SpriteSheetIndex, SurfaceRenderTarget,
-    Uniform, UniformField, Vector, Vertex, VertexShader,
+    text::{Font, Text, TextVertex},
+    Camera, InstanceBuffer, InstanceField, InstancePosition, Isometry, Model, ModelBuilder,
+    RenderEncoder, RenderTarget, Shader, ShaderConfig, Sprite, SpriteBuilder, SpriteRenderTarget,
+    SpriteSheet, SpriteSheetBuilder, SpriteSheetIndex, SurfaceRenderTarget, Uniform, UniformField,
+    Vector, Vertex, VertexShader,
 };
 use std::{ops::Deref, sync::Mutex};
 
@@ -207,16 +206,8 @@ impl Gpu {
         SpriteRenderTarget::custom(self, sprite)
     }
 
-    pub fn create_camera_buffer(&self, camera: &Camera) -> CameraBuffer {
-        camera.create_buffer(self)
-    }
-
-    pub fn create_instance_buffer<D: bytemuck::NoUninit>(
-        &self,
-        instance_size: u64,
-        instances: &[D],
-    ) -> InstanceBuffer {
-        InstanceBuffer::new(self, instance_size, instances)
+    pub fn create_instance_buffer<D: bytemuck::NoUninit>(&self, instances: &[D]) -> InstanceBuffer {
+        InstanceBuffer::new(self, instances)
     }
 
     pub fn create_model(&self, builder: ModelBuilder) -> Model {
@@ -234,17 +225,20 @@ impl Gpu {
         SpriteSheet::new(self, desc)
     }
 
-    #[cfg(feature = "text")]
-    pub fn create_font(&self, source: &FontSource, max_chars: u64) -> FontBrush {
-        FontBrush::new(self, source, max_chars).unwrap()
-    }
-
     pub fn create_uniform<T: bytemuck::Pod>(&self, data: T) -> Uniform<T> {
         Uniform::new(self, data)
     }
 
     pub fn create_shader(&self, config: ShaderConfig) -> Shader {
         Shader::new(self, config)
+    }
+
+    pub fn create_font(&self, data: &[u8]) -> Font {
+        Font::new(self, data)
+    }
+
+    pub fn create_text(&self, font: &Font, text: &str) -> Text {
+        Text::new(self, font, text)
     }
 
     pub fn create_computed_target<'caller, D: Deref<Target = [u8]>>(
@@ -264,9 +258,7 @@ pub struct WgpuBase {
     pub sprite_sheet_layout: wgpu::BindGroupLayout,
     pub sprite_layout: wgpu::BindGroupLayout,
     pub camera_layout: wgpu::BindGroupLayout,
-    pub uniform_layout: wgpu::BindGroupLayout,
-    #[cfg(feature = "text")]
-    pub text_pipeline: TextPipeline,
+    pub single_uniform_layout: wgpu::BindGroupLayout,
 }
 
 impl WgpuBase {
@@ -293,19 +285,20 @@ impl WgpuBase {
             label: Some("sprite_bind_group_layout"),
         });
 
-        let uniform_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            }],
-            label: Some("uniform_bind_group_layout"),
-        });
+        let single_uniform_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+                label: Some("uniform_bind_group_layout"),
+            });
 
         let camera_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[wgpu::BindGroupLayoutEntry {
@@ -350,18 +343,13 @@ impl WgpuBase {
             alpha_to_coverage_enabled: false,
         };
 
-        #[cfg(feature = "text")]
-        let text_pipeline = TextPipeline::new(device, _format, multisample);
-
         Self {
             sample_count: sample_count,
             multisample,
             sprite_sheet_layout,
             sprite_layout,
             camera_layout,
-            uniform_layout,
-            #[cfg(feature = "text")]
-            text_pipeline,
+            single_uniform_layout,
         }
     }
 }
@@ -379,7 +367,10 @@ pub struct GpuDefaults {
     pub color_uniform: Shader,
     pub rainbow: Shader,
     pub grey: Shader,
+    pub text: Shader,
     pub blurr: Shader,
+
+    pub unit_model: Model,
 
     /// This field holds both total time and the frame time. Both are stored as f32 in the buffer.
     /// The first f32 is the `total_time` and the second f32 is the `frame_time`. In the shader
@@ -387,13 +378,12 @@ pub struct GpuDefaults {
     /// some devices need.
     pub times: Uniform<[f32; 2]>,
     /// Camera where the smaller side is always 1.0 and the otherside is scaled to match the window aspect ratio.
-    pub relative_camera: (CameraBuffer, Camera),
-    pub relative_bottom_left_camera: (CameraBuffer, Camera),
-    pub relative_bottom_right_camera: (CameraBuffer, Camera),
-    pub relative_top_left_camera: (CameraBuffer, Camera),
-    pub relative_top_right_camera: (CameraBuffer, Camera),
-    pub unit_camera: (CameraBuffer, Camera),
-    pub world_camera: CameraBuffer,
+    pub relative_camera: Camera,
+    pub relative_bottom_left_camera: Camera,
+    pub relative_bottom_right_camera: Camera,
+    pub relative_top_left_camera: Camera,
+    pub relative_top_right_camera: Camera,
+    pub unit_camera: Camera,
     pub index: [Uniform<SpriteSheetIndex>; 10],
     pub single_centered_instance: InstanceBuffer,
 
@@ -449,7 +439,7 @@ impl GpuDefaults {
             vertex_shader: VertexShader::Custom(
                 Shader::VERTEX_CROP_SHEET,
                 vec![
-                    Vertex::desc(),
+                    Vertex::DESC,
                     wgpu::VertexBufferLayout {
                         array_stride: InstancePosition::SIZE * 2,
                         attributes: &wgpu::vertex_attr_array![
@@ -460,6 +450,28 @@ impl GpuDefaults {
                             6 => Uint32,
                         ],
                         step_mode: wgpu::VertexStepMode::Instance,
+                    },
+                ],
+            ),
+            ..Default::default()
+        });
+
+        let text = gpu.create_shader(ShaderConfig {
+            name: "text",
+            fragment_shader: include_str!("../../res/shader/text.wgsl"),
+            uniforms: &[UniformField::SpriteSheet],
+            vertex_shader: VertexShader::Custom(
+                include_str!("../../res/shader/vertex_text.wgsl"),
+                vec![
+                    TextVertex::DESC,
+                    // Not InstancePosition::DESC because of offset
+                    wgpu::VertexBufferLayout {
+                        array_stride: InstancePosition::SIZE,
+                        step_mode: wgpu::VertexStepMode::Instance,
+                        attributes: &wgpu::vertex_attr_array![
+                            4 => Float32x2,
+                            5 => Float32x4
+                        ],
                     },
                 ],
             ),
@@ -499,7 +511,7 @@ impl GpuDefaults {
             vertex_shader: VertexShader::Custom(
                 Shader::VERTEX_CROP,
                 vec![
-                    Vertex::desc(),
+                    Vertex::DESC,
                     wgpu::VertexBufferLayout {
                         array_stride: InstancePosition::SIZE * 2,
                         attributes: &wgpu::vertex_attr_array![
@@ -538,34 +550,23 @@ impl GpuDefaults {
 
         let size = gpu.render_size();
         let times = Uniform::new(gpu, [0.0, 0.0]);
-        let single_centered_instance = gpu.create_instance_buffer(
-            InstancePosition::SIZE,
-            &[InstancePosition::new(
-                Default::default(),
-                Vector::new(1.0, 1.0),
-            )],
-        );
+        let single_centered_instance = gpu.create_instance_buffer(&[InstancePosition::new(
+            Default::default(),
+            Vector::new(1.0, 1.0),
+        )]);
 
         let fov = Self::relative_fov(window_size);
 
-        let camera = Camera::new(Isometry::new(fov, 0.0), fov);
-        let relative_bottom_left_camera = (camera.create_buffer(gpu), camera);
+        let relative_bottom_left_camera = Camera::new_buffer(gpu, Isometry::new(fov, 0.0), fov);
+        let relative_bottom_right_camera =
+            Camera::new_buffer(gpu, Isometry::new(Vector::new(-fov.x, fov.y), 0.0), fov);
+        let relative_top_right_camera = Camera::new_buffer(gpu, Isometry::new(-fov, 0.0), fov);
+        let relative_top_left_camera =
+            Camera::new_buffer(gpu, Isometry::new(Vector::new(fov.x, -fov.y), 0.0), fov);
+        let relative_camera = Camera::new_buffer(gpu, Default::default(), fov);
+        let unit_camera = Camera::new_buffer(gpu, Default::default(), Vector::new(0.5, 0.5));
 
-        let camera = Camera::new(Isometry::new(Vector::new(-fov.x, fov.y), 0.0), fov);
-        let relative_bottom_right_camera = (camera.create_buffer(gpu), camera);
-
-        let camera = Camera::new(Isometry::new(-fov, 0.0), fov);
-        let relative_top_right_camera = (camera.create_buffer(gpu), camera);
-
-        let camera = Camera::new(Isometry::new(Vector::new(fov.x, -fov.y), 0.0), fov);
-        let relative_top_left_camera = (camera.create_buffer(gpu), camera);
-
-        let camera = Camera::new(Default::default(), fov);
-        let world_camera = camera.create_buffer(gpu);
-        let relative_camera = (camera.create_buffer(gpu), camera);
-
-        let camera = Camera::new(Default::default(), Vector::new(0.5, 0.5));
-        let unit_camera = (camera.create_buffer(gpu), camera);
+        let unit_model = gpu.create_model(ModelBuilder::cuboid(Vector::new(0.5, 0.5)));
 
         let surface = SurfaceRenderTarget::new(gpu, size);
 
@@ -584,7 +585,9 @@ impl GpuDefaults {
             sprite_sheet,
             sprite_sheet_crop,
             sprite_crop,
+            unit_model,
             unit_camera,
+            text,
             sprite,
             rainbow,
             grey,
@@ -596,7 +599,6 @@ impl GpuDefaults {
             relative_bottom_right_camera,
             relative_top_left_camera,
             relative_top_right_camera,
-            world_camera,
             color,
             color_uniform,
             index,
@@ -624,44 +626,26 @@ impl GpuDefaults {
         self.framebuffer.resize(gpu, window_size);
 
         let fov = Self::relative_fov(window_size);
-        self.relative_bottom_left_camera.1 = Camera::new(Isometry::new(fov, 0.0), fov);
-        self.relative_bottom_right_camera.1 =
-            Camera::new(Isometry::new(Vector::new(-fov.x, fov.y), 0.0), fov);
-        self.relative_top_right_camera.1 = Camera::new(Isometry::new(-fov, 0.0), fov);
-        self.relative_top_left_camera.1 =
-            Camera::new(Isometry::new(Vector::new(fov.x, -fov.y), 0.0), fov);
-        self.relative_camera.1 = Camera::new(Isometry::default(), fov);
-
-        self.relative_bottom_left_camera
-            .1
-            .write_buffer(gpu, &mut self.relative_bottom_left_camera.0);
-        self.relative_bottom_right_camera
-            .1
-            .write_buffer(gpu, &mut self.relative_bottom_right_camera.0);
-        self.relative_top_right_camera
-            .1
-            .write_buffer(gpu, &mut self.relative_top_right_camera.0);
-        self.relative_top_left_camera
-            .1
-            .write_buffer(gpu, &mut self.relative_top_left_camera.0);
-        self.relative_camera
-            .1
-            .write_buffer(gpu, &mut self.relative_camera.0);
+        self.relative_bottom_left_camera = Camera::new_buffer(gpu, Isometry::new(fov, 0.0), fov);
+        self.relative_bottom_right_camera =
+            Camera::new_buffer(gpu, Isometry::new(Vector::new(-fov.x, fov.y), 0.0), fov);
+        self.relative_top_right_camera = Camera::new_buffer(gpu, Isometry::new(-fov, 0.0), fov);
+        self.relative_top_left_camera =
+            Camera::new_buffer(gpu, Isometry::new(Vector::new(fov.x, -fov.y), 0.0), fov);
+        self.relative_camera = Camera::new_buffer(gpu, Isometry::default(), fov);
     }
 
     pub(crate) fn buffer(
         &mut self,
-        active_scene_camera: &mut Camera,
         gpu: &Gpu,
         total_time: f32,
         frame_time: f32,
     ) {
-        active_scene_camera.write_buffer(gpu, &mut self.world_camera);
         self.times.write(&gpu, [total_time, frame_time]);
     }
 
     pub fn unit_model(&self) -> &Model {
-        return &self.unit_camera.0.model();
+        return &self.unit_model
     }
 
     pub fn default_target(&self) -> &dyn RenderTarget {

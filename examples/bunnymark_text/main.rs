@@ -140,26 +140,25 @@ impl ComponentController for Bunny {
 
     fn render<'a>(renderer: &mut ComponentRenderer<'a>) {
         let resources = renderer.resource::<Resources>().single();
-        renderer.render_all::<Bunny>(RenderCamera::World, |r, instances| {
+        renderer.render_all::<Bunny>(renderer.world_camera, |r, instances| {
             r.render_sprite(instances, &resources.bunny_model, &resources.bunny_sprite);
-
-            r.queue_text(
-                RenderCamera::RelativeTopRight,
-                &resources.font,
-                vec![TextSection {
-                    position: Vector::new(0.0, 0.0),
-                    text: vec![Text::new(&format!(
-                        "FPS: {}\nBunnies: {}",
-                        renderer.ctx.frame.fps(),
-                        renderer.ctx.components.len::<Bunny>()
-                    ))
-                    .with_scale(0.05)
-                    .with_color(Color::RED)],
-                    alignment: TextAlignment::TopRight,
-                    ..Default::default()
-                }],
-            );
-            r.render_font(&resources.font)
+            // r.queue_text(
+            //     RenderCamera::RelativeTopRight,
+            //     &resources.font,
+            //     vec![TextSection {
+            //         position: Vector::new(0.0, 0.0),
+            //         text: vec![Text::new(&format!(
+            //             "FPS: {}\nBunnies: {}",
+            //             renderer.ctx.frame.fps(),
+            //             renderer.ctx.components.len::<Bunny>()
+            //         ))
+            //         .with_scale(0.05)
+            //         .with_color(Color::RED)],
+            //         alignment: TextAlignment::TopRight,
+            //         ..Default::default()
+            //     }],
+            // );
+            // r.render_font(&resources.font)
         });
         if let Some(screenshot) = &resources.screenshot {
             renderer.screenshot = Some(screenshot);

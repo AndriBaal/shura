@@ -58,7 +58,7 @@ impl ComponentController for Background {
         ..ComponentConfig::DEFAULT
     };
     fn render<'a>(renderer: &mut ComponentRenderer<'a>) {
-        renderer.render_single::<Self>(RenderCamera::World, |r, background, index| {
+        renderer.render_single::<Self>(renderer.world_camera, |r, background, index| {
             r.render_sprite(index, &background.model, &background.level);
         });
     }
@@ -88,9 +88,9 @@ impl ComponentController for LightResources {
     }
 
     fn render<'a>(renderer: &mut ComponentRenderer<'a>) {
-        renderer.render_single::<Self>(RenderCamera::World, |r, res, index| {
+        renderer.render_single::<Self>(renderer.world_camera, |r, res, index| {
             r.use_model(r.defaults.unit_model());
-            r.use_camera(RenderCamera::Unit);
+            r.use_camera(&r.defaults.unit_camera);
             r.use_shader(&res.present_shader);
             r.use_sprite(res.light_map.sprite(), 1);
             r.draw(index);
@@ -183,7 +183,7 @@ impl ComponentController for Light {
 
     fn render<'a>(renderer: &mut ComponentRenderer<'a>) {
         let res = renderer.single::<LightResources>();
-        renderer.render_all::<Self>(RenderCamera::World, |r, i| {
+        renderer.render_all::<Self>(renderer.world_camera, |r, i| {
             r.use_shader(&res.light_shader);
             r.use_model(&res.light_model);
             r.draw(i);

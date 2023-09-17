@@ -172,7 +172,7 @@ impl ComponentController for ModelTest {
     };
 
     fn render<'a>(renderer: &mut ComponentRenderer<'a>) {
-        renderer.render_each::<Self>(RenderCamera::World, |r, model, index| {
+        renderer.render_each::<Self>(renderer.world_camera, |r, model, index| {
             r.render_color(index, &model.model)
         });
     }

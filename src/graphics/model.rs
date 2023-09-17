@@ -1,6 +1,6 @@
 #[cfg(feature = "physics")]
 use crate::physics::{Shape, TypedShape};
-use crate::{CameraBuffer, AABB};
+use crate::{Camera, AABB};
 use crate::{Gpu, Index, Isometry, Matrix, Rotation, Vector, Vertex};
 use std::f32::consts::{FRAC_PI_2, PI};
 use wgpu::util::DeviceExt;
@@ -666,9 +666,9 @@ impl Model {
         builder.build(gpu)
     }
 
-    pub fn intersects_camera(&self, position: Isometry<f32>, camera: &CameraBuffer) -> bool {
+    pub fn intersects_camera(&self, position: Isometry<f32>, camera: &Camera) -> bool {
         let model_aabb = self.aabb(position);
-        let camera_aabb = camera.model().aabb(Vector::default().into());
+        let camera_aabb = camera.aabb();
         camera_aabb.intersects(&model_aabb)
     }
 

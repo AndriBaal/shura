@@ -59,45 +59,41 @@ impl AABB {
         };
     }
 
-    pub fn with_translation(&self, translation: Vector<f32>) -> Self {
-        let mut model_aabb = self.clone();
-        model_aabb.min += translation;
-        model_aabb.max += translation;
-        return model_aabb;
+    pub fn from_position(half_extents: Vector<f32>, position: Isometry<f32>) -> Self {
+        return Self {
+            min: -half_extents,
+            max: half_extents,
+        }
+        .with_position(position);
     }
 
-    pub fn with_position(&self, position: Isometry<f32>) -> Self {
-        let mut model_aabb = self.clone();
-        model_aabb.min += position.translation.vector;
-        model_aabb.max += position.translation.vector;
+    pub fn with_translation(mut self, translation: Vector<f32>) -> Self {
+        self.min += translation;
+        self.max += translation;
+        return self;
+    }
+
+    pub fn with_position(mut self, position: Isometry<f32>) -> Self {
+        self.min += position.translation.vector;
+        self.max += position.translation.vector;
 
         if position.rotation.angle() != 0.0 {
-            let delta = model_aabb.min - position.translation.vector;
-            model_aabb.min = position.translation.vector + position.rotation * delta;
+            let delta = self.min - position.translation.vector;
+            self.min = position.translation.vector + position.rotation * delta;
 
-            let delta = model_aabb.max - position.translation.vector;
-            model_aabb.max = position.translation.vector + position.rotation * delta;
+            let delta = self.max - position.translation.vector;
+            self.max = position.translation.vector + position.rotation * delta;
 
-            let mut xs = [
-                model_aabb.min.x,
-                model_aabb.min.x,
-                model_aabb.max.x,
-                model_aabb.max.x,
-            ];
+            let mut xs = [self.min.x, self.min.x, self.max.x, self.max.x];
             xs.sort_by(|a, b| a.partial_cmp(b).unwrap());
-            let mut ys = [
-                model_aabb.min.y,
-                model_aabb.min.y,
-                model_aabb.max.y,
-                model_aabb.max.y,
-            ];
+            let mut ys = [self.min.y, self.min.y, self.max.y, self.max.y];
             ys.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
-            model_aabb.min = Vector::new(*xs.first().unwrap(), *ys.first().unwrap());
-            model_aabb.max = Vector::new(*xs.last().unwrap(), *ys.last().unwrap());
+            self.min = Vector::new(*xs.first().unwrap(), *ys.first().unwrap());
+            self.max = Vector::new(*xs.last().unwrap(), *ys.last().unwrap());
         }
 
-        return model_aabb;
+        return self;
     }
 
     pub fn contains_point(&self, point: &Vector<f32>) -> bool {

@@ -7,7 +7,7 @@ use crate::{
     data::arena::ArenaEntry, Arena, BufferHelper, BufferHelperType, BufferOperation, Component,
     ComponentConfig, ComponentHandle, ComponentIndex, ComponentStorage,
     ComponentTypeImplementation, Gpu, GroupHandle, GroupManager, InstanceBuffer, InstanceIndex,
-    InstanceIndices, InstancePosition, RenderCamera, Renderer, World,
+    InstanceIndices, InstancePosition, Renderer, World, Camera,
 };
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
@@ -990,7 +990,7 @@ impl<C: Component> ComponentType<C> {
     pub(crate) fn render_each<'a>(
         &'a self,
         renderer: &mut Renderer<'a>,
-        camera: RenderCamera<'a>,
+        camera: &'a Camera,
         mut each: impl FnMut(&mut Renderer<'a>, &'a C, InstanceIndex),
     ) {
         match &self.storage {
@@ -1029,7 +1029,7 @@ impl<C: Component> ComponentType<C> {
     pub(crate) fn render_single<'a>(
         &'a self,
         renderer: &mut Renderer<'a>,
-        camera: RenderCamera<'a>,
+        camera: &'a Camera,
         each: impl FnOnce(&mut Renderer<'a>, &'a C, InstanceIndex),
     ) {
         match &self.storage {
@@ -1051,7 +1051,7 @@ impl<C: Component> ComponentType<C> {
     pub(crate) fn render_all<'a>(
         &'a self,
         renderer: &mut Renderer<'a>,
-        camera: RenderCamera<'a>,
+        camera: &'a Camera,
         mut all: impl FnMut(&mut Renderer<'a>, InstanceIndices),
     ) {
         match &self.storage {

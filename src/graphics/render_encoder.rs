@@ -44,7 +44,7 @@ impl<'a> RenderEncoder<'a> {
     pub fn copy_target(&mut self, src: &SpriteRenderTarget, target: &dyn RenderTarget) {
         let mut renderer = self.renderer(target, None);
         renderer.use_instances(&renderer.defaults.single_centered_instance);
-        renderer.use_camera(crate::RenderCamera::Unit);
+        renderer.use_camera(&renderer.defaults.unit_camera);
         renderer.render_sprite(0..1, renderer.defaults.unit_model(), src.sprite());
     }
 

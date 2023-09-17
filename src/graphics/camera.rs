@@ -2,46 +2,32 @@ use nalgebra::Vector4;
 use std::mem;
 use std::ops::*;
 
-use crate::{
-    ComponentHandle, ComponentManager, Gpu, Isometry, Model, ModelBuilder, Rotation, Uniform,
-    Vector, World,
-};
+use crate::AABB;
+use crate::{ComponentHandle, ComponentManager, Gpu, Isometry, Rotation, Uniform, Vector, World};
 
 const MINIMAL_FOV: f32 = 0.0001;
 
-// Trait to avoid
-pub trait CursorCompute {
-    fn fov(&self) -> Vector<f32>;
-    fn translation(&self) -> Vector<f32>;
-}
-
-impl CursorCompute for WorldCamera {
-    fn fov(&self) -> Vector<f32> {
-        self.fov()
-    }
-
-    fn translation(&self) -> Vector<f32> {
-        *self.translation()
-    }
-}
-
-impl CursorCompute for Camera {
-    fn fov(&self) -> Vector<f32> {
-        self.fov()
-    }
-
-    fn translation(&self) -> Vector<f32> {
-        *self.translation()
-    }
-}
-
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 /// 2D Camera for rendering
 pub struct Camera {
     position: Isometry<f32>,
     fov: Vector<f32>,
     proj: CameraMatrix,
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[cfg_attr(feature = "serde", serde(default))]
+    uniform: Option<Uniform<CameraMatrix>>,
+}
+
+impl Clone for Camera {
+    fn clone(&self) -> Self {
+        Self {
+            position: self.position.clone(),
+            fov: self.fov.clone(),
+            proj: self.proj.clone(),
+            uniform: None,
+        }
+    }
 }
 
 impl Camera {
@@ -51,11 +37,22 @@ impl Camera {
             position,
             fov,
             proj,
+            uniform: None,
         }
+    }
+
+    pub fn new_buffer(gpu: &Gpu, position: Isometry<f32>, fov: Vector<f32>) -> Self {
+        let mut camera = Self::new(position, fov);
+        camera.update_buffer(gpu);
+        return camera;
     }
 
     pub(crate) fn reset_camera_projection(&mut self) {
         self.proj = CameraMatrix::frustum(self.fov());
+    }
+
+    pub fn aabb(&self) -> AABB {
+        return AABB::from_position(self.fov(), self.position);
     }
 
     pub const fn position(&self) -> &Isometry<f32> {
@@ -109,31 +106,23 @@ impl Camera {
         self.reset_camera_projection();
     }
 
-    pub fn create_buffer(&self, gpu: &Gpu) -> CameraBuffer {
-        let fov = self.fov();
+    pub fn update_buffer(&mut self, gpu: &Gpu) {
         let view = self.view();
         let proj = self.proj();
-        CameraBuffer {
-            model: Model::new(
-                gpu,
-                ModelBuilder::cuboid(fov).vertex_position(self.position),
-            ),
-            uniform: Uniform::new_vertex(gpu, view * proj),
+        let view_proj = view * proj;
+
+        if let Some(uniform) = &mut self.uniform {
+            uniform.write(gpu, view_proj);
+        } else {
+            self.uniform = Some(Uniform::new_vertex(gpu, view_proj));
         }
     }
 
-    pub fn write_buffer(&mut self, gpu: &Gpu, buffer: &mut CameraBuffer) {
-        let fov = self.fov();
-        let view = self.view();
-        let proj = self.proj();
-        buffer.model.write_vertices(
-            gpu,
-            &ModelBuilder::cuboid(fov)
-                .vertex_position(self.position)
-                .apply_modifiers()
-                .vertices,
-        );
-        buffer.uniform.write(gpu, view * proj);
+    pub fn bindgroup(&self) -> &wgpu::BindGroup {
+        self.uniform
+            .as_ref()
+            .expect("Camera buffer not initialized!")
+            .bind_group()
     }
 }
 
@@ -199,46 +188,30 @@ impl WorldCamera {
     }
 
     pub fn set_rotation(&mut self, rotation: Rotation<f32>) {
-        self.camera.position.rotation = rotation;
+        self.camera.set_rotation(rotation);
     }
 
     pub fn set_position(&mut self, position: Isometry<f32>) {
-        self.camera.position = position;
+        self.camera.set_position(position);
     }
 
     pub fn set_translation(&mut self, translation: Vector<f32>) {
-        self.camera.position.translation.vector = translation;
+        self.camera.set_translation(translation);
     }
 
-    pub fn position(&self) -> &Isometry<f32> {
-        self.camera.position()
+    pub fn update_buffer(&mut self, gpu: &Gpu) {
+        self.camera.update_buffer(gpu)
     }
-
-    pub fn translation(&self) -> &Vector<f32> {
-        self.camera.translation()
-    }
-
-    pub fn view(&self) -> CameraMatrix {
-        self.camera.view()
-    }
-
-    pub fn proj(&self) -> CameraMatrix {
-        self.camera.proj()
-    }
-
-    pub fn view_proj(&self) -> CameraMatrix {
-        self.camera.view_proj()
-    }
-
-    pub fn rotation(&self) -> &Rotation<f32> {
-        self.camera.rotation()
-    }
-
-    pub fn fov(&self) -> Vector<f32> {
-        self.camera.fov()
-    }
-
+    
     pub fn camera(&self) -> &Camera {
+        &self.camera
+    }
+}
+
+impl Deref for WorldCamera {
+    type Target = Camera;
+
+    fn deref(&self) -> &Self::Target {
         &self.camera
     }
 }
@@ -308,22 +281,6 @@ impl WorldCameraScale {
                 Vector::new(xy, vertical)
             }
         }
-    }
-}
-
-/// Holds the [Uniform] with the matrix of a [Camera] and the [Model] of the fov.
-pub struct CameraBuffer {
-    model: Model,
-    uniform: Uniform<CameraMatrix>,
-}
-
-impl CameraBuffer {
-    pub fn uniform(&self) -> &Uniform<CameraMatrix> {
-        &self.uniform
-    }
-
-    pub fn model(&self) -> &Model {
-        &self.model
     }
 }
 

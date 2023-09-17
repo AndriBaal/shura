@@ -11,10 +11,6 @@ var t_diffuse: texture_2d_array<f32>;
 @group(1) @binding(1)
 var s_diffuse: sampler;
 
-struct Uniforms {
-    @size(16) index: vec2<u32>,
-}
-
 @fragment
 fn main(in: VertexOutput) -> @location(0) vec4<f32> {
     return textureSample(

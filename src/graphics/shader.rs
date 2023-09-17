@@ -92,6 +92,7 @@ impl Shader {
     pub const RAINBOW: &'static str = include_str!("../../res/shader/rainbow.wgsl");
     pub const GREY: &'static str = include_str!("../../res/shader/grey.wgsl");
     pub const BLURR: &'static str = include_str!("../../res/shader/blurr.wgsl");
+    pub const TEXT: &'static str = include_str!("../../res/shader/text.wgsl");
     pub const AUTO_INSTANCE_INPUT_OFFSET: u32 = 4;
     pub const AUTO_INSTANCE_OUTPUT_OFFSET: u32 = 1;
 
@@ -99,7 +100,7 @@ impl Shader {
         let mut layouts: Vec<&wgpu::BindGroupLayout> = vec![&gpu.base.camera_layout];
         for link in config.uniforms.iter() {
             let layout = match link {
-                UniformField::SingleUniform => &gpu.base.uniform_layout,
+                UniformField::SingleUniform => &gpu.base.single_uniform_layout,
                 UniformField::Sprite => &gpu.base.sprite_layout,
                 UniformField::SpriteSheet => &gpu.base.sprite_sheet_layout,
                 UniformField::Custom(c) => c,
@@ -122,17 +123,12 @@ impl Shader {
                     push_constant_ranges: &[],
                 });
 
-        let mut attributes = InstancePosition::attributes().to_vec();
+        let mut attributes = InstancePosition::ATTRIBUTES.to_vec();
         let (vertex_shader, buffers) = match config.vertex_shader {
             VertexShader::Instance => {
-                let array_stride = InstancePosition::SIZE;
                 let buffers = vec![
-                    Vertex::desc(),
-                    wgpu::VertexBufferLayout {
-                        array_stride,
-                        attributes: &attributes,
-                        step_mode: wgpu::VertexStepMode::Instance,
-                    },
+                    Vertex::DESC,
+                    InstancePosition::DESC
                 ];
                 let shader = Cow::Borrowed(Self::VERTEX);
                 (shader, buffers)
@@ -142,7 +138,7 @@ impl Shader {
                 (shader, layouts)
             }
             VertexShader::AutoInstance(instance_attributes) => {
-                let mut buffers = vec![Vertex::desc()];
+                let mut buffers = vec![Vertex::DESC];
                 let mut array_stride = InstancePosition::SIZE;
                 let mut vertex_shader = Self::VERTEX.to_string();
 

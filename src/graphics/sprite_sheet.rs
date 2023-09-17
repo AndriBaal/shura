@@ -25,6 +25,7 @@ pub struct SpriteSheetBuilder<'a, D: Deref<Target = [u8]>> {
     pub sprite_amount: Vector<u32>,
     pub sampler: wgpu::SamplerDescriptor<'a>,
     pub data: Vec<D>,
+    pub format: wgpu::TextureFormat,
 }
 
 impl<'a> SpriteSheetBuilder<'a, image::RgbaImage> {
@@ -52,6 +53,7 @@ impl<'a> SpriteSheetBuilder<'a, image::RgbaImage> {
             sprite_size,
             sprite_amount,
             sampler: Self::DEFAULT_SAMPLER,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
             data,
         }
     }
@@ -68,6 +70,7 @@ impl<'a> SpriteSheetBuilder<'a, Vec<u8>> {
             sprite_size: Vector::new(1, 1),
             sprite_amount: Vector::new(colors.len() as u32, 1),
             sampler: Self::DEFAULT_SAMPLER,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
             data,
         }
     }
@@ -79,7 +82,18 @@ impl<'a> SpriteSheetBuilder<'a, &'a [u8]> {
             sprite_size,
             sprite_amount,
             sampler: Self::DEFAULT_SAMPLER,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
             data,
+        };
+    }
+
+    pub fn empty(sprite_size: Vector<u32>, sprite_amount: Vector<u32>) -> Self {
+        return Self {
+            sprite_size,
+            sprite_amount,
+            sampler: Self::DEFAULT_SAMPLER,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            data: vec![],
         };
     }
 }
@@ -103,6 +117,11 @@ impl<'a, D: Deref<Target = [u8]>> SpriteSheetBuilder<'a, D> {
 
     pub fn sampler(mut self, sampler: wgpu::SamplerDescriptor<'a>) -> Self {
         self.sampler = sampler;
+        self
+    }
+
+    pub fn format(mut self, format: wgpu::TextureFormat) -> Self {
+        self.format = format;
         self
     }
 }
@@ -130,7 +149,7 @@ impl SpriteSheet {
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            format: desc.format,
             usage: wgpu::TextureUsages::TEXTURE_BINDING
                 | wgpu::TextureUsages::COPY_DST
                 | wgpu::TextureUsages::COPY_SRC
@@ -191,7 +210,14 @@ impl SpriteSheet {
         };
     }
 
-    pub fn write(&self, gpu: &Gpu, index: SpriteSheetIndex, bytes: &[u8]) {
+    pub fn write(
+        &self,
+        gpu: &Gpu,
+        index: SpriteSheetIndex,
+        size: Vector<u32>,
+        layers: u32,
+        bytes: &[u8],
+    ) {
         gpu.queue.write_texture(
             ImageCopyTexture {
                 texture: &self.texture,
@@ -210,9 +236,9 @@ impl SpriteSheet {
                 rows_per_image: Some(self.sprite_size.y),
             },
             wgpu::Extent3d {
-                width: self.sprite_size.x,
-                height: self.sprite_size.y,
-                depth_or_array_layers: 1,
+                width: size.x,
+                height: size.y,
+                depth_or_array_layers: layers,
             },
         );
     }

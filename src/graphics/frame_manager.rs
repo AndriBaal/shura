@@ -56,7 +56,7 @@ impl FrameManager {
                 info!("fps: {}\tdelta: {}", self.fps, self.frame_time());
                 #[cfg(feature = "rayon")]
                 info!("threads: {}", rayon::current_num_threads());
-                info!("Active groups: {}", _groups);
+                info!("active groups: {}", _groups);
             }
         }
 

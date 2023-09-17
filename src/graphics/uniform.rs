@@ -13,14 +13,14 @@ pub struct Uniform<T: bytemuck::Pod> {
 
 impl<T: bytemuck::Pod> Uniform<T> {
     pub fn new(gpu: &Gpu, data: T) -> Self {
-        Self::new_custom(&gpu, &gpu.base.uniform_layout, data)
+        Self::new_custom(&gpu, &gpu.base.single_uniform_layout, data)
     }
 
     pub fn new_vertex(gpu: &Gpu, data: T) -> Self {
         Self::new_custom(&gpu, &gpu.base.camera_layout, data)
     }
 
-    pub(crate) fn new_custom(gpu: &Gpu, layout: &wgpu::BindGroupLayout, data: T) -> Uniform<T> {
+    pub fn new_custom(gpu: &Gpu, layout: &wgpu::BindGroupLayout, data: T) -> Uniform<T> {
         const BUFFER_ALIGNMENT: u64 = 16;
         let data_size = std::mem::size_of_val(&data) as u64;
         let buffer_size = wgpu::util::align_to(data_size, BUFFER_ALIGNMENT);

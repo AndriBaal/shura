@@ -1,9 +1,7 @@
 #[cfg(feature = "serde")]
 use crate::{ComponentTypeId, FxHashMap};
 
-use crate::{
-    data::arena::Arena, CameraBuffer, ComponentManager, GroupHandle, Instant, Vector, World, AABB,
-};
+use crate::{data::arena::Arena, Camera, ComponentManager, GroupHandle, Instant, World, AABB};
 use std::fmt;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -105,8 +103,8 @@ impl GroupManager {
         }
     }
 
-    pub(crate) fn update(&mut self, components: &mut ComponentManager, camera: &CameraBuffer) {
-        let cam_aabb = camera.model().aabb(Vector::new(0.0, 0.0).into()); // Translation is already applied
+    pub(crate) fn update(&mut self, components: &mut ComponentManager, camera: &Camera) {
+        let cam_aabb = camera.aabb();
         components.active_groups.clear();
         let now = Instant::now();
         for (index, group) in self.groups.iter_mut_with_index() {

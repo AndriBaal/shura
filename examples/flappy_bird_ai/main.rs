@@ -239,7 +239,7 @@ impl ComponentController for Bird {
 
     fn render<'a>(renderer: &mut ComponentRenderer<'a>) {
         let scene = renderer.single::<BirdSimulation>();
-        renderer.render_all::<Self>(RenderCamera::World, |r, instance| {
+        renderer.render_all::<Self>(renderer.world_camera, |r, instance| {
             r.render_sprite(instance, &scene.bird_model, &scene.bird_sprite)
         });
     }
@@ -274,7 +274,7 @@ impl ComponentController for Ground {
         ..ComponentConfig::DEFAULT
     };
     fn render<'a>(renderer: &mut ComponentRenderer<'a>) {
-        renderer.render_single::<Self>(RenderCamera::World, |r, ground, instance| {
+        renderer.render_single::<Self>(renderer.world_camera, |r, ground, instance| {
             r.render_sprite(instance, &ground.model, &ground.sprite)
         });
     }
@@ -310,7 +310,7 @@ impl ComponentController for Background {
         ..ComponentConfig::DEFAULT
     };
     fn render<'a>(renderer: &mut ComponentRenderer<'a>) {
-        renderer.render_single::<Self>(RenderCamera::World, |r, background, instance| {
+        renderer.render_single::<Self>(renderer.world_camera, |r, background, instance| {
             r.render_sprite(instance, &background.model, &background.sprite)
         });
     }
@@ -360,7 +360,7 @@ impl ComponentController for Pipe {
 
     fn render<'a>(renderer: &mut ComponentRenderer<'a>) {
         let scene = renderer.single::<BirdSimulation>();
-        renderer.render_all::<Self>(RenderCamera::World, |r, instances| {
+        renderer.render_all::<Self>(renderer.world_camera, |r, instances| {
             r.render_sprite(instances.clone(), &scene.top_pipe_model, &scene.pipe_sprite);
             r.render_sprite(instances, &scene.bottom_pipe_model, &scene.pipe_sprite);
         });

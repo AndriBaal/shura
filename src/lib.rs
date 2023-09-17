@@ -114,11 +114,7 @@ pub mod serde {
 #[cfg(feature = "text")]
 /// Text rendering inspired by [wgpu_text](https://github.com/Blatko1/wgpu-text)
 pub mod text {
-    pub use crate::graphics::text::{font::*, text::*, text_pipeline::*};
-    pub use glyph_brush::{
-        BuiltInLineBreaker, FontId, GlyphCruncher, HorizontalAlign, Layout, LineBreak,
-        OwnedSection, OwnedText, Section, SectionGlyphIter, SectionText, Text, VerticalAlign,
-    };
+    pub use crate::graphics::text::text::*;
 }
 
 // gamepad

@@ -12,28 +12,28 @@ pub struct Vertex {
 
 impl Vertex {
     pub const SIZE: u64 = std::mem::size_of::<Self>() as u64;
+    pub const ATTRIBUTES: [wgpu::VertexAttribute; 2] = [
+        wgpu::VertexAttribute {
+            offset: 0,
+            shader_location: 0,
+            format: wgpu::VertexFormat::Float32x2,
+        },
+        wgpu::VertexAttribute {
+            offset: mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
+            shader_location: 1,
+            format: wgpu::VertexFormat::Float32x2,
+        },
+    ];
+    pub const DESC: wgpu::VertexBufferLayout<'static> = wgpu::VertexBufferLayout {
+        array_stride: Self::SIZE,
+        step_mode: wgpu::VertexStepMode::Vertex,
+        attributes: &Self::ATTRIBUTES,
+    };
+
     pub const fn new(pos: Vector<f32>, tex_coords: Vector<f32>) -> Self {
         Vertex { pos, tex_coords }
     }
 
-    pub const fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
-        wgpu::VertexBufferLayout {
-            array_stride: Self::SIZE,
-            step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &[
-                wgpu::VertexAttribute {
-                    offset: 0,
-                    shader_location: 0,
-                    format: wgpu::VertexFormat::Float32x4,
-                },
-                wgpu::VertexAttribute {
-                    offset: mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
-                    shader_location: 1,
-                    format: wgpu::VertexFormat::Float32x2,
-                },
-            ],
-        }
-    }
 }
 
 #[repr(C)]

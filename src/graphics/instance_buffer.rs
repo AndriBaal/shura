@@ -1,4 +1,4 @@
-use std::ops::Range;
+use std::{ops::Range, mem::size_of};
 
 use crate::{Gpu, Isometry, Matrix, Rotation, Vector};
 use wgpu::util::DeviceExt;
@@ -14,6 +14,15 @@ pub struct InstancePosition {
 
 impl InstancePosition {
     pub const SIZE: u64 = std::mem::size_of::<Self>() as u64;
+    pub const ATTRIBUTES: [wgpu::VertexAttribute; 2] = wgpu::vertex_attr_array![
+        2 => Float32x2,
+        3 => Float32x4
+    ];
+    pub const DESC: wgpu::VertexBufferLayout<'static> = wgpu::VertexBufferLayout {
+        array_stride: Self::SIZE,
+        step_mode: wgpu::VertexStepMode::Instance,
+        attributes: &Self::ATTRIBUTES,
+    };
     pub fn new(pos: Isometry<f32>, scale: Vector<f32>) -> Self {
         Self {
             rot: Matrix::new(
@@ -24,13 +33,6 @@ impl InstancePosition {
             ),
             pos: pos.translation.vector,
         }
-    }
-
-    pub fn attributes() -> [wgpu::VertexAttribute; 2] {
-        wgpu::vertex_attr_array![
-            2 => Float32x2,
-            3 => Float32x4
-        ]
     }
 
     pub fn set_translation(&mut self, translation: Vector<f32>) {
@@ -66,7 +68,8 @@ pub struct InstanceBuffer {
 }
 
 impl InstanceBuffer {
-    pub fn new<D: bytemuck::NoUninit>(gpu: &Gpu, instance_size: u64, data: &[D]) -> Self {
+    pub fn new<D: bytemuck::NoUninit>(gpu: &Gpu, data: &[D]) -> Self {
+        let instance_size = size_of::<D>() as u64;
         let data = bytemuck::cast_slice(data);
         assert!(data.len() as u64 % instance_size == 0);
         let buffer = gpu
@@ -100,9 +103,6 @@ impl InstanceBuffer {
     }
 
     pub fn write<D: bytemuck::NoUninit>(&mut self, gpu: &Gpu, data: &[D]) {
-        let data: &[u8] = bytemuck::cast_slice(data);
-        assert!(data.len() as u64 % self.instance_size == 0);
-        self.instances = data.len() as u64 / self.instance_size;
         self.write_offset(gpu, 0, data);
     }
 
@@ -113,8 +113,11 @@ impl InstanceBuffer {
         data: &[D],
     ) {
         let data = bytemuck::cast_slice(data);
-        assert!(data.len() as u64 % self.instance_size == 0);
-        assert!(instance_offset * self.instance_size + data.len() as u64 <= self.buffer.size());
+        let new_size = instance_offset * self.instance_size + data.len() as u64;
+        assert_eq!(data.len() as u64 % self.instance_size, 0);
+        assert_eq!(size_of::<D>() as u64, self.instance_size);
+        assert!(new_size <= self.buffer.size());
+        self.instances = new_size / self.instance_size;
         gpu.queue
             .write_buffer(&self.buffer, instance_offset * self.instance_size, data);
     }

@@ -1,17 +1,14 @@
 use crate::{
-    CameraBuffer, Color, Component, ComponentHandle, ComponentSetResource, Context, Gpu,
+    text::Text, Camera, Color, Component, ComponentHandle, ComponentSetResource, Context, Gpu,
     GpuDefaults, GroupFilter, GroupHandle, InstanceBuffer, InstanceIndex, InstanceIndices, Model,
     RenderTarget, Shader, Sprite, SpriteRenderTarget, SpriteSheet, SpriteSheetIndex, Uniform,
 };
 use std::{ops::Range, ptr::null};
 
-#[cfg(feature = "text")]
-use crate::text::{FontBrush, TextSection};
-
 struct RenderCache {
     pub bound_shader: *const Shader,
-    pub bound_camera: *const CameraBuffer,
     pub bound_model: *const Model,
+    pub bound_text: *const Text,
     pub bound_instances: *const InstanceBuffer,
     pub bound_uniforms: [*const wgpu::BindGroup; 16],
 }
@@ -20,40 +17,11 @@ impl Default for RenderCache {
     fn default() -> Self {
         Self {
             bound_shader: null(),
-            bound_camera: null(),
             bound_model: null(),
             bound_instances: null(),
             bound_uniforms: [null(); 16],
+            bound_text: null(),
         }
-    }
-}
-
-#[derive(Clone, Copy)]
-/// Camera used for rendering. Allow to easily select a default camera from shura or
-/// to use a custom camera. All default cameras are living inside the [GpuDefaults](crate::GpuDefaults).
-pub enum RenderCamera<'a> {
-    World,
-    Unit,
-    Relative,
-    RelativeBottomLeft,
-    RelativeBottomRight,
-    RelativeTopLeft,
-    RelativeTopRight,
-    Custom(&'a CameraBuffer),
-}
-
-impl<'a> RenderCamera<'a> {
-    pub fn camera(self, defaults: &'a GpuDefaults) -> &'a CameraBuffer {
-        return match self {
-            RenderCamera::World => &defaults.world_camera,
-            RenderCamera::Unit => &defaults.unit_camera.0,
-            RenderCamera::Relative => &defaults.relative_camera.0,
-            RenderCamera::RelativeBottomLeft => &defaults.relative_bottom_left_camera.0,
-            RenderCamera::RelativeBottomRight => &defaults.relative_bottom_right_camera.0,
-            RenderCamera::RelativeTopLeft => &defaults.relative_top_left_camera.0,
-            RenderCamera::RelativeTopRight => &defaults.relative_top_right_camera.0,
-            RenderCamera::Custom(c) => c,
-        };
     }
 }
 
@@ -62,9 +30,31 @@ pub struct ComponentRenderer<'a> {
     pub inner: Renderer<'a>,
     pub screenshot: Option<&'a SpriteRenderTarget>,
     pub ctx: &'a Context<'a>,
+    pub world_camera: &'a Camera,
+    pub relative_camera: &'a Camera,
+    pub relative_bottom_left_camera: &'a Camera,
+    pub relative_bottom_right_camera: &'a Camera,
+    pub relative_top_left_camera: &'a Camera,
+    pub relative_top_right_camera: &'a Camera,
+    pub unit_camera: &'a Camera,
 }
 
 impl<'a> ComponentRenderer<'a> {
+    pub(crate) fn new(ctx: &'a Context<'a>, inner: Renderer<'a>) -> Self {
+        ComponentRenderer {
+            ctx: &ctx,
+            screenshot: None,
+            inner,
+            world_camera: ctx.world_camera,
+            relative_camera: &ctx.defaults.relative_camera,
+            relative_bottom_left_camera: &ctx.defaults.relative_bottom_left_camera,
+            relative_bottom_right_camera: &ctx.defaults.relative_bottom_right_camera,
+            relative_top_left_camera: &ctx.defaults.relative_top_left_camera,
+            relative_top_right_camera: &ctx.defaults.relative_top_right_camera,
+            unit_camera: &ctx.defaults.unit_camera,
+        }
+    }
+
     pub fn for_each<C: Component>(&self, each: impl FnMut(&C) + 'a) {
         let ty = self.ctx.components.resource();
         ty.for_each(self.ctx.components.active_groups(), each);
@@ -135,7 +125,7 @@ impl<'a> ComponentRenderer<'a> {
 
     pub fn render_each<C: Component>(
         &mut self,
-        camera: RenderCamera<'a>,
+        camera: &'a Camera,
         each: impl FnMut(&mut Renderer<'a>, &'a C, InstanceIndex),
     ) {
         let ty = self.ctx.components.resource::<C>();
@@ -150,7 +140,7 @@ impl<'a> ComponentRenderer<'a> {
 
     pub fn render_single<C: Component>(
         &mut self,
-        camera: RenderCamera<'a>,
+        camera: &'a Camera,
         each: impl FnOnce(&mut Renderer<'a>, &'a C, InstanceIndex),
     ) {
         let ty = self.ctx.components.resource::<C>();
@@ -159,7 +149,7 @@ impl<'a> ComponentRenderer<'a> {
 
     pub fn render_all<C: Component>(
         &mut self,
-        camera: RenderCamera<'a>,
+        camera: &'a Camera,
         all: impl FnMut(&mut Renderer<'a>, InstanceIndices),
     ) {
         let ty = self.ctx.components.resource::<C>();
@@ -233,18 +223,8 @@ impl<'a> Renderer<'a> {
         }
     }
 
-    pub fn use_camera_buffer(&mut self, camera: &'a CameraBuffer) {
-        let ptr = camera as *const _;
-        if ptr != self.cache.bound_camera {
-            self.cache.bound_camera = ptr;
-            self.render_pass
-                .set_bind_group(Self::CAMERA_SLOT, camera.uniform().bind_group(), &[]);
-        }
-    }
-
-    pub fn use_camera(&mut self, camera: RenderCamera<'a>) {
-        let buffer = camera.camera(self.defaults);
-        self.use_camera_buffer(buffer);
+    pub fn use_camera(&mut self, camera: &'a Camera) {
+        self.use_bind_group(camera.bindgroup(), Self::CAMERA_SLOT)
     }
 
     pub fn use_shader(&mut self, shader: &'a Shader) {
@@ -257,6 +237,7 @@ impl<'a> Renderer<'a> {
 
     pub fn use_model(&mut self, model: &'a Model) {
         let ptr = model as *const _;
+        self.cache.bound_text = null();
         if ptr != self.cache.bound_model {
             self.cache.bound_model = ptr;
             self.indices = model.amount_of_indices();
@@ -265,6 +246,20 @@ impl<'a> Renderer<'a> {
             self.render_pass
                 .set_vertex_buffer(Self::MODEL_SLOT, model.vertex_buffer().slice(..));
         }
+    }
+
+    pub fn use_text(&mut self, text: &'a Text) {
+        let ptr = text as *const _;
+        self.cache.bound_model = null();
+        if ptr != self.cache.bound_text {
+            self.cache.bound_text = ptr;
+            self.indices = text.amount_of_indices();
+            self.render_pass
+                .set_index_buffer(text.index_buffer().slice(..), wgpu::IndexFormat::Uint32);
+            self.render_pass
+                .set_vertex_buffer(Self::MODEL_SLOT, text.vertex_buffer().slice(..));
+        }
+        self.use_sprite_sheet(text.font(), 1);
     }
 
     pub fn use_bind_group(&mut self, bind_group: &'a wgpu::BindGroup, slot: u32) {
@@ -298,26 +293,6 @@ impl<'a> Renderer<'a> {
     pub fn draw_indexed(&mut self, indices: Range<u32>, instances: impl Into<InstanceIndices>) {
         self.render_pass
             .draw_indexed(indices, 0, instances.into().range);
-    }
-
-    #[cfg(feature = "text")]
-    pub fn render_font(&mut self, font: &'a FontBrush) {
-        self.cache = Default::default();
-        font.render(
-            self.gpu,
-            &mut self.render_pass,
-            self.target.size().cast::<f32>(),
-        )
-    }
-
-    #[cfg(feature = "text")]
-    pub fn queue_text(
-        &mut self,
-        camera: RenderCamera,
-        font: &'a FontBrush,
-        sections: Vec<TextSection>,
-    ) {
-        font.queue(self.defaults, camera, self.target.size(), sections);
     }
 
     pub fn render_sprite(
@@ -385,6 +360,12 @@ impl<'a> Renderer<'a> {
     pub fn render_color(&mut self, instances: impl Into<InstanceIndices>, model: &'a Model) {
         self.use_shader(&self.defaults.color);
         self.use_model(model);
+        self.draw(instances);
+    }
+
+    pub fn render_text(&mut self, instances: impl Into<InstanceIndices>, text: &'a Text) {
+        self.use_shader(&self.defaults.text);
+        self.use_text(text);
         self.draw(instances);
     }
 
