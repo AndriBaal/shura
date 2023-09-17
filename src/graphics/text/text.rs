@@ -1,6 +1,6 @@
 use std::{mem::size_of, sync::Arc};
 
-use crate::{vector, Color, Gpu, Index, SpriteSheetBuilder, Vector, SpriteSheet};
+use crate::{vector, Color, Gpu, Index, SpriteSheet, SpriteSheetBuilder, Vector};
 use wgpu::util::DeviceExt;
 
 #[derive(Clone, Copy, bytemuck::Zeroable, bytemuck::Pod)]
@@ -67,7 +67,7 @@ impl Font {
 }
 
 pub(crate) struct FontInner {
-    sprite_sheet: SpriteSheet
+    sprite_sheet: SpriteSheet,
 }
 impl FontInner {
     pub fn new(gpu: &Gpu, data: &[u8]) -> Self {
@@ -80,22 +80,30 @@ impl FontInner {
             .max()
             .unwrap() as u32;
 
-        let desc = SpriteSheetBuilder::empty(vector(width, res), vector(0, font.glyph_count() as u32))
-            .sampler(wgpu::SamplerDescriptor {
-                address_mode_u: wgpu::AddressMode::ClampToEdge,
-                address_mode_v: wgpu::AddressMode::ClampToEdge,
-                address_mode_w: wgpu::AddressMode::ClampToEdge,
-                mag_filter: wgpu::FilterMode::Linear,
-                min_filter: wgpu::FilterMode::Linear,
-                mipmap_filter: wgpu::FilterMode::Linear,
-                ..Default::default()
-            })
-            .format(wgpu::TextureFormat::R8Unorm);
+        let desc =
+            SpriteSheetBuilder::empty(vector(width, res), vector(font.glyph_count() as u32, 0))
+                .sampler(wgpu::SamplerDescriptor {
+                    address_mode_u: wgpu::AddressMode::ClampToEdge,
+                    address_mode_v: wgpu::AddressMode::ClampToEdge,
+                    address_mode_w: wgpu::AddressMode::ClampToEdge,
+                    mag_filter: wgpu::FilterMode::Linear,
+                    min_filter: wgpu::FilterMode::Linear,
+                    mipmap_filter: wgpu::FilterMode::Linear,
+                    ..Default::default()
+                })
+                .format(wgpu::TextureFormat::R8Unorm);
         let mut sprite_sheet = gpu.create_sprite_sheet(desc);
 
-        return Self {
-            sprite_sheet
-        };
+        let (metrics, data) = font.rasterize('W', res as f32);
+        sprite_sheet.write(
+            gpu,
+            0,
+            vector(metrics.width as u32, metrics.height as u32),
+            1,
+            &data,
+        );
+
+        return Self { sprite_sheet };
     }
 }
 

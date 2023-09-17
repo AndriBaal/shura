@@ -30,11 +30,11 @@ fn main(
     instance: InstanceInput,
 ) -> VertexOutput {
     var out: VertexOutput;
-    out.tex = model.tex;
     // SHURA_MARKER_VARIABLE_ASSIGNMENT
 
     let pos = model.v_position * mat2x2<f32>(instance.rotation.xy, instance.rotation.zw) + instance.i_position;
     out.clip_position = camera.view_proj * vec4<f32>(pos, 0.0, 1.0);
+    out.tex = model.tex;
 
     return out;
 }

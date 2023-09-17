@@ -143,7 +143,7 @@ impl Sprite {
         };
 
         if desc.data.len() != 0 {
-            sprite.write_raw(gpu, desc.size, &desc.data);
+            sprite.write(gpu, desc.size, &desc.data);
         }
 
         return sprite;
@@ -198,18 +198,18 @@ impl Sprite {
     }
 
     /// Overwrite with an image of the same dimension
-    pub fn write(&self, gpu: &Gpu, rgba: &image::RgbaImage) {
-        Self::write_raw(&self, gpu, Vector::new(rgba.width(), rgba.height()), rgba)
+    pub fn write_image(&self, gpu: &Gpu, rgba: &image::RgbaImage) {
+        Self::write(&self, gpu, Vector::new(rgba.width(), rgba.height()), rgba)
     }
 
-    pub fn write_raw(&self, gpu: &Gpu, size: Vector<u32>, data: &[u8]) {
+    pub fn write(&self, gpu: &Gpu, size: Vector<u32>, data: &[u8]) {
         gpu.queue.write_texture(
             self.texture.as_image_copy(),
             data,
             wgpu::ImageDataLayout {
                 offset: 0,
-                bytes_per_row: Some(4 * self.size.x),
-                rows_per_image: Some(self.size.y),
+                bytes_per_row: Some(self.format.block_size(None).unwrap() * size.x),
+                rows_per_image: Some(size.y),
             },
             wgpu::Extent3d {
                 width: size.x,
@@ -230,7 +230,9 @@ impl Sprite {
         let o_texture_width = self.size.x;
         let texture_width = (o_texture_width as f64 / 64.0).ceil() as u32 * 64;
         let texture_height = self.size.y;
-        let output_buffer_size = (4 * texture_width * texture_height) as wgpu::BufferAddress;
+        let output_buffer_size = (self.format.block_size(None).unwrap()
+            * texture_width
+            * texture_height) as wgpu::BufferAddress;
         let output_buffer_desc = wgpu::BufferDescriptor {
             size: output_buffer_size,
             usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
@@ -255,7 +257,7 @@ impl Sprite {
                 buffer: &output_buffer,
                 layout: wgpu::ImageDataLayout {
                     offset: 0,
-                    bytes_per_row: Some(4 * texture_width),
+                    bytes_per_row: Some(self.format.block_size(None).unwrap() * texture_width),
                     rows_per_image: Some(texture_height),
                 },
             },

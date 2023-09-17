@@ -35,6 +35,7 @@ fn main(
     out.clip_position = camera.view_proj * vec4<f32>(pos, 0.0, 1.0);
     out.color = model.color;
     out.sprite = model.glyph;
+    out.tex = model.tex;
 
     return out;
 }
