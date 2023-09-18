@@ -1,4 +1,4 @@
-use shura::{log, rand, *};
+use shura::{log, rand, *, text::TextSection};
 
 #[shura::main]
 fn shura_main(config: ShuraConfig) {
@@ -37,7 +37,16 @@ impl Resources {
             screenshot: None,
             // bunny_model,
             bunny_sprite,
-            text: ctx.gpu.create_text(&font, "ulululu"),
+            text: ctx.gpu.create_text(&font, &[TextSection {
+                color: Color::BLACK,
+                text: "Test",
+                size: 3.0,
+                layout: text::LayoutSettings {
+                    horizontal_align: text::HorizontalAlign::Center,
+                    vertical_align: text::VerticalAlign::Middle,
+                    ..Default::default()
+                }
+            }]),
         }
     }
 }

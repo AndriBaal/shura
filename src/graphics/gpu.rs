@@ -1,7 +1,7 @@
 #[cfg(feature = "log")]
 use crate::log::info;
 use crate::{
-    text::{Font, Text, TextVertex},
+    text::{Font, Text, TextVertex, TextSection},
     Camera, InstanceBuffer, InstanceField, InstancePosition, Isometry, Model, ModelBuilder,
     RenderEncoder, RenderTarget, Shader, ShaderConfig, Sprite, SpriteBuilder, SpriteRenderTarget,
     SpriteSheet, SpriteSheetBuilder, SpriteSheetIndex, SurfaceRenderTarget, Uniform, UniformField,
@@ -237,9 +237,9 @@ impl Gpu {
         Font::new(self, data)
     }
 
-    // pub fn create_text(&self, font: &Font, text: &str) -> Text {
-    //     Text::new(self, font, text)
-    // }
+    pub fn create_text(&self, font: &Font, sections: &[TextSection]) -> Text {
+        Text::new(self, font, sections)
+    }
 
     pub fn create_computed_target<'caller, D: Deref<Target = [u8]>>(
         &self,

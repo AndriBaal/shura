@@ -4,7 +4,9 @@ use crate::{vector, Color, Gpu, Index, SpriteSheet, SpriteSheetBuilder, SpriteSh
 use rustc_hash::FxHashMap;
 use wgpu::util::DeviceExt;
 
-#[derive(Clone, Copy, bytemuck::Zeroable, bytemuck::Pod)]
+pub use fontdue::layout::{LayoutSettings, HorizontalAlign, VerticalAlign};
+
+#[derive(Clone, Copy, Debug, bytemuck::Zeroable, bytemuck::Pod)]
 #[repr(C)]
 pub(crate) struct TextVertex {
     offset: Vector<f32>,
@@ -130,7 +132,8 @@ impl FontInner {
 pub struct TextSection<'a> {
     pub color: Color,
     pub text: &'a str,
-    pub size: f32
+    pub size: f32,
+    pub layout: LayoutSettings,
 }
 
 pub struct Text {
@@ -142,8 +145,50 @@ pub struct Text {
 }
 
 impl Text {
-    pub fn new(gpu: &Gpu, font: &Font, height: f32, text: &str) -> Self {
-        // use fontdue::layout::*;
+    pub fn new(gpu: &Gpu, font: &Font, sections: &[TextSection]) -> Self {
+        use fontdue::layout::*;
+
+        let mut vertices: Vec<TextVertex> = vec![];
+        let mut indices: Vec<Index> = vec![];
+
+        for section in sections {
+            let mut layout = Layout::<()>::new(CoordinateSystem::PositiveYUp);
+            layout.reset(&section.layout);
+            layout.append(
+                &[&font.inner.font],
+                &TextStyle::new(section.text, section.size, 0),
+            );
+
+            for glyph in layout.glyphs() {
+                let metrics = font
+                    .inner
+                    .font
+                    .metrics_indexed(glyph.key.glyph_index, section.size);
+                let id = font.inner.index_map[&glyph.key.glyph_index];
+                let bottom_left = vector(glyph.x, glyph.y);
+                let bottom_right = vector(glyph.x + glyph.width as f32, glyph.y);
+                let top_left = vector(glyph.x, glyph.y + glyph.height as f32);
+                let top_right = vector(
+                    glyph.x + glyph.width as f32,
+                    glyph.y + glyph.height as f32,
+                );
+
+                let base_index = vertices.len() as u32;
+                let offset = vector(0.0, metrics.ymin as f32);
+
+
+                vertices.extend([
+                    TextVertex::new(top_left - offset, Vector::new(0.0, 0.0), section.color, id),
+                    TextVertex::new(bottom_left - offset, Vector::new(0.0, 1.0), section.color, id),
+                    TextVertex::new(bottom_right - offset, Vector::new(1.0, 1.0), section.color, id),
+                    TextVertex::new(top_right - offset, Vector::new(1.0, 0.0), section.color, id),
+                ]);
+                indices.extend([
+                    Index::new(base_index + 0, base_index + 1, base_index + 2),
+                    Index::new(base_index + 2, base_index + 3, base_index + 0),
+                ]);
+            }
+        }
 
         // let mut layout = Layout::new(CoordinateSystem::PositiveYUp);
         // // By default, layout is initialized with the default layout settings. This call is redundant, but
@@ -152,53 +197,53 @@ impl Text {
         //     ..LayoutSettings::default()
         // });
 
-        let vertices = &[
-            TextVertex::new(Vector::new(-1.0, 1.0), Vector::new(0.0, 0.0), Color::RED, 0),
-            TextVertex::new(
-                Vector::new(-1.0, -1.0),
-                Vector::new(0.0, 1.0),
-                Color::RED,
-                0,
-            ),
-            TextVertex::new(Vector::new(1.0, -1.0), Vector::new(1.0, 1.0), Color::RED, 0),
-            TextVertex::new(Vector::new(1.0, 1.0), Vector::new(1.0, 0.0), Color::RED, 0),
-            TextVertex::new(
-                Vector::new(-1.0 + 2.0, 1.0),
-                Vector::new(0.0, 0.0),
-                Color::YELLOW,
-                0,
-            ),
-            TextVertex::new(
-                Vector::new(-1.0 + 2.0, -1.0),
-                Vector::new(0.0, 1.0),
-                Color::YELLOW,
-                0,
-            ),
-            TextVertex::new(
-                Vector::new(1.0 + 2.0, -1.0),
-                Vector::new(1.0, 1.0),
-                Color::YELLOW,
-                0,
-            ),
-            TextVertex::new(
-                Vector::new(1.0 + 2.0, 1.0),
-                Vector::new(1.0, 0.0),
-                Color::YELLOW,
-                0,
-            ),
-        ];
-        let indices = &[
-            Index::new(0, 1, 2),
-            Index::new(2, 3, 0),
-            Index::new(4, 5, 6),
-            Index::new(6, 7, 4),
-        ];
+        // let vertices = &[
+        //     TextVertex::new(Vector::new(-1.0, 1.0), Vector::new(0.0, 0.0), Color::RED, 0),
+        //     TextVertex::new(
+        //         Vector::new(-1.0, -1.0),
+        //         Vector::new(0.0, 1.0),
+        //         Color::RED,
+        //         0,
+        //     ),
+        //     TextVertex::new(Vector::new(1.0, -1.0), Vector::new(1.0, 1.0), Color::RED, 0),
+        //     TextVertex::new(Vector::new(1.0, 1.0), Vector::new(1.0, 0.0), Color::RED, 0),
+        //     TextVertex::new(
+        //         Vector::new(-1.0 + 2.0, 1.0),
+        //         Vector::new(0.0, 0.0),
+        //         Color::YELLOW,
+        //         0,
+        //     ),
+        //     TextVertex::new(
+        //         Vector::new(-1.0 + 2.0, -1.0),
+        //         Vector::new(0.0, 1.0),
+        //         Color::YELLOW,
+        //         0,
+        //     ),
+        //     TextVertex::new(
+        //         Vector::new(1.0 + 2.0, -1.0),
+        //         Vector::new(1.0, 1.0),
+        //         Color::YELLOW,
+        //         0,
+        //     ),
+        //     TextVertex::new(
+        //         Vector::new(1.0 + 2.0, 1.0),
+        //         Vector::new(1.0, 0.0),
+        //         Color::YELLOW,
+        //         0,
+        //     ),
+        // ];
+        // let indices = &[
+        //     Index::new(0, 1, 2),
+        //     Index::new(2, 3, 0),
+        //     Index::new(4, 5, 6),
+        //     Index::new(6, 7, 4),
+        // ];
 
         let vertex_buffer = gpu
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("vertex_buffer"),
-                contents: bytemuck::cast_slice(vertices),
+                contents: bytemuck::cast_slice(&vertices),
                 usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             });
 
@@ -206,7 +251,7 @@ impl Text {
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("index_buffer"),
-                contents: bytemuck::cast_slice(indices),
+                contents: bytemuck::cast_slice(&indices),
                 usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
             });
 
@@ -224,11 +269,12 @@ impl Text {
     }
 
     pub fn vertex_buffer(&self) -> wgpu::BufferSlice {
-        self.vertex_buffer.slice(0..self.amount_of_vertices() as u64)
+        self.vertex_buffer.slice(..self.vertex_buffer.size())
     }
 
     pub fn index_buffer(&self) -> wgpu::BufferSlice {
-        self.index_buffer.slice(0..self.amount_of_indices() as u64)
+        self.index_buffer
+            .slice(..self.amount_of_indices as u64 * 3 * std::mem::size_of::<u32>() as u64)
     }
 
     pub fn amount_of_indices(&self) -> u32 {

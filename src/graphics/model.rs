@@ -691,7 +691,7 @@ impl Model {
             gpu.queue
                 .write_buffer(&self.index_buffer, 0, bytemuck::cast_slice(&indices[..]));
         }
-        self.amount_of_vertices = indices.len() as u32;
+        self.amount_of_indices = indices.len() as u32;
     }
 
     pub fn write_vertices(&mut self, gpu: &Gpu, vertices: &[Vertex]) {
@@ -713,11 +713,12 @@ impl Model {
 
     pub fn vertex_buffer(&self) -> wgpu::BufferSlice {
         self.vertex_buffer
-            .slice(0..self.amount_of_vertices() as u64)
+            .slice(..self.amount_of_vertices() as u64)
     }
 
     pub fn index_buffer(&self) -> wgpu::BufferSlice {
-        self.index_buffer.slice(0..self.amount_of_indices() as u64)
+        self.index_buffer
+            .slice(..self.amount_of_indices as u64 * 3 * std::mem::size_of::<u32>() as u64)
     }
 
     pub fn amount_of_indices(&self) -> u32 {
