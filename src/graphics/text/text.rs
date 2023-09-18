@@ -1,6 +1,7 @@
 use std::{mem::size_of, sync::Arc};
 
-use crate::{vector, Color, Gpu, Index, SpriteSheet, SpriteSheetBuilder, Vector};
+use crate::{vector, Color, Gpu, Index, SpriteSheet, SpriteSheetBuilder, SpriteSheetIndex, Vector};
+use rustc_hash::FxHashMap;
 use wgpu::util::DeviceExt;
 
 #[derive(Clone, Copy, bytemuck::Zeroable, bytemuck::Pod)]
@@ -68,43 +69,68 @@ impl Font {
 
 pub(crate) struct FontInner {
     sprite_sheet: SpriteSheet,
+    index_map: FxHashMap<u16, SpriteSheetIndex>,
+    font: fontdue::Font,
 }
 impl FontInner {
     pub fn new(gpu: &Gpu, data: &[u8]) -> Self {
+        const RES: f32 = 200.0;
         let font = fontdue::Font::from_bytes(data, fontdue::FontSettings::default()).unwrap();
-        let res = 200;
         let width = font
             .chars()
             .iter()
-            .map(|(_, i)| font.metrics_indexed(i.get(), res as f32).width)
+            .map(|(_, i)| font.metrics_indexed(i.get(), RES).width)
             .max()
             .unwrap() as u32;
 
-        let desc =
-            SpriteSheetBuilder::empty(vector(width, res), vector(font.glyph_count() as u32, 0))
-                .sampler(wgpu::SamplerDescriptor {
-                    address_mode_u: wgpu::AddressMode::ClampToEdge,
-                    address_mode_v: wgpu::AddressMode::ClampToEdge,
-                    address_mode_w: wgpu::AddressMode::ClampToEdge,
-                    mag_filter: wgpu::FilterMode::Linear,
-                    min_filter: wgpu::FilterMode::Linear,
-                    mipmap_filter: wgpu::FilterMode::Linear,
-                    ..Default::default()
-                })
-                .format(wgpu::TextureFormat::R8Unorm);
+        let amount = font
+            .chars()
+            .iter()
+            .filter(|(_, i)| font.metrics_indexed(i.get(), RES).width > 0)
+            .count();
+
+        let desc = SpriteSheetBuilder::empty(vector(width, RES as u32), vector(amount as u32, 1))
+            .sampler(wgpu::SamplerDescriptor {
+                address_mode_u: wgpu::AddressMode::ClampToEdge,
+                address_mode_v: wgpu::AddressMode::ClampToEdge,
+                address_mode_w: wgpu::AddressMode::ClampToEdge,
+                mag_filter: wgpu::FilterMode::Linear,
+                min_filter: wgpu::FilterMode::Linear,
+                mipmap_filter: wgpu::FilterMode::Linear,
+                ..Default::default()
+            })
+            .format(wgpu::TextureFormat::R8Unorm);
         let mut sprite_sheet = gpu.create_sprite_sheet(desc);
 
-        let (metrics, data) = font.rasterize('W', res as f32);
-        sprite_sheet.write(
-            gpu,
-            0,
-            vector(metrics.width as u32, metrics.height as u32),
-            1,
-            &data,
-        );
+        let mut counter = 0;
+        let mut index_map = FxHashMap::default();
+        for (_char, index) in font.chars() {
+            let (metrics, data) = font.rasterize_indexed(index.get(), RES);
+            if data.len() > 0 {
+                index_map.insert(index.get(), counter);
+                sprite_sheet.write(
+                    gpu,
+                    counter,
+                    vector(metrics.width as u32, metrics.height as u32),
+                    1,
+                    &data,
+                );
+                counter += 1;
+            }
+        }
 
-        return Self { sprite_sheet };
+        return Self {
+            sprite_sheet,
+            index_map,
+            font,
+        };
     }
+}
+
+pub struct TextSection<'a> {
+    pub color: Color,
+    pub text: &'a str,
+    pub size: f32
 }
 
 pub struct Text {
@@ -116,7 +142,16 @@ pub struct Text {
 }
 
 impl Text {
-    pub fn new(gpu: &Gpu, font: &Font, text: &str) -> Self {
+    pub fn new(gpu: &Gpu, font: &Font, height: f32, text: &str) -> Self {
+        // use fontdue::layout::*;
+
+        // let mut layout = Layout::new(CoordinateSystem::PositiveYUp);
+        // // By default, layout is initialized with the default layout settings. This call is redundant, but
+        // // demonstrates setting the value with your custom settings.
+        // layout.reset(&LayoutSettings {
+        //     ..LayoutSettings::default()
+        // });
+
         let vertices = &[
             TextVertex::new(Vector::new(-1.0, 1.0), Vector::new(0.0, 0.0), Color::RED, 0),
             TextVertex::new(
@@ -188,12 +223,12 @@ impl Text {
         &self.font.inner.sprite_sheet
     }
 
-    pub fn vertex_buffer(&self) -> &wgpu::Buffer {
-        &self.vertex_buffer
+    pub fn vertex_buffer(&self) -> wgpu::BufferSlice {
+        self.vertex_buffer.slice(0..self.amount_of_vertices() as u64)
     }
 
-    pub fn index_buffer(&self) -> &wgpu::Buffer {
-        &self.index_buffer
+    pub fn index_buffer(&self) -> wgpu::BufferSlice {
+        self.index_buffer.slice(0..self.amount_of_indices() as u64)
     }
 
     pub fn amount_of_indices(&self) -> u32 {

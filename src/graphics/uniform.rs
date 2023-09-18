@@ -13,14 +13,19 @@ pub struct Uniform<T: bytemuck::Pod> {
 
 impl<T: bytemuck::Pod> Uniform<T> {
     pub fn new(gpu: &Gpu, data: T) -> Self {
-        Self::new_custom(&gpu, &gpu.base.single_uniform_layout, data)
+        Self::new_custom_layout(&gpu, &gpu.base.single_uniform_layout, data)
     }
 
     pub fn new_vertex(gpu: &Gpu, data: T) -> Self {
-        Self::new_custom(&gpu, &gpu.base.camera_layout, data)
+        Self::new_custom_layout(&gpu, &gpu.base.camera_layout, data)
     }
 
-    pub fn new_custom(gpu: &Gpu, layout: &wgpu::BindGroupLayout, data: T) -> Uniform<T> {
+    pub fn new_custom(gpu: &Gpu, desc: &wgpu::BindGroupLayoutDescriptor, data: T) -> Uniform<T> {
+        let layout = gpu.device.create_bind_group_layout(desc);
+        return Self::new_custom_layout(gpu, &layout, data);
+    }
+
+    pub fn new_custom_layout(gpu: &Gpu, layout: &wgpu::BindGroupLayout, data: T) -> Uniform<T> {
         const BUFFER_ALIGNMENT: u64 = 16;
         let data_size = std::mem::size_of_val(&data) as u64;
         let buffer_size = wgpu::util::align_to(data_size, BUFFER_ALIGNMENT);
@@ -55,7 +60,7 @@ impl<T: bytemuck::Pod> Uniform<T> {
         }
     }
 
-    pub fn write(&self, gpu: &Gpu, data: T) {
+    pub fn write(&mut self, gpu: &Gpu, data: T) {
         gpu.queue
             .write_buffer(&self.buffer, 0, bytemuck::cast_slice(&[data]));
     }

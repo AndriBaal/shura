@@ -242,9 +242,9 @@ impl<'a> Renderer<'a> {
             self.cache.bound_model = ptr;
             self.indices = model.amount_of_indices();
             self.render_pass
-                .set_index_buffer(model.index_buffer().slice(..), wgpu::IndexFormat::Uint32);
+                .set_index_buffer(model.index_buffer(), wgpu::IndexFormat::Uint32);
             self.render_pass
-                .set_vertex_buffer(Self::MODEL_SLOT, model.vertex_buffer().slice(..));
+                .set_vertex_buffer(Self::MODEL_SLOT, model.vertex_buffer());
         }
     }
 
@@ -255,9 +255,9 @@ impl<'a> Renderer<'a> {
             self.cache.bound_text = ptr;
             self.indices = text.amount_of_indices();
             self.render_pass
-                .set_index_buffer(text.index_buffer().slice(..), wgpu::IndexFormat::Uint32);
+                .set_index_buffer(text.index_buffer(), wgpu::IndexFormat::Uint32);
             self.render_pass
-                .set_vertex_buffer(Self::MODEL_SLOT, text.vertex_buffer().slice(..));
+                .set_vertex_buffer(Self::MODEL_SLOT, text.vertex_buffer());
         }
         self.use_sprite_sheet(text.font(), 1);
     }

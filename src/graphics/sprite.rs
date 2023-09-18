@@ -1,3 +1,5 @@
+use wgpu::util::DeviceExt;
+
 use crate::{Gpu, RgbaColor, Vector};
 use std::ops::Deref;
 
@@ -132,9 +134,9 @@ impl Sprite {
     };
 
     pub fn new<D: Deref<Target = [u8]>>(gpu: &Gpu, desc: SpriteBuilder<D>) -> Self {
-        let texture = Self::create_texture(gpu, desc.format, desc.size);
+        let texture = Self::create_texture(gpu, desc.format, desc.size, &desc.data);
         let (bind_group, sampler) = Self::create_bind_group(gpu, &texture, &desc.sampler);
-        let sprite = Self {
+        let mut sprite = Self {
             _sampler: sampler,
             size: desc.size,
             format: desc.format,
@@ -142,32 +144,37 @@ impl Sprite {
             bind_group,
         };
 
-        if desc.data.len() != 0 {
-            sprite.write(gpu, desc.size, &desc.data);
-        }
-
         return sprite;
     }
 
-    fn create_texture(gpu: &Gpu, format: wgpu::TextureFormat, size: Vector<u32>) -> wgpu::Texture {
+    fn create_texture(
+        gpu: &Gpu,
+        format: wgpu::TextureFormat,
+        size: Vector<u32>,
+        data: &[u8],
+    ) -> wgpu::Texture {
         assert!(size.x != 0 && size.y != 0);
-        let texture = gpu.device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("sprite_texture"),
-            size: wgpu::Extent3d {
-                width: size.x,
-                height: size.y,
-                depth_or_array_layers: 1,
+        let texture = gpu.device.create_texture_with_data(
+            &gpu.queue,
+            &wgpu::TextureDescriptor {
+                label: Some("sprite_texture"),
+                size: wgpu::Extent3d {
+                    width: size.x,
+                    height: size.y,
+                    depth_or_array_layers: 1,
+                },
+                format,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING
+                    | wgpu::TextureUsages::COPY_DST
+                    | wgpu::TextureUsages::COPY_SRC
+                    | wgpu::TextureUsages::RENDER_ATTACHMENT,
+                view_formats: &[],
             },
-            format,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING
-                | wgpu::TextureUsages::COPY_DST
-                | wgpu::TextureUsages::COPY_SRC
-                | wgpu::TextureUsages::RENDER_ATTACHMENT,
-            view_formats: &[],
-        });
+            data,
+        );
 
         return texture;
     }
@@ -198,11 +205,11 @@ impl Sprite {
     }
 
     /// Overwrite with an image of the same dimension
-    pub fn write_image(&self, gpu: &Gpu, rgba: &image::RgbaImage) {
-        Self::write(&self, gpu, Vector::new(rgba.width(), rgba.height()), rgba)
+    pub fn write_image(&mut self, gpu: &Gpu, rgba: &image::RgbaImage) {
+        Self::write(self, gpu, Vector::new(rgba.width(), rgba.height()), rgba)
     }
 
-    pub fn write(&self, gpu: &Gpu, size: Vector<u32>, data: &[u8]) {
+    pub fn write(&mut self, gpu: &Gpu, size: Vector<u32>, data: &[u8]) {
         gpu.queue.write_texture(
             self.texture.as_image_copy(),
             data,

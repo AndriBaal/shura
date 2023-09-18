@@ -679,24 +679,45 @@ impl Model {
     }
 
     pub fn write_indices(&mut self, gpu: &Gpu, indices: &[Index]) {
-        assert_eq!(indices.len(), self.amount_of_indices as usize);
-        gpu.queue
-            .write_buffer(&self.index_buffer, 0, bytemuck::cast_slice(&indices[..]));
+        if indices.len() > self.amount_of_indices as usize {
+            self.index_buffer = gpu
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("index_buffer"),
+                    contents: bytemuck::cast_slice(&indices[..]),
+                    usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
+                });
+        } else {
+            gpu.queue
+                .write_buffer(&self.index_buffer, 0, bytemuck::cast_slice(&indices[..]));
+        }
+        self.amount_of_vertices = indices.len() as u32;
     }
 
     pub fn write_vertices(&mut self, gpu: &Gpu, vertices: &[Vertex]) {
-        assert_eq!(vertices.len(), self.amount_of_vertices as usize);
+        if vertices.len() > self.amount_of_vertices as usize {
+            self.vertex_buffer = gpu
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("vertex_buffer"),
+                    contents: bytemuck::cast_slice(&vertices[..]),
+                    usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                });
+        } else {
+            gpu.queue
+                .write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&vertices[..]));
+        }
+        self.amount_of_vertices = vertices.len() as u32;
         self.aabb = AABB::from_vertices(vertices);
-        gpu.queue
-            .write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&vertices[..]));
     }
 
-    pub fn vertex_buffer(&self) -> &wgpu::Buffer {
-        &self.vertex_buffer
+    pub fn vertex_buffer(&self) -> wgpu::BufferSlice {
+        self.vertex_buffer
+            .slice(0..self.amount_of_vertices() as u64)
     }
 
-    pub fn index_buffer(&self) -> &wgpu::Buffer {
-        &self.index_buffer
+    pub fn index_buffer(&self) -> wgpu::BufferSlice {
+        self.index_buffer.slice(0..self.amount_of_indices() as u64)
     }
 
     pub fn amount_of_indices(&self) -> u32 {

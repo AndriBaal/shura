@@ -211,7 +211,7 @@ impl SpriteSheet {
     }
 
     pub fn write(
-        &self,
+        &mut self,
         gpu: &Gpu,
         index: SpriteSheetIndex,
         size: Vector<u32>,

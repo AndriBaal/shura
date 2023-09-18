@@ -237,9 +237,9 @@ impl Gpu {
         Font::new(self, data)
     }
 
-    pub fn create_text(&self, font: &Font, text: &str) -> Text {
-        Text::new(self, font, text)
-    }
+    // pub fn create_text(&self, font: &Font, text: &str) -> Text {
+    //     Text::new(self, font, text)
+    // }
 
     pub fn create_computed_target<'caller, D: Deref<Target = [u8]>>(
         &self,
