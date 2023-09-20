@@ -233,7 +233,7 @@ impl Gpu {
         Shader::new(self, config)
     }
 
-    pub fn create_font(&self, data: &[u8]) -> Font {
+    pub fn create_font(&self, data: &'static [u8]) -> Font {
         Font::new(self, data)
     }
 
