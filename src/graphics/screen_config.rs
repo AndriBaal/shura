@@ -39,10 +39,6 @@ impl ScreenConfig {
         Default::default()
     }
 
-    pub fn resized(&self) -> bool {
-        self.changed
-    }
-
     pub fn clear_color(&self) -> Option<Color> {
         self.clear_color
     }

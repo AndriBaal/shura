@@ -39,8 +39,9 @@ impl Resources {
             bunny_sprite,
             text: ctx.gpu.create_text(&font, &[TextSection {
                 color: Color::BLACK,
-                text: "Testg",
-                size: 3.0
+                text: "AgAgQ",
+                size: 3.0,
+                offset: Default::default()
             }]),
         }
     }
@@ -127,28 +128,28 @@ impl ComponentController for Bunny {
         let fov = ctx.world_camera.fov();
         ctx.components
             .buffer_for_each_mut::<Self>(ctx.world, &ctx.gpu, |bunny| {
-                // let mut linvel = bunny.linvel;
-                // let mut translation = bunny.position.translation();
+                let mut linvel = bunny.linvel;
+                let mut translation = bunny.position.translation();
 
-                // linvel.y += GRAVITY * frame;
-                // translation += linvel * frame;
-                // if translation.x >= fov.x {
-                //     linvel.x = -linvel.x;
-                //     translation.x = fov.x;
-                // } else if translation.x <= -fov.x {
-                //     linvel.x = -linvel.x;
-                //     translation.x = -fov.x;
-                // }
+                linvel.y += GRAVITY * frame;
+                translation += linvel * frame;
+                if translation.x >= fov.x {
+                    linvel.x = -linvel.x;
+                    translation.x = fov.x;
+                } else if translation.x <= -fov.x {
+                    linvel.x = -linvel.x;
+                    translation.x = -fov.x;
+                }
 
-                // if translation.y < -fov.y {
-                //     linvel.y = rand::gen_range(0.0..15.0);
-                //     translation.y = -fov.y;
-                // } else if translation.y > fov.y {
-                //     linvel.y = -1.0;
-                //     translation.y = fov.y;
-                // }
-                // bunny.linvel = linvel;
-                // bunny.position.set_translation(translation);
+                if translation.y < -fov.y {
+                    linvel.y = rand::gen_range(0.0..15.0);
+                    translation.y = -fov.y;
+                } else if translation.y > fov.y {
+                    linvel.y = -1.0;
+                    translation.y = fov.y;
+                }
+                bunny.linvel = linvel;
+                bunny.position.set_translation(translation);
             });
     }
 

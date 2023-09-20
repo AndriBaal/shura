@@ -1,6 +1,6 @@
 use std::{mem::size_of, sync::Arc};
 
-use crate::{vector, Color, Gpu, Index, SpriteSheet, SpriteSheetBuilder, SpriteSheetIndex, Vector};
+use crate::{vector, Color, Gpu, Index, SpriteSheet, SpriteSheetBuilder, SpriteSheetIndex, Vector, Sprite};
 use rustc_hash::FxHashMap;
 use wgpu::util::DeviceExt;
 
@@ -69,13 +69,14 @@ impl Font {
 
 pub(crate) struct FontInner {
     sprite_sheet: SpriteSheet,
-    index_map: FxHashMap<char, SpriteSheetIndex>,
+    index_map: FxHashMap<rusttype::GlyphId, (SpriteSheetIndex, Vector<f32>)>,
     font: rusttype::Font<'static>,
 }
 impl FontInner {
+    const RES: f32 = 200.0;
+
     pub fn new(gpu: &Gpu, data: &'static [u8]) -> Self {
-        const RES: f32 = 200.0;
-        let scale = rusttype::Scale::uniform(RES);
+        let scale = rusttype::Scale::uniform(Self::RES);
         let font = rusttype::Font::try_from_bytes(data).unwrap();
 
         let face_ref = match &font {
@@ -128,18 +129,10 @@ impl FontInner {
         }
 
         let desc = SpriteSheetBuilder::empty(
-            vector(amount, RES as u32),
+            vector(amount, Self::RES as u32),
             vector(font.glyph_count() as u32, 1),
         )
-        .sampler(wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Linear,
-            ..Default::default()
-        })
+        .sampler(Sprite::DEFAULT_SAMPLER)
         .format(wgpu::TextureFormat::R8Unorm);
 
         let mut sprite_sheet = gpu.create_sprite_sheet(desc);
@@ -148,16 +141,19 @@ impl FontInner {
         let glyphs = glyphs!(face_ref);
         let mut buffer: Vec<u8> = Vec::with_capacity((size.x * size.y) as usize);
         let mut counter = 0;
-        for (id, c) in glyphs {
+        for (id, _char) in glyphs {
             let glyph = font.glyph(id);
             let scaled = glyph.scaled(scale);
             let positioned = scaled.positioned(rusttype::Point { x: 0.0, y: 0.0 });
 
             if let Some(bb) = positioned.pixel_bounding_box() {
                 positioned.draw(|_x, _y, a| {
-                    buffer.push((a * 255.0) as u8);
+                    buffer.push((a.round() * 255.0) as u8);
                 });
-                index_map.insert(c, counter);
+                let ratio = Vector::new(bb.width(), bb.height())
+                    .cast::<f32>()
+                    .component_div(&size.cast::<f32>());
+                index_map.insert(id, (counter, ratio));
                 sprite_sheet.write(
                     gpu,
                     counter,
@@ -196,8 +192,8 @@ pub struct TextSection<'a> {
     pub color: Color,
     pub text: &'a str,
     pub size: f32,
+    pub offset: Vector<f32>,
     // pub width: f32,
-    // pub
 }
 
 pub struct Text {
@@ -206,50 +202,67 @@ pub struct Text {
     index_buffer: wgpu::Buffer,
     amount_of_vertices: u32,
     amount_of_indices: u32,
+    vertices_size: wgpu::BufferAddress,
+    indices_size: wgpu::BufferAddress,
 }
 
 impl Text {
     pub fn new(gpu: &Gpu, font: &Font, sections: &[TextSection]) -> Self {
-        // let mut vertices: Vec<TextVertex> = vec![];
-        // let mut indices: Vec<Index> = vec![];
+        let mut vertices: Vec<TextVertex> = vec![];
+        let mut indices: Vec<Index> = vec![];
 
-        // for section in sections {
-        //     let mut layout = Layout::<()>::new(CoordinateSystem::PositiveYUp);
-        //     layout.reset(&section.layout);
-        //     layout.append(
-        //         &[&font.inner.font],
-        //         &TextStyle::new(section.text, section.size, 0),
-        //     );
+        for section in sections {
+            for glyph in font.inner.font.layout(
+                section.text,
+                rusttype::Scale::uniform(section.size),
+                rusttype::Point {
+                    x: section.offset.x,
+                    y: section.offset.y,
+                },
+            ) {
+                if let Some(bb) = glyph.unpositioned().exact_bounding_box() {
+                    let base_index = vertices.len() as u32;
+                    let (id, scale) = font.inner.index_map[&glyph.id()];
+                    let size = Vector::new(bb.width(), bb.height());
+                    let bottom_left = Vector::new(glyph.position().x, glyph.position().y);
+                    let top_right = bottom_left + size;
+                    let bottom_right = bottom_left + Vector::new(size.x, 0.0);
+                    let top_left = bottom_left + Vector::new(0.0, size.y);
+                    let offset = Vector::new(0.0, -bb.max.y);
 
-        //     for glyph in layout.glyphs() {
-        //         let metrics = font
-        //             .inner
-        //             .font
-        //             .metrics_indexed(glyph.key.glyph_index, section.size);
-        //         let id = font.inner.index_map[&glyph.key.glyph_index];
-        //         let bottom_left = vector(glyph.x, glyph.y);
-        //         let bottom_right = vector(glyph.x + glyph.width as f32, glyph.y);
-        //         let top_left = vector(glyph.x, glyph.y + glyph.height as f32);
-        //         let top_right = vector(
-        //             glyph.x + glyph.width as f32,
-        //             glyph.y + glyph.height as f32,
-        //         );
-
-        //         let base_index = vertices.len() as u32;
-        //         let offset = vector(0.0, metrics.ymin as f32);
-
-        //         vertices.extend([
-        //             TextVertex::new(top_left - offset, Vector::new(0.0, 0.0), section.color, id),
-        //             TextVertex::new(bottom_left - offset, Vector::new(0.0, 1.0), section.color, id),
-        //             TextVertex::new(bottom_right - offset, Vector::new(1.0, 1.0), section.color, id),
-        //             TextVertex::new(top_right - offset, Vector::new(1.0, 0.0), section.color, id),
-        //         ]);
-        //         indices.extend([
-        //             Index::new(base_index + 0, base_index + 1, base_index + 2),
-        //             Index::new(base_index + 2, base_index + 3, base_index + 0),
-        //         ]);
-        //     }
-        // }
+                    vertices.extend([
+                        TextVertex::new(
+                            top_left + offset,
+                            Vector::new(0.0, 0.0),
+                            section.color,
+                            id,
+                        ),
+                        TextVertex::new(
+                            bottom_left + offset,
+                            Vector::new(0.0, scale.y),
+                            section.color,
+                            id,
+                        ),
+                        TextVertex::new(
+                            bottom_right + offset,
+                            Vector::new(scale.x, scale.y),
+                            section.color,
+                            id,
+                        ),
+                        TextVertex::new(
+                            top_right + offset,
+                            Vector::new(scale.x, 0.0),
+                            section.color,
+                            id,
+                        ),
+                    ]);
+                    indices.extend([
+                        Index::new(base_index + 0, base_index + 1, base_index + 2),
+                        Index::new(base_index + 2, base_index + 3, base_index + 0),
+                    ]);
+                }
+            }
+        }
 
         // let mut layout = Layout::new(CoordinateSystem::PositiveYUp);
         // // By default, layout is initialized with the default layout settings. This call is redundant, but
@@ -258,55 +271,57 @@ impl Text {
         //     ..LayoutSettings::default()
         // });
 
-        let test = *font.inner.index_map.get(&'Q').unwrap();
+        // let test = *font.inner.index_map.get(&'g').unwrap();
 
-        let vertices = [
-            TextVertex::new(Vector::new(-1.0, 1.0), Vector::new(0.0, 0.0), Color::RED, test),
-            TextVertex::new(
-                Vector::new(-1.0, -1.0),
-                Vector::new(0.0, 1.0),
-                Color::RED,
-                test,
-            ),
-            TextVertex::new(Vector::new(1.0, -1.0), Vector::new(1.0, 1.0), Color::RED, test),
-            TextVertex::new(Vector::new(1.0, 1.0), Vector::new(1.0, 0.0), Color::RED, test),
-            TextVertex::new(
-                Vector::new(-1.0 + 2.0, 1.0),
-                Vector::new(0.0, 0.0),
-                Color::YELLOW,
-                test,
-            ),
-            TextVertex::new(
-                Vector::new(-1.0 + 2.0, -1.0),
-                Vector::new(0.0, 1.0),
-                Color::YELLOW,
-                test,
-            ),
-            TextVertex::new(
-                Vector::new(1.0 + 2.0, -1.0),
-                Vector::new(1.0, 1.0),
-                Color::YELLOW,
-                test,
-            ),
-            TextVertex::new(
-                Vector::new(1.0 + 2.0, 1.0),
-                Vector::new(1.0, 0.0),
-                Color::YELLOW,
-                test,
-            ),
-        ];
-        let indices = [
-            Index::new(0, 1, 2),
-            Index::new(2, 3, 0),
-            Index::new(4, 5, 6),
-            Index::new(6, 7, 4),
-        ];
+        // let vertices = [
+        //     TextVertex::new(Vector::new(-1.0, 1.0), Vector::new(0.0, 0.0), Color::RED, test),
+        //     TextVertex::new(
+        //         Vector::new(-1.0, -1.0),
+        //         Vector::new(0.0, 1.0),
+        //         Color::RED,
+        //         test,
+        //     ),
+        //     TextVertex::new(Vector::new(1.0, -1.0), Vector::new(1.0, 1.0), Color::RED, test),
+        //     TextVertex::new(Vector::new(1.0, 1.0), Vector::new(1.0, 0.0), Color::RED, test),
+        //     TextVertex::new(
+        //         Vector::new(-1.0 + 2.0, 1.0),
+        //         Vector::new(0.0, 0.0),
+        //         Color::YELLOW,
+        //         test,
+        //     ),
+        //     TextVertex::new(
+        //         Vector::new(-1.0 + 2.0, -1.0),
+        //         Vector::new(0.0, 1.0),
+        //         Color::YELLOW,
+        //         test,
+        //     ),
+        //     TextVertex::new(
+        //         Vector::new(1.0 + 2.0, -1.0),
+        //         Vector::new(1.0, 1.0),
+        //         Color::YELLOW,
+        //         test,
+        //     ),
+        //     TextVertex::new(
+        //         Vector::new(1.0 + 2.0, 1.0),
+        //         Vector::new(1.0, 0.0),
+        //         Color::YELLOW,
+        //         test,
+        //     ),
+        // ];
+        // let indices = [
+        //     Index::new(0, 1, 2),
+        //     Index::new(2, 3, 0),
+        //     Index::new(4, 5, 6),
+        //     Index::new(6, 7, 4),
+        // ];
 
+        let vertices_slice = bytemuck::cast_slice(&vertices[..]);
+        let indices_slice = bytemuck::cast_slice(&indices[..]);
         let vertex_buffer = gpu
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("vertex_buffer"),
-                contents: bytemuck::cast_slice(&vertices),
+                contents: vertices_slice,
                 usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             });
 
@@ -314,7 +329,7 @@ impl Text {
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("index_buffer"),
-                contents: bytemuck::cast_slice(&indices),
+                contents: indices_slice,
                 usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
             });
 
@@ -322,8 +337,10 @@ impl Text {
             vertex_buffer,
             index_buffer,
             amount_of_vertices: vertices.len() as u32,
-            amount_of_indices: indices.len() as u32,
+            amount_of_indices: indices.len() as u32 * 3,
             font: font.clone(),
+            vertices_size: vertices_slice.len() as wgpu::BufferAddress,
+            indices_size: indices_slice.len() as wgpu::BufferAddress,
         };
     }
 
@@ -332,19 +349,26 @@ impl Text {
     }
 
     pub fn vertex_buffer(&self) -> wgpu::BufferSlice {
-        self.vertex_buffer.slice(..self.vertex_buffer.size())
+        self.vertex_buffer.slice(..self.vertices_size)
     }
 
     pub fn index_buffer(&self) -> wgpu::BufferSlice {
-        self.index_buffer
-            .slice(..self.amount_of_indices as u64 * 3 * std::mem::size_of::<u32>() as u64)
+        self.index_buffer.slice(..self.indices_size)
     }
 
     pub fn amount_of_indices(&self) -> u32 {
-        self.amount_of_indices * 3
+        self.amount_of_indices
     }
 
     pub fn amount_of_vertices(&self) -> u32 {
         self.amount_of_vertices
+    }
+
+    pub fn vertices_size(&self) -> wgpu::BufferAddress {
+        self.vertices_size
+    }
+
+    pub fn indices_size(&self) -> wgpu::BufferAddress {
+        self.indices_size * 3
     }
 }

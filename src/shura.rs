@@ -232,6 +232,7 @@ pub struct GlobalComponents(
 /// Core of the game engine.
 pub struct Shura {
     pub end: bool,
+    pub resized: bool,
     pub frame: FrameManager,
     pub scenes: SceneManager,
     pub globals: GlobalComponents,
@@ -278,6 +279,7 @@ impl Shura {
             defaults,
             #[cfg(target_arch = "wasm32")]
             auto_scale_canvas,
+            resized: false,
         }
     }
 
@@ -420,7 +422,8 @@ impl Shura {
                 .update(&mut scene.components, &scene.world_camera);
         }
 
-        if self.scenes.switched() || scene.screen_config.changed {
+        self.resized = self.scenes.switched() || scene.screen_config.changed;
+        if self.resized {
             #[cfg(feature = "framebuffer")]
             let scale = scene.screen_config.render_scale();
             #[cfg(feature = "framebuffer")]

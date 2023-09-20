@@ -57,6 +57,7 @@ pub struct Context<'a> {
     // Misc
     pub window_size: Vector<u32>,
     pub cursor: Vector<f32>,
+    pub resized: bool
 }
 
 impl<'a> Context<'a> {
@@ -96,6 +97,7 @@ impl<'a> Context<'a> {
             // Misc
             window_size,
             cursor,
+            resized: shura.resized
         }
     }
 

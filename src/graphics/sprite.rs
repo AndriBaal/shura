@@ -136,15 +136,13 @@ impl Sprite {
     pub fn new<D: Deref<Target = [u8]>>(gpu: &Gpu, desc: SpriteBuilder<D>) -> Self {
         let texture = Self::create_texture(gpu, desc.format, desc.size, &desc.data);
         let (bind_group, sampler) = Self::create_bind_group(gpu, &texture, &desc.sampler);
-        let mut sprite = Self {
+        return Self {
             _sampler: sampler,
             size: desc.size,
             format: desc.format,
             texture,
             bind_group,
         };
-
-        return sprite;
     }
 
     fn create_texture(
@@ -154,9 +152,8 @@ impl Sprite {
         data: &[u8],
     ) -> wgpu::Texture {
         assert!(size.x != 0 && size.y != 0);
-        let texture = gpu.device.create_texture_with_data(
-            &gpu.queue,
-            &wgpu::TextureDescriptor {
+        let texture = if data.is_empty() {
+            gpu.device.create_texture(&wgpu::TextureDescriptor {
                 label: Some("sprite_texture"),
                 size: wgpu::Extent3d {
                     width: size.x,
@@ -172,9 +169,30 @@ impl Sprite {
                     | wgpu::TextureUsages::COPY_SRC
                     | wgpu::TextureUsages::RENDER_ATTACHMENT,
                 view_formats: &[],
-            },
-            data,
-        );
+            })
+        } else {
+            gpu.device.create_texture_with_data(
+                &gpu.queue,
+                &wgpu::TextureDescriptor {
+                    label: Some("sprite_texture"),
+                    size: wgpu::Extent3d {
+                        width: size.x,
+                        height: size.y,
+                        depth_or_array_layers: 1,
+                    },
+                    format,
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: wgpu::TextureDimension::D2,
+                    usage: wgpu::TextureUsages::TEXTURE_BINDING
+                        | wgpu::TextureUsages::COPY_DST
+                        | wgpu::TextureUsages::COPY_SRC
+                        | wgpu::TextureUsages::RENDER_ATTACHMENT,
+                    view_formats: &[],
+                },
+                data,
+            )
+        };
 
         return texture;
     }

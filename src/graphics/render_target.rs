@@ -60,9 +60,9 @@ impl SurfaceRenderTarget {
 
     pub(crate) fn resize(&mut self, gpu: &Gpu, new_size: Vector<u32>) {
         if gpu.sample_count() != 1 && new_size != self.size {
-            self.size = new_size;
             self.target_msaa = Some(SpriteRenderTarget::create_msaa(gpu, new_size));
         }
+        self.size = new_size;
     }
 
     pub(crate) fn start_frame(&mut self, gpu: &Gpu) -> Result<(), wgpu::SurfaceError> {

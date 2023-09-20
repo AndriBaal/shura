@@ -162,7 +162,7 @@ impl ComponentController for Light {
     };
 
     fn update(ctx: &mut Context) {
-        if ctx.screen_config.resized() {
+        if ctx.resized {
             let mut res = ctx.components.single_mut::<LightResources>();
             res.light_map.resize(&ctx.gpu, ctx.window_size);
         }

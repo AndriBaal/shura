@@ -625,11 +625,13 @@ impl ModelBuilder {
             self.tex_coord_rotation_axis,
         );
 
+        let vertices_slice = bytemuck::cast_slice(&vertices[..]);
+        let indices_slice = bytemuck::cast_slice(&self.indices[..]);
         let vertex_buffer = gpu
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("vertex_buffer"),
-                contents: bytemuck::cast_slice(&vertices[..]),
+                contents: vertices_slice,
                 usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             });
 
@@ -637,16 +639,18 @@ impl ModelBuilder {
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("index_buffer"),
-                contents: bytemuck::cast_slice(&self.indices[..]),
+                contents: indices_slice,
                 usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
             });
 
         Model {
-            amount_of_vertices: self.vertices.len() as u32,
-            amount_of_indices: self.indices.len() as u32,
+            vertices_size: vertices_slice.len() as wgpu::BufferAddress,
+            indices_size: indices_slice.len() as wgpu::BufferAddress,
             vertex_buffer,
             index_buffer,
             aabb: AABB::from_vertices(&vertices),
+            amount_of_vertices: vertices.len() as u32,
+            amount_of_indices: self.indices.len() as u32 * 3,
         }
     }
 }
@@ -656,6 +660,8 @@ impl ModelBuilder {
 pub struct Model {
     amount_of_vertices: u32,
     amount_of_indices: u32,
+    vertices_size: wgpu::BufferAddress,
+    indices_size: wgpu::BufferAddress,
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
     aabb: AABB,
@@ -679,54 +685,63 @@ impl Model {
     }
 
     pub fn write_indices(&mut self, gpu: &Gpu, indices: &[Index]) {
-        if indices.len() > self.amount_of_indices as usize {
+        let indices_slice = bytemuck::cast_slice(&indices[..]);
+        if indices.len() > self.indices_size as usize {
             self.index_buffer = gpu
                 .device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                     label: Some("index_buffer"),
-                    contents: bytemuck::cast_slice(&indices[..]),
+                    contents: indices_slice,
                     usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
                 });
         } else {
-            gpu.queue
-                .write_buffer(&self.index_buffer, 0, bytemuck::cast_slice(&indices[..]));
+            gpu.queue.write_buffer(&self.index_buffer, 0, indices_slice);
         }
-        self.amount_of_indices = indices.len() as u32;
+        self.indices_size = indices_slice.len() as wgpu::BufferAddress;
+        self.amount_of_indices = indices.len() as u32 * 3;
     }
 
     pub fn write_vertices(&mut self, gpu: &Gpu, vertices: &[Vertex]) {
-        if vertices.len() > self.amount_of_vertices as usize {
+        let vertices_slice = bytemuck::cast_slice(&vertices[..]);
+        if vertices.len() > self.vertices_size as usize {
             self.vertex_buffer = gpu
                 .device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                     label: Some("vertex_buffer"),
-                    contents: bytemuck::cast_slice(&vertices[..]),
+                    contents: vertices_slice,
                     usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
                 });
         } else {
             gpu.queue
-                .write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&vertices[..]));
+                .write_buffer(&self.vertex_buffer, 0, vertices_slice);
         }
+        self.vertices_size = vertices.len() as wgpu::BufferAddress;
         self.amount_of_vertices = vertices.len() as u32;
         self.aabb = AABB::from_vertices(vertices);
     }
 
     pub fn vertex_buffer(&self) -> wgpu::BufferSlice {
-        self.vertex_buffer
-            .slice(..self.amount_of_vertices() as u64)
+        self.vertex_buffer.slice(..self.vertices_size)
     }
 
     pub fn index_buffer(&self) -> wgpu::BufferSlice {
-        self.index_buffer
-            .slice(..self.amount_of_indices as u64 * 3 * std::mem::size_of::<u32>() as u64)
+        self.index_buffer.slice(..self.indices_size)
     }
 
     pub fn amount_of_indices(&self) -> u32 {
-        self.amount_of_indices * 3
+        self.amount_of_indices
     }
 
     pub fn amount_of_vertices(&self) -> u32 {
         self.amount_of_vertices
+    }
+
+    pub fn vertices_size(&self) -> wgpu::BufferAddress {
+        self.vertices_size
+    }
+
+    pub fn indices_size(&self) -> wgpu::BufferAddress {
+        self.indices_size * 3
     }
 
     pub fn aabb(&self, position: Isometry<f32>) -> AABB {
