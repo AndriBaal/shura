@@ -12,3 +12,4 @@ pub use nalgebra::Vector4;
 pub const fn vector<T>(x: T, y: T) -> Vector<T> {
     return Vector::new(x, y);
 }
+

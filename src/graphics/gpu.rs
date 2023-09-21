@@ -1,7 +1,8 @@
 #[cfg(feature = "log")]
 use crate::log::info;
+#[cfg(feature = "text")]
+use crate::text::{Font, Text, TextSection, TextVertex};
 use crate::{
-    text::{Font, Text, TextVertex, TextSection},
     Camera, InstanceBuffer, InstanceField, InstancePosition, Isometry, Model, ModelBuilder,
     RenderEncoder, RenderTarget, Shader, ShaderConfig, Sprite, SpriteBuilder, SpriteRenderTarget,
     SpriteSheet, SpriteSheetBuilder, SpriteSheetIndex, SurfaceRenderTarget, Uniform, UniformField,
@@ -233,10 +234,12 @@ impl Gpu {
         Shader::new(self, config)
     }
 
+    #[cfg(feature = "text")]
     pub fn create_font(&self, data: &'static [u8]) -> Font {
         Font::new(self, data)
     }
 
+    #[cfg(feature = "text")]
     pub fn create_text(&self, font: &Font, sections: &[TextSection]) -> Text {
         Text::new(self, font, sections)
     }
@@ -367,6 +370,7 @@ pub struct GpuDefaults {
     pub color_uniform: Shader,
     pub rainbow: Shader,
     pub grey: Shader,
+    #[cfg(feature = "text")]
     pub text: Shader,
     pub blurr: Shader,
 
@@ -456,6 +460,7 @@ impl GpuDefaults {
             ..Default::default()
         });
 
+        #[cfg(feature = "text")]
         let text = gpu.create_shader(ShaderConfig {
             name: "text",
             fragment_shader: include_str!("../../res/shader/text.wgsl"),
@@ -587,6 +592,7 @@ impl GpuDefaults {
             sprite_crop,
             unit_model,
             unit_camera,
+            #[cfg(feature = "text")]
             text,
             sprite,
             rainbow,
@@ -635,17 +641,12 @@ impl GpuDefaults {
         self.relative_camera = Camera::new_buffer(gpu, Isometry::default(), fov);
     }
 
-    pub(crate) fn buffer(
-        &mut self,
-        gpu: &Gpu,
-        total_time: f32,
-        frame_time: f32,
-    ) {
+    pub(crate) fn buffer(&mut self, gpu: &Gpu, total_time: f32, frame_time: f32) {
         self.times.write(&gpu, [total_time, frame_time]);
     }
 
     pub fn unit_model(&self) -> &Model {
-        return &self.unit_model
+        return &self.unit_model;
     }
 
     pub fn default_target(&self) -> &dyn RenderTarget {

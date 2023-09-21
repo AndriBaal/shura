@@ -1,4 +1,4 @@
-use shura::{log, rand, *, text::TextSection};
+use shura::{log, rand, *};
 
 #[shura::main]
 fn shura_main(config: ShuraConfig) {
@@ -23,7 +23,6 @@ fn shura_main(config: ShuraConfig) {
 struct Resources {
     screenshot: Option<SpriteRenderTarget>,
     bunny_sprite: Sprite,
-    text: text::Text,
 }
 
 impl Resources {
@@ -32,17 +31,10 @@ impl Resources {
         //     .gpu
         //     .create_model(ModelBuilder::cuboid(vector(0.06, 0.09)));
         let bunny_sprite = ctx.gpu.create_sprite(sprite_file!("./img/wabbit.png"));
-        let font = ctx.gpu.create_font(include_bytes!("./font/novem.ttf"));
         Resources {
             screenshot: None,
             // bunny_model,
             bunny_sprite,
-            text: ctx.gpu.create_text(&font, &[TextSection {
-                color: Color::BLACK,
-                text: "AgAgQ",
-                size: 3.0,
-                offset: Default::default()
-            }]),
         }
     }
 }
@@ -156,8 +148,11 @@ impl ComponentController for Bunny {
     fn render<'a>(renderer: &mut ComponentRenderer<'a>) {
         let resources = renderer.single::<Resources>();
         renderer.render_all::<Bunny>(renderer.world_camera, |r, instances| {
-            r.render_sprite(instances.clone(), r.defaults.unit_model(), &resources.bunny_sprite);
-            r.render_text(instances, &resources.text);
+            r.render_sprite(
+                instances.clone(),
+                r.defaults.unit_model(),
+                &resources.bunny_sprite,
+            );
         });
         if let Some(screenshot) = &resources.screenshot {
             renderer.screenshot = Some(screenshot);

@@ -1,4 +1,4 @@
-use shura::{log, rand, text::*, *};
+use shura::{log, rand, *};
 
 #[shura::main]
 fn shura_main(config: ShuraConfig) {
@@ -7,38 +7,44 @@ fn shura_main(config: ShuraConfig) {
         init: |ctx| {
             register!(ctx, [Bunny, Resources]);
             ctx.components
-                .add::<Resources>(ctx.world, Resources::new(ctx));
+                .set::<Resources>()
+                .add(ctx.world, Resources::new(ctx));
             ctx.screen_config
                 .set_clear_color(Some(RgbaColor::new(220, 220, 220, 255).into()));
             ctx.world_camera.set_scaling(WorldCameraScale::Min(3.0));
-            ctx.components.add_with::<Bunny>(ctx.world, |handle| {
-                Bunny::new(Vector::new(0.0, 0.0), handle)
-            });
+            ctx.components
+                .set::<Bunny>()
+                .add_with(ctx.world, |handle| Bunny::new(vector(0.0, 0.0), handle));
         },
     });
 }
-#[derive(Component)]
+
+#[derive(Resource)]
 struct Resources {
     screenshot: Option<SpriteRenderTarget>,
-    bunny_model: Model,
     bunny_sprite: Sprite,
-    font: FontBrush,
-}
-impl ComponentController for Resources {
-    const CONFIG: ComponentConfig = ComponentConfig::RESOURCE;
+    text: text::Text,
 }
 
 impl Resources {
     pub fn new(ctx: &Context) -> Self {
-        let bunny_model = ctx
-            .gpu
-            .create_model(ModelBuilder::cuboid(Vector::new(0.06, 0.09)));
+        // let bunny_model = ctx
+        //     .gpu
+        //     .create_model(ModelBuilder::cuboid(vector(0.06, 0.09)));
         let bunny_sprite = ctx.gpu.create_sprite(sprite_file!("./img/wabbit.png"));
+        let font = ctx.gpu.create_font(include_bytes!("./font/novem.ttf"));
         Resources {
             screenshot: None,
-            bunny_model,
+            // bunny_model,
             bunny_sprite,
-            font: ctx.gpu.create_font(&font_file!("./font/novem.ttf"), 1000),
+            text: ctx.gpu.create_text(&font, &[text::TextSection {
+                color: Color::BLACK,
+                text: "XXX",
+                size: 0.05,
+                horizontal_alignment: text::TextAlignment::End,
+                vertical_alignment: text::TextAlignment::End,
+                ..Default::default()
+            }]),
         }
     }
 }
@@ -52,12 +58,12 @@ struct Bunny {
 }
 impl Bunny {
     pub fn new(translation: Vector<f32>, handle: ComponentHandle) -> Bunny {
-        let scale = rand::gen_range(0.75..2.0);
+        let scale = rand::gen_range(0.75_f32..2.0);
         let position = PositionComponent::new()
             .with_translation(translation)
             .with_rotation(rand::gen_range(-1.0..1.0))
-            .with_scale(Vector::new(scale, scale));
-        let linvel = Vector::new(rand::gen_range(-2.5..2.5), rand::gen_range(-7.5..7.5));
+            .with_scale(scale * vector(0.12, 0.18));
+        let linvel = vector(rand::gen_range(-2.5..2.5), rand::gen_range(-7.5..7.5));
         Bunny {
             position,
             linvel,
@@ -75,6 +81,17 @@ impl ComponentController for Bunny {
     fn update(ctx: &mut Context) {
         const MODIFY_STEP: usize = 1500;
         const GRAVITY: f32 = -2.5;
+        gui::Window::new("bunnymark")
+            .anchor(gui::Align2::LEFT_TOP, gui::Vec2::default())
+            .resizable(false)
+            .collapsible(false)
+            .show(&ctx.gui.clone(), |ui| {
+                ui.label(format!("FPS: {}", ctx.frame.fps()));
+                ui.label(format!("Bunnies: {}", ctx.components.len::<Bunny>()));
+                if ui.button("Clear Bunnies").clicked() {
+                    ctx.components.remove_all::<Bunny>(ctx.world);
+                }
+            });
 
         if ctx.input.is_held(MouseButton::Left) || ctx.input.is_held(ScreenTouch) {
             let cursor = ctx.cursor;
@@ -139,27 +156,13 @@ impl ComponentController for Bunny {
     }
 
     fn render<'a>(renderer: &mut ComponentRenderer<'a>) {
-        let resources = renderer.resource::<Resources>().single();
+        let resources = renderer.single::<Resources>();
         renderer.render_all::<Bunny>(renderer.world_camera, |r, instances| {
-            r.render_sprite(instances, &resources.bunny_model, &resources.bunny_sprite);
-            // r.queue_text(
-            //     RenderCamera::RelativeTopRight,
-            //     &resources.font,
-            //     vec![TextSection {
-            //         position: Vector::new(0.0, 0.0),
-            //         text: vec![Text::new(&format!(
-            //             "FPS: {}\nBunnies: {}",
-            //             renderer.ctx.frame.fps(),
-            //             renderer.ctx.components.len::<Bunny>()
-            //         ))
-            //         .with_scale(0.05)
-            //         .with_color(Color::RED)],
-            //         alignment: TextAlignment::TopRight,
-            //         ..Default::default()
-            //     }],
-            // );
-            // r.render_font(&resources.font)
+            r.render_sprite(instances.clone(), r.defaults.unit_model(), &resources.bunny_sprite);
         });
+        renderer.inner.use_instances(&renderer.inner.defaults.single_centered_instance);
+        renderer.inner.use_camera(renderer.relative_top_right_camera);
+        renderer.inner.render_text(0..1, &resources.text);
         if let Some(screenshot) = &resources.screenshot {
             renderer.screenshot = Some(screenshot);
         }

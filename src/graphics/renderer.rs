@@ -1,13 +1,17 @@
+#[cfg(feature = "text")]
+use crate::text::Text;
+
 use crate::{
-    text::Text, Camera, Color, Component, ComponentHandle, ComponentSetResource, Context, Gpu,
-    GpuDefaults, GroupFilter, GroupHandle, InstanceBuffer, InstanceIndex, InstanceIndices, Model,
-    RenderTarget, Shader, Sprite, SpriteRenderTarget, SpriteSheet, SpriteSheetIndex, Uniform,
+    Camera, Color, Component, ComponentHandle, ComponentSetResource, Context, Gpu, GpuDefaults,
+    GroupFilter, GroupHandle, InstanceBuffer, InstanceIndex, InstanceIndices, Model, RenderTarget,
+    Shader, Sprite, SpriteRenderTarget, SpriteSheet, SpriteSheetIndex, Uniform,
 };
 use std::{ops::Range, ptr::null};
 
 struct RenderCache {
     pub bound_shader: *const Shader,
     pub bound_model: *const Model,
+    #[cfg(feature = "text")]
     pub bound_text: *const Text,
     pub bound_instances: *const InstanceBuffer,
     pub bound_uniforms: [*const wgpu::BindGroup; 16],
@@ -20,6 +24,7 @@ impl Default for RenderCache {
             bound_model: null(),
             bound_instances: null(),
             bound_uniforms: [null(); 16],
+            #[cfg(feature = "text")]
             bound_text: null(),
         }
     }
@@ -36,6 +41,7 @@ pub struct ComponentRenderer<'a> {
     pub relative_bottom_right_camera: &'a Camera,
     pub relative_top_left_camera: &'a Camera,
     pub relative_top_right_camera: &'a Camera,
+    pub single_centered_instance: &'a InstanceBuffer,
     pub unit_camera: &'a Camera,
 }
 
@@ -52,6 +58,7 @@ impl<'a> ComponentRenderer<'a> {
             relative_top_left_camera: &ctx.defaults.relative_top_left_camera,
             relative_top_right_camera: &ctx.defaults.relative_top_right_camera,
             unit_camera: &ctx.defaults.unit_camera,
+            single_centered_instance: &ctx.defaults.single_centered_instance,
         }
     }
 
@@ -237,7 +244,10 @@ impl<'a> Renderer<'a> {
 
     pub fn use_model(&mut self, model: &'a Model) {
         let ptr = model as *const _;
-        self.cache.bound_text = null();
+        #[cfg(feature = "text")]
+        {
+            self.cache.bound_text = null();
+        }
         if ptr != self.cache.bound_model {
             self.cache.bound_model = ptr;
             self.indices = model.amount_of_indices();
@@ -248,6 +258,7 @@ impl<'a> Renderer<'a> {
         }
     }
 
+    #[cfg(feature = "text")]
     pub fn use_text(&mut self, text: &'a Text) {
         let ptr = text as *const _;
         self.cache.bound_model = null();
@@ -363,6 +374,7 @@ impl<'a> Renderer<'a> {
         self.draw(instances);
     }
 
+    #[cfg(feature = "text")]
     pub fn render_text(&mut self, instances: impl Into<InstanceIndices>, text: &'a Text) {
         self.use_shader(&self.defaults.text);
         self.use_text(text);

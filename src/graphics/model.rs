@@ -12,9 +12,9 @@ impl Default for ModelBuilder {
             indices: Default::default(),
             vertex_offset: Isometry::new(Self::DEFAULT_OFFSET, Self::DEFAULT_ROTATION),
             vertex_scale: Self::DEFAULT_SCALE,
+            vertex_rotation_axis: Vector::new(0.0, 0.0),
             tex_coord_offset: Isometry::new(Self::DEFAULT_OFFSET, Self::DEFAULT_ROTATION),
             tex_coord_scale: Self::DEFAULT_SCALE,
-            vertex_rotation_axis: Vector::new(0.0, 0.0),
             tex_coord_rotation_axis: Vector::new(0.5, 0.5),
         }
     }

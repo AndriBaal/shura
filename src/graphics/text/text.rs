@@ -1,13 +1,16 @@
 use std::{mem::size_of, sync::Arc};
 
-use crate::{vector, Color, Gpu, Index, SpriteSheet, SpriteSheetBuilder, SpriteSheetIndex, Vector, Sprite};
+use crate::{
+    vector, Color, Gpu, Index, Isometry, ModelBuilder, Sprite, SpriteSheet, SpriteSheetBuilder,
+    SpriteSheetIndex, Vector,
+};
 use rustc_hash::FxHashMap;
 use wgpu::util::DeviceExt;
 
 #[derive(Clone, Copy, Debug, bytemuck::Zeroable, bytemuck::Pod)]
 #[repr(C)]
 pub(crate) struct TextVertex {
-    offset: Vector<f32>,
+    pos: Vector<f32>,
     tex: Vector<f32>,
     color: Color,
     sprite: u32,
@@ -43,9 +46,9 @@ impl TextVertex {
         attributes: &Self::ATTRIBUTES,
     };
 
-    pub fn new(offset: Vector<f32>, tex: Vector<f32>, color: Color, sprite: u32) -> Self {
+    pub fn new(pos: Vector<f32>, tex: Vector<f32>, color: Color, sprite: u32) -> Self {
         Self {
-            offset,
+            pos,
             tex,
             color,
             sprite,
@@ -117,6 +120,9 @@ impl FontInner {
             let scaled = glyph.scaled(scale);
             let positioned = scaled.positioned(rusttype::Point { x: 0.0, y: 0.0 });
 
+
+            println!("{_char}");
+
             if let Some(bb) = positioned.pixel_bounding_box() {
                 amount += 1;
                 if bb.width() > size.x {
@@ -129,8 +135,8 @@ impl FontInner {
         }
 
         let desc = SpriteSheetBuilder::empty(
-            vector(amount, Self::RES as u32),
-            vector(font.glyph_count() as u32, 1),
+            vector(size.x as u32, Self::RES as u32),
+            vector(amount as u32, 1),
         )
         .sampler(Sprite::DEFAULT_SAMPLER)
         .format(wgpu::TextureFormat::R8Unorm);
@@ -165,20 +171,6 @@ impl FontInner {
                 counter += 1;
             }
         }
-        // for (_char, index) in font.chars() {
-        //     let (metrics, data) = font.rasterize_indexed(index.get(), RES);
-        //     if data.len() > 0 {
-        //         index_map.insert(index.get(), counter);
-        //         sprite_sheet.write(
-        //             gpu,
-        //             counter,
-        //             vector(metrics.width as u32, metrics.height as u32),
-        //             1,
-        //             &data,
-        //         );
-        //         counter += 1;
-        //     }
-        // }
 
         return Self {
             sprite_sheet,
@@ -188,12 +180,38 @@ impl FontInner {
     }
 }
 
+pub enum TextAlignment {
+    Start,
+    Center,
+    End,
+}
+
 pub struct TextSection<'a> {
     pub color: Color,
     pub text: &'a str,
     pub size: f32,
-    pub offset: Vector<f32>,
+    pub vertex_offset: Isometry<f32>,
+    pub vertex_rotation_axis: Vector<f32>,
+    pub horizontal_alignment: TextAlignment,
+    pub vertical_alignment: TextAlignment,
     // pub width: f32,
+}
+
+impl<'a> Default for TextSection<'a> {
+    fn default() -> Self {
+        Self {
+            color: Default::default(),
+            text: Default::default(),
+            size: Default::default(),
+            vertex_offset: Isometry::new(
+                ModelBuilder::DEFAULT_OFFSET,
+                ModelBuilder::DEFAULT_ROTATION,
+            ),
+            vertex_rotation_axis: Vector::new(0.0, 0.0),
+            horizontal_alignment: TextAlignment::Start,
+            vertical_alignment: TextAlignment::Start,
+        }
+    }
 }
 
 pub struct Text {
@@ -212,14 +230,50 @@ impl Text {
         let mut indices: Vec<Index> = vec![];
 
         for section in sections {
-            for glyph in font.inner.font.layout(
-                section.text,
-                rusttype::Scale::uniform(section.size),
-                rusttype::Point {
-                    x: section.offset.x,
-                    y: section.offset.y,
-                },
-            ) {
+            if section.text.is_empty() {
+                continue;
+            }
+
+            let glyphs = font
+                .inner
+                .font
+                .layout(
+                    section.text,
+                    rusttype::Scale::uniform(section.size),
+                    rusttype::Point::default(),
+                )
+                .collect::<Vec<rusttype::PositionedGlyph>>();
+
+            let horizontal = match section.horizontal_alignment {
+                TextAlignment::Start => 0.0,
+                TextAlignment::Center => {
+                    let mut max = 0.0;
+                    for glyph in glyphs.iter().rev() {
+                        if let Some(bb) = glyph.unpositioned().exact_bounding_box() {
+                            max = glyph.position().x + bb.max.x;
+                            break;
+                        }
+                    }
+                    max / 2.0
+                }
+                TextAlignment::End => {
+                    let mut max = 0.0;
+                    for glyph in glyphs.iter().rev() {
+                        if let Some(bb) = glyph.unpositioned().exact_bounding_box() {
+                            max = glyph.position().x + bb.max.x;
+                            break;
+                        }
+                    }
+                    max
+                }
+            };
+            let vertical = match section.horizontal_alignment {
+                TextAlignment::Start => 0.0,
+                TextAlignment::Center => section.size / 2.0,
+                TextAlignment::End => section.size,
+            };
+
+            for glyph in &glyphs {
                 if let Some(bb) = glyph.unpositioned().exact_bounding_box() {
                     let base_index = vertices.len() as u32;
                     let (id, scale) = font.inner.index_map[&glyph.id()];
@@ -228,7 +282,7 @@ impl Text {
                     let top_right = bottom_left + size;
                     let bottom_right = bottom_left + Vector::new(size.x, 0.0);
                     let top_left = bottom_left + Vector::new(0.0, size.y);
-                    let offset = Vector::new(0.0, -bb.max.y);
+                    let offset = Vector::new(0.0 - horizontal, -bb.max.y - vertical);
 
                     vertices.extend([
                         TextVertex::new(
@@ -256,6 +310,12 @@ impl Text {
                             id,
                         ),
                     ]);
+                    let offset = vertices.len() - 4;
+                    Self::compute_modifed_vertices(
+                        &mut vertices[offset..],
+                        section.vertex_offset,
+                        section.vertex_rotation_axis,
+                    );
                     indices.extend([
                         Index::new(base_index + 0, base_index + 1, base_index + 2),
                         Index::new(base_index + 2, base_index + 3, base_index + 0),
@@ -263,57 +323,6 @@ impl Text {
                 }
             }
         }
-
-        // let mut layout = Layout::new(CoordinateSystem::PositiveYUp);
-        // // By default, layout is initialized with the default layout settings. This call is redundant, but
-        // // demonstrates setting the value with your custom settings.
-        // layout.reset(&LayoutSettings {
-        //     ..LayoutSettings::default()
-        // });
-
-        // let test = *font.inner.index_map.get(&'g').unwrap();
-
-        // let vertices = [
-        //     TextVertex::new(Vector::new(-1.0, 1.0), Vector::new(0.0, 0.0), Color::RED, test),
-        //     TextVertex::new(
-        //         Vector::new(-1.0, -1.0),
-        //         Vector::new(0.0, 1.0),
-        //         Color::RED,
-        //         test,
-        //     ),
-        //     TextVertex::new(Vector::new(1.0, -1.0), Vector::new(1.0, 1.0), Color::RED, test),
-        //     TextVertex::new(Vector::new(1.0, 1.0), Vector::new(1.0, 0.0), Color::RED, test),
-        //     TextVertex::new(
-        //         Vector::new(-1.0 + 2.0, 1.0),
-        //         Vector::new(0.0, 0.0),
-        //         Color::YELLOW,
-        //         test,
-        //     ),
-        //     TextVertex::new(
-        //         Vector::new(-1.0 + 2.0, -1.0),
-        //         Vector::new(0.0, 1.0),
-        //         Color::YELLOW,
-        //         test,
-        //     ),
-        //     TextVertex::new(
-        //         Vector::new(1.0 + 2.0, -1.0),
-        //         Vector::new(1.0, 1.0),
-        //         Color::YELLOW,
-        //         test,
-        //     ),
-        //     TextVertex::new(
-        //         Vector::new(1.0 + 2.0, 1.0),
-        //         Vector::new(1.0, 0.0),
-        //         Color::YELLOW,
-        //         test,
-        //     ),
-        // ];
-        // let indices = [
-        //     Index::new(0, 1, 2),
-        //     Index::new(2, 3, 0),
-        //     Index::new(4, 5, 6),
-        //     Index::new(6, 7, 4),
-        // ];
 
         let vertices_slice = bytemuck::cast_slice(&vertices[..]);
         let indices_slice = bytemuck::cast_slice(&indices[..]);
@@ -342,6 +351,26 @@ impl Text {
             vertices_size: vertices_slice.len() as wgpu::BufferAddress,
             indices_size: indices_slice.len() as wgpu::BufferAddress,
         };
+    }
+
+    fn compute_modifed_vertices(
+        vertices: &mut [TextVertex],
+        vertex_offset: Isometry<f32>,
+        vertex_rotation_axis: Vector<f32>,
+    ) {
+        let angle = vertex_offset.rotation.angle();
+        if angle != ModelBuilder::DEFAULT_ROTATION {
+            for v in vertices.iter_mut() {
+                let delta = v.pos - vertex_rotation_axis;
+                v.pos = vertex_rotation_axis + vertex_offset.rotation * delta;
+            }
+        }
+
+        if vertex_offset.translation.vector != ModelBuilder::DEFAULT_OFFSET {
+            for v in vertices.iter_mut() {
+                v.pos += vertex_offset.translation.vector;
+            }
+        }
     }
 
     pub fn font(&self) -> &SpriteSheet {
