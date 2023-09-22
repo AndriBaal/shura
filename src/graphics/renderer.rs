@@ -4,7 +4,7 @@ use crate::text::Text;
 use crate::{
     Camera, Color, Component, ComponentHandle, ComponentSetResource, Context, Gpu, GpuDefaults,
     GroupFilter, GroupHandle, InstanceBuffer, InstanceIndex, InstanceIndices, Model, RenderTarget,
-    Shader, Sprite, SpriteRenderTarget, SpriteSheet, SpriteSheetIndex, Uniform,
+    Shader, Sprite, SpriteRenderTarget, SpriteSheet, SpriteSheetIndex, Uniform, WorldCamera,
 };
 use std::{ops::Range, ptr::null};
 
@@ -32,47 +32,23 @@ impl Default for RenderCache {
 
 #[non_exhaustive]
 pub struct ComponentRenderer<'a> {
-    pub inner: Renderer<'a>,
+    pub renderer: Renderer<'a>,
     pub screenshot: Option<&'a SpriteRenderTarget>,
     pub ctx: &'a Context<'a>,
-    pub world_camera: &'a Camera,
-    pub relative_camera: &'a Camera,
-    pub relative_bottom_left_camera: &'a Camera,
-    pub relative_bottom_right_camera: &'a Camera,
-    pub relative_top_left_camera: &'a Camera,
-    pub relative_top_right_camera: &'a Camera,
-    pub single_centered_instance: &'a InstanceBuffer,
-    pub unit_camera: &'a Camera,
 }
 
 impl<'a> ComponentRenderer<'a> {
-    pub(crate) fn new(ctx: &'a Context<'a>, inner: Renderer<'a>) -> Self {
+    pub(crate) fn new(ctx: &'a Context<'a>, renderer: Renderer<'a>) -> Self {
         ComponentRenderer {
             ctx: &ctx,
             screenshot: None,
-            inner,
-            world_camera: ctx.world_camera,
-            relative_camera: &ctx.defaults.relative_camera,
-            relative_bottom_left_camera: &ctx.defaults.relative_bottom_left_camera,
-            relative_bottom_right_camera: &ctx.defaults.relative_bottom_right_camera,
-            relative_top_left_camera: &ctx.defaults.relative_top_left_camera,
-            relative_top_right_camera: &ctx.defaults.relative_top_right_camera,
-            unit_camera: &ctx.defaults.unit_camera,
-            single_centered_instance: &ctx.defaults.single_centered_instance,
+            renderer,
         }
     }
 
     pub fn for_each<C: Component>(&self, each: impl FnMut(&C) + 'a) {
         let ty = self.ctx.components.resource();
         ty.for_each(self.ctx.components.active_groups(), each);
-    }
-
-    pub fn unit_model(&self) -> &'a Model {
-        self.inner.defaults.unit_model()
-    }
-
-    pub fn default_target(&self) -> &'a dyn RenderTarget {
-        self.inner.defaults.default_target()
     }
 
     pub fn index<C: Component>(&self, group: GroupHandle, index: usize) -> Option<&'a C> {
@@ -130,15 +106,6 @@ impl<'a> ComponentRenderer<'a> {
         return ComponentSetResource::new(ty, groups);
     }
 
-    pub fn render_each<C: Component>(
-        &mut self,
-        camera: &'a Camera,
-        each: impl FnMut(&mut Renderer<'a>, &'a C, InstanceIndex),
-    ) {
-        let ty = self.ctx.components.resource::<C>();
-        ty.render_each(&mut self.inner, camera, each)
-    }
-
     #[cfg(feature = "rayon")]
     pub fn par_for_each<C: Component + Send + Sync>(&self, each: impl Fn(&C) + Send + Sync) {
         let ty = self.ctx.components.resource::<C>();
@@ -147,32 +114,48 @@ impl<'a> ComponentRenderer<'a> {
 
     pub fn render_single<C: Component>(
         &mut self,
-        camera: &'a Camera,
-        each: impl FnOnce(&mut Renderer<'a>, &'a C, InstanceIndex),
+        each: impl FnOnce(&mut Renderer<'a>, &'a C, &'a InstanceBuffer, InstanceIndex),
     ) {
         let ty = self.ctx.components.resource::<C>();
-        ty.render_single(&mut self.inner, camera, each)
+        ty.render_single(&mut self.renderer, each);
+    }
+
+    pub fn render_each<C: Component>(
+        &mut self,
+        each: impl FnMut(&mut Renderer<'a>, &'a C, &'a InstanceBuffer, InstanceIndex),
+    ) {
+        let ty = self.ctx.components.resource::<C>();
+        ty.render_each(&mut self.renderer, each)
     }
 
     pub fn render_all<C: Component>(
         &mut self,
-        camera: &'a Camera,
-        all: impl FnMut(&mut Renderer<'a>, InstanceIndices),
+        all: impl FnMut(&mut Renderer<'a>, &'a InstanceBuffer, InstanceIndices),
     ) {
         let ty = self.ctx.components.resource::<C>();
-        ty.render_all(&mut self.inner, camera, all)
+        ty.render_all(&mut self.renderer, all);
     }
 }
 
 /// Render grpahics to the screen or a sprite. The renderer can be extended with custom graphcis throught
 /// the [RenderPass](wgpu::RenderPass) or the provided methods for shura's shader system.
 pub struct Renderer<'a> {
+    pub(crate) target: &'a dyn RenderTarget,
     pub gpu: &'a Gpu,
     pub defaults: &'a GpuDefaults,
-    pub(crate) target: &'a dyn RenderTarget,
     indices: u32,
     render_pass: wgpu::RenderPass<'a>,
     cache: RenderCache,
+
+    pub world_camera: &'a WorldCamera,
+    pub relative_camera: &'a Camera,
+    pub relative_bottom_left_camera: &'a Camera,
+    pub relative_bottom_right_camera: &'a Camera,
+    pub relative_top_left_camera: &'a Camera,
+    pub relative_top_right_camera: &'a Camera,
+    pub unit_camera: &'a Camera,
+    pub unit_model: &'a Model,
+    pub single_centered_instance: &'a InstanceBuffer,
 }
 
 impl<'a> Renderer<'a> {
@@ -183,6 +166,7 @@ impl<'a> Renderer<'a> {
         render_encoder: &'a mut wgpu::CommandEncoder,
         defaults: &'a GpuDefaults,
         gpu: &'a Gpu,
+        world_camera: &'a WorldCamera,
         target: &'a dyn RenderTarget,
         clear: Option<Color>,
     ) -> Renderer<'a> {
@@ -194,25 +178,26 @@ impl<'a> Renderer<'a> {
         });
 
         return Self {
-            render_pass,
             indices: 0,
-            defaults: defaults,
+            render_pass,
+            defaults,
             target,
+            world_camera,
             gpu,
+            relative_camera: &defaults.relative_camera,
+            relative_bottom_left_camera: &defaults.relative_bottom_left_camera,
+            relative_bottom_right_camera: &defaults.relative_bottom_right_camera,
+            relative_top_left_camera: &defaults.relative_top_left_camera,
+            relative_top_right_camera: &defaults.relative_top_right_camera,
+            unit_camera: &defaults.unit_camera,
+            single_centered_instance: &defaults.single_centered_instance,
+            unit_model: &defaults.unit_model,
             cache: RenderCache::default(),
         };
     }
 
     pub fn target(&self) -> &dyn RenderTarget {
         self.target
-    }
-
-    pub fn unit_model(&self) -> &'a Model {
-        self.defaults.unit_model()
-    }
-
-    pub fn default_target(&self) -> &'a dyn RenderTarget {
-        self.defaults.default_target()
     }
 
     pub fn pass(&'a mut self) -> &mut wgpu::RenderPass {
@@ -303,124 +288,180 @@ impl<'a> Renderer<'a> {
 
     pub fn draw_indexed(&mut self, indices: Range<u32>, instances: impl Into<InstanceIndices>) {
         self.render_pass
-            .draw_indexed(indices, 0, instances.into().range);
+            .draw_indexed(indices, 0, instances.into().range());
     }
 
     pub fn render_sprite(
         &mut self,
         instances: impl Into<InstanceIndices>,
+        buffer: &'a InstanceBuffer,
+        camera: &'a Camera,
         model: &'a Model,
         sprite: &'a Sprite,
     ) {
         self.use_shader(&self.defaults.sprite);
+        self.use_camera(camera);
         self.use_model(model);
         self.use_sprite(sprite, 1);
+        self.use_instances(buffer);
         self.draw(instances);
     }
 
     pub fn render_sprite_crop(
         &mut self,
         instances: impl Into<InstanceIndices>,
+        buffer: &'a InstanceBuffer,
+        camera: &'a Camera,
         model: &'a Model,
         sprite: &'a Sprite,
     ) {
         self.use_shader(&self.defaults.sprite_crop);
+        self.use_camera(camera);
         self.use_model(model);
         self.use_sprite(sprite, 1);
+        self.use_instances(buffer);
         self.draw(instances);
     }
 
     pub fn render_sprite_sheet_crop(
         &mut self,
         instances: impl Into<InstanceIndices>,
+        buffer: &'a InstanceBuffer,
+        camera: &'a Camera,
         model: &'a Model,
         sprite: &'a Sprite,
     ) {
         self.use_shader(&self.defaults.sprite_sheet_crop);
+        self.use_camera(camera);
         self.use_model(model);
         self.use_sprite(sprite, 1);
+        self.use_instances(buffer);
         self.draw(instances);
     }
 
     pub fn render_sprite_sheet(
         &mut self,
         instances: impl Into<InstanceIndices>,
+        buffer: &'a InstanceBuffer,
+        camera: &'a Camera,
         model: &'a Model,
         sprite: &'a SpriteSheet,
     ) {
         self.use_shader(&self.defaults.sprite_sheet);
+        self.use_camera(camera);
         self.use_model(model);
         self.use_sprite_sheet(sprite, 1);
+        self.use_instances(buffer);
         self.draw(instances);
     }
 
     pub fn render_sprite_sheet_uniform(
         &mut self,
-        instances: impl Into<InstanceIndices> + Clone,
+        instances: impl Into<InstanceIndices>,
+        buffer: &'a InstanceBuffer,
+        camera: &'a Camera,
         model: &'a Model,
         sprite: &'a SpriteSheet,
         sprite_index: &'a Uniform<SpriteSheetIndex>,
     ) {
         self.use_shader(&self.defaults.sprite_sheet_uniform);
+        self.use_camera(camera);
         self.use_model(model);
         self.use_sprite_sheet(sprite, 1);
         self.use_uniform(sprite_index, 2);
+        self.use_instances(buffer);
         self.draw(instances);
     }
 
-    pub fn render_color(&mut self, instances: impl Into<InstanceIndices>, model: &'a Model) {
+    pub fn render_color(
+        &mut self,
+        instances: impl Into<InstanceIndices>,
+        buffer: &'a InstanceBuffer,
+        camera: &'a Camera,
+        model: &'a Model,
+    ) {
         self.use_shader(&self.defaults.color);
+        self.use_camera(camera);
         self.use_model(model);
+        self.use_instances(buffer);
         self.draw(instances);
     }
 
     #[cfg(feature = "text")]
-    pub fn render_text(&mut self, instances: impl Into<InstanceIndices>, text: &'a Text) {
+    pub fn render_text(
+        &mut self,
+        instances: impl Into<InstanceIndices>,
+        buffer: &'a InstanceBuffer,
+        camera: &'a Camera,
+        text: &'a Text,
+    ) {
         self.use_shader(&self.defaults.text);
+        self.use_camera(camera);
         self.use_text(text);
+        self.use_instances(buffer);
         self.draw(instances);
     }
 
     pub fn render_color_uniform(
         &mut self,
         instances: impl Into<InstanceIndices>,
+        buffer: &'a InstanceBuffer,
+        camera: &'a Camera,
         model: &'a Model,
         color: &'a Uniform<Color>,
     ) {
         self.use_shader(&self.defaults.color_uniform);
+        self.use_camera(camera);
         self.use_model(model);
         self.use_uniform(color, 1);
+        self.use_instances(buffer);
         self.draw(instances);
     }
 
     pub fn render_grey(
         &mut self,
         instances: impl Into<InstanceIndices>,
+        buffer: &'a InstanceBuffer,
+        camera: &'a Camera,
         model: &'a Model,
         sprite: &'a Sprite,
     ) {
         self.use_shader(&self.defaults.grey);
+        self.use_camera(camera);
         self.use_model(model);
         self.use_sprite(sprite, 1);
+        self.use_instances(buffer);
         self.draw(instances);
     }
 
     pub fn render_blurred(
         &mut self,
         instances: impl Into<InstanceIndices>,
+        buffer: &'a InstanceBuffer,
+        camera: &'a Camera,
         model: &'a Model,
         sprite: &'a Sprite,
     ) {
         self.use_shader(&self.defaults.blurr);
+        self.use_camera(camera);
         self.use_model(model);
         self.use_sprite(sprite, 1);
+        self.use_instances(buffer);
         self.draw(instances);
     }
 
-    pub fn render_rainbow(&mut self, instances: impl Into<InstanceIndices>, model: &'a Model) {
+    pub fn render_rainbow(
+        &mut self,
+        instances: impl Into<InstanceIndices>,
+        buffer: &'a InstanceBuffer,
+        camera: &'a Camera,
+        model: &'a Model,
+    ) {
         self.use_shader(&self.defaults.rainbow);
+        self.use_camera(camera);
         self.use_model(model);
         self.use_uniform(&self.defaults.times, 1);
+        self.use_instances(buffer);
         self.draw(instances);
     }
 }

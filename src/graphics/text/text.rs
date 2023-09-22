@@ -1,7 +1,7 @@
 use std::{mem::size_of, sync::Arc};
 
 use crate::{
-    vector, Color, Gpu, Index, Isometry, ModelBuilder, Sprite, SpriteSheet, SpriteSheetBuilder,
+    vector, Color, Gpu, Index, Isometry, ModelBuilder, SpriteSheet, SpriteSheetBuilder,
     SpriteSheetIndex, Vector,
 };
 use rustc_hash::FxHashMap;
@@ -76,7 +76,7 @@ pub(crate) struct FontInner {
     font: rusttype::Font<'static>,
 }
 impl FontInner {
-    const RES: f32 = 200.0;
+    const RES: f32 = 400.0;
 
     pub fn new(gpu: &Gpu, data: &'static [u8]) -> Self {
         let scale = rusttype::Scale::uniform(Self::RES);
@@ -116,12 +116,12 @@ impl FontInner {
         let mut size = Vector::default();
         let glyphs = glyphs!(face_ref);
         for (id, _char) in glyphs {
+            if !_char.is_ascii() {
+                continue;
+            }
             let glyph = font.glyph(id);
             let scaled = glyph.scaled(scale);
             let positioned = scaled.positioned(rusttype::Point { x: 0.0, y: 0.0 });
-
-
-            println!("{_char}");
 
             if let Some(bb) = positioned.pixel_bounding_box() {
                 amount += 1;
@@ -138,7 +138,15 @@ impl FontInner {
             vector(size.x as u32, Self::RES as u32),
             vector(amount as u32, 1),
         )
-        .sampler(Sprite::DEFAULT_SAMPLER)
+        .sampler(wgpu::SamplerDescriptor {
+            label: Some("wgpu-text Cache Texture Sampler"),
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            ..Default::default()
+        })
         .format(wgpu::TextureFormat::R8Unorm);
 
         let mut sprite_sheet = gpu.create_sprite_sheet(desc);
@@ -148,13 +156,17 @@ impl FontInner {
         let mut buffer: Vec<u8> = Vec::with_capacity((size.x * size.y) as usize);
         let mut counter = 0;
         for (id, _char) in glyphs {
+            if !_char.is_ascii() {
+                continue;
+            }
+
             let glyph = font.glyph(id);
             let scaled = glyph.scaled(scale);
             let positioned = scaled.positioned(rusttype::Point { x: 0.0, y: 0.0 });
 
             if let Some(bb) = positioned.pixel_bounding_box() {
                 positioned.draw(|_x, _y, a| {
-                    buffer.push((a.round() * 255.0) as u8);
+                    buffer.push((a * 255.0) as u8);
                 });
                 let ratio = Vector::new(bb.width(), bb.height())
                     .cast::<f32>()
@@ -200,9 +212,9 @@ pub struct TextSection<'a> {
 impl<'a> Default for TextSection<'a> {
     fn default() -> Self {
         Self {
-            color: Default::default(),
+            color: Color::BLACK,
             text: Default::default(),
-            size: Default::default(),
+            size: 1.0,
             vertex_offset: Isometry::new(
                 ModelBuilder::DEFAULT_OFFSET,
                 ModelBuilder::DEFAULT_ROTATION,

@@ -1,6 +1,6 @@
 use crate::{
     Component, ComponentHandle, ComponentType, ComponentTypeId, Gpu, GroupHandle, InstanceBuffer,
-    InstanceIndex, InstanceIndices, Renderer, World, Camera,
+    InstanceIndex, InstanceIndices, Renderer, World,
 };
 use std::cell::{Ref, RefMut};
 
@@ -136,28 +136,25 @@ impl<'a, C: Component> ComponentSetResource<'a, C> {
     pub fn render_each(
         &self,
         renderer: &mut Renderer<'a>,
-        camera: &'a Camera,
-        each: impl FnMut(&mut Renderer<'a>, &'a C, InstanceIndex),
+        each: impl FnMut(&mut Renderer<'a>, &'a C, &'a InstanceBuffer, InstanceIndex),
     ) {
-        self.ty.render_each(renderer, camera, each)
+        self.ty.render_each(renderer, each)
     }
 
     pub fn render_single(
         &self,
         renderer: &mut Renderer<'a>,
-        camera: &'a Camera,
-        each: impl FnOnce(&mut Renderer<'a>, &'a C, InstanceIndex),
+        each: impl FnOnce(&mut Renderer<'a>, &'a C, &'a InstanceBuffer, InstanceIndex),
     ) {
-        self.ty.render_single(renderer, camera, each)
+        self.ty.render_single(renderer, each)
     }
 
     pub fn render_all(
         &self,
         renderer: &mut Renderer<'a>,
-        camera: &'a Camera,
-        all: impl FnMut(&mut Renderer<'a>, InstanceIndices),
+        all: impl FnMut(&mut Renderer<'a>, &'a InstanceBuffer, InstanceIndices),
     ) {
-        self.ty.render_all(renderer, camera, all)
+        self.ty.render_all(renderer, all)
     }
 }
 

@@ -3,7 +3,9 @@ use std::ops::Deref;
 use downcast_rs::{impl_downcast, Downcast};
 use wgpu::SurfaceTexture;
 
-use crate::{Camera, Color, Gpu, GpuDefaults, RenderEncoder, Sprite, SpriteBuilder, Vector};
+use crate::{
+    Camera, Color, Gpu, GpuDefaults, RenderEncoder, Sprite, SpriteBuilder, Vector, WorldCamera,
+};
 
 pub trait RenderTarget: Downcast {
     fn msaa(&self) -> Option<&wgpu::TextureView>;
@@ -177,11 +179,12 @@ impl SpriteRenderTarget {
     pub fn computed<D: Deref<Target = [u8]>>(
         gpu: &Gpu,
         defaults: &GpuDefaults,
+        world_camera: &WorldCamera,
         sprite: SpriteBuilder<D>,
         compute: impl FnMut(&mut RenderEncoder),
     ) -> Self {
         let target = SpriteRenderTarget::custom(gpu, sprite);
-        target.draw(gpu, defaults, compute);
+        target.draw(gpu, defaults, world_camera, compute);
         return target;
     }
 
@@ -220,9 +223,10 @@ impl SpriteRenderTarget {
         &self,
         gpu: &Gpu,
         defaults: &GpuDefaults,
+        world_camera: &WorldCamera,
         compute: impl FnOnce(&mut RenderEncoder),
     ) {
-        let mut encoder = RenderEncoder::new(gpu, defaults);
+        let mut encoder = RenderEncoder::new(gpu, defaults, world_camera);
         compute(&mut encoder);
         encoder.submit(gpu);
     }

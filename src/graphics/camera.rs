@@ -202,7 +202,7 @@ impl WorldCamera {
     pub fn update_buffer(&mut self, gpu: &Gpu) {
         self.camera.update_buffer(gpu)
     }
-    
+
     pub fn camera(&self) -> &Camera {
         &self.camera
     }

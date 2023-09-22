@@ -1,14 +1,15 @@
-use crate::{Color, Gpu, GpuDefaults, RenderTarget, Renderer, SpriteRenderTarget};
+use crate::{Color, Gpu, GpuDefaults, RenderTarget, Renderer, SpriteRenderTarget, WorldCamera};
 
 /// Encoder of [Renderers](crate::Renderer) and utilities to copy, clear and render text onto [RenderTargets](crate::RenderTarget)
 pub struct RenderEncoder<'a> {
     pub inner: wgpu::CommandEncoder,
     pub defaults: &'a GpuDefaults,
     pub gpu: &'a Gpu,
+    pub world_camera: &'a WorldCamera,
 }
 
 impl<'a> RenderEncoder<'a> {
-    pub fn new(gpu: &'a Gpu, defaults: &'a GpuDefaults) -> Self {
+    pub fn new(gpu: &'a Gpu, defaults: &'a GpuDefaults, world_camera: &'a WorldCamera) -> Self {
         let encoder = gpu
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -19,6 +20,7 @@ impl<'a> RenderEncoder<'a> {
             inner: encoder,
             defaults,
             gpu,
+            world_camera,
         }
     }
 
@@ -27,7 +29,14 @@ impl<'a> RenderEncoder<'a> {
         target: &'b dyn RenderTarget,
         clear: Option<Color>,
     ) -> Renderer<'b> {
-        Renderer::new(&mut self.inner, self.defaults, self.gpu, target, clear)
+        Renderer::new(
+            &mut self.inner,
+            self.defaults,
+            self.gpu,
+            self.world_camera,
+            target,
+            clear,
+        )
     }
 
     pub fn deep_copy_target(&mut self, src: &dyn RenderTarget, target: &dyn RenderTarget) {
@@ -43,9 +52,13 @@ impl<'a> RenderEncoder<'a> {
 
     pub fn copy_target(&mut self, src: &SpriteRenderTarget, target: &dyn RenderTarget) {
         let mut renderer = self.renderer(target, None);
-        renderer.use_instances(&renderer.defaults.single_centered_instance);
-        renderer.use_camera(&renderer.defaults.unit_camera);
-        renderer.render_sprite(0..1, renderer.defaults.unit_model(), src.sprite());
+        renderer.render_sprite(
+            0..1,
+            &renderer.defaults.single_centered_instance,
+            &renderer.defaults.unit_camera,
+            renderer.defaults.unit_model(),
+            src.sprite(),
+        );
     }
 
     pub fn finish(self) -> wgpu::CommandBuffer {

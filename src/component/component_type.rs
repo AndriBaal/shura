@@ -7,7 +7,7 @@ use crate::{
     data::arena::ArenaEntry, Arena, BufferHelper, BufferHelperType, BufferOperation, Component,
     ComponentConfig, ComponentHandle, ComponentIndex, ComponentStorage,
     ComponentTypeImplementation, Gpu, GroupHandle, GroupManager, InstanceBuffer, InstanceIndex,
-    InstanceIndices, InstancePosition, Renderer, World, Camera,
+    InstanceIndices, InstancePosition, Renderer, World,
 };
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
@@ -990,35 +990,41 @@ impl<C: Component> ComponentType<C> {
     pub(crate) fn render_each<'a>(
         &'a self,
         renderer: &mut Renderer<'a>,
-        camera: &'a Camera,
-        mut each: impl FnMut(&mut Renderer<'a>, &'a C, InstanceIndex),
+        mut each: impl FnMut(&mut Renderer<'a>, &'a C, &'a InstanceBuffer, InstanceIndex),
     ) {
         match &self.storage {
             ComponentTypeStorage::Single {
                 buffer, component, ..
             } => {
                 if let Some(component) = component {
-                    renderer.use_camera(camera);
-                    renderer.use_instances(buffer.as_ref().expect(BUFFER_ERROR));
-                    (each)(renderer, component, InstanceIndex::new(0));
+                    let buffer = buffer.as_ref().expect(BUFFER_ERROR);
+                    (each)(renderer, component, buffer, InstanceIndex::new(0));
                 }
             }
             ComponentTypeStorage::Multiple(multiple) => {
                 if !multiple.components.is_empty() {
-                    renderer.use_camera(camera);
-                    renderer.use_instances(multiple.buffer.as_ref().expect(BUFFER_ERROR));
+                    let buffer = multiple.buffer.as_ref().expect(BUFFER_ERROR);
                     for (instance, component) in multiple.components.iter().enumerate() {
-                        (each)(renderer, component, InstanceIndex::new(instance as u32));
+                        (each)(
+                            renderer,
+                            component,
+                            buffer,
+                            InstanceIndex::new(instance as u32),
+                        );
                     }
                 }
             }
             ComponentTypeStorage::MultipleGroups(groups) => {
-                renderer.use_camera(camera);
                 for group in groups {
                     if !group.components.is_empty() {
-                        renderer.use_instances(group.buffer.as_ref().expect(BUFFER_ERROR));
+                        let buffer = group.buffer.as_ref().expect(BUFFER_ERROR);
                         for (instance, component) in group.components.iter().enumerate() {
-                            (each)(renderer, component, InstanceIndex::new(instance as u32));
+                            (each)(
+                                renderer,
+                                component,
+                                buffer,
+                                InstanceIndex::new(instance as u32),
+                            );
                         }
                     }
                 }
@@ -1029,17 +1035,15 @@ impl<C: Component> ComponentType<C> {
     pub(crate) fn render_single<'a>(
         &'a self,
         renderer: &mut Renderer<'a>,
-        camera: &'a Camera,
-        each: impl FnOnce(&mut Renderer<'a>, &'a C, InstanceIndex),
+        each: impl FnOnce(&mut Renderer<'a>, &'a C, &'a InstanceBuffer, InstanceIndex),
     ) {
         match &self.storage {
             ComponentTypeStorage::Single {
                 buffer, component, ..
             } => {
                 if let Some(component) = component {
-                    renderer.use_camera(camera);
-                    renderer.use_instances(buffer.as_ref().expect(BUFFER_ERROR));
-                    (each)(renderer, component, InstanceIndex::new(0));
+                    let buffer = buffer.as_ref().expect(BUFFER_ERROR);
+                    (each)(renderer, component, buffer, InstanceIndex::new(0));
                 }
             }
             _ => {
@@ -1051,8 +1055,7 @@ impl<C: Component> ComponentType<C> {
     pub(crate) fn render_all<'a>(
         &'a self,
         renderer: &mut Renderer<'a>,
-        camera: &'a Camera,
-        mut all: impl FnMut(&mut Renderer<'a>, InstanceIndices),
+        mut all: impl FnMut(&mut Renderer<'a>, &'a InstanceBuffer, InstanceIndices),
     ) {
         match &self.storage {
             ComponentTypeStorage::Single {
@@ -1060,26 +1063,20 @@ impl<C: Component> ComponentType<C> {
             } => {
                 if component.is_some() {
                     let buffer = buffer.as_ref().expect(BUFFER_ERROR);
-                    renderer.use_instances(buffer);
-                    renderer.use_camera(camera);
-                    (all)(renderer, InstanceIndices::new(0, 1));
+                    (all)(renderer, buffer, InstanceIndices::new(0, 1));
                 }
             }
             ComponentTypeStorage::Multiple(multiple) => {
                 if !multiple.components.is_empty() {
                     let buffer = multiple.buffer.as_ref().expect(BUFFER_ERROR);
-                    renderer.use_instances(buffer);
-                    renderer.use_camera(camera);
-                    (all)(renderer, buffer.instances());
+                    (all)(renderer, buffer, buffer.instances());
                 }
             }
             ComponentTypeStorage::MultipleGroups(groups) => {
-                renderer.use_camera(camera);
                 for group in groups {
                     if !group.components.is_empty() {
                         let buffer = group.buffer.as_ref().expect(BUFFER_ERROR);
-                        renderer.use_instances(buffer);
-                        (all)(renderer, buffer.instances());
+                        (all)(renderer, buffer, buffer.instances());
                     }
                 }
             }

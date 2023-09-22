@@ -6,7 +6,7 @@ use crate::{
     Camera, InstanceBuffer, InstanceField, InstancePosition, Isometry, Model, ModelBuilder,
     RenderEncoder, RenderTarget, Shader, ShaderConfig, Sprite, SpriteBuilder, SpriteRenderTarget,
     SpriteSheet, SpriteSheetBuilder, SpriteSheetIndex, SurfaceRenderTarget, Uniform, UniformField,
-    Vector, Vertex, VertexShader,
+    Vector, Vertex, VertexShader, WorldCamera,
 };
 use std::{ops::Deref, sync::Mutex};
 
@@ -247,10 +247,11 @@ impl Gpu {
     pub fn create_computed_target<'caller, D: Deref<Target = [u8]>>(
         &self,
         defaults: &GpuDefaults,
+        world_camera: &WorldCamera,
         sprite: SpriteBuilder<D>,
         compute: impl FnMut(&mut RenderEncoder),
     ) -> SpriteRenderTarget {
-        return SpriteRenderTarget::computed(self, defaults, sprite, compute);
+        return SpriteRenderTarget::computed(self, defaults, world_camera, sprite, compute);
     }
 }
 

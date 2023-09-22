@@ -56,13 +56,13 @@ where
     ) {
     }
 
-    fn render<'a>(renderer: &mut ComponentRenderer<'a>) {}
+    fn render<'a>(components: &mut ComponentRenderer<'a>) {}
 
     /// Method called when the game is closed or the scene gets removed
     fn end(ctx: &mut Context, reason: EndReason) {}
 
     fn render_target<'a>(
-        renderer: &mut ComponentRenderer<'a>,
+        components: &mut ComponentRenderer<'a>,
     ) -> Option<(Option<Color>, &'a dyn RenderTarget)> {
         None
     }

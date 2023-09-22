@@ -4,14 +4,7 @@ use crate::{Gpu, RgbaColor, Vector};
 use std::ops::Deref;
 
 #[macro_export]
-macro_rules! load_file {
-    ($file:expr $(,)?) => {
-        include_bytes!($file)
-    };
-}
-
-#[macro_export]
-macro_rules! load_file_root {
+macro_rules! include_bytes_root {
     ($file:expr $(,)?) => {
         include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), '/', $file))
     };
@@ -20,14 +13,14 @@ macro_rules! load_file_root {
 #[macro_export]
 macro_rules! sprite_file {
     ($file:expr) => {
-        shura::SpriteBuilder::file(shura::load_file!($file))
+        shura::SpriteBuilder::file(include_bytes!($file))
     };
 }
 
 #[macro_export]
 macro_rules! sprite_file_root {
     ($file:expr) => {
-        shura::SpriteBuilder::file(shura::load_file_root!($file))
+        shura::SpriteBuilder::file(shura::include_bytes_root!($file))
     };
 }
 

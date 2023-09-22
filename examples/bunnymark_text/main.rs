@@ -32,19 +32,24 @@ impl Resources {
         //     .gpu
         //     .create_model(ModelBuilder::cuboid(vector(0.06, 0.09)));
         let bunny_sprite = ctx.gpu.create_sprite(sprite_file!("./img/wabbit.png"));
-        let font = ctx.gpu.create_font(include_bytes!("./font/novem.ttf"));
+        let font = ctx
+            .gpu
+            .create_font(include_bytes!("./font/Roboto-Regular.ttf"));
         Resources {
             screenshot: None,
             // bunny_model,
             bunny_sprite,
-            text: ctx.gpu.create_text(&font, &[text::TextSection {
-                color: Color::BLACK,
-                text: "XXX",
-                size: 0.05,
-                horizontal_alignment: text::TextAlignment::End,
-                vertical_alignment: text::TextAlignment::End,
-                ..Default::default()
-            }]),
+            text: ctx.gpu.create_text(
+                &font,
+                &[text::TextSection {
+                    color: Color::BLACK,
+                    text: "Asaasdasdq",
+                    size: 0.05,
+                    horizontal_alignment: text::TextAlignment::End,
+                    vertical_alignment: text::TextAlignment::End,
+                    ..Default::default()
+                }],
+            ),
         }
     }
 }
@@ -119,7 +124,7 @@ impl ComponentController for Bunny {
         {
             let mut resources = ctx.components.single_mut::<Resources>();
             if let Some(screenshot) = resources.screenshot.take() {
-                log::info!("Saving Screenshot!");
+                log::info!("Saving!");
                 screenshot.sprite().save(&ctx.gpu, "screenshot.png").ok();
             } else if ctx.input.is_pressed(Key::S) {
                 resources.screenshot = Some(ctx.gpu.create_render_target(ctx.window_size));
@@ -155,16 +160,26 @@ impl ComponentController for Bunny {
             });
     }
 
-    fn render<'a>(renderer: &mut ComponentRenderer<'a>) {
-        let resources = renderer.single::<Resources>();
-        renderer.render_all::<Bunny>(renderer.world_camera, |r, instances| {
-            r.render_sprite(instances.clone(), r.defaults.unit_model(), &resources.bunny_sprite);
+    fn render<'a>(components: &mut ComponentRenderer<'a>) {
+        let resources = components.single::<Resources>();
+        components.render_all::<Bunny>(|renderer, buffer, instances| {
+            renderer.render_sprite(
+                instances,
+                buffer,
+                renderer.world_camera,
+                renderer.unit_model,
+                &resources.bunny_sprite,
+            );
         });
-        renderer.inner.use_instances(&renderer.inner.defaults.single_centered_instance);
-        renderer.inner.use_camera(renderer.relative_top_right_camera);
-        renderer.inner.render_text(0..1, &resources.text);
+        let renderer = &mut components.renderer;
+        renderer.render_text(
+            0..1,
+            renderer.single_centered_instance,
+            renderer.relative_top_right_camera,
+            &resources.text,
+        );
         if let Some(screenshot) = &resources.screenshot {
-            renderer.screenshot = Some(screenshot);
+            components.screenshot = Some(screenshot);
         }
     }
 }

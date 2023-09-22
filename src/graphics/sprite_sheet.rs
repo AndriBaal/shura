@@ -9,14 +9,14 @@ pub type SpriteSheetIndex2D = Vector<u32>;
 #[macro_export]
 macro_rules! sprite_sheet_file {
     ($file:expr, $sprite_size: expr $(,)?) => {
-        shura::SpriteSheetBuilder::file(shura::load_file!($file), $sprite_size)
+        shura::SpriteSheetBuilder::file(include_bytes!($file), $sprite_size)
     };
 }
 
 #[macro_export]
 macro_rules! sprite_sheet_file_root {
     ($file:expr, $sprite_size: expr $(,)?) => {
-        shura::SpriteSheetBuilder::file(shura::load_file_root!($file), $sprite_size)
+        shura::SpriteSheetBuilder::file(shura::include_bytes_root!($file), $sprite_size)
     };
 }
 
@@ -232,9 +232,7 @@ impl SpriteSheet {
             bytes,
             wgpu::ImageDataLayout {
                 offset: 0,
-                bytes_per_row: Some(
-                    self.texture.format().block_size(None).unwrap() * size.x,
-                ),
+                bytes_per_row: Some(self.texture.format().block_size(None).unwrap() * size.x),
                 rows_per_image: Some(size.y),
             },
             wgpu::Extent3d {

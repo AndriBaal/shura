@@ -565,29 +565,30 @@ impl Shura {
             .buffer(&self.gpu, self.frame.total_time(), self.frame.frame_time());
 
         let ctx = Context::new(self, scene, ContextUse::Render);
-        let mut encoder = RenderEncoder::new(&ctx.gpu, &ctx.defaults);
+        let mut encoder = RenderEncoder::new(&ctx.gpu, &ctx.defaults, &ctx.world_camera);
 
         let encoder_ptr = &mut encoder as *mut RenderEncoder;
 
         {
-            let mut renderer = ComponentRenderer::new(
+            let mut components = ComponentRenderer::new(
                 &ctx,
                 encoder.renderer(ctx.defaults.default_target(), ctx.screen_config.clear_color),
             );
             for (_priority, render, target) in callbacks.renders() {
-                if let Some((clear, target)) = (target)(&mut renderer) {
-                    if target as *const _ != renderer.inner.target() as *const _ {
+                if let Some((clear, target)) = (target)(&mut components) {
+                    if target as *const _ != components.renderer.target() as *const _ {
                         let encoder = unsafe { &mut *encoder_ptr };
-                        drop(renderer);
-                        renderer = ComponentRenderer::new(&ctx, encoder.renderer(target, clear));
+                        drop(components);
+                        components = ComponentRenderer::new(&ctx, encoder.renderer(target, clear));
                     }
                 }
-                (render)(&mut renderer);
-                if let Some(screenshot) = renderer.screenshot.take() {
+                (render)(&mut components);
+                if let Some(screenshot) = components.screenshot.take() {
                     let encoder = unsafe { &mut *encoder_ptr };
-                    let target_ptr: *const dyn RenderTarget = renderer.inner.target as *const _;
+                    let target_ptr: *const dyn RenderTarget =
+                        components.renderer.target as *const _;
                     let target = unsafe { target_ptr.as_ref().unwrap() };
-                    drop(renderer);
+                    drop(components);
 
                     if let Some(sprite) = target.downcast_ref::<crate::SpriteRenderTarget>() {
                         encoder.copy_target(sprite, screenshot);
@@ -595,7 +596,7 @@ impl Shura {
                         encoder.deep_copy_target(target, screenshot);
                     }
 
-                    renderer = ComponentRenderer::new(&ctx, encoder.renderer(target, None));
+                    components = ComponentRenderer::new(&ctx, encoder.renderer(target, None));
                 }
             }
         }

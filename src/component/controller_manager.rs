@@ -13,9 +13,9 @@ use crate::{
 };
 
 type UpdateCallback = fn(ctx: &mut Context);
-type RenderCallback = for<'a> fn(renderer: &mut ComponentRenderer<'a>);
+type RenderCallback = for<'a> fn(components: &mut ComponentRenderer<'a>);
 type TargetCallback = for<'a> fn(
-    renderer: &mut ComponentRenderer<'a>,
+    components: &mut ComponentRenderer<'a>,
 ) -> Option<(Option<Color>, &'a dyn RenderTarget)>;
 #[cfg(feature = "physics")]
 type CollisionCallback = fn(

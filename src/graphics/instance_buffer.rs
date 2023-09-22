@@ -1,4 +1,4 @@
-use std::{ops::Range, mem::size_of};
+use std::{mem::size_of, ops::Range};
 
 use crate::{Gpu, Isometry, Matrix, Rotation, Vector};
 use wgpu::util::DeviceExt;
@@ -131,9 +131,7 @@ impl InstanceBuffer {
     }
 
     pub fn instances(&self) -> InstanceIndices {
-        InstanceIndices {
-            range: 0..self.instance_amount() as u32,
-        }
+        InstanceIndices::new(0, self.instance_amount() as u32)
     }
 
     pub fn instance_capacity(&self) -> u64 {
@@ -159,45 +157,35 @@ impl InstanceIndex {
 
 impl Into<InstanceIndices> for InstanceIndex {
     fn into(self) -> InstanceIndices {
-        InstanceIndices {
-            range: self.index..self.index + 1,
-        }
+        InstanceIndices::new(self.index, self.index + 1)
     }
 }
 
 impl Into<InstanceIndices> for u32 {
     fn into(self) -> InstanceIndices {
-        InstanceIndices {
-            range: self..self + 1,
-        }
+        InstanceIndices::new(self, self + 1)
     }
 }
 
 impl Into<InstanceIndices> for Range<u32> {
     fn into(self) -> InstanceIndices {
-        InstanceIndices { range: self }
+        InstanceIndices::new(self.start, self.end)
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone)]
 /// Range of [InstanceIndex]
 pub struct InstanceIndices {
-    pub range: Range<u32>,
+    pub start: u32,
+    pub end: u32,
 }
 
 impl InstanceIndices {
     pub const fn new(start: u32, end: u32) -> Self {
-        Self { range: start..end }
+        Self { start, end }
     }
-}
 
-impl Iterator for InstanceIndices {
-    type Item = InstanceIndex;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if let Some(index) = self.range.next() {
-            return Some(InstanceIndex::new(index));
-        }
-        return None;
+    pub fn range(&self) -> Range<u32> {
+        self.start..self.end
     }
 }

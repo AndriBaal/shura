@@ -57,9 +57,15 @@ impl ComponentController for Background {
         render_priority: 1,
         ..ComponentConfig::DEFAULT
     };
-    fn render<'a>(renderer: &mut ComponentRenderer<'a>) {
-        renderer.render_single::<Self>(renderer.world_camera, |r, background, index| {
-            r.render_sprite(index, &background.model, &background.level);
+    fn render<'a>(components: &mut ComponentRenderer<'a>) {
+        components.render_single::<Self>(|renderer, background, buffer, instances| {
+            renderer.render_sprite(
+                instances,
+                buffer,
+                renderer.world_camera,
+                &background.model,
+                &background.level,
+            );
         });
     }
 }
@@ -75,26 +81,27 @@ pub struct LightResources {
 impl ComponentController for LightResources {
     const CONFIG: ComponentConfig = ComponentConfig {
         update: UpdateOperation::Never,
-        buffer: BufferOperation::Manual,
+        buffer: BufferOperation::Never,
         storage: ComponentStorage::Single,
         render_priority: 3,
         ..ComponentConfig::DEFAULT
     };
 
     fn render_target<'a>(
-        renderer: &mut ComponentRenderer<'a>,
+        components: &mut ComponentRenderer<'a>,
     ) -> Option<(Option<Color>, &'a dyn RenderTarget)> {
-        return Some((None, renderer.ctx.defaults.default_target()));
+        return Some((None, components.ctx.defaults.default_target()));
     }
 
-    fn render<'a>(renderer: &mut ComponentRenderer<'a>) {
-        renderer.render_single::<Self>(renderer.world_camera, |r, res, index| {
-            r.use_model(r.defaults.unit_model());
-            r.use_camera(&r.defaults.unit_camera);
-            r.use_shader(&res.present_shader);
-            r.use_sprite(res.light_map.sprite(), 1);
-            r.draw(index);
-        });
+    fn render<'a>(components: &mut ComponentRenderer<'a>) {
+        let res = components.single::<LightResources>();
+        let renderer = &mut components.renderer;
+        renderer.use_model(renderer.unit_model);
+        renderer.use_camera(&renderer.unit_camera);
+        renderer.use_instances(renderer.single_centered_instance);
+        renderer.use_shader(&res.present_shader);
+        renderer.use_sprite(res.light_map.sprite(), 1);
+        renderer.draw(0..1);
     }
 }
 
@@ -175,18 +182,20 @@ impl ComponentController for Light {
     }
 
     fn render_target<'a>(
-        renderer: &mut ComponentRenderer<'a>,
+        components: &mut ComponentRenderer<'a>,
     ) -> Option<(Option<Color>, &'a dyn RenderTarget)> {
-        let res = renderer.single::<LightResources>();
+        let res = components.single::<LightResources>();
         return Some((Some(Color::new(0.06, 0.08, 0.13, 1.0)), &res.light_map));
     }
 
-    fn render<'a>(renderer: &mut ComponentRenderer<'a>) {
-        let res = renderer.single::<LightResources>();
-        renderer.render_all::<Self>(renderer.world_camera, |r, i| {
-            r.use_shader(&res.light_shader);
-            r.use_model(&res.light_model);
-            r.draw(i);
+    fn render<'a>(components: &mut ComponentRenderer<'a>) {
+        let res = components.single::<LightResources>();
+        components.render_all::<Self>(|renderer, buffer, instances| {
+            renderer.use_instances(buffer);
+            renderer.use_camera(renderer.world_camera);
+            renderer.use_shader(&res.light_shader);
+            renderer.use_model(&res.light_model);
+            renderer.draw(instances);
         });
     }
 }

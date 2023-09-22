@@ -57,7 +57,7 @@ impl FlappyManager {
                 )),
             ),
             point_sink: audio.create_sink(),
-            point_sound: audio.create_sound(load_file!("./audio/point.wav")),
+            point_sound: audio.create_sound(include_bytes!("./audio/point.wav")),
             pipe_sprite: gpu.create_sprite(sprite_file!("./sprites/pipe-green.png")),
             spawn_timer: Pipe::SPAWN_TIME,
             score: 0,
@@ -102,8 +102,8 @@ impl Bird {
                 Vector::new(17, 12),
             )),
             sink: audio.create_sink(),
-            hit_sound: audio.create_sound(load_file!("./audio/hit.wav")),
-            wing_sound: audio.create_sound(load_file!("./audio/wing.wav")),
+            hit_sound: audio.create_sound(include_bytes!("./audio/hit.wav")),
+            wing_sound: audio.create_sound(include_bytes!("./audio/wing.wav")),
             sprite: Default::default(),
         }
     }
@@ -115,9 +115,15 @@ impl ComponentController for Bird {
         ..ComponentConfig::DEFAULT
     };
 
-    fn render<'a>(renderer: &mut ComponentRenderer<'a>) {
-        renderer.render_single::<Self>(renderer.world_camera, |r, bird, instance| {
-            r.render_sprite_sheet(instance, &bird.model, &bird.sprite_sheet)
+    fn render<'a>(components: &mut ComponentRenderer<'a>) {
+        components.render_single::<Self>(|renderer, bird, buffer, instance| {
+            renderer.render_sprite_sheet(
+                instance,
+                buffer,
+                renderer.world_camera,
+                &bird.model,
+                &bird.sprite_sheet,
+            )
         });
     }
 
@@ -241,9 +247,15 @@ impl ComponentController for Ground {
         storage: ComponentStorage::Single,
         ..ComponentConfig::DEFAULT
     };
-    fn render<'a>(renderer: &mut ComponentRenderer<'a>) {
-        renderer.render_single::<Self>(renderer.world_camera, |r, ground, instance| {
-            r.render_sprite(instance, &ground.model, &ground.sprite)
+    fn render<'a>(components: &mut ComponentRenderer<'a>) {
+        components.render_single::<Self>(|renderer, ground, buffer, instance| {
+            renderer.render_sprite(
+                instance,
+                buffer,
+                renderer.world_camera,
+                &ground.model,
+                &ground.sprite,
+            )
         });
     }
 }
@@ -277,9 +289,15 @@ impl ComponentController for Background {
         storage: ComponentStorage::Single,
         ..ComponentConfig::DEFAULT
     };
-    fn render<'a>(renderer: &mut ComponentRenderer<'a>) {
-        renderer.render_single::<Self>(renderer.world_camera, |r, background, instance| {
-            r.render_sprite(instance, &background.model, &background.sprite)
+    fn render<'a>(components: &mut ComponentRenderer<'a>) {
+        components.render_single::<Self>(|renderer, background, buffer, instance| {
+            renderer.render_sprite(
+                instance,
+                buffer,
+                renderer.world_camera,
+                &background.model,
+                &background.sprite,
+            )
         });
     }
 }
@@ -349,11 +367,23 @@ impl ComponentController for Pipe {
         });
     }
 
-    fn render<'a>(renderer: &mut ComponentRenderer<'a>) {
-        let scene = renderer.single::<FlappyManager>();
-        renderer.render_all::<Self>(renderer.world_camera, |r, instances| {
-            r.render_sprite(instances.clone(), &scene.top_pipe_model, &scene.pipe_sprite);
-            r.render_sprite(instances, &scene.bottom_pipe_model, &scene.pipe_sprite);
+    fn render<'a>(components: &mut ComponentRenderer<'a>) {
+        let scene = components.single::<FlappyManager>();
+        components.render_all::<Self>(|renderer, buffer, instances| {
+            renderer.render_sprite(
+                instances,
+                buffer,
+                renderer.world_camera,
+                &scene.top_pipe_model,
+                &scene.pipe_sprite,
+            );
+            renderer.render_sprite(
+                instances,
+                buffer,
+                renderer.world_camera,
+                &scene.bottom_pipe_model,
+                &scene.pipe_sprite,
+            );
         });
     }
 }

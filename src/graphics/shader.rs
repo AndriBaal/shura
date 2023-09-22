@@ -126,10 +126,7 @@ impl Shader {
         let mut attributes = InstancePosition::ATTRIBUTES.to_vec();
         let (vertex_shader, buffers) = match config.vertex_shader {
             VertexShader::Instance => {
-                let buffers = vec![
-                    Vertex::DESC,
-                    InstancePosition::DESC
-                ];
+                let buffers = vec![Vertex::DESC, InstancePosition::DESC];
                 let shader = Cow::Borrowed(Self::VERTEX);
                 (shader, buffers)
             }
