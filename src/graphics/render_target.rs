@@ -4,7 +4,7 @@ use downcast_rs::{impl_downcast, Downcast};
 use wgpu::SurfaceTexture;
 
 use crate::{
-    Camera, Color, Gpu, GpuDefaults, RenderEncoder, Sprite, SpriteBuilder, Vector, WorldCamera,
+    Camera, Color, Gpu, DefaultResources, RenderEncoder, Sprite, SpriteBuilder, Vector, WorldCamera,
 };
 
 pub trait RenderTarget: Downcast {
@@ -178,7 +178,7 @@ impl SpriteRenderTarget {
 
     pub fn computed<D: Deref<Target = [u8]>>(
         gpu: &Gpu,
-        defaults: &GpuDefaults,
+        defaults: &DefaultResources,
         world_camera: &WorldCamera,
         sprite: SpriteBuilder<D>,
         compute: impl FnMut(&mut RenderEncoder),
@@ -222,7 +222,7 @@ impl SpriteRenderTarget {
     pub fn draw(
         &self,
         gpu: &Gpu,
-        defaults: &GpuDefaults,
+        defaults: &DefaultResources,
         world_camera: &WorldCamera,
         compute: impl FnOnce(&mut RenderEncoder),
     ) {

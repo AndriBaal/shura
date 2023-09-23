@@ -45,7 +45,7 @@ pub struct Gpu {
     pub surface: Mutex<wgpu::Surface>,
     pub(crate) config: Mutex<wgpu::SurfaceConfiguration>,
     pub(crate) format: wgpu::TextureFormat,
-    pub(crate) base: WgpuBase,
+    pub(crate) base: WgpuDefaultResources,
 }
 
 impl Gpu {
@@ -114,7 +114,7 @@ impl Gpu {
             }
         };
 
-        let base = WgpuBase::new(&device, config.format, sample_count);
+        let base = WgpuDefaultResources::new(&device, config.format, sample_count);
 
         surface.configure(&device, &config);
 
@@ -170,7 +170,7 @@ impl Gpu {
         surface.configure(&self.device, &config);
     }
 
-    pub fn base(&self) -> &WgpuBase {
+    pub fn base(&self) -> &WgpuDefaultResources {
         &self.base
     }
 
@@ -246,7 +246,7 @@ impl Gpu {
 
     pub fn create_computed_target<'caller, D: Deref<Target = [u8]>>(
         &self,
-        defaults: &GpuDefaults,
+        defaults: &DefaultResources,
         world_camera: &WorldCamera,
         sprite: SpriteBuilder<D>,
         compute: impl FnMut(&mut RenderEncoder),
@@ -256,7 +256,7 @@ impl Gpu {
 }
 
 /// Base Wgpu objects needed to create any further graphics object.
-pub struct WgpuBase {
+pub struct WgpuDefaultResources {
     pub sample_count: u32,
     pub multisample: wgpu::MultisampleState,
     pub sprite_sheet_layout: wgpu::BindGroupLayout,
@@ -265,7 +265,7 @@ pub struct WgpuBase {
     pub single_uniform_layout: wgpu::BindGroupLayout,
 }
 
-impl WgpuBase {
+impl WgpuDefaultResources {
     pub fn new(device: &wgpu::Device, _format: wgpu::TextureFormat, sample_count: u32) -> Self {
         let sprite_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[
@@ -359,7 +359,7 @@ impl WgpuBase {
 }
 
 /// Holds default buffers, shaders, sprites and layouts needed by shura.
-pub struct GpuDefaults {
+pub struct DefaultResources {
     pub sprite: Shader,
     pub sprite_crop: Shader,
     pub sprite_sheet_crop: Shader,
@@ -397,7 +397,7 @@ pub struct GpuDefaults {
     pub framebuffer: SpriteRenderTarget,
 }
 
-impl GpuDefaults {
+impl DefaultResources {
     pub(crate) fn new(gpu: &Gpu, window_size: Vector<u32>) -> Self {
         let sprite_sheet = gpu.create_shader(ShaderConfig {
             name: "sprite_sheet",

@@ -2,7 +2,7 @@
 use crate::text::Text;
 
 use crate::{
-    Camera, Color, Component, ComponentHandle, ComponentSetResource, Context, Gpu, GpuDefaults,
+    Camera, Color, Component, ComponentHandle, ComponentSetResource, Context, Gpu, DefaultResources,
     GroupFilter, GroupHandle, InstanceBuffer, InstanceIndex, InstanceIndices, Model, RenderTarget,
     Shader, Sprite, SpriteRenderTarget, SpriteSheet, SpriteSheetIndex, Uniform, WorldCamera,
 };
@@ -92,12 +92,17 @@ impl<'a> ComponentRenderer<'a> {
         ty.single()
     }
 
-    pub fn resource<C: Component>(&self) -> ComponentSetResource<'a, C> {
+    pub fn resource<C: Component>(&self) -> &'a C {
+        let ty = self.ctx.components.resource();
+        ty.single()
+    }
+
+    pub fn resource_set<C: Component>(&self) -> ComponentSetResource<'a, C> {
         let ty = self.ctx.components.resource();
         return ComponentSetResource::new(ty, self.ctx.components.active_groups());
     }
 
-    pub fn resource_of<C: Component>(
+    pub fn resource_set_of<C: Component>(
         &self,
         filter: GroupFilter<'a>,
     ) -> ComponentSetResource<'a, C> {
@@ -142,7 +147,7 @@ impl<'a> ComponentRenderer<'a> {
 pub struct Renderer<'a> {
     pub(crate) target: &'a dyn RenderTarget,
     pub gpu: &'a Gpu,
-    pub defaults: &'a GpuDefaults,
+    pub defaults: &'a DefaultResources,
     indices: u32,
     render_pass: wgpu::RenderPass<'a>,
     cache: RenderCache,
@@ -164,7 +169,7 @@ impl<'a> Renderer<'a> {
     pub const CAMERA_SLOT: u32 = 0;
     pub fn new(
         render_encoder: &'a mut wgpu::CommandEncoder,
-        defaults: &'a GpuDefaults,
+        defaults: &'a DefaultResources,
         gpu: &'a Gpu,
         world_camera: &'a WorldCamera,
         target: &'a dyn RenderTarget,

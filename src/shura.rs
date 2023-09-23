@@ -18,7 +18,7 @@ use crate::{
 };
 use crate::{
     ComponentRenderer, ComponentTypeId, ComponentTypeImplementation, Context, ContextUse,
-    ControllerManager, EndReason, FrameManager, Gpu, GpuConfig, GpuDefaults, Input, RenderEncoder,
+    ControllerManager, EndReason, FrameManager, Gpu, GpuConfig, DefaultResources, Input, RenderEncoder,
     RenderTarget, Scene, SceneCreator, SceneManager, Vector,
 };
 use rustc_hash::FxHashMap;
@@ -238,7 +238,7 @@ pub struct Shura {
     pub globals: GlobalComponents,
     pub window: winit::window::Window,
     pub input: Input,
-    pub defaults: GpuDefaults,
+    pub defaults: DefaultResources,
     pub gpu: Arc<Gpu>,
     #[cfg(feature = "gui")]
     pub gui: Gui,
@@ -259,7 +259,7 @@ impl Shura {
         let gpu = pollster::block_on(Gpu::new(&window, gpu));
         let mint: mint::Vector2<u32> = (window.inner_size()).into();
         let window_size: Vector<u32> = mint.into();
-        let defaults = GpuDefaults::new(&gpu, window_size);
+        let defaults = DefaultResources::new(&gpu, window_size);
         let gpu = Arc::new(gpu);
 
         GLOBAL_GPU.set(gpu.clone()).ok().unwrap();
