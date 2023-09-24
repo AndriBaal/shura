@@ -34,7 +34,7 @@ impl Resources {
         let bunny_sprite = ctx.gpu.create_sprite(sprite_file!("./img/wabbit.png"));
         let font = ctx
             .gpu
-            .create_font(include_bytes!("./font/Roboto-Regular.ttf"));
+            .create_font(include_bytes!("./font/novem.ttf"));
         Resources {
             screenshot: None,
             // bunny_model,
