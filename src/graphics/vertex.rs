@@ -3,14 +3,29 @@ use std::mem;
 
 /// Single vertex of a model. Which hold the coordniate of the vertex and the texture coordinates.
 #[repr(C)]
-#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Copy, Clone, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Vertex {
+pub struct Vertex<T: bytemuck::Pod + bytemuck::Zeroable + Default> {
     pub pos: Vector<f32>,
     pub tex_coords: Vector<f32>,
+    pub additional: T,
 }
 
-impl Vertex {
+// Use manual implementation instead of derive because of T
+unsafe impl<T: bytemuck::Pod + Default> bytemuck::Pod for Vertex<T> {}
+unsafe impl<T: bytemuck::Zeroable + bytemuck::Pod + Default> bytemuck::Zeroable for Vertex<T> {}
+
+impl<T: bytemuck::Pod + bytemuck::Zeroable + Default> Vertex<T> {
+    pub const fn new(pos: Vector<f32>, tex_coords: Vector<f32>, additional: T) -> Self {
+        Vertex {
+            pos,
+            tex_coords,
+            additional,
+        }
+    }
+}
+
+impl Vertex<()> {
     pub const SIZE: u64 = std::mem::size_of::<Self>() as u64;
     pub const ATTRIBUTES: [wgpu::VertexAttribute; 2] = [
         wgpu::VertexAttribute {
@@ -29,10 +44,6 @@ impl Vertex {
         step_mode: wgpu::VertexStepMode::Vertex,
         attributes: &Self::ATTRIBUTES,
     };
-
-    pub const fn new(pos: Vector<f32>, tex_coords: Vector<f32>) -> Self {
-        Vertex { pos, tex_coords }
-    }
 }
 
 #[repr(C)]

@@ -1,7 +1,7 @@
 #[cfg(feature = "log")]
 use crate::log::info;
 #[cfg(feature = "text")]
-use crate::text::{Font, Text, TextSection, TextVertex};
+use crate::text::{Font, Text, TextSection, TextVertexData};
 use crate::{
     Camera, InstanceBuffer, InstanceField, InstancePosition, Isometry, Model, ModelBuilder,
     RenderEncoder, RenderTarget, Shader, ShaderConfig, Sprite, SpriteBuilder, SpriteRenderTarget,
@@ -211,7 +211,14 @@ impl Gpu {
         InstanceBuffer::new(self, instances)
     }
 
-    pub fn create_model(&self, builder: ModelBuilder) -> Model {
+    pub fn create_model(&self, builder: ModelBuilder<()>) -> Model {
+        Model::new(self, builder)
+    }
+
+    pub fn create_model_with_data<T: bytemuck::Pod + bytemuck::Zeroable + Default>(
+        &self,
+        builder: ModelBuilder<T>,
+    ) -> Model {
         Model::new(self, builder)
     }
 
@@ -469,7 +476,17 @@ impl DefaultResources {
             vertex_shader: VertexShader::Custom(
                 include_str!("../../res/shader/vertex_text.wgsl"),
                 vec![
-                    TextVertex::DESC,
+                    wgpu::VertexBufferLayout {
+                        array_stride: std::mem::size_of::<Vertex<TextVertexData>>()
+                            as wgpu::BufferAddress,
+                        step_mode: wgpu::VertexStepMode::Vertex,
+                        attributes: &wgpu::vertex_attr_array![
+                            0 => Float32x2,
+                            1 => Float32x2,
+                            2 => Float32x4,
+                            3 => Uint32
+                        ],
+                    },
                     // Not InstancePosition::DESC because of offset
                     wgpu::VertexBufferLayout {
                         array_stride: InstancePosition::SIZE,

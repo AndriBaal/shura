@@ -12,8 +12,6 @@ use std::{ops::Range, ptr::null};
 struct RenderCache {
     pub bound_shader: *const Shader,
     pub bound_model: *const Model,
-    #[cfg(feature = "text")]
-    pub bound_text: *const Text,
     pub bound_instances: *const InstanceBuffer,
     pub bound_uniforms: [*const wgpu::BindGroup; 16],
 }
@@ -24,9 +22,7 @@ impl Default for RenderCache {
             bound_shader: null(),
             bound_model: null(),
             bound_instances: null(),
-            bound_uniforms: [null(); 16],
-            #[cfg(feature = "text")]
-            bound_text: null(),
+            bound_uniforms: [null(); 16]
         }
     }
 }
@@ -235,10 +231,6 @@ impl<'a> Renderer<'a> {
 
     pub fn use_model(&mut self, model: &'a Model) {
         let ptr = model as *const _;
-        #[cfg(feature = "text")]
-        {
-            self.cache.bound_text = null();
-        }
         if ptr != self.cache.bound_model {
             self.cache.bound_model = ptr;
             self.indices = model.index_amount();
@@ -247,21 +239,6 @@ impl<'a> Renderer<'a> {
             self.render_pass
                 .set_vertex_buffer(Self::MODEL_SLOT, model.vertex_buffer());
         }
-    }
-
-    #[cfg(feature = "text")]
-    pub fn use_text(&mut self, text: &'a Text) {
-        let ptr = text as *const _;
-        self.cache.bound_model = null();
-        if ptr != self.cache.bound_text {
-            self.cache.bound_text = ptr;
-            self.indices = text.index_amount();
-            self.render_pass
-                .set_index_buffer(text.index_buffer(), wgpu::IndexFormat::Uint32);
-            self.render_pass
-                .set_vertex_buffer(Self::MODEL_SLOT, text.vertex_buffer());
-        }
-        self.use_sprite_sheet(text.font(), 1);
     }
 
     pub fn use_bind_group(&mut self, bind_group: &'a wgpu::BindGroup, slot: u32) {
@@ -413,10 +390,11 @@ impl<'a> Renderer<'a> {
         camera: &'a Camera,
         text: &'a Text,
     ) {
-        if buffer.buffer_size() != 0 && text.vertex_buffer_size() != 0 {
+        if buffer.buffer_size() != 0 && text.model().vertex_buffer_size() != 0 {
             self.use_shader(&self.defaults.text);
             self.use_camera(camera);
-            self.use_text(text);
+            self.use_model(text.model());
+            self.use_sprite_sheet(text.font(), 1);
             self.use_instances(buffer);
             self.draw(instances);
         }

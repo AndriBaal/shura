@@ -1,59 +1,16 @@
-use std::{mem::size_of, sync::Arc};
+use std::sync::Arc;
 
 use crate::{
-    vector, Color, Gpu, Index, Isometry, ModelBuilder, SpriteSheet, SpriteSheetBuilder,
-    SpriteSheetIndex, Vector,
+    vector, Color, Gpu, Index, Isometry, Model, ModelBuilder, SpriteSheet, SpriteSheetBuilder,
+    SpriteSheetIndex, Vector, Vertex,
 };
 use rustc_hash::FxHashMap;
-use wgpu::util::DeviceExt;
 
-#[derive(Clone, Copy, Debug, bytemuck::Zeroable, bytemuck::Pod)]
+#[derive(Clone, Copy, Debug, Default, bytemuck::Zeroable, bytemuck::Pod)]
 #[repr(C)]
-pub(crate) struct TextVertex {
-    pos: Vector<f32>,
-    tex: Vector<f32>,
+pub(crate) struct TextVertexData {
     color: Color,
     sprite: u32,
-}
-
-impl TextVertex {
-    pub const SIZE: u64 = std::mem::size_of::<Self>() as u64;
-    pub const ATTRIBUTES: [wgpu::VertexAttribute; 4] = [
-        wgpu::VertexAttribute {
-            offset: 0,
-            shader_location: 0,
-            format: wgpu::VertexFormat::Float32x2,
-        },
-        wgpu::VertexAttribute {
-            offset: size_of::<[f32; 2]>() as wgpu::BufferAddress,
-            shader_location: 1,
-            format: wgpu::VertexFormat::Float32x2,
-        },
-        wgpu::VertexAttribute {
-            offset: size_of::<[f32; 4]>() as wgpu::BufferAddress,
-            shader_location: 2,
-            format: wgpu::VertexFormat::Float32x4,
-        },
-        wgpu::VertexAttribute {
-            offset: size_of::<[f32; 8]>() as wgpu::BufferAddress,
-            shader_location: 3,
-            format: wgpu::VertexFormat::Uint32,
-        },
-    ];
-    pub const DESC: wgpu::VertexBufferLayout<'static> = wgpu::VertexBufferLayout {
-        array_stride: Self::SIZE,
-        step_mode: wgpu::VertexStepMode::Vertex,
-        attributes: &Self::ATTRIBUTES,
-    };
-
-    pub fn new(pos: Vector<f32>, tex: Vector<f32>, color: Color, sprite: u32) -> Self {
-        Self {
-            pos,
-            tex,
-            color,
-            sprite,
-        }
-    }
 }
 
 #[derive(Clone)]
@@ -216,8 +173,8 @@ impl Default for TextSection<&str> {
             text: "",
             size: 1.0,
             vertex_offset: Isometry::new(
-                ModelBuilder::DEFAULT_OFFSET,
-                ModelBuilder::DEFAULT_ROTATION,
+                ModelBuilder::<()>::DEFAULT_OFFSET,
+                ModelBuilder::<()>::DEFAULT_ROTATION,
             ),
             vertex_rotation_axis: Vector::new(0.0, 0.0),
             horizontal_alignment: TextAlignment::Start,
@@ -233,8 +190,8 @@ impl Default for TextSection<String> {
             text: String::from(""),
             size: 1.0,
             vertex_offset: Isometry::new(
-                ModelBuilder::DEFAULT_OFFSET,
-                ModelBuilder::DEFAULT_ROTATION,
+                ModelBuilder::<()>::DEFAULT_OFFSET,
+                ModelBuilder::<()>::DEFAULT_ROTATION,
             ),
             vertex_rotation_axis: Vector::new(0.0, 0.0),
             horizontal_alignment: TextAlignment::Start,
@@ -245,76 +202,45 @@ impl Default for TextSection<String> {
 
 pub struct Text {
     font: Font,
-    vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer,
-    index_amount: u32,
-    vertex_amount: u32,
-    vertex_buffer_size: wgpu::BufferAddress,
-    index_buffer_size: wgpu::BufferAddress,
+    model: Model,
 }
 
 impl Text {
     pub fn new<S: AsRef<str>>(gpu: &Gpu, font: &Font, sections: &[TextSection<S>]) -> Self {
-        let mut vertices: Vec<TextVertex> = vec![];
-        let mut indices: Vec<Index> = vec![];
-
-        Self::compute_vertices(font, sections, &mut vertices, &mut indices);
-
-        let vertices_slice = bytemuck::cast_slice(&vertices[..]);
-        let indices_slice = bytemuck::cast_slice(&indices[..]);
-        let vertex_buffer = gpu
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("vertex_buffer"),
-                contents: vertices_slice,
-                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-            });
-
-        let index_buffer = gpu
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("index_buffer"),
-                contents: indices_slice,
-                usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
-            });
-
+        let builder = Self::compute_vertices(font, sections);
+        let model = gpu.create_model_with_data(builder);
         return Self {
-            vertex_buffer,
-            index_buffer,
-            index_amount: indices.len() as u32 * 3,
-            vertex_amount: vertices.len() as u32,
             font: font.clone(),
-            vertex_buffer_size: vertices_slice.len() as wgpu::BufferAddress,
-            index_buffer_size: indices_slice.len() as wgpu::BufferAddress,
+            model,
         };
-    }
-
-    fn compute_modifed_vertices(
-        vertices: &mut [TextVertex],
-        vertex_offset: Isometry<f32>,
-        vertex_rotation_axis: Vector<f32>,
-    ) {
-        let angle = vertex_offset.rotation.angle();
-        if angle != ModelBuilder::DEFAULT_ROTATION {
-            for v in vertices.iter_mut() {
-                let delta = v.pos - vertex_rotation_axis;
-                v.pos = vertex_rotation_axis + vertex_offset.rotation * delta;
-            }
-        }
-
-        if vertex_offset.translation.vector != ModelBuilder::DEFAULT_OFFSET {
-            for v in vertices.iter_mut() {
-                v.pos += vertex_offset.translation.vector;
-            }
-        }
     }
 
     fn compute_vertices<S: AsRef<str>>(
         font: &Font,
         sections: &[TextSection<S>],
-        vertices: &mut Vec<TextVertex>,
-        indices: &mut Vec<Index>,
-    ) {
+    ) -> ModelBuilder<TextVertexData> {
+        let mut vertices: Vec<Vertex<TextVertexData>> = vec![];
+        let mut indices: Vec<Index> = vec![];
+
+        fn compute_modifed_vertices(
+            vertices: &mut [Vertex<TextVertexData>],
+            vertex_offset: Isometry<f32>,
+            vertex_rotation_axis: Vector<f32>,
+        ) {
+            let angle = vertex_offset.rotation.angle();
+            if angle != ModelBuilder::<TextVertexData>::DEFAULT_ROTATION {
+                for v in vertices.iter_mut() {
+                    let delta = v.pos - vertex_rotation_axis;
+                    v.pos = vertex_rotation_axis + vertex_offset.rotation * delta;
+                }
+            }
+
+            if vertex_offset.translation.vector != ModelBuilder::<TextVertexData>::DEFAULT_OFFSET {
+                for v in vertices.iter_mut() {
+                    v.pos += vertex_offset.translation.vector;
+                }
+            }
+        }
         for section in sections {
             let text = section.text.as_ref();
             if text.is_empty() {
@@ -372,33 +298,41 @@ impl Text {
                             let offset = Vector::new(-horizontal, -bb.max.y - vertical - off_y);
 
                             vertices.extend([
-                                TextVertex::new(
+                                Vertex::new(
                                     top_left + offset,
                                     Vector::new(0.0, 0.0),
-                                    section.color,
-                                    *id,
+                                    TextVertexData {
+                                        color: section.color,
+                                        sprite: *id,
+                                    },
                                 ),
-                                TextVertex::new(
+                                Vertex::new(
                                     bottom_left + offset,
                                     Vector::new(0.0, scale.y),
-                                    section.color,
-                                    *id,
+                                    TextVertexData {
+                                        color: section.color,
+                                        sprite: *id,
+                                    },
                                 ),
-                                TextVertex::new(
+                                Vertex::new(
                                     bottom_right + offset,
                                     Vector::new(scale.x, scale.y),
-                                    section.color,
-                                    *id,
+                                    TextVertexData {
+                                        color: section.color,
+                                        sprite: *id,
+                                    },
                                 ),
-                                TextVertex::new(
+                                Vertex::new(
                                     top_right + offset,
                                     Vector::new(scale.x, 0.0),
-                                    section.color,
-                                    *id,
+                                    TextVertexData {
+                                        color: section.color,
+                                        sprite: *id,
+                                    },
                                 ),
                             ]);
                             let offset = vertices.len() - 4;
-                            Self::compute_modifed_vertices(
+                            compute_modifed_vertices(
                                 &mut vertices[offset..],
                                 section.vertex_offset,
                                 section.vertex_rotation_axis,
@@ -414,73 +348,19 @@ impl Text {
                 off_y += section.size + metrics.descent.abs() + metrics.line_gap;
             }
         }
+        return ModelBuilder::custom(vertices, indices);
     }
 
     pub fn write<S: AsRef<str>>(&mut self, gpu: &Gpu, sections: &[TextSection<S>]) {
-        let mut vertices: Vec<TextVertex> = vec![];
-        let mut indices: Vec<Index> = vec![];
-
-        Self::compute_vertices(&self.font, sections, &mut vertices, &mut indices);
-
-        let indices_slice = bytemuck::cast_slice(&indices[..]);
-        let new_size = indices_slice.len() as wgpu::BufferAddress;
-        if new_size > self.index_buffer_size {
-            self.index_buffer = gpu
-                .device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("index_buffer"),
-                    contents: indices_slice,
-                    usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
-                });
-        } else {
-            gpu.queue.write_buffer(&self.index_buffer, 0, indices_slice);
-        }
-        self.index_buffer_size = new_size as wgpu::BufferAddress;
-        self.index_amount = indices.len() as u32 * 3;
-
-        let vertices_slice = bytemuck::cast_slice(&vertices[..]);
-        let new_size = vertices_slice.len() as wgpu::BufferAddress;
-        if new_size > self.vertex_buffer_size {
-            self.vertex_buffer = gpu
-                .device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("vertex_buffer"),
-                    contents: vertices_slice,
-                    usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-                });
-        } else {
-            gpu.queue
-                .write_buffer(&self.vertex_buffer, 0, vertices_slice);
-        }
-        self.vertex_buffer_size = new_size;
-        self.vertex_amount = vertices.len() as u32;
+        let builder = Self::compute_vertices(&self.font, sections);
+        self.model.write_with_data(gpu, builder);
     }
 
     pub fn font(&self) -> &SpriteSheet {
         &self.font.inner.sprite_sheet
     }
 
-    pub fn vertex_buffer(&self) -> wgpu::BufferSlice {
-        self.vertex_buffer.slice(..self.vertex_buffer_size)
-    }
-
-    pub fn index_buffer(&self) -> wgpu::BufferSlice {
-        self.index_buffer.slice(..self.index_buffer_size)
-    }
-
-    pub fn vertex_amount(&self) -> u32 {
-        self.vertex_amount
-    }
-
-    pub fn index_amount(&self) -> u32 {
-        self.index_amount
-    }
-
-    pub fn vertex_buffer_size(&self) -> wgpu::BufferAddress {
-        self.vertex_buffer_size
-    }
-
-    pub fn index_buffer_size(&self) -> wgpu::BufferAddress {
-        self.index_buffer_size
+    pub fn model(&self) -> &Model {
+        &self.model
     }
 }

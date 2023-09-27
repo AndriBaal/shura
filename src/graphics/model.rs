@@ -1,11 +1,10 @@
 #[cfg(feature = "physics")]
 use crate::physics::{Shape, TypedShape};
-use crate::{Camera, AABB};
-use crate::{Gpu, Index, Isometry, Matrix, Rotation, Vector, Vertex};
+use crate::{Gpu, Index, Isometry, Matrix, Rotation, Vector, Vertex, AABB};
 use std::f32::consts::{FRAC_PI_2, PI};
 use wgpu::util::DeviceExt;
 
-impl Default for ModelBuilder {
+impl<T: bytemuck::Pod + bytemuck::Zeroable + Default> Default for ModelBuilder<T> {
     fn default() -> Self {
         Self {
             vertices: Default::default(),
@@ -23,8 +22,8 @@ impl Default for ModelBuilder {
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// Builder to easily create a [Model].
-pub struct ModelBuilder {
-    pub vertices: Vec<Vertex>,
+pub struct ModelBuilder<T: bytemuck::Pod + bytemuck::Zeroable + Default> {
+    pub vertices: Vec<Vertex<T>>,
     pub indices: Vec<Index>,
     pub vertex_offset: Isometry<f32>,
     pub tex_coord_offset: Isometry<f32>,
@@ -34,7 +33,7 @@ pub struct ModelBuilder {
     pub tex_coord_rotation_axis: Vector<f32>,
 }
 
-impl ModelBuilder {
+impl<T: bytemuck::Pod + bytemuck::Zeroable + Default> ModelBuilder<T> {
     pub const TRIANGLE_INDICES: [Index; 1] = [Index::new(0, 1, 2)];
     pub const CUBOID_INDICES: [Index; 2] = [Index::new(0, 1, 2), Index::new(2, 3, 0)];
 
@@ -76,6 +75,7 @@ impl ModelBuilder {
                     (i / corners as f32 * 2.0 * PI).cos() / 2.0 + 0.5,
                     (i / corners as f32 * 2.0 * PI).sin() / -2.0 + 0.5,
                 ),
+                additional: Default::default(),
             });
         }
         let indices = Self::triangulate(&vertices);
@@ -95,18 +95,22 @@ impl ModelBuilder {
             Vertex::new(
                 Vector::new(-half_extents.x, half_extents.y),
                 Vector::new(0.0, 0.0),
+                Default::default(),
             ),
             Vertex::new(
                 Vector::new(-half_extents.x, -half_extents.y),
                 Vector::new(0.0, 1.0),
+                Default::default(),
             ),
             Vertex::new(
                 Vector::new(half_extents.x, -half_extents.y),
                 Vector::new(1.0, 1.0),
+                Default::default(),
             ),
             Vertex::new(
                 Vector::new(half_extents.x, half_extents.y),
                 Vector::new(1.0, 0.0),
+                Default::default(),
             ),
         ];
         let indices = Vec::from(Self::CUBOID_INDICES);
@@ -117,12 +121,28 @@ impl ModelBuilder {
         }
     }
 
-    pub fn aabb(aabb: AABB) -> Self {
+    pub fn from_aabb(aabb: AABB) -> Self {
         let vertices = vec![
-            Vertex::new(Vector::new(aabb.min.x, aabb.max.y), Vector::new(0.0, 0.0)),
-            Vertex::new(Vector::new(aabb.min.x, aabb.min.y), Vector::new(0.0, 1.0)),
-            Vertex::new(Vector::new(aabb.max.x, aabb.min.y), Vector::new(1.0, 1.0)),
-            Vertex::new(Vector::new(aabb.max.x, aabb.max.y), Vector::new(1.0, 0.0)),
+            Vertex::new(
+                Vector::new(aabb.min.x, aabb.max.y),
+                Vector::new(0.0, 0.0),
+                Default::default(),
+            ),
+            Vertex::new(
+                Vector::new(aabb.min.x, aabb.min.y),
+                Vector::new(0.0, 1.0),
+                Default::default(),
+            ),
+            Vertex::new(
+                Vector::new(aabb.max.x, aabb.min.y),
+                Vector::new(1.0, 1.0),
+                Default::default(),
+            ),
+            Vertex::new(
+                Vector::new(aabb.max.x, aabb.max.y),
+                Vector::new(1.0, 0.0),
+                Default::default(),
+            ),
         ];
         let indices = Vec::from(Self::CUBOID_INDICES);
         Self {
@@ -130,6 +150,10 @@ impl ModelBuilder {
             indices,
             ..Default::default()
         }
+    }
+
+    pub fn aabb(&self) -> AABB {
+        AABB::from_vertices(&self.vertices)
     }
 
     pub fn triangle(a: Vector<f32>, b: Vector<f32>, c: Vector<f32>) -> Self {
@@ -177,7 +201,7 @@ impl ModelBuilder {
         }
     }
     pub fn rounded(
-        inner: ModelBuilder,
+        inner: ModelBuilder<T>,
         direction: RoundingDirection,
         border_radius: f32,
         resolution: u32,
@@ -321,7 +345,7 @@ impl ModelBuilder {
         }
     }
 
-    pub fn custom(vertices: Vec<Vertex>, indices: Vec<Index>) -> Self {
+    pub fn custom(vertices: Vec<Vertex<T>>, indices: Vec<Index>) -> Self {
         Self {
             vertices,
             indices,
@@ -329,7 +353,7 @@ impl ModelBuilder {
         }
     }
 
-    pub fn compound(shapes: Vec<ModelBuilder>) -> Self {
+    pub fn compound(shapes: Vec<ModelBuilder<T>>) -> Self {
         let mut vertices = vec![];
         let mut indices = vec![];
         let mut offset = 0;
@@ -435,7 +459,7 @@ impl ModelBuilder {
     }
 
     /// Triangulation of vertices
-    pub fn triangulate(vertices: &Vec<Vertex>) -> Vec<Index> {
+    pub fn triangulate(vertices: &Vec<Vertex<T>>) -> Vec<Index> {
         use delaunator::{triangulate, Point};
 
         let points: Vec<Point> = vertices
@@ -459,7 +483,7 @@ impl ModelBuilder {
     }
 
     /// Generates the texture coordinates
-    pub fn create_tex_coords(vertices: Vec<Vector<f32>>) -> Vec<Vertex> {
+    pub fn create_tex_coords(vertices: Vec<Vector<f32>>) -> Vec<Vertex<T>> {
         let mut min_x = vertices[0].x;
         let mut max_x = vertices[0].x;
         let mut min_y = vertices[0].y;
@@ -488,7 +512,7 @@ impl ModelBuilder {
             let delta_y = max_y - v.y;
             let ratio_y = delta_y / size.y;
             let tex_coords = Vector::new(ratio_x, ratio_y);
-            result.push(Vertex::new(v, tex_coords));
+            result.push(Vertex::new(v, tex_coords, Default::default()));
         }
         return result;
     }
@@ -561,7 +585,7 @@ impl ModelBuilder {
     }
 
     pub fn compute_modifed_vertices(
-        vertices: &mut Vec<Vertex>,
+        vertices: &mut Vec<Vertex<T>>,
         vertex_offset: Isometry<f32>,
         tex_coord_offset: Isometry<f32>,
         vertex_scale: Vector<f32>,
@@ -614,7 +638,6 @@ impl ModelBuilder {
 
     pub fn build(self, gpu: &Gpu) -> Model {
         let mut vertices = self.vertices.clone();
-        assert!(vertices.len() >= 3);
         Self::compute_modifed_vertices(
             &mut vertices,
             self.vertex_offset,
@@ -648,7 +671,6 @@ impl ModelBuilder {
             index_buffer_size: indices_slice.len() as wgpu::BufferAddress,
             vertex_buffer,
             index_buffer,
-            aabb: AABB::from_vertices(&vertices),
             vertex_amount: vertices.len() as u32,
             index_amount: self.indices.len() as u32 * 3,
         }
@@ -664,21 +686,27 @@ pub struct Model {
     index_buffer_size: wgpu::BufferAddress,
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
-    aabb: AABB,
 }
 
 impl Model {
-    pub fn new(gpu: &Gpu, builder: ModelBuilder) -> Self {
+    pub fn new<T: bytemuck::Pod + bytemuck::Zeroable + Default>(
+        gpu: &Gpu,
+        builder: ModelBuilder<T>,
+    ) -> Self {
         builder.build(gpu)
     }
 
-    pub fn intersects_camera(&self, position: Isometry<f32>, camera: &Camera) -> bool {
-        let model_aabb = self.aabb(position);
-        let camera_aabb = camera.aabb();
-        camera_aabb.intersects(&model_aabb)
+    pub fn write(&mut self, gpu: &Gpu, builder: ModelBuilder<()>) {
+        let builder = builder.apply_modifiers();
+        self.write_indices(gpu, &builder.indices);
+        self.write_vertices(gpu, &builder.vertices);
     }
 
-    pub fn write(&mut self, gpu: &Gpu, builder: ModelBuilder) {
+    pub fn write_with_data<T: bytemuck::Pod + bytemuck::Zeroable + Default>(
+        &mut self,
+        gpu: &Gpu,
+        builder: ModelBuilder<T>,
+    ) {
         let builder = builder.apply_modifiers();
         self.write_indices(gpu, &builder.indices);
         self.write_vertices(gpu, &builder.vertices);
@@ -702,7 +730,11 @@ impl Model {
         self.index_amount = indices.len() as u32 * 3;
     }
 
-    pub fn write_vertices(&mut self, gpu: &Gpu, vertices: &[Vertex]) {
+    pub fn write_vertices<T: bytemuck::Pod + bytemuck::Zeroable + Default>(
+        &mut self,
+        gpu: &Gpu,
+        vertices: &[Vertex<T>],
+    ) {
         let vertices_slice = bytemuck::cast_slice(&vertices[..]);
         let new_size = vertices_slice.len() as wgpu::BufferAddress;
         if new_size > self.vertex_buffer_size {
@@ -719,7 +751,6 @@ impl Model {
         }
         self.vertex_buffer_size = new_size;
         self.vertex_amount = vertices.len() as u32;
-        self.aabb = AABB::from_vertices(vertices);
     }
 
     pub fn vertex_buffer(&self) -> wgpu::BufferSlice {
@@ -744,10 +775,6 @@ impl Model {
 
     pub fn index_buffer_size(&self) -> wgpu::BufferAddress {
         self.index_buffer_size
-    }
-
-    pub fn aabb(&self, position: Isometry<f32>) -> AABB {
-        self.aabb.with_position(position)
     }
 }
 
