@@ -63,6 +63,7 @@ impl Default for InstancePosition {
 /// Buffer holding multiple [Positions](crate::Isometry) in form of [Matrices](crate::Matrix).
 pub struct InstanceBuffer {
     buffer: wgpu::Buffer,
+    buffer_size: wgpu::BufferAddress,
     instances: u64,
     instance_size: u64,
 }
@@ -71,7 +72,8 @@ impl InstanceBuffer {
     pub fn new<D: bytemuck::NoUninit>(gpu: &Gpu, data: &[D]) -> Self {
         let instance_size = size_of::<D>() as u64;
         let data = bytemuck::cast_slice(data);
-        assert!(data.len() as u64 % instance_size == 0);
+        let buffer_size = data.len() as u64;
+        assert!(buffer_size % instance_size == 0);
         let buffer = gpu
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -82,7 +84,8 @@ impl InstanceBuffer {
 
         return Self {
             buffer,
-            instances: data.len() as u64 / instance_size,
+            buffer_size: buffer_size,
+            instances: buffer_size / instance_size,
             instance_size,
         };
     }
@@ -99,6 +102,7 @@ impl InstanceBuffer {
             buffer,
             instance_size,
             instances: 0,
+            buffer_size: 0,
         };
     }
 
@@ -116,14 +120,25 @@ impl InstanceBuffer {
         let new_size = instance_offset * self.instance_size + data.len() as u64;
         assert_eq!(data.len() as u64 % self.instance_size, 0);
         assert_eq!(size_of::<D>() as u64, self.instance_size);
-        assert!(new_size <= self.buffer.size());
+
         self.instances = new_size / self.instance_size;
-        gpu.queue
-            .write_buffer(&self.buffer, instance_offset * self.instance_size, data);
+
+        if new_size > self.buffer_size {
+            self.buffer = gpu.device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("instance_buffer"),
+                    usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                    contents: data,
+                });
+        } else {
+            gpu.queue
+                .write_buffer(&self.buffer, instance_offset * self.instance_size, data);
+        }
+        self.buffer_size = new_size;
     }
 
     pub fn slice(&self) -> wgpu::BufferSlice {
-        self.buffer.slice(..)
+        self.buffer.slice(..self.buffer_size)
     }
 
     pub fn buffer_capacity(&self) -> u64 {
@@ -134,8 +149,8 @@ impl InstanceBuffer {
         InstanceIndices::new(0, self.instance_amount() as u32)
     }
 
-    pub fn instance_capacity(&self) -> u64 {
-        return self.buffer_capacity() / self.instance_size;
+    pub fn buffer_size(&self) -> u64 {
+        return self.buffer_size
     }
 
     pub fn instance_amount(&self) -> u64 {

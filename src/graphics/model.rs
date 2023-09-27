@@ -644,13 +644,13 @@ impl ModelBuilder {
             });
 
         Model {
-            vertices_size: vertices_slice.len() as wgpu::BufferAddress,
-            indices_size: indices_slice.len() as wgpu::BufferAddress,
+            vertex_buffer_size: vertices_slice.len() as wgpu::BufferAddress,
+            index_buffer_size: indices_slice.len() as wgpu::BufferAddress,
             vertex_buffer,
             index_buffer,
             aabb: AABB::from_vertices(&vertices),
-            amount_of_vertices: vertices.len() as u32,
-            amount_of_indices: self.indices.len() as u32 * 3,
+            vertex_amount: vertices.len() as u32,
+            index_amount: self.indices.len() as u32 * 3,
         }
     }
 }
@@ -658,10 +658,10 @@ impl ModelBuilder {
 /// 2D Model represented by its [Vertices](Vertex) and [Indices](Index).
 #[derive(Debug)]
 pub struct Model {
-    amount_of_vertices: u32,
-    amount_of_indices: u32,
-    vertices_size: wgpu::BufferAddress,
-    indices_size: wgpu::BufferAddress,
+    vertex_amount: u32,
+    index_amount: u32,
+    vertex_buffer_size: wgpu::BufferAddress,
+    index_buffer_size: wgpu::BufferAddress,
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
     aabb: AABB,
@@ -686,7 +686,8 @@ impl Model {
 
     pub fn write_indices(&mut self, gpu: &Gpu, indices: &[Index]) {
         let indices_slice = bytemuck::cast_slice(&indices[..]);
-        if indices.len() > self.indices_size as usize {
+        let new_size = indices_slice.len() as wgpu::BufferAddress;
+        if new_size > self.index_buffer_size {
             self.index_buffer = gpu
                 .device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -697,13 +698,14 @@ impl Model {
         } else {
             gpu.queue.write_buffer(&self.index_buffer, 0, indices_slice);
         }
-        self.indices_size = indices_slice.len() as wgpu::BufferAddress;
-        self.amount_of_indices = indices.len() as u32 * 3;
+        self.index_buffer_size = new_size;
+        self.index_amount = indices.len() as u32 * 3;
     }
 
     pub fn write_vertices(&mut self, gpu: &Gpu, vertices: &[Vertex]) {
         let vertices_slice = bytemuck::cast_slice(&vertices[..]);
-        if vertices.len() > self.vertices_size as usize {
+        let new_size = vertices_slice.len() as wgpu::BufferAddress;
+        if new_size > self.vertex_buffer_size {
             self.vertex_buffer = gpu
                 .device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -715,33 +717,33 @@ impl Model {
             gpu.queue
                 .write_buffer(&self.vertex_buffer, 0, vertices_slice);
         }
-        self.vertices_size = vertices.len() as wgpu::BufferAddress;
-        self.amount_of_vertices = vertices.len() as u32;
+        self.vertex_buffer_size = new_size;
+        self.vertex_amount = vertices.len() as u32;
         self.aabb = AABB::from_vertices(vertices);
     }
 
     pub fn vertex_buffer(&self) -> wgpu::BufferSlice {
-        self.vertex_buffer.slice(..self.vertices_size)
+        self.vertex_buffer.slice(..self.vertex_buffer_size)
     }
 
     pub fn index_buffer(&self) -> wgpu::BufferSlice {
-        self.index_buffer.slice(..self.indices_size)
+        self.index_buffer.slice(..self.index_buffer_size)
     }
 
-    pub fn amount_of_indices(&self) -> u32 {
-        self.amount_of_indices
+    pub fn index_amount(&self) -> u32 {
+        self.index_amount
     }
 
-    pub fn amount_of_vertices(&self) -> u32 {
-        self.amount_of_vertices
+    pub fn vertex_amount(&self) -> u32 {
+        self.vertex_amount
     }
 
-    pub fn vertices_size(&self) -> wgpu::BufferAddress {
-        self.vertices_size
+    pub fn vertex_buffer_size(&self) -> wgpu::BufferAddress {
+        self.vertex_buffer_size
     }
 
-    pub fn indices_size(&self) -> wgpu::BufferAddress {
-        self.indices_size * 3
+    pub fn index_buffer_size(&self) -> wgpu::BufferAddress {
+        self.index_buffer_size
     }
 
     pub fn aabb(&self, position: Isometry<f32>) -> AABB {

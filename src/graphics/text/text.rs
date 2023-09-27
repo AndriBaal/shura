@@ -198,9 +198,9 @@ pub enum TextAlignment {
     End,
 }
 
-pub struct TextSection<'a> {
+pub struct TextSection<S: AsRef<str>> {
     pub color: Color,
-    pub text: &'a str,
+    pub text: S,
     pub size: f32,
     pub vertex_offset: Isometry<f32>,
     pub vertex_rotation_axis: Vector<f32>,
@@ -209,11 +209,28 @@ pub struct TextSection<'a> {
     // pub width: f32,
 }
 
-impl<'a> Default for TextSection<'a> {
+impl Default for TextSection<&str> {
     fn default() -> Self {
         Self {
             color: Color::BLACK,
-            text: Default::default(),
+            text: "",
+            size: 1.0,
+            vertex_offset: Isometry::new(
+                ModelBuilder::DEFAULT_OFFSET,
+                ModelBuilder::DEFAULT_ROTATION,
+            ),
+            vertex_rotation_axis: Vector::new(0.0, 0.0),
+            horizontal_alignment: TextAlignment::Start,
+            vertical_alignment: TextAlignment::Start,
+        }
+    }
+}
+
+impl Default for TextSection<String> {
+    fn default() -> Self {
+        Self {
+            color: Color::BLACK,
+            text: String::from(""),
             size: 1.0,
             vertex_offset: Isometry::new(
                 ModelBuilder::DEFAULT_OFFSET,
@@ -230,111 +247,18 @@ pub struct Text {
     font: Font,
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
-    amount_of_vertices: u32,
-    amount_of_indices: u32,
-    vertices_size: wgpu::BufferAddress,
-    indices_size: wgpu::BufferAddress,
+    index_amount: u32,
+    vertex_amount: u32,
+    vertex_buffer_size: wgpu::BufferAddress,
+    index_buffer_size: wgpu::BufferAddress,
 }
 
 impl Text {
-    pub fn new(gpu: &Gpu, font: &Font, sections: &[TextSection]) -> Self {
+    pub fn new<S: AsRef<str>>(gpu: &Gpu, font: &Font, sections: &[TextSection<S>]) -> Self {
         let mut vertices: Vec<TextVertex> = vec![];
         let mut indices: Vec<Index> = vec![];
 
-        for section in sections {
-            if section.text.is_empty() {
-                continue;
-            }
-
-            let glyphs = font
-                .inner
-                .font
-                .layout(
-                    section.text,
-                    rusttype::Scale::uniform(section.size),
-                    rusttype::Point::default(),
-                )
-                .collect::<Vec<rusttype::PositionedGlyph>>();
-
-            let horizontal = match section.horizontal_alignment {
-                TextAlignment::Start => 0.0,
-                TextAlignment::Center => {
-                    let mut max = 0.0;
-                    for glyph in glyphs.iter().rev() {
-                        if let Some(bb) = glyph.unpositioned().exact_bounding_box() {
-                            max = glyph.position().x + bb.max.x;
-                            break;
-                        }
-                    }
-                    max / 2.0
-                }
-                TextAlignment::End => {
-                    let mut max = 0.0;
-                    for glyph in glyphs.iter().rev() {
-                        if let Some(bb) = glyph.unpositioned().exact_bounding_box() {
-                            max = glyph.position().x + bb.max.x;
-                            break;
-                        }
-                    }
-                    max
-                }
-            };
-            let vertical = match section.horizontal_alignment {
-                TextAlignment::Start => 0.0,
-                TextAlignment::Center => section.size / 2.0,
-                TextAlignment::End => section.size,
-            };
-
-            for glyph in &glyphs {
-                if let Some(bb) = glyph.unpositioned().exact_bounding_box() {
-                    let base_index = vertices.len() as u32;
-                    let (id, scale) = font.inner.index_map[&glyph.id()];
-                    let size = Vector::new(bb.width(), bb.height());
-                    let bottom_left = Vector::new(glyph.position().x, glyph.position().y);
-                    let top_right = bottom_left + size;
-                    let bottom_right = bottom_left + Vector::new(size.x, 0.0);
-                    let top_left = bottom_left + Vector::new(0.0, size.y);
-                    let offset = Vector::new(0.0 - horizontal, -bb.max.y - vertical);
-
-                    vertices.extend([
-                        TextVertex::new(
-                            top_left + offset,
-                            Vector::new(0.0, 0.0),
-                            section.color,
-                            id,
-                        ),
-                        TextVertex::new(
-                            bottom_left + offset,
-                            Vector::new(0.0, scale.y),
-                            section.color,
-                            id,
-                        ),
-                        TextVertex::new(
-                            bottom_right + offset,
-                            Vector::new(scale.x, scale.y),
-                            section.color,
-                            id,
-                        ),
-                        TextVertex::new(
-                            top_right + offset,
-                            Vector::new(scale.x, 0.0),
-                            section.color,
-                            id,
-                        ),
-                    ]);
-                    let offset = vertices.len() - 4;
-                    Self::compute_modifed_vertices(
-                        &mut vertices[offset..],
-                        section.vertex_offset,
-                        section.vertex_rotation_axis,
-                    );
-                    indices.extend([
-                        Index::new(base_index + 0, base_index + 1, base_index + 2),
-                        Index::new(base_index + 2, base_index + 3, base_index + 0),
-                    ]);
-                }
-            }
-        }
+        Self::compute_vertices(font, sections, &mut vertices, &mut indices);
 
         let vertices_slice = bytemuck::cast_slice(&vertices[..]);
         let indices_slice = bytemuck::cast_slice(&indices[..]);
@@ -357,11 +281,11 @@ impl Text {
         return Self {
             vertex_buffer,
             index_buffer,
-            amount_of_vertices: vertices.len() as u32,
-            amount_of_indices: indices.len() as u32 * 3,
+            index_amount: indices.len() as u32 * 3,
+            vertex_amount: vertices.len() as u32,
             font: font.clone(),
-            vertices_size: vertices_slice.len() as wgpu::BufferAddress,
-            indices_size: indices_slice.len() as wgpu::BufferAddress,
+            vertex_buffer_size: vertices_slice.len() as wgpu::BufferAddress,
+            index_buffer_size: indices_slice.len() as wgpu::BufferAddress,
         };
     }
 
@@ -385,31 +309,178 @@ impl Text {
         }
     }
 
+    fn compute_vertices<S: AsRef<str>>(
+        font: &Font,
+        sections: &[TextSection<S>],
+        vertices: &mut Vec<TextVertex>,
+        indices: &mut Vec<Index>,
+    ) {
+        for section in sections {
+            let text = section.text.as_ref();
+            if text.is_empty() {
+                continue;
+            }
+
+            let scale = rusttype::Scale::uniform(section.size);
+            let metrics = font.inner.font.v_metrics(scale);
+            let mut off_y = 0.0;
+            for line in text.lines() {
+                let glyphs = font
+                    .inner
+                    .font
+                    .layout(line, scale, rusttype::Point::default())
+                    .collect::<Vec<rusttype::PositionedGlyph>>();
+
+                let horizontal = match section.horizontal_alignment {
+                    TextAlignment::Start => 0.0,
+                    TextAlignment::Center => {
+                        let mut max = 0.0;
+                        for glyph in glyphs.iter().rev() {
+                            if let Some(bb) = glyph.unpositioned().exact_bounding_box() {
+                                max = glyph.position().x + bb.max.x;
+                                break;
+                            }
+                        }
+                        max / 2.0
+                    }
+                    TextAlignment::End => {
+                        let mut max = 0.0;
+                        for glyph in glyphs.iter().rev() {
+                            if let Some(bb) = glyph.unpositioned().exact_bounding_box() {
+                                max = glyph.position().x + bb.max.x;
+                                break;
+                            }
+                        }
+                        max
+                    }
+                };
+                let vertical = match section.vertical_alignment {
+                    TextAlignment::Start => 0.0,
+                    TextAlignment::Center => section.size / 2.0,
+                    TextAlignment::End => section.size,
+                };
+
+                for glyph in &glyphs {
+                    if let Some(bb) = glyph.unpositioned().exact_bounding_box() {
+                        let base_index = vertices.len() as u32;
+                        if let Some((id, scale)) = font.inner.index_map.get(&glyph.id()) {
+                            let size = Vector::new(bb.width(), bb.height());
+                            let bottom_left = Vector::new(glyph.position().x, glyph.position().y);
+                            let top_right = bottom_left + size;
+                            let bottom_right = bottom_left + Vector::new(size.x, 0.0);
+                            let top_left = bottom_left + Vector::new(0.0, size.y);
+                            let offset = Vector::new(-horizontal, -bb.max.y - vertical - off_y);
+
+                            vertices.extend([
+                                TextVertex::new(
+                                    top_left + offset,
+                                    Vector::new(0.0, 0.0),
+                                    section.color,
+                                    *id,
+                                ),
+                                TextVertex::new(
+                                    bottom_left + offset,
+                                    Vector::new(0.0, scale.y),
+                                    section.color,
+                                    *id,
+                                ),
+                                TextVertex::new(
+                                    bottom_right + offset,
+                                    Vector::new(scale.x, scale.y),
+                                    section.color,
+                                    *id,
+                                ),
+                                TextVertex::new(
+                                    top_right + offset,
+                                    Vector::new(scale.x, 0.0),
+                                    section.color,
+                                    *id,
+                                ),
+                            ]);
+                            let offset = vertices.len() - 4;
+                            Self::compute_modifed_vertices(
+                                &mut vertices[offset..],
+                                section.vertex_offset,
+                                section.vertex_rotation_axis,
+                            );
+                            indices.extend([
+                                Index::new(base_index + 0, base_index + 1, base_index + 2),
+                                Index::new(base_index + 2, base_index + 3, base_index + 0),
+                            ]);
+                        }
+                    }
+                }
+
+                off_y += section.size + metrics.descent.abs() + metrics.line_gap;
+            }
+        }
+    }
+
+    pub fn write<S: AsRef<str>>(&mut self, gpu: &Gpu, sections: &[TextSection<S>]) {
+        let mut vertices: Vec<TextVertex> = vec![];
+        let mut indices: Vec<Index> = vec![];
+
+        Self::compute_vertices(&self.font, sections, &mut vertices, &mut indices);
+
+        let indices_slice = bytemuck::cast_slice(&indices[..]);
+        let new_size = indices_slice.len() as wgpu::BufferAddress;
+        if new_size > self.index_buffer_size {
+            self.index_buffer = gpu
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("index_buffer"),
+                    contents: indices_slice,
+                    usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
+                });
+        } else {
+            gpu.queue.write_buffer(&self.index_buffer, 0, indices_slice);
+        }
+        self.index_buffer_size = new_size as wgpu::BufferAddress;
+        self.index_amount = indices.len() as u32 * 3;
+
+        let vertices_slice = bytemuck::cast_slice(&vertices[..]);
+        let new_size = vertices_slice.len() as wgpu::BufferAddress;
+        if new_size > self.vertex_buffer_size {
+            self.vertex_buffer = gpu
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("vertex_buffer"),
+                    contents: vertices_slice,
+                    usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                });
+        } else {
+            gpu.queue
+                .write_buffer(&self.vertex_buffer, 0, vertices_slice);
+        }
+        self.vertex_buffer_size = new_size;
+        self.vertex_amount = vertices.len() as u32;
+    }
+
     pub fn font(&self) -> &SpriteSheet {
         &self.font.inner.sprite_sheet
     }
 
     pub fn vertex_buffer(&self) -> wgpu::BufferSlice {
-        self.vertex_buffer.slice(..self.vertices_size)
+        self.vertex_buffer.slice(..self.vertex_buffer_size)
     }
 
     pub fn index_buffer(&self) -> wgpu::BufferSlice {
-        self.index_buffer.slice(..self.indices_size)
+        self.index_buffer.slice(..self.index_buffer_size)
     }
 
-    pub fn amount_of_indices(&self) -> u32 {
-        self.amount_of_indices
+    pub fn vertex_amount(&self) -> u32 {
+        self.vertex_amount
     }
 
-    pub fn amount_of_vertices(&self) -> u32 {
-        self.amount_of_vertices
+    pub fn index_amount(&self) -> u32 {
+        self.index_amount
     }
 
-    pub fn vertices_size(&self) -> wgpu::BufferAddress {
-        self.vertices_size
+    pub fn vertex_buffer_size(&self) -> wgpu::BufferAddress {
+        self.vertex_buffer_size
     }
 
-    pub fn indices_size(&self) -> wgpu::BufferAddress {
-        self.indices_size * 3
+    pub fn index_buffer_size(&self) -> wgpu::BufferAddress {
+        self.index_buffer_size
     }
 }

@@ -121,7 +121,7 @@ impl<C: Component> ComponentTypeGroup<C> {
         let instance_capacity = self
             .buffer
             .as_ref()
-            .map(|b| b.instance_capacity())
+            .map(|b| b.buffer_capacity())
             .unwrap_or(0);
         if new_len > instance_capacity || self.buffer.is_none() {
             self.buffer = Some(InstanceBuffer::empty(gpu, instance_size, new_len));

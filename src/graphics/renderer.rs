@@ -2,9 +2,10 @@
 use crate::text::Text;
 
 use crate::{
-    Camera, Color, Component, ComponentHandle, ComponentSetResource, Context, Gpu, DefaultResources,
-    GroupFilter, GroupHandle, InstanceBuffer, InstanceIndex, InstanceIndices, Model, RenderTarget,
-    Shader, Sprite, SpriteRenderTarget, SpriteSheet, SpriteSheetIndex, Uniform, WorldCamera,
+    Camera, Color, Component, ComponentHandle, ComponentSetResource, Context, DefaultResources,
+    Gpu, GroupFilter, GroupHandle, InstanceBuffer, InstanceIndex, InstanceIndices, Model,
+    RenderTarget, Shader, Sprite, SpriteRenderTarget, SpriteSheet, SpriteSheetIndex, Uniform,
+    WorldCamera,
 };
 use std::{ops::Range, ptr::null};
 
@@ -240,7 +241,7 @@ impl<'a> Renderer<'a> {
         }
         if ptr != self.cache.bound_model {
             self.cache.bound_model = ptr;
-            self.indices = model.amount_of_indices();
+            self.indices = model.index_amount();
             self.render_pass
                 .set_index_buffer(model.index_buffer(), wgpu::IndexFormat::Uint32);
             self.render_pass
@@ -254,7 +255,7 @@ impl<'a> Renderer<'a> {
         self.cache.bound_model = null();
         if ptr != self.cache.bound_text {
             self.cache.bound_text = ptr;
-            self.indices = text.amount_of_indices();
+            self.indices = text.index_amount();
             self.render_pass
                 .set_index_buffer(text.index_buffer(), wgpu::IndexFormat::Uint32);
             self.render_pass
@@ -304,12 +305,14 @@ impl<'a> Renderer<'a> {
         model: &'a Model,
         sprite: &'a Sprite,
     ) {
-        self.use_shader(&self.defaults.sprite);
-        self.use_camera(camera);
-        self.use_model(model);
-        self.use_sprite(sprite, 1);
-        self.use_instances(buffer);
-        self.draw(instances);
+        if buffer.buffer_size() != 0 {
+            self.use_shader(&self.defaults.sprite);
+            self.use_camera(camera);
+            self.use_model(model);
+            self.use_sprite(sprite, 1);
+            self.use_instances(buffer);
+            self.draw(instances);
+        }
     }
 
     pub fn render_sprite_crop(
@@ -320,12 +323,14 @@ impl<'a> Renderer<'a> {
         model: &'a Model,
         sprite: &'a Sprite,
     ) {
-        self.use_shader(&self.defaults.sprite_crop);
-        self.use_camera(camera);
-        self.use_model(model);
-        self.use_sprite(sprite, 1);
-        self.use_instances(buffer);
-        self.draw(instances);
+        if buffer.buffer_size() != 0 {
+            self.use_shader(&self.defaults.sprite_crop);
+            self.use_camera(camera);
+            self.use_model(model);
+            self.use_sprite(sprite, 1);
+            self.use_instances(buffer);
+            self.draw(instances);
+        }
     }
 
     pub fn render_sprite_sheet_crop(
@@ -336,12 +341,14 @@ impl<'a> Renderer<'a> {
         model: &'a Model,
         sprite: &'a Sprite,
     ) {
-        self.use_shader(&self.defaults.sprite_sheet_crop);
-        self.use_camera(camera);
-        self.use_model(model);
-        self.use_sprite(sprite, 1);
-        self.use_instances(buffer);
-        self.draw(instances);
+        if buffer.buffer_size() != 0 {
+            self.use_shader(&self.defaults.sprite_sheet_crop);
+            self.use_camera(camera);
+            self.use_model(model);
+            self.use_sprite(sprite, 1);
+            self.use_instances(buffer);
+            self.draw(instances);
+        }
     }
 
     pub fn render_sprite_sheet(
@@ -352,12 +359,14 @@ impl<'a> Renderer<'a> {
         model: &'a Model,
         sprite: &'a SpriteSheet,
     ) {
-        self.use_shader(&self.defaults.sprite_sheet);
-        self.use_camera(camera);
-        self.use_model(model);
-        self.use_sprite_sheet(sprite, 1);
-        self.use_instances(buffer);
-        self.draw(instances);
+        if buffer.buffer_size() != 0 {
+            self.use_shader(&self.defaults.sprite_sheet);
+            self.use_camera(camera);
+            self.use_model(model);
+            self.use_sprite_sheet(sprite, 1);
+            self.use_instances(buffer);
+            self.draw(instances);
+        }
     }
 
     pub fn render_sprite_sheet_uniform(
@@ -369,13 +378,15 @@ impl<'a> Renderer<'a> {
         sprite: &'a SpriteSheet,
         sprite_index: &'a Uniform<SpriteSheetIndex>,
     ) {
-        self.use_shader(&self.defaults.sprite_sheet_uniform);
-        self.use_camera(camera);
-        self.use_model(model);
-        self.use_sprite_sheet(sprite, 1);
-        self.use_uniform(sprite_index, 2);
-        self.use_instances(buffer);
-        self.draw(instances);
+        if buffer.buffer_size() != 0 {
+            self.use_shader(&self.defaults.sprite_sheet_uniform);
+            self.use_camera(camera);
+            self.use_model(model);
+            self.use_sprite_sheet(sprite, 1);
+            self.use_uniform(sprite_index, 2);
+            self.use_instances(buffer);
+            self.draw(instances);
+        }
     }
 
     pub fn render_color(
@@ -385,11 +396,13 @@ impl<'a> Renderer<'a> {
         camera: &'a Camera,
         model: &'a Model,
     ) {
-        self.use_shader(&self.defaults.color);
-        self.use_camera(camera);
-        self.use_model(model);
-        self.use_instances(buffer);
-        self.draw(instances);
+        if buffer.buffer_size() != 0 {
+            self.use_shader(&self.defaults.color);
+            self.use_camera(camera);
+            self.use_model(model);
+            self.use_instances(buffer);
+            self.draw(instances);
+        }
     }
 
     #[cfg(feature = "text")]
@@ -400,11 +413,13 @@ impl<'a> Renderer<'a> {
         camera: &'a Camera,
         text: &'a Text,
     ) {
-        self.use_shader(&self.defaults.text);
-        self.use_camera(camera);
-        self.use_text(text);
-        self.use_instances(buffer);
-        self.draw(instances);
+        if buffer.buffer_size() != 0 && text.vertex_buffer_size() != 0 {
+            self.use_shader(&self.defaults.text);
+            self.use_camera(camera);
+            self.use_text(text);
+            self.use_instances(buffer);
+            self.draw(instances);
+        }
     }
 
     pub fn render_color_uniform(
@@ -415,12 +430,14 @@ impl<'a> Renderer<'a> {
         model: &'a Model,
         color: &'a Uniform<Color>,
     ) {
-        self.use_shader(&self.defaults.color_uniform);
-        self.use_camera(camera);
-        self.use_model(model);
-        self.use_uniform(color, 1);
-        self.use_instances(buffer);
-        self.draw(instances);
+        if buffer.buffer_size() != 0 {
+            self.use_shader(&self.defaults.color_uniform);
+            self.use_camera(camera);
+            self.use_model(model);
+            self.use_uniform(color, 1);
+            self.use_instances(buffer);
+            self.draw(instances);
+        }
     }
 
     pub fn render_grey(
@@ -431,12 +448,14 @@ impl<'a> Renderer<'a> {
         model: &'a Model,
         sprite: &'a Sprite,
     ) {
-        self.use_shader(&self.defaults.grey);
-        self.use_camera(camera);
-        self.use_model(model);
-        self.use_sprite(sprite, 1);
-        self.use_instances(buffer);
-        self.draw(instances);
+        if buffer.buffer_size() != 0 {
+            self.use_shader(&self.defaults.grey);
+            self.use_camera(camera);
+            self.use_model(model);
+            self.use_sprite(sprite, 1);
+            self.use_instances(buffer);
+            self.draw(instances);
+        }
     }
 
     pub fn render_blurred(
@@ -447,12 +466,14 @@ impl<'a> Renderer<'a> {
         model: &'a Model,
         sprite: &'a Sprite,
     ) {
-        self.use_shader(&self.defaults.blurr);
-        self.use_camera(camera);
-        self.use_model(model);
-        self.use_sprite(sprite, 1);
-        self.use_instances(buffer);
-        self.draw(instances);
+        if buffer.buffer_size() != 0 {
+            self.use_shader(&self.defaults.blurr);
+            self.use_camera(camera);
+            self.use_model(model);
+            self.use_sprite(sprite, 1);
+            self.use_instances(buffer);
+            self.draw(instances);
+        }
     }
 
     pub fn render_rainbow(
@@ -462,11 +483,13 @@ impl<'a> Renderer<'a> {
         camera: &'a Camera,
         model: &'a Model,
     ) {
-        self.use_shader(&self.defaults.rainbow);
-        self.use_camera(camera);
-        self.use_model(model);
-        self.use_uniform(&self.defaults.times, 1);
-        self.use_instances(buffer);
-        self.draw(instances);
+        if buffer.buffer_size() != 0 {
+            self.use_shader(&self.defaults.rainbow);
+            self.use_camera(camera);
+            self.use_model(model);
+            self.use_uniform(&self.defaults.times, 1);
+            self.use_instances(buffer);
+            self.draw(instances);
+        }
     }
 }

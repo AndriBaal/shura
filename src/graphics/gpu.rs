@@ -240,7 +240,7 @@ impl Gpu {
     }
 
     #[cfg(feature = "text")]
-    pub fn create_text(&self, font: &Font, sections: &[TextSection]) -> Text {
+    pub fn create_text<S: AsRef<str>>(&self, font: &Font, sections: &[TextSection<S>]) -> Text {
         Text::new(self, font, sections)
     }
 

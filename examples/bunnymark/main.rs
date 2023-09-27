@@ -152,7 +152,7 @@ impl ComponentController for Bunny {
                 instances,
                 buffer,
                 renderer.world_camera,
-                &renderer.unit_model,
+                renderer.unit_model,
                 &resources.bunny_sprite,
             );
         });
