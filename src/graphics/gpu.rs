@@ -376,6 +376,7 @@ pub struct DefaultResources {
     pub transparent_uniform: Shader,
     pub color: Shader,
     pub color_uniform: Shader,
+    pub color_model: Shader,
     pub rainbow: Shader,
     pub grey: Shader,
     #[cfg(feature = "text")]
@@ -520,6 +521,37 @@ impl DefaultResources {
             ..Default::default()
         });
 
+        let color_model = gpu.create_shader(ShaderConfig {
+            name: "color_model",
+            fragment_shader: include_str!("../../res/shader/color.wgsl"),
+            uniforms: &[UniformField::SpriteSheet],
+            vertex_shader: VertexShader::Custom(
+                include_str!("../../res/shader/vertex_color.wgsl"),
+                vec![
+                    wgpu::VertexBufferLayout {
+                        array_stride: std::mem::size_of::<Vertex<TextVertexData>>()
+                            as wgpu::BufferAddress,
+                        step_mode: wgpu::VertexStepMode::Vertex,
+                        attributes: &wgpu::vertex_attr_array![
+                            0 => Float32x2,
+                            1 => Float32x2,
+                            2 => Float32x4,
+                        ],
+                    },
+                    // Not InstancePosition::DESC because of offset
+                    wgpu::VertexBufferLayout {
+                        array_stride: InstancePosition::SIZE,
+                        step_mode: wgpu::VertexStepMode::Instance,
+                        attributes: &wgpu::vertex_attr_array![
+                            3 => Float32x2,
+                            4 => Float32x4
+                        ],
+                    },
+                ],
+            ),
+            ..Default::default()
+        });
+
         let sprite = gpu.create_shader(ShaderConfig {
             name: "sprite",
             fragment_shader: Shader::SPRITE,
@@ -625,6 +657,7 @@ impl DefaultResources {
             relative_top_right_camera,
             color,
             color_uniform,
+            color_model,
             index,
 
             #[cfg(feature = "framebuffer")]

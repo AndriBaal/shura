@@ -22,7 +22,7 @@ impl Default for RenderCache {
             bound_shader: null(),
             bound_model: null(),
             bound_instances: null(),
-            bound_uniforms: [null(); 16]
+            bound_uniforms: [null(); 16],
         }
     }
 }
@@ -287,6 +287,22 @@ impl<'a> Renderer<'a> {
             self.use_camera(camera);
             self.use_model(model);
             self.use_sprite(sprite, 1);
+            self.use_instances(buffer);
+            self.draw(instances);
+        }
+    }
+
+    pub fn render_color_model(
+        &mut self,
+        instances: impl Into<InstanceIndices>,
+        buffer: &'a InstanceBuffer,
+        camera: &'a Camera,
+        model: &'a Model,
+    ) {
+        if buffer.buffer_size() != 0 {
+            self.use_shader(&self.defaults.color_model);
+            self.use_camera(camera);
+            self.use_model(model);
             self.use_instances(buffer);
             self.draw(instances);
         }
