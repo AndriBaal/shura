@@ -49,7 +49,7 @@ impl InstancePosition {
             )
     }
 
-    pub fn pos(&self) -> Vector<f32> {
+    pub fn translation(&self) -> Vector<f32> {
         self.pos
     }
 }

@@ -160,9 +160,8 @@ impl WorldCamera {
     pub fn apply_target(&mut self, world: &World, man: &ComponentManager) {
         if let Some(target) = self.target() {
             if let Some(instance) = man.instance_data(target.target, world) {
-                self.camera.set_translation(instance.pos() + target.offset);
-            } else {
-                self.set_target(None);
+                let pos: Isometry<f32> = instance.translation().into();
+                self.camera.set_position(pos * target.offset);
             }
         }
     }
