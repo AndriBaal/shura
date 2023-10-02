@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use crate::{
-    ComponentManager, FrameManager, Gpu, DefaultResources, GroupManager, Input, Scene, SceneManager,
-    ScreenConfig, Shura, Vector, World, WorldCamera,
+    ComponentManager, DefaultResources, FrameManager, Gpu, GroupManager, Input, Scene,
+    SceneManager, ScreenConfig, Shura, Vector, World, WorldCamera,
 };
 
 #[cfg(feature = "serde")]

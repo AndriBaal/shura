@@ -117,11 +117,7 @@ impl ComponentController for Bunny {
                 &ctx.gpu,
                 &[text::TextSection {
                     color: Color::RED,
-                    text: format!(
-                        "FPS: {}\nBunnies: {}",
-                        ctx.frame.fps(),
-                        bunnies.len()
-                    ),
+                    text: format!("FPS: {}\nBunnies: {}", ctx.frame.fps(), bunnies.len()),
                     size: 0.05,
                     horizontal_alignment: text::TextAlignment::End,
                     vertical_alignment: text::TextAlignment::End,

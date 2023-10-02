@@ -567,6 +567,10 @@ impl<T: bytemuck::Pod + bytemuck::Zeroable + Default> ModelBuilder<T> {
         self
     }
 
+    pub fn vertex_size(&self) -> wgpu::BufferAddress {
+        std::mem::size_of::<Vertex<T>>() as u64
+    }
+
     pub fn apply_modifiers(mut self) -> Self {
         Self::compute_modifed_vertices(
             &mut self.vertices,
@@ -673,6 +677,7 @@ impl<T: bytemuck::Pod + bytemuck::Zeroable + Default> ModelBuilder<T> {
             index_buffer,
             vertex_amount: vertices.len() as u32,
             index_amount: self.indices.len() as u32 * 3,
+            vertex_size: self.vertex_size(),
         }
     }
 }
@@ -682,6 +687,7 @@ impl<T: bytemuck::Pod + bytemuck::Zeroable + Default> ModelBuilder<T> {
 pub struct Model {
     vertex_amount: u32,
     index_amount: u32,
+    vertex_size: wgpu::BufferAddress,
     vertex_buffer_size: wgpu::BufferAddress,
     index_buffer_size: wgpu::BufferAddress,
     vertex_buffer: wgpu::Buffer,
@@ -775,6 +781,10 @@ impl Model {
 
     pub fn index_buffer_size(&self) -> wgpu::BufferAddress {
         self.index_buffer_size
+    }
+
+    pub fn vertex_size(&self) -> wgpu::BufferAddress {
+        self.vertex_size
     }
 }
 

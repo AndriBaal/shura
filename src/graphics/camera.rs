@@ -133,9 +133,16 @@ impl Camera {
 /// is active based on if the [Groups](crate::Group) intersects with the camera.
 pub struct WorldCamera {
     pub(crate) camera: Camera,
-    target: Option<ComponentHandle>,
+    target: Option<WorldCameraTarget>,
     scale: WorldCameraScale,
     window_size: Vector<f32>,
+}
+
+#[derive(Clone, Default, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct WorldCameraTarget {
+    pub target: ComponentHandle,
+    pub offset: Isometry<f32>,
 }
 
 impl WorldCamera {
@@ -152,7 +159,7 @@ impl WorldCamera {
 
     pub fn apply_target(&mut self, world: &World, man: &ComponentManager) {
         if let Some(target) = self.target() {
-            if let Some(instance) = man.instance_data(target, world) {
+            if let Some(instance) = man.instance_data(target.target, world) {
                 self.camera.set_translation(instance.pos());
             } else {
                 self.set_target(None);
@@ -160,11 +167,15 @@ impl WorldCamera {
         }
     }
 
-    pub fn target(&self) -> Option<ComponentHandle> {
-        self.target
+    pub fn target(&self) -> Option<&WorldCameraTarget> {
+        self.target.as_ref()
     }
 
-    pub fn set_target(&mut self, target: Option<ComponentHandle>) {
+    pub fn target_mut(&mut self) -> Option<&mut WorldCameraTarget> {
+        self.target.as_mut()
+    }
+
+    pub fn set_target(&mut self, target: Option<WorldCameraTarget>) {
         self.target = target;
     }
 

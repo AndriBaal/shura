@@ -31,11 +31,13 @@ impl AABB {
         Self::new(min, max)
     }
 
-    pub fn from_vertices<T: bytemuck::Pod + bytemuck::Zeroable + Default>(vertices: &[Vertex<T>]) -> Self {
+    pub fn from_vertices<T: bytemuck::Pod + bytemuck::Zeroable + Default>(
+        vertices: &[Vertex<T>],
+    ) -> Self {
         if vertices.is_empty() {
             return Default::default();
         }
-        
+
         let mut min_x = vertices[0].pos.x;
         let mut max_x = vertices[0].pos.x;
         let mut min_y = vertices[0].pos.y;

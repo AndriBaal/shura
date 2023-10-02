@@ -1,6 +1,6 @@
 use std::ops::{Deref, DerefMut};
 
-use crate::{gui::GuiContext, Gpu, DefaultResources, RenderEncoder, RenderTarget, Vector};
+use crate::{gui::GuiContext, DefaultResources, Gpu, RenderEncoder, RenderTarget, Vector};
 use egui_wgpu::renderer::{Renderer, ScreenDescriptor};
 use egui_winit::State;
 use instant::Duration;

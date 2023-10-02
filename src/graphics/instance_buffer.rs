@@ -124,7 +124,8 @@ impl InstanceBuffer {
         self.instances = new_size / self.instance_size;
 
         if new_size > self.buffer_size {
-            self.buffer = gpu.device
+            self.buffer = gpu
+                .device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                     label: Some("instance_buffer"),
                     usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
@@ -141,7 +142,7 @@ impl InstanceBuffer {
         self.buffer.slice(..self.buffer_size)
     }
 
-    pub fn buffer_capacity(&self) -> u64 {
+    pub fn buffer_capacity(&self) -> wgpu::BufferAddress {
         self.buffer.size()
     }
 
@@ -149,12 +150,16 @@ impl InstanceBuffer {
         InstanceIndices::new(0, self.instance_amount() as u32)
     }
 
-    pub fn buffer_size(&self) -> u64 {
-        return self.buffer_size
+    pub fn buffer_size(&self) -> wgpu::BufferAddress {
+        return self.buffer_size;
     }
 
-    pub fn instance_amount(&self) -> u64 {
+    pub fn instance_amount(&self) -> wgpu::BufferAddress {
         self.instances
+    }
+
+    pub fn instance_size(&self) -> wgpu::BufferAddress {
+        self.instance_size
     }
 }
 

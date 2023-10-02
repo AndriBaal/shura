@@ -229,6 +229,19 @@ impl<'a> Renderer<'a> {
         }
     }
 
+    pub fn use_shader_with_buffers(
+        &mut self,
+        shader: &'a Shader,
+        instances: &'a InstanceBuffer,
+        model: &'a Model,
+    ) {
+        debug_assert_eq!(shader.instance_size(), instances.instance_size());
+        debug_assert_eq!(shader.vertex_size(), model.vertex_size());
+        self.use_shader(shader);
+        self.use_model(model);
+        self.use_instances(instances);
+    }
+
     pub fn use_model(&mut self, model: &'a Model) {
         let ptr = model as *const _;
         if ptr != self.cache.bound_model {
@@ -283,11 +296,9 @@ impl<'a> Renderer<'a> {
         sprite: &'a Sprite,
     ) {
         if buffer.buffer_size() != 0 {
-            self.use_shader(&self.defaults.sprite);
+            self.use_shader_with_buffers(&self.defaults.sprite, buffer, model);
             self.use_camera(camera);
-            self.use_model(model);
             self.use_sprite(sprite, 1);
-            self.use_instances(buffer);
             self.draw(instances);
         }
     }
@@ -300,10 +311,8 @@ impl<'a> Renderer<'a> {
         model: &'a Model,
     ) {
         if buffer.buffer_size() != 0 {
-            self.use_shader(&self.defaults.color_model);
+            self.use_shader_with_buffers(&self.defaults.color_model, buffer, model);
             self.use_camera(camera);
-            self.use_model(model);
-            self.use_instances(buffer);
             self.draw(instances);
         }
     }
@@ -317,11 +326,9 @@ impl<'a> Renderer<'a> {
         sprite: &'a Sprite,
     ) {
         if buffer.buffer_size() != 0 {
-            self.use_shader(&self.defaults.sprite_crop);
+            self.use_shader_with_buffers(&self.defaults.sprite_crop, buffer, model);
             self.use_camera(camera);
-            self.use_model(model);
             self.use_sprite(sprite, 1);
-            self.use_instances(buffer);
             self.draw(instances);
         }
     }
@@ -335,11 +342,9 @@ impl<'a> Renderer<'a> {
         sprite: &'a Sprite,
     ) {
         if buffer.buffer_size() != 0 {
-            self.use_shader(&self.defaults.sprite_sheet_crop);
+            self.use_shader_with_buffers(&self.defaults.sprite_sheet_crop, buffer, model);
             self.use_camera(camera);
-            self.use_model(model);
             self.use_sprite(sprite, 1);
-            self.use_instances(buffer);
             self.draw(instances);
         }
     }
@@ -353,11 +358,9 @@ impl<'a> Renderer<'a> {
         sprite: &'a SpriteSheet,
     ) {
         if buffer.buffer_size() != 0 {
-            self.use_shader(&self.defaults.sprite_sheet);
+            self.use_shader_with_buffers(&self.defaults.sprite_sheet, buffer, model);
             self.use_camera(camera);
-            self.use_model(model);
             self.use_sprite_sheet(sprite, 1);
-            self.use_instances(buffer);
             self.draw(instances);
         }
     }
@@ -372,12 +375,10 @@ impl<'a> Renderer<'a> {
         sprite_index: &'a Uniform<SpriteSheetIndex>,
     ) {
         if buffer.buffer_size() != 0 {
-            self.use_shader(&self.defaults.sprite_sheet_uniform);
+            self.use_shader_with_buffers(&self.defaults.sprite_sheet_uniform, buffer, model);
             self.use_camera(camera);
-            self.use_model(model);
             self.use_sprite_sheet(sprite, 1);
             self.use_uniform(sprite_index, 2);
-            self.use_instances(buffer);
             self.draw(instances);
         }
     }
@@ -390,10 +391,8 @@ impl<'a> Renderer<'a> {
         model: &'a Model,
     ) {
         if buffer.buffer_size() != 0 {
-            self.use_shader(&self.defaults.color);
+            self.use_shader_with_buffers(&self.defaults.color, buffer, model);
             self.use_camera(camera);
-            self.use_model(model);
-            self.use_instances(buffer);
             self.draw(instances);
         }
     }
@@ -407,11 +406,10 @@ impl<'a> Renderer<'a> {
         text: &'a Text,
     ) {
         if buffer.buffer_size() != 0 && text.model().vertex_buffer_size() != 0 {
-            self.use_shader(&self.defaults.text);
+            self.use_shader_with_buffers(&self.defaults.text, buffer, text.model());
             self.use_camera(camera);
             self.use_model(text.model());
             self.use_sprite_sheet(text.font(), 1);
-            self.use_instances(buffer);
             self.draw(instances);
         }
     }
@@ -425,11 +423,9 @@ impl<'a> Renderer<'a> {
         color: &'a Uniform<Color>,
     ) {
         if buffer.buffer_size() != 0 {
-            self.use_shader(&self.defaults.color_uniform);
+            self.use_shader_with_buffers(&self.defaults.color_uniform, buffer, model);
             self.use_camera(camera);
-            self.use_model(model);
             self.use_uniform(color, 1);
-            self.use_instances(buffer);
             self.draw(instances);
         }
     }
@@ -443,11 +439,9 @@ impl<'a> Renderer<'a> {
         sprite: &'a Sprite,
     ) {
         if buffer.buffer_size() != 0 {
-            self.use_shader(&self.defaults.grey);
+            self.use_shader_with_buffers(&self.defaults.grey, buffer, model);
             self.use_camera(camera);
-            self.use_model(model);
             self.use_sprite(sprite, 1);
-            self.use_instances(buffer);
             self.draw(instances);
         }
     }
@@ -461,11 +455,9 @@ impl<'a> Renderer<'a> {
         sprite: &'a Sprite,
     ) {
         if buffer.buffer_size() != 0 {
-            self.use_shader(&self.defaults.blurr);
+            self.use_shader_with_buffers(&self.defaults.blurr, buffer, model);
             self.use_camera(camera);
-            self.use_model(model);
             self.use_sprite(sprite, 1);
-            self.use_instances(buffer);
             self.draw(instances);
         }
     }
@@ -478,11 +470,9 @@ impl<'a> Renderer<'a> {
         model: &'a Model,
     ) {
         if buffer.buffer_size() != 0 {
-            self.use_shader(&self.defaults.rainbow);
+            self.use_shader_with_buffers(&self.defaults.rainbow, buffer, model);
             self.use_camera(camera);
-            self.use_model(model);
             self.use_uniform(&self.defaults.times, 1);
-            self.use_instances(buffer);
             self.draw(instances);
         }
     }

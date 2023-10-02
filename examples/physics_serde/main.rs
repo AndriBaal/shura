@@ -32,7 +32,10 @@ fn shura_main(config: ShuraConfig) {
 
                 let player = Player::new();
                 let player_handle = ctx.components.add(ctx.world, player);
-                ctx.world_camera.set_target(Some(player_handle));
+                ctx.world_camera.set_target(Some(WorldCameraTarget {
+                    target: player_handle,
+                    ..Default::default()
+                }));
                 let floor = Floor::new();
                 ctx.components.add(ctx.world, floor);
             },

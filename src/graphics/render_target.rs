@@ -4,7 +4,7 @@ use downcast_rs::{impl_downcast, Downcast};
 use wgpu::SurfaceTexture;
 
 use crate::{
-    Camera, Color, Gpu, DefaultResources, RenderEncoder, Sprite, SpriteBuilder, Vector, WorldCamera,
+    Camera, Color, DefaultResources, Gpu, RenderEncoder, Sprite, SpriteBuilder, Vector, WorldCamera,
 };
 
 pub trait RenderTarget: Downcast {

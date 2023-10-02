@@ -1,4 +1,6 @@
-use crate::{Color, Gpu, DefaultResources, RenderTarget, Renderer, SpriteRenderTarget, WorldCamera};
+use crate::{
+    Color, DefaultResources, Gpu, RenderTarget, Renderer, SpriteRenderTarget, WorldCamera,
+};
 
 /// Encoder of [Renderers](crate::Renderer) and utilities to copy, clear and render text onto [RenderTargets](crate::RenderTarget)
 pub struct RenderEncoder<'a> {
@@ -9,7 +11,11 @@ pub struct RenderEncoder<'a> {
 }
 
 impl<'a> RenderEncoder<'a> {
-    pub fn new(gpu: &'a Gpu, defaults: &'a DefaultResources, world_camera: &'a WorldCamera) -> Self {
+    pub fn new(
+        gpu: &'a Gpu,
+        defaults: &'a DefaultResources,
+        world_camera: &'a WorldCamera,
+    ) -> Self {
         let encoder = gpu
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {

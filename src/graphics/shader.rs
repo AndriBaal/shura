@@ -73,6 +73,8 @@ pub enum UniformField {
 
 pub struct Shader {
     pipeline: wgpu::RenderPipeline,
+    instance_size: wgpu::BufferAddress,
+    vertex_size: wgpu::BufferAddress,
 }
 
 impl Shader {
@@ -179,6 +181,20 @@ impl Shader {
             }
         };
 
+        let mut vertex_size = 0;
+        let mut instance_size = 0;
+
+        for buffer in &buffers {
+            match &buffer.step_mode {
+                wgpu::VertexStepMode::Vertex => {
+                    vertex_size += buffer.array_stride;
+                }
+                wgpu::VertexStepMode::Instance => {
+                    instance_size += buffer.array_stride;
+                }
+            }
+        }
+
         // Default Shader Configuration
         let pipeline = gpu
             .device
@@ -221,10 +237,22 @@ impl Shader {
         #[cfg(feature = "log")]
         info!("Successfully compiled shader {}", config.name);
 
-        Shader { pipeline }
+        Shader {
+            pipeline,
+            vertex_size,
+            instance_size,
+        }
     }
 
     pub fn pipeline(&self) -> &wgpu::RenderPipeline {
         &self.pipeline
+    }
+
+    pub fn instance_size(&self) -> wgpu::BufferAddress {
+        self.instance_size
+    }
+
+    pub fn vertex_size(&self) -> wgpu::BufferAddress {
+        self.vertex_size
     }
 }

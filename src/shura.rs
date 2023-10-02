@@ -18,8 +18,8 @@ use crate::{
 };
 use crate::{
     ComponentRenderer, ComponentTypeId, ComponentTypeImplementation, Context, ContextUse,
-    ControllerManager, EndReason, FrameManager, Gpu, GpuConfig, DefaultResources, Input, RenderEncoder,
-    RenderTarget, Scene, SceneCreator, SceneManager, Vector,
+    ControllerManager, DefaultResources, EndReason, FrameManager, Gpu, GpuConfig, Input,
+    RenderEncoder, RenderTarget, Scene, SceneCreator, SceneManager, Vector,
 };
 use rustc_hash::FxHashMap;
 #[cfg(target_os = "android")]
