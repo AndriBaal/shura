@@ -560,7 +560,7 @@ impl Shura {
         let callbacks: &ControllerManager = &callbacks_rc;
 
         scene.components.buffer(&mut scene.world, &self.gpu);
-        scene.world_camera.update_buffer(&self.gpu);
+        scene.world_camera.buffer(&self.gpu);
         self.defaults
             .buffer(&self.gpu, self.frame.total_time(), self.frame.frame_time());
 

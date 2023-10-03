@@ -43,7 +43,7 @@ impl Camera {
 
     pub fn new_buffer(gpu: &Gpu, position: Isometry<f32>, fov: Vector<f32>) -> Self {
         let mut camera = Self::new(position, fov);
-        camera.update_buffer(gpu);
+        camera.buffer(gpu);
         return camera;
     }
 
@@ -106,7 +106,7 @@ impl Camera {
         self.reset_camera_projection();
     }
 
-    pub fn update_buffer(&mut self, gpu: &Gpu) {
+    pub fn buffer(&mut self, gpu: &Gpu) {
         let view = self.view();
         let proj = self.proj();
         let view_proj = view * proj;
@@ -209,8 +209,8 @@ impl WorldCamera {
         self.camera.set_translation(translation);
     }
 
-    pub fn update_buffer(&mut self, gpu: &Gpu) {
-        self.camera.update_buffer(gpu)
+    pub fn buffer(&mut self, gpu: &Gpu) {
+        self.camera.buffer(gpu)
     }
 
     pub fn camera(&self) -> &Camera {
