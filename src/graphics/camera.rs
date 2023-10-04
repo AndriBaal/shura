@@ -1,5 +1,7 @@
-use nalgebra::Vector4;
-use std::mem;
+use nalgebra::Isometry3;
+use nalgebra::Matrix4;
+use nalgebra::Orthographic3;
+use nalgebra::Vector3;
 use std::ops::*;
 
 use crate::AABB;
@@ -13,10 +15,10 @@ const MINIMAL_FOV: f32 = 0.0001;
 pub struct Camera {
     position: Isometry<f32>,
     fov: Vector<f32>,
-    proj: CameraMatrix,
+    proj: Orthographic3<f32>,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
-    uniform: Option<Uniform<CameraMatrix>>,
+    uniform: Option<Uniform<Matrix4<f32>>>,
 }
 
 impl Clone for Camera {
@@ -32,7 +34,7 @@ impl Clone for Camera {
 
 impl Camera {
     pub fn new(position: Isometry<f32>, fov: Vector<f32>) -> Self {
-        let proj = CameraMatrix::frustum(fov);
+        let proj = Orthographic3::new(-fov.x, fov.x, -fov.y, fov.y, -1.0, 1.0);
         Camera {
             position,
             fov,
@@ -48,7 +50,8 @@ impl Camera {
     }
 
     pub(crate) fn reset_camera_projection(&mut self) {
-        self.proj = CameraMatrix::frustum(self.fov());
+        let fov = self.fov();
+        self.proj = Orthographic3::new(-fov.x, fov.x, -fov.y, fov.y, -1.0, 1.0);
     }
 
     pub fn aabb(&self) -> AABB {
@@ -63,16 +66,16 @@ impl Camera {
         &self.position.translation.vector
     }
 
-    pub fn view(&self) -> CameraMatrix {
-        CameraMatrix::view(self.position)
+    pub fn view(&self) -> Isometry3<f32> {
+        return Isometry3::new(Vector3::new(-self.translation().x, -self.translation().y, 0.0), Vector3::new(0.0, 0.0, self.rotation().angle()));
     }
 
-    pub fn proj(&self) -> CameraMatrix {
-        self.proj
+    pub fn proj(&self) -> &Orthographic3<f32> {
+        &self.proj
     }
 
-    pub fn view_proj(&self) -> CameraMatrix {
-        self.view() * self.proj()
+    pub fn view_proj(&self) -> Matrix4<f32> {
+        self.proj().as_matrix() * self.view().to_matrix()
     }
 
     pub fn rotation(&self) -> &Rotation<f32> {
@@ -107,9 +110,7 @@ impl Camera {
     }
 
     pub fn buffer(&mut self, gpu: &Gpu) {
-        let view = self.view();
-        let proj = self.proj();
-        let view_proj = view * proj;
+        let view_proj = self.view_proj();
 
         if let Some(uniform) = &mut self.uniform {
             uniform.write(gpu, view_proj);
@@ -138,7 +139,7 @@ pub struct WorldCamera {
     window_size: Vector<f32>,
 }
 
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Copy, Default, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct WorldCameraTarget {
     pub target: ComponentHandle,
@@ -166,8 +167,8 @@ impl WorldCamera {
         }
     }
 
-    pub fn target(&self) -> Option<&WorldCameraTarget> {
-        self.target.as_ref()
+    pub fn target(&self) -> Option<WorldCameraTarget> {
+        self.target
     }
 
     pub fn target_mut(&mut self) -> Option<&mut WorldCameraTarget> {
@@ -294,126 +295,126 @@ impl WorldCameraScale {
     }
 }
 
-#[repr(C)]
-#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct CameraMatrix {
-    pub x: Vector4<f32>,
-    pub y: Vector4<f32>,
-    pub z: Vector4<f32>,
-    pub w: Vector4<f32>,
-}
+// #[repr(C)]
+// #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable, Debug)]
+// #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+// pub struct CameraMatrix {
+//     pub x: Vector4<f32>,
+//     pub y: Vector4<f32>,
+//     pub z: Vector4<f32>,
+//     pub w: Vector4<f32>,
+// }
 
-impl CameraMatrix {
-    const NEAR: f32 = 0.1;
-    const FAR: f32 = 1.0;
-    // Matrix::from_look(Vec3::new(0.0, 0.0,-0.1.0), Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 1.0, 0.0));
-    pub(crate) const NULL_VIEW: CameraMatrix = CameraMatrix::raw(
-        Vector4::new(-1.0, 0.0, -0.0, 0.0),
-        Vector4::new(0.0, 1.0, -0.0, 0.0),
-        Vector4::new(0.0, -0.0, -1.0, 0.0),
-        Vector4::new(0.0, 0.0, -Self::NEAR, 1.0),
-    );
+// impl CameraMatrix {
+//     const NEAR: f32 = 0.1;
+//     const FAR: f32 = 1.0;
+//     // Matrix::from_look(Vec3::new(0.0, 0.0,-0.1.0), Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 1.0, 0.0));
+//     pub(crate) const NULL_VIEW: CameraMatrix = CameraMatrix::raw(
+//         Vector4::new(-1.0, 0.0, -0.0, 0.0),
+//         Vector4::new(0.0, 1.0, -0.0, 0.0),
+//         Vector4::new(0.0, -0.0, -1.0, 0.0),
+//         Vector4::new(0.0, 0.0, -Self::NEAR, 1.0),
+//     );
 
-    pub const fn raw(x: Vector4<f32>, y: Vector4<f32>, z: Vector4<f32>, w: Vector4<f32>) -> Self {
-        Self { x, y, z, w }
-    }
+//     pub const fn raw(x: Vector4<f32>, y: Vector4<f32>, z: Vector4<f32>, w: Vector4<f32>) -> Self {
+//         Self { x, y, z, w }
+//     }
 
-    /// Frustum
-    pub fn frustum(half_extents: Vector<f32>) -> Self {
-        let left = -half_extents.x;
-        let right = half_extents.x;
-        let bottom = -half_extents.y;
-        let top = half_extents.y;
-        let r_width = 1.0 / (left - right);
-        let r_height = 1.0 / (top - bottom);
-        let r_depth = 1.0 / (Self::NEAR - Self::FAR);
-        let x = 2.0 * (Self::NEAR * r_width);
-        let y = 2.0 * (Self::NEAR * r_height);
-        let a = (left + right) * r_width;
-        let b = (top + bottom) * r_height;
-        let c = (Self::FAR + Self::NEAR) * r_depth;
-        let d = Self::FAR * Self::NEAR * r_depth;
+//     /// Frustum
+//     pub fn frustum(half_extents: Vector<f32>) -> Self {
+//         let left = -half_extents.x;
+//         let right = half_extents.x;
+//         let bottom = -half_extents.y;
+//         let top = half_extents.y;
+//         let r_width = 1.0 / (left - right);
+//         let r_height = 1.0 / (top - bottom);
+//         let r_depth = 1.0 / (Self::NEAR - Self::FAR);
+//         let x = 2.0 * (Self::NEAR * r_width);
+//         let y = 2.0 * (Self::NEAR * r_height);
+//         let a = (left + right) * r_width;
+//         let b = (top + bottom) * r_height;
+//         let c = (Self::FAR + Self::NEAR) * r_depth;
+//         let d = Self::FAR * Self::NEAR * r_depth;
 
-        Self::raw(
-            Vector4::new(x, 0.0, 0.0, 0.0),
-            Vector4::new(0.0, y, 0.0, 0.0),
-            Vector4::new(a, b, c, -1.0),
-            Vector4::new(0.0, 0.0, d, 0.0),
-        )
-    }
+//         Self::raw(
+//             Vector4::new(x, 0.0, 0.0, 0.0),
+//             Vector4::new(0.0, y, 0.0, 0.0),
+//             Vector4::new(a, b, c, -1.0),
+//             Vector4::new(0.0, 0.0, d, 0.0),
+//         )
+//     }
 
-    /// View
-    pub fn view(mut position: Isometry<f32>) -> Self {
-        let mut result = Self::NULL_VIEW;
-        let s = position.rotation.sin_angle();
-        let c = position.rotation.cos_angle();
-        let temp = position.translation;
-        position.translation.x = temp.x * c - (temp.y) * s;
-        position.translation.y = temp.x * s + (temp.y) * c;
+//     /// View
+//     pub fn view(mut position: Isometry<f32>) -> Self {
+//         let mut result = Self::NULL_VIEW;
+//         let s = position.rotation.sin_angle();
+//         let c = position.rotation.cos_angle();
+//         let temp = position.translation;
+//         position.translation.x = temp.x * c - (temp.y) * s;
+//         position.translation.y = temp.x * s + (temp.y) * c;
 
-        result[12] = position.translation.x;
-        result[13] = -position.translation.y;
-        result[0] = -c;
-        result[1] = s;
-        result[4] = s;
-        result[5] = c;
+//         result[12] = position.translation.x;
+//         result[13] = -position.translation.y;
+//         result[0] = -c;
+//         result[1] = s;
+//         result[4] = s;
+//         result[5] = c;
 
-        return result;
-    }
+//         return result;
+//     }
 
-    pub fn ortho(dim: Vector<f32>) -> Self {
-        Self::raw(
-            Vector4::new(2.0 / dim.x, 0.0, 0.0, 0.0),
-            Vector4::new(0.0, -2.0 / dim.y, 0.0, 0.0),
-            Vector4::new(0.0, 0.0, 1.0, 0.0),
-            Vector4::new(-1.0, 1.0, 0.0, 1.),
-        )
-    }
-}
+//     pub fn ortho(dim: Vector<f32>) -> Self {
+//         Self::raw(
+//             Vector4::new(2.0 / dim.x, 0.0, 0.0, 0.0),
+//             Vector4::new(0.0, -2.0 / dim.y, 0.0, 0.0),
+//             Vector4::new(0.0, 0.0, 1.0, 0.0),
+//             Vector4::new(-1.0, 1.0, 0.0, 1.),
+//         )
+//     }
+// }
 
-impl AsRef<[f32; 16]> for CameraMatrix {
-    fn as_ref(&self) -> &[f32; 16] {
-        unsafe { mem::transmute(self) }
-    }
-}
+// impl AsRef<[f32; 16]> for CameraMatrix {
+//     fn as_ref(&self) -> &[f32; 16] {
+//         unsafe { mem::transmute(self) }
+//     }
+// }
 
-impl AsMut<[f32; 16]> for CameraMatrix {
-    fn as_mut(&mut self) -> &mut [f32; 16] {
-        unsafe { mem::transmute(self) }
-    }
-}
+// impl AsMut<[f32; 16]> for CameraMatrix {
+//     fn as_mut(&mut self) -> &mut [f32; 16] {
+//         unsafe { mem::transmute(self) }
+//     }
+// }
 
-impl Into<[f32; 16]> for CameraMatrix {
-    fn into(self) -> [f32; 16] {
-        unsafe { mem::transmute(self) }
-    }
-}
+// impl Into<[f32; 16]> for CameraMatrix {
+//     fn into(self) -> [f32; 16] {
+//         unsafe { mem::transmute(self) }
+//     }
+// }
 
-impl Index<usize> for CameraMatrix {
-    type Output = f32;
+// impl Index<usize> for CameraMatrix {
+//     type Output = f32;
 
-    fn index<'a>(&'a self, i: usize) -> &'a f32 {
-        let v: &[f32; 16] = self.as_ref();
-        &v[i]
-    }
-}
+//     fn index<'a>(&'a self, i: usize) -> &'a f32 {
+//         let v: &[f32; 16] = self.as_ref();
+//         &v[i]
+//     }
+// }
 
-impl IndexMut<usize> for CameraMatrix {
-    fn index_mut<'a>(&'a mut self, i: usize) -> &'a mut f32 {
-        let v: &mut [f32; 16] = self.as_mut();
-        &mut v[i]
-    }
-}
+// impl IndexMut<usize> for CameraMatrix {
+//     fn index_mut<'a>(&'a mut self, i: usize) -> &'a mut f32 {
+//         let v: &mut [f32; 16] = self.as_mut();
+//         &mut v[i]
+//     }
+// }
 
-impl Mul for CameraMatrix {
-    type Output = CameraMatrix;
-    fn mul(self, m: CameraMatrix) -> Self {
-        CameraMatrix::raw(
-            m.x * self[0] + m.y * self[1] + m.z * self[2] + m.w * self[3],
-            m.x * self[4] + m.y * self[5] + m.z * self[6] + m.w * self[7],
-            m.x * self[8] + m.y * self[9] + m.z * self[10] + m.w * self[11],
-            m.x * self[12] + m.y * self[13] + m.z * self[14] + m.w * self[15],
-        )
-    }
-}
+// impl Mul for CameraMatrix {
+//     type Output = CameraMatrix;
+//     fn mul(self, m: CameraMatrix) -> Self {
+//         CameraMatrix::raw(
+//             m.x * self[0] + m.y * self[1] + m.z * self[2] + m.w * self[3],
+//             m.x * self[4] + m.y * self[5] + m.z * self[6] + m.w * self[7],
+//             m.x * self[8] + m.y * self[9] + m.z * self[10] + m.w * self[11],
+//             m.x * self[12] + m.y * self[13] + m.z * self[14] + m.w * self[15],
+//         )
+//     }
+// }
