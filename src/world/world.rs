@@ -605,6 +605,14 @@ impl World {
         &self.colliders
     }
 
+    pub fn integration_parameters_mut(&mut self) -> &mut IntegrationParameters {
+        &mut self.integration_parameters
+    }
+
+    pub fn integration_parameters(&self) -> &IntegrationParameters {
+        &self.integration_parameters
+    }
+
     pub(crate) fn collision_event(
         &mut self,
     ) -> Result<CollisionEvent, crossbeam::channel::TryRecvError> {
