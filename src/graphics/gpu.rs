@@ -31,7 +31,7 @@ impl Default for GpuConfig {
             } else {
                 wgpu::Limits::default()
             },
-            max_multisample: 2,
+            max_multisample: 1,
         }
     }
 }

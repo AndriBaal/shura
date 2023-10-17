@@ -19,7 +19,6 @@ pub enum VertexShader<'a> {
     Instance,
     Custom(&'a str, Vec<wgpu::VertexBufferLayout<'a>>),
     AutoInstance(&'a [InstanceField<'a>]),
-    // ModelOnly,
 }
 
 /// Properties of a [Shader]
@@ -30,7 +29,6 @@ pub struct ShaderConfig<'a> {
     pub uniforms: &'a [UniformField],
     pub blend: BlendState,
     pub write_mask: ColorWrites,
-    pub instancing: bool,
 }
 
 impl Default for ShaderConfig<'static> {
@@ -42,7 +40,6 @@ impl Default for ShaderConfig<'static> {
             vertex_shader: VertexShader::Instance,
             blend: BlendState::ALPHA_BLENDING,
             write_mask: ColorWrites::ALL,
-            instancing: true,
         }
     }
 }
