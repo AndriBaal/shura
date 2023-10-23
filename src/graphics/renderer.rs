@@ -4,15 +4,15 @@ use crate::text::Text;
 use crate::{
     Camera, Color, Component, ComponentHandle, ComponentSetResource, Context, DefaultResources,
     Gpu, GroupFilter, GroupHandle, InstanceBuffer, InstanceIndex, InstanceIndices, Model,
-    RenderTarget, Shader, Sprite, SpriteRenderTarget, SpriteSheet, SpriteSheetIndex, Uniform,
-    WorldCamera,
+    RenderTarget, Shader, Sprite, SpriteRenderTarget, SpriteSheet, Uniform,
+    WorldCamera, InstancePosition,
 };
 use std::{ops::Range, ptr::null};
 
 struct RenderCache {
     pub bound_shader: *const Shader,
     pub bound_model: *const Model,
-    pub bound_instances: *const InstanceBuffer,
+    pub bound_instances: *const InstanceBuffer<InstancePosition>,
     pub bound_uniforms: [*const wgpu::BindGroup; 16],
 }
 
@@ -116,7 +116,7 @@ impl<'a> ComponentRenderer<'a> {
 
     pub fn render_single<C: Component>(
         &mut self,
-        each: impl FnOnce(&mut Renderer<'a>, &'a C, &'a InstanceBuffer, InstanceIndex),
+        each: impl FnOnce(&mut Renderer<'a>, &'a C, &'a InstanceBuffer<InstancePosition>, InstanceIndex),
     ) {
         let ty = self.ctx.components.resource::<C>();
         ty.render_single(&mut self.renderer, each);
@@ -124,7 +124,7 @@ impl<'a> ComponentRenderer<'a> {
 
     pub fn render_each<C: Component>(
         &mut self,
-        each: impl FnMut(&mut Renderer<'a>, &'a C, &'a InstanceBuffer, InstanceIndex),
+        each: impl FnMut(&mut Renderer<'a>, &'a C, &'a InstanceBuffer<InstancePosition>, InstanceIndex),
     ) {
         let ty = self.ctx.components.resource::<C>();
         ty.render_each(&mut self.renderer, each)
@@ -132,7 +132,7 @@ impl<'a> ComponentRenderer<'a> {
 
     pub fn render_all<C: Component>(
         &mut self,
-        all: impl FnMut(&mut Renderer<'a>, &'a InstanceBuffer, InstanceIndices),
+        all: impl FnMut(&mut Renderer<'a>, &'a InstanceBuffer<InstancePosition>, InstanceIndices),
     ) {
         let ty = self.ctx.components.resource::<C>();
         ty.render_all(&mut self.renderer, all);
@@ -157,7 +157,7 @@ pub struct Renderer<'a> {
     pub relative_top_right_camera: &'a Camera,
     pub unit_camera: &'a Camera,
     pub unit_model: &'a Model,
-    pub single_centered_instance: &'a InstanceBuffer,
+    pub single_centered_instance: &'a InstanceBuffer<InstancePosition>,
 }
 
 impl<'a> Renderer<'a> {
@@ -208,7 +208,7 @@ impl<'a> Renderer<'a> {
     }
 
     /// Sets the instance buffer at the position 1
-    pub fn use_instances(&mut self, buffer: &'a InstanceBuffer) {
+    pub fn use_instances(&mut self, buffer: &'a InstanceBuffer<InstancePosition>) {
         let ptr = buffer as *const _;
         if ptr != self.cache.bound_instances {
             self.cache.bound_instances = ptr;
@@ -232,7 +232,7 @@ impl<'a> Renderer<'a> {
     pub fn use_shader_with_buffers(
         &mut self,
         shader: &'a Shader,
-        instances: &'a InstanceBuffer,
+        instances: &'a InstanceBuffer<InstancePosition>,
         model: &'a Model,
     ) {
         debug_assert_eq!(shader.instance_size(), instances.instance_size());
@@ -290,7 +290,7 @@ impl<'a> Renderer<'a> {
     pub fn render_sprite(
         &mut self,
         instances: impl Into<InstanceIndices>,
-        buffer: &'a InstanceBuffer,
+        buffer: &'a InstanceBuffer<InstancePosition>,
         camera: &'a Camera,
         model: &'a Model,
         sprite: &'a Sprite,
@@ -303,56 +303,11 @@ impl<'a> Renderer<'a> {
         }
     }
 
-    pub fn render_color_model(
-        &mut self,
-        instances: impl Into<InstanceIndices>,
-        buffer: &'a InstanceBuffer,
-        camera: &'a Camera,
-        model: &'a Model,
-    ) {
-        if buffer.buffer_size() != 0 {
-            self.use_shader_with_buffers(&self.defaults.color_model, buffer, model);
-            self.use_camera(camera);
-            self.draw(instances);
-        }
-    }
-
-    pub fn render_sprite_crop(
-        &mut self,
-        instances: impl Into<InstanceIndices>,
-        buffer: &'a InstanceBuffer,
-        camera: &'a Camera,
-        model: &'a Model,
-        sprite: &'a Sprite,
-    ) {
-        if buffer.buffer_size() != 0 {
-            self.use_shader_with_buffers(&self.defaults.sprite_crop, buffer, model);
-            self.use_camera(camera);
-            self.use_sprite(sprite, 1);
-            self.draw(instances);
-        }
-    }
-
-    pub fn render_sprite_sheet_crop(
-        &mut self,
-        instances: impl Into<InstanceIndices>,
-        buffer: &'a InstanceBuffer,
-        camera: &'a Camera,
-        model: &'a Model,
-        sprite: &'a Sprite,
-    ) {
-        if buffer.buffer_size() != 0 {
-            self.use_shader_with_buffers(&self.defaults.sprite_sheet_crop, buffer, model);
-            self.use_camera(camera);
-            self.use_sprite(sprite, 1);
-            self.draw(instances);
-        }
-    }
 
     pub fn render_sprite_sheet(
         &mut self,
         instances: impl Into<InstanceIndices>,
-        buffer: &'a InstanceBuffer,
+        buffer: &'a InstanceBuffer<InstancePosition>,
         camera: &'a Camera,
         model: &'a Model,
         sprite: &'a SpriteSheet,
@@ -365,28 +320,10 @@ impl<'a> Renderer<'a> {
         }
     }
 
-    pub fn render_sprite_sheet_uniform(
-        &mut self,
-        instances: impl Into<InstanceIndices>,
-        buffer: &'a InstanceBuffer,
-        camera: &'a Camera,
-        model: &'a Model,
-        sprite: &'a SpriteSheet,
-        sprite_index: &'a Uniform<SpriteSheetIndex>,
-    ) {
-        if buffer.buffer_size() != 0 {
-            self.use_shader_with_buffers(&self.defaults.sprite_sheet_uniform, buffer, model);
-            self.use_camera(camera);
-            self.use_sprite_sheet(sprite, 1);
-            self.use_uniform(sprite_index, 2);
-            self.draw(instances);
-        }
-    }
-
     pub fn render_color(
         &mut self,
         instances: impl Into<InstanceIndices>,
-        buffer: &'a InstanceBuffer,
+        buffer: &'a InstanceBuffer<InstancePosition>,
         camera: &'a Camera,
         model: &'a Model,
     ) {
@@ -401,7 +338,7 @@ impl<'a> Renderer<'a> {
     pub fn render_text(
         &mut self,
         instances: impl Into<InstanceIndices>,
-        buffer: &'a InstanceBuffer,
+        buffer: &'a InstanceBuffer<InstancePosition>,
         camera: &'a Camera,
         text: &'a Text,
     ) {
@@ -414,26 +351,10 @@ impl<'a> Renderer<'a> {
         }
     }
 
-    pub fn render_color_uniform(
-        &mut self,
-        instances: impl Into<InstanceIndices>,
-        buffer: &'a InstanceBuffer,
-        camera: &'a Camera,
-        model: &'a Model,
-        color: &'a Uniform<Color>,
-    ) {
-        if buffer.buffer_size() != 0 {
-            self.use_shader_with_buffers(&self.defaults.color_uniform, buffer, model);
-            self.use_camera(camera);
-            self.use_uniform(color, 1);
-            self.draw(instances);
-        }
-    }
-
     pub fn render_grey(
         &mut self,
         instances: impl Into<InstanceIndices>,
-        buffer: &'a InstanceBuffer,
+        buffer: &'a InstanceBuffer<InstancePosition>,
         camera: &'a Camera,
         model: &'a Model,
         sprite: &'a Sprite,
@@ -449,7 +370,7 @@ impl<'a> Renderer<'a> {
     pub fn render_blurred(
         &mut self,
         instances: impl Into<InstanceIndices>,
-        buffer: &'a InstanceBuffer,
+        buffer: &'a InstanceBuffer<InstancePosition>,
         camera: &'a Camera,
         model: &'a Model,
         sprite: &'a Sprite,
@@ -465,7 +386,7 @@ impl<'a> Renderer<'a> {
     pub fn render_rainbow(
         &mut self,
         instances: impl Into<InstanceIndices>,
-        buffer: &'a InstanceBuffer,
+        buffer: &'a InstanceBuffer<InstancePosition>,
         camera: &'a Camera,
         model: &'a Model,
     ) {

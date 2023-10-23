@@ -94,7 +94,7 @@ egui-winit = { version = "0.23", features = [
     "arboard",
     "webbrowser",
 ], optional = true }
-wgpu = { version = "0.17"}
+wgpu = { version = "0.17", features = ["glsl", "spirv"]}
 rodio = { version = "0.17", default-features = false, optional = true, features = [
     "symphonia-all",
 ] }
@@ -110,7 +110,12 @@ rodio = { version = "0.17", features = [
 ], default-features = false, optional = true }
 getrandom = { version = "0.2", features = ["js"] }
 console_error_panic_hook = "0.1"
-wgpu = { version = "0.17", features = ["webgl", "glsl", "fragile-send-sync-non-atomic-wasm"] }
+wgpu = { version = "0.17", features = [
+    "webgl",
+    "glsl",
+    "spirv",
+    "fragile-send-sync-non-atomic-wasm",
+] }
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 web-sys = { version = "0.3", features = [

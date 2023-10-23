@@ -1,6 +1,6 @@
 use crate::{
     Component, ComponentHandle, ComponentType, ComponentTypeId, Gpu, GroupHandle, InstanceBuffer,
-    InstanceIndex, InstanceIndices, Renderer, World,
+    InstanceIndex, InstanceIndices, Renderer, World, InstancePosition,
 };
 use std::cell::{Ref, RefMut};
 
@@ -136,7 +136,7 @@ impl<'a, C: Component> ComponentSetResource<'a, C> {
     pub fn render_each(
         &self,
         renderer: &mut Renderer<'a>,
-        each: impl FnMut(&mut Renderer<'a>, &'a C, &'a InstanceBuffer, InstanceIndex),
+        each: impl FnMut(&mut Renderer<'a>, &'a C, &'a InstanceBuffer<InstancePosition>, InstanceIndex),
     ) {
         self.ty.render_each(renderer, each)
     }
@@ -144,7 +144,7 @@ impl<'a, C: Component> ComponentSetResource<'a, C> {
     pub fn render_single(
         &self,
         renderer: &mut Renderer<'a>,
-        each: impl FnOnce(&mut Renderer<'a>, &'a C, &'a InstanceBuffer, InstanceIndex),
+        each: impl FnOnce(&mut Renderer<'a>, &'a C, &'a InstanceBuffer<InstancePosition>, InstanceIndex),
     ) {
         self.ty.render_single(renderer, each)
     }
@@ -152,7 +152,7 @@ impl<'a, C: Component> ComponentSetResource<'a, C> {
     pub fn render_all(
         &self,
         renderer: &mut Renderer<'a>,
-        all: impl FnMut(&mut Renderer<'a>, &'a InstanceBuffer, InstanceIndices),
+        all: impl FnMut(&mut Renderer<'a>, &'a InstanceBuffer<InstancePosition>, InstanceIndices),
     ) {
         self.ty.render_all(renderer, all)
     }
@@ -333,7 +333,7 @@ impl<'a, C: Component> ComponentSetMut<'a, C> {
 
     pub fn iter_render(
         &'a self,
-    ) -> impl DoubleEndedIterator<Item = (&InstanceBuffer, InstanceIndex, &C)> {
+    ) -> impl DoubleEndedIterator<Item = (&InstanceBuffer<InstancePosition>, InstanceIndex, &C)> {
         self.ty.iter_render(self.groups)
     }
 

@@ -83,7 +83,7 @@ impl PositionComponent {
 
     pub fn set_position(&mut self, position: Isometry<f32>) {
         self.position = position;
-        self.instance = InstancePosition::new(
+        self.instance = InstancePosition::new_position(
             position,
             if self.disabled {
                 Vector::default()

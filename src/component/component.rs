@@ -20,7 +20,6 @@ impl_downcast!(Position);
 
 /// All components need to implement from this trait. This is not done manually, but with the derive macro [Component](crate::Component).
 pub trait Component: ComponentController + ComponentIdentifier + 'static {
-    const INSTANCE_SIZE: u64;
     fn position(&self) -> &dyn Position;
     fn component_type_id(&self) -> ComponentTypeId;
     fn init(&mut self, handle: ComponentHandle, world: &mut World);
@@ -77,14 +76,14 @@ pub struct BufferHelper<'a, C: Component> {
     inner: BufferHelperType<'a, C>,
     pub gpu: &'a Gpu,
     pub world: &'a World,
-    pub buffer: &'a mut InstanceBuffer,
+    pub buffer: &'a mut InstanceBuffer<InstancePosition>,
 }
 
 impl<'a, C: Component> BufferHelper<'a, C> {
     pub(crate) fn new(
         world: &'a World,
         gpu: &'a Gpu,
-        buffer: &'a mut InstanceBuffer,
+        buffer: &'a mut InstanceBuffer<InstancePosition>,
         inner: BufferHelperType<'a, C>,
     ) -> Self {
         Self {
@@ -95,9 +94,9 @@ impl<'a, C: Component> BufferHelper<'a, C> {
         }
     }
 
-    pub fn buffer<B: bytemuck::Pod + bytemuck::Zeroable + Send>(
+    pub fn buffer(
         &mut self,
-        each: impl Fn(&mut C) -> B + Send + Sync,
+        each: impl Fn(&mut C) -> InstancePosition,
     ) {
         match &mut self.inner {
             BufferHelperType::Single { offset, component } => {
@@ -108,7 +107,7 @@ impl<'a, C: Component> BufferHelper<'a, C> {
                 let instances = components
                     .iter_mut()
                     .map(|component| each(component))
-                    .collect::<Vec<B>>();
+                    .collect::<Vec<InstancePosition>>();
                 self.buffer.write(self.gpu, &instances);
             }
         };
@@ -117,9 +116,9 @@ impl<'a, C: Component> BufferHelper<'a, C> {
 
 #[cfg(feature = "rayon")]
 impl<'a, C: Component + Send + Sync> BufferHelper<'a, C> {
-    pub fn par_buffer<B: bytemuck::Pod + bytemuck::Zeroable + Send>(
+    pub fn par_buffer(
         &mut self,
-        each: impl Fn(&mut C) -> B + Send + Sync,
+        each: impl Fn(&mut C) -> InstancePosition + Send + Sync,
     ) {
         match &mut self.inner {
             BufferHelperType::Single { offset, component } => {
@@ -134,7 +133,7 @@ impl<'a, C: Component + Send + Sync> BufferHelper<'a, C> {
                         ArenaEntry::Free { .. } => None,
                         ArenaEntry::Occupied { data, .. } => Some(each(data)),
                     })
-                    .collect::<Vec<B>>();
+                    .collect::<Vec<InstancePosition>>();
                 self.buffer.write(self.gpu, &instances);
             }
         };

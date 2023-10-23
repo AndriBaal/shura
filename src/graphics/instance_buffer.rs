@@ -1,6 +1,6 @@
-use std::{mem::size_of, ops::Range};
+use std::{mem::size_of, ops::Range, marker::PhantomData};
 
-use crate::{Gpu, Isometry, Matrix, Rotation, Vector};
+use crate::{Color, Gpu, Isometry, Matrix, Rotation, SpriteSheetIndex, Vector};
 use wgpu::util::DeviceExt;
 
 /// Single vertex of a model. Which hold the coordniate of the vertex and the texture coordinates.
@@ -8,22 +8,37 @@ use wgpu::util::DeviceExt;
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct InstancePosition {
-    pos: Vector<f32>,
-    rot: Matrix<f32>,
+    pub pos: Vector<f32>,
+    pub rot: Matrix<f32>,
+    pub tex_pos: Vector<f32>,
+    pub tex_rot: Matrix<f32>,
+    pub color: Color,
+    pub sprite_sheet_index: SpriteSheetIndex,
 }
 
 impl InstancePosition {
     pub const SIZE: u64 = std::mem::size_of::<Self>() as u64;
-    pub const ATTRIBUTES: [wgpu::VertexAttribute; 2] = wgpu::vertex_attr_array![
+    pub const ATTRIBUTES: [wgpu::VertexAttribute; 6] = wgpu::vertex_attr_array![
         2 => Float32x2,
-        3 => Float32x4
+        3 => Float32x4,
+        4 => Float32x2,
+        5 => Float32x4,
+        6 => Float32x4,
+        7 => Uint32,
     ];
     pub const DESC: wgpu::VertexBufferLayout<'static> = wgpu::VertexBufferLayout {
         array_stride: Self::SIZE,
         step_mode: wgpu::VertexStepMode::Instance,
         attributes: &Self::ATTRIBUTES,
     };
-    pub fn new(pos: Isometry<f32>, scale: Vector<f32>) -> Self {
+    pub fn new(
+        pos: Isometry<f32>,
+        scale: Vector<f32>,
+        tex_pos: Isometry<f32>,
+        tex_scale: Vector<f32>,
+        color: Color,
+        sprite_sheet_index: SpriteSheetIndex,
+    ) -> Self {
         Self {
             rot: Matrix::new(
                 scale.x * pos.rotation.cos_angle(),
@@ -32,11 +47,47 @@ impl InstancePosition {
                 scale.y * pos.rotation.cos_angle(),
             ),
             pos: pos.translation.vector,
+            tex_rot: Matrix::new(
+                tex_scale.x * tex_pos.rotation.cos_angle(),
+                tex_scale.x * tex_pos.rotation.sin_angle(),
+                tex_scale.y * -tex_pos.rotation.sin_angle(),
+                tex_scale.y * tex_pos.rotation.cos_angle(),
+            ),
+            tex_pos: tex_pos.translation.vector,
+            color,
+            sprite_sheet_index
+        }
+    }
+
+
+    pub fn new_position(
+        pos: Isometry<f32>,
+        scale: Vector<f32>,
+    ) -> Self {
+        Self {
+            rot: Matrix::new(
+                scale.x * pos.rotation.cos_angle(),
+                scale.x * pos.rotation.sin_angle(),
+                scale.y * -pos.rotation.sin_angle(),
+                scale.y * pos.rotation.cos_angle(),
+            ),
+            pos: pos.translation.vector,
+            ..Default::default()
         }
     }
 
     pub fn set_translation(&mut self, translation: Vector<f32>) {
         self.pos = translation;
+    }
+
+    pub fn set_position(&mut self, pos: Isometry<f32>, scale: Vector<f32>) {
+        self.rot = Matrix::new(
+            scale.x * pos.rotation.cos_angle(),
+            scale.x * pos.rotation.sin_angle(),
+            scale.y * -pos.rotation.sin_angle(),
+            scale.y * pos.rotation.cos_angle(),
+        );
+        self.pos = pos.translation.vector;
     }
 
     pub fn set_scale_rotation(&mut self, scale: Vector<f32>, rotation: Rotation<f32>) {
@@ -56,20 +107,27 @@ impl InstancePosition {
 
 impl Default for InstancePosition {
     fn default() -> Self {
-        return Self::new(Isometry::new(Vector::default(), 0.0), Vector::new(1.0, 1.0));
+        return Self::new(
+            Isometry::new(Vector::default(), 0.0),
+            Vector::new(1.0, 1.0),
+            Isometry::new(Vector::default(), 0.0),
+            Vector::new(1.0, 1.0),
+            Color::WHITE,
+            0,
+        );
     }
 }
 
 /// Buffer holding multiple [Positions](crate::Isometry) in form of [Matrices](crate::Matrix).
-pub struct InstanceBuffer {
+pub struct InstanceBuffer<D: bytemuck::NoUninit> {
     buffer: wgpu::Buffer,
     buffer_size: wgpu::BufferAddress,
     instances: u64,
-    instance_size: u64,
+    marker: PhantomData<D>
 }
 
-impl InstanceBuffer {
-    pub fn new<D: bytemuck::NoUninit>(gpu: &Gpu, data: &[D]) -> Self {
+impl <D: bytemuck::NoUninit>InstanceBuffer<D> {
+    pub fn new(gpu: &Gpu, data: &[D]) -> Self {
         let instance_size = size_of::<D>() as u64;
         let data = bytemuck::cast_slice(data);
         let buffer_size = data.len() as u64;
@@ -86,11 +144,12 @@ impl InstanceBuffer {
             buffer,
             buffer_size: buffer_size,
             instances: buffer_size / instance_size,
-            instance_size,
+            marker: PhantomData,
         };
     }
 
-    pub fn empty(gpu: &Gpu, instance_size: u64, amount: u64) -> Self {
+    pub fn empty(gpu: &Gpu, amount: u64) -> Self {
+        let instance_size = size_of::<D>() as u64;
         let buffer = gpu.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("instance_buffer"),
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
@@ -100,28 +159,29 @@ impl InstanceBuffer {
 
         return Self {
             buffer,
-            instance_size,
             instances: 0,
             buffer_size: 0,
+            marker: PhantomData,
         };
     }
 
-    pub fn write<D: bytemuck::NoUninit>(&mut self, gpu: &Gpu, data: &[D]) {
+    pub fn write(&mut self, gpu: &Gpu, data: &[D]) {
         self.write_offset(gpu, 0, data);
     }
 
-    pub fn write_offset<D: bytemuck::NoUninit>(
+    pub fn write_offset(
         &mut self,
         gpu: &Gpu,
         instance_offset: u64,
         data: &[D],
     ) {
+        let instance_size: u64 = std::mem::size_of::<D>() as u64;
         let data = bytemuck::cast_slice(data);
-        let new_size = instance_offset * self.instance_size + data.len() as u64;
-        assert_eq!(data.len() as u64 % self.instance_size, 0);
-        assert_eq!(size_of::<D>() as u64, self.instance_size);
+        let new_size = instance_offset * instance_size + data.len() as u64;
+        assert_eq!(data.len() as u64 % instance_size, 0);
+        assert_eq!(size_of::<D>() as u64, instance_size);
 
-        self.instances = new_size / self.instance_size;
+        self.instances = new_size / instance_size;
 
         if new_size > self.buffer_size {
             self.buffer = gpu
@@ -133,7 +193,7 @@ impl InstanceBuffer {
                 });
         } else {
             gpu.queue
-                .write_buffer(&self.buffer, instance_offset * self.instance_size, data);
+                .write_buffer(&self.buffer, instance_offset * instance_size, data);
         }
         self.buffer_size = new_size;
     }
@@ -159,7 +219,7 @@ impl InstanceBuffer {
     }
 
     pub fn instance_size(&self) -> wgpu::BufferAddress {
-        self.instance_size
+        std::mem::size_of::<D>() as u64
     }
 }
 

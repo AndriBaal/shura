@@ -1,12 +1,14 @@
+use wgpu::include_wgsl;
+
 #[cfg(feature = "log")]
 use crate::log::info;
 #[cfg(feature = "text")]
 use crate::text::{Font, Text, TextSection, TextVertexData};
 use crate::{
-    Camera, InstanceBuffer, InstanceField, InstancePosition, Isometry, Model, ModelBuilder,
-    RenderEncoder, RenderTarget, Shader, ShaderConfig, Sprite, SpriteBuilder, SpriteRenderTarget,
-    SpriteSheet, SpriteSheetBuilder, SpriteSheetIndex, SurfaceRenderTarget, Uniform, UniformField,
-    Vector, Vertex, VertexShader, WorldCamera,
+    Camera, InstanceBuffer, InstancePosition, Isometry, Model, ModelBuilder, RenderEncoder,
+    RenderTarget, Shader, ShaderConfig, ShaderModule, ShaderModuleDescriptor, ShaderModuleSoure,
+    Sprite, SpriteBuilder, SpriteRenderTarget, SpriteSheet, SpriteSheetBuilder, SpriteSheetIndex,
+    SurfaceRenderTarget, Uniform, UniformField, Vector, Vertex, WorldCamera,
 };
 use std::{ops::Deref, sync::Mutex};
 
@@ -42,7 +44,7 @@ pub struct Gpu {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub adapter: wgpu::Adapter,
-    pub surface: Mutex<wgpu::Surface>,
+    pub(crate) surface: Mutex<wgpu::Surface>,
     pub(crate) config: Mutex<wgpu::SurfaceConfiguration>,
     pub(crate) format: wgpu::TextureFormat,
     pub(crate) base: WgpuDefaultResources,
@@ -207,7 +209,10 @@ impl Gpu {
         SpriteRenderTarget::custom(self, sprite)
     }
 
-    pub fn create_instance_buffer<D: bytemuck::NoUninit>(&self, instances: &[D]) -> InstanceBuffer {
+    pub fn create_instance_buffer<D: bytemuck::NoUninit>(
+        &self,
+        instances: &[D],
+    ) -> InstanceBuffer<D> {
         InstanceBuffer::new(self, instances)
     }
 
@@ -241,6 +246,10 @@ impl Gpu {
         Shader::new(self, config)
     }
 
+    pub fn create_shader_module(&self, desc: ShaderModuleDescriptor<'_>) -> ShaderModule {
+        self.device.create_shader_module(desc)
+    }
+
     #[cfg(feature = "text")]
     pub fn create_font(&self, data: &'static [u8]) -> Font {
         Font::new(self, data)
@@ -265,6 +274,7 @@ impl Gpu {
 /// Base Wgpu objects needed to create any further graphics object.
 pub struct WgpuDefaultResources {
     pub sample_count: u32,
+    pub vertex_shader_module: ShaderModule,
     pub multisample: wgpu::MultisampleState,
     pub sprite_sheet_layout: wgpu::BindGroupLayout,
     pub sprite_layout: wgpu::BindGroupLayout,
@@ -354,7 +364,11 @@ impl WgpuDefaultResources {
             alpha_to_coverage_enabled: false,
         };
 
+        let vertex_shader_module =
+            device.create_shader_module(include_wgsl!("../../res/shader/vertex.wgsl"));
+
         Self {
+            vertex_shader_module,
             sample_count: sample_count,
             multisample,
             sprite_sheet_layout,
@@ -368,15 +382,9 @@ impl WgpuDefaultResources {
 /// Holds default buffers, shaders, sprites and layouts needed by shura.
 pub struct DefaultResources {
     pub sprite: Shader,
-    pub sprite_crop: Shader,
-    pub sprite_sheet_crop: Shader,
     pub sprite_sheet: Shader,
-    pub sprite_sheet_uniform: Shader,
-    pub transparent: Shader,
-    pub transparent_uniform: Shader,
+    // pub multiplied: Shader,
     pub color: Shader,
-    pub color_uniform: Shader,
-    pub color_model: Shader,
     pub rainbow: Shader,
     pub grey: Shader,
     #[cfg(feature = "text")]
@@ -398,7 +406,7 @@ pub struct DefaultResources {
     pub relative_top_right_camera: Camera,
     pub unit_camera: Camera,
     pub index: [Uniform<SpriteSheetIndex>; 10],
-    pub single_centered_instance: InstanceBuffer,
+    pub single_centered_instance: InstanceBuffer<InstancePosition>,
 
     pub surface: SurfaceRenderTarget,
     #[cfg(feature = "framebuffer")]
@@ -408,207 +416,111 @@ pub struct DefaultResources {
 impl DefaultResources {
     pub(crate) fn new(gpu: &Gpu, window_size: Vector<u32>) -> Self {
         let sprite_sheet = gpu.create_shader(ShaderConfig {
-            name: "sprite_sheet",
-            fragment_shader: Shader::SPRITE_SHEET,
-            uniforms: &[UniformField::SpriteSheet],
-            vertex_shader: VertexShader::AutoInstance(&[InstanceField {
-                format: wgpu::VertexFormat::Uint32,
-                field_name: "sprite",
-                data_type: "u32",
-            }]),
+            name: Some("sprite_sheet"),
+            source: ShaderModuleSoure::Seperate {
+                vertex: &gpu.base.vertex_shader_module,
+                fragment: &gpu
+                    .create_shader_module(include_wgsl!("../../res/shader/sprite_sheet.wgsl")),
+            },
+            uniforms: &[UniformField::Camera, UniformField::SpriteSheet],
             ..Default::default()
         });
 
-        let sprite_sheet_uniform = gpu.create_shader(ShaderConfig {
-            name: "sprite_sheet_uniform",
-            fragment_shader: Shader::SPRITE_SHEET_UNIFORM,
-            uniforms: &[UniformField::SpriteSheet, UniformField::SingleUniform],
-            ..Default::default()
-        });
-
-        let transparent = gpu.create_shader(ShaderConfig {
-            name: "transparent",
-            fragment_shader: Shader::TRANSPARENT,
-            uniforms: &[UniformField::Sprite],
-            vertex_shader: VertexShader::AutoInstance(&[InstanceField {
-                format: wgpu::VertexFormat::Float32,
-                field_name: "transparent",
-                data_type: "f32",
-            }]),
-            ..Default::default()
-        });
-
-        let transparent_uniform = gpu.create_shader(ShaderConfig {
-            name: "transparent_uniform",
-            fragment_shader: Shader::TRANSPARENT_UNIFORM,
-            uniforms: &[UniformField::Sprite, UniformField::SingleUniform],
-            ..Default::default()
-        });
-
-        let sprite_sheet_crop = gpu.create_shader(ShaderConfig {
-            name: "sprite_sheet_crop",
-            fragment_shader: Shader::SPRITE_SHEET,
-            uniforms: &[UniformField::SpriteSheet],
-            vertex_shader: VertexShader::Custom(
-                Shader::VERTEX_CROP_SHEET,
-                vec![
-                    Vertex::DESC,
-                    wgpu::VertexBufferLayout {
-                        array_stride: InstancePosition::SIZE * 2,
-                        attributes: &wgpu::vertex_attr_array![
-                            2 => Float32x2,
-                            3 => Float32x4,
-                            4 => Float32x2,
-                            5 => Float32x4,
-                            6 => Uint32,
-                        ],
-                        step_mode: wgpu::VertexStepMode::Instance,
-                    },
-                ],
-            ),
-            ..Default::default()
-        });
+        // let multiplied = gpu.create_shader(ShaderConfig {
+        //     name: Some("multiplied"),
+        //     source: ShaderModuleSoure::Seperate { vertex: &gpu.base.vertex_shader_module, fragment: &gpu.create_shader_module(include_wgsl!("../../res/shader/XXX.wgsl")) },
+        //     uniforms: &[UniformField::Camera, UniformField::Sprite],
+        //     ..Default::default()
+        // });
 
         #[cfg(feature = "text")]
         let text = gpu.create_shader(ShaderConfig {
-            name: "text",
-            fragment_shader: include_str!("../../res/shader/text.wgsl"),
-            uniforms: &[UniformField::SpriteSheet],
-            vertex_shader: VertexShader::Custom(
-                include_str!("../../res/shader/vertex_text.wgsl"),
-                vec![
-                    wgpu::VertexBufferLayout {
-                        array_stride: std::mem::size_of::<Vertex<TextVertexData>>()
-                            as wgpu::BufferAddress,
-                        step_mode: wgpu::VertexStepMode::Vertex,
-                        attributes: &wgpu::vertex_attr_array![
-                            0 => Float32x2,
-                            1 => Float32x2,
-                            2 => Float32x4,
-                            3 => Uint32
-                        ],
-                    },
-                    // Not InstancePosition::DESC because of offset
-                    wgpu::VertexBufferLayout {
-                        array_stride: InstancePosition::SIZE,
-                        step_mode: wgpu::VertexStepMode::Instance,
-                        attributes: &wgpu::vertex_attr_array![
-                            4 => Float32x2,
-                            5 => Float32x4
-                        ],
-                    },
-                ],
+            name: Some("text"),
+            uniforms: &[UniformField::Camera, UniformField::SpriteSheet],
+            source: ShaderModuleSoure::Single(
+                &gpu.create_shader_module(include_wgsl!("../../res/shader/text.wgsl")),
             ),
+            buffers: &[
+                wgpu::VertexBufferLayout {
+                    array_stride: std::mem::size_of::<Vertex<TextVertexData>>() as wgpu::BufferAddress,
+                    step_mode: wgpu::VertexStepMode::Vertex,
+                    attributes: &wgpu::vertex_attr_array![
+                        0 => Float32x2,
+                        1 => Float32x2,
+                        2 => Float32x4,
+                        3 => Uint32,
+                    ],
+                },
+                // Not InstancePosition::DESC because of offset
+                wgpu::VertexBufferLayout {
+                    array_stride: InstancePosition::SIZE,
+                    step_mode: wgpu::VertexStepMode::Instance,
+                    attributes: &wgpu::vertex_attr_array![
+                        4 => Float32x2,
+                        5 => Float32x4,
+                        6 => Float32x2,
+                        7 => Float32x4,
+                        8 => Float32x4,
+                        9 => Uint32,
+                    ],
+                },
+            ],
             ..Default::default()
         });
 
         let color = gpu.create_shader(ShaderConfig {
-            name: "color",
-            fragment_shader: Shader::COLOR,
-            uniforms: &[],
-            vertex_shader: VertexShader::AutoInstance(&[InstanceField {
-                format: wgpu::VertexFormat::Float32x4,
-                field_name: "color",
-                data_type: "vec4<f32>",
-            }]),
-            ..Default::default()
-        });
-
-        let color_uniform = gpu.create_shader(ShaderConfig {
-            name: "color_uniform",
-            fragment_shader: Shader::COLOR_UNIFORM,
-            uniforms: &[UniformField::SingleUniform],
-            ..Default::default()
-        });
-
-        let color_model = gpu.create_shader(ShaderConfig {
-            name: "color_model",
-            fragment_shader: include_str!("../../res/shader/color.wgsl"),
-            uniforms: &[UniformField::SpriteSheet],
-            vertex_shader: VertexShader::Custom(
-                include_str!("../../res/shader/vertex_color.wgsl"),
-                vec![
-                    wgpu::VertexBufferLayout {
-                        array_stride: std::mem::size_of::<Vertex<TextVertexData>>()
-                            as wgpu::BufferAddress,
-                        step_mode: wgpu::VertexStepMode::Vertex,
-                        attributes: &wgpu::vertex_attr_array![
-                            0 => Float32x2,
-                            1 => Float32x2,
-                            2 => Float32x4,
-                        ],
-                    },
-                    // Not InstancePosition::DESC because of offset
-                    wgpu::VertexBufferLayout {
-                        array_stride: InstancePosition::SIZE,
-                        step_mode: wgpu::VertexStepMode::Instance,
-                        attributes: &wgpu::vertex_attr_array![
-                            3 => Float32x2,
-                            4 => Float32x4
-                        ],
-                    },
-                ],
-            ),
+            name: Some("color"),
+            source: ShaderModuleSoure::Seperate {
+                vertex: &gpu.base.vertex_shader_module,
+                fragment: &gpu.create_shader_module(include_wgsl!("../../res/shader/color.wgsl")),
+            },
+            uniforms: &[UniformField::Camera],
             ..Default::default()
         });
 
         let sprite = gpu.create_shader(ShaderConfig {
-            name: "sprite",
-            fragment_shader: Shader::SPRITE,
-            uniforms: &[UniformField::Sprite],
-            ..Default::default()
-        });
-
-        let sprite_crop = gpu.create_shader(ShaderConfig {
-            name: "sprite_crop",
-            fragment_shader: Shader::SPRITE,
-            uniforms: &[UniformField::Sprite],
-            vertex_shader: VertexShader::Custom(
-                Shader::VERTEX_CROP,
-                vec![
-                    Vertex::DESC,
-                    wgpu::VertexBufferLayout {
-                        array_stride: InstancePosition::SIZE * 2,
-                        attributes: &wgpu::vertex_attr_array![
-                            2 => Float32x2,
-                            3 => Float32x4,
-                            4 => Float32x2,
-                            5 => Float32x4,
-                        ],
-                        step_mode: wgpu::VertexStepMode::Instance,
-                    },
-                ],
-            ),
+            name: Some("sprite"),
+            source: ShaderModuleSoure::Seperate {
+                vertex: &gpu.base.vertex_shader_module,
+                fragment: &gpu.create_shader_module(include_wgsl!("../../res/shader/sprite.wgsl")),
+            },
+            uniforms: &[UniformField::Camera, UniformField::Sprite],
             ..Default::default()
         });
 
         let rainbow = gpu.create_shader(ShaderConfig {
-            name: "rainbow",
-            fragment_shader: Shader::RAINBOW,
-            uniforms: &[UniformField::SingleUniform],
+            name: Some("rainbow"),
+            source: ShaderModuleSoure::Seperate {
+                vertex: &gpu.base.vertex_shader_module,
+                fragment: &gpu.create_shader_module(include_wgsl!("../../res/shader/rainbow.wgsl")),
+            },
+            uniforms: &[UniformField::Camera, UniformField::SingleUniform],
             ..Default::default()
         });
 
         let grey = gpu.create_shader(ShaderConfig {
-            name: "grey",
-            fragment_shader: Shader::GREY,
-            uniforms: &[UniformField::Sprite],
+            name: Some("grey"),
+            source: ShaderModuleSoure::Seperate {
+                vertex: &gpu.base.vertex_shader_module,
+                fragment: &gpu.create_shader_module(include_wgsl!("../../res/shader/grey.wgsl")),
+            },
+            uniforms: &[UniformField::Camera, UniformField::Sprite],
             ..Default::default()
         });
 
         let blurr = gpu.create_shader(ShaderConfig {
-            name: "blurr",
-            fragment_shader: Shader::BLURR,
-            uniforms: &[UniformField::Sprite],
+            name: Some("blurr"),
+            source: ShaderModuleSoure::Seperate {
+                vertex: &gpu.base.vertex_shader_module,
+                fragment: &gpu.create_shader_module(include_wgsl!("../../res/shader/blurr.wgsl")),
+            },
+            uniforms: &[UniformField::Camera, UniformField::Sprite],
             ..Default::default()
         });
 
         let size = gpu.render_size();
         let times = Uniform::new(gpu, [0.0, 0.0]);
-        let single_centered_instance = gpu.create_instance_buffer(&[InstancePosition::new(
-            Default::default(),
-            Vector::new(1.0, 1.0),
-        )]);
+        let single_centered_instance = gpu.create_instance_buffer(&[InstancePosition::default()]);
 
         let fov = Self::relative_fov(window_size);
 
@@ -636,10 +548,7 @@ impl DefaultResources {
 
         Self {
             surface,
-            sprite_sheet_uniform,
             sprite_sheet,
-            sprite_sheet_crop,
-            sprite_crop,
             unit_model,
             unit_camera,
             #[cfg(feature = "text")]
@@ -656,14 +565,11 @@ impl DefaultResources {
             relative_top_left_camera,
             relative_top_right_camera,
             color,
-            color_uniform,
-            color_model,
             index,
 
             #[cfg(feature = "framebuffer")]
             framebuffer,
-            transparent,
-            transparent_uniform,
+            // multiplied,
         }
     }
 

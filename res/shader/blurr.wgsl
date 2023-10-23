@@ -6,11 +6,13 @@ var s_diffuse: sampler;
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
-    @location(0) tex: vec2<f32>
+    @location(0) tex: vec2<f32>,
+    @location(1) color: vec4<f32>,
+    @location(2) index: u32,
 }
 
 @fragment
-fn main(in: VertexOutput) -> @location(0) vec4<f32> {
+fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var color = textureSample(t_diffuse, s_diffuse, in.tex);
     let save_radius = 32;
     let quality = 3.0;

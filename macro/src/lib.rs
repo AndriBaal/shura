@@ -5,7 +5,6 @@ use std::sync::Mutex;
 use std::{collections::HashSet, sync::OnceLock};
 use syn::{parse_macro_input, parse_quote, Data, DataStruct, DeriveInput, Fields, Type, TypePath};
 
-
 fn position_field(data_struct: &DataStruct, attr_name: &str) -> Option<Ident> {
     match &data_struct.fields {
         Fields::Named(fields_named) => {
@@ -136,69 +135,6 @@ fn component(ast: &DeriveInput) -> TokenStream2 {
         quote!(buffer)
     };
 
-    let buffer_impl = if buffer_fields.is_empty() {
-        quote!(
-            const INSTANCE_SIZE: u64 = std::mem::size_of::<::shura::InstancePosition>() as u64;
-            fn buffer_with(
-                mut helper: BufferHelper<Self>,
-                each: impl Fn(&mut Self) + Send + Sync,
-            ) {
-                helper.#buffer_method(|c: &mut Self| {
-                    each(c);
-                    c.position().instance(helper.world)
-                })
-            }
-            fn buffer(mut helper: BufferHelper<Self>) {
-                helper.#buffer_method(|component| component.position().instance(helper.world))
-            }
-        )
-    } else {
-        quote!(
-            const INSTANCE_SIZE: u64 = (std::mem::size_of::<::shura::InstancePosition>() + #(std::mem::size_of::<#buffer_types>())+*) as u64;
-            fn buffer_with(
-                mut helper: ::shura::BufferHelper<Self>,
-                each: impl Fn(&mut Self) + Send + Sync
-            ) {
-                #[repr(C)]
-                #[derive(Clone, Copy)]
-                struct Instance {
-                    #position_field_name: ::shura::InstancePosition,
-                    #(#struct_fields),*
-                }
-                unsafe impl ::shura::bytemuck::Pod for Instance {}
-                unsafe impl ::shura::bytemuck::Zeroable for Instance {}
-
-                helper.#buffer_method(|component| {
-                    (each)(component);
-                    Instance {
-                        #position_field_name: component.position().instance(helper.world),
-                        #(#buffer_fields: component.#buffer_fields),*
-                    }
-                });
-            }
-
-            fn buffer(
-                mut helper: ::shura::BufferHelper<Self>
-            ) {
-                #[repr(C)]
-                #[derive(Clone, Copy)]
-                struct Instance {
-                    #position_field_name: ::shura::InstancePosition,
-                    #(#struct_fields),*
-                }
-                unsafe impl ::shura::bytemuck::Pod for Instance {}
-                unsafe impl ::shura::bytemuck::Zeroable for Instance {}
-
-                helper.#buffer_method(|component| {
-                    Instance {
-                        #position_field_name: component.position().instance(helper.world),
-                        #(#buffer_fields: component.#buffer_fields),*
-                    }
-                });
-            }
-        )
-    };
-
     let init_finish = if has_position {
         quote!(
             fn init(&mut self, handle: ::shura::ComponentHandle, world: &mut ::shura::World) {
@@ -223,13 +159,24 @@ fn component(ast: &DeriveInput) -> TokenStream2 {
         }
 
         impl #impl_generics ::shura::Component for #struct_name #ty_generics #where_clause {
+            #init_finish
+
             fn position(&self) -> &dyn ::shura::Position {
                 &#var_position_field_name
             }
 
-            #init_finish
-
-            #buffer_impl
+            fn buffer_with(
+                mut helper: BufferHelper<Self>,
+                each: impl Fn(&mut Self) + Send + Sync,
+            ) {
+                helper.#buffer_method(|c: &mut Self| {
+                    each(c);
+                    c.position().instance(helper.world)
+                })
+            }
+            fn buffer(mut helper: BufferHelper<Self>) {
+                helper.#buffer_method(|component| component.position().instance(helper.world))
+            }
 
             fn component_type_id(&self) -> ::shura::ComponentTypeId {
                 Self::IDENTIFIER

@@ -237,8 +237,6 @@ impl ComponentController for Floor {
 struct PhysicsBox {
     #[position]
     body: RigidBodyComponent,
-    #[buffer]
-    sprite: SpriteSheetIndex,
 }
 
 impl PhysicsBox {

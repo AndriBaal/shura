@@ -75,7 +75,7 @@ impl Position for ColliderComponent {
         match &self.status {
             ColliderStatus::Added { collider_handle } => {
                 if let Some(collider) = world.collider(*collider_handle) {
-                    return InstancePosition::new(
+                    return InstancePosition::new_position(
                         *collider.position(),
                         if collider.is_enabled() {
                             self.scale
@@ -86,7 +86,7 @@ impl Position for ColliderComponent {
                 }
             }
             ColliderStatus::Pending { collider } => {
-                return InstancePosition::new(
+                return InstancePosition::new_position(
                     *collider.position(),
                     if collider.is_enabled() {
                         self.scale

@@ -127,7 +127,7 @@ impl Position for RigidBodyComponent {
         match &self.status {
             RigidBodyStatus::Added { rigid_body_handle } => {
                 if let Some(rigid_body) = world.rigid_body(*rigid_body_handle) {
-                    return InstancePosition::new(
+                    return InstancePosition::new_position(
                         *rigid_body.position(),
                         if rigid_body.is_enabled() {
                             self.scale
@@ -138,7 +138,7 @@ impl Position for RigidBodyComponent {
                 }
             }
             RigidBodyStatus::Pending { rigid_body, .. } => {
-                return InstancePosition::new(
+                return InstancePosition::new_position(
                     *rigid_body.position(),
                     if rigid_body.is_enabled() {
                         self.scale
