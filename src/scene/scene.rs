@@ -1,109 +1,132 @@
+use std::cell::RefCell;
+
 use crate::{
-    ComponentManager, Context, ContextUse, GroupManager, ScreenConfig, Shura, Vector, World,
-    WorldCamera, WorldCameraScale,
+    Component, ComponentConfig, ComponentManager, ComponentType, ComponentTypeImplementation,
+    GroupManager, ScreenConfig, App, System, SystemManager, Vector, World,
+    WorldCamera, WorldCameraScale, Context,
 };
 
 /// Origin of a [Scene]
 pub trait SceneCreator {
     fn new_id(&self) -> u32;
-    fn create(self: Box<Self>, shura: &mut Shura) -> Scene;
+    fn create(self: Box<Self>, app: &mut App) -> Scene;
 }
 
 /// Create a new [Scene] from scratch
-pub struct NewScene<N: 'static + FnMut(&mut Context)> {
+pub struct NewScene {
     pub id: u32,
-    pub init: N,
+    systems: Vec<System>,
+    components: Vec<Box<RefCell<dyn ComponentTypeImplementation>>>,
 }
 
-impl<N: 'static + FnMut(&mut Context)> NewScene<N> {
-    pub fn new(id: u32, init: N) -> NewScene<N> {
-        Self { id, init }
+impl NewScene {
+    pub fn new(id: u32) -> NewScene {
+        Self {
+            id,
+            systems: Default::default(),
+            components: Default::default(),
+        }
+    }
+    
+    pub fn add_component<C: Component>(mut self, config: ComponentConfig) -> Self {
+        self.components.push(Box::new(RefCell::new(ComponentType::<C>::new(config))));
+        self
+    }
+    pub fn add_system(mut self, system: System) -> Self {
+        self.systems.push(system);
+        self
     }
 }
 
-impl<N: 'static + FnMut(&mut Context)> SceneCreator for NewScene<N> {
+impl SceneCreator for NewScene {
     fn new_id(&self) -> u32 {
         self.id
     }
 
-    fn create(mut self: Box<Self>, shura: &mut Shura) -> Scene {
-        let mut scene = Scene::new(shura, self.id);
-        scene.id = self.id;
-        scene.started = true;
-        let mut ctx = Context::new(shura, &mut scene, ContextUse::Update);
-        (self.init)(&mut ctx);
-        return scene;
+    fn create(self: Box<Self>, app: &mut App) -> Scene {
+        return Scene::new(app, self.id, self.systems, self.components);
     }
 }
 
-/// Add a [Scene] that previously has been removed.
-pub struct RecycleScene<N: 'static + FnMut(&mut Context)> {
-    pub id: u32,
-    pub scene: Scene,
-    pub init: N,
-}
+// /// Add a [Scene] that previously has been removed.
+// pub struct RecycleScene<'a> {
+//     pub id: u32,
+//     pub scene: Scene,
+//     pub systems: &'a [System],
+// }
 
-impl<N: 'static + FnMut(&mut Context)> RecycleScene<N> {
-    pub fn new(id: u32, scene: Scene, init: N) -> RecycleScene<N> {
-        Self { id, scene, init }
-    }
-}
+// impl<'a> RecycleScene<'a> {
+//     pub fn new(id: u32, scene: Scene, systems: &'a [System]) -> RecycleScene {
+//         Self { id, scene, systems }
+//     }
+// }
 
-impl<N: 'static + FnMut(&mut Context)> SceneCreator for RecycleScene<N> {
-    fn new_id(&self) -> u32 {
-        self.id
-    }
+// impl SceneCreator for RecycleScene {
+//     fn new_id(&self) -> u32 {
+//         self.id
+//     }
 
-    fn create(mut self: Box<Self>, shura: &mut Shura) -> Scene {
-        let mint: mint::Vector2<u32> = shura.window.inner_size().into();
-        let window_size: Vector<u32> = mint.into();
-        self.scene.world_camera.resize(window_size);
-        self.scene.id = self.id;
-        self.scene.started = true;
-        let mut ctx = Context::new(shura, &mut self.scene, ContextUse::Update);
-        (self.init)(&mut ctx);
-        return self.scene;
-    }
-}
+//     fn create(mut self: Box<Self>, app: &mut App) -> Scene {
+//         let mint: mint::Vector2<u32> = app.window.inner_size().into();
+//         let window_size: Vector<u32> = mint.into();
+//         self.scene.world_camera.resize(window_size);
+//         self.scene.id = self.id;
+//         let mut ctx = Context::new(app, &mut self.scene, ContextUse::Update);
+//         (self.systems)(&mut ctx);
+//         return self.scene;
+//     }
+// }
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 /// [states](StateManager) and [camera](WorldCamera) identified by an Id
 pub struct Scene {
     pub(crate) id: u32,
-    pub update_components: i16,
-    pub started: bool,
     pub render_components: bool,
     pub screen_config: ScreenConfig,
     pub world_camera: WorldCamera,
     pub components: ComponentManager,
     pub groups: GroupManager,
     pub world: World,
+    pub(crate) systems: SystemManager,
 }
 
 impl Scene {
     pub const DEFAULT_VERTICAL_CAMERA_FOV: f32 = 3.0;
-    pub(crate) fn new(shura: &Shura, id: u32) -> Self {
-        let mint: mint::Vector2<u32> = shura.window.inner_size().into();
+    pub(crate) fn new(
+        app: &mut App,
+        id: u32,
+        systems: Vec<System>,
+        components: Vec<Box<RefCell<dyn ComponentTypeImplementation>>>,
+    ) -> Self {
+        let mint: mint::Vector2<u32> = app.window.inner_size().into();
         let window_size: Vector<u32> = mint.into();
-        Self {
+
+        let mut scene = Self {
             id,
             world_camera: WorldCamera::new(
                 Default::default(),
                 WorldCameraScale::Min(Self::DEFAULT_VERTICAL_CAMERA_FOV),
                 window_size,
             ),
-            components: ComponentManager::new(shura.globals.clone()),
+            components: ComponentManager::new(app.globals.clone(), components),
+            systems: SystemManager::new(&systems),
             groups: GroupManager::new(),
             screen_config: ScreenConfig::new(),
             render_components: true,
-            update_components: 0,
             world: World::new(),
-            started: true,
-        }
-    }
+        };
 
-    pub fn started(&self) -> bool {
-        self.started
+        let (_, mut ctx) = Context::new(app, &mut scene);
+        for system in &systems {
+            match system {
+                System::Setup(setup) => {
+                    (setup)(&mut ctx);
+                }
+                _ => ()
+            }
+        }
+
+        return scene;
     }
 
     pub fn id(&self) -> u32 {

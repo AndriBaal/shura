@@ -1,10 +1,11 @@
 use downcast_rs::{impl_downcast, Downcast};
+use egui::ahash::HashMapExt;
 use rustc_hash::FxHashMap;
 
 use crate::{
     Component, ComponentConfig, ComponentHandle, ComponentScope, ComponentSet, ComponentSetMut,
-    ComponentType, ComponentTypeId, ContextUse, ControllerManager, GlobalComponents, Gpu,
-    GroupHandle, GroupManager, InstancePosition, World,
+    ComponentType, ComponentTypeId, GlobalComponents, Gpu,
+    GroupHandle, GroupManager, InstancePosition, World, Renderer, InstanceBuffer, InstanceIndex, InstanceIndices,
 };
 
 #[cfg(feature = "serde")]
@@ -33,18 +34,6 @@ pub(crate) trait ComponentTypeImplementation: Downcast {
 }
 impl_downcast!(ComponentTypeImplementation);
 
-#[macro_export]
-/// Register multiple components at once
-macro_rules! register {
-    ($ctx: expr, [$($C:ty),* $(,)?]) => {
-        {
-            $(
-                $ctx.components.register::<$C>(&$ctx.groups);
-            )*
-        }
-    };
-}
-
 macro_rules! group_filter {
     ($self:ident, $filter: expr) => {
         match $filter {
@@ -68,10 +57,6 @@ macro_rules! type_ref {
 
 macro_rules! type_ref_mut {
     ($self:ident, $C: ident) => {{
-        assert!(
-            $self.context_use == ContextUse::Update,
-            "This operation is only allowed while updating!"
-        );
         let ty = $self
             .types
             .get(&$C::IDENTIFIER)
@@ -81,20 +66,20 @@ macro_rules! type_ref_mut {
     }};
 }
 
-macro_rules! type_render {
-    ($self:ident, $C: ident) => {{
-        assert!(
-            $self.context_use == ContextUse::Render,
-            "This operation is only allowed while rendering!"
-        );
-        let ty = $self
-            .types
-            .get(&$C::IDENTIFIER)
-            .expect(&no_type_error::<$C>())
-            .resource::<$C>();
-        ty
-    }};
-}
+// macro_rules! type_render {
+//     ($self:ident, $C: ident) => {{
+//         assert!(
+//             $self.context_use == ContextUse::Render,
+//             "This operation is only allowed while rendering!"
+//         );
+//         let ty = $self
+//             .types
+//             .get(&$C::IDENTIFIER)
+//             .expect(&no_type_error::<$C>())
+//             .resource::<$C>();
+//         ty
+//     }};
+// }
 
 const ALREADY_BORROWED: &'static str = "This type is already borrowed!";
 fn no_type_error<C: Component>() -> String {
@@ -144,23 +129,23 @@ impl ComponentTypeScope {
         }
     }
 
-    fn resource<C: Component>(&self) -> &ComponentType<C> {
-        // This is safe, because we disallow .borrow_mut() with the ContextUse
-        unsafe {
-            match &self {
-                ComponentTypeScope::Scene(scene) => scene
-                    .try_borrow_unguarded()
-                    .unwrap()
-                    .downcast_ref::<ComponentType<C>>()
-                    .unwrap(),
-                ComponentTypeScope::Global(global) => global
-                    .try_borrow_unguarded()
-                    .unwrap()
-                    .downcast_ref::<ComponentType<C>>()
-                    .unwrap(),
-            }
-        }
-    }
+    // fn resource<C: Component>(&self) -> &ComponentType<C> {
+    //     // This is safe, because we disallow .borrow_mut() with the ContextUse
+    //     unsafe {
+    //         match &self {
+    //             ComponentTypeScope::Scene(scene) => scene
+    //                 .try_borrow_unguarded()
+    //                 .unwrap()
+    //                 .downcast_ref::<ComponentType<C>>()
+    //                 .unwrap(),
+    //             ComponentTypeScope::Global(global) => global
+    //                 .try_borrow_unguarded()
+    //                 .unwrap()
+    //                 .downcast_ref::<ComponentType<C>>()
+    //                 .unwrap(),
+    //         }
+    //     }
+    // }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Ord, Eq)]
@@ -184,12 +169,8 @@ impl GroupFilter<'static> {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// Access to the component system
 pub struct ComponentManager {
-    context_use: ContextUse,
     pub(super) active_groups: Vec<GroupHandle>,
     pub(super) all_groups: Vec<GroupHandle>,
-    #[cfg_attr(feature = "serde", serde(skip))]
-    #[cfg_attr(feature = "serde", serde(default))]
-    pub(crate) controllers: Rc<ControllerManager>,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
     pub(crate) types: FxHashMap<ComponentTypeId, ComponentTypeScope>,
@@ -199,39 +180,70 @@ pub struct ComponentManager {
 }
 
 impl ComponentManager {
-    pub(crate) fn new(global: GlobalComponents) -> Self {
+    pub(crate) fn new(global: GlobalComponents, components: Vec<Box<RefCell<dyn ComponentTypeImplementation>>>) -> Self {
+        let mut types = FxHashMap::with_capacity(components.len());
+        let mut globals = global.0.borrow_mut();
+        for component in components {
+            let config = component.borrow().config();
+            let id = component.borrow().component_type_id();
+            match config.scope {
+                ComponentScope::Scene => {
+                    if let Some(ty) = globals.get(&id) {
+                        assert!(
+                            ty.is_none(),
+                            "This component already exists as a global component!"
+                        );
+                    } else {
+                        globals.insert(id, None);
+                    }
+                    if !types.contains_key(&id) {
+                        types.insert(
+                            id,
+                            ComponentTypeScope::Scene(component.into()),
+                        );
+                    }
+                }
+                ComponentScope::Global => {
+                    if let Some(ty) = globals.get(&id) {
+                        if let Some(ty) = ty {
+                            if !types.contains_key(&id) {
+                                types
+                                    .insert(id, ComponentTypeScope::Global(ty.clone()));
+                            }
+                        } else {
+                            panic!("This component already exists as a non global component!");
+                        }
+                    } else {
+                        globals.insert(
+                            id,
+                            Some(component.into()),
+                        );
+                        let ty = globals[&id].as_ref().unwrap();
+                        if !types.contains_key(&id) {
+                            types
+                                .insert(id, ComponentTypeScope::Global(ty.clone()));
+                        }
+                    }
+                }
+            }
+        }
+        drop(globals);
         Self {
-            types: Default::default(),
+            types,
             global,
-            controllers: Rc::new(ControllerManager::new()),
-            context_use: ContextUse::Update,
             all_groups: Vec::from_iter([GroupHandle::DEFAULT_GROUP]),
             active_groups: Vec::from_iter([GroupHandle::DEFAULT_GROUP]),
         }
     }
 
-    pub(crate) fn with_use(&mut self, context_use: ContextUse) -> &mut Self {
-        self.context_use = context_use;
-        self
-    }
-
     pub(crate) fn buffer(&mut self, world: &World, gpu: &Gpu) {
-        #[cfg(feature = "rayon")]
-        {
-            use rayon::prelude::*;
-            // This is safe here because we dont't expand the map and we don't access the same map entry twice
-            unsafe impl Send for ComponentTypeScope {}
-            unsafe impl Sync for ComponentTypeScope {}
-            self.controllers.buffers().par_iter().for_each(|ty| {
-                let ty = &self.types[ty];
-                ty.ref_mut_raw().buffer(world, &self.active_groups, &gpu);
-            });
-        }
-
-        #[cfg(not(feature = "rayon"))]
-        for ty in self.controllers.buffers() {
-            let ty = &self.types[ty];
-            ty.ref_mut_raw().buffer(world, &self.active_groups, &gpu);
+        // #[cfg(not(feature = "rayon"))]
+        // for ty in self.controllers.buffers() {
+        //     let ty = &self.types[ty];
+        //     ty.ref_mut_raw().buffer(world, &self.active_groups, &gpu);
+        // }
+        for ty in &self.types {
+            ty.1.ref_mut_raw().buffer(world, &self.active_groups, &gpu);
         }
     }
 
@@ -247,10 +259,6 @@ impl ComponentManager {
         &mut self,
     ) -> impl Iterator<Item = RefMut<'_, dyn ComponentTypeImplementation>> {
         self.types.values_mut().map(|r| r.ref_mut_raw())
-    }
-
-    pub fn register<C: Component>(&mut self, groups: &GroupManager) {
-        self.register_with_config::<C>(groups, C::CONFIG);
     }
 
     #[cfg(feature = "serde")]
@@ -299,59 +307,6 @@ impl ComponentManager {
         bincode::serialize(&*type_ref!(self, C)).unwrap()
     }
 
-    pub fn register_with_config<C: Component>(
-        &mut self,
-        groups: &GroupManager,
-        config: ComponentConfig,
-    ) {
-        let mut globals = self.global.0.borrow_mut();
-        match config.scope {
-            ComponentScope::Scene => {
-                if let Some(ty) = globals.get(&C::IDENTIFIER) {
-                    assert!(
-                        ty.is_none(),
-                        "This component already exists as a global component!"
-                    );
-                } else {
-                    globals.insert(C::IDENTIFIER, None);
-                }
-                if !self.types.contains_key(&C::IDENTIFIER) {
-                    self.types.insert(
-                        C::IDENTIFIER,
-                        ComponentTypeScope::Scene(Box::new(RefCell::new(
-                            ComponentType::<C>::with_config(config, groups),
-                        ))),
-                    );
-                }
-            }
-            ComponentScope::Global => {
-                if let Some(ty) = globals.get(&C::IDENTIFIER) {
-                    if let Some(ty) = ty {
-                        if !self.types.contains_key(&C::IDENTIFIER) {
-                            self.types
-                                .insert(C::IDENTIFIER, ComponentTypeScope::Global(ty.clone()));
-                        }
-                    } else {
-                        panic!("This component already exists as a non global component!");
-                    }
-                } else {
-                    globals.insert(
-                        C::IDENTIFIER,
-                        Some(Rc::new(RefCell::new(ComponentType::<C>::with_config(
-                            config, groups,
-                        )))),
-                    );
-                    let ty = globals[&C::IDENTIFIER].as_ref().unwrap();
-                    if !self.types.contains_key(&C::IDENTIFIER) {
-                        self.types
-                            .insert(C::IDENTIFIER, ComponentTypeScope::Global(ty.clone()));
-                    }
-                }
-            }
-        }
-        self.controllers.register::<C>(config);
-    }
-
     pub(crate) fn instance_data(
         &self,
         handle: ComponentHandle,
@@ -364,9 +319,9 @@ impl ComponentManager {
             .camera_target(world, handle)
     }
 
-    pub(crate) fn resource<'a, C: Component>(&'a self) -> &'a ComponentType<C> {
-        return type_render!(self, C);
-    }
+    // pub(crate) fn resource<'a, C: Component>(&'a self) -> &'a ComponentType<C> {
+    //     return type_render!(self, C);
+    // }
 
     pub fn change_group<C: Component>(
         &mut self,
@@ -724,4 +679,32 @@ impl ComponentManager {
         let mut ty = type_ref_mut!(self, C);
         ty.set_single_with(world, create)
     }
+
+
+    // pub fn render_each<'a, C: Component>(
+    //     &self,
+    //     renderer: &mut Renderer,
+    //     each: impl FnMut(&mut Renderer, &C, &InstanceBuffer<InstancePosition>, InstanceIndex),
+    // ) {
+    //     let ty = type_ref!(self, C);
+    //     ty.render_each(renderer, each)
+    // }
+
+    // pub fn render_single<'a, C: Component>(
+    //     &'a self,
+    //     renderer: &mut Renderer<'a>,
+    //     each: impl FnOnce(&mut Renderer<'a>, &'a C, &'a InstanceBuffer<InstancePosition>, InstanceIndex),
+    // ) {
+    //     let ty = type_ref!(self, C);
+    //     ty.render_single(renderer, each)
+    // }
+
+    // pub fn render_all<'a, C: Component>(
+    //     &'a self,
+    //     renderer: &mut Renderer<'a>,
+    //     all: impl FnMut(&mut Renderer<'a>, &'a InstanceBuffer<InstancePosition>, InstanceIndices),
+    // ) {
+    //     let ty = type_ref!(self, C);
+    //     ty.render_all(renderer, all)
+    // }
 }

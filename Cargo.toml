@@ -45,7 +45,7 @@ default = [
     "text",
     "audio",
     "physics",
-    "serde",
+    # "serde",
     "gui",
     "log",
     "rayon",
@@ -78,7 +78,6 @@ futures-intrusive = "0.5.0"
 pollster = "0.3.0"
 bytemuck = { version = "1.14", features = ["derive"] }
 instant = "0.1.12"
-# shura_proc = "0.4.0"
 shura_proc = { path = "./macro" }
 image = { version = "0.24", default-features = false, features = [
     "png",

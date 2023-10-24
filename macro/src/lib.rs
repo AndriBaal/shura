@@ -84,7 +84,7 @@ fn fields_with_tag(data_struct: &DataStruct, attr_name: &str) -> (Vec<Ident>, Ve
 
 static USED_COMPONENT_HASHES: OnceLock<Mutex<HashSet<u32>>> = OnceLock::new();
 
-#[proc_macro_derive(Component, attributes(position, name, buffer, non_parallel))]
+#[proc_macro_derive(Component, attributes(position, parallel_buffer))]
 pub fn derive_component(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     return component(&ast).into();
@@ -128,8 +128,8 @@ fn component(ast: &DeriveInput) -> TokenStream2 {
         struct_fields.push(quote!(#field: #ty));
     }
 
-    let non_parallel = is_path_set(&ast, "non_parallel");
-    let buffer_method = if cfg!(feature = "rayon") && !non_parallel {
+    let parallel_buffer = is_path_set(&ast, "parallel_buffer");
+    let buffer_method = if cfg!(feature = "rayon") && parallel_buffer {
         quote!(par_buffer)
     } else {
         quote!(buffer)
@@ -195,37 +195,14 @@ pub fn main(_args: TokenStream, item: TokenStream) -> TokenStream {
         #[cfg(target_os = "android")]
         #[no_mangle]
         fn android_main(app: ::shura::AndroidApp) {
-            shura_main(::shura::ShuraConfig::default(app));
+            shura_main(::shura::AppConfig::default(app));
         }
 
         #[cfg(not(target_os = "android"))]
         #[allow(dead_code)]
         fn main() {
-            shura_main(::shura::ShuraConfig::default());
+            shura_main(::shura::AppConfig::default());
         }
     )
     .into()
-}
-
-#[proc_macro_derive(Resource, attributes(global))]
-pub fn derive_resource(input: TokenStream) -> TokenStream {
-    let ast = parse_macro_input!(input as DeriveInput);
-    let component: TokenStream2 = component(&ast).into();
-    let struct_name = ast.ident.clone();
-    let global = is_path_set(&ast, "global");
-    let config = if global {
-        quote!(GLOBAL_RESOURCE)
-    } else {
-        quote!(RESOURCE)
-    };
-
-    let resource = quote!(
-        #component
-
-        impl ::shura::ComponentController for #struct_name {
-            const CONFIG: ::shura::ComponentConfig = ::shura::ComponentConfig::#config;
-        }
-    );
-
-    return resource.into();
 }

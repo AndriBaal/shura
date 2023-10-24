@@ -10,6 +10,12 @@ pub struct RenderEncoder<'a> {
     pub world_camera: &'a WorldCamera,
 }
 
+impl <'a>Clone for RenderEncoder<'a> {
+    fn clone(&self) -> Self {
+        Self::new(self.gpu, self.defaults, self.world_camera)
+    }
+}
+
 impl<'a> RenderEncoder<'a> {
     pub fn new(
         gpu: &'a Gpu,
@@ -30,7 +36,54 @@ impl<'a> RenderEncoder<'a> {
         }
     }
 
+    pub fn render(
+        &mut self,
+        clear: Option<Color>,
+        render: impl FnOnce(&mut Renderer)
+    ) {
+        let mut renderer = Renderer::new(
+            &mut self.inner,
+            self.defaults,
+            self.gpu,
+            self.world_camera,
+            self.defaults.default_target(),
+            clear,
+        );
+        (render)(&mut renderer);
+    }
+
+    pub fn render_to(
+        &mut self,
+        target: &dyn RenderTarget,
+        clear: Option<Color>,
+        render: impl FnOnce(&mut Renderer)
+    ) {
+        let mut renderer = Renderer::new(
+            &mut self.inner,
+            self.defaults,
+            self.gpu,
+            self.world_camera,
+            target,
+            clear,
+        );
+        (render)(&mut renderer);
+    }
+
     pub fn renderer<'b>(
+        &'b mut self,
+        clear: Option<Color>,
+    ) -> Renderer<'b> {
+        Renderer::new(
+            &mut self.inner,
+            self.defaults,
+            self.gpu,
+            self.world_camera,
+            self.defaults.default_target(),
+            clear,
+        )
+    }
+
+    pub fn renderer_to<'b>(
         &'b mut self,
         target: &'b dyn RenderTarget,
         clear: Option<Color>,
@@ -57,10 +110,10 @@ impl<'a> RenderEncoder<'a> {
     }
 
     pub fn copy_target(&mut self, src: &SpriteRenderTarget, target: &dyn RenderTarget) {
-        let mut renderer = self.renderer(target, None);
+        let mut renderer = self.renderer_to(target, None);
         renderer.render_sprite(
             0..1,
-            &renderer.defaults.single_centered_instance,
+            &renderer.defaults.centered_instance,
             &renderer.defaults.unit_camera,
             renderer.defaults.unit_model(),
             src.sprite(),

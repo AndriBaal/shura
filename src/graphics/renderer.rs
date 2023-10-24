@@ -2,7 +2,7 @@
 use crate::text::Text;
 
 use crate::{
-    Camera, Color, Component, ComponentHandle, ComponentSetResource, Context, DefaultResources,
+    Camera, Color, Component, ComponentHandle, Context, DefaultResources,
     Gpu, GroupFilter, GroupHandle, InstanceBuffer, InstanceIndex, InstanceIndices, Model,
     RenderTarget, Shader, Sprite, SpriteRenderTarget, SpriteSheet, Uniform,
     WorldCamera, InstancePosition,
@@ -27,118 +27,6 @@ impl Default for RenderCache {
     }
 }
 
-#[non_exhaustive]
-pub struct ComponentRenderer<'a> {
-    pub renderer: Renderer<'a>,
-    pub screenshot: Option<&'a SpriteRenderTarget>,
-    pub ctx: &'a Context<'a>,
-}
-
-impl<'a> ComponentRenderer<'a> {
-    pub(crate) fn new(ctx: &'a Context<'a>, renderer: Renderer<'a>) -> Self {
-        ComponentRenderer {
-            ctx: &ctx,
-            screenshot: None,
-            renderer,
-        }
-    }
-
-    pub fn for_each<C: Component>(&self, each: impl FnMut(&C) + 'a) {
-        let ty = self.ctx.components.resource();
-        ty.for_each(self.ctx.components.active_groups(), each);
-    }
-
-    pub fn index<C: Component>(&self, group: GroupHandle, index: usize) -> Option<&'a C> {
-        self.index_of(group, index)
-    }
-
-    pub fn index_of<C: Component>(&self, group: GroupHandle, index: usize) -> Option<&'a C> {
-        let ty = self.ctx.components.resource();
-        ty.index(group, index)
-    }
-
-    pub fn get<C: Component>(&self, handle: ComponentHandle) -> Option<&'a C> {
-        let ty = self.ctx.components.resource();
-        ty.get(handle)
-    }
-
-    pub fn len<C: Component>(&self) -> usize {
-        let ty = self.ctx.components.resource::<C>();
-        ty.len(self.ctx.components.active_groups())
-    }
-
-    pub fn iter<C: Component>(&self) -> impl DoubleEndedIterator<Item = &'a C> {
-        let ty = self.ctx.components.resource();
-        ty.iter(self.ctx.components.active_groups())
-    }
-
-    pub fn iter_with_handles<C: Component>(
-        &self,
-    ) -> impl DoubleEndedIterator<Item = (ComponentHandle, &'a C)> {
-        let ty = self.ctx.components.resource();
-        ty.iter_with_handles(self.ctx.components.active_groups())
-    }
-
-    pub fn try_single<C: Component>(&self) -> Option<&'a C> {
-        let ty = self.ctx.components.resource();
-        ty.try_single()
-    }
-
-    pub fn single<C: Component>(&self) -> &'a C {
-        let ty = self.ctx.components.resource();
-        ty.single()
-    }
-
-    pub fn resource<C: Component>(&self) -> &'a C {
-        let ty = self.ctx.components.resource();
-        ty.single()
-    }
-
-    pub fn resource_set<C: Component>(&self) -> ComponentSetResource<'a, C> {
-        let ty = self.ctx.components.resource();
-        return ComponentSetResource::new(ty, self.ctx.components.active_groups());
-    }
-
-    pub fn resource_set_of<C: Component>(
-        &self,
-        filter: GroupFilter<'a>,
-    ) -> ComponentSetResource<'a, C> {
-        let ty = self.ctx.components.resource();
-        let groups = self.ctx.components.group_filter(filter);
-        return ComponentSetResource::new(ty, groups);
-    }
-
-    #[cfg(feature = "rayon")]
-    pub fn par_for_each<C: Component + Send + Sync>(&self, each: impl Fn(&C) + Send + Sync) {
-        let ty = self.ctx.components.resource::<C>();
-        ty.par_for_each(self.ctx.components.active_groups(), each);
-    }
-
-    pub fn render_single<C: Component>(
-        &mut self,
-        each: impl FnOnce(&mut Renderer<'a>, &'a C, &'a InstanceBuffer<InstancePosition>, InstanceIndex),
-    ) {
-        let ty = self.ctx.components.resource::<C>();
-        ty.render_single(&mut self.renderer, each);
-    }
-
-    pub fn render_each<C: Component>(
-        &mut self,
-        each: impl FnMut(&mut Renderer<'a>, &'a C, &'a InstanceBuffer<InstancePosition>, InstanceIndex),
-    ) {
-        let ty = self.ctx.components.resource::<C>();
-        ty.render_each(&mut self.renderer, each)
-    }
-
-    pub fn render_all<C: Component>(
-        &mut self,
-        all: impl FnMut(&mut Renderer<'a>, &'a InstanceBuffer<InstancePosition>, InstanceIndices),
-    ) {
-        let ty = self.ctx.components.resource::<C>();
-        ty.render_all(&mut self.renderer, all);
-    }
-}
-
 /// Render grpahics to the screen or a sprite. The renderer can be extended with custom graphcis throught
 /// the [RenderPass](wgpu::RenderPass) or the provided methods for shura's shader system.
 pub struct Renderer<'a> {
@@ -157,7 +45,7 @@ pub struct Renderer<'a> {
     pub relative_top_right_camera: &'a Camera,
     pub unit_camera: &'a Camera,
     pub unit_model: &'a Model,
-    pub single_centered_instance: &'a InstanceBuffer<InstancePosition>,
+    pub centered_instance: &'a InstanceBuffer<InstancePosition>,
 }
 
 impl<'a> Renderer<'a> {
@@ -192,7 +80,7 @@ impl<'a> Renderer<'a> {
             relative_top_left_camera: &defaults.relative_top_left_camera,
             relative_top_right_camera: &defaults.relative_top_right_camera,
             unit_camera: &defaults.unit_camera,
-            single_centered_instance: &defaults.single_centered_instance,
+            centered_instance: &defaults.centered_instance,
             unit_model: &defaults.unit_model,
             cache: RenderCache::default(),
         };

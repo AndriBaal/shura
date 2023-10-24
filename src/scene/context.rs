@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     ComponentManager, DefaultResources, FrameManager, Gpu, GroupManager, Input, Scene,
-    SceneManager, ScreenConfig, Shura, Vector, World, WorldCamera,
+    SceneManager, ScreenConfig, App, Vector, World, WorldCamera, SystemManager,
 };
 
 #[cfg(feature = "serde")]
@@ -20,20 +20,11 @@ use crate::audio::AudioManager;
 #[cfg(feature = "gui")]
 use crate::gui::Gui;
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(PartialEq, Eq)]
-pub(crate) enum ContextUse {
-    Render,
-    Update,
-}
-
 /// Context to communicate with the game engine to access components, scenes, camera, physics and much more.
 #[non_exhaustive]
 pub struct Context<'a> {
     // Scene
     pub scene_id: &'a u32,
-    pub scene_started: &'a bool,
-    pub update_components: &'a mut i16,
     pub render_components: &'a mut bool,
     pub screen_config: &'a mut ScreenConfig,
     pub world_camera: &'a mut WorldCamera,
@@ -41,7 +32,7 @@ pub struct Context<'a> {
     pub groups: &'a mut GroupManager,
     pub world: &'a mut World,
 
-    // Shura
+    // App
     pub frame: &'a FrameManager,
     pub defaults: &'a DefaultResources,
     pub input: &'a Input,
@@ -62,43 +53,40 @@ pub struct Context<'a> {
 
 impl<'a> Context<'a> {
     pub(crate) fn new(
-        shura: &'a mut Shura,
+        app: &'a mut App,
         scene: &'a mut Scene,
-        context_use: ContextUse,
-    ) -> Context<'a> {
-        let mint: mint::Vector2<u32> = shura.window.inner_size().into();
+    ) -> (&'a mut SystemManager, Context<'a>) {
+        let mint: mint::Vector2<u32> = app.window.inner_size().into();
         let window_size = mint.into();
-        let cursor = shura.input.cursor(&scene.world_camera);
-        Self {
+        let cursor = app.input.cursor(&scene.world_camera);
+        (&mut scene.systems, Self {
             // Scene
             scene_id: &scene.id,
-            scene_started: &scene.started,
             render_components: &mut scene.render_components,
-            update_components: &mut scene.update_components,
             screen_config: &mut scene.screen_config,
             world_camera: &mut scene.world_camera,
-            components: scene.components.with_use(context_use),
+            components: &mut scene.components,
             groups: &mut scene.groups,
             world: &mut scene.world,
 
-            // Shura
-            frame: &shura.frame,
-            defaults: &shura.defaults,
-            input: &shura.input,
-            gpu: shura.gpu.clone(),
+            // App
+            frame: &app.frame,
+            defaults: &app.defaults,
+            input: &app.input,
+            gpu: app.gpu.clone(),
             #[cfg(feature = "gui")]
-            gui: &mut shura.gui,
+            gui: &mut app.gui,
             #[cfg(feature = "audio")]
-            audio: &shura.audio,
-            end: &mut shura.end,
-            scenes: &mut shura.scenes,
-            window: &mut shura.window,
+            audio: &app.audio,
+            end: &mut app.end,
+            scenes: &mut app.scenes,
+            window: &mut app.window,
 
             // Misc
             window_size,
             cursor,
-            resized: shura.resized,
-        }
+            resized: app.resized,
+        })
     }
 
     #[cfg(feature = "serde")]

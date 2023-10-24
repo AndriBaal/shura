@@ -136,8 +136,6 @@ pub enum CollideType {
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct World {
-    pub physics_priority: Option<i16>,
-    pub force_update_level: i16,
     pub time_scale: f32,
     pub gravity: Vector<f32>,
     bodies: RigidBodySet,
@@ -164,8 +162,6 @@ pub struct World {
 impl Clone for World {
     fn clone(&self) -> Self {
         Self {
-            physics_priority: self.physics_priority.clone(),
-            force_update_level: self.force_update_level.clone(),
             bodies: self.bodies.clone(),
             colliders: self.colliders.clone(),
             collider_mapping: self.collider_mapping.clone(),
@@ -203,8 +199,6 @@ impl World {
             events: Default::default(),
             collider_mapping: Default::default(),
             rigid_body_mapping: Default::default(),
-            physics_priority: Some(i16::MAX),
-            force_update_level: i16::MAX,
             gravity: vector![0.0, 0.0],
             time_scale: 1.0,
         }
@@ -306,7 +300,7 @@ impl World {
         return collider;
     }
 
-    pub(crate) fn step(&mut self, frame: &FrameManager) {
+    pub fn step(&mut self, frame: &FrameManager) {
         self.integration_parameters.dt = frame.frame_time() * self.time_scale;
         self.physics_pipeline.step(
             &self.gravity,
@@ -635,14 +629,6 @@ impl World {
         self.time_scale
     }
 
-    pub fn physics_priority(&self) -> Option<i16> {
-        self.physics_priority
-    }
-
-    pub fn force_update_level(&self) -> i16 {
-        self.force_update_level
-    }
-
     pub fn set_gravity(&mut self, gravity: Vector<f32>) {
         self.gravity = gravity;
     }
@@ -651,11 +637,4 @@ impl World {
         self.time_scale = time_scale;
     }
 
-    pub fn set_physics_priority(&mut self, step: Option<i16>) {
-        self.physics_priority = step;
-    }
-
-    pub fn set_force_update_level(&mut self, step: i16) {
-        self.force_update_level = step;
-    }
 }

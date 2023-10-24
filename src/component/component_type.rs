@@ -10,6 +10,7 @@ use crate::{
     InstanceIndices, InstancePosition, Renderer, World,
 };
 
+
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// TypeId of a struct that derives from the [component](crate::Component) macro. The diffrence to the [std::any::TypeId] is, that
@@ -161,8 +162,9 @@ pub(crate) struct ComponentType<C: Component> {
     pub(crate) storage: ComponentTypeStorage<C>,
 }
 
+#[cfg_attr(not(feature = "physics"), allow(unused_mut))]
 impl<C: Component> ComponentType<C> {
-    pub(crate) fn with_config(config: ComponentConfig, group_structure: &GroupManager) -> Self {
+    pub(crate) fn new(config: ComponentConfig) -> Self {
         let storage = match config.storage {
             ComponentStorage::Single => ComponentTypeStorage::Single {
                 buffer: None,
@@ -170,30 +172,36 @@ impl<C: Component> ComponentType<C> {
                 component: None,
             },
             ComponentStorage::Multiple => ComponentTypeStorage::Multiple(ComponentTypeGroup::new()),
-            ComponentStorage::Groups => ComponentTypeStorage::MultipleGroups(Arena {
-                items: group_structure
-                    .groups
-                    .items
-                    .iter()
-                    .map(|entry| match *entry {
-                        ArenaEntry::Free { next_free } => ArenaEntry::Free { next_free },
-                        ArenaEntry::Occupied { generation, .. } => ArenaEntry::Occupied {
-                            generation,
-                            data: ComponentTypeGroup::new(),
-                        },
-                    })
-                    .collect(),
-                generation: group_structure.groups.generation,
-                free_list_head: group_structure.groups.free_list_head,
-                len: group_structure.groups.len(),
-            }),
+            ComponentStorage::Groups => ComponentTypeStorage::MultipleGroups(Arena::new()),
         };
         Self { storage, config }
     }
-}
 
-#[cfg_attr(not(feature = "physics"), allow(unused_mut))]
-impl<C: Component> ComponentType<C> {
+    pub(crate) fn load_groups(&mut self, group_structure: &GroupManager) {
+        match &mut self.storage {
+            ComponentTypeStorage::MultipleGroups(g) => {
+                *g = Arena {
+                    items: group_structure
+                        .groups
+                        .items
+                        .iter()
+                        .map(|entry| match *entry {
+                            ArenaEntry::Free { next_free } => ArenaEntry::Free { next_free },
+                            ArenaEntry::Occupied { generation, .. } => ArenaEntry::Occupied {
+                                generation,
+                                data: ComponentTypeGroup::new(),
+                            },
+                        })
+                        .collect(),
+                    generation: group_structure.groups.generation,
+                    free_list_head: group_structure.groups.free_list_head,
+                    len: group_structure.groups.len(),
+                }
+            },
+            _ => ()
+        }
+    }
+
     pub fn component_type_id(&self) -> ComponentTypeId {
         C::IDENTIFIER
     }

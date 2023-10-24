@@ -103,7 +103,7 @@ impl GroupManager {
         }
     }
 
-    pub(crate) fn update(&mut self, components: &mut ComponentManager, camera: &Camera) {
+    pub fn update(&mut self, components: &mut ComponentManager, camera: &Camera) {
         let cam_aabb = camera.aabb();
         components.active_groups.clear();
         let now = Instant::now();

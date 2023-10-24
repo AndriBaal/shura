@@ -7,8 +7,9 @@ mod graphics;
 mod input;
 mod math;
 mod scene;
-mod shura;
+mod app;
 mod world;
+mod systems;
 
 pub use instant::{Duration, Instant};
 pub use rustc_hash::{FxHashMap, FxHashSet};
@@ -17,7 +18,7 @@ pub use shura_proc::*;
 #[cfg(target_os = "android")]
 pub use ::winit::platform::android::activity::AndroidApp;
 
-pub(crate) use {component::controller_manager::*, data::arena::*};
+pub(crate) use data::arena::*;
 
 pub use crate::{
     component::{
@@ -32,7 +33,8 @@ pub use crate::{
     input::input::{Input, InputEvent, InputTrigger, Key, Modifier, MouseButton, ScreenTouch},
     math::{aabb::*, math::*},
     scene::{context::*, scene::*, scene_manager::*},
-    shura::*,
+    systems::systems::*,
+    app::*,
 };
 
 /// Access to [wgpu](https://github.com/gfx-rs/wgpu) for creating custom graphics.

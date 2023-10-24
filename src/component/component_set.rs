@@ -69,72 +69,9 @@ impl<'a, C: Component> ComponentSet<'a, C> {
     pub fn single_ref(self) -> Ref<'a, C> {
         Ref::map(self.ty, |ty| ty.single())
     }
-}
-
-#[cfg(feature = "rayon")]
-impl<'a, C: Component + Send + Sync> ComponentSet<'a, C> {
-    pub fn par_for_each(&self, each: impl Fn(&C) + Send + Sync) {
-        self.ty.par_for_each(self.groups, each);
-    }
-}
-
-/// Set of components from  the same type only from the specified (groups)[crate::Group]
-#[derive(Clone, Copy)]
-pub struct ComponentSetResource<'a, C: Component> {
-    ty: &'a ComponentType<C>,
-    groups: &'a [GroupHandle],
-}
-
-impl<'a, C: Component> ComponentSetResource<'a, C> {
-    pub(crate) fn new(
-        ty: &'a ComponentType<C>,
-        groups: &'a [GroupHandle],
-    ) -> ComponentSetResource<'a, C> {
-        Self { ty, groups }
-    }
-
-    pub fn component_type_id(&self) -> ComponentTypeId {
-        self.ty.component_type_id()
-    }
-
-    pub fn for_each(&self, each: impl FnMut(&C) + 'a) {
-        self.ty.for_each(self.groups, each);
-    }
-
-    pub fn index(&self, index: usize) -> Option<&'a C> {
-        self.index_of(GroupHandle::DEFAULT_GROUP, index)
-    }
-
-    pub fn index_of(&self, group: GroupHandle, index: usize) -> Option<&'a C> {
-        self.ty.index(group, index)
-    }
-
-    pub fn get(&self, handle: ComponentHandle) -> Option<&'a C> {
-        self.ty.get(handle)
-    }
-
-    pub fn len(&self) -> usize {
-        self.ty.len(self.groups)
-    }
-
-    pub fn iter(&self) -> impl DoubleEndedIterator<Item = &'a C> {
-        self.ty.iter(self.groups)
-    }
-
-    pub fn iter_with_handles(&self) -> impl DoubleEndedIterator<Item = (ComponentHandle, &'a C)> {
-        self.ty.iter_with_handles(self.groups)
-    }
-
-    pub fn try_single(&self) -> Option<&'a C> {
-        self.ty.try_single()
-    }
-
-    pub fn single(&self) -> &'a C {
-        self.ty.single()
-    }
 
     pub fn render_each(
-        &self,
+        &'a self,
         renderer: &mut Renderer<'a>,
         each: impl FnMut(&mut Renderer<'a>, &'a C, &'a InstanceBuffer<InstancePosition>, InstanceIndex),
     ) {
@@ -142,7 +79,7 @@ impl<'a, C: Component> ComponentSetResource<'a, C> {
     }
 
     pub fn render_single(
-        &self,
+        &'a self,
         renderer: &mut Renderer<'a>,
         each: impl FnOnce(&mut Renderer<'a>, &'a C, &'a InstanceBuffer<InstancePosition>, InstanceIndex),
     ) {
@@ -150,7 +87,7 @@ impl<'a, C: Component> ComponentSetResource<'a, C> {
     }
 
     pub fn render_all(
-        &self,
+        &'a self,
         renderer: &mut Renderer<'a>,
         all: impl FnMut(&mut Renderer<'a>, &'a InstanceBuffer<InstancePosition>, InstanceIndices),
     ) {
@@ -159,7 +96,7 @@ impl<'a, C: Component> ComponentSetResource<'a, C> {
 }
 
 #[cfg(feature = "rayon")]
-impl<'a, C: Component + Send + Sync> ComponentSetResource<'a, C> {
+impl<'a, C: Component + Send + Sync> ComponentSet<'a, C> {
     pub fn par_for_each(&self, each: impl Fn(&C) + Send + Sync) {
         self.ty.par_for_each(self.groups, each);
     }
@@ -385,6 +322,31 @@ impl<'a, C: Component> ComponentSetMut<'a, C> {
         create: impl FnOnce(ComponentHandle) -> C,
     ) -> ComponentHandle {
         self.ty.set_single_with(world, create)
+    }
+
+    
+    pub fn render_each(
+        &'a self,
+        renderer: &mut Renderer<'a>,
+        each: impl FnMut(&mut Renderer<'a>, &'a C, &'a InstanceBuffer<InstancePosition>, InstanceIndex),
+    ) {
+        self.ty.render_each(renderer, each)
+    }
+
+    pub fn render_single(
+        &'a self,
+        renderer: &mut Renderer<'a>,
+        each: impl FnOnce(&mut Renderer<'a>, &'a C, &'a InstanceBuffer<InstancePosition>, InstanceIndex),
+    ) {
+        self.ty.render_single(renderer, each)
+    }
+
+    pub fn render_all(
+        &'a self,
+        renderer: &mut Renderer<'a>,
+        all: impl FnMut(&mut Renderer<'a>, &'a InstanceBuffer<InstancePosition>, InstanceIndices),
+    ) {
+        self.ty.render_all(renderer, all)
     }
 }
 

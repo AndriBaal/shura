@@ -5,7 +5,7 @@ use rustc_hash::FxHashMap;
 use crate::{
     Component, ComponentConfig, ComponentManager, ComponentTypeGroup, ComponentTypeId,
     ComponentTypeStorage, Context, ContextUse, Gpu, Group, GroupHandle, GroupManager, Scene,
-    SceneCreator, Shura, World, GLOBAL_GPU,
+    SceneCreator, App, World, GLOBAL_GPU,
 };
 
 pub fn gpu() -> Arc<Gpu> {
@@ -65,8 +65,8 @@ impl<N: 'static + FnMut(&mut Context)> SceneCreator for SerializedScene<N> {
         self.id
     }
 
-    fn create(mut self: Box<Self>, shura: &mut Shura) -> Scene {
-        let mut ctx = Context::new(shura, &mut self.scene, ContextUse::Update);
+    fn create(mut self: Box<Self>, app: &mut App) -> Scene {
+        let mut ctx = Context::new(app, &mut self.scene, ContextUse::Update);
         (self.init)(&mut ctx);
         return self.scene;
     }

@@ -406,7 +406,7 @@ pub struct DefaultResources {
     pub relative_top_right_camera: Camera,
     pub unit_camera: Camera,
     pub index: [Uniform<SpriteSheetIndex>; 10],
-    pub single_centered_instance: InstanceBuffer<InstancePosition>,
+    pub centered_instance: InstanceBuffer<InstancePosition>,
 
     pub surface: SurfaceRenderTarget,
     #[cfg(feature = "framebuffer")]
@@ -520,7 +520,7 @@ impl DefaultResources {
 
         let size = gpu.render_size();
         let times = Uniform::new(gpu, [0.0, 0.0]);
-        let single_centered_instance = gpu.create_instance_buffer(&[InstancePosition::default()]);
+        let centered_instance = gpu.create_instance_buffer(&[InstancePosition::default()]);
 
         let fov = Self::relative_fov(window_size);
 
@@ -558,7 +558,7 @@ impl DefaultResources {
             grey,
             blurr,
             times,
-            single_centered_instance,
+            centered_instance,
             relative_camera,
             relative_bottom_left_camera,
             relative_bottom_right_camera,

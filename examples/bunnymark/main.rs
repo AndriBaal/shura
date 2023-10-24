@@ -1,25 +1,139 @@
 use shura::{log, rand, *};
 
 #[shura::main]
-fn shura_main(config: ShuraConfig) {
-    config.init(|| NewScene {
-        id: 1,
-        init: |ctx| {
-            register!(ctx, [Bunny, Resources]);
-            ctx.components
-                .set::<Resources>()
-                .add(ctx.world, Resources::new(ctx));
-            ctx.screen_config
-                .set_clear_color(Some(RgbaColor::new(220, 220, 220, 255).into()));
-            ctx.world_camera.set_scaling(WorldCameraScale::Min(3.0));
-            ctx.components
-                .set::<Bunny>()
-                .add_with(ctx.world, |handle| Bunny::new(vector(0.0, 0.0), handle));
-        },
+fn shura_main(config: AppConfig) {
+    App::run(config, || {
+        NewScene::new(1)
+            .add_component::<Bunny>(ComponentConfig {
+                buffer: BufferOperation::Manual,
+                ..ComponentConfig::DEFAULT
+            })
+            .add_component::<Resources>(ComponentConfig::RESOURCE)
+            .add_system(System::Update(update))
+            .add_system(System::Setup(setup))
+            .add_system(System::Update(update))
     });
 }
 
-#[derive(Resource)]
+fn setup(ctx: &mut Context) {
+    ctx.world_camera.set_scaling(WorldCameraScale::Min(3.0));
+    ctx.components
+        .set::<Bunny>()
+        .add_with(ctx.world, |handle| Bunny::new(vector(0.0, 0.0), handle));
+    ctx.components
+        .set::<Resources>()
+        .add(ctx.world, Resources::new(ctx));
+}
+
+fn update(ctx: &mut Context) {
+    const MODIFY_STEP: usize = 1500;
+    const GRAVITY: f32 = -2.5;
+    gui::Window::new("bunnymark")
+        .anchor(gui::Align2::LEFT_TOP, gui::Vec2::default())
+        .resizable(false)
+        .collapsible(false)
+        .show(&ctx.gui.clone(), |ui| {
+            ui.label(format!("FPS: {}", ctx.frame.fps()));
+            ui.label(format!("Bunnies: {}", ctx.components.len::<Bunny>()));
+            if ui.button("Clear Bunnies").clicked() {
+                ctx.components.remove_all::<Bunny>(ctx.world);
+            }
+        });
+
+    if ctx.input.is_held(MouseButton::Left) || ctx.input.is_held(ScreenTouch) {
+        let cursor = ctx.cursor;
+        for _ in 0..MODIFY_STEP {
+            ctx.components
+                .add_with::<Bunny>(ctx.world, |handle| Bunny::new(cursor, handle));
+        }
+    }
+    if ctx.input.is_held(MouseButton::Right) {
+        let mut dead: Vec<ComponentHandle> = vec![];
+        let mut bunnies = ctx.components.set::<Bunny>();
+        if bunnies.len() != 1 {
+            for bunny in bunnies.iter().rev() {
+                if dead.len() == MODIFY_STEP {
+                    break;
+                }
+                dead.push(bunny.handle);
+            }
+            for handle in dead {
+                bunnies.remove(ctx.world, handle);
+            }
+        }
+    }
+
+    {
+        let mut resources = ctx.components.single_mut::<Resources>();
+        if let Some(screenshot) = resources.screenshot.take() {
+            log::info!("Saving Screenshot!");
+            screenshot.sprite().save(&ctx.gpu, "screenshot.png").ok();
+        } else if ctx.input.is_pressed(Key::S) {
+            resources.screenshot = Some(ctx.gpu.create_render_target(ctx.window_size));
+        }
+    }
+
+    let frame = ctx.frame.frame_time();
+    let fov = ctx.world_camera.fov();
+    ctx.components
+        .buffer_for_each_mut::<Bunny>(ctx.world, &ctx.gpu, |bunny| {
+            let mut linvel = bunny.linvel;
+            let mut translation = bunny.position.translation();
+
+            linvel.y += GRAVITY * frame;
+            translation += linvel * frame;
+            if translation.x >= fov.x {
+                linvel.x = -linvel.x;
+                translation.x = fov.x;
+            } else if translation.x <= -fov.x {
+                linvel.x = -linvel.x;
+                translation.x = -fov.x;
+            }
+
+            if translation.y < -fov.y {
+                linvel.y = rand::gen_range(0.0..15.0);
+                translation.y = -fov.y;
+            } else if translation.y > fov.y {
+                linvel.y = -1.0;
+                translation.y = fov.y;
+            }
+            bunny.linvel = linvel;
+            bunny.position.set_translation(translation);
+        });
+}
+
+fn render(ctx: &Context, mut encoder: RenderEncoder) {
+    let resources = ctx.components.single::<Resources>();
+    let bunnies = ctx.components.set::<Bunny>();
+    encoder.render(
+        Some(RgbaColor::new(220, 220, 220, 255).into()),
+        |renderer| {
+            bunnies.render_all::<Bunny>(renderer, |renderer, buffer, instances| {
+                renderer.render_sprite(
+                    instances,
+                    buffer,
+                    renderer.world_camera,
+                    renderer.unit_model,
+                    &resources.bunny_sprite,
+                );
+            });
+        },
+    )
+    // components.render_all::<Bunny>(|renderer, buffer, instances| {
+    //     renderer.render_sprite(
+    //         instances,
+    //         buffer,
+    //         renderer.world_camera,
+    //         renderer.unit_model,
+    //         &resources.bunny_sprite,
+    //     );
+    // });
+    // if let Some(screenshot) = &resources.screenshot {
+    //     components.screenshot = Some(screenshot);
+    // }
+}
+
+#[derive(Component)]
 struct Resources {
     screenshot: Option<SpriteRenderTarget>,
     bunny_sprite: Sprite,
@@ -40,6 +154,7 @@ impl Resources {
 }
 
 #[derive(Component)]
+#[parallel_buffer]
 struct Bunny {
     #[position]
     position: PositionComponent,
@@ -58,106 +173,6 @@ impl Bunny {
             position,
             linvel,
             handle,
-        }
-    }
-}
-
-impl ComponentController for Bunny {
-    const CONFIG: ComponentConfig = ComponentConfig {
-        buffer: BufferOperation::Manual,
-        ..ComponentConfig::DEFAULT
-    };
-
-    fn update(ctx: &mut Context) {
-        const MODIFY_STEP: usize = 1500;
-        const GRAVITY: f32 = -2.5;
-        gui::Window::new("bunnymark")
-            .anchor(gui::Align2::LEFT_TOP, gui::Vec2::default())
-            .resizable(false)
-            .collapsible(false)
-            .show(&ctx.gui.clone(), |ui| {
-                ui.label(format!("FPS: {}", ctx.frame.fps()));
-                ui.label(format!("Bunnies: {}", ctx.components.len::<Bunny>()));
-                if ui.button("Clear Bunnies").clicked() {
-                    ctx.components.remove_all::<Bunny>(ctx.world);
-                }
-            });
-
-        if ctx.input.is_held(MouseButton::Left) || ctx.input.is_held(ScreenTouch) {
-            let cursor = ctx.cursor;
-            for _ in 0..MODIFY_STEP {
-                ctx.components
-                    .add_with::<Bunny>(ctx.world, |handle| Bunny::new(cursor, handle));
-            }
-        }
-        if ctx.input.is_held(MouseButton::Right) {
-            let mut dead: Vec<ComponentHandle> = vec![];
-            let mut bunnies = ctx.components.set::<Bunny>();
-            if bunnies.len() != 1 {
-                for bunny in bunnies.iter().rev() {
-                    if dead.len() == MODIFY_STEP {
-                        break;
-                    }
-                    dead.push(bunny.handle);
-                }
-                for handle in dead {
-                    bunnies.remove(ctx.world, handle);
-                }
-            }
-        }
-
-        {
-            let mut resources = ctx.components.single_mut::<Resources>();
-            if let Some(screenshot) = resources.screenshot.take() {
-                log::info!("Saving Screenshot!");
-                screenshot.sprite().save(&ctx.gpu, "screenshot.png").ok();
-            } else if ctx.input.is_pressed(Key::S) {
-                resources.screenshot = Some(ctx.gpu.create_render_target(ctx.window_size));
-            }
-        }
-
-        let frame = ctx.frame.frame_time();
-        let fov = ctx.world_camera.fov();
-        ctx.components
-            .buffer_for_each_mut::<Self>(ctx.world, &ctx.gpu, |bunny| {
-                let mut linvel = bunny.linvel;
-                let mut translation = bunny.position.translation();
-
-                linvel.y += GRAVITY * frame;
-                translation += linvel * frame;
-                if translation.x >= fov.x {
-                    linvel.x = -linvel.x;
-                    translation.x = fov.x;
-                } else if translation.x <= -fov.x {
-                    linvel.x = -linvel.x;
-                    translation.x = -fov.x;
-                }
-
-                if translation.y < -fov.y {
-                    linvel.y = rand::gen_range(0.0..15.0);
-                    translation.y = -fov.y;
-                } else if translation.y > fov.y {
-                    linvel.y = -1.0;
-                    translation.y = fov.y;
-                }
-                bunny.linvel = linvel;
-                bunny.position.set_translation(translation);
-            });
-    }
-
-    fn render<'a>(components: &mut ComponentRenderer<'a>) {
-        let resources = components.single::<Resources>();
-        components.render_all::<Bunny>(|renderer, buffer, instances| {
-            renderer.render_sprite(
-                instances,
-                buffer,
-                renderer.world_camera,
-                renderer.unit_model,
-                &resources.bunny_sprite,
-            );
-        });
-        if let Some(screenshot) = &resources.screenshot {
-            components.screenshot = Some(screenshot);
         }
     }
 }
