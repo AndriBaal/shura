@@ -173,14 +173,11 @@ pub struct ComponentManager {
     pub(super) all_groups: Vec<GroupHandle>,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
-    pub(crate) types: FxHashMap<ComponentTypeId, ComponentTypeScope>,
-    #[cfg_attr(feature = "serde", serde(skip))]
-    #[cfg_attr(feature = "serde", serde(default))]
-    global: GlobalComponents,
+    pub(crate) types: FxHashMap<ComponentTypeId, ComponentTypeScope>
 }
 
 impl ComponentManager {
-    pub(crate) fn new(global: GlobalComponents, components: Vec<Box<RefCell<dyn ComponentTypeImplementation>>>) -> Self {
+    pub(crate) fn new(global: &GlobalComponents, components: Vec<Box<RefCell<dyn ComponentTypeImplementation>>>) -> Self {
         let mut types = FxHashMap::with_capacity(components.len());
         let mut globals = global.0.borrow_mut();
         for component in components {
@@ -227,32 +224,17 @@ impl ComponentManager {
                 }
             }
         }
-        drop(globals);
         Self {
             types,
-            global,
             all_groups: Vec::from_iter([GroupHandle::DEFAULT_GROUP]),
             active_groups: Vec::from_iter([GroupHandle::DEFAULT_GROUP]),
         }
     }
 
     pub(crate) fn buffer(&mut self, world: &World, gpu: &Gpu) {
-        // #[cfg(not(feature = "rayon"))]
-        // for ty in self.controllers.buffers() {
-        //     let ty = &self.types[ty];
-        //     ty.ref_mut_raw().buffer(world, &self.active_groups, &gpu);
-        // }
         for ty in &self.types {
             ty.1.ref_mut_raw().buffer(world, &self.active_groups, &gpu);
         }
-    }
-
-    pub fn active_groups(&self) -> &[GroupHandle] {
-        &self.active_groups
-    }
-
-    pub fn all_groups(&self) -> &[GroupHandle] {
-        &self.all_groups
     }
 
     pub(crate) fn types_mut(
@@ -319,17 +301,13 @@ impl ComponentManager {
             .camera_target(world, handle)
     }
 
-    // pub(crate) fn resource<'a, C: Component>(&'a self) -> &'a ComponentType<C> {
-    //     return type_render!(self, C);
-    // }
+    
+    pub fn active_groups(&self) -> &[GroupHandle] {
+        &self.active_groups
+    }
 
-    pub fn change_group<C: Component>(
-        &mut self,
-        component: ComponentHandle,
-        new_group_handle: GroupHandle,
-    ) -> Option<ComponentHandle> {
-        let mut ty = type_ref_mut!(self, C);
-        return ty.change_group(component, new_group_handle);
+    pub fn all_groups(&self) -> &[GroupHandle] {
+        &self.all_groups
     }
 
     pub fn group_filter<'a>(&'a self, filter: GroupFilter<'a>) -> &'a [GroupHandle] {
@@ -370,48 +348,21 @@ impl ComponentManager {
         let (check, groups) = group_filter!(self, filter);
         let ty = type_ref_mut!(self, C);
         return ComponentSetMut::new(ty, groups, check);
-    }
+    } 
 
-    pub fn index<C: Component>(&self, index: usize) -> Option<Ref<C>> {
-        self.index_of(GroupHandle::DEFAULT_GROUP, index)
-    }
-
-    pub fn index_mut<C: Component>(&mut self, index: usize) -> Option<RefMut<C>> {
-        self.index_mut_of(GroupHandle::DEFAULT_GROUP, index)
-    }
-
-    pub fn index_of<C: Component>(&self, group: GroupHandle, index: usize) -> Option<Ref<C>> {
+    pub fn single_ref<C: Component>(&self) -> Ref<C> {
         let ty = type_ref!(self, C);
-        Ref::filter_map(ty, |ty| ty.index(group, index)).ok()
+        Ref::map(ty, |ty| ty.single())
     }
 
-    pub fn index_mut_of<C: Component>(
-        &mut self,
-        group: GroupHandle,
-        index: usize,
-    ) -> Option<RefMut<C>> {
+    pub fn single_mut<C: Component>(&mut self) -> RefMut<C> {
         let ty = type_ref_mut!(self, C);
-        RefMut::filter_map(ty, |ty| ty.index_mut(group, index)).ok()
+        RefMut::map(ty, |ty| ty.single_mut())
     }
 
-    pub fn get<C: Component>(&self, handle: ComponentHandle) -> Option<Ref<C>> {
-        let ty = type_ref!(self, C);
-        Ref::filter_map(ty, |ty| ty.get(handle)).ok()
-    }
-
-    pub fn get_mut<C: Component>(&mut self, handle: ComponentHandle) -> Option<RefMut<C>> {
+    pub fn single<C: Component>(&self) -> RefMut<C> {
         let ty = type_ref_mut!(self, C);
-        RefMut::filter_map(ty, |ty| ty.get_mut(handle)).ok()
-    }
-
-    pub fn remove<C: Component>(
-        &mut self,
-        world: &mut World,
-        handle: ComponentHandle,
-    ) -> Option<C> {
-        assert!(C::IDENTIFIER == handle.type_id());
-        let mut ty = type_ref_mut!(self, C);
-        ty.remove(world, handle)
+        RefMut::map(ty, |ty| ty.single_mut())
     }
 
     pub fn add_to<C: Component>(
@@ -466,245 +417,309 @@ impl ComponentManager {
         ty.add_with(world, group_handle, create)
     }
 
-    #[inline]
-    pub fn remove_all<C: Component>(&mut self, world: &mut World) -> Vec<C> {
-        self.remove_all_of(world, GroupFilter::All)
-    }
+    // pub fn change_group<C: Component>(
+    //     &mut self,
+    //     component: ComponentHandle,
+    //     new_group_handle: GroupHandle,
+    // ) -> Option<ComponentHandle> {
+    //     let mut ty = type_ref_mut!(self, C);
+    //     return ty.change_group(component, new_group_handle);
+    // }
 
-    pub fn remove_all_of<C: Component>(
-        &mut self,
-        world: &mut World,
-        filter: GroupFilter,
-    ) -> Vec<C> {
-        let groups = group_filter!(self, filter).1;
-        let mut ty = type_ref_mut!(self, C);
-        ty.remove_all(world, groups)
-    }
+    // pub fn index<C: Component>(&self, index: usize) -> Option<Ref<C>> {
+    //     self.index_of(GroupHandle::DEFAULT_GROUP, index)
+    // }
 
-    #[inline]
-    pub fn force_buffer<C: Component>(&mut self) {
-        self.force_buffer_of::<C>(GroupFilter::All)
-    }
+    // pub fn index_mut<C: Component>(&mut self, index: usize) -> Option<RefMut<C>> {
+    //     self.index_mut_of(GroupHandle::DEFAULT_GROUP, index)
+    // }
 
-    pub fn force_buffer_of<C: Component>(&mut self, filter: GroupFilter) {
-        let groups = group_filter!(self, filter).1;
-        let mut ty = type_ref_mut!(self, C);
-        ty.force_buffer(groups)
-    }
+    // pub fn index_of<C: Component>(&self, group: GroupHandle, index: usize) -> Option<Ref<C>> {
+    //     let ty = type_ref!(self, C);
+    //     Ref::filter_map(ty, |ty| ty.index(group, index)).ok()
+    // }
 
-    #[inline]
-    pub fn len<C: Component>(&self) -> usize {
-        self.len_of::<C>(GroupFilter::All)
-    }
+    // pub fn index_mut_of<C: Component>(
+    //     &mut self,
+    //     group: GroupHandle,
+    //     index: usize,
+    // ) -> Option<RefMut<C>> {
+    //     let ty = type_ref_mut!(self, C);
+    //     RefMut::filter_map(ty, |ty| ty.index_mut(group, index)).ok()
+    // }
 
-    pub fn len_of<C: Component>(&self, filter: GroupFilter) -> usize {
-        let groups = group_filter!(self, filter).1;
-        let ty = type_ref!(self, C);
-        ty.len(groups)
-    }
+    // pub fn get<C: Component>(&self, handle: ComponentHandle) -> Option<Ref<C>> {
+    //     let ty = type_ref!(self, C);
+    //     Ref::filter_map(ty, |ty| ty.get(handle)).ok()
+    // }
 
-    #[inline]
-    pub fn for_each<C: Component>(&self, each: impl FnMut(&C)) {
-        self.for_each_of(GroupFilter::Active, each)
-    }
+    // pub fn get_mut<C: Component>(&mut self, handle: ComponentHandle) -> Option<RefMut<C>> {
+    //     let ty = type_ref_mut!(self, C);
+    //     RefMut::filter_map(ty, |ty| ty.get_mut(handle)).ok()
+    // }
 
-    pub fn for_each_of<C: Component>(&self, filter: GroupFilter, each: impl FnMut(&C)) {
-        let groups = group_filter!(self, filter).1;
-        let ty = type_ref!(self, C);
-        ty.for_each(groups, each);
-    }
-
-    #[inline]
-    pub fn for_each_mut<C: Component>(&mut self, each: impl FnMut(&mut C)) {
-        self.for_each_mut_of(GroupFilter::Active, each)
-    }
-
-    pub fn for_each_mut_of<C: Component>(&mut self, filter: GroupFilter, each: impl FnMut(&mut C)) {
-        let groups = group_filter!(self, filter).1;
-        let mut ty = type_ref_mut!(self, C);
-        ty.for_each_mut(groups, each);
-    }
-
-    #[inline]
-    pub fn for_each_with_handles<C: Component>(&self, each: impl FnMut(ComponentHandle, &C)) {
-        self.for_each_with_handles_of(GroupFilter::Active, each)
-    }
-
-    pub fn for_each_with_handles_of<C: Component>(
-        &self,
-        filter: GroupFilter,
-        each: impl FnMut(ComponentHandle, &C),
-    ) {
-        let groups = group_filter!(self, filter).1;
-        let ty = type_ref!(self, C);
-        ty.for_each_with_handles(groups, each);
-    }
-
-    #[inline]
-    pub fn for_each_mut_with_handles<C: Component>(
-        &mut self,
-        each: impl FnMut(ComponentHandle, &mut C),
-    ) {
-        self.for_each_mut_with_handles_of(GroupFilter::Active, each)
-    }
-
-    pub fn for_each_mut_with_handles_of<C: Component>(
-        &mut self,
-        filter: GroupFilter,
-        each: impl FnMut(ComponentHandle, &mut C),
-    ) {
-        let groups = group_filter!(self, filter).1;
-        let mut ty = type_ref_mut!(self, C);
-        ty.for_each_mut_with_handles(groups, each);
-    }
-
-    #[inline]
-    #[cfg(feature = "rayon")]
-    pub fn par_for_each<C: Component + Send + Sync>(&self, each: impl Fn(&C) + Send + Sync) {
-        self.par_for_each_of(GroupFilter::Active, each)
-    }
-
-    #[cfg(feature = "rayon")]
-    pub fn par_for_each_of<C: Component + Send + Sync>(
-        &self,
-        filter: GroupFilter,
-        each: impl Fn(&C) + Send + Sync,
-    ) {
-        let groups = group_filter!(self, filter).1;
-        let ty = type_ref!(self, C);
-        ty.par_for_each(groups, each);
-    }
-
-    pub fn buffer_for_each_mut<C: Component>(
-        &mut self,
-        world: &World,
-        gpu: &Gpu,
-        each: impl Fn(&mut C) + Send + Sync + Copy,
-    ) {
-        self.buffer_for_each_mut_of(world, gpu, GroupFilter::Active, each)
-    }
-
-    pub fn buffer_for_each_mut_of<C: Component>(
-        &mut self,
-        world: &World,
-        gpu: &Gpu,
-        filter: GroupFilter,
-        each: impl Fn(&mut C) + Send + Sync + Copy,
-    ) {
-        let groups = group_filter!(self, filter).1;
-        let mut ty = type_ref_mut!(self, C);
-        ty.buffer_for_each_mut(world, gpu, groups, each);
-    }
-
-    #[inline]
-    #[cfg(feature = "rayon")]
-    pub fn par_for_each_mut<C: Component + Send + Sync>(
-        &mut self,
-        each: impl Fn(&mut C) + Send + Sync,
-    ) {
-        self.par_for_each_mut_of(GroupFilter::Active, each)
-    }
-
-    #[cfg(feature = "rayon")]
-    pub fn par_for_each_mut_of<C: Component + Send + Sync>(
-        &mut self,
-        filter: GroupFilter,
-        each: impl Fn(&mut C) + Send + Sync,
-    ) {
-        let groups = group_filter!(self, filter).1;
-        let mut ty = type_ref_mut!(self, C);
-        ty.par_for_each_mut(groups, each);
-    }
-
-    #[inline]
-    pub fn retain<C: Component>(
-        &mut self,
-        world: &mut World,
-        keep: impl FnMut(&mut C, &mut World) -> bool,
-    ) {
-        self.retain_of(world, GroupFilter::Active, keep)
-    }
-
-    pub fn retain_of<C: Component>(
-        &mut self,
-        world: &mut World,
-        filter: GroupFilter,
-        keep: impl FnMut(&mut C, &mut World) -> bool,
-    ) {
-        let groups = group_filter!(self, filter).1;
-        let mut ty = type_ref_mut!(self, C);
-        ty.retain(world, groups, keep);
-    }
-
-    pub fn single<C: Component>(&self) -> Ref<C> {
-        let ty = type_ref!(self, C);
-        Ref::map(ty, |ty| ty.single())
-    }
-
-    pub fn single_mut<C: Component>(&mut self) -> RefMut<C> {
-        let ty = type_ref_mut!(self, C);
-        RefMut::map(ty, |ty| ty.single_mut())
-    }
-
-    pub fn single_ref<C: Component>(&self) -> RefMut<C> {
-        let ty = type_ref_mut!(self, C);
-        RefMut::map(ty, |ty| ty.single_mut())
-    }
-
-    pub fn try_single<C: Component>(&self) -> Option<Ref<C>> {
-        let ty = type_ref!(self, C);
-        Ref::filter_map(ty, |ty| ty.try_single()).ok()
-    }
-
-    pub fn try_single_mut<C: Component>(&mut self) -> Option<RefMut<C>> {
-        let ty = type_ref_mut!(self, C);
-        RefMut::filter_map(ty, |ty| ty.try_single_mut()).ok()
-    }
-
-    pub fn remove_single<C: Component>(&mut self, world: &mut World) -> Option<C> {
-        let mut ty = type_ref_mut!(self, C);
-        ty.remove_single(world)
-    }
-
-    pub fn set_single<C: Component>(&mut self, world: &mut World, new: C) -> ComponentHandle {
-        let mut ty = type_ref_mut!(self, C);
-        ty.set_single(world, new)
-    }
-
-    pub fn set_single_with<C: Component>(
-        &mut self,
-        world: &mut World,
-        create: impl FnOnce(ComponentHandle) -> C,
-    ) -> ComponentHandle {
-        let mut ty = type_ref_mut!(self, C);
-        ty.set_single_with(world, create)
-    }
+    // pub fn remove<C: Component>(
+    //     &mut self,
+    //     world: &mut World,
+    //     handle: ComponentHandle,
+    // ) -> Option<C> {
+    //     assert!(C::IDENTIFIER == handle.type_id());
+    //     let mut ty = type_ref_mut!(self, C);
+    //     ty.remove(world, handle)
+    // }
 
 
-    // pub fn render_each<'a, C: Component>(
+    // #[inline]
+    // pub fn add_many<C: Component>(
+    //     &mut self,
+    //     world: &mut World,
+    //     components: impl IntoIterator<Item = C>,
+    // ) -> Vec<ComponentHandle> {
+    //     self.add_many_to(world, GroupHandle::DEFAULT_GROUP, components)
+    // }
+
+    // pub fn add_many_to<C: Component>(
+    //     &mut self,
+    //     world: &mut World,
+    //     group_handle: GroupHandle,
+    //     components: impl IntoIterator<Item = C>,
+    // ) -> Vec<ComponentHandle> {
+    //     let mut ty = type_ref_mut!(self, C);
+    //     ty.add_many(world, group_handle, components)
+    // }
+
+    // #[inline]
+    // pub fn add_with<C: Component>(
+    //     &mut self,
+    //     world: &mut World,
+    //     create: impl FnOnce(ComponentHandle) -> C,
+    // ) -> ComponentHandle {
+    //     self.add_with_to(world, GroupHandle::DEFAULT_GROUP, create)
+    // }
+
+    // pub fn add_with_to<C: Component>(
+    //     &mut self,
+    //     world: &mut World,
+    //     group_handle: GroupHandle,
+    //     create: impl FnOnce(ComponentHandle) -> C,
+    // ) -> ComponentHandle {
+    //     let mut ty = type_ref_mut!(self, C);
+    //     ty.add_with(world, group_handle, create)
+    // }
+
+    // #[inline]
+    // pub fn remove_all<C: Component>(&mut self, world: &mut World) -> Vec<C> {
+    //     self.remove_all_of(world, GroupFilter::All)
+    // }
+
+    // pub fn remove_all_of<C: Component>(
+    //     &mut self,
+    //     world: &mut World,
+    //     filter: GroupFilter,
+    // ) -> Vec<C> {
+    //     let groups = group_filter!(self, filter).1;
+    //     let mut ty = type_ref_mut!(self, C);
+    //     ty.remove_all(world, groups)
+    // }
+
+    // #[inline]
+    // pub fn force_buffer<C: Component>(&mut self) {
+    //     self.force_buffer_of::<C>(GroupFilter::All)
+    // }
+
+    // pub fn force_buffer_of<C: Component>(&mut self, filter: GroupFilter) {
+    //     let groups = group_filter!(self, filter).1;
+    //     let mut ty = type_ref_mut!(self, C);
+    //     ty.force_buffer(groups)
+    // }
+
+    // #[inline]
+    // pub fn len<C: Component>(&self) -> usize {
+    //     self.len_of::<C>(GroupFilter::All)
+    // }
+
+    // pub fn len_of<C: Component>(&self, filter: GroupFilter) -> usize {
+    //     let groups = group_filter!(self, filter).1;
+    //     let ty = type_ref!(self, C);
+    //     ty.len(groups)
+    // }
+
+    // #[inline]
+    // pub fn for_each<C: Component>(&self, each: impl FnMut(&C)) {
+    //     self.for_each_of(GroupFilter::Active, each)
+    // }
+
+    // pub fn for_each_of<C: Component>(&self, filter: GroupFilter, each: impl FnMut(&C)) {
+    //     let groups = group_filter!(self, filter).1;
+    //     let ty = type_ref!(self, C);
+    //     ty.for_each(groups, each);
+    // }
+
+    // #[inline]
+    // pub fn for_each_mut<C: Component>(&mut self, each: impl FnMut(&mut C)) {
+    //     self.for_each_mut_of(GroupFilter::Active, each)
+    // }
+
+    // pub fn for_each_mut_of<C: Component>(&mut self, filter: GroupFilter, each: impl FnMut(&mut C)) {
+    //     let groups = group_filter!(self, filter).1;
+    //     let mut ty = type_ref_mut!(self, C);
+    //     ty.for_each_mut(groups, each);
+    // }
+
+    // #[inline]
+    // pub fn for_each_with_handles<C: Component>(&self, each: impl FnMut(ComponentHandle, &C)) {
+    //     self.for_each_with_handles_of(GroupFilter::Active, each)
+    // }
+
+    // pub fn for_each_with_handles_of<C: Component>(
     //     &self,
-    //     renderer: &mut Renderer,
-    //     each: impl FnMut(&mut Renderer, &C, &InstanceBuffer<InstancePosition>, InstanceIndex),
+    //     filter: GroupFilter,
+    //     each: impl FnMut(ComponentHandle, &C),
     // ) {
+    //     let groups = group_filter!(self, filter).1;
     //     let ty = type_ref!(self, C);
-    //     ty.render_each(renderer, each)
+    //     ty.for_each_with_handles(groups, each);
     // }
 
-    // pub fn render_single<'a, C: Component>(
-    //     &'a self,
-    //     renderer: &mut Renderer<'a>,
-    //     each: impl FnOnce(&mut Renderer<'a>, &'a C, &'a InstanceBuffer<InstancePosition>, InstanceIndex),
+    // #[inline]
+    // pub fn for_each_mut_with_handles<C: Component>(
+    //     &mut self,
+    //     each: impl FnMut(ComponentHandle, &mut C),
     // ) {
-    //     let ty = type_ref!(self, C);
-    //     ty.render_single(renderer, each)
+    //     self.for_each_mut_with_handles_of(GroupFilter::Active, each)
     // }
 
-    // pub fn render_all<'a, C: Component>(
-    //     &'a self,
-    //     renderer: &mut Renderer<'a>,
-    //     all: impl FnMut(&mut Renderer<'a>, &'a InstanceBuffer<InstancePosition>, InstanceIndices),
+    // pub fn for_each_mut_with_handles_of<C: Component>(
+    //     &mut self,
+    //     filter: GroupFilter,
+    //     each: impl FnMut(ComponentHandle, &mut C),
     // ) {
-    //     let ty = type_ref!(self, C);
-    //     ty.render_all(renderer, all)
+    //     let groups = group_filter!(self, filter).1;
+    //     let mut ty = type_ref_mut!(self, C);
+    //     ty.for_each_mut_with_handles(groups, each);
     // }
+
+    // #[inline]
+    // #[cfg(feature = "rayon")]
+    // pub fn par_for_each<C: Component + Send + Sync>(&self, each: impl Fn(&C) + Send + Sync) {
+    //     self.par_for_each_of(GroupFilter::Active, each)
+    // }
+
+    // #[cfg(feature = "rayon")]
+    // pub fn par_for_each_of<C: Component + Send + Sync>(
+    //     &self,
+    //     filter: GroupFilter,
+    //     each: impl Fn(&C) + Send + Sync,
+    // ) {
+    //     let groups = group_filter!(self, filter).1;
+    //     let ty = type_ref!(self, C);
+    //     ty.par_for_each(groups, each);
+    // }
+
+    // pub fn buffer_for_each_mut<C: Component>(
+    //     &mut self,
+    //     world: &World,
+    //     gpu: &Gpu,
+    //     each: impl Fn(&mut C) + Send + Sync + Copy,
+    // ) {
+    //     self.buffer_for_each_mut_of(world, gpu, GroupFilter::Active, each)
+    // }
+
+    // pub fn buffer_for_each_mut_of<C: Component>(
+    //     &mut self,
+    //     world: &World,
+    //     gpu: &Gpu,
+    //     filter: GroupFilter,
+    //     each: impl Fn(&mut C) + Send + Sync + Copy,
+    // ) {
+    //     let groups = group_filter!(self, filter).1;
+    //     let mut ty = type_ref_mut!(self, C);
+    //     ty.buffer_for_each_mut(world, gpu, groups, each);
+    // }
+
+    // #[inline]
+    // #[cfg(feature = "rayon")]
+    // pub fn par_for_each_mut<C: Component + Send + Sync>(
+    //     &mut self,
+    //     each: impl Fn(&mut C) + Send + Sync,
+    // ) {
+    //     self.par_for_each_mut_of(GroupFilter::Active, each)
+    // }
+
+    // #[cfg(feature = "rayon")]
+    // pub fn par_for_each_mut_of<C: Component + Send + Sync>(
+    //     &mut self,
+    //     filter: GroupFilter,
+    //     each: impl Fn(&mut C) + Send + Sync,
+    // ) {
+    //     let groups = group_filter!(self, filter).1;
+    //     let mut ty = type_ref_mut!(self, C);
+    //     ty.par_for_each_mut(groups, each);
+    // }
+
+    // #[inline]
+    // pub fn retain<C: Component>(
+    //     &mut self,
+    //     world: &mut World,
+    //     keep: impl FnMut(&mut C, &mut World) -> bool,
+    // ) {
+    //     self.retain_of(world, GroupFilter::Active, keep)
+    // }
+
+    // pub fn retain_of<C: Component>(
+    //     &mut self,
+    //     world: &mut World,
+    //     filter: GroupFilter,
+    //     keep: impl FnMut(&mut C, &mut World) -> bool,
+    // ) {
+    //     let groups = group_filter!(self, filter).1;
+    //     let mut ty = type_ref_mut!(self, C);
+    //     ty.retain(world, groups, keep);
+    // }
+
+    // pub fn single<C: Component>(&self) -> Ref<C> {
+    //     let ty = type_ref!(self, C);
+    //     Ref::map(ty, |ty| ty.single())
+    // }
+
+    // pub fn single_mut<C: Component>(&mut self) -> RefMut<C> {
+    //     let ty = type_ref_mut!(self, C);
+    //     RefMut::map(ty, |ty| ty.single_mut())
+    // }
+
+    // pub fn single_ref<C: Component>(&self) -> RefMut<C> {
+    //     let ty = type_ref_mut!(self, C);
+    //     RefMut::map(ty, |ty| ty.single_mut())
+    // }
+
+    // pub fn try_single<C: Component>(&self) -> Option<Ref<C>> {
+    //     let ty = type_ref!(self, C);
+    //     Ref::filter_map(ty, |ty| ty.try_single()).ok()
+    // }
+
+    // pub fn try_single_mut<C: Component>(&mut self) -> Option<RefMut<C>> {
+    //     let ty = type_ref_mut!(self, C);
+    //     RefMut::filter_map(ty, |ty| ty.try_single_mut()).ok()
+    // }
+
+    // pub fn remove_single<C: Component>(&mut self, world: &mut World) -> Option<C> {
+    //     let mut ty = type_ref_mut!(self, C);
+    //     ty.remove_single(world)
+    // }
+
+    // pub fn set_single<C: Component>(&mut self, world: &mut World, new: C) -> ComponentHandle {
+    //     let mut ty = type_ref_mut!(self, C);
+    //     ty.set_single(world, new)
+    // }
+
+    // pub fn set_single_with<C: Component>(
+    //     &mut self,
+    //     world: &mut World,
+    //     create: impl FnOnce(ComponentHandle) -> C,
+    // ) -> ComponentHandle {
+    //     let mut ty = type_ref_mut!(self, C);
+    //     ty.set_single_with(world, create)
+    // }
+
+
 }

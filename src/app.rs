@@ -71,7 +71,6 @@ impl AppConfig {
     }
 }
 
-#[derive(Clone, Default)]
 // The Option<> is here to keep track of component, that have already been added to scenes and therefore
 // can not be registered as a global component.
 pub struct GlobalComponents(

@@ -108,7 +108,7 @@ impl Scene {
                 WorldCameraScale::Min(Self::DEFAULT_VERTICAL_CAMERA_FOV),
                 window_size,
             ),
-            components: ComponentManager::new(app.globals.clone(), components),
+            components: ComponentManager::new(&app.globals, components),
             systems: SystemManager::new(&systems),
             groups: GroupManager::new(),
             screen_config: ScreenConfig::new(),

@@ -114,6 +114,7 @@ impl<'a, C: Component> ComponentSetMut<'a, C> {
         groups: &'a [GroupHandle],
         check: bool,
     ) -> ComponentSetMut<'a, C> {
+        #[cfg(debug_assertions)]
         if check && groups.len() > 1 {
             for (index, value) in groups.iter().enumerate() {
                 for other in groups.iter().skip(index + 1) {

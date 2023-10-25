@@ -18,38 +18,38 @@ fn shura_main(config: AppConfig) {
 fn setup(ctx: &mut Context) {
     ctx.world_camera.set_scaling(WorldCameraScale::Min(3.0));
     ctx.components
-        .set::<Bunny>()
         .add_with(ctx.world, |handle| Bunny::new(vector(0.0, 0.0), handle));
     ctx.components
-        .set::<Resources>()
         .add(ctx.world, Resources::new(ctx));
 }
 
 fn update(ctx: &mut Context) {
     const MODIFY_STEP: usize = 1500;
     const GRAVITY: f32 = -2.5;
+
+    let mut bunnies = ctx.components.set::<Bunny>();
+
     gui::Window::new("bunnymark")
         .anchor(gui::Align2::LEFT_TOP, gui::Vec2::default())
         .resizable(false)
         .collapsible(false)
-        .show(&ctx.gui.clone(), |ui| {
+        .show(ctx.gui, |ui| {
             ui.label(format!("FPS: {}", ctx.frame.fps()));
-            ui.label(format!("Bunnies: {}", ctx.components.len::<Bunny>()));
+            ui.label(format!("Bunnies: {}", bunnies.len()));
             if ui.button("Clear Bunnies").clicked() {
-                ctx.components.remove_all::<Bunny>(ctx.world);
+                bunnies.remove_all(ctx.world);
             }
         });
 
     if ctx.input.is_held(MouseButton::Left) || ctx.input.is_held(ScreenTouch) {
         let cursor = ctx.cursor;
         for _ in 0..MODIFY_STEP {
-            ctx.components
-                .add_with::<Bunny>(ctx.world, |handle| Bunny::new(cursor, handle));
+            bunnies
+                .add_with(ctx.world, |handle| Bunny::new(cursor, handle));
         }
     }
     if ctx.input.is_held(MouseButton::Right) {
         let mut dead: Vec<ComponentHandle> = vec![];
-        let mut bunnies = ctx.components.set::<Bunny>();
         if bunnies.len() != 1 {
             for bunny in bunnies.iter().rev() {
                 if dead.len() == MODIFY_STEP {
@@ -64,7 +64,7 @@ fn update(ctx: &mut Context) {
     }
 
     {
-        let mut resources = ctx.components.single_mut::<Resources>();
+        let mut resources = ctx.components.single::<Resources>();
         if let Some(screenshot) = resources.screenshot.take() {
             log::info!("Saving Screenshot!");
             screenshot.sprite().save(&ctx.gpu, "screenshot.png").ok();
@@ -75,8 +75,8 @@ fn update(ctx: &mut Context) {
 
     let frame = ctx.frame.frame_time();
     let fov = ctx.world_camera.fov();
-    ctx.components
-        .buffer_for_each_mut::<Bunny>(ctx.world, &ctx.gpu, |bunny| {
+    bunnies
+        .buffer_for_each_mut(ctx.world, &ctx.gpu, |bunny| {
             let mut linvel = bunny.linvel;
             let mut translation = bunny.position.translation();
 
@@ -121,7 +121,7 @@ fn render(ctx: &Context, encoder: &mut RenderEncoder) {
     );
 
     if let Some(screenshot) = &resources.screenshot {
-        encoder.copy_target(encoder.defaults.default_target(), target)
+        encoder.copy_target(ctx.defaults.default_target(), screenshot)
     }
 }
 
@@ -133,13 +133,9 @@ struct Resources {
 
 impl Resources {
     pub fn new(ctx: &Context) -> Self {
-        // let bunny_model = ctx
-        //     .gpu
-        //     .create_model(ModelBuilder::cuboid(vector(0.06, 0.09)));
         let bunny_sprite = ctx.gpu.create_sprite(sprite_file!("./img/wabbit.png"));
         Resources {
             screenshot: None,
-            // bunny_model,
             bunny_sprite,
         }
     }
@@ -153,6 +149,7 @@ struct Bunny {
     linvel: Vector<f32>,
     handle: ComponentHandle,
 }
+
 impl Bunny {
     pub fn new(translation: Vector<f32>, handle: ComponentHandle) -> Bunny {
         let scale = rand::gen_range(0.75_f32..2.0);
