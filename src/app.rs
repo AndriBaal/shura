@@ -540,7 +540,6 @@ impl App {
         let (systems, ctx) = Context::new(self, scene);
         let mut encoder = RenderEncoder::new(&ctx.gpu, &ctx.defaults, &ctx.world_camera);
 
-        let encoder_ptr = &mut encoder as *mut RenderEncoder;
 
         {
             for render in &systems.render_systems {

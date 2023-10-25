@@ -11,7 +11,7 @@ fn shura_main(config: AppConfig) {
             .add_component::<Resources>(ComponentConfig::RESOURCE)
             .add_system(System::Update(update))
             .add_system(System::Setup(setup))
-            .add_system(System::Update(update))
+            .add_system(System::Render(render))
     });
 }
 
@@ -102,13 +102,13 @@ fn update(ctx: &mut Context) {
         });
 }
 
-fn render(ctx: &Context, mut encoder: RenderEncoder) {
+fn render(ctx: &Context, encoder: &mut RenderEncoder) {
     let resources = ctx.components.single::<Resources>();
     let bunnies = ctx.components.set::<Bunny>();
     encoder.render(
         Some(RgbaColor::new(220, 220, 220, 255).into()),
         |renderer| {
-            bunnies.render_all::<Bunny>(renderer, |renderer, buffer, instances| {
+            bunnies.render_all(renderer, |renderer, buffer, instances| {
                 renderer.render_sprite(
                     instances,
                     buffer,
@@ -118,19 +118,11 @@ fn render(ctx: &Context, mut encoder: RenderEncoder) {
                 );
             });
         },
-    )
-    // components.render_all::<Bunny>(|renderer, buffer, instances| {
-    //     renderer.render_sprite(
-    //         instances,
-    //         buffer,
-    //         renderer.world_camera,
-    //         renderer.unit_model,
-    //         &resources.bunny_sprite,
-    //     );
-    // });
-    // if let Some(screenshot) = &resources.screenshot {
-    //     components.screenshot = Some(screenshot);
-    // }
+    );
+
+    if let Some(screenshot) = &resources.screenshot {
+        encoder.copy_target(encoder.defaults.default_target(), target)
+    }
 }
 
 #[derive(Component)]

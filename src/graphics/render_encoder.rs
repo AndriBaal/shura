@@ -36,10 +36,10 @@ impl<'a> RenderEncoder<'a> {
         }
     }
 
-    pub fn render(
-        &mut self,
+    pub fn render<'b>(
+        &'b mut self,
         clear: Option<Color>,
-        render: impl FnOnce(&mut Renderer)
+        render: impl FnOnce(&mut Renderer<'b>)
     ) {
         let mut renderer = Renderer::new(
             &mut self.inner,
