@@ -1,6 +1,7 @@
 use crate::{
     physics::{Collider, ColliderHandle, RigidBody, RigidBodyHandle},
-    ComponentHandle, InstancePosition, Position, Vector, World,
+    Color, ComponentHandle, InstancePosition, Position, SpriteAtlas, SpriteSheetIndex, Vector,
+    World,
 };
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -67,7 +68,11 @@ impl RigidBodyStatus {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RigidBodyComponent {
     pub(crate) status: RigidBodyStatus,
-    pub scale: Vector<f32>,
+    scale: Vector<f32>,
+    atlas: SpriteAtlas,
+    color: Color,
+    index: SpriteSheetIndex,
+    active: bool,
 }
 
 impl RigidBodyComponent {
@@ -81,6 +86,10 @@ impl RigidBodyComponent {
                 colliders: colliders.into_iter().map(|c| c.into()).collect(),
             },
             scale: Vector::new(1.0, 1.0),
+            atlas: Default::default(),
+            color: Color::WHITE,
+            index: 0,
+            active: true,
         }
     }
 
@@ -108,6 +117,10 @@ impl RigidBodyComponent {
         self.status.detach_collider(world, collider)
     }
 
+    pub fn with_scale(mut self, scale: Vector<f32>) -> Self {
+        self.scale = scale;
+        self
+    }
     pub fn set_scale(&mut self, scale: Vector<f32>) {
         self.scale = scale;
     }
@@ -116,9 +129,40 @@ impl RigidBodyComponent {
         &self.scale
     }
 
-    pub fn with_scale(mut self, scale: Vector<f32>) -> Self {
-        self.scale = scale;
+    pub fn with_atlas(mut self, atlas: SpriteAtlas) -> Self {
+        self.atlas = atlas;
         self
+    }
+    pub fn set_atlas(&mut self, atlas: SpriteAtlas) {
+        self.atlas = atlas;
+    }
+
+    pub const fn atlas(&self) -> &SpriteAtlas {
+        &self.atlas
+    }
+
+    pub fn with_color(mut self, color: Color) -> Self {
+        self.color = color;
+        self
+    }
+    pub fn set_color(&mut self, color: Color) {
+        self.color = color;
+    }
+
+    pub const fn color(&self) -> &Color {
+        &self.color
+    }
+
+    pub fn with_index(mut self, index: SpriteSheetIndex) -> Self {
+        self.index = index;
+        self
+    }
+    pub fn set_index(&mut self, index: SpriteSheetIndex) {
+        self.index = index;
+    }
+
+    pub const fn index(&self) -> &SpriteSheetIndex {
+        &self.index
     }
 }
 
@@ -127,24 +171,22 @@ impl Position for RigidBodyComponent {
         match &self.status {
             RigidBodyStatus::Added { rigid_body_handle } => {
                 if let Some(rigid_body) = world.rigid_body(*rigid_body_handle) {
-                    return InstancePosition::new_position(
+                    return InstancePosition::new(
                         *rigid_body.position(),
-                        if rigid_body.is_enabled() {
-                            self.scale
-                        } else {
-                            Vector::default()
-                        },
+                        self.scale,
+                        self.atlas,
+                        self.color,
+                        self.index,
                     );
                 }
             }
             RigidBodyStatus::Pending { rigid_body, .. } => {
-                return InstancePosition::new_position(
+                return InstancePosition::new(
                     *rigid_body.position(),
-                    if rigid_body.is_enabled() {
-                        self.scale
-                    } else {
-                        Vector::default()
-                    },
+                    self.scale,
+                    self.atlas,
+                    self.color,
+                    self.index,
                 );
             }
         }
@@ -179,5 +221,9 @@ impl Position for RigidBodyComponent {
             }
             RigidBodyStatus::Pending { .. } => return,
         }
+    }
+
+    fn active(&self) -> bool {
+        self.active
     }
 }

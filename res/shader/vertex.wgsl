@@ -36,8 +36,7 @@ fn vs_main(
 
     let pos = model.v_position * mat2x2<f32>(instance.i_rotation.xy, instance.i_rotation.zw) + instance.i_position;
     out.clip_position = camera.view_proj * vec4<f32>(pos, 0.0, 1.0);
-    out.tex = model.tex;
-    // out.tex = model.tex * instance.a_scale + instance.a_position
+    out.tex = model.tex * instance.a_scale + instance.a_position;
     out.color = instance.color;
     out.index = instance.index;
     return out;

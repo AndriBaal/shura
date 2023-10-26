@@ -1,4 +1,7 @@
-use crate::{Color, InstancePosition, Isometry, Position, Rotation, Vector, World, SpriteSheetIndex};
+use crate::{
+    Color, InstancePosition, Isometry, Position, Rotation, SpriteAtlas, SpriteSheetIndex, Vector,
+    World,
+};
 
 /// Component that is rendered to the screen by its given position and scale.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -61,14 +64,7 @@ impl PositionComponent {
 
     pub fn set_rotation(&mut self, rotation: Rotation<f32>) {
         self.position.rotation = rotation;
-        self.instance.set_scale_rotation(
-            if self.active {
-                Vector::default()
-            } else {
-                self.scale
-            },
-            rotation,
-        );
+        self.instance.set_scale_rotation(self.scale, rotation);
     }
 
     pub fn set_translation(&mut self, translation: Vector<f32>) {
@@ -78,14 +74,7 @@ impl PositionComponent {
 
     pub fn set_position(&mut self, position: Isometry<f32>) {
         self.position = position;
-        self.instance = InstancePosition::new_position(
-            position,
-            if self.active {
-                Vector::default()
-            } else {
-                self.scale
-            },
-        );
+        self.instance = InstancePosition::new_position(position, self.scale);
     }
 
     pub fn active(&self) -> bool {
@@ -110,14 +99,8 @@ impl PositionComponent {
 
     pub fn set_scale(&mut self, scale: Vector<f32>) {
         self.scale = scale;
-        self.instance.set_scale_rotation(
-            if self.active {
-                Vector::default()
-            } else {
-                self.scale
-            },
-            self.position.rotation,
-        );
+        self.instance
+            .set_scale_rotation(self.scale, self.position.rotation);
     }
 
     pub fn with_scale(mut self, scale: Vector<f32>) -> Self {
@@ -135,6 +118,19 @@ impl PositionComponent {
 
     pub fn with_color(mut self, color: Color) -> Self {
         self.set_color(color);
+        self
+    }
+
+    pub const fn atlas(&self) -> &SpriteAtlas {
+        &self.instance.atlas
+    }
+
+    pub fn set_atlas(&mut self, atlas: SpriteAtlas) {
+        self.instance.atlas = atlas;
+    }
+
+    pub fn with_atlas(mut self, atlas: SpriteAtlas) -> Self {
+        self.set_atlas(atlas);
         self
     }
 

@@ -142,7 +142,6 @@ impl<'a, C: Component + Send + Sync> BufferHelper<'a, C> {
                             if data.position().active() {
                                 Some(data.position().instance(self.world))
                             } else {
-                                println!("kwhfjkshdfj");
                                 None
                             }
                         }

@@ -1,6 +1,7 @@
 use crate::{
     physics::{Collider, ColliderHandle},
-    ComponentHandle, InstancePosition, Position, Vector, World,
+    Color, ComponentHandle, InstancePosition, Position, SpriteAtlas, SpriteSheetIndex, Vector,
+    World,
 };
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -36,7 +37,11 @@ impl ColliderStatus {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ColliderComponent {
     pub(crate) status: ColliderStatus,
-    pub scale: Vector<f32>,
+    scale: Vector<f32>,
+    atlas: SpriteAtlas,
+    color: Color,
+    index: SpriteSheetIndex,
+    active: bool,
 }
 
 impl ColliderComponent {
@@ -46,6 +51,10 @@ impl ColliderComponent {
                 collider: collider.into(),
             },
             scale: Vector::new(1.0, 1.0),
+            atlas: Default::default(),
+            color: Color::WHITE,
+            index: 0,
+            active: true,
         }
     }
 
@@ -68,6 +77,42 @@ impl ColliderComponent {
     pub const fn scale(&self) -> &Vector<f32> {
         &self.scale
     }
+
+    pub fn with_atlas(mut self, atlas: SpriteAtlas) -> Self {
+        self.atlas = atlas;
+        self
+    }
+    pub fn set_atlas(&mut self, atlas: SpriteAtlas) {
+        self.atlas = atlas;
+    }
+
+    pub const fn atlas(&self) -> &SpriteAtlas {
+        &self.atlas
+    }
+
+    pub fn with_color(mut self, color: Color) -> Self {
+        self.color = color;
+        self
+    }
+    pub fn set_color(&mut self, color: Color) {
+        self.color = color;
+    }
+
+    pub const fn color(&self) -> &Color {
+        &self.color
+    }
+
+    pub fn with_index(mut self, index: SpriteSheetIndex) -> Self {
+        self.index = index;
+        self
+    }
+    pub fn set_index(&mut self, index: SpriteSheetIndex) {
+        self.index = index;
+    }
+
+    pub const fn index(&self) -> &SpriteSheetIndex {
+        &self.index
+    }
 }
 
 impl Position for ColliderComponent {
@@ -75,24 +120,22 @@ impl Position for ColliderComponent {
         match &self.status {
             ColliderStatus::Added { collider_handle } => {
                 if let Some(collider) = world.collider(*collider_handle) {
-                    return InstancePosition::new_position(
+                    return InstancePosition::new(
                         *collider.position(),
-                        if collider.is_enabled() {
-                            self.scale
-                        } else {
-                            Vector::default()
-                        },
+                        self.scale,
+                        self.atlas,
+                        self.color,
+                        self.index,
                     );
                 }
             }
             ColliderStatus::Pending { collider } => {
-                return InstancePosition::new_position(
+                return InstancePosition::new(
                     *collider.position(),
-                    if collider.is_enabled() {
-                        self.scale
-                    } else {
-                        Vector::default()
-                    },
+                    self.scale,
+                    self.atlas,
+                    self.color,
+                    self.index,
                 );
             }
         }
@@ -120,5 +163,9 @@ impl Position for ColliderComponent {
             }
             ColliderStatus::Pending { .. } => return,
         }
+    }
+
+    fn active(&self) -> bool {
+        self.active
     }
 }

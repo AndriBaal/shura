@@ -44,12 +44,12 @@ default = [
     "gamepad",
     "text",
     "audio",
-    # "physics",
+    "physics",
     "serde",
     "gui",
     "log",
     "rayon",
-    # "framebuffer",
+    "framebuffer",
 ]
 
 [lib]

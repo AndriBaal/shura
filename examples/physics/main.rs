@@ -8,6 +8,7 @@ fn shura_main(config: AppConfig) {
             .component::<Floor>(ComponentConfig::SINGLE)
             .component::<Player>(ComponentConfig::SINGLE)
             .component::<PhysicsBox>(Default::default())
+            .component::<Resources>(ComponentConfig::RESOURCE)
             .system(System::Render(render))
             .system(System::Setup(setup))
             .system(System::Update(update))
@@ -43,7 +44,7 @@ fn setup(ctx: &mut Context) {
 
 fn update(ctx: &mut Context) {
     let mut boxes = ctx.components.set::<PhysicsBox>();
-    let player = ctx.components.single::<Player>();
+    let mut player = ctx.components.single::<Player>();
 
     let scroll = ctx.input.wheel_delta();
     let fov = ctx.world_camera.fov();
@@ -66,17 +67,15 @@ fn update(ctx: &mut Context) {
             .is_none()
         {
             let b = PhysicsBox::new(ctx.cursor);
-            ctx.components.add(ctx.world, b);
+            boxes.add(ctx.world, b);
         }
     }
     let delta = ctx.frame.frame_time();
-    let input = &mut ctx.input;
-
     let cursor_world: Point<f32> = (ctx.cursor).into();
     let remove = ctx.input.is_held(MouseButton::Left) || ctx.input.is_pressed(ScreenTouch);
     boxes.for_each_mut(|physics_box| {
-        if physics_box.sprite == 1 {
-            physics_box.sprite = 0;
+        if *physics_box.body.index() == 1 {
+            physics_box.body.set_index(0);
         }
     });
     let mut component: Option<ComponentHandle> = None;
@@ -87,7 +86,7 @@ fn update(ctx: &mut Context) {
         });
     if let Some(handle) = component {
         if let Some(physics_box) = boxes.get_mut(handle) {
-            physics_box.sprite = 1;
+            physics_box.body.set_index(1);
             if remove {
                 boxes.remove(ctx.world, handle);
             }
@@ -97,23 +96,25 @@ fn update(ctx: &mut Context) {
     let body = player.body.get_mut(ctx.world);
     let mut linvel = *body.linvel();
 
-    if input.is_held(Key::D) {
+    if ctx.input.is_held(Key::D) {
         linvel.x += 15.0 * delta;
     }
 
-    if input.is_held(Key::A) {
+    if ctx.input.is_held(Key::A) {
         linvel.x += -15.0 * delta;
     }
 
-    if input.is_pressed(Key::W) {
+    if ctx.input.is_pressed(Key::W) {
         linvel.y += 15.0;
     }
 
-    if input.is_pressed(Key::S) {
+    if ctx.input.is_pressed(Key::S) {
         linvel.y = -17.0;
     }
 
     body.set_linvel(linvel, true);
+
+    ctx.world.step(ctx.frame);
 }
 
 fn render(res: &ComponentResources, encoder: &mut RenderEncoder) {
