@@ -343,7 +343,7 @@ impl ComponentManager {
         world: &World,
     ) -> Option<InstancePosition> {
         self.types
-            .get(&handle.type_id())
+            .get(&handle.component_type_id())
             .unwrap()
             .ref_mut_raw()
             .camera_target(world, handle)

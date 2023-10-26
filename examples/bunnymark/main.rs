@@ -27,6 +27,7 @@ fn update(ctx: &mut Context) {
     const GRAVITY: f32 = -2.5;
 
     let mut bunnies = ctx.components.set::<Bunny>();
+    let mut resources = ctx.components.single::<Resources>();
 
     gui::Window::new("bunnymark")
         .anchor(gui::Align2::LEFT_TOP, gui::Vec2::default())
@@ -61,14 +62,11 @@ fn update(ctx: &mut Context) {
         }
     }
 
-    {
-        let mut resources = ctx.components.single::<Resources>();
-        if let Some(screenshot) = resources.screenshot.take() {
-            log::info!("Saving Screenshot!");
-            screenshot.sprite().save(&ctx.gpu, "screenshot.png").ok();
-        } else if ctx.input.is_pressed(Key::S) {
-            resources.screenshot = Some(ctx.gpu.create_render_target(ctx.window_size));
-        }
+    if let Some(screenshot) = resources.screenshot.take() {
+        log::info!("Saving Screenshot!");
+        screenshot.sprite().save(&ctx.gpu, "screenshot.png").ok();
+    } else if ctx.input.is_pressed(Key::S) {
+        resources.screenshot = Some(ctx.gpu.create_render_target(ctx.window_size));
     }
 
     let frame = ctx.frame.frame_time();
@@ -115,7 +113,6 @@ fn render(res: &ComponentResources, encoder: &mut RenderEncoder) {
             });
         },
     );
-
 
     if let Some(screenshot) = &resources.screenshot {
         encoder.copy_target(encoder.defaults.default_target(), screenshot)

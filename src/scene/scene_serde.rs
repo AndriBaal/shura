@@ -48,7 +48,7 @@ pub struct SerializedScene {
 
 impl SerializedScene {
     pub fn new(id: u32, scene: &[u8]) -> SerializedScene {
-        let (mut scene, ser_components): (Scene, FxHashMap<ComponentTypeId, Vec<u8>>) =
+        let (scene, ser_components): (Scene, FxHashMap<ComponentTypeId, Vec<u8>>) =
             bincode::deserialize(&scene).unwrap();
         Self {
             id,
@@ -87,6 +87,7 @@ impl SceneCreator for SerializedScene {
     }
 
     fn create(mut self: Box<Self>, app: &mut App) -> Scene {
+        self.scene.components.init(&app.globals, self.components);
         let (_, mut ctx) = Context::new(&self.id, app, &mut self.scene);
         for system in &self.systems {
             match system {

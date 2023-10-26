@@ -67,7 +67,7 @@ impl ComponentHandle {
         }
     }
 
-    pub fn type_id(&self) -> ComponentTypeId {
+    pub fn component_type_id(&self) -> ComponentTypeId {
         self.type_id
     }
 

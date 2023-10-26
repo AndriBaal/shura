@@ -1,5 +1,6 @@
-use crate::{ComponentHandle, FrameManager};
+use crate::{ComponentHandle, FrameManager, ComponentTypeId, Component};
 use rapier2d::{crossbeam, prelude::*};
+use rayon::iter::plumbing::ProducerCallback;
 use rustc_hash::FxHashMap;
 
 type EventReceiver<T> = crossbeam::channel::Receiver<T>;
@@ -8,131 +9,46 @@ type RigidBodyMapping = FxHashMap<RigidBodyHandle, ComponentHandle>;
 
 struct WorldEvents {
     collision: EventReceiver<CollisionEvent>,
-    _contact_force: EventReceiver<ContactForceEvent>,
-    event_collector: ChannelEventCollector,
+    contact_force: EventReceiver<ContactForceEvent>,
+    collector: ChannelEventCollector,
 }
 
 impl Default for WorldEvents {
     fn default() -> Self {
         let (collision_send, collision) = crossbeam::channel::unbounded();
-        let (contact_force_send, _contact_force) = crossbeam::channel::unbounded();
-        let event_collector = ChannelEventCollector::new(collision_send, contact_force_send);
+        let (contact_force_send, contact_force) = crossbeam::channel::unbounded();
+        let collector = ChannelEventCollector::new(collision_send, contact_force_send);
         Self {
             collision,
-            _contact_force,
-            event_collector,
+            contact_force,
+            collector,
         }
     }
 }
 
-impl WorldEvents {
-    fn collector(&self) -> &ChannelEventCollector {
-        &self.event_collector
-    }
+pub type CollisionCallback = fn(c1: (ComponentHandle, ColliderHandle), c2: (ComponentHandle, ColliderHandle), ty: CollideType);
+#[derive(Default)]
+pub struct WorldHooks {
+    collisions: FxHashMap<(ComponentTypeId, ComponentTypeId), CollisionCallback>
+}
 
-    fn collision_event(&self) -> Result<CollisionEvent, crossbeam::channel::TryRecvError> {
-        self.collision.try_recv()
+impl WorldHooks {
+    pub fn collision<C1: Component, C2: Component>(&mut self, callback: CollisionCallback) {
+        let key = if C1::IDENTIFIER < C2::IDENTIFIER {
+            (C1::IDENTIFIER, C2::IDENTIFIER)
+        } else {
+            (C2::IDENTIFIER, C1::IDENTIFIER)
+        };
+        self.collisions.insert(key, callback);
     }
 }
+
 
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub enum CollideType {
     Started,
     Stopped,
 }
-
-// pub struct PhysicsFilterContext<'a> {
-//     pub bodies: &'a RigidBodySet,
-//     pub colliders: &'a ColliderSet,
-//     // We currently can not grant aaccess to the ComponentManager here, because of the already borrowed World.
-//     pub component1: (ComponentTypeId, ComponentHandle),
-//     pub collider_handle1: ColliderHandle,
-//     pub rigid_body_handle1: Option<RigidBodyHandle>,
-
-//     pub component2: (ComponentTypeId, ComponentHandle),
-//     pub collider_handle2: ColliderHandle,
-//     pub rigid_body_handle2: Option<RigidBodyHandle>,
-// }
-
-// impl<'a> PhysicsFilterContext<'a> {
-//     pub fn from_pair_filter(
-//         mapping: &'a ColliderMapping,
-//         ctx: &'a PairFilterContext,
-//     ) -> Self {
-//         PhysicsFilterContext {
-//             colliders: &ctx.colliders,
-//             bodies: &ctx.bodies,
-
-//             component1: *mapping.get(&ctx.collider1).unwrap(),
-//             collider_handle1: ctx.collider1,
-//             rigid_body_handle1: ctx.rigid_body1,
-
-//             component2: *mapping.get(&ctx.collider2).unwrap(),
-//             collider_handle2: ctx.collider2,
-//             rigid_body_handle2: ctx.rigid_body2,
-//         }
-//     }
-// }
-
-// #[allow(unused_variables)]
-// pub trait PhysicsFilter: Send + Sync {
-//     fn filter_contact_pair(&self, ctx: PhysicsFilterContext) -> Option<SolverFlags> {
-//         Some(SolverFlags::COMPUTE_IMPULSES)
-//     }
-
-//     fn filter_intersection_pair(&self, ctx: PhysicsFilterContext) -> bool {
-//         true
-//     }
-//     fn modify_solver_contacts(
-//         &self,
-//         ctx: PhysicsFilterContext,
-//         manifold: &ContactManifold,
-//         solver_contacts: &mut Vec<SolverContact>,
-//         normal: &mut Vector<Real>,
-//         user_data: &mut u32,
-//     ) {
-//     }
-// }
-
-// struct PhysicsHooksInvoker<'a> {
-//     collider_mapping: &'a ColliderMapping,
-//     caller: &'a Box<dyn PhysicsFilter>,
-// }
-
-// impl<'a> PhysicsHooks for PhysicsHooksInvoker<'a> {
-//     fn filter_contact_pair(&self, context: &PairFilterContext) -> Option<SolverFlags> {
-//         let ctx = PhysicsFilterContext::from_pair_filter(self.collider_mapping, context);
-//         self.caller.filter_contact_pair(ctx)
-//     }
-
-//     fn filter_intersection_pair(&self, context: &PairFilterContext) -> bool {
-//         let ctx = PhysicsFilterContext::from_pair_filter(self.collider_mapping, context);
-//         self.caller.filter_intersection_pair(ctx)
-//     }
-
-//     fn modify_solver_contacts(&self, context: &mut ContactModificationContext) {
-//         let ctx = PhysicsFilterContext {
-//             colliders: &context.colliders,
-//             bodies: &context.bodies,
-
-//             component1: *self.collider_mapping.get(&context.collider1).unwrap(),
-//             collider_handle1: context.collider1,
-//             rigid_body_handle1: context.rigid_body1,
-
-//             component2: *self.collider_mapping.get(&context.collider2).unwrap(),
-//             collider_handle2: context.collider2,
-//             rigid_body_handle2: context.rigid_body2,
-//         };
-
-//         self.caller.modify_solver_contacts(
-//             ctx,
-//             context.manifold,
-//             context.solver_contacts,
-//             context.normal,
-//             context.user_data,
-//         )
-//     }
-// }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct World {
@@ -300,7 +216,7 @@ impl World {
         return collider;
     }
 
-    pub fn step(&mut self, frame: &FrameManager) {
+    pub fn step(&mut self, frame: &FrameManager, hooks: WorldHooks) {
         self.integration_parameters.dt = frame.frame_time() * self.time_scale;
         self.physics_pipeline.step(
             &self.gravity,
@@ -315,9 +231,41 @@ impl World {
             &mut self.ccd_solver,
             Some(&mut self.query_pipeline),
             &(),
-            self.events.collector(),
+            &self.events.collector,
         );
         self.query_pipeline.update(&self.bodies, &self.colliders);
+        
+        macro_rules! skip_fail {
+            ($res:expr) => {
+                match $res {
+                    Some(val) => val,
+                    None => {
+                        continue;
+                    }
+                }
+            };
+        }
+        while let Ok(collision_event) = self.events.collision.try_recv() {
+            let collision_type = if collision_event.started() {
+                CollideType::Started
+            } else {
+                CollideType::Stopped
+            };
+            let collider_handle1 = collision_event.collider1();
+            let collider_handle2 = collision_event.collider2();
+            let component1 = *skip_fail!(self.component_from_collider(&collider_handle1));
+            let component2 = *skip_fail!(self.component_from_collider(&collider_handle2));
+
+            let (key, params) = if component1.component_type_id() < component2.component_type_id() {
+                ((component1.component_type_id(), component2.component_type_id()), ((component1, collider_handle1), (component2, collider_handle2)))
+            } else {
+                ((component2.component_type_id(), component1.component_type_id()), ((component2, collider_handle2), (component1, collider_handle1)))
+            };
+
+            if let Some(callback) = hooks.collisions.get(&key) {
+                (callback)(params.0, params.1, collision_type);
+            }
+        }
     }
 
     #[cfg(feature = "serde")]
@@ -605,12 +553,6 @@ impl World {
 
     pub fn integration_parameters(&self) -> &IntegrationParameters {
         &self.integration_parameters
-    }
-
-    pub(crate) fn collision_event(
-        &mut self,
-    ) -> Result<CollisionEvent, crossbeam::channel::TryRecvError> {
-        self.events.collision_event()
     }
 
     pub fn joint(&self, joint: ImpulseJointHandle) -> Option<&ImpulseJoint> {
