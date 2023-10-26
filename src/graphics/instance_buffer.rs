@@ -1,7 +1,30 @@
-use std::{mem::size_of, ops::Range, marker::PhantomData};
+use std::{marker::PhantomData, mem::size_of, ops::Range};
 
 use crate::{Color, Gpu, Isometry, Matrix, Rotation, SpriteSheetIndex, Vector};
 use wgpu::util::DeviceExt;
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct SpriteAtlas {
+    pub offset: Vector<f32>,
+    pub scale: Vector<f32>,
+}
+
+impl SpriteAtlas {
+    pub fn new(scale: Vector<f32>, offset: Vector<f32>) -> Self {
+        Self { offset, scale }
+    }
+}
+
+impl Default for SpriteAtlas {
+    fn default() -> Self {
+        Self {
+            scale: Vector::new(1.0, 1.0),
+            offset: Vector::default(),
+        }
+    }
+}
 
 /// Single vertex of a model. Which hold the coordniate of the vertex and the texture coordinates.
 #[repr(C)]
@@ -10,8 +33,7 @@ use wgpu::util::DeviceExt;
 pub struct InstancePosition {
     pub pos: Vector<f32>,
     pub rot: Matrix<f32>,
-    pub tex_pos: Vector<f32>,
-    pub tex_rot: Matrix<f32>,
+    pub atlas: SpriteAtlas,
     pub color: Color,
     pub sprite_sheet_index: SpriteSheetIndex,
 }
@@ -22,7 +44,7 @@ impl InstancePosition {
         2 => Float32x2,
         3 => Float32x4,
         4 => Float32x2,
-        5 => Float32x4,
+        5 => Float32x2,
         6 => Float32x4,
         7 => Uint32,
     ];
@@ -34,8 +56,7 @@ impl InstancePosition {
     pub fn new(
         pos: Isometry<f32>,
         scale: Vector<f32>,
-        tex_pos: Isometry<f32>,
-        tex_scale: Vector<f32>,
+        atlas: SpriteAtlas,
         color: Color,
         sprite_sheet_index: SpriteSheetIndex,
     ) -> Self {
@@ -47,23 +68,13 @@ impl InstancePosition {
                 scale.y * pos.rotation.cos_angle(),
             ),
             pos: pos.translation.vector,
-            tex_rot: Matrix::new(
-                tex_scale.x * tex_pos.rotation.cos_angle(),
-                tex_scale.x * tex_pos.rotation.sin_angle(),
-                tex_scale.y * -tex_pos.rotation.sin_angle(),
-                tex_scale.y * tex_pos.rotation.cos_angle(),
-            ),
-            tex_pos: tex_pos.translation.vector,
+            atlas,
             color,
-            sprite_sheet_index
+            sprite_sheet_index,
         }
     }
 
-
-    pub fn new_position(
-        pos: Isometry<f32>,
-        scale: Vector<f32>,
-    ) -> Self {
+    pub fn new_position(pos: Isometry<f32>, scale: Vector<f32>) -> Self {
         Self {
             rot: Matrix::new(
                 scale.x * pos.rotation.cos_angle(),
@@ -110,8 +121,7 @@ impl Default for InstancePosition {
         return Self::new(
             Isometry::new(Vector::default(), 0.0),
             Vector::new(1.0, 1.0),
-            Isometry::new(Vector::default(), 0.0),
-            Vector::new(1.0, 1.0),
+            Default::default(),
             Color::WHITE,
             0,
         );
@@ -123,10 +133,10 @@ pub struct InstanceBuffer<D: bytemuck::NoUninit> {
     buffer: wgpu::Buffer,
     buffer_size: wgpu::BufferAddress,
     instances: u64,
-    marker: PhantomData<D>
+    marker: PhantomData<D>,
 }
 
-impl <D: bytemuck::NoUninit>InstanceBuffer<D> {
+impl<D: bytemuck::NoUninit> InstanceBuffer<D> {
     pub fn new(gpu: &Gpu, data: &[D]) -> Self {
         let instance_size = size_of::<D>() as u64;
         let data = bytemuck::cast_slice(data);
@@ -169,12 +179,7 @@ impl <D: bytemuck::NoUninit>InstanceBuffer<D> {
         self.write_offset(gpu, 0, data);
     }
 
-    pub fn write_offset(
-        &mut self,
-        gpu: &Gpu,
-        instance_offset: u64,
-        data: &[D],
-    ) {
+    pub fn write_offset(&mut self, gpu: &Gpu, instance_offset: u64, data: &[D]) {
         let instance_size: u64 = std::mem::size_of::<D>() as u64;
         let data = bytemuck::cast_slice(data);
         let new_size = instance_offset * instance_size + data.len() as u64;

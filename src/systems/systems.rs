@@ -1,4 +1,4 @@
-use crate::Component;
+use crate::{Component, ComponentResources};
 use rustc_hash::FxHashSet;
 use std::cell::RefCell;
 
@@ -8,62 +8,73 @@ use crate::{
     ComponentHandle, FxHashMap,
 };
 use crate::{
-    BufferOperation, Color, ComponentConfig, ComponentTypeId, Context,
-    EndReason, Instant, Duration, RenderTarget, RenderEncoder
+    BufferOperation, Color, ComponentConfig, ComponentTypeId, Context, Duration, EndReason,
+    Instant, RenderEncoder, RenderTarget,
 };
 
 type SetupSystem = fn(ctx: &mut Context);
+type ResizeSystem = fn(ctx: &mut Context);
 type UpdateSystem = fn(ctx: &mut Context);
-type RenderSystem = fn(ctx: &Context, components: &mut RenderEncoder);
+type RenderSystem = fn(ctx: &ComponentResources, encoder: &mut RenderEncoder);
 type EndSystem = fn(&mut Context, reason: EndReason);
 
 pub enum System {
     Setup(SetupSystem),
     Update(UpdateSystem),
+    Resize(ResizeSystem),
     UpdateNFrame(u64, UpdateSystem),
     UpdateAfter(Duration, UpdateSystem),
     Render(RenderSystem),
-    End(EndSystem)
+    End(EndSystem),
 }
 
 pub(crate) enum UpdateOperation {
     EveryFrame,
     EveryNFrame(u64),
-    UpdaterAfter(Instant, Duration)
+    UpdaterAfter(Instant, Duration),
 }
 
 pub(crate) struct SystemManager {
-    pub update_systems: Vec<(
-        UpdateOperation,
-        UpdateSystem,
-    )>,
+    pub resize_systems: Vec<ResizeSystem>,
+    pub update_systems: Vec<(UpdateOperation, UpdateSystem)>,
     pub end_systems: Vec<EndSystem>,
     pub render_systems: Vec<RenderSystem>,
-    // #[cfg(feature = "physics")]
-    // collision_systems: FxHashMap<(ComponentTypeId, ComponentTypeId), CollisionSystem>
 }
 
 impl SystemManager {
-    pub fn new(systems: &Vec<System>) -> Self {
-        let mut update_systems = Vec::new();
-        let mut render_systems = Vec::new();
-        let mut end_systems = Vec::new();
+    pub fn empty() -> Self {
+        return Self {
+            resize_systems: Default::default(),
+            update_systems: Default::default(),
+            end_systems: Default::default(),
+            render_systems: Default::default(),
+        };
+    }
 
+    pub fn new(systems: &[System]) -> Self {
+        let mut system_manager = Self::empty();
+        system_manager.init(systems);
+        return system_manager;
+    }
+
+    pub fn init(&mut self, systems: &[System]) {
         for system in systems {
             match *system {
-                System::Update(update) => update_systems.push((UpdateOperation::EveryFrame, update)),
-                System::UpdateNFrame(frame, update) => update_systems.push((UpdateOperation::EveryNFrame(frame), update)),
-                System::UpdateAfter(duration, update) => update_systems.push((UpdateOperation::UpdaterAfter(Instant::now(), duration), update)),
-                System::Render(render) => render_systems.push(render),
-                System::End(end) => end_systems.push(end),
-                _ => ()
+                System::Update(update) => self
+                    .update_systems
+                    .push((UpdateOperation::EveryFrame, update)),
+                System::UpdateNFrame(frame, update) => self
+                    .update_systems
+                    .push((UpdateOperation::EveryNFrame(frame), update)),
+                System::UpdateAfter(duration, update) => self.update_systems.push((
+                    UpdateOperation::UpdaterAfter(Instant::now(), duration),
+                    update,
+                )),
+                System::Render(render) => self.render_systems.push(render),
+                System::End(end) => self.end_systems.push(end),
+                System::Resize(resize) => self.resize_systems.push(resize),
+                System::Setup(_) => {}
             }
-        }
-
-        return Self {
-            update_systems,
-            render_systems,
-            end_systems
         }
     }
 }

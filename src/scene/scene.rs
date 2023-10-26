@@ -1,9 +1,9 @@
 use std::cell::RefCell;
 
 use crate::{
-    Component, ComponentConfig, ComponentManager, ComponentType, ComponentTypeImplementation,
-    GroupManager, ScreenConfig, App, System, SystemManager, Vector, World,
-    WorldCamera, WorldCameraScale, Context,
+    App, Component, ComponentConfig, ComponentManager, ComponentType, ComponentTypeImplementation,
+    Context, GroupManager, ScreenConfig, System, SystemManager, Vector, World, WorldCamera,
+    WorldCameraScale,
 };
 
 /// Origin of a [Scene]
@@ -27,12 +27,14 @@ impl NewScene {
             components: Default::default(),
         }
     }
-    
-    pub fn add_component<C: Component>(mut self, config: ComponentConfig) -> Self {
-        self.components.push(Box::new(RefCell::new(ComponentType::<C>::new(config))));
+
+    pub fn component<C: Component>(mut self, config: ComponentConfig) -> Self {
+        self.components
+            .push(Box::new(RefCell::new(ComponentType::<C>::new(config))));
         self
     }
-    pub fn add_system(mut self, system: System) -> Self {
+
+    pub fn system(mut self, system: System) -> Self {
         self.systems.push(system);
         self
     }
@@ -44,57 +46,56 @@ impl SceneCreator for NewScene {
     }
 
     fn create(self: Box<Self>, app: &mut App) -> Scene {
-        return Scene::new(app, self.id, self.systems, self.components);
+        return Scene::new(self.id, app, self.systems, self.components);
     }
 }
 
-// /// Add a [Scene] that previously has been removed.
-// pub struct RecycleScene<'a> {
-//     pub id: u32,
-//     pub scene: Scene,
-//     pub systems: &'a [System],
-// }
+/// Add a [Scene] that previously has been removed.
+pub struct RecycleScene {
+    pub id: u32,
+    pub scene: Scene,
+}
 
-// impl<'a> RecycleScene<'a> {
-//     pub fn new(id: u32, scene: Scene, systems: &'a [System]) -> RecycleScene {
-//         Self { id, scene, systems }
-//     }
-// }
+impl RecycleScene {
+    pub fn new(id: u32, scene: Scene) -> RecycleScene {
+        Self { id, scene }
+    }
+}
 
-// impl SceneCreator for RecycleScene {
-//     fn new_id(&self) -> u32 {
-//         self.id
-//     }
+impl SceneCreator for RecycleScene {
+    fn new_id(&self) -> u32 {
+        self.id
+    }
 
-//     fn create(mut self: Box<Self>, app: &mut App) -> Scene {
-//         let mint: mint::Vector2<u32> = app.window.inner_size().into();
-//         let window_size: Vector<u32> = mint.into();
-//         self.scene.world_camera.resize(window_size);
-//         self.scene.id = self.id;
-//         let mut ctx = Context::new(app, &mut self.scene, ContextUse::Update);
-//         (self.systems)(&mut ctx);
-//         return self.scene;
-//     }
-// }
+    fn create(mut self: Box<Self>, app: &mut App) -> Scene {
+        let mint: mint::Vector2<u32> = app.window.inner_size().into();
+        let window_size: Vector<u32> = mint.into();
+        self.scene.world_camera.resize(window_size);
+        return self.scene;
+    }
+}
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 /// [states](StateManager) and [camera](WorldCamera) identified by an Id
 pub struct Scene {
-    pub(crate) id: u32,
     pub render_components: bool,
     pub screen_config: ScreenConfig,
     pub world_camera: WorldCamera,
-    pub components: ComponentManager,
     pub groups: GroupManager,
     pub world: World,
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[cfg_attr(feature = "serde", serde(default="ComponentManager::empty"))]
+    pub components: ComponentManager,
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[cfg_attr(feature = "serde", serde(default="SystemManager::empty"))]
     pub(crate) systems: SystemManager,
 }
 
 impl Scene {
     pub const DEFAULT_VERTICAL_CAMERA_FOV: f32 = 3.0;
     pub(crate) fn new(
-        app: &mut App,
         id: u32,
+        app: &mut App,
         systems: Vec<System>,
         components: Vec<Box<RefCell<dyn ComponentTypeImplementation>>>,
     ) -> Self {
@@ -102,7 +103,6 @@ impl Scene {
         let window_size: Vector<u32> = mint.into();
 
         let mut scene = Self {
-            id,
             world_camera: WorldCamera::new(
                 Default::default(),
                 WorldCameraScale::Min(Self::DEFAULT_VERTICAL_CAMERA_FOV),
@@ -116,20 +116,16 @@ impl Scene {
             world: World::new(),
         };
 
-        let (_, mut ctx) = Context::new(app, &mut scene);
+        let (_, mut ctx) = Context::new(&id, app, &mut scene);
         for system in &systems {
             match system {
                 System::Setup(setup) => {
                     (setup)(&mut ctx);
                 }
-                _ => ()
+                _ => (),
             }
         }
 
         return scene;
-    }
-
-    pub fn id(&self) -> u32 {
-        self.id
     }
 }

@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use crate::{
-    ComponentManager, DefaultResources, FrameManager, Gpu, GroupManager, Input, Scene,
-    SceneManager, ScreenConfig, App, Vector, World, WorldCamera, SystemManager,
+    App, ComponentManager, DefaultResources, FrameManager, Gpu, GroupManager, Input, Scene,
+    SceneManager, ScreenConfig, SystemManager, Vector, World, WorldCamera,
 };
 
 #[cfg(feature = "serde")]
@@ -24,7 +24,6 @@ use crate::gui::Gui;
 #[non_exhaustive]
 pub struct Context<'a> {
     // Scene
-    pub scene_id: &'a u32,
     pub render_components: &'a mut bool,
     pub screen_config: &'a mut ScreenConfig,
     pub world_camera: &'a mut WorldCamera,
@@ -46,6 +45,7 @@ pub struct Context<'a> {
     pub window: &'a mut winit::window::Window,
 
     // Misc
+    pub scene_id: &'a u32,
     pub window_size: Vector<u32>,
     pub cursor: Vector<f32>,
     pub resized: bool,
@@ -53,40 +53,44 @@ pub struct Context<'a> {
 
 impl<'a> Context<'a> {
     pub(crate) fn new(
+        scene_id: &'a u32,
         app: &'a mut App,
         scene: &'a mut Scene,
     ) -> (&'a mut SystemManager, Context<'a>) {
         let mint: mint::Vector2<u32> = app.window.inner_size().into();
         let window_size = mint.into();
         let cursor = app.input.cursor(&scene.world_camera);
-        (&mut scene.systems, Self {
-            // Scene
-            scene_id: &scene.id,
-            render_components: &mut scene.render_components,
-            screen_config: &mut scene.screen_config,
-            world_camera: &mut scene.world_camera,
-            components: &mut scene.components,
-            groups: &mut scene.groups,
-            world: &mut scene.world,
+        (
+            &mut scene.systems,
+            Self {
+                // Scene
+                render_components: &mut scene.render_components,
+                screen_config: &mut scene.screen_config,
+                world_camera: &mut scene.world_camera,
+                components: &mut scene.components,
+                groups: &mut scene.groups,
+                world: &mut scene.world,
 
-            // App
-            frame: &app.frame,
-            defaults: &app.defaults,
-            input: &app.input,
-            gpu: app.gpu.clone(),
-            #[cfg(feature = "gui")]
-            gui: &mut app.gui,
-            #[cfg(feature = "audio")]
-            audio: &app.audio,
-            end: &mut app.end,
-            scenes: &mut app.scenes,
-            window: &mut app.window,
+                // App
+                frame: &app.frame,
+                defaults: &app.defaults,
+                input: &app.input,
+                gpu: app.gpu.clone(),
+                #[cfg(feature = "gui")]
+                gui: &mut app.gui,
+                #[cfg(feature = "audio")]
+                audio: &app.audio,
+                end: &mut app.end,
+                scenes: &mut app.scenes,
+                window: &mut app.window,
 
-            // Misc
-            window_size,
-            cursor,
-            resized: app.resized,
-        })
+                // Misc
+                scene_id,
+                window_size,
+                cursor,
+                resized: app.resized,
+            },
+        )
     }
 
     #[cfg(feature = "serde")]
@@ -100,13 +104,9 @@ impl<'a> Context<'a> {
 
         #[derive(serde::Serialize)]
         struct Scene<'a> {
-            id: u32,
-            update_components: i16,
-            started: bool,
             render_components: bool,
             screen_config: &'a ScreenConfig,
             world_camera: &'a WorldCamera,
-            components: &'a ComponentManager,
             groups: &'a GroupManager,
             world: &'a World,
         }
@@ -122,13 +122,9 @@ impl<'a> Context<'a> {
             }
 
             let scene = Scene {
-                id: *self.scene_id,
-                started: true,
                 render_components: *self.render_components,
-                update_components: *self.update_components,
                 screen_config: self.screen_config,
                 world_camera: self.world_camera,
-                components: self.components,
                 groups: self.groups,
                 world: &world_cpy,
             };
@@ -141,20 +137,13 @@ impl<'a> Context<'a> {
         {
             let ser_components = serializer.finish();
             let scene = Scene {
-                id: *self.scene_id,
-                started: true,
+                render_components: *self.render_components,
                 screen_config: self.screen_config,
                 world_camera: self.world_camera,
-                components: self.components,
                 groups: self.groups,
-                render_components: *self.render_components,
-                update_components: *self.update_components,
-                world: self.world,
+                world: &self.world,
             };
-            let scene: (
-                &Scene,
-                FxHashMap<ComponentTypeId, SerializedComponentStorage>,
-            ) = (&scene, ser_components);
+            let scene: (&Scene, FxHashMap<ComponentTypeId, Vec<u8>>) = (&scene, ser_components);
             let result = bincode::serialize(&scene);
             return result;
         }

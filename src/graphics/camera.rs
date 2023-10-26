@@ -67,7 +67,10 @@ impl Camera {
     }
 
     pub fn view(&self) -> Isometry3<f32> {
-        return Isometry3::new(Vector3::new(-self.translation().x, -self.translation().y, 0.0), Vector3::new(0.0, 0.0, self.rotation().angle()));
+        return Isometry3::new(
+            Vector3::new(-self.translation().x, -self.translation().y, 0.0),
+            Vector3::new(0.0, 0.0, self.rotation().angle()),
+        );
     }
 
     pub fn proj(&self) -> &Orthographic3<f32> {

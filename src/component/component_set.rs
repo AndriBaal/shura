@@ -1,6 +1,6 @@
 use crate::{
     Component, ComponentHandle, ComponentType, ComponentTypeId, Gpu, GroupHandle, InstanceBuffer,
-    InstanceIndex, InstanceIndices, Renderer, World, InstancePosition,
+    InstanceIndex, InstanceIndices, InstancePosition, Renderer, World,
 };
 use std::cell::{Ref, RefMut};
 
@@ -271,7 +271,8 @@ impl<'a, C: Component> ComponentSetMut<'a, C> {
 
     pub fn iter_render(
         &'a self,
-    ) -> impl DoubleEndedIterator<Item = (&InstanceBuffer<InstancePosition>, InstanceIndex, &C)> {
+    ) -> impl DoubleEndedIterator<Item = (&InstanceBuffer<InstancePosition>, InstanceIndex, &C)>
+    {
         self.ty.iter_render(self.groups)
     }
 
@@ -325,7 +326,6 @@ impl<'a, C: Component> ComponentSetMut<'a, C> {
         self.ty.set_single_with(world, create)
     }
 
-    
     pub fn render_each(
         &'a self,
         renderer: &mut Renderer<'a>,

@@ -1,15 +1,15 @@
 /// Shura version
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+mod app;
 mod component;
 mod data;
 mod graphics;
 mod input;
 mod math;
 mod scene;
-mod app;
-mod world;
 mod systems;
+mod world;
 
 pub use instant::{Duration, Instant};
 pub use rustc_hash::{FxHashMap, FxHashSet};
@@ -21,6 +21,7 @@ pub use ::winit::platform::android::activity::AndroidApp;
 pub(crate) use data::arena::*;
 
 pub use crate::{
+    app::*,
     component::{
         component::*, component_config::*, component_handle::*, component_manager::*,
         component_set::*, component_type::*, empty_component::*, group::*, position_component::*,
@@ -34,7 +35,6 @@ pub use crate::{
     math::{aabb::*, math::*},
     scene::{context::*, scene::*, scene_manager::*},
     systems::systems::*,
-    app::*,
 };
 
 /// Access to [wgpu](https://github.com/gfx-rs/wgpu) for creating custom graphics.

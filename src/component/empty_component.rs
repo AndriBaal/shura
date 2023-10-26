@@ -15,4 +15,8 @@ impl Position for EmptyComponent {
     fn instance(&self, _world: &World) -> InstancePosition {
         InstancePosition::default()
     }
+
+    fn active(&self) -> bool {
+        false
+    }
 }

@@ -10,8 +10,8 @@ struct VertexInput {
 struct InstanceInput {
     @location(4) i_position: vec2<f32>,
     @location(5) i_rotation: vec4<f32>,
-    @location(6) t_position: vec2<f32>,
-    @location(7) t_rotation: vec4<f32>,
+    @location(6) a_position: vec2<f32>,
+    @location(7) a_scale: vec2<f32>,
     @location(8) color: vec4<f32>,
     @location(9) index: u32,
 }

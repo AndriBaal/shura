@@ -14,8 +14,8 @@ struct VertexInput {
 struct InstanceInput {
     @location(2) i_position: vec2<f32>,
     @location(3) i_rotation: vec4<f32>,
-    @location(4) t_position: vec2<f32>,
-    @location(5) t_rotation: vec4<f32>,
+    @location(4) a_position: vec2<f32>,
+    @location(5) a_scale: vec2<f32>,
     @location(6) color: vec4<f32>,
     @location(7) index: u32,
 }
@@ -36,7 +36,8 @@ fn vs_main(
 
     let pos = model.v_position * mat2x2<f32>(instance.i_rotation.xy, instance.i_rotation.zw) + instance.i_position;
     out.clip_position = camera.view_proj * vec4<f32>(pos, 0.0, 1.0);
-    out.tex = model.tex * mat2x2<f32>(instance.t_rotation.xy, instance.t_rotation.zw) + instance.t_position;
+    out.tex = model.tex;
+    // out.tex = model.tex * instance.a_scale + instance.a_position
     out.color = instance.color;
     out.index = instance.index;
     return out;

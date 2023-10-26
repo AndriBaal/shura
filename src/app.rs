@@ -17,9 +17,9 @@ use crate::{
     VERSION,
 };
 use crate::{
-    ComponentTypeId, ComponentTypeImplementation, Context,
-    DefaultResources, EndReason, FrameManager, Gpu, GpuConfig, Input,
-    RenderEncoder, RenderTarget, Scene, SceneCreator, SceneManager, Vector, UpdateOperation,
+    ComponentResources, ComponentTypeId, ComponentTypeImplementation, Context, DefaultResources,
+    EndReason, FrameManager, Gpu, GpuConfig, Input, RenderEncoder, RenderTarget, Scene,
+    SceneCreator, SceneManager, UpdateOperation, Vector,
 };
 use rustc_hash::FxHashMap;
 #[cfg(target_os = "android")]
@@ -99,7 +99,6 @@ pub struct App {
 }
 
 impl App {
-
     /// Start a new game with the given callback to initialize the first [Scene](crate::Scene).
     pub fn run<C: SceneCreator + 'static>(config: AppConfig, init: impl FnOnce() -> C + 'static) {
         #[cfg(target_os = "android")]
@@ -360,10 +359,10 @@ impl App {
         while let Some(remove) = self.scenes.remove.pop() {
             if let Some(removed) = self.scenes.scenes.remove(&remove) {
                 let mut removed = removed.borrow_mut();
-                let mut ctx = Context::new(self, &mut removed);
-                // for (_, end) in ctx.components.controllers.clone().ends() {
-                //     (end)(&mut ctx, EndReason::RemoveScene)
-                // }
+                let (systems, mut ctx) = Context::new(&remove, self, &mut removed);
+                for end in &systems.end_systems {
+                    (end)(&mut ctx, EndReason::RemoveScene)
+                }
             }
         }
 
@@ -373,6 +372,7 @@ impl App {
             self.scenes.scenes.insert(id, Rc::new(RefCell::new(scene)));
         }
 
+        let scene_id = self.scenes.active_scene_id();
         let scene = self.scenes.get_active_scene();
         let mut scene = scene.borrow_mut();
         let scene = scene.deref_mut();
@@ -431,7 +431,7 @@ impl App {
                 let render_size = self.gpu.render_size();
 
                 if self.scenes.switched() {
-                    info!("Switched to scene {}!", scene.id);
+                    info!("Switched to scene {}!", scene_id);
                 }
 
                 info!(
@@ -455,71 +455,50 @@ impl App {
             self.gui.resize(self.gpu.render_size());
         }
 
-        self.update(scene);
+        self.update(scene_id, scene);
         if scene.render_components {
             self.defaults.surface.start_frame(&self.gpu)?;
-            self.render(scene);
+            self.render(scene_id, scene);
             self.defaults.surface.finish_frame();
         }
 
         return Ok(());
     }
 
-    fn update(&mut self, scene: &mut Scene) {
-
+    fn update(&mut self, scene_id: u32, scene: &mut Scene) {
         self.frame.update(scene.components.active_groups().len());
         #[cfg(feature = "gamepad")]
         self.input.sync_gamepad();
         #[cfg(feature = "gui")]
         self.gui
             .begin(&self.frame.total_time_duration(), &self.window);
-        {
-            let (systems, mut ctx) = Context::new(self, scene);
-            // #[cfg(feature = "physics")]
-            // let (mut done_step, physics_priority, world_force_update_level) = {
-            //     if let Some(physics_priority) = ctx.world.physics_priority() {
-            //         (false, physics_priority, ctx.world.force_update_level)
-            //     } else {
-            //         (true, 0, 0)
-            //     }
-            // };
-            let now = ctx.frame.update_time();
-            {
-                for (update_operation, update) in &mut systems.update_systems
-                {
-                    // #[cfg(feature = "physics")]
-                    // if !done_step
-                    //     && *_priority > physics_priority
-                    //     && world_force_update_level > update_components
-                    // {
-                    //     done_step = true;
-                    //     Self::world_step(&mut ctx, callbacks);
-                    // }
+        let (systems, mut ctx) = Context::new(&scene_id, self, scene);
+        let now = ctx.frame.update_time();
 
-                    match update_operation {
-                        UpdateOperation::EveryFrame => (),
-                        UpdateOperation::EveryNFrame(frames) => {
-                            if ctx.frame.total_frames() % *frames != 0 {
-                                continue;
-                            }
-                        }
-                        UpdateOperation::UpdaterAfter(last_update, dur) => {
-                            if now < *last_update + *dur {
-                                continue;
-                            } else {
-                                *last_update = now;
-                            }
-                        }
+        if ctx.resized {
+            for resize in &systems.resize_systems {
+                (resize)(&mut ctx);
+            }
+        }
+
+        for (update_operation, update) in &mut systems.update_systems {
+            match update_operation {
+                UpdateOperation::EveryFrame => (),
+                UpdateOperation::EveryNFrame(frames) => {
+                    if ctx.frame.total_frames() % *frames != 0 {
+                        continue;
                     }
-
-                    (update)(&mut ctx);
+                }
+                UpdateOperation::UpdaterAfter(last_update, dur) => {
+                    if now < *last_update + *dur {
+                        continue;
+                    } else {
+                        *last_update = now;
+                    }
                 }
             }
 
-            // #[cfg(feature = "physics")]
-            // if !done_step && world_force_update_level > update_components {
-            //     Self::world_step(&mut ctx, callbacks);
-            // }
+            (update)(&mut ctx);
         }
 
         scene
@@ -530,63 +509,35 @@ impl App {
             .update(&mut scene.components, &scene.world_camera);
     }
 
-    fn render(&mut self, scene: &mut Scene) {
+    fn render(&mut self, scene_id: u32, scene: &mut Scene) {
         scene.components.buffer(&mut scene.world, &self.gpu);
         scene.world_camera.buffer(&self.gpu);
         self.defaults
             .buffer(&self.gpu, self.frame.total_time(), self.frame.frame_time());
 
-        let (systems, ctx) = Context::new(self, scene);
-        let mut encoder = RenderEncoder::new(&ctx.gpu, &ctx.defaults, &ctx.world_camera);
+        let (systems, res) = ComponentResources::new(scene);
+        let mut encoder = RenderEncoder::new(&self.gpu, &self.defaults, &scene.world_camera);
 
-
-        {
-            for render in &systems.render_systems {
-                (render)(&ctx, &mut encoder);
-            }
-            // for (_priority, render, target) in callbacks.renders() {
-            //     if let Some((clear, target)) = (target)(&mut components) {
-            //         if target as *const _ != components.renderer.target() as *const _ {
-            //             let encoder = unsafe { &mut *encoder_ptr };
-            //             drop(components);
-            //             components = ComponentRenderer::new(&ctx, encoder.renderer(target, clear));
-            //         }
-            //     }
-            //     (render)(&mut components);
-            //     if let Some(screenshot) = components.screenshot.take() {
-            //         let encoder = unsafe { &mut *encoder_ptr };
-            //         let target_ptr: *const dyn RenderTarget =
-            //             components.renderer.target as *const _;
-            //         let target = unsafe { target_ptr.as_ref().unwrap() };
-            //         drop(components);
-
-            //         if let Some(sprite) = target.downcast_ref::<crate::SpriteRenderTarget>() {
-            //             encoder.copy_target(sprite, screenshot);
-            //         } else {
-            //             encoder.deep_copy_target(target, screenshot);
-            //         }
-
-            //         components = ComponentRenderer::new(&ctx, encoder.renderer(target, None));
-            //     }
-            // }
+        for render in &systems.render_systems {
+            (render)(&res, &mut encoder);
         }
 
         #[cfg(feature = "framebuffer")]
-        encoder.copy_target(&ctx.defaults.framebuffer, &ctx.defaults.surface);
+        encoder.copy_target(&self.defaults.framebuffer, &self.defaults.surface);
 
         #[cfg(feature = "gui")]
-        ctx.gui.render(&ctx.gpu, &ctx.defaults, &mut encoder);
+        self.gui.render(&self.gpu, &self.defaults, &mut encoder);
 
-        encoder.submit(&ctx.gpu);
+        encoder.submit(&self.gpu);
     }
 
     fn end(&mut self) {
-        for (_, scene) in self.scenes.end_scenes() {
+        for (id, scene) in self.scenes.end_scenes() {
             let mut scene = scene.borrow_mut();
-            let mut ctx = Context::new(self, &mut scene);
-            // for (_, end) in ctx.components.controllers.clone().ends() {
-            //     (end)(&mut ctx, EndReason::EndProgram)
-            // }
+            let (systems, mut ctx) = Context::new(&id, self, &mut scene);
+            for end in &systems.end_systems {
+                (end)(&mut ctx, EndReason::EndProgram)
+            }
         }
     }
 }

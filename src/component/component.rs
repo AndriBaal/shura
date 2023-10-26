@@ -2,8 +2,8 @@
 use crate::physics::{CollideType, ColliderHandle};
 use crate::{
     data::arena::Arena, Color, ComponentConfig, ComponentHandle, ComponentIdentifier,
-    ComponentTypeId, Context, EndReason, Gpu, InstanceBuffer, InstancePosition,
-    RenderTarget, World,
+    ComponentTypeId, Context, EndReason, Gpu, InstanceBuffer, InstancePosition, RenderTarget,
+    World,
 };
 use downcast_rs::*;
 
@@ -13,6 +13,7 @@ use crate::{data::arena::ArenaEntry, rayon::prelude::*};
 #[allow(unused_variables)]
 pub trait Position: Downcast {
     fn instance(&self, world: &World) -> InstancePosition;
+    fn active(&self) -> bool;
     fn init(&mut self, handle: ComponentHandle, world: &mut World) {}
     fn finish(&mut self, world: &mut World) {}
 }
@@ -55,19 +56,59 @@ impl<'a, C: Component> BufferHelper<'a, C> {
         }
     }
 
-    pub fn buffer(
-        &mut self,
-        each: impl Fn(&mut C) -> InstancePosition,
-    ) {
+    pub fn buffer(&mut self) {
         match &mut self.inner {
             BufferHelperType::Single { offset, component } => {
-                let data = each(component);
-                self.buffer.write_offset(self.gpu, *offset, &[data]);
+                if component.position().active() {
+                    self.buffer.write_offset(
+                        self.gpu,
+                        *offset,
+                        &[component.position().instance(self.world)],
+                    );
+                } else {
+                    self.buffer.write_offset(self.gpu, *offset, &[]);
+                }
             }
             BufferHelperType::All { components } => {
                 let instances = components
                     .iter_mut()
-                    .map(|component| each(component))
+                    .filter_map(|component| {
+                        if component.position().active() {
+                            Some(component.position().instance(self.world))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<InstancePosition>>();
+                self.buffer.write(self.gpu, &instances);
+            }
+        };
+    }
+
+    pub fn buffer_with(&mut self, each: impl Fn(&mut C)) {
+        match &mut self.inner {
+            BufferHelperType::Single { offset, component } => {
+                if component.position().active() {
+                    self.buffer.write_offset(
+                        self.gpu,
+                        *offset,
+                        &[component.position().instance(self.world)],
+                    );
+                } else {
+                    self.buffer.write_offset(self.gpu, *offset, &[]);
+                }
+            }
+            BufferHelperType::All { components } => {
+                let instances = components
+                    .iter_mut()
+                    .filter_map(|component| {
+                        each(component);
+                        if component.position().active() {
+                            Some(component.position().instance(self.world))
+                        } else {
+                            None
+                        }
+                    })
                     .collect::<Vec<InstancePosition>>();
                 self.buffer.write(self.gpu, &instances);
             }
@@ -77,14 +118,18 @@ impl<'a, C: Component> BufferHelper<'a, C> {
 
 #[cfg(feature = "rayon")]
 impl<'a, C: Component + Send + Sync> BufferHelper<'a, C> {
-    pub fn par_buffer(
-        &mut self,
-        each: impl Fn(&mut C) -> InstancePosition + Send + Sync,
-    ) {
+    pub fn par_buffer_with(&mut self, each: impl Fn(&mut C) + Send + Sync) {
         match &mut self.inner {
             BufferHelperType::Single { offset, component } => {
-                let data = each(component);
-                self.buffer.write_offset(self.gpu, *offset, &[data]);
+                if component.position().active() {
+                    self.buffer.write_offset(
+                        self.gpu,
+                        *offset,
+                        &[component.position().instance(self.world)],
+                    );
+                } else {
+                    self.buffer.write_offset(self.gpu, *offset, &[]);
+                }
             }
             BufferHelperType::All { components } => {
                 let instances = components
@@ -92,7 +137,48 @@ impl<'a, C: Component + Send + Sync> BufferHelper<'a, C> {
                     .par_iter_mut()
                     .filter_map(|component| match component {
                         ArenaEntry::Free { .. } => None,
-                        ArenaEntry::Occupied { data, .. } => Some(each(data)),
+                        ArenaEntry::Occupied { data, .. } => {
+                            each(data);
+                            if data.position().active() {
+                                Some(data.position().instance(self.world))
+                            } else {
+                                println!("kwhfjkshdfj");
+                                None
+                            }
+                        }
+                    })
+                    .collect::<Vec<InstancePosition>>();
+                self.buffer.write(self.gpu, &instances);
+            }
+        };
+    }
+
+    pub fn par_buffer(&mut self) {
+        match &mut self.inner {
+            BufferHelperType::Single { offset, component } => {
+                if component.position().active() {
+                    self.buffer.write_offset(
+                        self.gpu,
+                        *offset,
+                        &[component.position().instance(self.world)],
+                    );
+                } else {
+                    self.buffer.write_offset(self.gpu, *offset, &[]);
+                }
+            }
+            BufferHelperType::All { components } => {
+                let instances = components
+                    .items
+                    .par_iter_mut()
+                    .filter_map(|component| match component {
+                        ArenaEntry::Free { .. } => None,
+                        ArenaEntry::Occupied { data, .. } => {
+                            if data.position().active() {
+                                Some(data.position().instance(self.world))
+                            } else {
+                                None
+                            }
+                        }
                     })
                     .collect::<Vec<InstancePosition>>();
                 self.buffer.write(self.gpu, &instances);

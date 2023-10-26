@@ -6,11 +6,11 @@ use crate::{
 pub struct RenderEncoder<'a> {
     pub inner: wgpu::CommandEncoder,
     pub defaults: &'a DefaultResources,
-    pub gpu: &'a Gpu,
     pub world_camera: &'a WorldCamera,
+    pub gpu: &'a Gpu,
 }
 
-impl <'a>Clone for RenderEncoder<'a> {
+impl<'a> Clone for RenderEncoder<'a> {
     fn clone(&self) -> Self {
         Self::new(self.gpu, self.defaults, self.world_camera)
     }
@@ -41,14 +41,22 @@ impl<'a> RenderEncoder<'a> {
         clear: Option<Color>,
         render: impl FnOnce(&mut Renderer<'b>)
     ) {
-        self.render_to(self.defaults.default_target(), clear, render)
+        let mut renderer = Renderer::new(
+            &mut self.inner,
+            self.defaults,
+            self.gpu,
+            self.world_camera,
+            self.defaults.default_target(),
+            clear,
+        );
+        (render)(&mut renderer);
     }
 
-    pub fn render_to<'b>(
-        &'b mut self,
-        target: &'b dyn RenderTarget,
+    pub fn render_to(
+        &mut self,
+        target: &dyn RenderTarget,
         clear: Option<Color>,
-        render: impl FnOnce(&mut Renderer<'b>)
+        render: impl FnOnce(&mut Renderer)
     ) {
         let mut renderer = Renderer::new(
             &mut self.inner,
@@ -65,7 +73,14 @@ impl<'a> RenderEncoder<'a> {
         &'b mut self,
         clear: Option<Color>,
     ) -> Renderer<'b> {
-        self.renderer_to(self.defaults.default_target(), clear)
+        Renderer::new(
+            &mut self.inner,
+            self.defaults,
+            self.gpu,
+            self.world_camera,
+            self.defaults.default_target(),
+            clear,
+        )
     }
 
     pub fn renderer_to<'b>(
@@ -85,7 +100,15 @@ impl<'a> RenderEncoder<'a> {
 
     pub fn copy_target(&mut self, src: &dyn RenderTarget, target: &dyn RenderTarget) {
         assert_eq!(src.size(), target.size());
-        if src.texture().usage().contains(wgpu::TextureUsages::COPY_SRC) && target.texture().usage().contains(wgpu::TextureUsages::COPY_DST) {
+        if src
+            .texture()
+            .usage()
+            .contains(wgpu::TextureUsages::COPY_SRC)
+            && target
+                .texture()
+                .usage()
+                .contains(wgpu::TextureUsages::COPY_DST)
+        {
             let size = wgpu::Extent3d {
                 width: src.size().x,
                 height: src.size().y,
@@ -94,7 +117,9 @@ impl<'a> RenderEncoder<'a> {
             self.inner
                 .copy_texture_to_texture(src.as_copy(), target.as_copy(), size);
         } else {
-            let src = src.downcast_ref::<SpriteRenderTarget>().expect("Cannot copy this texture!");
+            let src = src
+                .downcast_ref::<SpriteRenderTarget>()
+                .expect("Cannot copy this texture!");
             let mut renderer = self.renderer_to(target, None);
             renderer.render_sprite(
                 0..1,
@@ -105,7 +130,6 @@ impl<'a> RenderEncoder<'a> {
             );
         }
     }
-
 
     pub fn finish(self) -> wgpu::CommandBuffer {
         self.inner.finish()

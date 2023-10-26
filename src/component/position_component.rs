@@ -1,4 +1,4 @@
-use crate::{InstancePosition, Isometry, Position, Rotation, Vector, World};
+use crate::{Color, InstancePosition, Isometry, Position, Rotation, Vector, World, SpriteSheetIndex};
 
 /// Component that is rendered to the screen by its given position and scale.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -6,8 +6,8 @@ use crate::{InstancePosition, Isometry, Position, Rotation, Vector, World};
 pub struct PositionComponent {
     scale: Vector<f32>,
     position: Isometry<f32>,
+    active: bool,
     instance: InstancePosition,
-    disabled: bool,
 }
 
 impl Default for PositionComponent {
@@ -16,7 +16,7 @@ impl Default for PositionComponent {
             scale: Vector::new(1.0, 1.0),
             instance: InstancePosition::default(),
             position: Isometry::default(),
-            disabled: false,
+            active: true,
         }
     }
 }
@@ -25,11 +25,6 @@ impl Default for PositionComponent {
 impl PositionComponent {
     pub fn new() -> Self {
         Self::default()
-    }
-
-    pub fn with_scale(mut self, scale: Vector<f32>) -> Self {
-        self.set_scale(scale);
-        self
     }
 
     pub fn with_rotation(mut self, rotation: f32) -> Self {
@@ -47,15 +42,15 @@ impl PositionComponent {
         self
     }
 
-    pub fn with_disabled(mut self, disabled: bool) -> Self {
-        self.set_disabled(disabled);
+    pub fn with_active(mut self, active: bool) -> Self {
+        self.set_active(active);
         self
     }
 
-    pub fn set_disabled(&mut self, disabled: bool) {
-        self.disabled = disabled;
+    pub fn set_active(&mut self, active: bool) {
+        self.active = active;
         self.instance.set_scale_rotation(
-            if disabled {
+            if active {
                 Vector::default()
             } else {
                 self.scale
@@ -67,7 +62,7 @@ impl PositionComponent {
     pub fn set_rotation(&mut self, rotation: Rotation<f32>) {
         self.position.rotation = rotation;
         self.instance.set_scale_rotation(
-            if self.disabled {
+            if self.active {
                 Vector::default()
             } else {
                 self.scale
@@ -85,7 +80,7 @@ impl PositionComponent {
         self.position = position;
         self.instance = InstancePosition::new_position(
             position,
-            if self.disabled {
+            if self.active {
                 Vector::default()
             } else {
                 self.scale
@@ -93,20 +88,8 @@ impl PositionComponent {
         );
     }
 
-    pub fn set_scale(&mut self, scale: Vector<f32>) {
-        self.scale = scale;
-        self.instance.set_scale_rotation(
-            if self.disabled {
-                Vector::default()
-            } else {
-                self.scale
-            },
-            self.position.rotation,
-        );
-    }
-
-    pub fn disabled(&self) -> bool {
-        self.disabled
+    pub fn active(&self) -> bool {
+        self.active
     }
 
     pub fn rotation(&self) -> Rotation<f32> {
@@ -124,10 +107,57 @@ impl PositionComponent {
     pub const fn scale(&self) -> &Vector<f32> {
         &self.scale
     }
+
+    pub fn set_scale(&mut self, scale: Vector<f32>) {
+        self.scale = scale;
+        self.instance.set_scale_rotation(
+            if self.active {
+                Vector::default()
+            } else {
+                self.scale
+            },
+            self.position.rotation,
+        );
+    }
+
+    pub fn with_scale(mut self, scale: Vector<f32>) -> Self {
+        self.set_scale(scale);
+        self
+    }
+
+    pub const fn color(&self) -> &Color {
+        &self.instance.color
+    }
+
+    pub fn set_color(&mut self, color: Color) {
+        self.instance.color = color;
+    }
+
+    pub fn with_color(mut self, color: Color) -> Self {
+        self.set_color(color);
+        self
+    }
+
+    pub const fn index(&self) -> &SpriteSheetIndex {
+        &self.instance.sprite_sheet_index
+    }
+
+    pub fn set_index(&mut self, index: SpriteSheetIndex) {
+        self.instance.sprite_sheet_index = index;
+    }
+
+    pub fn with_index(mut self, index: SpriteSheetIndex) -> Self {
+        self.set_index(index);
+        self
+    }
 }
 
 impl Position for PositionComponent {
     fn instance(&self, _world: &World) -> InstancePosition {
         self.instance
+    }
+
+    fn active(&self) -> bool {
+        self.active
     }
 }

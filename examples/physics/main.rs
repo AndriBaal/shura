@@ -2,50 +2,162 @@ use shura::physics::*;
 use shura::*;
 
 #[shura::main]
-fn shura_main(config: ShuraConfig) {
-    config.init(|| NewScene {
-        id: 1,
-        init: |ctx| {
-            register!(ctx, [PhysicsBox, Player, Floor, PhysicsResources]);
-            const PYRAMID_ELEMENTS: i32 = 8;
-            const MINIMAL_SPACING: f32 = 0.1;
-            ctx.world_camera.set_scaling(WorldCameraScale::Max(5.0));
-            ctx.world.set_gravity(Vector::new(0.00, -9.81));
-            ctx.components.add(ctx.world, PhysicsResources::new(ctx));
+fn shura_main(config: AppConfig) {
+    App::run(config, || {
+        NewScene::new(1)
+            .component::<Floor>(ComponentConfig::SINGLE)
+            .component::<Player>(ComponentConfig::SINGLE)
+            .component::<PhysicsBox>(Default::default())
+            .system(System::Render(render))
+            .system(System::Setup(setup))
+            .system(System::Update(update))
+    });
+}
 
-            for x in -PYRAMID_ELEMENTS..PYRAMID_ELEMENTS {
-                for y in 0..(PYRAMID_ELEMENTS - x.abs()) {
-                    let b = PhysicsBox::new(Vector::new(
-                        x as f32 * (PhysicsBox::HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING),
-                        y as f32 * (PhysicsBox::HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING * 2.0),
-                    ));
-                    ctx.components.add(ctx.world, b);
-                }
+fn setup(ctx: &mut Context) {
+    const PYRAMID_ELEMENTS: i32 = 8;
+    const MINIMAL_SPACING: f32 = 0.1;
+    ctx.world_camera.set_scaling(WorldCameraScale::Max(5.0));
+    ctx.world.set_gravity(Vector::new(0.00, -9.81));
+    ctx.components.add(ctx.world, Resources::new(ctx));
+
+    for x in -PYRAMID_ELEMENTS..PYRAMID_ELEMENTS {
+        for y in 0..(PYRAMID_ELEMENTS - x.abs()) {
+            let b = PhysicsBox::new(Vector::new(
+                x as f32 * (PhysicsBox::HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING),
+                y as f32 * (PhysicsBox::HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING * 2.0),
+            ));
+            ctx.components.add(ctx.world, b);
+        }
+    }
+
+    let player = Player::new(ctx);
+    let player_handle = ctx.components.add(ctx.world, player);
+    ctx.world_camera.set_target(Some(WorldCameraTarget {
+        target: player_handle,
+        ..Default::default()
+    }));
+    let floor = Floor::new(ctx);
+    ctx.components.add(ctx.world, floor);
+}
+
+fn update(ctx: &mut Context) {
+    let mut boxes = ctx.components.set::<PhysicsBox>();
+    let player = ctx.components.single::<Player>();
+
+    let scroll = ctx.input.wheel_delta();
+    let fov = ctx.world_camera.fov();
+    if scroll != 0.0 {
+        ctx.world_camera
+            .set_scaling(WorldCameraScale::Max(fov.x + scroll / 5.0));
+    }
+
+    if ctx.input.is_held(MouseButton::Right) {
+        if ctx
+            .world
+            .intersection_with_shape(
+                &ctx.cursor.into(),
+                &Cuboid::new(Vector::new(
+                    PhysicsBox::HALF_BOX_SIZE,
+                    PhysicsBox::HALF_BOX_SIZE,
+                )),
+                Default::default(),
+            )
+            .is_none()
+        {
+            let b = PhysicsBox::new(ctx.cursor);
+            ctx.components.add(ctx.world, b);
+        }
+    }
+    let delta = ctx.frame.frame_time();
+    let input = &mut ctx.input;
+
+    let cursor_world: Point<f32> = (ctx.cursor).into();
+    let remove = ctx.input.is_held(MouseButton::Left) || ctx.input.is_pressed(ScreenTouch);
+    boxes.for_each_mut(|physics_box| {
+        if physics_box.sprite == 1 {
+            physics_box.sprite = 0;
+        }
+    });
+    let mut component: Option<ComponentHandle> = None;
+    ctx.world
+        .intersections_with_point(&cursor_world, Default::default(), |component_handle, _| {
+            component = Some(component_handle);
+            false
+        });
+    if let Some(handle) = component {
+        if let Some(physics_box) = boxes.get_mut(handle) {
+            physics_box.sprite = 1;
+            if remove {
+                boxes.remove(ctx.world, handle);
             }
+        }
+    }
 
-            let player = Player::new(ctx);
-            let player_handle = ctx.components.add(ctx.world, player);
-            ctx.world_camera.set_target(Some(WorldCameraTarget {
-                target: player_handle,
-                ..Default::default()
-            }));
-            let floor = Floor::new(ctx);
-            ctx.components.add(ctx.world, floor);
-        },
+    let body = player.body.get_mut(ctx.world);
+    let mut linvel = *body.linvel();
+
+    if input.is_held(Key::D) {
+        linvel.x += 15.0 * delta;
+    }
+
+    if input.is_held(Key::A) {
+        linvel.x += -15.0 * delta;
+    }
+
+    if input.is_pressed(Key::W) {
+        linvel.y += 15.0;
+    }
+
+    if input.is_pressed(Key::S) {
+        linvel.y = -17.0;
+    }
+
+    body.set_linvel(linvel, true);
+}
+
+fn render(res: &ComponentResources, encoder: &mut RenderEncoder) {
+    let resources = res.single::<Resources>();
+    encoder.render(Some(Color::BLACK), |renderer| {
+        res.render_single::<Player>(renderer, |renderer, player, buffer, instances| {
+            renderer.render_sprite(
+                instances,
+                buffer,
+                renderer.world_camera,
+                &player.model,
+                &player.sprite,
+            )
+        });
+
+        res.render_single::<Floor>(renderer, |renderer, floor, buffer, instances| {
+            renderer.render_sprite(
+                instances,
+                buffer,
+                renderer.world_camera,
+                &floor.model,
+                &floor.color,
+            )
+        });
+
+        res.render_all::<PhysicsBox>(renderer, |renderer, buffer, instance| {
+            renderer.render_sprite_sheet(
+                instance,
+                buffer,
+                renderer.world_camera,
+                &resources.box_model,
+                &resources.box_colors,
+            );
+        });
     })
 }
 
 #[derive(Component)]
-struct PhysicsResources {
+struct Resources {
     box_colors: SpriteSheet,
     box_model: Model,
 }
 
-impl ComponentController for PhysicsResources {
-    const CONFIG: ComponentConfig = ComponentConfig::RESOURCE;
-}
-
-impl PhysicsResources {
+impl Resources {
     pub fn new(ctx: &Context) -> Self {
         let box_colors = ctx.gpu.create_sprite_sheet(SpriteSheetBuilder::colors(&[
             RgbaColor::new(0, 255, 0, 255),
@@ -97,93 +209,6 @@ impl Player {
     }
 }
 
-impl ComponentController for Player {
-    const CONFIG: ComponentConfig = ComponentConfig {
-        storage: ComponentStorage::Single,
-        ..ComponentConfig::DEFAULT
-    };
-
-    fn update(ctx: &mut Context) {
-        let scroll = ctx.input.wheel_delta();
-        let fov = ctx.world_camera.fov();
-        if scroll != 0.0 {
-            ctx.world_camera
-                .set_scaling(WorldCameraScale::Max(fov.x + scroll / 5.0));
-        }
-
-        if ctx.input.is_held(MouseButton::Right) {
-            if ctx
-                .world
-                .intersection_with_shape(
-                    &ctx.cursor.into(),
-                    &Cuboid::new(Vector::new(
-                        PhysicsBox::HALF_BOX_SIZE,
-                        PhysicsBox::HALF_BOX_SIZE,
-                    )),
-                    Default::default(),
-                )
-                .is_none()
-            {
-                let b = PhysicsBox::new(ctx.cursor);
-                ctx.components.add(ctx.world, b);
-            }
-        }
-        let delta = ctx.frame.frame_time();
-        let input = &mut ctx.input;
-
-        ctx.components.for_each_mut::<Self>(|player| {
-            let body = player.body.get_mut(ctx.world);
-            let mut linvel = *body.linvel();
-
-            if input.is_held(Key::D) {
-                linvel.x += 15.0 * delta;
-            }
-
-            if input.is_held(Key::A) {
-                linvel.x += -15.0 * delta;
-            }
-
-            if input.is_pressed(Key::W) {
-                linvel.y += 15.0;
-            }
-
-            if input.is_pressed(Key::S) {
-                linvel.y = -17.0;
-            }
-
-            body.set_linvel(linvel, true);
-        });
-    }
-
-    fn render<'a>(components: &mut ComponentRenderer<'a>) {
-        components.render_single::<Self>(|renderer, player, buffer, instances| {
-            renderer.render_sprite(
-                instances,
-                buffer,
-                renderer.world_camera,
-                &player.model,
-                &player.sprite,
-            )
-        });
-    }
-
-    fn collision(
-        ctx: &mut Context,
-        _self_handle: ComponentHandle,
-        other_handle: ComponentHandle,
-        _self_collider: ColliderHandle,
-        _other_collider: ColliderHandle,
-        collision_type: CollideType,
-    ) {
-        if let Some(mut b) = ctx.components.get_mut::<PhysicsBox>(other_handle) {
-            b.sprite = match collision_type {
-                CollideType::Started => 2,
-                CollideType::Stopped => 0,
-            }
-        }
-    }
-}
-
 #[derive(Component)]
 struct Floor {
     color: Sprite,
@@ -215,24 +240,6 @@ impl Floor {
     }
 }
 
-impl ComponentController for Floor {
-    const CONFIG: ComponentConfig = ComponentConfig {
-        storage: ComponentStorage::Single,
-        ..ComponentConfig::DEFAULT
-    };
-    fn render<'a>(components: &mut ComponentRenderer<'a>) {
-        components.render_single::<Self>(|renderer, floor, buffer, instances| {
-            renderer.render_sprite(
-                instances,
-                buffer,
-                renderer.world_camera,
-                &floor.model,
-                &floor.color,
-            )
-        });
-    }
-}
-
 #[derive(Component)]
 struct PhysicsBox {
     #[position]
@@ -252,50 +259,6 @@ impl PhysicsBox {
                     PhysicsBox::BOX_SHAPE,
                 ))],
             ),
-            sprite: 0,
-        }
-    }
-}
-
-impl ComponentController for PhysicsBox {
-    fn render<'a>(components: &mut ComponentRenderer<'a>) {
-        let state = components.single::<PhysicsResources>();
-        components.render_all::<Self>(|renderer, buffer, instance| {
-            renderer.render_sprite_sheet(
-                instance,
-                buffer,
-                renderer.world_camera,
-                &state.box_model,
-                &state.box_colors,
-            );
-        });
-    }
-
-    fn update(ctx: &mut Context) {
-        let cursor_world: Point<f32> = (ctx.cursor).into();
-        let remove = ctx.input.is_held(MouseButton::Left) || ctx.input.is_pressed(ScreenTouch);
-        let mut boxes = ctx.components.set::<Self>();
-        boxes.for_each_mut(|physics_box| {
-            if physics_box.sprite == 1 {
-                physics_box.sprite = 0;
-            }
-        });
-        let mut component: Option<ComponentHandle> = None;
-        ctx.world.intersections_with_point(
-            &cursor_world,
-            Default::default(),
-            |component_handle, _| {
-                component = Some(component_handle);
-                false
-            },
-        );
-        if let Some(handle) = component {
-            if let Some(physics_box) = boxes.get_mut(handle) {
-                physics_box.sprite = 1;
-                if remove {
-                    boxes.remove(ctx.world, handle);
-                }
-            }
         }
     }
 }

@@ -1,5 +1,3 @@
-use crate::Duration;
-
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum EndReason {
@@ -27,8 +25,7 @@ pub enum BufferOperation {
     Never,
 }
 
-/// Defines how to component gets stored. It is either a signle, multiple of it can be
-/// stored or it has multiple groups
+/// Defines how to component gets stored and how many of it can exist
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ComponentStorage {
@@ -37,15 +34,13 @@ pub enum ComponentStorage {
     Groups,
 }
 
-
-/// The configuration of a component type. This configuration is used to statically define
-/// behaviour of a component type for perfomance and utility reason.
+/// The configuration of a component type
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ComponentConfig {
     pub buffer: BufferOperation,
     pub storage: ComponentStorage,
-    pub scope: ComponentScope
+    pub scope: ComponentScope,
 }
 
 impl ComponentConfig {
@@ -53,6 +48,10 @@ impl ComponentConfig {
         buffer: BufferOperation::EveryFrame,
         storage: ComponentStorage::Multiple,
         scope: ComponentScope::Scene,
+    };
+    pub const SINGLE: ComponentConfig = ComponentConfig {
+        storage: ComponentStorage::Single,
+        ..Self::DEFAULT
     };
     pub const RESOURCE: ComponentConfig = ComponentConfig {
         buffer: BufferOperation::Never,

@@ -7,15 +7,15 @@ pub struct SceneManager {
     pub(crate) scenes: FxHashMap<u32, Rc<RefCell<Scene>>>,
     pub(crate) remove: Vec<u32>,
     pub(crate) add: Vec<Box<dyn SceneCreator>>,
-    active_scene: u32,
+    active_scene_id: u32,
     last_active: Option<u32>,
     scene_switched: bool,
 }
 
 impl SceneManager {
-    pub(crate) fn new(active_scene: u32, creator: impl SceneCreator + 'static) -> Self {
+    pub(crate) fn new(active_scene_id: u32, creator: impl SceneCreator + 'static) -> Self {
         Self {
-            active_scene,
+            active_scene_id,
             remove: Default::default(),
             scenes: Default::default(),
             add: vec![Box::new(creator)],
@@ -35,16 +35,16 @@ impl SceneManager {
         }
     }
 
-    pub fn set_active_scene(&mut self, active_scene: u32) {
-        self.active_scene = active_scene;
+    pub fn set_active_scene(&mut self, active_scene_id: u32) {
+        self.active_scene_id = active_scene_id;
     }
 
     pub fn scene_ids(&self) -> impl Iterator<Item = &u32> {
         self.scenes.keys().into_iter()
     }
 
-    pub const fn active_scene(&self) -> u32 {
-        self.active_scene
+    pub const fn active_scene_id(&self) -> u32 {
+        self.active_scene_id
     }
 
     pub fn exists(&self, id: u32) -> bool {
@@ -67,18 +67,18 @@ impl SceneManager {
     pub(crate) fn get_active_scene(&mut self) -> Rc<RefCell<Scene>> {
         return self.try_get_active_scene().expect(&format!(
             "Cannot find the currently active scene {}!",
-            self.active_scene
+            self.active_scene_id
         ));
     }
 
     pub(crate) fn try_get_active_scene(&mut self) -> Option<Rc<RefCell<Scene>>> {
-        if let Some(scene) = self.scenes.get(&self.active_scene) {
+        if let Some(scene) = self.scenes.get(&self.active_scene_id) {
             if let Some(last) = self.last_active {
-                self.scene_switched = last != self.active_scene;
+                self.scene_switched = last != self.active_scene_id;
             } else {
                 self.scene_switched = true;
             }
-            self.last_active = Some(self.active_scene);
+            self.last_active = Some(self.active_scene_id);
             return Some(scene.clone());
         } else {
             return None;

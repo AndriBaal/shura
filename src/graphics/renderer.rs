@@ -2,10 +2,9 @@
 use crate::text::Text;
 
 use crate::{
-    Camera, Color, Component, ComponentHandle, Context, DefaultResources,
-    Gpu, GroupFilter, GroupHandle, InstanceBuffer, InstanceIndex, InstanceIndices, Model,
-    RenderTarget, Shader, Sprite, SpriteRenderTarget, SpriteSheet, Uniform,
-    WorldCamera, InstancePosition,
+    Camera, Color, Component, ComponentHandle, Context, DefaultResources, Gpu, GroupFilter,
+    GroupHandle, InstanceBuffer, InstanceIndex, InstanceIndices, InstancePosition, Model,
+    RenderTarget, Shader, Sprite, SpriteRenderTarget, SpriteSheet, Uniform, WorldCamera,
 };
 use std::{ops::Range, ptr::null};
 
@@ -190,7 +189,6 @@ impl<'a> Renderer<'a> {
             self.draw(instances);
         }
     }
-
 
     pub fn render_sprite_sheet(
         &mut self,

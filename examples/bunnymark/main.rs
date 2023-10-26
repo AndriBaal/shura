@@ -4,14 +4,14 @@ use shura::{log, rand, *};
 fn shura_main(config: AppConfig) {
     App::run(config, || {
         NewScene::new(1)
-            .add_component::<Bunny>(ComponentConfig {
+            .component::<Bunny>(ComponentConfig {
                 buffer: BufferOperation::Manual,
                 ..ComponentConfig::DEFAULT
             })
-            .add_component::<Resources>(ComponentConfig::RESOURCE)
-            .add_system(System::Update(update))
-            .add_system(System::Setup(setup))
-            .add_system(System::Render(render))
+            .component::<Resources>(ComponentConfig::RESOURCE)
+            .system(System::Update(update))
+            .system(System::Setup(setup))
+            .system(System::Render(render))
     });
 }
 
@@ -19,8 +19,7 @@ fn setup(ctx: &mut Context) {
     ctx.world_camera.set_scaling(WorldCameraScale::Min(3.0));
     ctx.components
         .add_with(ctx.world, |handle| Bunny::new(vector(0.0, 0.0), handle));
-    ctx.components
-        .add(ctx.world, Resources::new(ctx));
+    ctx.components.add(ctx.world, Resources::new(ctx));
 }
 
 fn update(ctx: &mut Context) {
@@ -44,8 +43,7 @@ fn update(ctx: &mut Context) {
     if ctx.input.is_held(MouseButton::Left) || ctx.input.is_held(ScreenTouch) {
         let cursor = ctx.cursor;
         for _ in 0..MODIFY_STEP {
-            bunnies
-                .add_with(ctx.world, |handle| Bunny::new(cursor, handle));
+            bunnies.add_with(ctx.world, |handle| Bunny::new(cursor, handle));
         }
     }
     if ctx.input.is_held(MouseButton::Right) {
@@ -75,40 +73,38 @@ fn update(ctx: &mut Context) {
 
     let frame = ctx.frame.frame_time();
     let fov = ctx.world_camera.fov();
-    bunnies
-        .buffer_for_each_mut(ctx.world, &ctx.gpu, |bunny| {
-            let mut linvel = bunny.linvel;
-            let mut translation = bunny.position.translation();
+    bunnies.buffer_for_each_mut(ctx.world, &ctx.gpu, |bunny| {
+        let mut linvel = bunny.linvel;
+        let mut translation = bunny.position.translation();
 
-            linvel.y += GRAVITY * frame;
-            translation += linvel * frame;
-            if translation.x >= fov.x {
-                linvel.x = -linvel.x;
-                translation.x = fov.x;
-            } else if translation.x <= -fov.x {
-                linvel.x = -linvel.x;
-                translation.x = -fov.x;
-            }
+        linvel.y += GRAVITY * frame;
+        translation += linvel * frame;
+        if translation.x >= fov.x {
+            linvel.x = -linvel.x;
+            translation.x = fov.x;
+        } else if translation.x <= -fov.x {
+            linvel.x = -linvel.x;
+            translation.x = -fov.x;
+        }
 
-            if translation.y < -fov.y {
-                linvel.y = rand::gen_range(0.0..15.0);
-                translation.y = -fov.y;
-            } else if translation.y > fov.y {
-                linvel.y = -1.0;
-                translation.y = fov.y;
-            }
-            bunny.linvel = linvel;
-            bunny.position.set_translation(translation);
-        });
+        if translation.y < -fov.y {
+            linvel.y = rand::gen_range(0.0..15.0);
+            translation.y = -fov.y;
+        } else if translation.y > fov.y {
+            linvel.y = -1.0;
+            translation.y = fov.y;
+        }
+        bunny.linvel = linvel;
+        bunny.position.set_translation(translation);
+    });
 }
 
-fn render(ctx: &Context, encoder: &mut RenderEncoder) {
-    let resources = ctx.components.single::<Resources>();
-    let bunnies = ctx.components.set::<Bunny>();
+fn render(res: &ComponentResources, encoder: &mut RenderEncoder) {
+    let resources = res.single::<Resources>();
     encoder.render(
         Some(RgbaColor::new(220, 220, 220, 255).into()),
         |renderer| {
-            bunnies.render_all(renderer, |renderer, buffer, instances| {
+            res.render_all::<Bunny>(renderer, |renderer, buffer, instances| {
                 renderer.render_sprite(
                     instances,
                     buffer,
@@ -120,8 +116,9 @@ fn render(ctx: &Context, encoder: &mut RenderEncoder) {
         },
     );
 
+
     if let Some(screenshot) = &resources.screenshot {
-        encoder.copy_target(ctx.defaults.default_target(), screenshot)
+        encoder.copy_target(encoder.defaults.default_target(), screenshot)
     }
 }
 

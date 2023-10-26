@@ -1,11 +1,11 @@
-use std::{any::Any, sync::Arc};
+use std::{any::Any, cell::RefCell, sync::Arc};
 
 use rustc_hash::FxHashMap;
 
 use crate::{
-    Component, ComponentConfig, ComponentManager, ComponentTypeGroup, ComponentTypeId,
-    ComponentTypeStorage, Context, ContextUse, Gpu, Group, GroupHandle, GroupManager, Scene,
-    SceneCreator, App, World, GLOBAL_GPU,
+    App, Component, ComponentConfig, ComponentManager, ComponentType, ComponentTypeGroup,
+    ComponentTypeId, ComponentTypeImplementation, ComponentTypeStorage, Context, Gpu, Group,
+    GroupHandle, GroupManager, Scene, SceneCreator, System, World, GLOBAL_GPU,
 };
 
 pub fn gpu() -> Arc<Gpu> {
@@ -38,72 +38,65 @@ impl<'a> SceneSerializer<'a> {
 
 /// Reload a [Scene] from its serialized state
 #[non_exhaustive]
-pub struct SerializedScene<N: 'static + FnMut(&mut Context)> {
+pub struct SerializedScene {
     pub id: u32,
     pub scene: Scene,
-    pub init: N,
+    systems: Vec<System>,
+    components: Vec<Box<RefCell<dyn ComponentTypeImplementation>>>,
+    ser_components: FxHashMap<ComponentTypeId, Vec<u8>>,
 }
 
-impl<N: 'static + FnMut(&mut Context)> SerializedScene<N> {
-    pub fn new(
-        id: u32,
-        scene: &[u8],
-        deserialize: impl FnOnce(&mut SceneDeserializer),
-        init: N,
-    ) -> SerializedScene<N> {
+impl SerializedScene {
+    pub fn new(id: u32, scene: &[u8]) -> SerializedScene {
         let (mut scene, ser_components): (Scene, FxHashMap<ComponentTypeId, Vec<u8>>) =
             bincode::deserialize(&scene).unwrap();
-        scene.id = id;
-        let mut de = SceneDeserializer::new(&mut scene, ser_components);
-        (deserialize)(&mut de);
-        Self { id, scene, init }
+        Self {
+            id,
+            scene,
+            ser_components,
+            systems: Default::default(),
+            components: Default::default(),
+        }
+    }
+
+    pub fn component<C: Component>(mut self, config: ComponentConfig) -> Self {
+        self.components
+            .push(Box::new(RefCell::new(ComponentType::<C>::new(config))));
+        self
+    }
+
+    pub fn system(mut self, system: System) -> Self {
+        self.systems.push(system);
+        self
+    }
+
+    pub fn deserialize<C: serde::de::DeserializeOwned + Component>(mut self) -> Self {
+        let type_id = C::IDENTIFIER;
+        if let Some(data) = self.ser_components.remove(&type_id) {
+            self.components.push(Box::new(RefCell::new(
+                bincode::deserialize::<ComponentType<C>>(&data).unwrap(),
+            )));
+        }
+        self
     }
 }
 
-impl<N: 'static + FnMut(&mut Context)> SceneCreator for SerializedScene<N> {
+impl SceneCreator for SerializedScene {
     fn new_id(&self) -> u32 {
         self.id
     }
 
     fn create(mut self: Box<Self>, app: &mut App) -> Scene {
-        let mut ctx = Context::new(app, &mut self.scene, ContextUse::Update);
-        (self.init)(&mut ctx);
+        let (_, mut ctx) = Context::new(&self.id, app, &mut self.scene);
+        for system in &self.systems {
+            match system {
+                System::Setup(setup) => {
+                    (setup)(&mut ctx);
+                }
+                _ => (),
+            }
+        }
         return self.scene;
-    }
-}
-
-/// Helper to deserialize [Components](crate::Component) and [States](crate::State) of a serialized [Scene]
-pub struct SceneDeserializer<'a> {
-    ser_components: FxHashMap<ComponentTypeId, Vec<u8>>,
-    pub scene: &'a mut Scene,
-}
-
-impl<'a> SceneDeserializer<'a> {
-    pub(crate) fn new(
-        scene: &'a mut Scene,
-        ser_components: FxHashMap<ComponentTypeId, Vec<u8>>,
-    ) -> Self {
-        Self {
-            scene,
-            ser_components,
-        }
-    }
-
-    pub fn register<C: Component>(&mut self) {
-        self.register_with_config::<C>(C::CONFIG);
-    }
-
-    pub fn register_with_config<C: Component>(&mut self, config: ComponentConfig) {
-        self.scene
-            .components
-            .register_with_config::<C>(&self.scene.groups, config);
-    }
-
-    pub fn deserialize<C: serde::de::DeserializeOwned + Component>(&mut self) {
-        let type_id = C::IDENTIFIER;
-        if let Some(data) = self.ser_components.remove(&type_id) {
-            self.scene.components.deserialize::<C>(data)
-        }
     }
 }
 

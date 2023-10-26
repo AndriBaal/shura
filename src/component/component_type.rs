@@ -10,7 +10,6 @@ use crate::{
     InstanceIndices, InstancePosition, Renderer, World,
 };
 
-
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// TypeId of a struct that derives from the [component](crate::Component) macro. The diffrence to the [std::any::TypeId] is, that
@@ -175,31 +174,6 @@ impl<C: Component> ComponentType<C> {
             ComponentStorage::Groups => ComponentTypeStorage::MultipleGroups(Arena::new()),
         };
         Self { storage, config }
-    }
-
-    pub(crate) fn load_groups(&mut self, group_structure: &GroupManager) {
-        match &mut self.storage {
-            ComponentTypeStorage::MultipleGroups(g) => {
-                *g = Arena {
-                    items: group_structure
-                        .groups
-                        .items
-                        .iter()
-                        .map(|entry| match *entry {
-                            ArenaEntry::Free { next_free } => ArenaEntry::Free { next_free },
-                            ArenaEntry::Occupied { generation, .. } => ArenaEntry::Occupied {
-                                generation,
-                                data: ComponentTypeGroup::new(),
-                            },
-                        })
-                        .collect(),
-                    generation: group_structure.groups.generation,
-                    free_list_head: group_structure.groups.free_list_head,
-                    len: group_structure.groups.len(),
-                }
-            },
-            _ => ()
-        }
     }
 
     pub fn component_type_id(&self) -> ComponentTypeId {
@@ -951,7 +925,10 @@ impl<C: Component> ComponentType<C> {
     pub fn iter_render<'a>(
         &'a self,
         group_handles: &[GroupHandle],
-    ) -> Box<dyn DoubleEndedIterator<Item = (&'a InstanceBuffer<InstancePosition>, InstanceIndex, &'a C)> + 'a> {
+    ) -> Box<
+        dyn DoubleEndedIterator<Item = (&'a InstanceBuffer<InstancePosition>, InstanceIndex, &'a C)>
+            + 'a,
+    > {
         match &self.storage {
             ComponentTypeStorage::Single {
                 component, buffer, ..
@@ -963,7 +940,11 @@ impl<C: Component> ComponentType<C> {
                         component,
                     )));
                 } else {
-                    return Box::new(std::iter::empty::<(&InstanceBuffer<InstancePosition>, InstanceIndex, &C)>());
+                    return Box::new(std::iter::empty::<(
+                        &InstanceBuffer<InstancePosition>,
+                        InstanceIndex,
+                        &C,
+                    )>());
                 }
             }
             ComponentTypeStorage::Multiple(multiple) => {
@@ -998,7 +979,12 @@ impl<C: Component> ComponentType<C> {
     pub(crate) fn render_each<'a>(
         &'a self,
         renderer: &mut Renderer<'a>,
-        mut each: impl FnMut(&mut Renderer<'a>, &'a C, &'a InstanceBuffer<InstancePosition>, InstanceIndex),
+        mut each: impl FnMut(
+            &mut Renderer<'a>,
+            &'a C,
+            &'a InstanceBuffer<InstancePosition>,
+            InstanceIndex,
+        ),
     ) {
         match &self.storage {
             ComponentTypeStorage::Single {
@@ -1311,9 +1297,7 @@ impl<C: Component> ComponentTypeImplementation for ComponentType<C> {
                     group.buffer(gpu, &self.config, world)
                 }
             }
-            ComponentTypeStorage::Multiple(multiple) => {
-                multiple.buffer(gpu, &self.config, world)
-            }
+            ComponentTypeStorage::Multiple(multiple) => multiple.buffer(gpu, &self.config, world),
             ComponentTypeStorage::Single {
                 buffer,
                 force_buffer,
@@ -1341,7 +1325,7 @@ impl<C: Component> ComponentTypeImplementation for ComponentType<C> {
         }
     }
 
-    #[cfg(feature = "serde")]
+    #[cfg(all(feature = "serde", feature = "physics"))]
     fn deinit_non_serialized(&self, world: &mut World) {
         match &self.storage {
             ComponentTypeStorage::Single { component, .. } => {

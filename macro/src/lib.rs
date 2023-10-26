@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, TokenStream as TokenStream2};
-use quote::{quote, ToTokens};
+use quote::{quote, ToTokens, format_ident};
 use std::sync::Mutex;
 use std::{collections::HashSet, sync::OnceLock};
 use syn::{parse_macro_input, parse_quote, Data, DataStruct, DeriveInput, Fields, Type, TypePath};
@@ -130,10 +130,12 @@ fn component(ast: &DeriveInput) -> TokenStream2 {
 
     let parallel_buffer = is_path_set(&ast, "parallel_buffer");
     let buffer_method = if cfg!(feature = "rayon") && parallel_buffer {
-        quote!(par_buffer)
+        "par_buffer"
     } else {
-        quote!(buffer)
+        "buffer"
     };
+    let buffer_method_with = format_ident!("{}_with", buffer_method);
+    let buffer_method = format_ident!("{}", buffer_method);
 
     let init_finish = if has_position {
         quote!(
@@ -169,13 +171,10 @@ fn component(ast: &DeriveInput) -> TokenStream2 {
                 mut helper: BufferHelper<Self>,
                 each: impl Fn(&mut Self) + Send + Sync,
             ) {
-                helper.#buffer_method(|c: &mut Self| {
-                    each(c);
-                    c.position().instance(helper.world)
-                })
+                helper.#buffer_method_with(each)
             }
             fn buffer(mut helper: BufferHelper<Self>) {
-                helper.#buffer_method(|component| component.position().instance(helper.world))
+                helper.#buffer_method()
             }
 
             fn component_type_id(&self) -> ::shura::ComponentTypeId {

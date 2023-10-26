@@ -636,5 +636,4 @@ impl World {
     pub fn set_time_scale(&mut self, time_scale: f32) {
         self.time_scale = time_scale;
     }
-
 }

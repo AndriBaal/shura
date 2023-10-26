@@ -442,7 +442,8 @@ impl DefaultResources {
             ),
             buffers: &[
                 wgpu::VertexBufferLayout {
-                    array_stride: std::mem::size_of::<Vertex<TextVertexData>>() as wgpu::BufferAddress,
+                    array_stride: std::mem::size_of::<Vertex<TextVertexData>>()
+                        as wgpu::BufferAddress,
                     step_mode: wgpu::VertexStepMode::Vertex,
                     attributes: &wgpu::vertex_attr_array![
                         0 => Float32x2,
@@ -459,7 +460,7 @@ impl DefaultResources {
                         4 => Float32x2,
                         5 => Float32x4,
                         6 => Float32x2,
-                        7 => Float32x4,
+                        7 => Float32x2,
                         8 => Float32x4,
                         9 => Uint32,
                     ],
