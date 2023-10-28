@@ -1,7 +1,8 @@
-use crate::{Component, ComponentHandle, ComponentTypeId, FrameManager};
-use rapier2d::{
-    crossbeam, prelude::CollisionEvent as RapierCollisionEvent,
-    prelude::ContactForceEvent as RapierContactForceEvent, prelude::*,
+use crate::{Component, ComponentHandle, FrameManager};
+use rapier2d::{crossbeam, prelude::*};
+pub use rapier2d::{
+    prelude::CollisionEvent as RapierCollisionEvent,
+    prelude::ContactForceEvent as RapierContactForceEvent,
 };
 use rustc_hash::FxHashMap;
 
@@ -22,9 +23,9 @@ impl CollectedEvents {
         }
         self
     }
-    pub fn contact_forces(self, mut handle: impl FnMut(RapierCollisionEvent)) -> Self {
-        while let Ok(collision_event) = self.collision.try_recv() {
-            (handle)(collision_event);
+    pub fn contact_forces(self, mut handle: impl FnMut(RapierContactForceEvent)) -> Self {
+        while let Ok(contact_force_event) = self.contact_force.try_recv() {
+            (handle)(contact_force_event);
         }
         self
     }

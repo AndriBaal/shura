@@ -148,7 +148,7 @@ impl fmt::Display for GroupActivation {
 #[derive(Debug, Clone)]
 pub struct Group {
     #[cfg_attr(feature = "serde", serde(skip))]
-    #[cfg_attr(feature = "serde", serde(default))]    
+    #[cfg_attr(feature = "serde", serde(default))]
     active: bool,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default = "Instant::now"))]

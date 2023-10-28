@@ -3,8 +3,8 @@ use rustc_hash::FxHashMap;
 
 use crate::{
     Component, ComponentConfig, ComponentHandle, ComponentScope, ComponentSet, ComponentSetMut,
-    ComponentType, ComponentTypeId, GlobalComponents, Gpu, GroupHandle,
-    InstanceBuffer, InstanceIndex, InstanceIndices, InstancePosition, Renderer, Scene, World, SystemManager,
+    ComponentType, ComponentTypeId, GlobalComponents, Gpu, GroupHandle, InstanceBuffer,
+    InstanceIndex, InstanceIndices, InstancePosition, Renderer, Scene, SystemManager, World,
 };
 
 #[cfg(feature = "serde")]
@@ -167,9 +167,12 @@ pub struct ComponentResources<'a> {
 
 impl<'a> ComponentResources<'a> {
     pub(crate) fn new(scene: &'a Scene) -> (&'a SystemManager, Self) {
-        return (&scene.systems, Self {
-            components: &scene.components,
-        });
+        return (
+            &scene.systems,
+            Self {
+                components: &scene.components,
+            },
+        );
     }
 
     #[inline]

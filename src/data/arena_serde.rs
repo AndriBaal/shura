@@ -43,48 +43,6 @@ where
     }
 }
 
-// impl Arena<BoxedComponent> {
-//     pub fn serialize_components<C: Component + Serialize>(
-//         &self,
-//     ) -> Vec<Option<(u32, Vec<u8>)>> {
-//         let e = self
-//             .items
-//             .iter()
-//             .map(|entry| match entry {
-//                 ArenaEntry::Occupied { generation, data } => Some((
-//                     *generation,
-//                     bincode::serialize(data.downcast_ref::<C>().unwrap()).unwrap(),
-//                 )),
-//                 ArenaEntry::Free { .. } => None,
-//             })
-//             .collect();
-//         return e;
-//     }
-// }
-
-// impl Arena<Group> {
-//     pub fn serialize_groups(
-//         &self,
-//         ids: FxHashSet<GroupId>,
-//     ) -> Vec<Option<(&u32, &Group)>> {
-//         let e = self
-//             .items
-//             .iter()
-//             .map(|entry| match entry {
-//                 ArenaEntry::Occupied { generation, data } => {
-//                     if ids.contains(&data.id()) {
-//                         Some((generation, data))
-//                     } else {
-//                         None
-//                     }
-//                 }
-//                 _ => None,
-//             })
-//             .collect();
-//         return e;
-//     }
-// }
-
 impl<'de, T> Deserialize<'de> for Arena<T>
 where
     T: Deserialize<'de>,

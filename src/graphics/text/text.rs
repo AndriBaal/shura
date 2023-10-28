@@ -163,7 +163,6 @@ pub struct TextSection<S: AsRef<str>> {
     pub vertex_rotation_axis: Vector<f32>,
     pub horizontal_alignment: TextAlignment,
     pub vertical_alignment: TextAlignment,
-    // pub width: f32,
 }
 
 impl Default for TextSection<&str> {

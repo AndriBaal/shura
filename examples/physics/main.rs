@@ -144,7 +144,7 @@ fn render(res: &ComponentResources, encoder: &mut RenderEncoder) {
                 instances,
                 buffer,
                 renderer.world_camera,
-                &resources.floor_model
+                &resources.floor_model,
             )
         });
 
@@ -153,7 +153,7 @@ fn render(res: &ComponentResources, encoder: &mut RenderEncoder) {
                 instance,
                 buffer,
                 renderer.world_camera,
-                &resources.box_model
+                &resources.box_model,
             );
         });
     })
@@ -164,7 +164,7 @@ struct Resources {
     floor_model: Model,
     box_model: Model,
     player_model: Model,
-    player_sprite: Sprite
+    player_sprite: Sprite,
 }
 
 impl Resources {
@@ -230,8 +230,8 @@ impl Floor {
         border_radius: 0.5,
     };
     pub fn new() -> Self {
-        let collider = ColliderBuilder::new(SharedShape::new(Self::SHAPE))
-            .translation(Vector::new(0.0, -1.0));
+        let collider =
+            ColliderBuilder::new(SharedShape::new(Self::SHAPE)).translation(Vector::new(0.0, -1.0));
         Self {
             collider: ColliderComponent::new(collider).with_color(Color::BLUE),
         }
@@ -256,7 +256,8 @@ impl PhysicsBox {
                 [ColliderBuilder::new(SharedShape::new(
                     PhysicsBox::BOX_SHAPE,
                 ))],
-            ).with_color(Color::GREEN),
+            )
+            .with_color(Color::GREEN),
         }
     }
 }

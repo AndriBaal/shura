@@ -16,8 +16,8 @@ use crate::{
 };
 use crate::{
     ComponentResources, ComponentTypeId, ComponentTypeImplementation, Context, DefaultResources,
-    EndReason, FrameManager, Gpu, GpuConfig, Input, RenderEncoder, RenderTarget, Scene,
-    SceneCreator, SceneManager, UpdateOperation, Vector,
+    EndReason, FrameManager, Gpu, GpuConfig, Input, RenderEncoder, Scene, SceneCreator,
+    SceneManager, UpdateOperation, Vector,
 };
 use rustc_hash::FxHashMap;
 #[cfg(target_os = "android")]
@@ -43,7 +43,6 @@ pub struct AppConfig {
 impl AppConfig {
     pub fn default(#[cfg(target_os = "android")] android: AndroidApp) -> Self {
         AppConfig {
-            // global_states: vec![],
             window: winit::window::WindowBuilder::new()
                 .with_inner_size(winit::dpi::PhysicalSize::new(800, 600))
                 .with_title("App Game"),
@@ -77,7 +76,6 @@ pub struct GlobalComponents(
     >,
 );
 
-/// Core of the game engine.
 pub struct App {
     pub end: bool,
     pub resized: bool,
@@ -299,60 +297,6 @@ impl App {
         }
     }
 
-    // #[cfg(feature = "physics")]
-    // fn world_step(ctx: &mut Context) {
-    //     macro_rules! skip_fail {
-    //         ($res:expr) => {
-    //             match $res {
-    //                 Some(val) => val,
-    //                 None => {
-    //                     continue;
-    //                 }
-    //             }
-    //         };
-    //     }
-
-    //     ctx.world.step(ctx.frame);
-    //     while let Ok(collision_event) = ctx.world.collision_event() {
-    //         let collision_type = if collision_event.started() {
-    //             CollideType::Started
-    //         } else {
-    //             CollideType::Stopped
-    //         };
-    //         let collider_handle1 = collision_event.collider1();
-    //         let collider_handle2 = collision_event.collider2();
-    //         let component1 = *skip_fail!(ctx.world.component_from_collider(&collider_handle1));
-    //         let component2 = *skip_fail!(ctx.world.component_from_collider(&collider_handle2));
-    //         let collider1_events = skip_fail!(ctx.world.collider(collider_handle1)).active_events();
-    //         let collider2_events = skip_fail!(ctx.world.collider(collider_handle2)).active_events();
-
-    //         let callback1 = skip_fail!(controllers.collisions().get(&component1.type_id()));
-    //         let callback2 = skip_fail!(controllers.collisions().get(&component2.type_id()));
-
-    //         if collider1_events == ActiveEvents::COLLISION_EVENTS {
-    //             (callback1)(
-    //                 ctx,
-    //                 component1,
-    //                 component2,
-    //                 collider_handle1,
-    //                 collider_handle2,
-    //                 collision_type,
-    //             );
-    //         }
-
-    //         if collider2_events == ActiveEvents::COLLISION_EVENTS {
-    //             (callback2)(
-    //                 ctx,
-    //                 component2,
-    //                 component1,
-    //                 collider_handle2,
-    //                 collider_handle1,
-    //                 collision_type,
-    //             );
-    //         }
-    //     }
-    // }
-
     fn process_frame(&mut self) -> Result<(), wgpu::SurfaceError> {
         while let Some(remove) = self.scenes.remove.pop() {
             if let Some(removed) = self.scenes.scenes.remove(&remove) {
@@ -513,7 +457,7 @@ impl App {
             .update(&mut scene.components, &scene.world_camera);
     }
 
-    fn render(&mut self, scene_id: u32, scene: &mut Scene) {
+    fn render(&mut self, _scene_id: u32, scene: &mut Scene) {
         scene.components.buffer(&mut scene.world, &self.gpu);
         scene.world_camera.buffer(&self.gpu);
         self.defaults

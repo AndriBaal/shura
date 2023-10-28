@@ -383,7 +383,6 @@ impl WgpuDefaultResources {
 pub struct DefaultResources {
     pub sprite: Shader,
     pub sprite_sheet: Shader,
-    // pub multiplied: Shader,
     pub color: Shader,
     pub rainbow: Shader,
     pub grey: Shader,
@@ -425,13 +424,6 @@ impl DefaultResources {
             uniforms: &[UniformField::Camera, UniformField::SpriteSheet],
             ..Default::default()
         });
-
-        // let multiplied = gpu.create_shader(ShaderConfig {
-        //     name: Some("multiplied"),
-        //     source: ShaderModuleSoure::Seperate { vertex: &gpu.base.vertex_shader_module, fragment: &gpu.create_shader_module(include_wgsl!("../../res/shader/XXX.wgsl")) },
-        //     uniforms: &[UniformField::Camera, UniformField::Sprite],
-        //     ..Default::default()
-        // });
 
         #[cfg(feature = "text")]
         let text = gpu.create_shader(ShaderConfig {
@@ -570,7 +562,6 @@ impl DefaultResources {
 
             #[cfg(feature = "framebuffer")]
             framebuffer,
-            // multiplied,
         }
     }
 

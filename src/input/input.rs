@@ -258,13 +258,6 @@ impl Input {
             WindowEvent::MouseWheel { delta, .. } => match delta {
                 MouseScrollDelta::LineDelta(_x, y) => {
                     self.wheel_delta = *y;
-                    // if *y > 0.0 {
-                    //     let trigger =
-                    //     self.events.insert(trigger, InputEvent::new(trigger));
-                    // } else if *y < 0.0 {
-                    //     let trigger = key.into();
-                    //     self.events.insert(trigger, InputEvent::new(trigger));
-                    // }
                 }
                 MouseScrollDelta::PixelDelta(delta) => {
                     self.wheel_delta = if delta.y > 0.0 { 1.0 } else { -1.0 };

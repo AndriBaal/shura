@@ -2,9 +2,8 @@
 use crate::text::Text;
 
 use crate::{
-    Camera, Color, Component, ComponentHandle, Context, DefaultResources, Gpu, GroupFilter,
-    GroupHandle, InstanceBuffer, InstanceIndex, InstanceIndices, InstancePosition, Model,
-    RenderTarget, Shader, Sprite, SpriteRenderTarget, SpriteSheet, Uniform, WorldCamera,
+    Camera, Color, DefaultResources, Gpu, InstanceBuffer, InstanceIndices, InstancePosition, Model,
+    RenderTarget, Shader, Sprite, SpriteSheet, Uniform, WorldCamera,
 };
 use std::{ops::Range, ptr::null};
 

@@ -243,20 +243,6 @@ impl SpriteRenderTarget {
             (size.y / camera_fov.y * window_size.y as f32).ceil() as u32,
         );
     }
-
-    // pub fn validate_webgl_size(mut size: Vector<u32>) -> Vector<u32> {
-    //     use log::warn;
-    //     const MAX_WEBGL_TEXTURE_SIZE: u32 = 2048;
-    //     if size.x > MAX_WEBGL_TEXTURE_SIZE {
-    //         size.x = MAX_WEBGL_TEXTURE_SIZE;
-    //         warn!("Auto scaling down to x {MAX_WEBGL_TEXTURE_SIZE} because the maximum WebGL texturesize has been surpassed!");
-    //     }
-    //     if size.x > MAX_WEBGL_TEXTURE_SIZE {
-    //         size.x = MAX_WEBGL_TEXTURE_SIZE;
-    //         warn!("Auto scaling down to x {MAX_WEBGL_TEXTURE_SIZE} because the maximum WebGL texturesize has been surpassed!");
-    //     }
-    //     return size;
-    // }
 }
 
 impl Into<Sprite> for SpriteRenderTarget {

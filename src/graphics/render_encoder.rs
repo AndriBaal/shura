@@ -36,11 +36,7 @@ impl<'a> RenderEncoder<'a> {
         }
     }
 
-    pub fn render<'b>(
-        &'b mut self,
-        clear: Option<Color>,
-        render: impl FnOnce(&mut Renderer<'b>)
-    ) {
+    pub fn render<'b>(&'b mut self, clear: Option<Color>, render: impl FnOnce(&mut Renderer<'b>)) {
         let mut renderer = Renderer::new(
             &mut self.inner,
             self.defaults,
@@ -56,7 +52,7 @@ impl<'a> RenderEncoder<'a> {
         &mut self,
         target: &dyn RenderTarget,
         clear: Option<Color>,
-        render: impl FnOnce(&mut Renderer)
+        render: impl FnOnce(&mut Renderer),
     ) {
         let mut renderer = Renderer::new(
             &mut self.inner,
@@ -69,10 +65,7 @@ impl<'a> RenderEncoder<'a> {
         (render)(&mut renderer);
     }
 
-    pub fn renderer<'b>(
-        &'b mut self,
-        clear: Option<Color>,
-    ) -> Renderer<'b> {
+    pub fn renderer<'b>(&'b mut self, clear: Option<Color>) -> Renderer<'b> {
         Renderer::new(
             &mut self.inner,
             self.defaults,

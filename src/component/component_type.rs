@@ -6,8 +6,8 @@ use crate::rayon::prelude::*;
 use crate::{
     data::arena::ArenaEntry, Arena, BufferHelper, BufferHelperType, BufferOperation, Component,
     ComponentConfig, ComponentHandle, ComponentIndex, ComponentStorage,
-    ComponentTypeImplementation, Gpu, GroupHandle, GroupManager, InstanceBuffer, InstanceIndex,
-    InstanceIndices, InstancePosition, Renderer, World,
+    ComponentTypeImplementation, Gpu, GroupHandle, InstanceBuffer, InstanceIndex, InstanceIndices,
+    InstancePosition, Renderer, World,
 };
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]

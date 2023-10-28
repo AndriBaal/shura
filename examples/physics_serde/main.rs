@@ -67,16 +67,16 @@ fn update(ctx: &mut Context) {
         if let Some(save_game) = std::fs::read("data.binc").ok() {
             ctx.scenes.add(
                 SerializedScene::new(1, &save_game)
-                .deserialize::<Floor>()
-                .deserialize::<Player>()
-                .deserialize::<PhysicsBox>()
-                .component::<Resources>(ComponentConfig::RESOURCE)
-                .system(System::Render(render))
-                .system(System::Setup(|ctx| {
-                    ctx.components.add(ctx.world, Resources::new(ctx));
-                }))
-                .system(System::Update(update))
-                .system(System::End(end))
+                    .deserialize::<Floor>()
+                    .deserialize::<Player>()
+                    .deserialize::<PhysicsBox>()
+                    .component::<Resources>(ComponentConfig::RESOURCE)
+                    .system(System::Render(render))
+                    .system(System::Setup(|ctx| {
+                        ctx.components.add(ctx.world, Resources::new(ctx));
+                    }))
+                    .system(System::Update(update))
+                    .system(System::End(end)),
             );
         }
     }
@@ -200,10 +200,8 @@ fn render(res: &ComponentResources, encoder: &mut RenderEncoder) {
 
 fn end(ctx: &mut Context, reason: EndReason) {
     match reason {
-        EndReason::EndProgram | EndReason::RemoveScene => {
-            serialize_scene(ctx)
-        },
-        EndReason::Replaced => ()
+        EndReason::EndProgram | EndReason::RemoveScene => serialize_scene(ctx),
+        EndReason::Replaced => (),
     }
 }
 
