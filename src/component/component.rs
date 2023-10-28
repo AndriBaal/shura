@@ -1,5 +1,3 @@
-#[cfg(feature = "physics")]
-use crate::physics::{CollideType, ColliderHandle};
 use crate::{
     data::arena::Arena, Color, ComponentConfig, ComponentHandle, ComponentIdentifier,
     ComponentTypeId, Context, EndReason, Gpu, InstanceBuffer, InstancePosition, RenderTarget,

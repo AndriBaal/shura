@@ -114,7 +114,16 @@ fn update(ctx: &mut Context) {
 
     body.set_linvel(linvel, true);
 
-    ctx.world.step(ctx.frame);
+    ctx.world.step(ctx.frame).collisions(|event| {
+        if let Some(event) = event.is::<Player, PhysicsBox>(ctx.world) {
+            if let Some(b) = boxes.get_mut(event.component2) {
+                b.body.set_index(match event.collision_type {
+                    CollisionType::Started => 2,
+                    CollisionType::Stopped => 0,
+                })
+            }
+        }
+    });
 }
 
 fn render(res: &ComponentResources, encoder: &mut RenderEncoder) {

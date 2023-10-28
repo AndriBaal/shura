@@ -1,19 +1,135 @@
-use crate::{ComponentHandle, FrameManager, ComponentTypeId, Component};
-use rapier2d::{crossbeam, prelude::*};
-use rayon::iter::plumbing::ProducerCallback;
+use crate::{Component, ComponentHandle, ComponentTypeId, FrameManager};
+use rapier2d::{
+    crossbeam, prelude::CollisionEvent as RapierCollisionEvent,
+    prelude::ContactForceEvent as RapierContactForceEvent, prelude::*,
+};
 use rustc_hash::FxHashMap;
 
 type EventReceiver<T> = crossbeam::channel::Receiver<T>;
 type ColliderMapping = FxHashMap<ColliderHandle, ComponentHandle>;
 type RigidBodyMapping = FxHashMap<RigidBodyHandle, ComponentHandle>;
 
-struct WorldEvents {
-    collision: EventReceiver<CollisionEvent>,
-    contact_force: EventReceiver<ContactForceEvent>,
+#[derive(Clone)]
+pub struct CollectedEvents {
+    collision: EventReceiver<RapierCollisionEvent>,
+    contact_force: EventReceiver<RapierContactForceEvent>,
+}
+
+impl CollectedEvents {
+    pub fn collisions(self, mut handle: impl FnMut(RapierCollisionEvent)) -> Self {
+        while let Ok(collision_event) = self.collision.try_recv() {
+            (handle)(collision_event);
+        }
+        self
+    }
+    pub fn contact_forces(self, mut handle: impl FnMut(RapierCollisionEvent)) -> Self {
+        while let Ok(collision_event) = self.collision.try_recv() {
+            (handle)(collision_event);
+        }
+        self
+    }
+}
+
+pub trait WorldEvent: Sized {
+    type Event;
+    fn is<C1: Component, C2: Component>(&self, world: &World) -> Option<Self::Event>;
+}
+
+impl WorldEvent for RapierCollisionEvent {
+    type Event = CollisionEvent;
+
+    fn is<C1: Component, C2: Component>(&self, world: &World) -> Option<Self::Event> {
+        let collider1 = self.collider1();
+        let collider2 = self.collider2();
+        let component1 = world.component_from_collider(&collider1)?;
+        let component2 = world.component_from_collider(&collider2)?;
+        if component1.component_type_id() == C1::IDENTIFIER
+            && component2.component_type_id() == C2::IDENTIFIER
+        {
+            return Some(CollisionEvent {
+                collider1,
+                collider2,
+                component1: *component1,
+                component2: *component2,
+                collision_type: if self.started() {
+                    CollisionType::Started
+                } else {
+                    CollisionType::Stopped
+                },
+            });
+        } else if component2.component_type_id() == C1::IDENTIFIER
+            && component1.component_type_id() == C2::IDENTIFIER
+        {
+            return Some(CollisionEvent {
+                collider1: collider2,
+                collider2: collider1,
+                component1: *component2,
+                component2: *component1,
+                collision_type: if self.started() {
+                    CollisionType::Started
+                } else {
+                    CollisionType::Stopped
+                },
+            });
+        }
+
+        return None;
+    }
+}
+
+impl WorldEvent for RapierContactForceEvent {
+    type Event = ContactForceEvent;
+
+    fn is<C1: Component, C2: Component>(&self, world: &World) -> Option<Self::Event> {
+        let collider1 = self.collider1;
+        let collider2 = self.collider2;
+        let component1 = world.component_from_collider(&collider1)?;
+        let component2 = world.component_from_collider(&collider2)?;
+        if component1.component_type_id() == C1::IDENTIFIER
+            && component2.component_type_id() == C2::IDENTIFIER
+        {
+            return Some(ContactForceEvent {
+                collider1,
+                collider2,
+                component1: *component1,
+                component2: *component2,
+                total_force: self.total_force,
+                total_force_magnitude: self.total_force_magnitude,
+                max_force_direction: self.max_force_direction,
+                max_force_magnitude: self.max_force_magnitude,
+            });
+        } else if component2.component_type_id() == C1::IDENTIFIER
+            && component1.component_type_id() == C2::IDENTIFIER
+        {
+            return Some(ContactForceEvent {
+                collider1: collider2,
+                collider2: collider1,
+                component1: *component2,
+                component2: *component1,
+                total_force: self.total_force,
+                total_force_magnitude: self.total_force_magnitude,
+                max_force_direction: self.max_force_direction,
+                max_force_magnitude: self.max_force_magnitude,
+            });
+        }
+
+        return None;
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub enum CollisionType {
+    Started,
+    Stopped,
+}
+
+struct EventCollector {
+    collision: EventReceiver<RapierCollisionEvent>,
+    contact_force: EventReceiver<RapierContactForceEvent>,
     collector: ChannelEventCollector,
 }
 
-impl Default for WorldEvents {
+impl Default for EventCollector {
     fn default() -> Self {
         let (collision_send, collision) = crossbeam::channel::unbounded();
         let (contact_force_send, contact_force) = crossbeam::channel::unbounded();
@@ -26,28 +142,25 @@ impl Default for WorldEvents {
     }
 }
 
-pub type CollisionCallback = fn(c1: (ComponentHandle, ColliderHandle), c2: (ComponentHandle, ColliderHandle), ty: CollideType);
-#[derive(Default)]
-pub struct WorldHooks {
-    collisions: FxHashMap<(ComponentTypeId, ComponentTypeId), CollisionCallback>
+#[derive(Copy, Clone, Debug)]
+pub struct CollisionEvent {
+    pub collider1: ColliderHandle,
+    pub collider2: ColliderHandle,
+    pub component1: ComponentHandle,
+    pub component2: ComponentHandle,
+    pub collision_type: CollisionType,
 }
 
-impl WorldHooks {
-    pub fn collision<C1: Component, C2: Component>(&mut self, callback: CollisionCallback) {
-        let key = if C1::IDENTIFIER < C2::IDENTIFIER {
-            (C1::IDENTIFIER, C2::IDENTIFIER)
-        } else {
-            (C2::IDENTIFIER, C1::IDENTIFIER)
-        };
-        self.collisions.insert(key, callback);
-    }
-}
-
-
-#[derive(Clone, Copy, Eq, PartialEq, Debug)]
-pub enum CollideType {
-    Started,
-    Stopped,
+#[derive(Copy, Clone, Debug)]
+pub struct ContactForceEvent {
+    pub collider1: ColliderHandle,
+    pub collider2: ColliderHandle,
+    pub component1: ComponentHandle,
+    pub component2: ComponentHandle,
+    pub total_force: Vector<f32>,
+    pub total_force_magnitude: f32,
+    pub max_force_direction: Vector<f32>,
+    pub max_force_magnitude: f32,
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -72,7 +185,7 @@ pub struct World {
     physics_pipeline: PhysicsPipeline,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
-    events: WorldEvents,
+    collector: EventCollector,
 }
 
 impl Clone for World {
@@ -92,7 +205,7 @@ impl Clone for World {
             multibody_joints: self.multibody_joints.clone(),
             ccd_solver: self.ccd_solver.clone(),
             physics_pipeline: Default::default(),
-            events: Default::default(),
+            collector: Default::default(),
             time_scale: self.time_scale,
         }
     }
@@ -112,7 +225,7 @@ impl World {
             ccd_solver: CCDSolver::new(),
             colliders: ColliderSet::new(),
             bodies: RigidBodySet::new(),
-            events: Default::default(),
+            collector: Default::default(),
             collider_mapping: Default::default(),
             rigid_body_mapping: Default::default(),
             gravity: vector![0.0, 0.0],
@@ -216,7 +329,9 @@ impl World {
         return collider;
     }
 
-    pub fn step(&mut self, frame: &FrameManager, hooks: WorldHooks) {
+    pub fn step(&mut self, frame: &FrameManager) -> CollectedEvents {
+        while let Ok(_event) = self.collector.collision.try_recv() {}
+        while let Ok(_event) = self.collector.contact_force.try_recv() {}
         self.integration_parameters.dt = frame.frame_time() * self.time_scale;
         self.physics_pipeline.step(
             &self.gravity,
@@ -231,41 +346,17 @@ impl World {
             &mut self.ccd_solver,
             Some(&mut self.query_pipeline),
             &(),
-            &self.events.collector,
+            &self.collector.collector,
         );
         self.query_pipeline.update(&self.bodies, &self.colliders);
-        
-        macro_rules! skip_fail {
-            ($res:expr) => {
-                match $res {
-                    Some(val) => val,
-                    None => {
-                        continue;
-                    }
-                }
-            };
-        }
-        while let Ok(collision_event) = self.events.collision.try_recv() {
-            let collision_type = if collision_event.started() {
-                CollideType::Started
-            } else {
-                CollideType::Stopped
-            };
-            let collider_handle1 = collision_event.collider1();
-            let collider_handle2 = collision_event.collider2();
-            let component1 = *skip_fail!(self.component_from_collider(&collider_handle1));
-            let component2 = *skip_fail!(self.component_from_collider(&collider_handle2));
+        return self.events();
+    }
 
-            let (key, params) = if component1.component_type_id() < component2.component_type_id() {
-                ((component1.component_type_id(), component2.component_type_id()), ((component1, collider_handle1), (component2, collider_handle2)))
-            } else {
-                ((component2.component_type_id(), component1.component_type_id()), ((component2, collider_handle2), (component1, collider_handle1)))
-            };
-
-            if let Some(callback) = hooks.collisions.get(&key) {
-                (callback)(params.0, params.1, collision_type);
-            }
-        }
+    pub fn events(&self) -> CollectedEvents {
+        return CollectedEvents {
+            collision: self.collector.collision.clone(),
+            contact_force: self.collector.contact_force.clone(),
+        };
     }
 
     #[cfg(feature = "serde")]

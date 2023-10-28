@@ -9,8 +9,6 @@ pub static GLOBAL_GPU: OnceLock<Arc<Gpu>> = OnceLock::new();
 
 #[cfg(feature = "gui")]
 use crate::gui::Gui;
-#[cfg(feature = "physics")]
-use crate::physics::{ActiveEvents, CollideType};
 #[cfg(feature = "log")]
 use crate::{
     log::{error, info, LoggerBuilder},

@@ -1,16 +1,6 @@
-use crate::{Component, ComponentResources};
-use rustc_hash::FxHashSet;
-use std::cell::RefCell;
+use crate::ComponentResources;
 
-#[cfg(feature = "physics")]
-use crate::{
-    physics::{CollideType, ColliderHandle},
-    ComponentHandle, FxHashMap,
-};
-use crate::{
-    BufferOperation, Color, ComponentConfig, ComponentTypeId, Context, Duration, EndReason,
-    Instant, RenderEncoder, RenderTarget,
-};
+use crate::{Context, Duration, EndReason, Instant, RenderEncoder};
 
 type SetupSystem = fn(ctx: &mut Context);
 type ResizeSystem = fn(ctx: &mut Context);
