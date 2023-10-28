@@ -367,7 +367,13 @@ impl App {
         while let Some(add) = self.scenes.add.pop() {
             let id = add.new_id();
             let scene = add.create(self);
-            self.scenes.scenes.insert(id, Rc::new(RefCell::new(scene)));
+            if let Some(old) = self.scenes.scenes.insert(id, Rc::new(RefCell::new(scene))) {
+                let mut removed = old.borrow_mut();
+                let (systems, mut ctx) = Context::new(&id, self, &mut removed);
+                for end in &systems.end_systems {
+                    (end)(&mut ctx, EndReason::Replaced)
+                }
+            }
         }
 
         let scene_id = self.scenes.active_scene_id();

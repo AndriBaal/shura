@@ -1,10 +1,9 @@
 use downcast_rs::{impl_downcast, Downcast};
-use egui::ahash::HashMapExt;
 use rustc_hash::FxHashMap;
 
 use crate::{
     Component, ComponentConfig, ComponentHandle, ComponentScope, ComponentSet, ComponentSetMut,
-    ComponentType, ComponentTypeId, GlobalComponents, Gpu, GroupHandle, GroupManager,
+    ComponentType, ComponentTypeId, GlobalComponents, Gpu, GroupHandle,
     InstanceBuffer, InstanceIndex, InstanceIndices, InstancePosition, Renderer, Scene, World, SystemManager,
 };
 
@@ -261,10 +260,8 @@ impl ComponentManager {
                     } else {
                         globals.insert(id, None);
                     }
-                    if !self.types.contains_key(&id) {
-                        self.types
-                            .insert(id, ComponentTypeScope::Scene(component.into()));
-                    }
+                    self.types
+                        .insert(id, ComponentTypeScope::Scene(component.into()));
                 }
                 ComponentScope::Global => {
                     if let Some(ty) = globals.get(&id) {

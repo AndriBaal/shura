@@ -1,6 +1,6 @@
 use crate::{
-    data::arena::Arena, Color, ComponentConfig, ComponentHandle, ComponentIdentifier,
-    ComponentTypeId, Context, EndReason, Gpu, InstanceBuffer, InstancePosition, RenderTarget,
+    data::arena::Arena, ComponentHandle, ComponentIdentifier,
+    ComponentTypeId, Gpu, InstanceBuffer, InstancePosition,
     World,
 };
 use downcast_rs::*;

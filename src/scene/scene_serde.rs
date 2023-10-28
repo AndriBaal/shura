@@ -88,6 +88,7 @@ impl SceneCreator for SerializedScene {
 
     fn create(mut self: Box<Self>, app: &mut App) -> Scene {
         self.scene.components.init(&app.globals, self.components);
+        self.scene.systems.init(&self.systems);
         let (_, mut ctx) = Context::new(&self.id, app, &mut self.scene);
         for system in &self.systems {
             match system {

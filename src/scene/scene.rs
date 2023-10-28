@@ -88,7 +88,7 @@ pub struct Scene {
     pub components: ComponentManager,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default="SystemManager::empty"))]
-    pub(crate) systems: SystemManager,
+    pub systems: SystemManager,
 }
 
 impl Scene {

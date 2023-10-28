@@ -3,6 +3,7 @@
 pub enum EndReason {
     EndProgram,
     RemoveScene,
+    Replaced
 }
 
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]

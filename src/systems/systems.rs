@@ -18,13 +18,13 @@ pub enum System {
     End(EndSystem),
 }
 
-pub(crate) enum UpdateOperation {
+pub enum UpdateOperation {
     EveryFrame,
     EveryNFrame(u64),
     UpdaterAfter(Instant, Duration),
 }
 
-pub(crate) struct SystemManager {
+pub struct SystemManager {
     pub resize_systems: Vec<ResizeSystem>,
     pub update_systems: Vec<(UpdateOperation, UpdateSystem)>,
     pub end_systems: Vec<EndSystem>,

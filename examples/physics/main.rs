@@ -32,13 +32,13 @@ fn setup(ctx: &mut Context) {
         }
     }
 
-    let player = Player::new(ctx);
+    let player = Player::new();
     let player_handle = ctx.components.add(ctx.world, player);
     ctx.world_camera.set_target(Some(WorldCameraTarget {
         target: player_handle,
         ..Default::default()
     }));
-    let floor = Floor::new(ctx);
+    let floor = Floor::new();
     ctx.components.add(ctx.world, floor);
 }
 
@@ -74,8 +74,8 @@ fn update(ctx: &mut Context) {
     let cursor_world: Point<f32> = (ctx.cursor).into();
     let remove = ctx.input.is_held(MouseButton::Left) || ctx.input.is_pressed(ScreenTouch);
     boxes.for_each_mut(|physics_box| {
-        if *physics_box.body.index() == 1 {
-            physics_box.body.set_index(0);
+        if *physics_box.body.color() == Color::RED {
+            physics_box.body.set_color(Color::GREEN);
         }
     });
     let mut component: Option<ComponentHandle> = None;
@@ -86,7 +86,7 @@ fn update(ctx: &mut Context) {
         });
     if let Some(handle) = component {
         if let Some(physics_box) = boxes.get_mut(handle) {
-            physics_box.body.set_index(1);
+            physics_box.body.set_color(Color::RED);
             if remove {
                 boxes.remove(ctx.world, handle);
             }
@@ -117,9 +117,9 @@ fn update(ctx: &mut Context) {
     ctx.world.step(ctx.frame).collisions(|event| {
         if let Some(event) = event.is::<Player, PhysicsBox>(ctx.world) {
             if let Some(b) = boxes.get_mut(event.component2) {
-                b.body.set_index(match event.collision_type {
-                    CollisionType::Started => 2,
-                    CollisionType::Stopped => 0,
+                b.body.set_color(match event.collision_type {
+                    CollisionType::Started => Color::BLUE,
+                    CollisionType::Stopped => Color::GREEN,
                 })
             }
         }
@@ -129,33 +129,31 @@ fn update(ctx: &mut Context) {
 fn render(res: &ComponentResources, encoder: &mut RenderEncoder) {
     let resources = res.single::<Resources>();
     encoder.render(Some(Color::BLACK), |renderer| {
-        res.render_single::<Player>(renderer, |renderer, player, buffer, instances| {
+        res.render_single::<Player>(renderer, |renderer, _player, buffer, instances| {
             renderer.render_sprite(
                 instances,
                 buffer,
                 renderer.world_camera,
-                &player.model,
-                &player.sprite,
+                &resources.player_model,
+                &resources.player_sprite,
             )
         });
 
-        res.render_single::<Floor>(renderer, |renderer, floor, buffer, instances| {
-            renderer.render_sprite(
+        res.render_single::<Floor>(renderer, |renderer, _floor, buffer, instances| {
+            renderer.render_color(
                 instances,
                 buffer,
                 renderer.world_camera,
-                &floor.model,
-                &floor.color,
+                &resources.floor_model
             )
         });
 
         res.render_all::<PhysicsBox>(renderer, |renderer, buffer, instance| {
-            renderer.render_sprite_sheet(
+            renderer.render_color(
                 instance,
                 buffer,
                 renderer.world_camera,
-                &resources.box_model,
-                &resources.box_colors,
+                &resources.box_model
             );
         });
     })
@@ -163,33 +161,37 @@ fn render(res: &ComponentResources, encoder: &mut RenderEncoder) {
 
 #[derive(Component)]
 struct Resources {
-    box_colors: SpriteSheet,
+    floor_model: Model,
     box_model: Model,
+    player_model: Model,
+    player_sprite: Sprite
 }
 
 impl Resources {
     pub fn new(ctx: &Context) -> Self {
-        let box_colors = ctx.gpu.create_sprite_sheet(SpriteSheetBuilder::colors(&[
-            RgbaColor::new(0, 255, 0, 255),
-            RgbaColor::new(255, 0, 0, 255),
-            RgbaColor::new(0, 0, 255, 255),
-            RgbaColor::new(0, 0, 255, 255),
-        ]));
         Self {
+            player_sprite: ctx.gpu.create_sprite(sprite_file!("./img/burger.png")),
+            player_model: ctx.gpu.create_model(ModelBuilder::from_collider_shape(
+                &Player::SHAPE,
+                Player::RESOLUTION,
+                0.0,
+            )),
+            floor_model: ctx.gpu.create_model(ModelBuilder::from_collider_shape(
+                &Floor::SHAPE,
+                Floor::RESOLUTION,
+                0.0,
+            )),
             box_model: ctx.gpu.create_model(ModelBuilder::from_collider_shape(
                 &PhysicsBox::BOX_SHAPE,
                 0,
                 0.0,
             )),
-            box_colors,
         }
     }
 }
 
 #[derive(Component)]
 struct Player {
-    sprite: Sprite,
-    model: Model,
     #[position]
     body: RigidBodyComponent,
 }
@@ -201,16 +203,10 @@ impl Player {
         radius: Self::RADIUS,
     };
 
-    pub fn new(ctx: &Context) -> Self {
+    pub fn new() -> Self {
         let collider = ColliderBuilder::new(SharedShape::new(Self::SHAPE))
             .active_events(ActiveEvents::COLLISION_EVENTS);
         Self {
-            sprite: ctx.gpu.create_sprite(sprite_file!("./img/burger.png")),
-            model: ctx.gpu.create_model(ModelBuilder::from_collider_shape(
-                collider.shape.as_ref(),
-                Self::RESOLUTION,
-                0.0,
-            )),
             body: RigidBodyComponent::new(
                 RigidBodyBuilder::dynamic().translation(Vector::new(5.0, 4.0)),
                 [collider],
@@ -221,31 +217,23 @@ impl Player {
 
 #[derive(Component)]
 struct Floor {
-    color: Sprite,
-    model: Model,
     #[position]
     collider: ColliderComponent,
 }
 
 impl Floor {
-    const FLOOR_RESOLUTION: u32 = 12;
-    const FLOOR_SHAPE: RoundCuboid = RoundCuboid {
+    const RESOLUTION: u32 = 12;
+    const SHAPE: RoundCuboid = RoundCuboid {
         inner_shape: Cuboid {
             half_extents: Vector::new(20.0, 0.4),
         },
         border_radius: 0.5,
     };
-    pub fn new(ctx: &Context) -> Self {
-        let collider = ColliderBuilder::new(SharedShape::new(Self::FLOOR_SHAPE))
+    pub fn new() -> Self {
+        let collider = ColliderBuilder::new(SharedShape::new(Self::SHAPE))
             .translation(Vector::new(0.0, -1.0));
         Self {
-            color: ctx.gpu.create_sprite(SpriteBuilder::color(RgbaColor::BLUE)),
-            model: ctx.gpu.create_model(ModelBuilder::from_collider_shape(
-                collider.shape.as_ref(),
-                Self::FLOOR_RESOLUTION,
-                0.0,
-            )),
-            collider: ColliderComponent::new(collider),
+            collider: ColliderComponent::new(collider).with_color(Color::BLUE),
         }
     }
 }
@@ -268,7 +256,7 @@ impl PhysicsBox {
                 [ColliderBuilder::new(SharedShape::new(
                     PhysicsBox::BOX_SHAPE,
                 ))],
-            ),
+            ).with_color(Color::GREEN),
         }
     }
 }
