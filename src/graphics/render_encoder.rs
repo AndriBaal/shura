@@ -1,27 +1,20 @@
-use crate::{
-    Color, DefaultResources, Gpu, RenderTarget, Renderer, SpriteRenderTarget, WorldCamera,
-};
+use crate::{Color, DefaultResources, Gpu, RenderTarget, Renderer, SpriteRenderTarget};
 
 /// Encoder of [Renderers](crate::Renderer) and utilities to copy, clear and render text onto [RenderTargets](crate::RenderTarget)
 pub struct RenderEncoder<'a> {
     pub inner: wgpu::CommandEncoder,
     pub defaults: &'a DefaultResources,
-    pub world_camera: &'a WorldCamera,
     pub gpu: &'a Gpu,
 }
 
 impl<'a> Clone for RenderEncoder<'a> {
     fn clone(&self) -> Self {
-        Self::new(self.gpu, self.defaults, self.world_camera)
+        Self::new(self.gpu, self.defaults)
     }
 }
 
 impl<'a> RenderEncoder<'a> {
-    pub fn new(
-        gpu: &'a Gpu,
-        defaults: &'a DefaultResources,
-        world_camera: &'a WorldCamera,
-    ) -> Self {
+    pub fn new(gpu: &'a Gpu, defaults: &'a DefaultResources) -> Self {
         let encoder = gpu
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -32,7 +25,6 @@ impl<'a> RenderEncoder<'a> {
             inner: encoder,
             defaults,
             gpu,
-            world_camera,
         }
     }
 
@@ -41,7 +33,6 @@ impl<'a> RenderEncoder<'a> {
             &mut self.inner,
             self.defaults,
             self.gpu,
-            self.world_camera,
             self.defaults.default_target(),
             clear,
         );
@@ -54,14 +45,7 @@ impl<'a> RenderEncoder<'a> {
         clear: Option<Color>,
         render: impl FnOnce(&mut Renderer),
     ) {
-        let mut renderer = Renderer::new(
-            &mut self.inner,
-            self.defaults,
-            self.gpu,
-            self.world_camera,
-            target,
-            clear,
-        );
+        let mut renderer = Renderer::new(&mut self.inner, self.defaults, self.gpu, target, clear);
         (render)(&mut renderer);
     }
 
@@ -70,7 +54,6 @@ impl<'a> RenderEncoder<'a> {
             &mut self.inner,
             self.defaults,
             self.gpu,
-            self.world_camera,
             self.defaults.default_target(),
             clear,
         )
@@ -81,14 +64,7 @@ impl<'a> RenderEncoder<'a> {
         target: &'b dyn RenderTarget,
         clear: Option<Color>,
     ) -> Renderer<'b> {
-        Renderer::new(
-            &mut self.inner,
-            self.defaults,
-            self.gpu,
-            self.world_camera,
-            target,
-            clear,
-        )
+        Renderer::new(&mut self.inner, self.defaults, self.gpu, target, clear)
     }
 
     pub fn copy_target(&mut self, src: &dyn RenderTarget, target: &dyn RenderTarget) {

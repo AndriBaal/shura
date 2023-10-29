@@ -18,7 +18,7 @@ fn shura_main(config: AppConfig) {
 fn setup(ctx: &mut Context) {
     ctx.world_camera.set_scaling(WorldCameraScale::Min(3.0));
     ctx.components
-        .add_with(ctx.world, |handle| Bunny::new(vector(0.0, 0.0), handle));
+        .add_with(ctx.world, |handle| Bunny::new(vector2(0.0, 0.0), handle));
     ctx.components.add(ctx.world, Resources::new(ctx));
 }
 
@@ -106,16 +106,16 @@ fn render(res: &ComponentResources, encoder: &mut RenderEncoder) {
                 renderer.render_sprite(
                     instances,
                     buffer,
-                    renderer.world_camera,
-                    renderer.unit_model,
+                    res.world_camera,
+                    res.unit_model,
                     &resources.bunny_sprite,
                 );
             });
 
             renderer.render_text(
                 0..1,
-                renderer.centered_instance,
-                renderer.relative_top_right_camera,
+                res.centered_instance,
+                res.relative_top_right_camera,
                 &resources.text,
             );
         },
@@ -164,18 +164,18 @@ impl Resources {
 struct Bunny {
     #[position]
     position: PositionComponent,
-    linvel: Vector<f32>,
+    linvel: Vector2<f32>,
     handle: ComponentHandle,
 }
 
 impl Bunny {
-    pub fn new(translation: Vector<f32>, handle: ComponentHandle) -> Bunny {
+    pub fn new(translation: Vector2<f32>, handle: ComponentHandle) -> Bunny {
         let scale = rand::gen_range(0.75_f32..2.0);
         let position = PositionComponent::new()
             .with_translation(translation)
             .with_rotation(rand::gen_range(-1.0..1.0))
-            .with_scale(scale * vector(0.12, 0.18));
-        let linvel = vector(rand::gen_range(-2.5..2.5), rand::gen_range(-7.5..7.5));
+            .with_scale(scale * vector2(0.12, 0.18));
+        let linvel = vector2(rand::gen_range(-2.5..2.5), rand::gen_range(-7.5..7.5));
         Bunny {
             position,
             linvel,

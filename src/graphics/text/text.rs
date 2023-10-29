@@ -1,16 +1,30 @@
 use std::sync::Arc;
 
 use crate::{
-    vector, Color, Gpu, Index, Isometry, Model, ModelBuilder, SpriteSheet, SpriteSheetBuilder,
-    SpriteSheetIndex, Vector, Vertex,
+    Color, Gpu, Index, Isometry2, Model, SpriteSheet, SpriteSheetBuilder,
+    SpriteSheetIndex, Vector2, Vertex, ModelBuilder2D,
 };
 use rustc_hash::FxHashMap;
+use wgpu::vertex_attr_array;
 
-#[derive(Clone, Copy, Debug, Default, bytemuck::Zeroable, bytemuck::Pod)]
+
 #[repr(C)]
-pub(crate) struct TextVertexData {
-    color: Color,
-    sprite: u32,
+#[derive(Copy, Clone, Debug, Default, bytemuck::Pod, bytemuck::Zeroable)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct Vertex2DText {
+    pub pos: Vector2<f32>,
+    pub tex: Vector2<f32>,
+    pub color: Color,
+    pub sprite: u32,
+}
+
+impl Vertex for Vertex2DText {
+    const ATTRIBUTES: &'static [wgpu::VertexAttribute] = &vertex_attr_array![
+        0 => Float32x2,
+        1 => Float32x2,
+        2 => Float32x4,
+        3 => Uint32,
+    ];
 }
 
 #[derive(Clone)]
@@ -29,7 +43,7 @@ impl Font {
 
 pub(crate) struct FontInner {
     sprite_sheet: SpriteSheet,
-    index_map: FxHashMap<rusttype::GlyphId, (SpriteSheetIndex, Vector<f32>)>,
+    index_map: FxHashMap<rusttype::GlyphId, (SpriteSheetIndex, Vector2<f32>)>,
     font: rusttype::Font<'static>,
 }
 impl FontInner {
@@ -70,7 +84,7 @@ impl FontInner {
         }
 
         let mut amount = 0;
-        let mut size = Vector::default();
+        let mut size = Vector2::default();
         let glyphs = glyphs!(face_ref);
         for (id, _char) in glyphs {
             if !_char.is_ascii() {
@@ -92,8 +106,8 @@ impl FontInner {
         }
 
         let desc = SpriteSheetBuilder::empty(
-            vector(size.x as u32, Self::RES as u32),
-            vector(amount as u32, 1),
+            Vector2::new(size.x as u32, Self::RES as u32),
+            Vector2::new(amount as u32, 1),
         )
         .sampler(wgpu::SamplerDescriptor {
             label: Some("wgpu-text Cache Texture Sampler"),
@@ -125,14 +139,14 @@ impl FontInner {
                 positioned.draw(|_x, _y, a| {
                     buffer.push((a * 255.0) as u8);
                 });
-                let ratio = Vector::new(bb.width(), bb.height())
+                let ratio = Vector2::new(bb.width(), bb.height())
                     .cast::<f32>()
                     .component_div(&size.cast::<f32>());
                 index_map.insert(id, (counter, ratio));
                 sprite_sheet.write(
                     gpu,
                     counter,
-                    vector(bb.width() as u32, bb.height() as u32),
+                    Vector2::new(bb.width() as u32, bb.height() as u32),
                     1,
                     &buffer,
                 );
@@ -159,8 +173,8 @@ pub struct TextSection<S: AsRef<str>> {
     pub color: Color,
     pub text: S,
     pub size: f32,
-    pub vertex_offset: Isometry<f32>,
-    pub vertex_rotation_axis: Vector<f32>,
+    pub vertex_offset: Isometry2<f32>,
+    pub vertex_rotation_axis: Vector2<f32>,
     pub horizontal_alignment: TextAlignment,
     pub vertical_alignment: TextAlignment,
 }
@@ -171,11 +185,11 @@ impl Default for TextSection<&str> {
             color: Color::BLACK,
             text: "",
             size: 1.0,
-            vertex_offset: Isometry::new(
-                ModelBuilder::<()>::DEFAULT_OFFSET,
-                ModelBuilder::<()>::DEFAULT_ROTATION,
+            vertex_offset: Isometry2::new(
+                ModelBuilder2D::DEFAULT_OFFSET,
+                ModelBuilder2D::DEFAULT_ROTATION,
             ),
-            vertex_rotation_axis: Vector::new(0.0, 0.0),
+            vertex_rotation_axis: Vector2::new(0.0, 0.0),
             horizontal_alignment: TextAlignment::Start,
             vertical_alignment: TextAlignment::Start,
         }
@@ -188,11 +202,11 @@ impl Default for TextSection<String> {
             color: Color::BLACK,
             text: String::from(""),
             size: 1.0,
-            vertex_offset: Isometry::new(
-                ModelBuilder::<()>::DEFAULT_OFFSET,
-                ModelBuilder::<()>::DEFAULT_ROTATION,
+            vertex_offset: Isometry2::new(
+                ModelBuilder2D::DEFAULT_OFFSET,
+                ModelBuilder2D::DEFAULT_ROTATION,
             ),
-            vertex_rotation_axis: Vector::new(0.0, 0.0),
+            vertex_rotation_axis: Vector2::new(0.0, 0.0),
             horizontal_alignment: TextAlignment::Start,
             vertical_alignment: TextAlignment::Start,
         }
@@ -201,13 +215,13 @@ impl Default for TextSection<String> {
 
 pub struct Text {
     font: Font,
-    model: Model,
+    model: Model<Vertex2DText>,
 }
 
 impl Text {
     pub fn new<S: AsRef<str>>(gpu: &Gpu, font: &Font, sections: &[TextSection<S>]) -> Self {
         let builder = Self::compute_vertices(font, sections);
-        let model = gpu.create_model_with_data(builder);
+        let model = gpu.create_model(builder);
         return Self {
             font: font.clone(),
             model,
@@ -217,24 +231,24 @@ impl Text {
     fn compute_vertices<S: AsRef<str>>(
         font: &Font,
         sections: &[TextSection<S>],
-    ) -> ModelBuilder<TextVertexData> {
-        let mut vertices: Vec<Vertex<TextVertexData>> = vec![];
+    ) -> (Vec<Vertex2DText>, Vec<Index>) {
+        let mut vertices: Vec<Vertex2DText> = vec![];
         let mut indices: Vec<Index> = vec![];
 
         fn compute_modifed_vertices(
-            vertices: &mut [Vertex<TextVertexData>],
-            vertex_offset: Isometry<f32>,
-            vertex_rotation_axis: Vector<f32>,
+            vertices: &mut [Vertex2DText],
+            vertex_offset: Isometry2<f32>,
+            vertex_rotation_axis: Vector2<f32>,
         ) {
             let angle = vertex_offset.rotation.angle();
-            if angle != ModelBuilder::<TextVertexData>::DEFAULT_ROTATION {
+            if angle != ModelBuilder2D::DEFAULT_ROTATION {
                 for v in vertices.iter_mut() {
                     let delta = v.pos - vertex_rotation_axis;
                     v.pos = vertex_rotation_axis + vertex_offset.rotation * delta;
                 }
             }
 
-            if vertex_offset.translation.vector != ModelBuilder::<TextVertexData>::DEFAULT_OFFSET {
+            if vertex_offset.translation.vector != ModelBuilder2D::DEFAULT_OFFSET {
                 for v in vertices.iter_mut() {
                     v.pos += vertex_offset.translation.vector;
                 }
@@ -289,46 +303,38 @@ impl Text {
                     if let Some(bb) = glyph.unpositioned().exact_bounding_box() {
                         let base_index = vertices.len() as u32;
                         if let Some((id, scale)) = font.inner.index_map.get(&glyph.id()) {
-                            let size = Vector::new(bb.width(), bb.height());
-                            let bottom_left = Vector::new(glyph.position().x, glyph.position().y);
+                            let size = Vector2::new(bb.width(), bb.height());
+                            let bottom_left = Vector2::new(glyph.position().x, glyph.position().y);
                             let top_right = bottom_left + size;
-                            let bottom_right = bottom_left + Vector::new(size.x, 0.0);
-                            let top_left = bottom_left + Vector::new(0.0, size.y);
-                            let offset = Vector::new(-horizontal, -bb.max.y - vertical - off_y);
+                            let bottom_right = bottom_left + Vector2::new(size.x, 0.0);
+                            let top_left = bottom_left + Vector2::new(0.0, size.y);
+                            let offset = Vector2::new(-horizontal, -bb.max.y - vertical - off_y);
 
                             vertices.extend([
-                                Vertex::new(
-                                    top_left + offset,
-                                    Vector::new(0.0, 0.0),
-                                    TextVertexData {
-                                        color: section.color,
-                                        sprite: *id,
-                                    },
-                                ),
-                                Vertex::new(
-                                    bottom_left + offset,
-                                    Vector::new(0.0, scale.y),
-                                    TextVertexData {
-                                        color: section.color,
-                                        sprite: *id,
-                                    },
-                                ),
-                                Vertex::new(
-                                    bottom_right + offset,
-                                    Vector::new(scale.x, scale.y),
-                                    TextVertexData {
-                                        color: section.color,
-                                        sprite: *id,
-                                    },
-                                ),
-                                Vertex::new(
-                                    top_right + offset,
-                                    Vector::new(scale.x, 0.0),
-                                    TextVertexData {
-                                        color: section.color,
-                                        sprite: *id,
-                                    },
-                                ),
+                                Vertex2DText {
+                                    pos: top_left + offset,
+                                    tex: Vector2::new(0.0, 0.0),
+                                    color: section.color,
+                                    sprite: *id,
+                                },
+                                Vertex2DText {
+                                    pos: bottom_left + offset,
+                                    tex: Vector2::new(0.0, scale.y),
+                                    color: section.color,
+                                    sprite: *id,
+                                },
+                                Vertex2DText {
+                                    pos: bottom_right + offset,
+                                    tex: Vector2::new(scale.x, scale.y),
+                                    color: section.color,
+                                    sprite: *id,
+                                },
+                                Vertex2DText {
+                                    pos: top_right + offset,
+                                    tex: Vector2::new(scale.x, 0.0),
+                                    color: section.color,
+                                    sprite: *id,
+                                },
                             ]);
                             let offset = vertices.len() - 4;
                             compute_modifed_vertices(
@@ -347,19 +353,19 @@ impl Text {
                 off_y += section.size + metrics.descent.abs() + metrics.line_gap;
             }
         }
-        return ModelBuilder::custom(vertices, indices);
+        return (vertices, indices);
     }
 
     pub fn write<S: AsRef<str>>(&mut self, gpu: &Gpu, sections: &[TextSection<S>]) {
         let builder = Self::compute_vertices(&self.font, sections);
-        self.model.write_with_data(gpu, builder);
+        self.model.write(gpu, builder);
     }
 
     pub fn font(&self) -> &SpriteSheet {
         &self.font.inner.sprite_sheet
     }
 
-    pub fn model(&self) -> &Model {
+    pub fn model(&self) -> &Model<Vertex2DText> {
         &self.model
     }
 }

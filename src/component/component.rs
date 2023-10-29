@@ -1,6 +1,6 @@
 use crate::{
-    data::arena::Arena, ComponentHandle, ComponentIdentifier, ComponentTypeId, Gpu, InstanceBuffer,
-    InstancePosition, World,
+    data::arena::Arena, ComponentHandle, ComponentIdentifier, ComponentTypeId, Gpu, Instance2D,
+    InstanceBuffer2D, World,
 };
 use downcast_rs::*;
 
@@ -9,7 +9,7 @@ use crate::{data::arena::ArenaEntry, rayon::prelude::*};
 
 #[allow(unused_variables)]
 pub trait Position: Downcast {
-    fn instance(&self, world: &World) -> InstancePosition;
+    fn instance(&self, world: &World) -> Instance2D;
     fn active(&self) -> bool;
     fn init(&mut self, handle: ComponentHandle, world: &mut World) {}
     fn finish(&mut self, world: &mut World) {}
@@ -35,14 +35,14 @@ pub struct BufferHelper<'a, C: Component> {
     inner: BufferHelperType<'a, C>,
     pub gpu: &'a Gpu,
     pub world: &'a World,
-    pub buffer: &'a mut InstanceBuffer<InstancePosition>,
+    pub buffer: &'a mut InstanceBuffer2D,
 }
 
 impl<'a, C: Component> BufferHelper<'a, C> {
     pub(crate) fn new(
         world: &'a World,
         gpu: &'a Gpu,
-        buffer: &'a mut InstanceBuffer<InstancePosition>,
+        buffer: &'a mut InstanceBuffer2D,
         inner: BufferHelperType<'a, C>,
     ) -> Self {
         Self {
@@ -76,7 +76,7 @@ impl<'a, C: Component> BufferHelper<'a, C> {
                             None
                         }
                     })
-                    .collect::<Vec<InstancePosition>>();
+                    .collect::<Vec<Instance2D>>();
                 self.buffer.write(self.gpu, &instances);
             }
         };
@@ -106,7 +106,7 @@ impl<'a, C: Component> BufferHelper<'a, C> {
                             None
                         }
                     })
-                    .collect::<Vec<InstancePosition>>();
+                    .collect::<Vec<Instance2D>>();
                 self.buffer.write(self.gpu, &instances);
             }
         };
@@ -143,7 +143,7 @@ impl<'a, C: Component + Send + Sync> BufferHelper<'a, C> {
                             }
                         }
                     })
-                    .collect::<Vec<InstancePosition>>();
+                    .collect::<Vec<Instance2D>>();
                 self.buffer.write(self.gpu, &instances);
             }
         };
@@ -176,7 +176,7 @@ impl<'a, C: Component + Send + Sync> BufferHelper<'a, C> {
                             }
                         }
                     })
-                    .collect::<Vec<InstancePosition>>();
+                    .collect::<Vec<Instance2D>>();
                 self.buffer.write(self.gpu, &instances);
             }
         };

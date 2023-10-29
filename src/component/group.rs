@@ -1,7 +1,7 @@
 #[cfg(feature = "serde")]
 use crate::{ComponentTypeId, FxHashMap};
 
-use crate::{data::arena::Arena, Camera, ComponentManager, GroupHandle, Instant, World, AABB};
+use crate::{data::arena::Arena, Camera2D, ComponentManager, GroupHandle, Instant, World, AABB};
 use std::fmt;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -103,7 +103,7 @@ impl GroupManager {
         }
     }
 
-    pub fn update(&mut self, components: &mut ComponentManager, camera: &Camera) {
+    pub fn update(&mut self, components: &mut ComponentManager, camera: &Camera2D) {
         let cam_aabb = camera.aabb();
         components.active_groups.clear();
         let now = Instant::now();
@@ -123,7 +123,7 @@ impl GroupManager {
 /// # Important
 /// Components in a inactive [Group] still physics events
 pub enum GroupActivation {
-    /// Group is only active when it collides with the fov of the [WorldCamera](crate::WorldCamera)
+    /// Group is only active when it collides with the fov of the [WorldCamera2D](crate::WorldCamera2D)
     Position { aabb: AABB },
     /// Group is always active
     Always,

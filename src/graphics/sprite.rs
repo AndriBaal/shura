@@ -1,6 +1,6 @@
 use wgpu::util::DeviceExt;
 
-use crate::{Gpu, RgbaColor, Vector};
+use crate::{Gpu, RgbaColor, Vector2};
 use std::ops::Deref;
 
 #[macro_export]
@@ -25,7 +25,7 @@ macro_rules! sprite_file_root {
 }
 
 pub struct SpriteBuilder<'a, D: Deref<Target = [u8]>> {
-    pub size: Vector<u32>,
+    pub size: Vector2<u32>,
     pub sampler: wgpu::SamplerDescriptor<'a>,
     pub data: D,
     pub format: wgpu::TextureFormat,
@@ -34,7 +34,7 @@ pub struct SpriteBuilder<'a, D: Deref<Target = [u8]>> {
 impl<'a> SpriteBuilder<'a, image::RgbaImage> {
     pub fn file(bytes: &[u8]) -> Self {
         let image = image::load_from_memory(bytes).unwrap();
-        let size = Vector::new(image.width(), image.height());
+        let size = Vector2::new(image.width(), image.height());
         return Self {
             size,
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
@@ -44,7 +44,7 @@ impl<'a> SpriteBuilder<'a, image::RgbaImage> {
     }
 
     pub fn image(image: image::DynamicImage) -> Self {
-        let size = Vector::new(image.width(), image.height());
+        let size = Vector2::new(image.width(), image.height());
         return Self {
             size,
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
@@ -55,7 +55,7 @@ impl<'a> SpriteBuilder<'a, image::RgbaImage> {
 }
 
 impl<'a> SpriteBuilder<'a, &'static [u8]> {
-    pub fn empty(size: Vector<u32>) -> Self {
+    pub fn empty(size: Vector2<u32>) -> Self {
         return Self {
             size,
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
@@ -68,7 +68,7 @@ impl<'a> SpriteBuilder<'a, &'static [u8]> {
 impl<'a> SpriteBuilder<'a, Vec<u8>> {
     pub fn color(color: RgbaColor) -> Self {
         Self {
-            size: Vector::new(1, 1),
+            size: Vector2::new(1, 1),
             sampler: Sprite::DEFAULT_SAMPLER,
             data: vec![color.r, color.g, color.b, color.a],
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
@@ -77,7 +77,7 @@ impl<'a> SpriteBuilder<'a, Vec<u8>> {
 }
 
 impl<'a> SpriteBuilder<'a, &'a [u8]> {
-    pub fn raw(size: Vector<u32>, data: &'a [u8]) -> Self {
+    pub fn raw(size: Vector2<u32>, data: &'a [u8]) -> Self {
         return Self {
             size,
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
@@ -106,7 +106,7 @@ pub struct Sprite {
     bind_group: wgpu::BindGroup,
     _sampler: wgpu::Sampler,
     format: wgpu::TextureFormat,
-    size: Vector<u32>,
+    size: Vector2<u32>,
 }
 
 impl Sprite {
@@ -141,7 +141,7 @@ impl Sprite {
     fn create_texture(
         gpu: &Gpu,
         format: wgpu::TextureFormat,
-        size: Vector<u32>,
+        size: Vector2<u32>,
         data: &[u8],
     ) -> wgpu::Texture {
         assert!(size.x != 0 && size.y != 0);
@@ -217,10 +217,10 @@ impl Sprite {
 
     /// Overwrite with an image of the same dimension
     pub fn write_image(&mut self, gpu: &Gpu, rgba: &image::RgbaImage) {
-        Self::write(self, gpu, Vector::new(rgba.width(), rgba.height()), rgba)
+        Self::write(self, gpu, Vector2::new(rgba.width(), rgba.height()), rgba)
     }
 
-    pub fn write(&mut self, gpu: &Gpu, size: Vector<u32>, data: &[u8]) {
+    pub fn write(&mut self, gpu: &Gpu, size: Vector2<u32>, data: &[u8]) {
         gpu.queue.write_texture(
             self.texture.as_image_copy(),
             data,
@@ -317,7 +317,7 @@ impl Sprite {
         return image;
     }
 
-    pub const fn size(&self) -> Vector<u32> {
+    pub const fn size(&self) -> Vector2<u32> {
         self.size
     }
 

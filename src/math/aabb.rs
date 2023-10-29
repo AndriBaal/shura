@@ -1,39 +1,37 @@
-use crate::{Isometry, Vector, Vertex};
+use crate::{Isometry2, Vector2, Vertex2D};
 
 #[derive(Debug, Copy, Clone, PartialEq, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// Simple Axis-aligned minimum bounding box collision detection
 pub struct AABB {
-    pub min: Vector<f32>,
-    pub max: Vector<f32>,
+    pub min: Vector2<f32>,
+    pub max: Vector2<f32>,
 }
 
 impl AABB {
-    pub const fn new(min: Vector<f32>, max: Vector<f32>) -> Self {
+    pub const fn new(min: Vector2<f32>, max: Vector2<f32>) -> Self {
         Self { min, max }
     }
 
-    pub fn center(&self) -> Vector<f32> {
+    pub fn center(&self) -> Vector2<f32> {
         (self.min + self.max) / 2.0
     }
 
-    pub fn half_extents(&self) -> Vector<f32> {
+    pub fn half_extents(&self) -> Vector2<f32> {
         (self.max - self.min) / 2.0
     }
 
-    pub fn dim(&self) -> Vector<f32> {
+    pub fn dim(&self) -> Vector2<f32> {
         self.max - self.min
     }
 
-    pub fn from_center(center: Vector<f32>, half_extents: Vector<f32>) -> Self {
+    pub fn from_center(center: Vector2<f32>, half_extents: Vector2<f32>) -> Self {
         let min = center - half_extents;
         let max = center + half_extents;
         Self::new(min, max)
     }
 
-    pub fn from_vertices<T: bytemuck::Pod + bytemuck::Zeroable + Default>(
-        vertices: &[Vertex<T>],
-    ) -> Self {
+    pub fn from_vertices(vertices: &[Vertex2D]) -> Self {
         if vertices.is_empty() {
             return Default::default();
         }
@@ -60,12 +58,12 @@ impl AABB {
         }
 
         return Self {
-            min: Vector::new(min_x, min_y),
-            max: Vector::new(max_x, max_y),
+            min: Vector2::new(min_x, min_y),
+            max: Vector2::new(max_x, max_y),
         };
     }
 
-    pub fn from_position(half_extents: Vector<f32>, position: Isometry<f32>) -> Self {
+    pub fn from_position(half_extents: Vector2<f32>, position: Isometry2<f32>) -> Self {
         return Self {
             min: -half_extents,
             max: half_extents,
@@ -73,13 +71,13 @@ impl AABB {
         .with_position(position);
     }
 
-    pub fn with_translation(mut self, translation: Vector<f32>) -> Self {
+    pub fn with_translation(mut self, translation: Vector2<f32>) -> Self {
         self.min += translation;
         self.max += translation;
         return self;
     }
 
-    pub fn with_position(mut self, position: Isometry<f32>) -> Self {
+    pub fn with_position(mut self, position: Isometry2<f32>) -> Self {
         self.min += position.translation.vector;
         self.max += position.translation.vector;
 
@@ -95,14 +93,14 @@ impl AABB {
             let mut ys = [self.min.y, self.min.y, self.max.y, self.max.y];
             ys.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
-            self.min = Vector::new(*xs.first().unwrap(), *ys.first().unwrap());
-            self.max = Vector::new(*xs.last().unwrap(), *ys.last().unwrap());
+            self.min = Vector2::new(*xs.first().unwrap(), *ys.first().unwrap());
+            self.max = Vector2::new(*xs.last().unwrap(), *ys.last().unwrap());
         }
 
         return self;
     }
 
-    pub fn contains_point(&self, point: &Vector<f32>) -> bool {
+    pub fn contains_point(&self, point: &Vector2<f32>) -> bool {
         point.x >= self.min.x
             && point.x <= self.max.x
             && point.y >= self.min.y

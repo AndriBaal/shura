@@ -2,15 +2,14 @@
 use crate::text::Text;
 
 use crate::{
-    Camera, Color, DefaultResources, Gpu, InstanceBuffer, InstanceIndices, InstancePosition, Model,
-    RenderTarget, Shader, Sprite, SpriteSheet, Uniform, WorldCamera,
+    Camera2D, Color, DefaultResources, Gpu, Instance, InstanceBuffer, InstanceBuffer2D,
+    InstanceIndices, Model, Model2D, RenderTarget, Shader, Sprite, SpriteSheet, Uniform, Vertex,
 };
 use std::{ops::Range, ptr::null};
 
 struct RenderCache {
     pub bound_shader: *const Shader,
-    pub bound_model: *const Model,
-    pub bound_instances: *const InstanceBuffer<InstancePosition>,
+    pub bound_buffers: [*const wgpu::Buffer; 3],
     pub bound_uniforms: [*const wgpu::BindGroup; 16],
 }
 
@@ -18,8 +17,8 @@ impl Default for RenderCache {
     fn default() -> Self {
         Self {
             bound_shader: null(),
-            bound_model: null(),
-            bound_instances: null(),
+            bound_buffers: [null(); 3],
+
             bound_uniforms: [null(); 16],
         }
     }
@@ -34,16 +33,6 @@ pub struct Renderer<'a> {
     indices: u32,
     render_pass: wgpu::RenderPass<'a>,
     cache: RenderCache,
-
-    pub world_camera: &'a WorldCamera,
-    pub relative_camera: &'a Camera,
-    pub relative_bottom_left_camera: &'a Camera,
-    pub relative_bottom_right_camera: &'a Camera,
-    pub relative_top_left_camera: &'a Camera,
-    pub relative_top_right_camera: &'a Camera,
-    pub unit_camera: &'a Camera,
-    pub unit_model: &'a Model,
-    pub centered_instance: &'a InstanceBuffer<InstancePosition>,
 }
 
 impl<'a> Renderer<'a> {
@@ -54,7 +43,6 @@ impl<'a> Renderer<'a> {
         render_encoder: &'a mut wgpu::CommandEncoder,
         defaults: &'a DefaultResources,
         gpu: &'a Gpu,
-        world_camera: &'a WorldCamera,
         target: &'a dyn RenderTarget,
         clear: Option<Color>,
     ) -> Renderer<'a> {
@@ -70,16 +58,7 @@ impl<'a> Renderer<'a> {
             render_pass,
             defaults,
             target,
-            world_camera,
             gpu,
-            relative_camera: &defaults.relative_camera,
-            relative_bottom_left_camera: &defaults.relative_bottom_left_camera,
-            relative_bottom_right_camera: &defaults.relative_bottom_right_camera,
-            relative_top_left_camera: &defaults.relative_top_left_camera,
-            relative_top_right_camera: &defaults.relative_top_right_camera,
-            unit_camera: &defaults.unit_camera,
-            centered_instance: &defaults.centered_instance,
-            unit_model: &defaults.unit_model,
             cache: RenderCache::default(),
         };
     }
@@ -94,16 +73,16 @@ impl<'a> Renderer<'a> {
     }
 
     /// Sets the instance buffer at the position 1
-    pub fn use_instances(&mut self, buffer: &'a InstanceBuffer<InstancePosition>) {
-        let ptr = buffer as *const _;
-        if ptr != self.cache.bound_instances {
-            self.cache.bound_instances = ptr;
+    pub fn use_instances<I: Instance>(&mut self, buffer: &'a InstanceBuffer<I>) {
+        let ptr = buffer.buffer() as *const _;
+        if self.cache.bound_buffers[Self::INSTANCE_SLOT as usize] != ptr {
+            self.cache.bound_buffers[Self::INSTANCE_SLOT as usize] = ptr;
             self.render_pass
                 .set_vertex_buffer(Self::INSTANCE_SLOT, buffer.slice());
         }
     }
 
-    pub fn use_camera(&mut self, camera: &'a Camera) {
+    pub fn use_camera(&mut self, camera: &'a Camera2D) {
         self.use_bind_group(camera.bindgroup(), Self::CAMERA_SLOT)
     }
 
@@ -115,11 +94,11 @@ impl<'a> Renderer<'a> {
         }
     }
 
-    pub fn use_shader_with_buffers(
+    pub fn use_shader_with_buffers<I: Instance, T: Vertex>(
         &mut self,
         shader: &'a Shader,
-        instances: &'a InstanceBuffer<InstancePosition>,
-        model: &'a Model,
+        instances: &'a InstanceBuffer<I>,
+        model: &'a Model<T>,
     ) {
         debug_assert_eq!(shader.instance_size(), instances.instance_size());
         debug_assert_eq!(shader.vertex_size(), model.vertex_size());
@@ -128,10 +107,10 @@ impl<'a> Renderer<'a> {
         self.use_instances(instances);
     }
 
-    pub fn use_model(&mut self, model: &'a Model) {
-        let ptr = model as *const _;
-        if ptr != self.cache.bound_model {
-            self.cache.bound_model = ptr;
+    pub fn use_model<T: Vertex>(&mut self, model: &'a Model<T>) {
+        let ptr = model.buffer() as *const _;
+        if self.cache.bound_buffers[Self::MODEL_SLOT as usize] != ptr {
+            self.cache.bound_buffers[Self::MODEL_SLOT as usize] = ptr;
             self.indices = model.index_amount();
             self.render_pass
                 .set_index_buffer(model.index_buffer(), wgpu::IndexFormat::Uint32);
@@ -176,9 +155,9 @@ impl<'a> Renderer<'a> {
     pub fn render_sprite(
         &mut self,
         instances: impl Into<InstanceIndices>,
-        buffer: &'a InstanceBuffer<InstancePosition>,
-        camera: &'a Camera,
-        model: &'a Model,
+        buffer: &'a InstanceBuffer2D,
+        camera: &'a Camera2D,
+        model: &'a Model2D,
         sprite: &'a Sprite,
     ) {
         if buffer.buffer_size() != 0 {
@@ -192,9 +171,9 @@ impl<'a> Renderer<'a> {
     pub fn render_sprite_sheet(
         &mut self,
         instances: impl Into<InstanceIndices>,
-        buffer: &'a InstanceBuffer<InstancePosition>,
-        camera: &'a Camera,
-        model: &'a Model,
+        buffer: &'a InstanceBuffer2D,
+        camera: &'a Camera2D,
+        model: &'a Model2D,
         sprite: &'a SpriteSheet,
     ) {
         if buffer.buffer_size() != 0 {
@@ -208,9 +187,9 @@ impl<'a> Renderer<'a> {
     pub fn render_color(
         &mut self,
         instances: impl Into<InstanceIndices>,
-        buffer: &'a InstanceBuffer<InstancePosition>,
-        camera: &'a Camera,
-        model: &'a Model,
+        buffer: &'a InstanceBuffer2D,
+        camera: &'a Camera2D,
+        model: &'a Model2D,
     ) {
         if buffer.buffer_size() != 0 {
             self.use_shader_with_buffers(&self.defaults.color, buffer, model);
@@ -223,8 +202,8 @@ impl<'a> Renderer<'a> {
     pub fn render_text(
         &mut self,
         instances: impl Into<InstanceIndices>,
-        buffer: &'a InstanceBuffer<InstancePosition>,
-        camera: &'a Camera,
+        buffer: &'a InstanceBuffer2D,
+        camera: &'a Camera2D,
         text: &'a Text,
     ) {
         if buffer.buffer_size() != 0 && text.model().vertex_buffer_size() != 0 {
@@ -239,9 +218,9 @@ impl<'a> Renderer<'a> {
     pub fn render_grey(
         &mut self,
         instances: impl Into<InstanceIndices>,
-        buffer: &'a InstanceBuffer<InstancePosition>,
-        camera: &'a Camera,
-        model: &'a Model,
+        buffer: &'a InstanceBuffer2D,
+        camera: &'a Camera2D,
+        model: &'a Model2D,
         sprite: &'a Sprite,
     ) {
         if buffer.buffer_size() != 0 {
@@ -255,9 +234,9 @@ impl<'a> Renderer<'a> {
     pub fn render_blurred(
         &mut self,
         instances: impl Into<InstanceIndices>,
-        buffer: &'a InstanceBuffer<InstancePosition>,
-        camera: &'a Camera,
-        model: &'a Model,
+        buffer: &'a InstanceBuffer2D,
+        camera: &'a Camera2D,
+        model: &'a Model2D,
         sprite: &'a Sprite,
     ) {
         if buffer.buffer_size() != 0 {
@@ -271,9 +250,9 @@ impl<'a> Renderer<'a> {
     pub fn render_rainbow(
         &mut self,
         instances: impl Into<InstanceIndices>,
-        buffer: &'a InstanceBuffer<InstancePosition>,
-        camera: &'a Camera,
-        model: &'a Model,
+        buffer: &'a InstanceBuffer2D,
+        camera: &'a Camera2D,
+        model: &'a Model2D,
     ) {
         if buffer.buffer_size() != 0 {
             self.use_shader_with_buffers(&self.defaults.rainbow, buffer, model);

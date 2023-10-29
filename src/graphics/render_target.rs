@@ -4,14 +4,14 @@ use downcast_rs::{impl_downcast, Downcast};
 use wgpu::SurfaceTexture;
 
 use crate::{
-    Camera, Color, DefaultResources, Gpu, RenderEncoder, Sprite, SpriteBuilder, Vector, WorldCamera,
+    Camera2D, Color, DefaultResources, Gpu, RenderEncoder, Sprite, SpriteBuilder, Vector2,
 };
 
 pub trait RenderTarget: Downcast {
     fn msaa(&self) -> Option<&wgpu::TextureView>;
     fn view(&self) -> &wgpu::TextureView;
     fn as_copy(&self) -> wgpu::ImageCopyTexture;
-    fn size(&self) -> Vector<u32>;
+    fn size(&self) -> Vector2<u32>;
     fn texture(&self) -> &wgpu::Texture;
     fn attachment(&self, clear: Option<Color>) -> wgpu::RenderPassColorAttachment {
         wgpu::RenderPassColorAttachment {
@@ -42,11 +42,11 @@ pub struct SurfaceRenderTarget {
     surface: Option<SurfaceTexture>,
     target_view: Option<wgpu::TextureView>,
     target_msaa: Option<wgpu::TextureView>,
-    size: Vector<u32>,
+    size: Vector2<u32>,
 }
 
 impl SurfaceRenderTarget {
-    pub fn new(gpu: &Gpu, size: Vector<u32>) -> Self {
+    pub fn new(gpu: &Gpu, size: Vector2<u32>) -> Self {
         let target_msaa = if gpu.sample_count() == 1 {
             None
         } else {
@@ -60,7 +60,7 @@ impl SurfaceRenderTarget {
         }
     }
 
-    pub(crate) fn resize(&mut self, gpu: &Gpu, new_size: Vector<u32>) {
+    pub(crate) fn resize(&mut self, gpu: &Gpu, new_size: Vector2<u32>) {
         if gpu.sample_count() != 1 && new_size != self.size {
             self.target_msaa = Some(SpriteRenderTarget::create_msaa(gpu, new_size));
         }
@@ -116,7 +116,7 @@ impl RenderTarget for SurfaceRenderTarget {
         self.target_msaa.as_ref()
     }
 
-    fn size(&self) -> Vector<u32> {
+    fn size(&self) -> Vector2<u32> {
         self.size
     }
 }
@@ -132,7 +132,7 @@ impl RenderTarget for SpriteRenderTarget {
         self.target_msaa.as_ref()
     }
 
-    fn size(&self) -> Vector<u32> {
+    fn size(&self) -> Vector2<u32> {
         self.target.size()
     }
 
@@ -153,7 +153,7 @@ pub struct SpriteRenderTarget {
 }
 
 impl SpriteRenderTarget {
-    pub fn new(gpu: &Gpu, size: Vector<u32>) -> Self {
+    pub fn new(gpu: &Gpu, size: Vector2<u32>) -> Self {
         Self::custom(gpu, SpriteBuilder::empty(size).format(gpu.format()))
     }
 
@@ -179,16 +179,15 @@ impl SpriteRenderTarget {
     pub fn computed<D: Deref<Target = [u8]>>(
         gpu: &Gpu,
         defaults: &DefaultResources,
-        world_camera: &WorldCamera,
         sprite: SpriteBuilder<D>,
         compute: impl FnMut(&mut RenderEncoder),
     ) -> Self {
         let target = SpriteRenderTarget::custom(gpu, sprite);
-        target.draw(gpu, defaults, world_camera, compute);
+        target.draw(gpu, defaults, compute);
         return target;
     }
 
-    pub fn create_msaa(gpu: &Gpu, size: Vector<u32>) -> wgpu::TextureView {
+    pub fn create_msaa(gpu: &Gpu, size: Vector2<u32>) -> wgpu::TextureView {
         let multisampled_frame_descriptor = &wgpu::TextureDescriptor {
             size: wgpu::Extent3d {
                 width: size.x,
@@ -209,7 +208,7 @@ impl SpriteRenderTarget {
             .create_view(&wgpu::TextureViewDescriptor::default())
     }
 
-    pub fn resize(&mut self, gpu: &Gpu, size: Vector<u32>) {
+    pub fn resize(&mut self, gpu: &Gpu, size: Vector2<u32>) {
         if self.size() != size {
             *self = Self::new(gpu, size);
         }
@@ -223,22 +222,21 @@ impl SpriteRenderTarget {
         &self,
         gpu: &Gpu,
         defaults: &DefaultResources,
-        world_camera: &WorldCamera,
         compute: impl FnOnce(&mut RenderEncoder),
     ) {
-        let mut encoder = RenderEncoder::new(gpu, defaults, world_camera);
+        let mut encoder = RenderEncoder::new(gpu, defaults);
         compute(&mut encoder);
         encoder.submit(gpu);
     }
 
     pub fn compute_target_size(
-        model_half_extents: Vector<f32>,
-        camera: &Camera,
-        window_size: Vector<u32>,
-    ) -> Vector<u32> {
+        model_half_extents: Vector2<f32>,
+        camera: &Camera2D,
+        window_size: Vector2<u32>,
+    ) -> Vector2<u32> {
         let camera_fov = camera.fov() * 2.0;
         let size = model_half_extents * 2.0;
-        return Vector::new(
+        return Vector2::new(
             (size.x / camera_fov.x * window_size.x as f32).ceil() as u32,
             (size.y / camera_fov.y * window_size.y as f32).ceil() as u32,
         );

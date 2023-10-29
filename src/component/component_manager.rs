@@ -3,8 +3,8 @@ use rustc_hash::FxHashMap;
 
 use crate::{
     Component, ComponentConfig, ComponentHandle, ComponentScope, ComponentSet, ComponentSetMut,
-    ComponentType, ComponentTypeId, GlobalComponents, Gpu, GroupHandle, InstanceBuffer,
-    InstanceIndex, InstanceIndices, InstancePosition, Renderer, Scene, SystemManager, World,
+    ComponentType, ComponentTypeId, GlobalComponents, Gpu, GroupHandle, 
+    InstanceIndex, InstanceIndices, Instance2D, Renderer, Scene, SystemManager, World, InstanceBuffer2D, Camera2D, WorldCamera2D, DefaultResources, Model2D,
 };
 
 #[cfg(feature = "serde")]
@@ -18,7 +18,7 @@ use std::{
 pub(crate) trait ComponentTypeImplementation: Downcast {
     fn add_group(&mut self);
     fn remove_group(&mut self, world: &mut World, handle: GroupHandle);
-    fn camera_target(&self, world: &World, handle: ComponentHandle) -> Option<InstancePosition>;
+    fn camera_target(&self, world: &World, handle: ComponentHandle) -> Option<Instance2D>;
     fn buffer(&mut self, world: &World, active: &[GroupHandle], gpu: &Gpu);
     fn component_type_id(&self) -> ComponentTypeId;
     fn config(&self) -> ComponentConfig;
@@ -163,14 +163,33 @@ impl GroupFilter<'static> {
 
 pub struct ComponentResources<'a> {
     components: &'a ComponentManager,
+    
+    pub world_camera: &'a WorldCamera2D,
+    pub relative_camera: &'a Camera2D,
+    pub relative_bottom_left_camera: &'a Camera2D,
+    pub relative_bottom_right_camera: &'a Camera2D,
+    pub relative_top_left_camera: &'a Camera2D,
+    pub relative_top_right_camera: &'a Camera2D,
+    pub unit_camera: &'a Camera2D,
+    pub unit_model: &'a Model2D,
+    pub centered_instance: &'a InstanceBuffer2D,
 }
 
 impl<'a> ComponentResources<'a> {
-    pub(crate) fn new(scene: &'a Scene) -> (&'a SystemManager, Self) {
+    pub(crate) fn new(defaults: &'a DefaultResources, scene: &'a Scene) -> (&'a SystemManager, Self) {
         return (
             &scene.systems,
             Self {
                 components: &scene.components,
+                relative_camera: &defaults.relative_camera,
+                relative_bottom_left_camera: &defaults.relative_bottom_left_camera,
+                relative_bottom_right_camera: &defaults.relative_bottom_right_camera,
+                relative_top_left_camera: &defaults.relative_top_left_camera,
+                relative_top_right_camera: &defaults.relative_top_right_camera,
+                unit_camera: &defaults.unit_camera,
+                centered_instance: &defaults.centered_instance,
+                unit_model: &defaults.unit_model,
+                world_camera: &scene.world_camera,
             },
         );
     }
@@ -194,7 +213,7 @@ impl<'a> ComponentResources<'a> {
     pub fn render_each<C: Component>(
         &self,
         renderer: &mut Renderer<'a>,
-        each: impl FnMut(&mut Renderer<'a>, &'a C, &'a InstanceBuffer<InstancePosition>, InstanceIndex),
+        each: impl FnMut(&mut Renderer<'a>, &'a C, &'a InstanceBuffer2D, InstanceIndex),
     ) {
         let ty = type_render!(self.components, C);
         ty.render_each(renderer, each)
@@ -203,7 +222,7 @@ impl<'a> ComponentResources<'a> {
     pub fn render_single<C: Component>(
         &self,
         renderer: &mut Renderer<'a>,
-        each: impl FnOnce(&mut Renderer<'a>, &'a C, &'a InstanceBuffer<InstancePosition>, InstanceIndex),
+        each: impl FnOnce(&mut Renderer<'a>, &'a C, &'a InstanceBuffer2D, InstanceIndex),
     ) {
         let ty = type_render!(self.components, C);
         ty.render_single(renderer, each)
@@ -212,7 +231,7 @@ impl<'a> ComponentResources<'a> {
     pub fn render_all<C: Component>(
         &self,
         renderer: &mut Renderer<'a>,
-        all: impl FnMut(&mut Renderer<'a>, &'a InstanceBuffer<InstancePosition>, InstanceIndices),
+        all: impl FnMut(&mut Renderer<'a>, &'a InstanceBuffer2D, InstanceIndices),
     ) {
         let ty = type_render!(self.components, C);
         ty.render_all(renderer, all)
@@ -341,7 +360,7 @@ impl ComponentManager {
         &self,
         handle: ComponentHandle,
         world: &World,
-    ) -> Option<InstancePosition> {
+    ) -> Option<Instance2D> {
         self.types
             .get(&handle.component_type_id())
             .unwrap()

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     App, ComponentManager, DefaultResources, FrameManager, Gpu, GroupManager, Input, Scene,
-    SceneManager, ScreenConfig, SystemManager, Vector, World, WorldCamera,
+    SceneManager, ScreenConfig, SystemManager, Vector2, World, WorldCamera2D,
 };
 
 #[cfg(feature = "serde")]
@@ -26,7 +26,7 @@ pub struct Context<'a> {
     // Scene
     pub render_components: &'a mut bool,
     pub screen_config: &'a mut ScreenConfig,
-    pub world_camera: &'a mut WorldCamera,
+    pub world_camera: &'a mut WorldCamera2D,
     pub components: &'a mut ComponentManager,
     pub groups: &'a mut GroupManager,
     pub world: &'a mut World,
@@ -46,8 +46,8 @@ pub struct Context<'a> {
 
     // Misc
     pub scene_id: &'a u32,
-    pub window_size: Vector<u32>,
-    pub cursor: Vector<f32>,
+    pub window_size: Vector2<u32>,
+    pub cursor: Vector2<f32>,
     pub resized: bool,
 }
 
@@ -106,7 +106,7 @@ impl<'a> Context<'a> {
         struct Scene<'a> {
             render_components: bool,
             screen_config: &'a ScreenConfig,
-            world_camera: &'a WorldCamera,
+            world_camera: &'a WorldCamera2D,
             groups: &'a GroupManager,
             world: &'a World,
         }

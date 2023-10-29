@@ -1,24 +1,24 @@
 use crate::{
-    Color, InstancePosition, Isometry, Position, Rotation, SpriteAtlas, SpriteSheetIndex, Vector,
-    World,
+    Color, Instance2D, Isometry2, Position, SpriteAtlas, SpriteSheetIndex, Vector2,
+    World, Rotation2
 };
 
 /// Component that is rendered to the screen by its given position and scale.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone)]
 pub struct PositionComponent {
-    scale: Vector<f32>,
-    position: Isometry<f32>,
+    scale: Vector2<f32>,
+    position: Isometry2<f32>,
     active: bool,
-    instance: InstancePosition,
+    instance: Instance2D,
 }
 
 impl Default for PositionComponent {
     fn default() -> Self {
         Self {
-            scale: Vector::new(1.0, 1.0),
-            instance: InstancePosition::default(),
-            position: Isometry::default(),
+            scale: Vector2::new(1.0, 1.0),
+            instance: Instance2D::default(),
+            position: Isometry2::default(),
             active: true,
         }
     }
@@ -31,16 +31,16 @@ impl PositionComponent {
     }
 
     pub fn with_rotation(mut self, rotation: f32) -> Self {
-        self.set_rotation(Rotation::new(rotation));
+        self.set_rotation(Rotation2::new(rotation));
         self
     }
 
-    pub fn with_translation(mut self, translation: Vector<f32>) -> Self {
+    pub fn with_translation(mut self, translation: Vector2<f32>) -> Self {
         self.set_translation(translation);
         self
     }
 
-    pub fn with_position(mut self, position: Isometry<f32>) -> Self {
+    pub fn with_position(mut self, position: Isometry2<f32>) -> Self {
         self.set_position(position);
         self
     }
@@ -54,7 +54,7 @@ impl PositionComponent {
         self.active = active;
         self.instance.set_scale_rotation(
             if active {
-                Vector::default()
+                Vector2::default()
             } else {
                 self.scale
             },
@@ -62,48 +62,48 @@ impl PositionComponent {
         );
     }
 
-    pub fn set_rotation(&mut self, rotation: Rotation<f32>) {
+    pub fn set_rotation(&mut self, rotation: Rotation2<f32>) {
         self.position.rotation = rotation;
         self.instance.set_scale_rotation(self.scale, rotation);
     }
 
-    pub fn set_translation(&mut self, translation: Vector<f32>) {
+    pub fn set_translation(&mut self, translation: Vector2<f32>) {
         self.instance.set_translation(translation);
         self.position.translation.vector = translation;
     }
 
-    pub fn set_position(&mut self, position: Isometry<f32>) {
+    pub fn set_position(&mut self, position: Isometry2<f32>) {
         self.position = position;
-        self.instance = InstancePosition::new_position(position, self.scale);
+        self.instance = Instance2D::new_position(position, self.scale);
     }
 
     pub fn active(&self) -> bool {
         self.active
     }
 
-    pub fn rotation(&self) -> Rotation<f32> {
+    pub fn rotation(&self) -> Rotation2<f32> {
         self.position.rotation
     }
 
-    pub fn translation(&self) -> Vector<f32> {
+    pub fn translation(&self) -> Vector2<f32> {
         self.position.translation.vector
     }
 
-    pub fn position(&self) -> Isometry<f32> {
+    pub fn position(&self) -> Isometry2<f32> {
         self.position
     }
 
-    pub const fn scale(&self) -> &Vector<f32> {
+    pub const fn scale(&self) -> &Vector2<f32> {
         &self.scale
     }
 
-    pub fn set_scale(&mut self, scale: Vector<f32>) {
+    pub fn set_scale(&mut self, scale: Vector2<f32>) {
         self.scale = scale;
         self.instance
             .set_scale_rotation(self.scale, self.position.rotation);
     }
 
-    pub fn with_scale(mut self, scale: Vector<f32>) -> Self {
+    pub fn with_scale(mut self, scale: Vector2<f32>) -> Self {
         self.set_scale(scale);
         self
     }
@@ -149,7 +149,7 @@ impl PositionComponent {
 }
 
 impl Position for PositionComponent {
-    fn instance(&self, _world: &World) -> InstancePosition {
+    fn instance(&self, _world: &World) -> Instance2D {
         self.instance
     }
 

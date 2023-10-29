@@ -1,4 +1,4 @@
-use crate::{Component, ComponentHandle, FrameManager};
+use crate::{Component, ComponentHandle, FrameManager, Vector2, Isometry2};
 use rapier2d::{crossbeam, prelude::*};
 pub use rapier2d::{
     prelude::CollisionEvent as RapierCollisionEvent,
@@ -158,16 +158,16 @@ pub struct ContactForceEvent {
     pub collider2: ColliderHandle,
     pub component1: ComponentHandle,
     pub component2: ComponentHandle,
-    pub total_force: Vector<f32>,
+    pub total_force: Vector2<f32>,
     pub total_force_magnitude: f32,
-    pub max_force_direction: Vector<f32>,
+    pub max_force_direction: Vector2<f32>,
     pub max_force_magnitude: f32,
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct World {
     pub time_scale: f32,
-    pub gravity: Vector<f32>,
+    pub gravity: Vector2<f32>,
     bodies: RigidBodySet,
     colliders: ColliderSet,
     impulse_joints: ImpulseJointSet,
@@ -229,7 +229,7 @@ impl World {
             collector: Default::default(),
             collider_mapping: Default::default(),
             rigid_body_mapping: Default::default(),
-            gravity: vector![0.0, 0.0],
+            gravity: Vector2::new(0.0, 0.0),
             time_scale: 1.0,
         }
     }
@@ -407,8 +407,8 @@ impl World {
     //     colliders: &ColliderSet,
     //     queries: &QueryPipeline,
     //     character_shape: &dyn Shape,
-    //     character_pos: &Isometry<Real>,
-    //     desired_translation: Vector<Real>,
+    //     character_pos: &Isometry2<Real>,
+    //     desired_translation: Vector2<Real>,
     //     filter: QueryFilter,
     //     mut events: impl FnMut(CharacterCollision, &World),
     // ) -> EffectiveCharacterMovement {
@@ -457,8 +457,8 @@ impl World {
     pub fn cast_shape(
         &self,
         shape: &dyn Shape,
-        position: &Isometry<f32>,
-        velocity: &Vector<f32>,
+        position: &Isometry2<f32>,
+        velocity: &Vector2<f32>,
         max_toi: f32,
         stop_at_penetration: bool,
         filter: QueryFilter,
@@ -502,7 +502,7 @@ impl World {
         return None;
     }
 
-    pub fn intersects_point(&self, collider_handle: ColliderHandle, point: Vector<f32>) -> bool {
+    pub fn intersects_point(&self, collider_handle: ColliderHandle, point: Vector2<f32>) -> bool {
         if let Some(collider) = self.collider(collider_handle) {
             return collider
                 .shape()
@@ -555,7 +555,7 @@ impl World {
 
     pub fn intersections_with_shape(
         &self,
-        shape_pos: &Isometry<f32>,
+        shape_pos: &Isometry2<f32>,
         shape: &dyn Shape,
         filter: QueryFilter,
         mut callback: impl FnMut(ComponentHandle, ColliderHandle) -> bool,
@@ -577,7 +577,7 @@ impl World {
 
     pub fn intersection_with_shape(
         &self,
-        shape_pos: &Isometry<f32>,
+        shape_pos: &Isometry2<f32>,
         shape: &dyn Shape,
         filter: QueryFilter,
     ) -> Option<(ComponentHandle, ColliderHandle)> {
@@ -655,7 +655,7 @@ impl World {
         self.impulse_joints.get_mut(joint)
     }
 
-    pub fn gravity(&self) -> Vector<f32> {
+    pub fn gravity(&self) -> Vector2<f32> {
         self.gravity
     }
 
@@ -663,7 +663,7 @@ impl World {
         self.time_scale
     }
 
-    pub fn set_gravity(&mut self, gravity: Vector<f32>) {
+    pub fn set_gravity(&mut self, gravity: Vector2<f32>) {
         self.gravity = gravity;
     }
 

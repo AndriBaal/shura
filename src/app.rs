@@ -17,7 +17,7 @@ use crate::{
 use crate::{
     ComponentResources, ComponentTypeId, ComponentTypeImplementation, Context, DefaultResources,
     EndReason, FrameManager, Gpu, GpuConfig, Input, RenderEncoder, Scene, SceneCreator,
-    SceneManager, UpdateOperation, Vector,
+    SceneManager, UpdateOperation, Vector2,
 };
 use rustc_hash::FxHashMap;
 #[cfg(target_os = "android")]
@@ -169,12 +169,12 @@ impl App {
                                     }
                                     WindowEvent::Resized(physical_size) => {
                                         let mint: mint::Vector2<u32> = (*physical_size).into();
-                                        let window_size: Vector<u32> = mint.into();
+                                        let window_size: Vector2<u32> = mint.into();
                                         app.resize(window_size);
                                     }
                                     WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
                                         let mint: mint::Vector2<u32> = (**new_inner_size).into();
-                                        let window_size: Vector<u32> = mint.into();
+                                        let window_size: Vector2<u32> = mint.into();
                                         app.resize(window_size);
                                     }
                                     _ => app.input.on_event(event),
@@ -189,7 +189,7 @@ impl App {
                                     #[cfg(feature = "log")]
                                     error!("Lost surface!");
                                     let mint: mint::Vector2<u32> = app.window.inner_size().into();
-                                    let window_size: Vector<u32> = mint.into();
+                                    let window_size: Vector2<u32> = mint.into();
                                     app.resize(window_size);
                                 }
                                 Err(wgpu::SurfaceError::OutOfMemory) => {
@@ -251,7 +251,7 @@ impl App {
     ) -> Self {
         let gpu = pollster::block_on(Gpu::new(&window, gpu));
         let mint: mint::Vector2<u32> = (window.inner_size()).into();
-        let window_size: Vector<u32> = mint.into();
+        let window_size: Vector2<u32> = mint.into();
         let defaults = DefaultResources::new(&gpu, window_size);
         let gpu = Arc::new(gpu);
 
@@ -276,7 +276,7 @@ impl App {
         }
     }
 
-    fn resize(&mut self, new_size: Vector<u32>) {
+    fn resize(&mut self, new_size: Vector2<u32>) {
         if new_size.x > 0 && new_size.y > 0 {
             #[cfg(feature = "log")]
             info!("Resizing window to: {} x {}", new_size.x, new_size.y,);
@@ -333,7 +333,7 @@ impl App {
         }
 
         let mint: mint::Vector2<u32> = self.window.inner_size().into();
-        let window_size: Vector<u32> = mint.into();
+        let window_size: Vector2<u32> = mint.into();
         #[cfg(target_arch = "wasm32")]
         {
             if self.auto_scale_canvas {
@@ -367,7 +367,7 @@ impl App {
             #[cfg(feature = "framebuffer")]
             let render_size = {
                 let render_size = self.gpu.render_size();
-                Vector::new(
+                Vector2::new(
                     (render_size.x as f32 * scale) as u32,
                     (render_size.y as f32 * scale) as u32,
                 )
@@ -463,8 +463,8 @@ impl App {
         self.defaults
             .buffer(&self.gpu, self.frame.total_time(), self.frame.frame_time());
 
-        let (systems, res) = ComponentResources::new(scene);
-        let mut encoder = RenderEncoder::new(&self.gpu, &self.defaults, &scene.world_camera);
+        let (systems, res) = ComponentResources::new(&self.defaults, scene);
+        let mut encoder = RenderEncoder::new(&self.gpu, &self.defaults);
 
         for render in &systems.render_systems {
             (render)(&res, &mut encoder);

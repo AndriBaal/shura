@@ -1,10 +1,10 @@
 use std::ops::Deref;
 use wgpu::ImageCopyTexture;
 
-use crate::{Gpu, RgbaColor, Vector};
+use crate::{Gpu, RgbaColor, Vector2};
 
 pub type SpriteSheetIndex = u32;
-pub type SpriteSheetIndex2D = Vector<u32>;
+pub type SpriteSheetIndex2D = Vector2<u32>;
 
 #[macro_export]
 macro_rules! sprite_sheet_file {
@@ -21,21 +21,21 @@ macro_rules! sprite_sheet_file_root {
 }
 
 pub struct SpriteSheetBuilder<'a, D: Deref<Target = [u8]>> {
-    pub sprite_size: Vector<u32>,
-    pub sprite_amount: Vector<u32>,
+    pub sprite_size: Vector2<u32>,
+    pub sprite_amount: Vector2<u32>,
     pub sampler: wgpu::SamplerDescriptor<'a>,
     pub data: Vec<D>,
     pub format: wgpu::TextureFormat,
 }
 
 impl<'a> SpriteSheetBuilder<'a, image::RgbaImage> {
-    pub fn file(bytes: &[u8], sprite_size: Vector<u32>) -> Self {
+    pub fn file(bytes: &[u8], sprite_size: Vector2<u32>) -> Self {
         let img = image::load_from_memory(bytes).unwrap();
         Self::image(img, sprite_size)
     }
 
-    pub fn image(mut image: image::DynamicImage, sprite_size: Vector<u32>) -> Self {
-        let size = Vector::new(image.width(), image.height());
+    pub fn image(mut image: image::DynamicImage, sprite_size: Vector2<u32>) -> Self {
+        let size = Vector2::new(image.width(), image.height());
         let sprite_amount = size.component_div(&sprite_size);
         let mut data = vec![];
         for i in 0..sprite_amount.y as u32 {
@@ -67,8 +67,8 @@ impl<'a> SpriteSheetBuilder<'a, Vec<u8>> {
         }
 
         Self {
-            sprite_size: Vector::new(1, 1),
-            sprite_amount: Vector::new(colors.len() as u32, 1),
+            sprite_size: Vector2::new(1, 1),
+            sprite_amount: Vector2::new(colors.len() as u32, 1),
             sampler: Self::DEFAULT_SAMPLER,
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
             data,
@@ -77,7 +77,7 @@ impl<'a> SpriteSheetBuilder<'a, Vec<u8>> {
 }
 
 impl<'a> SpriteSheetBuilder<'a, &'a [u8]> {
-    pub fn raw(sprite_size: Vector<u32>, sprite_amount: Vector<u32>, data: Vec<&'a [u8]>) -> Self {
+    pub fn raw(sprite_size: Vector2<u32>, sprite_amount: Vector2<u32>, data: Vec<&'a [u8]>) -> Self {
         return Self {
             sprite_size,
             sprite_amount,
@@ -87,7 +87,7 @@ impl<'a> SpriteSheetBuilder<'a, &'a [u8]> {
         };
     }
 
-    pub fn empty(sprite_size: Vector<u32>, sprite_amount: Vector<u32>) -> Self {
+    pub fn empty(sprite_size: Vector2<u32>, sprite_amount: Vector2<u32>) -> Self {
         return Self {
             sprite_size,
             sprite_amount,
@@ -130,8 +130,8 @@ pub struct SpriteSheet {
     texture: wgpu::Texture,
     _sampler: wgpu::Sampler,
     bind_group: wgpu::BindGroup,
-    sprite_size: Vector<u32>,
-    sprite_amount: Vector<u32>,
+    sprite_size: Vector2<u32>,
+    sprite_amount: Vector2<u32>,
 }
 
 impl SpriteSheet {
@@ -214,7 +214,7 @@ impl SpriteSheet {
         &mut self,
         gpu: &Gpu,
         index: SpriteSheetIndex,
-        size: Vector<u32>,
+        size: Vector2<u32>,
         layers: u32,
         bytes: &[u8],
     ) {
@@ -251,7 +251,7 @@ impl SpriteSheet {
         self.sprite_amount.x * self.sprite_amount.y
     }
 
-    pub fn len_2d(&self) -> &Vector<u32> {
+    pub fn len_2d(&self) -> &Vector2<u32> {
         &self.sprite_amount
     }
 
@@ -263,13 +263,13 @@ impl SpriteSheet {
         return index_2d.y * sprite_amount_x + index_2d.x;
     }
 
-    pub fn sprite_size(&self) -> &Vector<u32> {
+    pub fn sprite_size(&self) -> &Vector2<u32> {
         &self.sprite_size
     }
 }
 
 // /// Create a [SpriteSheet] from multiple, by flattening all provided SpriteSheets to have their own row.
-// pub fn from_multiple(gpu: &Gpu, sheets: &[&[u8]], sprite_size: Vector<u32>) -> Self {
+// pub fn from_multiple(gpu: &Gpu, sheets: &[&[u8]], sprite_size: Vector2<u32>) -> Self {
 //     let sprite_amount = size.component_div(&sprite_size);
 //     let mut sprites: Vec<Vec<u8>> = vec![];
 

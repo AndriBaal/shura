@@ -1,9 +1,9 @@
-use crate::Vector;
+use crate::Vector2;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone)]
 pub struct World {
-    pub gravity: Vector<f32>,
+    pub gravity: Vector2<f32>,
 }
 
 impl World {
@@ -13,11 +13,11 @@ impl World {
         }
     }
 
-    pub fn gravity(&self) -> Vector<f32> {
+    pub fn gravity(&self) -> Vector2<f32> {
         self.gravity
     }
 
-    pub fn set_gravity(&mut self, gravity: Vector<f32>) {
+    pub fn set_gravity(&mut self, gravity: Vector2<f32>) {
         self.gravity = gravity;
     }
 }

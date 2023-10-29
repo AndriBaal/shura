@@ -1,52 +1,128 @@
 #[cfg(feature = "physics")]
 use crate::physics::{Shape, TypedShape};
-use crate::{Gpu, Index, Isometry, Matrix, Rotation, Vector, Vertex, AABB};
-use std::f32::consts::{FRAC_PI_2, PI};
+use crate::{Gpu, Isometry2, Matrix2, Rotation2, Vector2, AABB};
+use std::mem;
+use std::{
+    f32::consts::{FRAC_PI_2, PI},
+    marker::PhantomData,
+};
 use wgpu::util::DeviceExt;
 
-impl<T: bytemuck::Pod + bytemuck::Zeroable + Default> Default for ModelBuilder<T> {
-    fn default() -> Self {
-        Self {
-            vertices: Default::default(),
-            indices: Default::default(),
-            vertex_offset: Isometry::new(Self::DEFAULT_OFFSET, Self::DEFAULT_ROTATION),
-            vertex_scale: Self::DEFAULT_SCALE,
-            vertex_rotation_axis: Vector::new(0.0, 0.0),
-            tex_coord_offset: Isometry::new(Self::DEFAULT_OFFSET, Self::DEFAULT_ROTATION),
-            tex_coord_scale: Self::DEFAULT_SCALE,
-            tex_coord_rotation_axis: Vector::new(0.5, 0.5),
-        }
+pub type Model2D = Model<Vertex2D>;
+
+pub trait ModelBuilder {
+    type Vertex;
+    fn indices<'a>(&'a self) -> &'a [Index];
+    fn vertices<'a>(&'a self) -> &'a [Self::Vertex];
+}
+
+pub trait Vertex: bytemuck::Pod + bytemuck::Zeroable {
+    const ATTRIBUTES: &'static [wgpu::VertexAttribute];
+    const SIZE: u64 = std::mem::size_of::<Self>() as u64;
+    const DESC: wgpu::VertexBufferLayout<'static> = wgpu::VertexBufferLayout {
+        array_stride: Self::SIZE,
+        step_mode: wgpu::VertexStepMode::Vertex,
+        attributes: &Self::ATTRIBUTES,
+    };
+}
+
+/// Single vertex of a model. Which hold the coordniate of the vertex and the texture coordinates.
+#[repr(C)]
+#[derive(Copy, Clone, Debug, Default, bytemuck::Pod, bytemuck::Zeroable)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct Vertex2D {
+    pub pos: Vector2<f32>,
+    pub tex: Vector2<f32>,
+}
+
+impl Vertex2D {
+    pub const fn new(pos: Vector2<f32>, tex: Vector2<f32>) -> Self {
+        Vertex2D { pos, tex }
+    }
+}
+
+impl Vertex for Vertex2D {
+    const SIZE: u64 = mem::size_of::<Self>() as u64;
+    const ATTRIBUTES: &'static [wgpu::VertexAttribute] = &[
+        wgpu::VertexAttribute {
+            offset: 0,
+            shader_location: 0,
+            format: wgpu::VertexFormat::Float32x2,
+        },
+        wgpu::VertexAttribute {
+            offset: mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
+            shader_location: 1,
+            format: wgpu::VertexFormat::Float32x2,
+        },
+    ];
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+/// Represents the order in which [Vertices](Vertex) are drawn in a triangle.
+pub struct Index {
+    pub a: u32,
+    pub b: u32,
+    pub c: u32,
+}
+
+impl Index {
+    pub const fn new(a: u32, b: u32, c: u32) -> Self {
+        Self { a, b, c }
+    }
+}
+
+impl<V: Vertex> ModelBuilder for (Vec<V>, Vec<Index>) {
+    type Vertex = V;
+
+    fn indices<'a>(&'a self) -> &'a [Index] {
+        &self.1
+    }
+    fn vertices<'a>(&'a self) -> &'a [Self::Vertex] {
+        &self.0
     }
 }
 
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// Builder to easily create a [Model].
-pub struct ModelBuilder<T: bytemuck::Pod + bytemuck::Zeroable + Default> {
-    pub vertices: Vec<Vertex<T>>,
+pub struct ModelBuilder2D {
+    pub vertices: Vec<Vertex2D>,
     pub indices: Vec<Index>,
-    pub vertex_offset: Isometry<f32>,
-    pub tex_coord_offset: Isometry<f32>,
-    pub vertex_scale: Vector<f32>,
-    pub tex_coord_scale: Vector<f32>,
-    pub vertex_rotation_axis: Vector<f32>,
-    pub tex_coord_rotation_axis: Vector<f32>,
+    pub vertex_offset: Isometry2<f32>,
+    pub tex_coord_offset: Isometry2<f32>,
+    pub vertex_scale: Vector2<f32>,
+    pub tex_coord_scale: Vector2<f32>,
+    pub vertex_rotation_axis: Vector2<f32>,
+    pub tex_coord_rotation_axis: Vector2<f32>,
 }
 
-impl<T: bytemuck::Pod + bytemuck::Zeroable + Default> ModelBuilder<T> {
+impl ModelBuilder for ModelBuilder2D {
+    type Vertex = Vertex2D;
+
+    fn indices<'a>(&'a self) -> &'a [Index] {
+        &self.indices
+    }
+    fn vertices<'a>(&'a self) -> &'a [Self::Vertex] {
+        &self.vertices
+    }
+}
+
+impl ModelBuilder2D {
     pub const TRIANGLE_INDICES: [Index; 1] = [Index::new(0, 1, 2)];
     pub const CUBOID_INDICES: [Index; 2] = [Index::new(0, 1, 2), Index::new(2, 3, 0)];
 
-    pub const DEFAULT_OFFSET: Vector<f32> = Vector::new(0.0, 0.0);
+    pub const DEFAULT_OFFSET: Vector2<f32> = Vector2::new(0.0, 0.0);
     pub const DEFAULT_ROTATION: f32 = 0.0;
-    pub const DEFAULT_SCALE: Vector<f32> = Vector::new(1.0, 1.0);
+    pub const DEFAULT_SCALE: Vector2<f32> = Vector2::new(1.0, 1.0);
     pub fn ball(radius: f32, resolution: u32) -> Self {
         Self::regular_polygon(radius, resolution)
     }
 
     pub fn capsule(radius: f32, half_height: f32, resolution: u32) -> Self {
         Self::rounded(
-            ModelBuilder::cuboid(Vector::new(radius, half_height)),
+            Self::cuboid(Vector2::new(radius, half_height)),
             RoundingDirection::Outward,
             radius,
             resolution,
@@ -64,18 +140,17 @@ impl<T: bytemuck::Pod + bytemuck::Zeroable + Default> ModelBuilder<T> {
         for i in 0..corners {
             let i = i as f32;
 
-            let pos = Vector::new(
+            let pos = Vector2::new(
                 radius * (i / corners as f32 * 2.0 * PI).cos(),
                 radius * (i / corners as f32 * 2.0 * PI).sin(),
             );
 
-            vertices.push(Vertex {
+            vertices.push(Vertex2D {
                 pos,
-                tex_coords: Vector::new(
+                tex: Vector2::new(
                     (i / corners as f32 * 2.0 * PI).cos() / 2.0 + 0.5,
                     (i / corners as f32 * 2.0 * PI).sin() / -2.0 + 0.5,
                 ),
-                additional: Default::default(),
             });
         }
         let indices = Self::triangulate(&vertices);
@@ -87,30 +162,26 @@ impl<T: bytemuck::Pod + bytemuck::Zeroable + Default> ModelBuilder<T> {
     }
 
     pub fn square(half_length: f32) -> Self {
-        Self::cuboid(Vector::new(half_length, half_length))
+        Self::cuboid(Vector2::new(half_length, half_length))
     }
 
-    pub fn cuboid(half_extents: Vector<f32>) -> Self {
+    pub fn cuboid(half_extents: Vector2<f32>) -> Self {
         let vertices = vec![
-            Vertex::new(
-                Vector::new(-half_extents.x, half_extents.y),
-                Vector::new(0.0, 0.0),
-                Default::default(),
+            Vertex2D::new(
+                Vector2::new(-half_extents.x, half_extents.y),
+                Vector2::new(0.0, 0.0),
             ),
-            Vertex::new(
-                Vector::new(-half_extents.x, -half_extents.y),
-                Vector::new(0.0, 1.0),
-                Default::default(),
+            Vertex2D::new(
+                Vector2::new(-half_extents.x, -half_extents.y),
+                Vector2::new(0.0, 1.0),
             ),
-            Vertex::new(
-                Vector::new(half_extents.x, -half_extents.y),
-                Vector::new(1.0, 1.0),
-                Default::default(),
+            Vertex2D::new(
+                Vector2::new(half_extents.x, -half_extents.y),
+                Vector2::new(1.0, 1.0),
             ),
-            Vertex::new(
-                Vector::new(half_extents.x, half_extents.y),
-                Vector::new(1.0, 0.0),
-                Default::default(),
+            Vertex2D::new(
+                Vector2::new(half_extents.x, half_extents.y),
+                Vector2::new(1.0, 0.0),
             ),
         ];
         let indices = Vec::from(Self::CUBOID_INDICES);
@@ -123,26 +194,10 @@ impl<T: bytemuck::Pod + bytemuck::Zeroable + Default> ModelBuilder<T> {
 
     pub fn from_aabb(aabb: AABB) -> Self {
         let vertices = vec![
-            Vertex::new(
-                Vector::new(aabb.min.x, aabb.max.y),
-                Vector::new(0.0, 0.0),
-                Default::default(),
-            ),
-            Vertex::new(
-                Vector::new(aabb.min.x, aabb.min.y),
-                Vector::new(0.0, 1.0),
-                Default::default(),
-            ),
-            Vertex::new(
-                Vector::new(aabb.max.x, aabb.min.y),
-                Vector::new(1.0, 1.0),
-                Default::default(),
-            ),
-            Vertex::new(
-                Vector::new(aabb.max.x, aabb.max.y),
-                Vector::new(1.0, 0.0),
-                Default::default(),
-            ),
+            Vertex2D::new(Vector2::new(aabb.min.x, aabb.max.y), Vector2::new(0.0, 0.0)),
+            Vertex2D::new(Vector2::new(aabb.min.x, aabb.min.y), Vector2::new(0.0, 1.0)),
+            Vertex2D::new(Vector2::new(aabb.max.x, aabb.min.y), Vector2::new(1.0, 1.0)),
+            Vertex2D::new(Vector2::new(aabb.max.x, aabb.max.y), Vector2::new(1.0, 0.0)),
         ];
         let indices = Vec::from(Self::CUBOID_INDICES);
         Self {
@@ -156,14 +211,14 @@ impl<T: bytemuck::Pod + bytemuck::Zeroable + Default> ModelBuilder<T> {
         AABB::from_vertices(&self.vertices)
     }
 
-    pub fn triangle(a: Vector<f32>, b: Vector<f32>, c: Vector<f32>) -> Self {
+    pub fn triangle(a: Vector2<f32>, b: Vector2<f32>, c: Vector2<f32>) -> Self {
         let ccw = (b.x - a.x) * (c.y - a.y) - (c.x - a.x) * (b.y - a.y);
         let vertices = if ccw > 0.0 {
             vec![a, b, c]
         } else {
             vec![c, b, a]
         };
-        let vertices = Self::create_tex_coords(vertices);
+        let vertices = Self::create_tex(vertices);
         let indices = Vec::from(Self::TRIANGLE_INDICES);
         Self {
             vertices,
@@ -171,19 +226,19 @@ impl<T: bytemuck::Pod + bytemuck::Zeroable + Default> ModelBuilder<T> {
             ..Default::default()
         }
     }
-    pub fn segment(a: Vector<f32>, b: Vector<f32>, half_thickness: f32) -> Self {
+    pub fn segment(a: Vector2<f32>, b: Vector2<f32>, half_thickness: f32) -> Self {
         let d = b - a;
         let l = (d.x.powi(2) + d.y.powi(2)).sqrt();
         let r = half_thickness / l;
         let da = d * r;
 
         let vertices = vec![
-            Vector::new(a.x - da.x, a.y + da.y),
-            Vector::new(a.x + da.x, a.y - da.y),
-            Vector::new(b.x + da.x, b.y - da.y),
-            Vector::new(b.x - da.x, b.y + da.y),
+            Vector2::new(a.x - da.x, a.y + da.y),
+            Vector2::new(a.x + da.x, a.y - da.y),
+            Vector2::new(b.x + da.x, b.y - da.y),
+            Vector2::new(b.x - da.x, b.y + da.y),
         ];
-        let vertices = Self::create_tex_coords(vertices);
+        let vertices = Self::create_tex(vertices);
         let indices = Self::triangulate(&vertices);
         Self {
             vertices,
@@ -191,8 +246,8 @@ impl<T: bytemuck::Pod + bytemuck::Zeroable + Default> ModelBuilder<T> {
             ..Default::default()
         }
     }
-    pub fn convex_polygon(vertices: Vec<Vector<f32>>) -> Self {
-        let vertices = Self::create_tex_coords(vertices);
+    pub fn convex_polygon(vertices: Vec<Vector2<f32>>) -> Self {
+        let vertices = Self::create_tex(vertices);
         let indices = Self::triangulate(&vertices);
         Self {
             vertices,
@@ -201,7 +256,7 @@ impl<T: bytemuck::Pod + bytemuck::Zeroable + Default> ModelBuilder<T> {
         }
     }
     pub fn rounded(
-        inner: ModelBuilder<T>,
+        inner: Self,
         direction: RoundingDirection,
         border_radius: f32,
         resolution: u32,
@@ -209,7 +264,7 @@ impl<T: bytemuck::Pod + bytemuck::Zeroable + Default> ModelBuilder<T> {
         let v = inner.vertices.iter().map(|v| v.pos).collect();
         let border = border_radius;
 
-        fn det(v0: Vector<f32>, v1: Vector<f32>) -> f32 {
+        fn det(v0: Vector2<f32>, v1: Vector2<f32>) -> f32 {
             return v0.x * v1.y - v0.y * v1.x;
         }
 
@@ -220,11 +275,11 @@ impl<T: bytemuck::Pod + bytemuck::Zeroable + Default> ModelBuilder<T> {
         struct WrapIter<'a> {
             len: usize,
             counter: usize,
-            vertices: &'a Vec<Vector<f32>>,
+            vertices: &'a Vec<Vector2<f32>>,
         }
 
         impl<'a> WrapIter<'a> {
-            pub fn new(vertices: &'a Vec<Vector<f32>>) -> WrapIter<'a> {
+            pub fn new(vertices: &'a Vec<Vector2<f32>>) -> WrapIter<'a> {
                 Self {
                     len: vertices.len() - 1,
                     counter: 0,
@@ -234,7 +289,7 @@ impl<T: bytemuck::Pod + bytemuck::Zeroable + Default> ModelBuilder<T> {
         }
 
         impl<'a> Iterator for WrapIter<'a> {
-            type Item = (usize, usize, Vector<f32>, Vector<f32>);
+            type Item = (usize, usize, Vector2<f32>, Vector2<f32>);
             fn next(&mut self) -> Option<Self::Item> {
                 let i = self.counter;
                 self.counter += 1;
@@ -248,9 +303,9 @@ impl<T: bytemuck::Pod + bytemuck::Zeroable + Default> ModelBuilder<T> {
         }
 
         let factor = -1.0;
-        let ccw_left = Matrix::from(Rotation::new(factor * FRAC_PI_2));
+        let ccw_left = Matrix2::from(Rotation2::new(factor * FRAC_PI_2));
 
-        let n: Vec<Vector<f32>> = WrapIter::new(&v)
+        let n: Vec<Vector2<f32>> = WrapIter::new(&v)
             .map(|(__, _, v0, v1)| (ccw_left * (v1 - v0).normalize() * border))
             .collect();
 
@@ -263,7 +318,7 @@ impl<T: bytemuck::Pod + bytemuck::Zeroable + Default> ModelBuilder<T> {
             .collect();
 
         let s: Vec<u32> = a.iter().map(|_| resolution).collect();
-        let mut o: Vec<Option<Vector<f32>>> = v.iter().map(|_| None).collect();
+        let mut o: Vec<Option<Vector2<f32>>> = v.iter().map(|_| None).collect();
         let mut v_prime = v.clone();
 
         for (i, j, _, v1) in WrapIter::new(&v) {
@@ -288,13 +343,13 @@ impl<T: bytemuck::Pod + bytemuck::Zeroable + Default> ModelBuilder<T> {
         }
 
         let mut index = 0;
-        let mut v_new: Vec<Option<Vector<f32>>> = (0..(v_prime.len() as u32
+        let mut v_new: Vec<Option<Vector2<f32>>> = (0..(v_prime.len() as u32
             + s.iter().sum::<u32>()))
             .map(|_| None)
             .collect();
 
         for (i, j, _, _) in WrapIter::new(&v_prime) {
-            let m = Matrix::from(Rotation::new(d[i] * a[i]));
+            let m = Matrix2::from(Rotation2::new(d[i] * a[i]));
             let mut step = n[i] * (-factor * d[i]);
             let anchor = o[j];
             v_new[index] = Some(anchor.unwrap() + step);
@@ -307,7 +362,7 @@ impl<T: bytemuck::Pod + bytemuck::Zeroable + Default> ModelBuilder<T> {
         }
 
         let vertices = v_new.into_iter().map(|v| v.unwrap()).collect();
-        let vertices = Self::create_tex_coords(vertices);
+        let vertices = Self::create_tex(vertices);
         let indices = Self::triangulate(&vertices);
         Self {
             vertices,
@@ -331,13 +386,13 @@ impl<T: bytemuck::Pod + bytemuck::Zeroable + Default> ModelBuilder<T> {
                 indices.push(Index::new(i as u32, prev, next));
                 outer_radius
             };
-            vertices.push(Vector::new(
+            vertices.push(Vector2::new(
                 r * (FRAC_PI_2 - a * i as f32).cos(),
                 r * (FRAC_PI_2 - a * i as f32).sin(),
             ));
         }
-        vertices.push(Vector::new(0.0, 0.0));
-        let vertices = Self::create_tex_coords(vertices);
+        vertices.push(Vector2::new(0.0, 0.0));
+        let vertices = Self::create_tex(vertices);
         Self {
             vertices,
             indices,
@@ -345,7 +400,7 @@ impl<T: bytemuck::Pod + bytemuck::Zeroable + Default> ModelBuilder<T> {
         }
     }
 
-    pub fn custom(vertices: Vec<Vertex<T>>, indices: Vec<Index>) -> Self {
+    pub fn custom(vertices: Vec<Vertex2D>, indices: Vec<Index>) -> Self {
         Self {
             vertices,
             indices,
@@ -353,12 +408,12 @@ impl<T: bytemuck::Pod + bytemuck::Zeroable + Default> ModelBuilder<T> {
         }
     }
 
-    pub fn compound(shapes: Vec<ModelBuilder<T>>) -> Self {
+    pub fn compound(shapes: Vec<Self>) -> Self {
         let mut vertices = vec![];
         let mut indices = vec![];
         let mut offset = 0;
         for shape in shapes {
-            let shape = shape.apply_modifiers();
+            let shape = shape.apply();
             vertices.extend(shape.vertices);
             let len = shape.indices.len() as u32;
             for index in shape.indices {
@@ -401,7 +456,7 @@ impl<T: bytemuck::Pod + bytemuck::Zeroable + Default> ModelBuilder<T> {
             }
             TypedShape::RoundCuboid(round_cuboid) => {
                 return Self::rounded(
-                    ModelBuilder::cuboid(round_cuboid.inner_shape.half_extents.into()),
+                    Self::cuboid(round_cuboid.inner_shape.half_extents.into()),
                     RoundingDirection::Outward,
                     round_cuboid.border_radius,
                     resolution,
@@ -410,7 +465,7 @@ impl<T: bytemuck::Pod + bytemuck::Zeroable + Default> ModelBuilder<T> {
             TypedShape::RoundTriangle(round_triangle) => {
                 let inner = round_triangle.inner_shape;
                 return Self::rounded(
-                    ModelBuilder::triangle(inner.a.coords, inner.b.coords, inner.c.coords),
+                    Self::triangle(inner.a.coords, inner.b.coords, inner.c.coords),
                     RoundingDirection::Outward,
                     round_triangle.border_radius,
                     resolution,
@@ -420,7 +475,7 @@ impl<T: bytemuck::Pod + bytemuck::Zeroable + Default> ModelBuilder<T> {
                 let inner = &round_convex_polygon.inner_shape;
                 let vertices = inner.points().iter().map(|p| p.coords).collect();
                 return Self::rounded(
-                    ModelBuilder::convex_polygon(vertices),
+                    Self::convex_polygon(vertices),
                     RoundingDirection::Outward,
                     round_convex_polygon.border_radius,
                     resolution,
@@ -459,7 +514,7 @@ impl<T: bytemuck::Pod + bytemuck::Zeroable + Default> ModelBuilder<T> {
     }
 
     /// Triangulation of vertices
-    pub fn triangulate(vertices: &Vec<Vertex<T>>) -> Vec<Index> {
+    pub fn triangulate(vertices: &Vec<Vertex2D>) -> Vec<Index> {
         use delaunator::{triangulate, Point};
 
         let points: Vec<Point> = vertices
@@ -483,7 +538,7 @@ impl<T: bytemuck::Pod + bytemuck::Zeroable + Default> ModelBuilder<T> {
     }
 
     /// Generates the texture coordinates
-    pub fn create_tex_coords(vertices: Vec<Vector<f32>>) -> Vec<Vertex<T>> {
+    pub fn create_tex(vertices: Vec<Vector2<f32>>) -> Vec<Vertex2D> {
         let mut min_x = vertices[0].x;
         let mut max_x = vertices[0].x;
         let mut min_y = vertices[0].y;
@@ -504,74 +559,74 @@ impl<T: bytemuck::Pod + bytemuck::Zeroable + Default> ModelBuilder<T> {
                 max_y = v.y;
             }
         }
-        let size = Vector::new(max_x - min_x, max_y - min_y);
+        let size = Vector2::new(max_x - min_x, max_y - min_y);
         let mut result = vec![];
         for v in vertices {
             let delta_x = v.x - min_x;
             let ratio_x = delta_x / size.x;
             let delta_y = max_y - v.y;
             let ratio_y = delta_y / size.y;
-            let tex_coords = Vector::new(ratio_x, ratio_y);
-            result.push(Vertex::new(v, tex_coords, Default::default()));
+            let tex = Vector2::new(ratio_x, ratio_y);
+            result.push(Vertex2D::new(v, tex));
         }
         return result;
     }
 
-    pub fn vertex_scale(mut self, scale: Vector<f32>) -> Self {
+    pub fn vertex_scale(mut self, scale: Vector2<f32>) -> Self {
         self.vertex_scale = scale;
         self
     }
 
-    pub fn vertex_position(mut self, position: Isometry<f32>) -> Self {
+    pub fn vertex_position(mut self, position: Isometry2<f32>) -> Self {
         self.vertex_offset = position;
         self
     }
 
-    pub fn vertex_rotation(mut self, rotation: Rotation<f32>) -> Self {
+    pub fn vertex_rotation(mut self, rotation: Rotation2<f32>) -> Self {
         self.vertex_offset.rotation = rotation;
         self
     }
 
-    pub fn vertex_translation(mut self, translation: Vector<f32>) -> Self {
+    pub fn vertex_translation(mut self, translation: Vector2<f32>) -> Self {
         self.vertex_offset.translation.vector = translation;
         self
     }
 
-    pub fn vertex_rotation_axis(mut self, rotation_axis: Vector<f32>) -> Self {
+    pub fn vertex_rotation_axis(mut self, rotation_axis: Vector2<f32>) -> Self {
         self.vertex_rotation_axis = rotation_axis;
         self
     }
 
-    pub fn tex_coord_scale(mut self, scale: Vector<f32>) -> Self {
+    pub fn tex_coord_scale(mut self, scale: Vector2<f32>) -> Self {
         self.tex_coord_scale = scale;
         self
     }
 
-    pub fn tex_coord_position(mut self, position: Isometry<f32>) -> Self {
+    pub fn tex_coord_position(mut self, position: Isometry2<f32>) -> Self {
         self.tex_coord_offset = position;
         self
     }
 
-    pub fn tex_coord_rotation(mut self, rotation: Rotation<f32>) -> Self {
+    pub fn tex_coord_rotation(mut self, rotation: Rotation2<f32>) -> Self {
         self.tex_coord_offset.rotation = rotation;
         self
     }
 
-    pub fn tex_coord_translation(mut self, translation: Vector<f32>) -> Self {
+    pub fn tex_coord_translation(mut self, translation: Vector2<f32>) -> Self {
         self.tex_coord_offset.translation.vector = translation;
         self
     }
 
-    pub fn tex_coord_rotation_axis(mut self, rotation_axis: Vector<f32>) -> Self {
+    pub fn tex_coord_rotation_axis(mut self, rotation_axis: Vector2<f32>) -> Self {
         self.tex_coord_rotation_axis = rotation_axis;
         self
     }
 
     pub fn vertex_size(&self) -> wgpu::BufferAddress {
-        std::mem::size_of::<Vertex<T>>() as u64
+        mem::size_of::<Vertex2D>() as u64
     }
 
-    pub fn apply_modifiers(mut self) -> Self {
+    pub fn apply(mut self) -> Self {
         Self::compute_modifed_vertices(
             &mut self.vertices,
             self.vertex_offset,
@@ -589,13 +644,13 @@ impl<T: bytemuck::Pod + bytemuck::Zeroable + Default> ModelBuilder<T> {
     }
 
     pub fn compute_modifed_vertices(
-        vertices: &mut Vec<Vertex<T>>,
-        vertex_offset: Isometry<f32>,
-        tex_coord_offset: Isometry<f32>,
-        vertex_scale: Vector<f32>,
-        tex_coord_scale: Vector<f32>,
-        vertex_rotation_axis: Vector<f32>,
-        tex_coord_rotation_axis: Vector<f32>,
+        vertices: &mut Vec<Vertex2D>,
+        vertex_offset: Isometry2<f32>,
+        tex_coord_offset: Isometry2<f32>,
+        vertex_scale: Vector2<f32>,
+        tex_coord_scale: Vector2<f32>,
+        vertex_rotation_axis: Vector2<f32>,
+        tex_coord_rotation_axis: Vector2<f32>,
     ) {
         if vertex_scale != Self::DEFAULT_SCALE {
             for v in vertices.iter_mut() {
@@ -620,40 +675,60 @@ impl<T: bytemuck::Pod + bytemuck::Zeroable + Default> ModelBuilder<T> {
 
         if tex_coord_scale != Self::DEFAULT_SCALE {
             for v in vertices.iter_mut() {
-                v.tex_coords.x *= tex_coord_scale.x;
-                v.tex_coords.y *= tex_coord_scale.y;
+                v.tex.x *= tex_coord_scale.x;
+                v.tex.y *= tex_coord_scale.y;
             }
         }
 
         let angle = tex_coord_offset.rotation.angle();
         if angle != Self::DEFAULT_ROTATION {
             for v in vertices.iter_mut() {
-                let delta = v.tex_coords - tex_coord_rotation_axis;
-                v.tex_coords = tex_coord_rotation_axis + tex_coord_offset.rotation * delta;
+                let delta = v.tex - tex_coord_rotation_axis;
+                v.tex = tex_coord_rotation_axis + tex_coord_offset.rotation * delta;
             }
         }
 
         if tex_coord_offset.translation.vector != Self::DEFAULT_OFFSET {
             for v in vertices.iter_mut() {
-                v.tex_coords += tex_coord_offset.translation.vector;
+                v.tex += tex_coord_offset.translation.vector;
             }
         }
     }
+}
 
-    pub fn build(self, gpu: &Gpu) -> Model {
-        let mut vertices = self.vertices.clone();
-        Self::compute_modifed_vertices(
-            &mut vertices,
-            self.vertex_offset,
-            self.tex_coord_offset,
-            self.vertex_scale,
-            self.tex_coord_scale,
-            self.vertex_rotation_axis,
-            self.tex_coord_rotation_axis,
-        );
+impl Default for ModelBuilder2D {
+    fn default() -> Self {
+        Self {
+            vertices: Default::default(),
+            indices: Default::default(),
+            vertex_offset: Isometry2::new(Self::DEFAULT_OFFSET, Self::DEFAULT_ROTATION),
+            vertex_scale: Self::DEFAULT_SCALE,
+            vertex_rotation_axis: Vector2::new(0.0, 0.0),
+            tex_coord_offset: Isometry2::new(Self::DEFAULT_OFFSET, Self::DEFAULT_ROTATION),
+            tex_coord_scale: Self::DEFAULT_SCALE,
+            tex_coord_rotation_axis: Vector2::new(0.5, 0.5),
+        }
+    }
+}
 
-        let vertices_slice = bytemuck::cast_slice(&vertices[..]);
-        let indices_slice = bytemuck::cast_slice(&self.indices[..]);
+/// 2D Model represented by its [Vertices](Vertex) and [Indices](Index).
+#[derive(Debug)]
+pub struct Model<V: Vertex> {
+    vertex_amount: u32,
+    index_amount: u32,
+    vertex_buffer_size: wgpu::BufferAddress,
+    index_buffer_size: wgpu::BufferAddress,
+    vertex_buffer: wgpu::Buffer,
+    index_buffer: wgpu::Buffer,
+    marker: PhantomData<V>,
+}
+
+impl<V: Vertex> Model<V> {
+    pub fn new(gpu: &Gpu, builder: impl ModelBuilder<Vertex = V>) -> Self {
+        let vertices = builder.vertices();
+        let indices = builder.indices();
+        let vertices_slice = bytemuck::cast_slice(&vertices);
+        let indices_slice = bytemuck::cast_slice(&indices);
         let vertex_buffer = gpu
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -676,46 +751,16 @@ impl<T: bytemuck::Pod + bytemuck::Zeroable + Default> ModelBuilder<T> {
             vertex_buffer,
             index_buffer,
             vertex_amount: vertices.len() as u32,
-            index_amount: self.indices.len() as u32 * 3,
-            vertex_size: self.vertex_size(),
+            index_amount: indices.len() as u32 * 3,
+            marker: PhantomData,
         }
     }
-}
 
-/// 2D Model represented by its [Vertices](Vertex) and [Indices](Index).
-#[derive(Debug)]
-pub struct Model {
-    vertex_amount: u32,
-    index_amount: u32,
-    vertex_size: wgpu::BufferAddress,
-    vertex_buffer_size: wgpu::BufferAddress,
-    index_buffer_size: wgpu::BufferAddress,
-    vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer,
-}
-
-impl Model {
-    pub fn new<T: bytemuck::Pod + bytemuck::Zeroable + Default>(
-        gpu: &Gpu,
-        builder: ModelBuilder<T>,
-    ) -> Self {
-        builder.build(gpu)
-    }
-
-    pub fn write(&mut self, gpu: &Gpu, builder: ModelBuilder<()>) {
-        let builder = builder.apply_modifiers();
-        self.write_indices(gpu, &builder.indices);
-        self.write_vertices(gpu, &builder.vertices);
-    }
-
-    pub fn write_with_data<T: bytemuck::Pod + bytemuck::Zeroable + Default>(
-        &mut self,
-        gpu: &Gpu,
-        builder: ModelBuilder<T>,
-    ) {
-        let builder = builder.apply_modifiers();
-        self.write_indices(gpu, &builder.indices);
-        self.write_vertices(gpu, &builder.vertices);
+    pub fn write(&mut self, gpu: &Gpu, builder: impl ModelBuilder<Vertex = V>) {
+        let vertices = builder.vertices();
+        let indices = builder.indices();
+        self.write_indices(gpu, &indices);
+        self.write_vertices(gpu, &vertices);
     }
 
     pub fn write_indices(&mut self, gpu: &Gpu, indices: &[Index]) {
@@ -736,11 +781,7 @@ impl Model {
         self.index_amount = indices.len() as u32 * 3;
     }
 
-    pub fn write_vertices<T: bytemuck::Pod + bytemuck::Zeroable + Default>(
-        &mut self,
-        gpu: &Gpu,
-        vertices: &[Vertex<T>],
-    ) {
+    pub fn write_vertices(&mut self, gpu: &Gpu, vertices: &[V]) {
         let vertices_slice = bytemuck::cast_slice(&vertices[..]);
         let new_size = vertices_slice.len() as wgpu::BufferAddress;
         if new_size > self.vertex_buffer_size {
@@ -784,7 +825,11 @@ impl Model {
     }
 
     pub fn vertex_size(&self) -> wgpu::BufferAddress {
-        self.vertex_size
+        V::SIZE
+    }
+
+    pub(crate) fn buffer(&self) -> &wgpu::Buffer {
+        &self.vertex_buffer
     }
 }
 

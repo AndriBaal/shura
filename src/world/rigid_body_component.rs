@@ -1,6 +1,6 @@
 use crate::{
     physics::{Collider, ColliderHandle, RigidBody, RigidBodyHandle},
-    Color, ComponentHandle, InstancePosition, Position, SpriteAtlas, SpriteSheetIndex, Vector,
+    Color, ComponentHandle, Instance2D, Position, SpriteAtlas, SpriteSheetIndex, Vector2,
     World,
 };
 
@@ -68,7 +68,7 @@ impl RigidBodyStatus {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RigidBodyComponent {
     pub(crate) status: RigidBodyStatus,
-    scale: Vector<f32>,
+    scale: Vector2<f32>,
     atlas: SpriteAtlas,
     color: Color,
     index: SpriteSheetIndex,
@@ -85,7 +85,7 @@ impl RigidBodyComponent {
                 rigid_body: rigid_body.into(),
                 colliders: colliders.into_iter().map(|c| c.into()).collect(),
             },
-            scale: Vector::new(1.0, 1.0),
+            scale: Vector2::new(1.0, 1.0),
             atlas: Default::default(),
             color: Color::WHITE,
             index: 0,
@@ -117,15 +117,15 @@ impl RigidBodyComponent {
         self.status.detach_collider(world, collider)
     }
 
-    pub fn with_scale(mut self, scale: Vector<f32>) -> Self {
+    pub fn with_scale(mut self, scale: Vector2<f32>) -> Self {
         self.scale = scale;
         self
     }
-    pub fn set_scale(&mut self, scale: Vector<f32>) {
+    pub fn set_scale(&mut self, scale: Vector2<f32>) {
         self.scale = scale;
     }
 
-    pub const fn scale(&self) -> &Vector<f32> {
+    pub const fn scale(&self) -> &Vector2<f32> {
         &self.scale
     }
 
@@ -167,11 +167,11 @@ impl RigidBodyComponent {
 }
 
 impl Position for RigidBodyComponent {
-    fn instance(&self, world: &World) -> InstancePosition {
+    fn instance(&self, world: &World) -> Instance2D {
         match &self.status {
             RigidBodyStatus::Added { rigid_body_handle } => {
                 if let Some(rigid_body) = world.rigid_body(*rigid_body_handle) {
-                    return InstancePosition::new(
+                    return Instance2D::new(
                         *rigid_body.position(),
                         self.scale,
                         self.atlas,
@@ -181,7 +181,7 @@ impl Position for RigidBodyComponent {
                 }
             }
             RigidBodyStatus::Pending { rigid_body, .. } => {
-                return InstancePosition::new(
+                return Instance2D::new(
                     *rigid_body.position(),
                     self.scale,
                     self.atlas,
@@ -190,7 +190,7 @@ impl Position for RigidBodyComponent {
                 );
             }
         }
-        return InstancePosition::default();
+        return Instance2D::default();
     }
 
     fn init(&mut self, handle: ComponentHandle, world: &mut World) {

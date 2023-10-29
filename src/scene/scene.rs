@@ -2,7 +2,7 @@ use std::cell::RefCell;
 
 use crate::{
     App, Component, ComponentConfig, ComponentManager, ComponentType, ComponentTypeImplementation,
-    Context, GroupManager, ScreenConfig, System, SystemManager, Vector, World, WorldCamera,
+    Context, GroupManager, ScreenConfig, System, SystemManager, Vector2, World, WorldCamera2D,
     WorldCameraScale,
 };
 
@@ -69,7 +69,7 @@ impl SceneCreator for RecycleScene {
 
     fn create(mut self: Box<Self>, app: &mut App) -> Scene {
         let mint: mint::Vector2<u32> = app.window.inner_size().into();
-        let window_size: Vector<u32> = mint.into();
+        let window_size: Vector2<u32> = mint.into();
         self.scene.world_camera.resize(window_size);
         return self.scene;
     }
@@ -80,7 +80,7 @@ impl SceneCreator for RecycleScene {
 pub struct Scene {
     pub render_components: bool,
     pub screen_config: ScreenConfig,
-    pub world_camera: WorldCamera,
+    pub world_camera: WorldCamera2D,
     pub groups: GroupManager,
     pub world: World,
     #[cfg_attr(feature = "serde", serde(skip))]
@@ -100,10 +100,10 @@ impl Scene {
         components: Vec<Box<RefCell<dyn ComponentTypeImplementation>>>,
     ) -> Self {
         let mint: mint::Vector2<u32> = app.window.inner_size().into();
-        let window_size: Vector<u32> = mint.into();
+        let window_size: Vector2<u32> = mint.into();
 
         let mut scene = Self {
-            world_camera: WorldCamera::new(
+            world_camera: WorldCamera2D::new(
                 Default::default(),
                 WorldCameraScale::Min(Self::DEFAULT_VERTICAL_CAMERA_FOV),
                 window_size,

@@ -1,4 +1,4 @@
-use crate::{animation::EaseMethod, Duration, Isometry, Rotation, Vector};
+use crate::{animation::EaseMethod, Duration, Isometry2, Rotation2, Vector2};
 
 // Animations heavily inspired by bevy_tweening
 
@@ -6,7 +6,7 @@ pub trait Stepable: Copy + Clone {
     fn step(&mut self, end: &Self, factor: f32) -> Self;
 }
 
-impl Stepable for Isometry<f32> {
+impl Stepable for Isometry2<f32> {
     fn step(&mut self, end: &Self, factor: f32) -> Self {
         self.lerp_slerp(end, factor)
     }
@@ -18,13 +18,13 @@ impl Stepable for f32 {
     }
 }
 
-impl Stepable for Vector<f32> {
+impl Stepable for Vector2<f32> {
     fn step(&mut self, end: &Self, factor: f32) -> Self {
         self.lerp(end, factor)
     }
 }
 
-impl Stepable for Rotation<f32> {
+impl Stepable for Rotation2<f32> {
     fn step(&mut self, end: &Self, factor: f32) -> Self {
         self.slerp(end, factor)
     }

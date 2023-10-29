@@ -10,7 +10,7 @@ description = "A fast cross-plattform 2D component-based game framework"
 keywords = ["graphics", "physics", "game", "android", "wasm"]
 categories = [
     "wasm",
-    "rendering::engine",
+    "rendering",
     "graphics",
     "game-engines",
     "game-development",

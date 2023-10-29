@@ -1,6 +1,6 @@
 use crate::{
     physics::{Collider, ColliderHandle},
-    Color, ComponentHandle, InstancePosition, Position, SpriteAtlas, SpriteSheetIndex, Vector,
+    Color, ComponentHandle, Instance2D, Position, SpriteAtlas, SpriteSheetIndex, Vector2,
     World,
 };
 
@@ -37,7 +37,7 @@ impl ColliderStatus {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ColliderComponent {
     pub(crate) status: ColliderStatus,
-    scale: Vector<f32>,
+    scale: Vector2<f32>,
     atlas: SpriteAtlas,
     color: Color,
     index: SpriteSheetIndex,
@@ -50,7 +50,7 @@ impl ColliderComponent {
             status: ColliderStatus::Pending {
                 collider: collider.into(),
             },
-            scale: Vector::new(1.0, 1.0),
+            scale: Vector2::new(1.0, 1.0),
             atlas: Default::default(),
             color: Color::WHITE,
             index: 0,
@@ -66,15 +66,15 @@ impl ColliderComponent {
         self.status.get_mut(world)
     }
 
-    pub fn with_scale(mut self, scale: Vector<f32>) -> Self {
+    pub fn with_scale(mut self, scale: Vector2<f32>) -> Self {
         self.scale = scale;
         self
     }
-    pub fn set_scale(&mut self, scale: Vector<f32>) {
+    pub fn set_scale(&mut self, scale: Vector2<f32>) {
         self.scale = scale;
     }
 
-    pub const fn scale(&self) -> &Vector<f32> {
+    pub const fn scale(&self) -> &Vector2<f32> {
         &self.scale
     }
 
@@ -116,11 +116,11 @@ impl ColliderComponent {
 }
 
 impl Position for ColliderComponent {
-    fn instance(&self, world: &World) -> InstancePosition {
+    fn instance(&self, world: &World) -> Instance2D {
         match &self.status {
             ColliderStatus::Added { collider_handle } => {
                 if let Some(collider) = world.collider(*collider_handle) {
-                    return InstancePosition::new(
+                    return Instance2D::new(
                         *collider.position(),
                         self.scale,
                         self.atlas,
@@ -130,7 +130,7 @@ impl Position for ColliderComponent {
                 }
             }
             ColliderStatus::Pending { collider } => {
-                return InstancePosition::new(
+                return Instance2D::new(
                     *collider.position(),
                     self.scale,
                     self.atlas,
@@ -139,7 +139,7 @@ impl Position for ColliderComponent {
                 );
             }
         }
-        return InstancePosition::default();
+        return Instance2D::default();
     }
 
     fn init(&mut self, handle: ComponentHandle, world: &mut World) {

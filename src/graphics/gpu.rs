@@ -3,12 +3,12 @@ use wgpu::include_wgsl;
 #[cfg(feature = "log")]
 use crate::log::info;
 #[cfg(feature = "text")]
-use crate::text::{Font, Text, TextSection, TextVertexData};
+use crate::text::{Font, Text, TextSection};
 use crate::{
-    Camera, InstanceBuffer, InstancePosition, Isometry, Model, ModelBuilder, RenderEncoder,
+    Camera2D, InstanceBuffer, Instance2D, Isometry2, Model, ModelBuilder, RenderEncoder,
     RenderTarget, Shader, ShaderConfig, ShaderModule, ShaderModuleDescriptor, ShaderModuleSoure,
     Sprite, SpriteBuilder, SpriteRenderTarget, SpriteSheet, SpriteSheetBuilder, SpriteSheetIndex,
-    SurfaceRenderTarget, Uniform, UniformField, Vector, Vertex, WorldCamera,
+    SurfaceRenderTarget, Uniform, UniformField, Vector2, Vertex,  Model2D, InstanceBuffer2D, Instance, ModelBuilder2D,
 };
 use std::{ops::Deref, sync::Mutex};
 
@@ -53,7 +53,7 @@ pub struct Gpu {
 impl Gpu {
     pub(crate) async fn new(window: &winit::window::Window, config: GpuConfig) -> Self {
         let window_size = window.inner_size();
-        let window_size = Vector::new(window_size.width, window_size.height);
+        let window_size = Vector2::new(window_size.width, window_size.height);
         let max_multisample = config.max_multisample;
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: config.backends,
@@ -152,7 +152,7 @@ impl Gpu {
         surface.configure(&self.device, &config);
     }
 
-    pub(crate) fn resize(&self, window_size: Vector<u32>) {
+    pub(crate) fn resize(&self, window_size: Vector2<u32>) {
         let mut config = self.config.lock().unwrap();
         let surface = self.surface.lock().unwrap();
         config.width = window_size.x;
@@ -184,9 +184,9 @@ impl Gpu {
         self.base.sample_count
     }
 
-    pub fn render_size(&self) -> Vector<u32> {
+    pub fn render_size(&self) -> Vector2<u32> {
         let config = self.config.lock().unwrap();
-        Vector::new(config.width, config.height)
+        Vector2::new(config.width, config.height)
     }
 
     pub fn block(&self, handle: wgpu::SubmissionIndex) {
@@ -198,7 +198,7 @@ impl Gpu {
         self.queue.submit(std::iter::once(encoder.finish()))
     }
 
-    pub fn create_render_target(&self, size: Vector<u32>) -> SpriteRenderTarget {
+    pub fn create_render_target(&self, size: Vector2<u32>) -> SpriteRenderTarget {
         SpriteRenderTarget::new(self, size)
     }
 
@@ -209,23 +209,17 @@ impl Gpu {
         SpriteRenderTarget::custom(self, sprite)
     }
 
-    pub fn create_instance_buffer<D: bytemuck::NoUninit>(
+    pub fn create_instance_buffer<I: Instance>(
         &self,
-        instances: &[D],
-    ) -> InstanceBuffer<D> {
+        instances: &[I],
+    ) -> InstanceBuffer<I> {
         InstanceBuffer::new(self, instances)
     }
 
-    pub fn create_model(&self, builder: ModelBuilder<()>) -> Model {
+    pub fn create_model<V: Vertex>(&self, builder: impl ModelBuilder<Vertex = V>) -> Model<V> {
         Model::new(self, builder)
     }
 
-    pub fn create_model_with_data<T: bytemuck::Pod + bytemuck::Zeroable + Default>(
-        &self,
-        builder: ModelBuilder<T>,
-    ) -> Model {
-        Model::new(self, builder)
-    }
 
     pub fn create_sprite<D: Deref<Target = [u8]>>(&self, desc: SpriteBuilder<D>) -> Sprite {
         Sprite::new(self, desc)
@@ -263,11 +257,10 @@ impl Gpu {
     pub fn create_computed_target<'caller, D: Deref<Target = [u8]>>(
         &self,
         defaults: &DefaultResources,
-        world_camera: &WorldCamera,
         sprite: SpriteBuilder<D>,
         compute: impl FnMut(&mut RenderEncoder),
     ) -> SpriteRenderTarget {
-        return SpriteRenderTarget::computed(self, defaults, world_camera, sprite, compute);
+        return SpriteRenderTarget::computed(self, defaults, sprite, compute);
     }
 }
 
@@ -390,22 +383,22 @@ pub struct DefaultResources {
     pub text: Shader,
     pub blurr: Shader,
 
-    pub unit_model: Model,
+    pub unit_model: Model2D,
 
     /// This field holds both total time and the frame time. Both are stored as f32 in the buffer.
     /// The first f32 is the `total_time` and the second f32 is the `frame_time`. In the shader
     /// the struct also needs 2 additional floats which are empty to match the 16 byte alignment
     /// some devices need.
     pub times: Uniform<[f32; 2]>,
-    /// Camera where the smaller side is always 1.0 and the otherside is scaled to match the window aspect ratio.
-    pub relative_camera: Camera,
-    pub relative_bottom_left_camera: Camera,
-    pub relative_bottom_right_camera: Camera,
-    pub relative_top_left_camera: Camera,
-    pub relative_top_right_camera: Camera,
-    pub unit_camera: Camera,
+    /// Camera2D where the smaller side is always 1.0 and the otherside is scaled to match the window aspect ratio.
+    pub relative_camera: Camera2D,
+    pub relative_bottom_left_camera: Camera2D,
+    pub relative_bottom_right_camera: Camera2D,
+    pub relative_top_left_camera: Camera2D,
+    pub relative_top_right_camera: Camera2D,
+    pub unit_camera: Camera2D,
     pub index: [Uniform<SpriteSheetIndex>; 10],
-    pub centered_instance: InstanceBuffer<InstancePosition>,
+    pub centered_instance: InstanceBuffer2D,
 
     pub surface: SurfaceRenderTarget,
     #[cfg(feature = "framebuffer")]
@@ -413,7 +406,7 @@ pub struct DefaultResources {
 }
 
 impl DefaultResources {
-    pub(crate) fn new(gpu: &Gpu, window_size: Vector<u32>) -> Self {
+    pub(crate) fn new(gpu: &Gpu, window_size: Vector2<u32>) -> Self {
         let sprite_sheet = gpu.create_shader(ShaderConfig {
             name: Some("sprite_sheet"),
             source: ShaderModuleSoure::Seperate {
@@ -433,20 +426,10 @@ impl DefaultResources {
                 &gpu.create_shader_module(include_wgsl!("../../res/shader/text.wgsl")),
             ),
             buffers: &[
+                crate::text::Vertex2DText::DESC,
+                // Not Instance2D::DESC because of offset
                 wgpu::VertexBufferLayout {
-                    array_stride: std::mem::size_of::<Vertex<TextVertexData>>()
-                        as wgpu::BufferAddress,
-                    step_mode: wgpu::VertexStepMode::Vertex,
-                    attributes: &wgpu::vertex_attr_array![
-                        0 => Float32x2,
-                        1 => Float32x2,
-                        2 => Float32x4,
-                        3 => Uint32,
-                    ],
-                },
-                // Not InstancePosition::DESC because of offset
-                wgpu::VertexBufferLayout {
-                    array_stride: InstancePosition::SIZE,
+                    array_stride: Instance2D::SIZE,
                     step_mode: wgpu::VertexStepMode::Instance,
                     attributes: &wgpu::vertex_attr_array![
                         4 => Float32x2,
@@ -513,20 +496,20 @@ impl DefaultResources {
 
         let size = gpu.render_size();
         let times = Uniform::new(gpu, [0.0, 0.0]);
-        let centered_instance = gpu.create_instance_buffer(&[InstancePosition::default()]);
+        let centered_instance = gpu.create_instance_buffer(&[Instance2D::default()]);
 
         let fov = Self::relative_fov(window_size);
 
-        let relative_bottom_left_camera = Camera::new_buffer(gpu, Isometry::new(fov, 0.0), fov);
+        let relative_bottom_left_camera = Camera2D::new_buffer(gpu, Isometry2::new(fov, 0.0), fov);
         let relative_bottom_right_camera =
-            Camera::new_buffer(gpu, Isometry::new(Vector::new(-fov.x, fov.y), 0.0), fov);
-        let relative_top_right_camera = Camera::new_buffer(gpu, Isometry::new(-fov, 0.0), fov);
+            Camera2D::new_buffer(gpu, Isometry2::new(Vector2::new(-fov.x, fov.y), 0.0), fov);
+        let relative_top_right_camera = Camera2D::new_buffer(gpu, Isometry2::new(-fov, 0.0), fov);
         let relative_top_left_camera =
-            Camera::new_buffer(gpu, Isometry::new(Vector::new(fov.x, -fov.y), 0.0), fov);
-        let relative_camera = Camera::new_buffer(gpu, Default::default(), fov);
-        let unit_camera = Camera::new_buffer(gpu, Default::default(), Vector::new(0.5, 0.5));
+            Camera2D::new_buffer(gpu, Isometry2::new(Vector2::new(fov.x, -fov.y), 0.0), fov);
+        let relative_camera = Camera2D::new_buffer(gpu, Default::default(), fov);
+        let unit_camera = Camera2D::new_buffer(gpu, Default::default(), Vector2::new(0.5, 0.5));
 
-        let unit_model = gpu.create_model(ModelBuilder::cuboid(Vector::new(0.5, 0.5)));
+        let unit_model = gpu.create_model(ModelBuilder2D::cuboid(Vector2::new(0.5, 0.5)));
 
         let surface = SurfaceRenderTarget::new(gpu, size);
 
@@ -568,33 +551,33 @@ impl DefaultResources {
     #[cfg(feature = "framebuffer")]
     pub(crate) fn apply_render_scale(&mut self, gpu: &Gpu, scale: f32) {
         let size = gpu.render_size().cast::<f32>() * scale;
-        let size = Vector::new(size.x as u32, size.y as u32);
+        let size = Vector2::new(size.x as u32, size.y as u32);
         if self.framebuffer.size() != size {
             self.framebuffer = gpu.create_render_target(size);
         }
     }
 
-    pub(crate) fn resize(&mut self, gpu: &Gpu, window_size: Vector<u32>) {
+    pub(crate) fn resize(&mut self, gpu: &Gpu, window_size: Vector2<u32>) {
         self.surface.resize(gpu, window_size);
 
         #[cfg(feature = "framebuffer")]
         self.framebuffer.resize(gpu, window_size);
 
         let fov = Self::relative_fov(window_size);
-        self.relative_bottom_left_camera = Camera::new_buffer(gpu, Isometry::new(fov, 0.0), fov);
+        self.relative_bottom_left_camera = Camera2D::new_buffer(gpu, Isometry2::new(fov, 0.0), fov);
         self.relative_bottom_right_camera =
-            Camera::new_buffer(gpu, Isometry::new(Vector::new(-fov.x, fov.y), 0.0), fov);
-        self.relative_top_right_camera = Camera::new_buffer(gpu, Isometry::new(-fov, 0.0), fov);
+            Camera2D::new_buffer(gpu, Isometry2::new(Vector2::new(-fov.x, fov.y), 0.0), fov);
+        self.relative_top_right_camera = Camera2D::new_buffer(gpu, Isometry2::new(-fov, 0.0), fov);
         self.relative_top_left_camera =
-            Camera::new_buffer(gpu, Isometry::new(Vector::new(fov.x, -fov.y), 0.0), fov);
-        self.relative_camera = Camera::new_buffer(gpu, Isometry::default(), fov);
+            Camera2D::new_buffer(gpu, Isometry2::new(Vector2::new(fov.x, -fov.y), 0.0), fov);
+        self.relative_camera = Camera2D::new_buffer(gpu, Isometry2::default(), fov);
     }
 
     pub(crate) fn buffer(&mut self, gpu: &Gpu, total_time: f32, frame_time: f32) {
         self.times.write(&gpu, [total_time, frame_time]);
     }
 
-    pub fn unit_model(&self) -> &Model {
+    pub fn unit_model(&self) -> &Model2D {
         return &self.unit_model;
     }
 
@@ -605,14 +588,14 @@ impl DefaultResources {
         return &self.surface;
     }
 
-    fn relative_fov(window_size: Vector<u32>) -> Vector<f32> {
+    fn relative_fov(window_size: Vector2<u32>) -> Vector2<f32> {
         let yx = window_size.y as f32 / window_size.x as f32;
         let xy = window_size.x as f32 / window_size.y as f32;
         let scale = yx.max(xy) / 2.0;
         return if window_size.x > window_size.y {
-            Vector::new(scale, RELATIVE_CAMERA_SIZE)
+            Vector2::new(scale, RELATIVE_CAMERA_SIZE)
         } else {
-            Vector::new(RELATIVE_CAMERA_SIZE, scale)
+            Vector2::new(RELATIVE_CAMERA_SIZE, scale)
         };
     }
 }

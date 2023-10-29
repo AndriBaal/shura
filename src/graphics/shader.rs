@@ -1,4 +1,4 @@
-use crate::{Gpu, InstancePosition, Vertex};
+use crate::{Gpu, Instance2D, Vertex, Vertex2D, Instance};
 pub use wgpu::{
     include_spirv, include_wgsl, vertex_attr_array, BlendComponent, BlendFactor, BlendOperation,
     BlendState, ColorWrites, ShaderModule, ShaderModuleDescriptor, ShaderSource, VertexAttribute,
@@ -34,31 +34,14 @@ impl Default for ShaderConfig<'static> {
             uniforms: &[UniformField::Camera],
             blend: BlendState::ALPHA_BLENDING,
             write_mask: ColorWrites::ALL,
-            buffers: &[Vertex::DESC, InstancePosition::DESC],
+            buffers: &[Vertex2D::DESC, Instance2D::DESC],
             source: ShaderModuleSoure::_Dummy,
         }
     }
 }
 
-/// Field that is present in the shader.
 pub enum UniformField {
-    /// Looks the following inside wgsl:
-    /// ```
-    //// @group(1) @binding(0)
-    /// var t_diffuse: texture_2d<f32>;
-    /// @group(1) @binding(1)
-    /// var s_diffuse: sampler;
-    /// ```
     Sprite,
-    /// Looks the following inside wgsl (Example for a [`Uniform<Color>`](crate::Uniform)):
-    /// ```
-    /// struct Color {
-    ///     color: vec4<f32>
-    /// }
-    ///
-    /// @group(1) @binding(0)
-    /// var<uniform> color: Color;
-    /// ```
     SingleUniform,
     SpriteSheet,
     Camera,

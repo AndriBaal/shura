@@ -16,4 +16,3 @@ pub mod sprite_sheet;
 #[cfg(feature = "text")]
 pub mod text;
 pub mod uniform;
-pub mod vertex;

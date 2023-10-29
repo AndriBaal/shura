@@ -1,5 +1,5 @@
-use crate::Camera;
-use crate::Vector;
+use crate::Camera2D;
+use crate::Vector2;
 #[cfg(feature = "gamepad")]
 use gilrs::*;
 use instant::{Duration, Instant};
@@ -150,12 +150,12 @@ impl InputEvent {
 
 /// Manage input from touch devices, keyboards, mice and gamepads.
 pub struct Input {
-    cursor_raw: Vector<u32>,
-    touches: FxHashMap<u64, Vector<u32>>,
+    cursor_raw: Vector2<u32>,
+    touches: FxHashMap<u64, Vector2<u32>>,
     events: FxHashMap<InputTrigger, InputEvent>,
     modifiers: Modifier,
     wheel_delta: f32,
-    window_size: Vector<f32>,
+    window_size: Vector2<f32>,
     #[cfg(feature = "gamepad")]
     game_pad_manager: Gilrs,
     #[cfg(feature = "gamepad")]
@@ -168,9 +168,9 @@ impl Input {
     #[cfg(feature = "gamepad")]
     pub const DEFAULT_DEAD_ZONE: f32 = 0.1;
 
-    pub(crate) fn new(window_size: Vector<u32>) -> Self {
+    pub(crate) fn new(window_size: Vector2<u32>) -> Self {
         Self {
-            cursor_raw: Vector::new(0, 0),
+            cursor_raw: Vector2::new(0, 0),
             touches: Default::default(),
             events: Default::default(),
             modifiers: Default::default(),
@@ -192,17 +192,17 @@ impl Input {
         }
     }
 
-    pub(crate) fn resize(&mut self, window_size: Vector<u32>) {
+    pub(crate) fn resize(&mut self, window_size: Vector2<u32>) {
         self.window_size = window_size.cast()
     }
 
     pub(crate) fn on_event(&mut self, event: &WindowEvent) {
         match event {
             WindowEvent::CursorMoved { position, .. } => {
-                self.cursor_raw = Vector::new(position.x as u32, position.y as u32);
+                self.cursor_raw = Vector2::new(position.x as u32, position.y as u32);
             }
             WindowEvent::Touch(touch) => {
-                let pos = Vector::new(touch.location.x as u32, touch.location.y as u32);
+                let pos = Vector2::new(touch.location.x as u32, touch.location.y as u32);
                 self.cursor_raw = pos;
                 match touch.phase {
                     TouchPhase::Started => {
@@ -425,28 +425,28 @@ impl Input {
     }
 
     #[cfg(feature = "gamepad")]
-    /// Returns a vector between [-1.0, -1.0] and [1.0, 1.0]
+    /// Returns a Vector2 between [-1.0, -1.0] and [1.0, 1.0]
     pub fn gamepad_stick_deadzone(
         &self,
         gamepad_id: GamepadId,
         stick: GamepadStick,
         dead_zone: f32,
-    ) -> Vector<f32> {
+    ) -> Vector2<f32> {
         fn axis_values(
             gamepad: &Gamepad,
             deadzone: f32,
             x_axis: Axis,
             y_axis: Axis,
-        ) -> Vector<f32> {
+        ) -> Vector2<f32> {
             fn axis(gamepad: &Gamepad, x_axis: Axis) -> f32 {
                 let value = gamepad.axis_data(x_axis).map(|a| a.value()).unwrap_or(0.0);
                 return value;
             }
-            let value = Vector::new(axis(gamepad, x_axis), axis(gamepad, y_axis));
+            let value = Vector2::new(axis(gamepad, x_axis), axis(gamepad, y_axis));
             if value.magnitude() >= deadzone {
                 return value;
             }
-            return Vector::default();
+            return Vector2::default();
         }
         if let Some(gamepad) = self.gamepad(gamepad_id) {
             match stick {
@@ -458,12 +458,12 @@ impl Input {
                 }
             }
         }
-        return Vector::default();
+        return Vector2::default();
     }
 
     #[cfg(feature = "gamepad")]
-    /// Returns a vector between [-1.0, -1.0] and [1.0, 1.0]
-    pub fn gamepad_stick(&self, gamepad_id: GamepadId, stick: GamepadStick) -> Vector<f32> {
+    /// Returns a Vector2 between [-1.0, -1.0] and [1.0, 1.0]
+    pub fn gamepad_stick(&self, gamepad_id: GamepadId, stick: GamepadStick) -> Vector2<f32> {
         return Self::gamepad_stick_deadzone(&self, gamepad_id, stick, self.dead_zone);
     }
 
@@ -505,30 +505,30 @@ impl Input {
         self.wheel_delta
     }
 
-    pub const fn cursor_raw(&self) -> &Vector<u32> {
+    pub const fn cursor_raw(&self) -> &Vector2<u32> {
         &self.cursor_raw
     }
 
-    pub fn touches_raw(&self) -> impl Iterator<Item = (&u64, &Vector<u32>)> {
+    pub fn touches_raw(&self) -> impl Iterator<Item = (&u64, &Vector2<u32>)> {
         self.touches.iter()
     }
 
-    pub fn cursor_from_pixel(&self, cursor: Vector<u32>, camera: &Camera) -> Vector<f32> {
+    pub fn cursor_from_pixel(&self, cursor: Vector2<u32>, camera: &Camera2D) -> Vector2<f32> {
         let fov = camera.fov() * 2.0;
         let camera_translation = camera.translation();
-        let cursor: Vector<f32> = Vector::new(cursor.x as f32, cursor.y as f32);
+        let cursor: Vector2<f32> = Vector2::new(cursor.x as f32, cursor.y as f32);
         camera_translation
-            + Vector::new(
+            + Vector2::new(
                 cursor.x / self.window_size.x * fov.x - fov.x / 2.0,
                 cursor.y / self.window_size.y * -fov.y + fov.y / 2.0,
             )
     }
 
-    pub fn cursor(&self, camera: &Camera) -> Vector<f32> {
+    pub fn cursor(&self, camera: &Camera2D) -> Vector2<f32> {
         self.cursor_from_pixel(self.cursor_raw, camera)
     }
 
-    pub fn touches(&self, camera: &Camera) -> Vec<(u64, Vector<f32>)> {
+    pub fn touches(&self, camera: &Camera2D) -> Vec<(u64, Vector2<f32>)> {
         let mut touches = vec![];
         for (id, raw) in &self.touches {
             touches.push((*id, self.cursor_from_pixel(*raw, camera)));

@@ -1,4 +1,4 @@
-use crate::{InstancePosition, Position, World};
+use crate::{Instance2D, Position, World};
 
 #[derive(Copy, Clone, Default)]
 /// Dummy component that should not be rendered to the screen
@@ -12,8 +12,8 @@ impl EmptyComponent {
 }
 
 impl Position for EmptyComponent {
-    fn instance(&self, _world: &World) -> InstancePosition {
-        InstancePosition::default()
+    fn instance(&self, _world: &World) -> Instance2D {
+        Instance2D::default()
     }
 
     fn active(&self) -> bool {

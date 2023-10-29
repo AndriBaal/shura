@@ -19,12 +19,12 @@ fn setup(ctx: &mut Context) {
     const PYRAMID_ELEMENTS: i32 = 8;
     const MINIMAL_SPACING: f32 = 0.1;
     ctx.world_camera.set_scaling(WorldCameraScale::Max(5.0));
-    ctx.world.set_gravity(Vector::new(0.00, -9.81));
+    ctx.world.set_gravity(Vector2::new(0.00, -9.81));
     ctx.components.add(ctx.world, Resources::new(ctx));
 
     for x in -PYRAMID_ELEMENTS..PYRAMID_ELEMENTS {
         for y in 0..(PYRAMID_ELEMENTS - x.abs()) {
-            let b = PhysicsBox::new(Vector::new(
+            let b = PhysicsBox::new(Vector2::new(
                 x as f32 * (PhysicsBox::HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING),
                 y as f32 * (PhysicsBox::HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING * 2.0),
             ));
@@ -58,7 +58,7 @@ fn update(ctx: &mut Context) {
             .world
             .intersection_with_shape(
                 &ctx.cursor.into(),
-                &Cuboid::new(Vector::new(
+                &Cuboid::new(Vector2::new(
                     PhysicsBox::HALF_BOX_SIZE,
                     PhysicsBox::HALF_BOX_SIZE,
                 )),
@@ -71,7 +71,7 @@ fn update(ctx: &mut Context) {
         }
     }
     let delta = ctx.frame.frame_time();
-    let cursor_world: Point<f32> = (ctx.cursor).into();
+    let cursor_world: Point2<f32> = (ctx.cursor).into();
     let remove = ctx.input.is_held(MouseButton::Left) || ctx.input.is_pressed(ScreenTouch);
     boxes.for_each_mut(|physics_box| {
         if *physics_box.body.color() == Color::RED {
@@ -133,7 +133,7 @@ fn render(res: &ComponentResources, encoder: &mut RenderEncoder) {
             renderer.render_sprite(
                 instances,
                 buffer,
-                renderer.world_camera,
+                res.world_camera,
                 &resources.player_model,
                 &resources.player_sprite,
             )
@@ -143,7 +143,7 @@ fn render(res: &ComponentResources, encoder: &mut RenderEncoder) {
             renderer.render_color(
                 instances,
                 buffer,
-                renderer.world_camera,
+                res.world_camera,
                 &resources.floor_model,
             )
         });
@@ -152,7 +152,7 @@ fn render(res: &ComponentResources, encoder: &mut RenderEncoder) {
             renderer.render_color(
                 instance,
                 buffer,
-                renderer.world_camera,
+                res.world_camera,
                 &resources.box_model,
             );
         });
@@ -161,9 +161,9 @@ fn render(res: &ComponentResources, encoder: &mut RenderEncoder) {
 
 #[derive(Component)]
 struct Resources {
-    floor_model: Model,
-    box_model: Model,
-    player_model: Model,
+    floor_model: Model2D,
+    box_model: Model2D,
+    player_model: Model2D,
     player_sprite: Sprite,
 }
 
@@ -171,17 +171,17 @@ impl Resources {
     pub fn new(ctx: &Context) -> Self {
         Self {
             player_sprite: ctx.gpu.create_sprite(sprite_file!("./img/burger.png")),
-            player_model: ctx.gpu.create_model(ModelBuilder::from_collider_shape(
+            player_model: ctx.gpu.create_model(ModelBuilder2D::from_collider_shape(
                 &Player::SHAPE,
                 Player::RESOLUTION,
                 0.0,
             )),
-            floor_model: ctx.gpu.create_model(ModelBuilder::from_collider_shape(
+            floor_model: ctx.gpu.create_model(ModelBuilder2D::from_collider_shape(
                 &Floor::SHAPE,
                 Floor::RESOLUTION,
                 0.0,
             )),
-            box_model: ctx.gpu.create_model(ModelBuilder::from_collider_shape(
+            box_model: ctx.gpu.create_model(ModelBuilder2D::from_collider_shape(
                 &PhysicsBox::BOX_SHAPE,
                 0,
                 0.0,
@@ -208,7 +208,7 @@ impl Player {
             .active_events(ActiveEvents::COLLISION_EVENTS);
         Self {
             body: RigidBodyComponent::new(
-                RigidBodyBuilder::dynamic().translation(Vector::new(5.0, 4.0)),
+                RigidBodyBuilder::dynamic().translation(Vector2::new(5.0, 4.0)),
                 [collider],
             ),
         }
@@ -225,13 +225,13 @@ impl Floor {
     const RESOLUTION: u32 = 12;
     const SHAPE: RoundCuboid = RoundCuboid {
         inner_shape: Cuboid {
-            half_extents: Vector::new(20.0, 0.4),
+            half_extents: Vector2::new(20.0, 0.4),
         },
         border_radius: 0.5,
     };
     pub fn new() -> Self {
         let collider =
-            ColliderBuilder::new(SharedShape::new(Self::SHAPE)).translation(Vector::new(0.0, -1.0));
+            ColliderBuilder::new(SharedShape::new(Self::SHAPE)).translation(Vector2::new(0.0, -1.0));
         Self {
             collider: ColliderComponent::new(collider).with_color(Color::BLUE),
         }
@@ -247,9 +247,9 @@ struct PhysicsBox {
 impl PhysicsBox {
     const HALF_BOX_SIZE: f32 = 0.3;
     const BOX_SHAPE: Cuboid = Cuboid {
-        half_extents: Vector::new(PhysicsBox::HALF_BOX_SIZE, PhysicsBox::HALF_BOX_SIZE),
+        half_extents: Vector2::new(PhysicsBox::HALF_BOX_SIZE, PhysicsBox::HALF_BOX_SIZE),
     };
-    pub fn new(position: Vector<f32>) -> Self {
+    pub fn new(position: Vector2<f32>) -> Self {
         Self {
             body: RigidBodyComponent::new(
                 RigidBodyBuilder::dynamic().translation(position),

@@ -7,7 +7,7 @@ use crate::{
     data::arena::ArenaEntry, Arena, BufferHelper, BufferHelperType, BufferOperation, Component,
     ComponentConfig, ComponentHandle, ComponentIndex, ComponentStorage,
     ComponentTypeImplementation, Gpu, GroupHandle, InstanceBuffer, InstanceIndex, InstanceIndices,
-    InstancePosition, Renderer, World,
+    Instance2D, Renderer, World, InstanceBuffer2D,
 };
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
@@ -59,7 +59,7 @@ pub(crate) enum ComponentTypeStorage<C: Component> {
     Single {
         #[cfg_attr(feature = "serde", serde(skip))]
         #[cfg_attr(feature = "serde", serde(default))]
-        buffer: Option<InstanceBuffer<InstancePosition>>,
+        buffer: Option<InstanceBuffer<Instance2D>>,
         #[cfg_attr(feature = "serde", serde(skip))]
         #[cfg_attr(feature = "serde", serde(default = "default_true"))]
         force_buffer: bool,
@@ -89,7 +89,7 @@ pub(crate) struct ComponentTypeGroup<C: Component> {
     force_buffer: bool,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
-    buffer: Option<InstanceBuffer<InstancePosition>>,
+    buffer: Option<InstanceBuffer<Instance2D>>,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
     last_gen_len: (u32, usize),
@@ -926,7 +926,7 @@ impl<C: Component> ComponentType<C> {
         &'a self,
         group_handles: &[GroupHandle],
     ) -> Box<
-        dyn DoubleEndedIterator<Item = (&'a InstanceBuffer<InstancePosition>, InstanceIndex, &'a C)>
+        dyn DoubleEndedIterator<Item = (&'a InstanceBuffer2D, InstanceIndex, &'a C)>
             + 'a,
     > {
         match &self.storage {
@@ -941,7 +941,7 @@ impl<C: Component> ComponentType<C> {
                     )));
                 } else {
                     return Box::new(std::iter::empty::<(
-                        &InstanceBuffer<InstancePosition>,
+                        &InstanceBuffer<Instance2D>,
                         InstanceIndex,
                         &C,
                     )>());
@@ -982,7 +982,7 @@ impl<C: Component> ComponentType<C> {
         mut each: impl FnMut(
             &mut Renderer<'a>,
             &'a C,
-            &'a InstanceBuffer<InstancePosition>,
+            &'a InstanceBuffer2D,
             InstanceIndex,
         ),
     ) {
@@ -1029,7 +1029,7 @@ impl<C: Component> ComponentType<C> {
     pub(crate) fn render_single<'a>(
         &'a self,
         renderer: &mut Renderer<'a>,
-        each: impl FnOnce(&mut Renderer<'a>, &'a C, &'a InstanceBuffer<InstancePosition>, InstanceIndex),
+        each: impl FnOnce(&mut Renderer<'a>, &'a C, &'a InstanceBuffer2D, InstanceIndex),
     ) {
         match &self.storage {
             ComponentTypeStorage::Single {
@@ -1049,7 +1049,7 @@ impl<C: Component> ComponentType<C> {
     pub(crate) fn render_all<'a>(
         &'a self,
         renderer: &mut Renderer<'a>,
-        mut all: impl FnMut(&mut Renderer<'a>, &'a InstanceBuffer<InstancePosition>, InstanceIndices),
+        mut all: impl FnMut(&mut Renderer<'a>, &'a InstanceBuffer2D, InstanceIndices),
     ) {
         match &self.storage {
             ComponentTypeStorage::Single {
@@ -1285,7 +1285,7 @@ impl<C: Component> ComponentTypeImplementation for ComponentType<C> {
         }
     }
 
-    fn camera_target(&self, world: &World, handle: ComponentHandle) -> Option<InstancePosition> {
+    fn camera_target(&self, world: &World, handle: ComponentHandle) -> Option<Instance2D> {
         self.get(handle).map(|c| c.position().instance(world))
     }
 

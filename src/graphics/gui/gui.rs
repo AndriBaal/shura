@@ -1,6 +1,6 @@
 use std::ops::{Deref, DerefMut};
 
-use crate::{gui::GuiContext, DefaultResources, Gpu, RenderEncoder, RenderTarget, Vector};
+use crate::{gui::GuiContext, DefaultResources, Gpu, RenderEncoder, RenderTarget, Vector2};
 use egui_wgpu::renderer::{Renderer, ScreenDescriptor};
 use egui_winit::State;
 use instant::Duration;
@@ -36,7 +36,7 @@ impl Gui {
         }
     }
 
-    pub(crate) fn resize(&mut self, size: Vector<u32>) {
+    pub(crate) fn resize(&mut self, size: Vector2<u32>) {
         self.screen_descriptor = ScreenDescriptor {
             size_in_pixels: [size.x, size.y],
             pixels_per_point: 1.0,

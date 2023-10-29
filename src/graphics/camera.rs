@@ -1,27 +1,24 @@
-use nalgebra::Isometry3;
-use nalgebra::Matrix4;
 use nalgebra::Orthographic3;
-use nalgebra::Vector3;
 use std::ops::*;
 
 use crate::AABB;
-use crate::{ComponentHandle, ComponentManager, Gpu, Isometry, Rotation, Uniform, Vector, World};
+use crate::{ComponentHandle, ComponentManager, Gpu, Isometry2, Rotation2, Uniform, Vector2, World, Isometry3, Matrix4, Vector3};
 
 const MINIMAL_FOV: f32 = 0.0001;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug)]
 /// 2D Camera for rendering
-pub struct Camera {
-    position: Isometry<f32>,
-    fov: Vector<f32>,
+pub struct Camera2D {
+    position: Isometry2<f32>,
+    fov: Vector2<f32>,
     proj: Orthographic3<f32>,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
     uniform: Option<Uniform<Matrix4<f32>>>,
 }
 
-impl Clone for Camera {
+impl Clone for Camera2D {
     fn clone(&self) -> Self {
         Self {
             position: self.position.clone(),
@@ -32,10 +29,10 @@ impl Clone for Camera {
     }
 }
 
-impl Camera {
-    pub fn new(position: Isometry<f32>, fov: Vector<f32>) -> Self {
+impl Camera2D {
+    pub fn new(position: Isometry2<f32>, fov: Vector2<f32>) -> Self {
         let proj = Orthographic3::new(-fov.x, fov.x, -fov.y, fov.y, -1.0, 1.0);
-        Camera {
+        Camera2D {
             position,
             fov,
             proj,
@@ -43,7 +40,7 @@ impl Camera {
         }
     }
 
-    pub fn new_buffer(gpu: &Gpu, position: Isometry<f32>, fov: Vector<f32>) -> Self {
+    pub fn new_buffer(gpu: &Gpu, position: Isometry2<f32>, fov: Vector2<f32>) -> Self {
         let mut camera = Self::new(position, fov);
         camera.buffer(gpu);
         return camera;
@@ -58,11 +55,11 @@ impl Camera {
         return AABB::from_position(self.fov(), self.position);
     }
 
-    pub const fn position(&self) -> &Isometry<f32> {
+    pub const fn position(&self) -> &Isometry2<f32> {
         &self.position
     }
 
-    pub const fn translation(&self) -> &Vector<f32> {
+    pub const fn translation(&self) -> &Vector2<f32> {
         &self.position.translation.vector
     }
 
@@ -81,27 +78,27 @@ impl Camera {
         self.proj().as_matrix() * self.view().to_matrix()
     }
 
-    pub fn rotation(&self) -> &Rotation<f32> {
+    pub fn rotation(&self) -> &Rotation2<f32> {
         &self.position.rotation
     }
 
-    pub fn fov(&self) -> Vector<f32> {
+    pub fn fov(&self) -> Vector2<f32> {
         self.fov
     }
 
-    pub fn set_rotation(&mut self, rotation: Rotation<f32>) {
+    pub fn set_rotation(&mut self, rotation: Rotation2<f32>) {
         self.position.rotation = rotation;
     }
 
-    pub fn set_position(&mut self, position: Isometry<f32>) {
+    pub fn set_position(&mut self, position: Isometry2<f32>) {
         self.position = position;
     }
 
-    pub fn set_translation(&mut self, translation: Vector<f32>) {
+    pub fn set_translation(&mut self, translation: Vector2<f32>) {
         self.position.translation.vector = translation;
     }
 
-    pub fn set_fov(&mut self, mut new_fov: Vector<f32>) {
+    pub fn set_fov(&mut self, mut new_fov: Vector2<f32>) {
         if new_fov.x < MINIMAL_FOV {
             new_fov.x = MINIMAL_FOV;
         }
@@ -135,26 +132,26 @@ impl Camera {
 /// Limits a [Camera] to always maintain the aspect ratio of the window. This behaviour can be controlled
 /// through the [WorldCameraScale]. This camera is also in charge of deciding which [Groups](crate::Group)
 /// is active based on if the [Groups](crate::Group) intersects with the camera.
-pub struct WorldCamera {
-    pub(crate) camera: Camera,
+pub struct WorldCamera2D {
+    pub(crate) camera: Camera2D,
     target: Option<WorldCameraTarget>,
     scale: WorldCameraScale,
-    window_size: Vector<f32>,
+    window_size: Vector2<f32>,
 }
 
 #[derive(Clone, Copy, Default, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct WorldCameraTarget {
     pub target: ComponentHandle,
-    pub offset: Isometry<f32>,
+    pub offset: Isometry2<f32>,
 }
 
-impl WorldCamera {
-    pub fn new(position: Isometry<f32>, scale: WorldCameraScale, window_size: Vector<u32>) -> Self {
+impl WorldCamera2D {
+    pub fn new(position: Isometry2<f32>, scale: WorldCameraScale, window_size: Vector2<u32>) -> Self {
         let window_size = window_size.cast();
         let fov = scale.fov(window_size);
         Self {
-            camera: Camera::new(position, fov),
+            camera: Camera2D::new(position, fov),
             target: None,
             window_size,
             scale,
@@ -164,7 +161,7 @@ impl WorldCamera {
     pub fn apply_target(&mut self, world: &World, man: &ComponentManager) {
         if let Some(target) = self.target() {
             if let Some(instance) = man.instance_data(target.target, world) {
-                let pos: Isometry<f32> = instance.translation().into();
+                let pos: Isometry2<f32> = instance.translation().into();
                 self.camera.set_position(pos * target.offset);
             }
         }
@@ -187,7 +184,7 @@ impl WorldCamera {
         self.camera.set_fov(fov);
     }
 
-    pub(crate) fn resize(&mut self, window_size: Vector<u32>) {
+    pub(crate) fn resize(&mut self, window_size: Vector2<u32>) {
         self.window_size = window_size.cast();
         self.compute_fov();
     }
@@ -201,15 +198,15 @@ impl WorldCamera {
         self.compute_fov();
     }
 
-    pub fn set_rotation(&mut self, rotation: Rotation<f32>) {
+    pub fn set_rotation(&mut self, rotation: Rotation2<f32>) {
         self.camera.set_rotation(rotation);
     }
 
-    pub fn set_position(&mut self, position: Isometry<f32>) {
+    pub fn set_position(&mut self, position: Isometry2<f32>) {
         self.camera.set_position(position);
     }
 
-    pub fn set_translation(&mut self, translation: Vector<f32>) {
+    pub fn set_translation(&mut self, translation: Vector2<f32>) {
         self.camera.set_translation(translation);
     }
 
@@ -217,13 +214,13 @@ impl WorldCamera {
         self.camera.buffer(gpu)
     }
 
-    pub fn camera(&self) -> &Camera {
+    pub fn camera(&self) -> &Camera2D {
         &self.camera
     }
 }
 
-impl Deref for WorldCamera {
-    type Target = Camera;
+impl Deref for WorldCamera2D {
+    type Target = Camera2D;
 
     fn deref(&self) -> &Self::Target {
         &self.camera
@@ -232,8 +229,6 @@ impl Deref for WorldCamera {
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Copy)]
-/// Defines how the [WorldCamera] gets scaled. This ensures that your game is responsive on various
-/// screens.
 pub enum WorldCameraScale {
     Max(f32),
     Horizontal(f32),
@@ -251,7 +246,7 @@ impl WorldCameraScale {
         }
     }
 
-    pub fn fov(&self, window_size: Vector<f32>) -> Vector<f32> {
+    pub fn fov(&self, window_size: Vector2<f32>) -> Vector2<f32> {
         match self {
             WorldCameraScale::Max(mut max) => {
                 if max < MINIMAL_FOV {
@@ -259,9 +254,9 @@ impl WorldCameraScale {
                 }
 
                 return if window_size.x > window_size.y {
-                    Vector::new(max, window_size.y / window_size.x * max)
+                    Vector2::new(max, window_size.y / window_size.x * max)
                 } else {
-                    Vector::new(window_size.x / window_size.y * max, max)
+                    Vector2::new(window_size.x / window_size.y * max, max)
                 };
             }
             WorldCameraScale::Min(mut min) => {
@@ -273,9 +268,9 @@ impl WorldCameraScale {
                 let xy = window_size.x / window_size.y;
                 let scale = yx.max(xy);
                 return if window_size.x > window_size.y {
-                    Vector::new(scale * min, min)
+                    Vector2::new(scale * min, min)
                 } else {
-                    Vector::new(min, scale * min)
+                    Vector2::new(min, scale * min)
                 };
             }
             WorldCameraScale::Horizontal(mut horizontal) => {
@@ -284,7 +279,7 @@ impl WorldCameraScale {
                 }
 
                 let yx = window_size.y / window_size.x * horizontal;
-                Vector::new(horizontal, yx)
+                Vector2::new(horizontal, yx)
             }
             WorldCameraScale::Vertical(mut vertical) => {
                 if vertical < MINIMAL_FOV {
@@ -292,7 +287,7 @@ impl WorldCameraScale {
                 }
 
                 let xy = window_size.x / window_size.y * vertical;
-                Vector::new(xy, vertical)
+                Vector2::new(xy, vertical)
             }
         }
     }

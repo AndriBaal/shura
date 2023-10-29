@@ -3,16 +3,16 @@ use crate::{
         Collider, KinematicCharacterController, RigidBody, RigidBodyHandle, Shape, SharedShape,
         TypedShape, World,
     },
-    BaseComponent, InstancePosition, Isometry, Rotation, Vector,
+    BaseComponent, Instance2D, Isometry2, Rotation, Vector2,
 };
 
 // #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CharacterControllerComponent {
     pub controller: KinematicCharacterController,
     pub shape: SharedShape,
-    scale: Vector<f32>,
-    position: Isometry<f32>,
-    instance: InstancePosition,
+    scale: Vector2<f32>,
+    position: Isometry2<f32>,
+    instance: Instance2D,
     disabled: bool,
 }
 
@@ -49,7 +49,7 @@ impl CharacterControllerComponent {
         self.try_shape_mut().unwrap()
     }
 
-    pub fn with_scale(mut self, scale: Vector<f32>) -> Self {
+    pub fn with_scale(mut self, scale: Vector2<f32>) -> Self {
         self.set_scale(scale);
         self
     }
@@ -59,12 +59,12 @@ impl CharacterControllerComponent {
         self
     }
 
-    pub fn with_translation(mut self, translation: Vector<f32>) -> Self {
+    pub fn with_translation(mut self, translation: Vector2<f32>) -> Self {
         self.set_translation(translation);
         self
     }
 
-    pub fn with_position(mut self, position: Isometry<f32>) -> Self {
+    pub fn with_position(mut self, position: Isometry2<f32>) -> Self {
         self.set_position(position);
         self
     }
@@ -88,7 +88,7 @@ impl CharacterControllerComponent {
         self.disabled = disabled;
         self.instance.set_scale_rotation(
             if disabled {
-                Vector::default()
+                Vector2::default()
             } else {
                 self.scale
             },
@@ -100,7 +100,7 @@ impl CharacterControllerComponent {
         self.position.rotation = rotation;
         self.instance.set_scale_rotation(
             if self.disabled {
-                Vector::default()
+                Vector2::default()
             } else {
                 self.scale
             },
@@ -108,28 +108,28 @@ impl CharacterControllerComponent {
         );
     }
 
-    pub fn set_translation(&mut self, translation: Vector<f32>) {
+    pub fn set_translation(&mut self, translation: Vector2<f32>) {
         self.instance.set_translation(translation);
         self.position.translation.vector = translation;
     }
 
-    pub fn set_position(&mut self, position: Isometry<f32>) {
+    pub fn set_position(&mut self, position: Isometry2<f32>) {
         self.position = position;
-        self.instance = InstancePosition::new(
+        self.instance = Instance2D::new(
             position,
             if self.disabled {
-                Vector::default()
+                Vector2::default()
             } else {
                 self.scale
             },
         );
     }
 
-    pub fn set_scale(&mut self, scale: Vector<f32>) {
+    pub fn set_scale(&mut self, scale: Vector2<f32>) {
         self.scale = scale;
         self.instance.set_scale_rotation(
             if self.disabled {
-                Vector::default()
+                Vector2::default()
             } else {
                 self.scale
             },
@@ -145,15 +145,15 @@ impl CharacterControllerComponent {
         self.position.rotation
     }
 
-    pub fn translation(&self) -> Vector<f32> {
+    pub fn translation(&self) -> Vector2<f32> {
         self.position.translation.vector
     }
 
-    pub fn position(&self) -> Isometry<f32> {
+    pub fn position(&self) -> Isometry2<f32> {
         self.position
     }
 
-    pub const fn scale(&self) -> &Vector<f32> {
+    pub const fn scale(&self) -> &Vector2<f32> {
         &self.scale
     }
 
@@ -169,7 +169,7 @@ impl CharacterControllerComponent {
 }
 
 impl BaseComponent for CharacterControllerComponent {
-    fn instance(&self, world: &World) -> crate::InstancePosition {
+    fn instance(&self, world: &World) -> crate::Instance2D {
         self.instance
     }
 }
