@@ -1,10 +1,10 @@
 use std::fmt::{Display, Formatter, Result};
 
 #[cfg(feature = "rayon")]
-use crate::rayon::prelude::*;
+use crate::{rayon::prelude::*, data::arena::ArenaEntry};
 
 use crate::{
-    data::arena::ArenaEntry, Arena, BufferHelper, BufferHelperType, BufferOperation, Component,
+    Arena, BufferHelper, BufferHelperType, BufferOperation, Component,
     ComponentConfig, ComponentHandle, ComponentIndex, ComponentStorage,
     ComponentTypeImplementation, Gpu, GroupHandle, InstanceBuffer, InstanceIndex, InstanceIndices,
     Instance2D, Renderer, World, InstanceBuffer2D,

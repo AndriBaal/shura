@@ -112,10 +112,10 @@ impl<'a, C: Component> ComponentSetMut<'a, C> {
     pub(crate) fn new(
         ty: RefMut<'a, ComponentType<C>>,
         groups: &'a [GroupHandle],
-        check: bool,
+        _check: bool,
     ) -> ComponentSetMut<'a, C> {
         #[cfg(debug_assertions)]
-        if check && groups.len() > 1 {
+        if _check && groups.len() > 1 {
             for (index, value) in groups.iter().enumerate() {
                 for other in groups.iter().skip(index + 1) {
                     assert_ne!(value.0.index(), other.0.index(), "Duplicate GroupHandle!");
