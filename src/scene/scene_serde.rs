@@ -3,9 +3,9 @@ use std::{any::Any, cell::RefCell, sync::Arc};
 use rustc_hash::FxHashMap;
 
 use crate::{
-    App, Component, ComponentConfig, ComponentManager, ComponentType, ComponentTypeGroup,
+    App, Component, ComponentConfig, ComponentManager, ComponentType,
     ComponentTypeId, ComponentTypeImplementation, ComponentTypeStorage, Context, Gpu, Group,
-    GroupHandle, GroupManager, Scene, SceneCreator, System, World, GLOBAL_GPU,
+    GroupHandle, GroupManager, Scene, SceneCreator, System, World, GLOBAL_GPU, data::arena::Arena,
 };
 
 pub fn gpu() -> Arc<Gpu> {
@@ -127,7 +127,7 @@ impl GroupSerializer {
 
     pub fn remove_serialize<C: Component + Clone + serde::Serialize>(&mut self) {
         if let Some(data) = self.components.remove(&C::IDENTIFIER) {
-            let components = data.downcast_ref::<ComponentTypeGroup<C>>().unwrap();
+            let components = data.downcast_ref::<Arena<C>>().unwrap();
             let data = bincode::serialize(components).unwrap();
             self.ser_components.insert(C::IDENTIFIER, data);
         }
@@ -165,7 +165,7 @@ impl GroupDeserializer {
             self.components.insert(type_id, Box::new(deserialized));
             self.init_callbacks.push(Box::new(|des, ctx| {
                 if let Some(data) = des.remove(&C::IDENTIFIER) {
-                    let storage = *data.downcast::<ComponentTypeGroup<C>>().ok().unwrap();
+                    let storage = *data.downcast::<Arena<C>>().ok().unwrap();
                     ctx.components.deserialize_group(storage, ctx.world);
                 }
             }));
