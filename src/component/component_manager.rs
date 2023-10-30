@@ -2,14 +2,13 @@ use downcast_rs::{impl_downcast, Downcast};
 use rustc_hash::FxHashMap;
 
 use crate::{
-    Camera2D, Component, ComponentConfig, ComponentHandle, ComponentScope, ComponentSet,
-    ComponentSetMut, ComponentType, ComponentTypeId, DefaultResources, GlobalComponents, Gpu,
-    GroupHandle, Instance2D, InstanceBuffer2D, InstanceIndex, InstanceIndices, Model2D, Renderer,
-    Scene, SystemManager, World, WorldCamera2D,
+    Component, ComponentConfig, ComponentHandle, ComponentScope, ComponentSet, ComponentSetMut,
+    ComponentType, ComponentTypeId, GlobalComponents, Gpu, GroupHandle, 
+    InstanceIndex, InstanceIndices, Instance2D, Renderer, Scene, SystemManager, World, InstanceBuffer2D, Camera2D, WorldCamera2D, DefaultResources, Model2D,
 };
 
 #[cfg(feature = "serde")]
-use crate::{Arena, ComponentTypeStorage};
+use crate::{ComponentTypeGroup, ComponentTypeStorage};
 
 use std::{
     cell::{Ref, RefCell, RefMut},
@@ -164,7 +163,7 @@ impl GroupFilter<'static> {
 
 pub struct ComponentResources<'a> {
     components: &'a ComponentManager,
-
+    
     pub world_camera: &'a WorldCamera2D,
     pub relative_camera: &'a Camera2D,
     pub relative_bottom_left_camera: &'a Camera2D,
@@ -177,10 +176,7 @@ pub struct ComponentResources<'a> {
 }
 
 impl<'a> ComponentResources<'a> {
-    pub(crate) fn new(
-        defaults: &'a DefaultResources,
-        scene: &'a Scene,
-    ) -> (&'a SystemManager, Self) {
+    pub(crate) fn new(defaults: &'a DefaultResources, scene: &'a Scene) -> (&'a SystemManager, Self) {
         return (
             &scene.systems,
             Self {
@@ -214,56 +210,55 @@ impl<'a> ComponentResources<'a> {
         Ref::map(ty, |ty| ty.single())
     }
 
-    // pub fn render_each<C: Component>(
-    //     &self,
-    //     renderer: &mut Renderer<'a>,
-    //     each: impl FnMut(&mut Renderer<'a>, &'a C, &'a InstanceBuffer2D, InstanceIndex),
-    // ) {
-    //     let ty = type_render!(self.components, C);
-    //     ty.render_each(renderer, each)
-    // }
+    pub fn render_each<C: Component>(
+        &self,
+        renderer: &mut Renderer<'a>,
+        each: impl FnMut(&mut Renderer<'a>, &'a C, &'a InstanceBuffer2D, InstanceIndex),
+    ) {
+        let ty = type_render!(self.components, C);
+        ty.render_each(renderer, each)
+    }
 
-    // pub fn render_single<C: Component>(
-    //     &self,
-    //     renderer: &mut Renderer<'a>,
-    //     each: impl FnOnce(&mut Renderer<'a>, &'a C, &'a InstanceBuffer2D, InstanceIndex),
-    // ) {
-    //     let ty = type_render!(self.components, C);
-    //     ty.render_single(renderer, each)
-    // }
+    pub fn render_single<C: Component>(
+        &self,
+        renderer: &mut Renderer<'a>,
+        each: impl FnOnce(&mut Renderer<'a>, &'a C, &'a InstanceBuffer2D, InstanceIndex),
+    ) {
+        let ty = type_render!(self.components, C);
+        ty.render_single(renderer, each)
+    }
 
-    // pub fn render_all<C: Component>(
-    //     &self,
-    //     renderer: &mut Renderer<'a>,
-    //     all: impl FnMut(&mut Renderer<'a>, &'a InstanceBuffer2D, InstanceIndices),
-    // ) {
-    //     let ty = type_render!(self.components, C);
-    //     ty.render_all(renderer, all)
-    // }
+    pub fn render_all<C: Component>(
+        &self,
+        renderer: &mut Renderer<'a>,
+        all: impl FnMut(&mut Renderer<'a>, &'a InstanceBuffer2D, InstanceIndices),
+    ) {
+        let ty = type_render!(self.components, C);
+        ty.render_all(renderer, all)
+    }
 }
 
+/// Access to the component system
 pub struct ComponentManager {
     pub(super) active_groups: Vec<GroupHandle>,
     pub(super) all_groups: Vec<GroupHandle>,
     pub(crate) types: FxHashMap<ComponentTypeId, ComponentTypeScope>,
 }
 
-impl Default for ComponentManager {
-    fn default() -> Self {
+impl ComponentManager {
+    pub(crate) fn empty() -> Self {
         return Self {
             all_groups: Vec::from_iter([GroupHandle::DEFAULT_GROUP]),
             active_groups: Vec::from_iter([GroupHandle::DEFAULT_GROUP]),
             types: Default::default(),
         };
     }
-}
 
-impl ComponentManager {
     pub(crate) fn new(
         global: &GlobalComponents,
         components: Vec<Box<RefCell<dyn ComponentTypeImplementation>>>,
     ) -> Self {
-        let mut manager = Self::default();
+        let mut manager = Self::empty();
         manager.init(global, components);
         return manager;
     }
@@ -328,7 +323,7 @@ impl ComponentManager {
     #[cfg(feature = "serde")]
     pub(crate) fn deserialize_group<C: Component + serde::de::DeserializeOwned>(
         &mut self,
-        mut storage: Arena<C>,
+        mut storage: ComponentTypeGroup<C>,
         world: &mut World,
     ) -> GroupHandle {
         use crate::ComponentIndex;
@@ -337,7 +332,7 @@ impl ComponentManager {
         match &mut ty.storage {
             ComponentTypeStorage::MultipleGroups(groups) => {
                 let index = groups.insert_with(|group_index| {
-                    for (component_index, component) in storage.iter_mut_with_index() {
+                    for (component_index, component) in storage.components.iter_mut_with_index() {
                         component.init(
                             ComponentHandle::new(
                                 ComponentIndex(component_index),

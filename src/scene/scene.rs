@@ -84,10 +84,10 @@ pub struct Scene {
     pub groups: GroupManager,
     pub world: World,
     #[cfg_attr(feature = "serde", serde(skip))]
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[cfg_attr(feature = "serde", serde(default = "ComponentManager::empty"))]
     pub components: ComponentManager,
     #[cfg_attr(feature = "serde", serde(skip))]
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[cfg_attr(feature = "serde", serde(default = "SystemManager::empty"))]
     pub systems: SystemManager,
 }
 
