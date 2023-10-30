@@ -160,9 +160,9 @@ impl Resources {
 }
 
 #[derive(Component)]
-#[parallel_buffer]
+#[shura(parallel_buffer)]
 struct Bunny {
-    #[position]
+    #[shura(position)]
     position: PositionComponent,
     linvel: Vector2<f32>,
     handle: ComponentHandle,

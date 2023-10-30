@@ -2,7 +2,7 @@
 use crate::text::Text;
 
 use crate::{
-    Camera2D, Color, DefaultResources, Gpu, Instance, InstanceBuffer, InstanceBuffer2D,
+    Camera, Camera2D, Color, DefaultResources, Gpu, Instance, InstanceBuffer, InstanceBuffer2D,
     InstanceIndices, Model, Model2D, RenderTarget, Shader, Sprite, SpriteSheet, Uniform, Vertex,
 };
 use std::{ops::Range, ptr::null};
@@ -82,8 +82,8 @@ impl<'a> Renderer<'a> {
         }
     }
 
-    pub fn use_camera(&mut self, camera: &'a Camera2D) {
-        self.use_bind_group(camera.bindgroup(), Self::CAMERA_SLOT)
+    pub fn use_camera(&mut self, camera: &'a dyn Camera) {
+        self.use_bind_group(camera.uniform().bind_group(), Self::CAMERA_SLOT)
     }
 
     pub fn use_shader(&mut self, shader: &'a Shader) {

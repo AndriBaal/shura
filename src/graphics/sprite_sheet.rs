@@ -77,7 +77,11 @@ impl<'a> SpriteSheetBuilder<'a, Vec<u8>> {
 }
 
 impl<'a> SpriteSheetBuilder<'a, &'a [u8]> {
-    pub fn raw(sprite_size: Vector2<u32>, sprite_amount: Vector2<u32>, data: Vec<&'a [u8]>) -> Self {
+    pub fn raw(
+        sprite_size: Vector2<u32>,
+        sprite_amount: Vector2<u32>,
+        data: Vec<&'a [u8]>,
+    ) -> Self {
         return Self {
             sprite_size,
             sprite_amount,
@@ -198,7 +202,7 @@ impl SpriteSheet {
                 },
             ],
             layout: &gpu.base.sprite_sheet_layout,
-            label: Some("sprite_sheet_bindgroup"),
+            label: Some("sprite_sheet_bind_group"),
         });
 
         return Self {

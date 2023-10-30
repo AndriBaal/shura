@@ -1,6 +1,6 @@
 use crate::{
-    Color, Instance2D, Isometry2, Position, SpriteAtlas, SpriteSheetIndex, Vector2,
-    World, Rotation2
+    Color, Instance2D, Isometry2, Position, Rotation2, SpriteAtlas, SpriteSheetIndex, Vector2,
+    World,
 };
 
 /// Component that is rendered to the screen by its given position and scale.

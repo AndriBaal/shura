@@ -1,7 +1,6 @@
 use crate::{
     physics::{Collider, ColliderHandle},
-    Color, ComponentHandle, Instance2D, Position, SpriteAtlas, SpriteSheetIndex, Vector2,
-    World,
+    Color, ComponentHandle, Instance2D, Position, SpriteAtlas, SpriteSheetIndex, Vector2, World,
 };
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

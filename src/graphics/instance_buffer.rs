@@ -1,7 +1,9 @@
 use std::{marker::PhantomData, mem::size_of, ops::Range};
 
-use crate::{Color, Gpu, Isometry2, Matrix2, Rotation2, SpriteSheetIndex, Vector2};
-use wgpu::util::DeviceExt;
+use crate::{
+    Color, Gpu, Isometry2, Isometry3, Matrix2, Matrix4, Rotation2, SpriteSheetIndex, Vector2,
+};
+use wgpu::{util::DeviceExt, vertex_attr_array};
 
 pub type InstanceBuffer2D = InstanceBuffer<Instance2D>;
 
@@ -51,7 +53,7 @@ pub struct Instance2D {
 }
 
 impl Instance for Instance2D {
-    const ATTRIBUTES: &'static [wgpu::VertexAttribute] = &wgpu::vertex_attr_array![
+    const ATTRIBUTES: &'static [wgpu::VertexAttribute] = &vertex_attr_array![
         2 => Float32x2,
         3 => Float32x4,
         4 => Float32x2,
@@ -134,6 +136,35 @@ impl Default for Instance2D {
             Color::WHITE,
             0,
         );
+    }
+}
+
+/// Single vertex of a model. Which hold the coordniate of the vertex and the texture coordinates.
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct Instance3D {
+    pub matrix: Matrix4<f32>,
+}
+
+impl Instance for Instance3D {
+    const ATTRIBUTES: &'static [wgpu::VertexAttribute] = &vertex_attr_array![
+        0 => Float32x4,
+        1 => Float32x4,
+        2 => Float32x4,
+        3 => Float32x4,
+    ];
+}
+
+impl Instance3D {
+    pub fn new(pos: Isometry3<f32>) -> Self {
+        Self { matrix: pos.into() }
+    }
+}
+
+impl Default for Instance3D {
+    fn default() -> Self {
+        return Self::new(Default::default());
     }
 }
 

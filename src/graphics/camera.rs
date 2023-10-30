@@ -2,9 +2,16 @@ use nalgebra::Orthographic3;
 use std::ops::*;
 
 use crate::AABB;
-use crate::{ComponentHandle, ComponentManager, Gpu, Isometry2, Rotation2, Uniform, Vector2, World, Isometry3, Matrix4, Vector3};
+use crate::{
+    ComponentHandle, ComponentManager, Gpu, Isometry2, Isometry3, Matrix4, Rotation2, Uniform,
+    Vector2, Vector3, World,
+};
 
 const MINIMAL_FOV: f32 = 0.0001;
+
+pub trait Camera {
+    fn uniform(&self) -> &Uniform<Matrix4<f32>>;
+}
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug)]
@@ -30,7 +37,7 @@ impl Clone for Camera2D {
 }
 
 impl Camera2D {
-    pub fn new(position: Isometry2<f32>, fov: Vector2<f32>) -> Self {
+    pub fn new_unbuffered(position: Isometry2<f32>, fov: Vector2<f32>) -> Self {
         let proj = Orthographic3::new(-fov.x, fov.x, -fov.y, fov.y, -1.0, 1.0);
         Camera2D {
             position,
@@ -40,8 +47,8 @@ impl Camera2D {
         }
     }
 
-    pub fn new_buffer(gpu: &Gpu, position: Isometry2<f32>, fov: Vector2<f32>) -> Self {
-        let mut camera = Self::new(position, fov);
+    pub fn new(gpu: &Gpu, position: Isometry2<f32>, fov: Vector2<f32>) -> Self {
+        let mut camera = Self::new_unbuffered(position, fov);
         camera.buffer(gpu);
         return camera;
     }
@@ -111,19 +118,19 @@ impl Camera2D {
 
     pub fn buffer(&mut self, gpu: &Gpu) {
         let view_proj = self.view_proj();
-
         if let Some(uniform) = &mut self.uniform {
             uniform.write(gpu, view_proj);
         } else {
             self.uniform = Some(Uniform::new_vertex(gpu, view_proj));
         }
     }
+}
 
-    pub fn bindgroup(&self) -> &wgpu::BindGroup {
+impl Camera for Camera2D {
+    fn uniform(&self) -> &Uniform<Matrix4<f32>> {
         self.uniform
             .as_ref()
             .expect("Camera buffer not initialized!")
-            .bind_group()
     }
 }
 
@@ -147,11 +154,15 @@ pub struct WorldCameraTarget {
 }
 
 impl WorldCamera2D {
-    pub fn new(position: Isometry2<f32>, scale: WorldCameraScale, window_size: Vector2<u32>) -> Self {
+    pub fn new(
+        position: Isometry2<f32>,
+        scale: WorldCameraScale,
+        window_size: Vector2<u32>,
+    ) -> Self {
         let window_size = window_size.cast();
         let fov = scale.fov(window_size);
         Self {
-            camera: Camera2D::new(position, fov),
+            camera: Camera2D::new_unbuffered(position, fov),
             target: None,
             window_size,
             scale,

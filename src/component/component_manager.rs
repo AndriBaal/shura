@@ -2,9 +2,10 @@ use downcast_rs::{impl_downcast, Downcast};
 use rustc_hash::FxHashMap;
 
 use crate::{
-    Component, ComponentConfig, ComponentHandle, ComponentScope, ComponentSet, ComponentSetMut,
-    ComponentType, ComponentTypeId, GlobalComponents, Gpu, GroupHandle, 
-    InstanceIndex, InstanceIndices, Instance2D, Renderer, Scene, SystemManager, World, InstanceBuffer2D, Camera2D, WorldCamera2D, DefaultResources, Model2D,
+    Camera2D, Component, ComponentConfig, ComponentHandle, ComponentScope, ComponentSet,
+    ComponentSetMut, ComponentType, ComponentTypeId, DefaultResources, GlobalComponents, Gpu,
+    GroupHandle, Instance2D, InstanceBuffer2D, InstanceIndex, InstanceIndices, Model2D, Renderer,
+    Scene, SystemManager, World, WorldCamera2D,
 };
 
 #[cfg(feature = "serde")]
@@ -163,7 +164,7 @@ impl GroupFilter<'static> {
 
 pub struct ComponentResources<'a> {
     components: &'a ComponentManager,
-    
+
     pub world_camera: &'a WorldCamera2D,
     pub relative_camera: &'a Camera2D,
     pub relative_bottom_left_camera: &'a Camera2D,
@@ -176,7 +177,10 @@ pub struct ComponentResources<'a> {
 }
 
 impl<'a> ComponentResources<'a> {
-    pub(crate) fn new(defaults: &'a DefaultResources, scene: &'a Scene) -> (&'a SystemManager, Self) {
+    pub(crate) fn new(
+        defaults: &'a DefaultResources,
+        scene: &'a Scene,
+    ) -> (&'a SystemManager, Self) {
         return (
             &scene.systems,
             Self {

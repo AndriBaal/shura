@@ -1,13 +1,13 @@
 use std::fmt::{Display, Formatter, Result};
 
 #[cfg(feature = "rayon")]
-use crate::{rayon::prelude::*, data::arena::ArenaEntry};
+use crate::{data::arena::ArenaEntry, rayon::prelude::*};
 
 use crate::{
-    Arena, BufferHelper, BufferHelperType, BufferOperation, Component,
-    ComponentConfig, ComponentHandle, ComponentIndex, ComponentStorage,
-    ComponentTypeImplementation, Gpu, GroupHandle, InstanceBuffer, InstanceIndex, InstanceIndices,
-    Instance2D, Renderer, World, InstanceBuffer2D,
+    Arena, BufferHelper, BufferHelperType, BufferOperation, Component, ComponentConfig,
+    ComponentHandle, ComponentIndex, ComponentStorage, ComponentTypeImplementation, Gpu,
+    GroupHandle, Instance2D, InstanceBuffer, InstanceBuffer2D, InstanceIndex, InstanceIndices,
+    Renderer, World,
 };
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
@@ -925,10 +925,8 @@ impl<C: Component> ComponentType<C> {
     pub fn iter_render<'a>(
         &'a self,
         group_handles: &[GroupHandle],
-    ) -> Box<
-        dyn DoubleEndedIterator<Item = (&'a InstanceBuffer2D, InstanceIndex, &'a C)>
-            + 'a,
-    > {
+    ) -> Box<dyn DoubleEndedIterator<Item = (&'a InstanceBuffer2D, InstanceIndex, &'a C)> + 'a>
+    {
         match &self.storage {
             ComponentTypeStorage::Single {
                 component, buffer, ..
@@ -979,12 +977,7 @@ impl<C: Component> ComponentType<C> {
     pub(crate) fn render_each<'a>(
         &'a self,
         renderer: &mut Renderer<'a>,
-        mut each: impl FnMut(
-            &mut Renderer<'a>,
-            &'a C,
-            &'a InstanceBuffer2D,
-            InstanceIndex,
-        ),
+        mut each: impl FnMut(&mut Renderer<'a>, &'a C, &'a InstanceBuffer2D, InstanceIndex),
     ) {
         match &self.storage {
             ComponentTypeStorage::Single {

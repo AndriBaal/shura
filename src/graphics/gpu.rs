@@ -5,10 +5,10 @@ use crate::log::info;
 #[cfg(feature = "text")]
 use crate::text::{Font, Text, TextSection};
 use crate::{
-    Camera2D, InstanceBuffer, Instance2D, Isometry2, Model, ModelBuilder, RenderEncoder,
-    RenderTarget, Shader, ShaderConfig, ShaderModule, ShaderModuleDescriptor, ShaderModuleSoure,
-    Sprite, SpriteBuilder, SpriteRenderTarget, SpriteSheet, SpriteSheetBuilder, SpriteSheetIndex,
-    SurfaceRenderTarget, Uniform, UniformField, Vector2, Vertex,  Model2D, InstanceBuffer2D, Instance, ModelBuilder2D,
+    Camera2D, Instance, Instance2D, InstanceBuffer, InstanceBuffer2D, Isometry2, Model, Model2D,
+    ModelBuilder, ModelBuilder2D, RenderEncoder, RenderTarget, Shader, ShaderConfig, ShaderModule,
+    ShaderModuleDescriptor, ShaderModuleSoure, Sprite, SpriteBuilder, SpriteRenderTarget,
+    SpriteSheet, SpriteSheetBuilder, SurfaceRenderTarget, Uniform, UniformField, Vector2, Vertex,
 };
 use std::{ops::Deref, sync::Mutex};
 
@@ -209,17 +209,13 @@ impl Gpu {
         SpriteRenderTarget::custom(self, sprite)
     }
 
-    pub fn create_instance_buffer<I: Instance>(
-        &self,
-        instances: &[I],
-    ) -> InstanceBuffer<I> {
+    pub fn create_instance_buffer<I: Instance>(&self, instances: &[I]) -> InstanceBuffer<I> {
         InstanceBuffer::new(self, instances)
     }
 
     pub fn create_model<V: Vertex>(&self, builder: impl ModelBuilder<Vertex = V>) -> Model<V> {
         Model::new(self, builder)
     }
-
 
     pub fn create_sprite<D: Deref<Target = [u8]>>(&self, desc: SpriteBuilder<D>) -> Sprite {
         Sprite::new(self, desc)
@@ -358,7 +354,7 @@ impl WgpuDefaultResources {
         };
 
         let vertex_shader_module =
-            device.create_shader_module(include_wgsl!("../../res/shader/vertex.wgsl"));
+            device.create_shader_module(include_wgsl!("../../res/shader/2d/vertex.wgsl"));
 
         Self {
             vertex_shader_module,
@@ -374,6 +370,7 @@ impl WgpuDefaultResources {
 
 /// Holds default buffers, shaders, sprites and layouts needed by shura.
 pub struct DefaultResources {
+    // 2D
     pub sprite: Shader,
     pub sprite_sheet: Shader,
     pub color: Shader,
@@ -383,6 +380,8 @@ pub struct DefaultResources {
     pub text: Shader,
     pub blurr: Shader,
 
+    // 3D
+    // pub test: Shader,
     pub unit_model: Model2D,
 
     /// This field holds both total time and the frame time. Both are stored as f32 in the buffer.
@@ -397,7 +396,6 @@ pub struct DefaultResources {
     pub relative_top_left_camera: Camera2D,
     pub relative_top_right_camera: Camera2D,
     pub unit_camera: Camera2D,
-    pub index: [Uniform<SpriteSheetIndex>; 10],
     pub centered_instance: InstanceBuffer2D,
 
     pub surface: SurfaceRenderTarget,
@@ -412,7 +410,7 @@ impl DefaultResources {
             source: ShaderModuleSoure::Seperate {
                 vertex: &gpu.base.vertex_shader_module,
                 fragment: &gpu
-                    .create_shader_module(include_wgsl!("../../res/shader/sprite_sheet.wgsl")),
+                    .create_shader_module(include_wgsl!("../../res/shader/2d/sprite_sheet.wgsl")),
             },
             uniforms: &[UniformField::Camera, UniformField::SpriteSheet],
             ..Default::default()
@@ -423,7 +421,7 @@ impl DefaultResources {
             name: Some("text"),
             uniforms: &[UniformField::Camera, UniformField::SpriteSheet],
             source: ShaderModuleSoure::Single(
-                &gpu.create_shader_module(include_wgsl!("../../res/shader/text.wgsl")),
+                &gpu.create_shader_module(include_wgsl!("../../res/shader/2d/text.wgsl")),
             ),
             buffers: &[
                 crate::text::Vertex2DText::DESC,
@@ -448,7 +446,8 @@ impl DefaultResources {
             name: Some("color"),
             source: ShaderModuleSoure::Seperate {
                 vertex: &gpu.base.vertex_shader_module,
-                fragment: &gpu.create_shader_module(include_wgsl!("../../res/shader/color.wgsl")),
+                fragment: &gpu
+                    .create_shader_module(include_wgsl!("../../res/shader/2d/color.wgsl")),
             },
             uniforms: &[UniformField::Camera],
             ..Default::default()
@@ -458,7 +457,8 @@ impl DefaultResources {
             name: Some("sprite"),
             source: ShaderModuleSoure::Seperate {
                 vertex: &gpu.base.vertex_shader_module,
-                fragment: &gpu.create_shader_module(include_wgsl!("../../res/shader/sprite.wgsl")),
+                fragment: &gpu
+                    .create_shader_module(include_wgsl!("../../res/shader/2d/sprite.wgsl")),
             },
             uniforms: &[UniformField::Camera, UniformField::Sprite],
             ..Default::default()
@@ -468,7 +468,8 @@ impl DefaultResources {
             name: Some("rainbow"),
             source: ShaderModuleSoure::Seperate {
                 vertex: &gpu.base.vertex_shader_module,
-                fragment: &gpu.create_shader_module(include_wgsl!("../../res/shader/rainbow.wgsl")),
+                fragment: &gpu
+                    .create_shader_module(include_wgsl!("../../res/shader/2d/rainbow.wgsl")),
             },
             uniforms: &[UniformField::Camera, UniformField::SingleUniform],
             ..Default::default()
@@ -478,7 +479,7 @@ impl DefaultResources {
             name: Some("grey"),
             source: ShaderModuleSoure::Seperate {
                 vertex: &gpu.base.vertex_shader_module,
-                fragment: &gpu.create_shader_module(include_wgsl!("../../res/shader/grey.wgsl")),
+                fragment: &gpu.create_shader_module(include_wgsl!("../../res/shader/2d/grey.wgsl")),
             },
             uniforms: &[UniformField::Camera, UniformField::Sprite],
             ..Default::default()
@@ -488,7 +489,8 @@ impl DefaultResources {
             name: Some("blurr"),
             source: ShaderModuleSoure::Seperate {
                 vertex: &gpu.base.vertex_shader_module,
-                fragment: &gpu.create_shader_module(include_wgsl!("../../res/shader/blurr.wgsl")),
+                fragment: &gpu
+                    .create_shader_module(include_wgsl!("../../res/shader/2d/blurr.wgsl")),
             },
             uniforms: &[UniformField::Camera, UniformField::Sprite],
             ..Default::default()
@@ -500,14 +502,14 @@ impl DefaultResources {
 
         let fov = Self::relative_fov(window_size);
 
-        let relative_bottom_left_camera = Camera2D::new_buffer(gpu, Isometry2::new(fov, 0.0), fov);
+        let relative_bottom_left_camera = Camera2D::new(gpu, Isometry2::new(fov, 0.0), fov);
         let relative_bottom_right_camera =
-            Camera2D::new_buffer(gpu, Isometry2::new(Vector2::new(-fov.x, fov.y), 0.0), fov);
-        let relative_top_right_camera = Camera2D::new_buffer(gpu, Isometry2::new(-fov, 0.0), fov);
+            Camera2D::new(gpu, Isometry2::new(Vector2::new(-fov.x, fov.y), 0.0), fov);
+        let relative_top_right_camera = Camera2D::new(gpu, Isometry2::new(-fov, 0.0), fov);
         let relative_top_left_camera =
-            Camera2D::new_buffer(gpu, Isometry2::new(Vector2::new(fov.x, -fov.y), 0.0), fov);
-        let relative_camera = Camera2D::new_buffer(gpu, Default::default(), fov);
-        let unit_camera = Camera2D::new_buffer(gpu, Default::default(), Vector2::new(0.5, 0.5));
+            Camera2D::new(gpu, Isometry2::new(Vector2::new(fov.x, -fov.y), 0.0), fov);
+        let relative_camera = Camera2D::new(gpu, Default::default(), fov);
+        let unit_camera = Camera2D::new(gpu, Default::default(), Vector2::new(0.5, 0.5));
 
         let unit_model = gpu.create_model(ModelBuilder2D::cuboid(Vector2::new(0.5, 0.5)));
 
@@ -516,33 +518,29 @@ impl DefaultResources {
         #[cfg(feature = "framebuffer")]
         let framebuffer = SpriteRenderTarget::new(gpu, size);
 
-        let index = (0..10)
-            .map(|i| gpu.create_uniform(i))
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap();
-
         Self {
-            surface,
             sprite_sheet,
-            unit_model,
-            unit_camera,
             #[cfg(feature = "text")]
             text,
             sprite,
             rainbow,
             grey,
             blurr,
+            color,
+
+            // test,
+            unit_model,
+
             times,
+            unit_camera,
             centered_instance,
             relative_camera,
             relative_bottom_left_camera,
             relative_bottom_right_camera,
             relative_top_left_camera,
             relative_top_right_camera,
-            color,
-            index,
 
+            surface,
             #[cfg(feature = "framebuffer")]
             framebuffer,
         }
@@ -564,13 +562,13 @@ impl DefaultResources {
         self.framebuffer.resize(gpu, window_size);
 
         let fov = Self::relative_fov(window_size);
-        self.relative_bottom_left_camera = Camera2D::new_buffer(gpu, Isometry2::new(fov, 0.0), fov);
+        self.relative_bottom_left_camera = Camera2D::new(gpu, Isometry2::new(fov, 0.0), fov);
         self.relative_bottom_right_camera =
-            Camera2D::new_buffer(gpu, Isometry2::new(Vector2::new(-fov.x, fov.y), 0.0), fov);
-        self.relative_top_right_camera = Camera2D::new_buffer(gpu, Isometry2::new(-fov, 0.0), fov);
+            Camera2D::new(gpu, Isometry2::new(Vector2::new(-fov.x, fov.y), 0.0), fov);
+        self.relative_top_right_camera = Camera2D::new(gpu, Isometry2::new(-fov, 0.0), fov);
         self.relative_top_left_camera =
-            Camera2D::new_buffer(gpu, Isometry2::new(Vector2::new(fov.x, -fov.y), 0.0), fov);
-        self.relative_camera = Camera2D::new_buffer(gpu, Isometry2::default(), fov);
+            Camera2D::new(gpu, Isometry2::new(Vector2::new(fov.x, -fov.y), 0.0), fov);
+        self.relative_camera = Camera2D::new(gpu, Isometry2::default(), fov);
     }
 
     pub(crate) fn buffer(&mut self, gpu: &Gpu, total_time: f32, frame_time: f32) {

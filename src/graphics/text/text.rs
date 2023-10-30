@@ -1,12 +1,11 @@
 use std::sync::Arc;
 
 use crate::{
-    Color, Gpu, Index, Isometry2, Model, SpriteSheet, SpriteSheetBuilder,
-    SpriteSheetIndex, Vector2, Vertex, ModelBuilder2D,
+    Color, Gpu, Index, Isometry2, Model, ModelBuilder2D, SpriteSheet, SpriteSheetBuilder,
+    SpriteSheetIndex, Vector2, Vertex,
 };
 use rustc_hash::FxHashMap;
 use wgpu::vertex_attr_array;
-
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Default, bytemuck::Pod, bytemuck::Zeroable)]

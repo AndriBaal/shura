@@ -50,7 +50,7 @@ impl<T: bytemuck::Pod> Uniform<T> {
                 binding: 0,
                 resource: buffer.as_entire_binding(),
             }],
-            label: Some("uniform_bindgroup"),
+            label: Some("uniform_bind_group"),
         });
 
         Uniform {

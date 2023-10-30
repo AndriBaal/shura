@@ -1,6 +1,6 @@
 #[cfg(feature = "physics")]
 use crate::physics::{Shape, TypedShape};
-use crate::{Gpu, Isometry2, Matrix2, Rotation2, Vector2, AABB};
+use crate::{Gpu, Isometry2, Matrix2, Rotation2, Vector2, Vector3, AABB};
 use std::mem;
 use std::{
     f32::consts::{FRAC_PI_2, PI},
@@ -9,6 +9,7 @@ use std::{
 use wgpu::util::DeviceExt;
 
 pub type Model2D = Model<Vertex2D>;
+pub type Model3D = Model<Vertex3D>;
 
 pub trait ModelBuilder {
     type Vertex;
@@ -24,6 +25,33 @@ pub trait Vertex: bytemuck::Pod + bytemuck::Zeroable {
         step_mode: wgpu::VertexStepMode::Vertex,
         attributes: &Self::ATTRIBUTES,
     };
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+/// Represents the order in which [Vertices](Vertex) are drawn in a triangle.
+pub struct Index {
+    pub a: u32,
+    pub b: u32,
+    pub c: u32,
+}
+
+impl Index {
+    pub const fn new(a: u32, b: u32, c: u32) -> Self {
+        Self { a, b, c }
+    }
+}
+
+impl<V: Vertex> ModelBuilder for (Vec<V>, Vec<Index>) {
+    type Vertex = V;
+
+    fn indices<'a>(&'a self) -> &'a [Index] {
+        &self.1
+    }
+    fn vertices<'a>(&'a self) -> &'a [Self::Vertex] {
+        &self.0
+    }
 }
 
 /// Single vertex of a model. Which hold the coordniate of the vertex and the texture coordinates.
@@ -55,33 +83,6 @@ impl Vertex for Vertex2D {
             format: wgpu::VertexFormat::Float32x2,
         },
     ];
-}
-
-#[repr(C)]
-#[derive(Copy, Clone, Debug, Eq, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-/// Represents the order in which [Vertices](Vertex) are drawn in a triangle.
-pub struct Index {
-    pub a: u32,
-    pub b: u32,
-    pub c: u32,
-}
-
-impl Index {
-    pub const fn new(a: u32, b: u32, c: u32) -> Self {
-        Self { a, b, c }
-    }
-}
-
-impl<V: Vertex> ModelBuilder for (Vec<V>, Vec<Index>) {
-    type Vertex = V;
-
-    fn indices<'a>(&'a self) -> &'a [Index] {
-        &self.1
-    }
-    fn vertices<'a>(&'a self) -> &'a [Self::Vertex] {
-        &self.0
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -707,6 +708,108 @@ impl Default for ModelBuilder2D {
             tex_coord_offset: Isometry2::new(Self::DEFAULT_OFFSET, Self::DEFAULT_ROTATION),
             tex_coord_scale: Self::DEFAULT_SCALE,
             tex_coord_rotation_axis: Vector2::new(0.5, 0.5),
+        }
+    }
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, Default, bytemuck::Pod, bytemuck::Zeroable)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct Vertex3D {
+    pub pos: Vector3<f32>,
+    pub tex: Vector2<f32>,
+}
+
+impl Vertex3D {
+    pub const fn new(pos: Vector3<f32>, tex: Vector2<f32>) -> Self {
+        Vertex3D { pos, tex }
+    }
+}
+
+impl Vertex for Vertex3D {
+    const SIZE: u64 = mem::size_of::<Self>() as u64;
+    const ATTRIBUTES: &'static [wgpu::VertexAttribute] = &[
+        wgpu::VertexAttribute {
+            offset: 0,
+            shader_location: 0,
+            format: wgpu::VertexFormat::Float32x3,
+        },
+        wgpu::VertexAttribute {
+            offset: mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
+            shader_location: 1,
+            format: wgpu::VertexFormat::Float32x2,
+        },
+    ];
+}
+
+pub struct ModelBuilder3D {
+    pub vertices: Vec<Vertex3D>,
+    pub indices: Vec<Index>,
+}
+
+impl ModelBuilder for ModelBuilder3D {
+    type Vertex = Vertex3D;
+
+    fn indices<'a>(&'a self) -> &'a [Index] {
+        &self.indices
+    }
+
+    fn vertices<'a>(&'a self) -> &'a [Self::Vertex] {
+        &self.vertices
+    }
+}
+
+impl ModelBuilder3D {
+    pub fn cube(half_size: Vector3<f32>) -> Self {
+        Self {
+            vertices: vec![
+                Vertex3D::new(
+                    Vector3::new(-half_size.x, -half_size.y, -half_size.z),
+                    Default::default(),
+                ),
+                Vertex3D::new(
+                    Vector3::new(half_size.x, -half_size.y, -half_size.z),
+                    Default::default(),
+                ),
+                Vertex3D::new(
+                    Vector3::new(half_size.x, half_size.y, -half_size.z),
+                    Default::default(),
+                ),
+                Vertex3D::new(
+                    Vector3::new(-half_size.x, half_size.y, -half_size.z),
+                    Default::default(),
+                ),
+                Vertex3D::new(
+                    Vector3::new(-half_size.x, -half_size.y, half_size.z),
+                    Default::default(),
+                ),
+                Vertex3D::new(
+                    Vector3::new(half_size.x, -half_size.y, half_size.z),
+                    Default::default(),
+                ),
+                Vertex3D::new(
+                    Vector3::new(half_size.x, half_size.y, half_size.z),
+                    Default::default(),
+                ),
+                Vertex3D::new(
+                    Vector3::new(-half_size.x, half_size.y, half_size.z),
+                    Default::default(),
+                ),
+            ],
+            indices: vec![
+                Index::new(0, 1, 2),
+                Index::new(0, 2, 3),
+                Index::new(1, 5, 6),
+                Index::new(1, 6, 2),
+                Index::new(5, 4, 7),
+                Index::new(5, 7, 6),
+                Index::new(4, 0, 3),
+                Index::new(4, 3, 7),
+                Index::new(3, 2, 6),
+                Index::new(3, 6, 7),
+                Index::new(4, 5, 1),
+                Index::new(4, 1, 0),
+            ],
         }
     }
 }

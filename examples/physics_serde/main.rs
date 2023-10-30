@@ -179,21 +179,11 @@ fn render(res: &ComponentResources, encoder: &mut RenderEncoder) {
         });
 
         res.render_single::<Floor>(renderer, |renderer, _floor, buffer, instances| {
-            renderer.render_color(
-                instances,
-                buffer,
-                res.world_camera,
-                &resources.floor_model,
-            )
+            renderer.render_color(instances, buffer, res.world_camera, &resources.floor_model)
         });
 
         res.render_all::<PhysicsBox>(renderer, |renderer, buffer, instance| {
-            renderer.render_color(
-                instance,
-                buffer,
-                res.world_camera,
-                &resources.box_model,
-            );
+            renderer.render_color(instance, buffer, res.world_camera, &resources.box_model);
         });
     })
 }
@@ -250,7 +240,7 @@ impl Resources {
 
 #[derive(Component, ::serde::Serialize, ::serde::Deserialize)]
 struct Player {
-    #[position]
+    #[shura(position)]
     body: RigidBodyComponent,
 }
 
@@ -275,7 +265,7 @@ impl Player {
 
 #[derive(Component, ::serde::Serialize, ::serde::Deserialize)]
 struct Floor {
-    #[position]
+    #[shura(position)]
     collider: ColliderComponent,
 }
 
@@ -288,8 +278,8 @@ impl Floor {
         border_radius: 0.5,
     };
     pub fn new() -> Self {
-        let collider =
-            ColliderBuilder::new(SharedShape::new(Self::SHAPE)).translation(Vector2::new(0.0, -1.0));
+        let collider = ColliderBuilder::new(SharedShape::new(Self::SHAPE))
+            .translation(Vector2::new(0.0, -1.0));
         Self {
             collider: ColliderComponent::new(collider).with_color(Color::BLUE),
         }
@@ -298,7 +288,7 @@ impl Floor {
 
 #[derive(Component, ::serde::Serialize, ::serde::Deserialize)]
 struct PhysicsBox {
-    #[position]
+    #[shura(position)]
     body: RigidBodyComponent,
 }
 

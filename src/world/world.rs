@@ -1,4 +1,4 @@
-use crate::{Component, ComponentHandle, FrameManager, Vector2, Isometry2};
+use crate::{Component, ComponentHandle, FrameManager, Isometry2, Vector2};
 use rapier2d::{crossbeam, prelude::*};
 pub use rapier2d::{
     prelude::CollisionEvent as RapierCollisionEvent,

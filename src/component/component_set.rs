@@ -1,6 +1,6 @@
 use crate::{
-    Component, ComponentHandle, ComponentType, ComponentTypeId, Gpu, GroupHandle, InstanceBuffer,
-    InstanceIndex, InstanceIndices, Instance2D, Renderer, World, InstanceBuffer2D,
+    Component, ComponentHandle, ComponentType, ComponentTypeId, Gpu, GroupHandle, Instance2D,
+    InstanceBuffer, InstanceBuffer2D, InstanceIndex, InstanceIndices, Renderer, World,
 };
 use std::cell::{Ref, RefMut};
 
@@ -271,8 +271,7 @@ impl<'a, C: Component> ComponentSetMut<'a, C> {
 
     pub fn iter_render(
         &'a self,
-    ) -> impl DoubleEndedIterator<Item = (&InstanceBuffer<Instance2D>, InstanceIndex, &C)>
-    {
+    ) -> impl DoubleEndedIterator<Item = (&InstanceBuffer<Instance2D>, InstanceIndex, &C)> {
         self.ty.iter_render(self.groups)
     }
 
