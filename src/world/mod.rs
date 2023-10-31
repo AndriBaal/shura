@@ -1,7 +1,7 @@
 #[cfg(feature = "physics")]
-pub mod collider_component;
+pub mod collider_instance;
 #[cfg(feature = "physics")]
-pub mod rigid_body_component;
+pub mod rigid_body_instance;
 // TODO: Implement character controller when top down functionality is provided
 // pub mod character_controller_component;
 #[cfg(feature = "physics")]

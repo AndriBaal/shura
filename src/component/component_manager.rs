@@ -4,7 +4,7 @@ use rustc_hash::FxHashMap;
 use crate::{
     Camera2D, Component, ComponentConfig, ComponentHandle, ComponentScope, ComponentSet,
     ComponentSetMut, ComponentType, ComponentTypeId, DefaultResources, GlobalComponents, Gpu,
-    GroupHandle, Instance2D, InstanceBuffer2D, InstanceIndex, InstanceIndices, Model2D, Renderer,
+    GroupHandle, Instance2D, InstanceBuffer, InstanceIndex, InstanceIndices, Model2D, Renderer,
     Scene, SystemManager, World, WorldCamera2D,
 };
 
@@ -19,10 +19,10 @@ use std::{
 pub(crate) trait ComponentTypeImplementation: Downcast {
     fn add_group(&mut self);
     fn remove_group(&mut self, world: &mut World, handle: GroupHandle);
-    fn camera_target(&self, world: &World, handle: ComponentHandle) -> Option<Instance2D>;
     fn buffer(&mut self, world: &World, active: &[GroupHandle], gpu: &Gpu);
     fn component_type_id(&self) -> ComponentTypeId;
     fn config(&self) -> ComponentConfig;
+    
     #[cfg(all(feature = "serde", feature = "physics"))]
     fn deinit_non_serialized(&self, world: &mut World);
     #[cfg(feature = "serde")]
@@ -173,7 +173,7 @@ pub struct ComponentResources<'a> {
     pub relative_top_right_camera: &'a Camera2D,
     pub unit_camera: &'a Camera2D,
     pub unit_model: &'a Model2D,
-    pub centered_instance: &'a InstanceBuffer2D,
+    pub centered_instance: &'a InstanceBuffer<Instance2D>,
 }
 
 impl<'a> ComponentResources<'a> {
@@ -217,7 +217,7 @@ impl<'a> ComponentResources<'a> {
     pub fn render_each<C: Component>(
         &self,
         renderer: &mut Renderer<'a>,
-        each: impl FnMut(&mut Renderer<'a>, &'a C, &'a InstanceBuffer2D, InstanceIndex),
+        each: impl FnMut(&mut Renderer<'a>, &'a C, &'a InstanceBuffer<C::Instance>, InstanceIndex),
     ) {
         let ty = type_render!(self.components, C);
         ty.render_each(renderer, each)
@@ -226,7 +226,7 @@ impl<'a> ComponentResources<'a> {
     pub fn render_single<C: Component>(
         &self,
         renderer: &mut Renderer<'a>,
-        each: impl FnOnce(&mut Renderer<'a>, &'a C, &'a InstanceBuffer2D, InstanceIndex),
+        each: impl FnOnce(&mut Renderer<'a>, &'a C, &'a InstanceBuffer<C::Instance>, InstanceIndex),
     ) {
         let ty = type_render!(self.components, C);
         ty.render_single(renderer, each)
@@ -235,7 +235,7 @@ impl<'a> ComponentResources<'a> {
     pub fn render_all<C: Component>(
         &self,
         renderer: &mut Renderer<'a>,
-        all: impl FnMut(&mut Renderer<'a>, &'a InstanceBuffer2D, InstanceIndices),
+        all: impl FnMut(&mut Renderer<'a>, &'a InstanceBuffer<C::Instance>, InstanceIndices),
     ) {
         let ty = type_render!(self.components, C);
         ty.render_all(renderer, all)
@@ -358,18 +358,6 @@ impl ComponentManager {
     #[cfg(feature = "serde")]
     pub(crate) fn serialize<C: Component + serde::Serialize>(&self) -> Vec<u8> {
         bincode::serialize(&*type_ref!(self, C)).unwrap()
-    }
-
-    pub(crate) fn instance_data(
-        &self,
-        handle: ComponentHandle,
-        world: &World,
-    ) -> Option<Instance2D> {
-        self.types
-            .get(&handle.component_type_id())
-            .unwrap()
-            .ref_mut_raw()
-            .camera_target(world, handle)
     }
 
     pub fn active_groups(&self) -> &[GroupHandle] {

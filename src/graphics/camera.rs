@@ -141,17 +141,10 @@ impl Camera for Camera2D {
 /// is active based on if the [Groups](crate::Group) intersects with the camera.
 pub struct WorldCamera2D {
     pub(crate) camera: Camera2D,
-    target: Option<WorldCameraTarget>,
     scale: WorldCameraScale,
     window_size: Vector2<f32>,
 }
 
-#[derive(Clone, Copy, Default, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct WorldCameraTarget {
-    pub target: ComponentHandle,
-    pub offset: Isometry2<f32>,
-}
 
 impl WorldCamera2D {
     pub fn new(
@@ -163,31 +156,9 @@ impl WorldCamera2D {
         let fov = scale.fov(window_size);
         Self {
             camera: Camera2D::new_unbuffered(position, fov),
-            target: None,
             window_size,
             scale,
         }
-    }
-
-    pub fn apply_target(&mut self, world: &World, man: &ComponentManager) {
-        if let Some(target) = self.target() {
-            if let Some(instance) = man.instance_data(target.target, world) {
-                let pos: Isometry2<f32> = instance.translation().into();
-                self.camera.set_position(pos * target.offset);
-            }
-        }
-    }
-
-    pub fn target(&self) -> Option<WorldCameraTarget> {
-        self.target
-    }
-
-    pub fn target_mut(&mut self) -> Option<&mut WorldCameraTarget> {
-        self.target.as_mut()
-    }
-
-    pub fn set_target(&mut self, target: Option<WorldCameraTarget>) {
-        self.target = target;
     }
 
     pub(crate) fn compute_fov(&mut self) {

@@ -1,10 +1,10 @@
 use crate::{
     physics::{Collider, ColliderHandle, RigidBody, RigidBodyHandle},
-    Color, ComponentHandle, Instance2D, Position, SpriteAtlas, SpriteSheetIndex, Vector2, World,
+    Color, ComponentHandle, Instance2D, SpriteAtlas, SpriteSheetIndex, Vector2, World, InstanceHandler,
 };
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum RigidBodyStatus {
+pub(crate) enum RigidBodyStatus {
     Added {
         rigid_body_handle: RigidBodyHandle,
     },
@@ -65,7 +65,7 @@ impl RigidBodyStatus {
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct RigidBodyComponent {
+pub struct RigidBodyInstance {
     pub(crate) status: RigidBodyStatus,
     scale: Vector2<f32>,
     atlas: SpriteAtlas,
@@ -74,7 +74,7 @@ pub struct RigidBodyComponent {
     active: bool,
 }
 
-impl RigidBodyComponent {
+impl RigidBodyInstance {
     pub fn new(
         rigid_body: impl Into<RigidBody>,
         colliders: impl IntoIterator<Item = impl Into<Collider>>,
@@ -165,8 +165,10 @@ impl RigidBodyComponent {
     }
 }
 
-impl Position for RigidBodyComponent {
-    fn instance(&self, world: &World) -> Instance2D {
+impl InstanceHandler for RigidBodyInstance {
+    type Instance = Instance2D;
+
+    fn instance(&self, world: &World) -> Self::Instance {
         match &self.status {
             RigidBodyStatus::Added { rigid_body_handle } => {
                 if let Some(rigid_body) = world.rigid_body(*rigid_body_handle) {

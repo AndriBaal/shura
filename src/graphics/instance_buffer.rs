@@ -6,6 +6,7 @@ use crate::{
 use wgpu::{util::DeviceExt, vertex_attr_array};
 
 pub type InstanceBuffer2D = InstanceBuffer<Instance2D>;
+pub type InstanceBuffer3D = InstanceBuffer<Instance3D>;
 
 pub trait Instance: bytemuck::Pod + bytemuck::Zeroable {
     const ATTRIBUTES: &'static [wgpu::VertexAttribute];
@@ -15,6 +16,10 @@ pub trait Instance: bytemuck::Pod + bytemuck::Zeroable {
         step_mode: wgpu::VertexStepMode::Instance,
         attributes: &Self::ATTRIBUTES,
     };
+}
+
+impl Instance for () {
+    const ATTRIBUTES: &'static [wgpu::VertexAttribute] = &[];
 }
 
 #[repr(C)]
@@ -182,6 +187,7 @@ impl<I: Instance> InstanceBuffer<I> {
         let data = bytemuck::cast_slice(data);
         let buffer_size = data.len() as u64;
         assert!(buffer_size % instance_size == 0);
+        assert!(I::SIZE != 0);
         let buffer = gpu
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -199,6 +205,7 @@ impl<I: Instance> InstanceBuffer<I> {
     }
 
     pub fn empty(gpu: &Gpu, amount: u64) -> Self {
+        assert!(I::SIZE != 0);
         let instance_size = size_of::<I>() as u64;
         let buffer = gpu.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("instance_buffer"),
@@ -220,7 +227,7 @@ impl<I: Instance> InstanceBuffer<I> {
     }
 
     pub fn write_offset(&mut self, gpu: &Gpu, instance_offset: u64, data: &[I]) {
-        let instance_size: u64 = std::mem::size_of::<I>() as u64;
+        let instance_size: u64 = I::SIZE as u64;
         let data = bytemuck::cast_slice(data);
         let new_size = instance_offset * instance_size + data.len() as u64;
         assert_eq!(data.len() as u64 % instance_size, 0);
@@ -264,7 +271,7 @@ impl<I: Instance> InstanceBuffer<I> {
     }
 
     pub fn instance_size(&self) -> wgpu::BufferAddress {
-        std::mem::size_of::<I>() as u64
+        I::SIZE as u64
     }
 
     pub(crate) fn buffer(&self) -> &wgpu::Buffer {

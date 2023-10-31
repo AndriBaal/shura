@@ -1,25 +1,25 @@
 use crate::{
-    data::arena::Arena, ComponentHandle, ComponentIdentifier, ComponentTypeId, Gpu, Instance2D,
-    InstanceBuffer2D, World,
+    data::arena::Arena, ComponentHandle, ComponentIdentifier, ComponentTypeId, Gpu, Instance,
+    InstanceBuffer, World,
 };
-use downcast_rs::*;
 
 #[cfg(feature = "rayon")]
 use crate::{data::arena::ArenaEntry, rayon::prelude::*};
 
 #[allow(unused_variables)]
-pub trait Position: Downcast {
-    fn instance(&self, world: &World) -> Instance2D;
+pub trait InstanceHandler {
+    type Instance: Instance where Self: Sized;
+    fn instance(&self, world: &World) -> Self::Instance where Self: Sized;
     fn active(&self) -> bool;
     fn init(&mut self, handle: ComponentHandle, world: &mut World) {}
     fn finish(&mut self, world: &mut World) {}
 }
-impl_downcast!(Position);
 
 /// All components need to implement from this trait. This is not done manually, but with the derive macro [Component](crate::Component).
 pub trait Component: ComponentIdentifier + Sized + 'static {
-    fn position(&self) -> &dyn Position;
-    fn component_type_id(&self) -> ComponentTypeId;
+    type Instance: Instance;
+    fn instance(&self, world: &World) -> Self::Instance;
+    fn active(&self) -> bool;
     fn init(&mut self, handle: ComponentHandle, world: &mut World);
     fn finish(&mut self, world: &mut World);
     fn buffer_with(helper: BufferHelper<Self>, each: impl Fn(&mut Self) + Send + Sync);
@@ -35,14 +35,15 @@ pub struct BufferHelper<'a, C: Component> {
     inner: BufferHelperType<'a, C>,
     pub gpu: &'a Gpu,
     pub world: &'a World,
-    pub buffer: &'a mut InstanceBuffer2D,
+    pub buffer: &'a mut InstanceBuffer<C::Instance>,
+    // pub buffer: &'a mut InstanceBuffer<<<C as Component>::InstanceHandler as InstanceHandler>::Instance>,
 }
 
 impl<'a, C: Component> BufferHelper<'a, C> {
     pub(crate) fn new(
         world: &'a World,
         gpu: &'a Gpu,
-        buffer: &'a mut InstanceBuffer2D,
+        buffer: &'a mut InstanceBuffer<C::Instance>,
         inner: BufferHelperType<'a, C>,
     ) -> Self {
         Self {
@@ -56,12 +57,9 @@ impl<'a, C: Component> BufferHelper<'a, C> {
     pub fn buffer(&mut self) {
         match &mut self.inner {
             BufferHelperType::Single { offset, component } => {
-                if component.position().active() {
-                    self.buffer.write_offset(
-                        self.gpu,
-                        *offset,
-                        &[component.position().instance(self.world)],
-                    );
+                if component.active() {
+                    self.buffer
+                        .write_offset(self.gpu, *offset, &[component.instance(self.world)]);
                 } else {
                     self.buffer.write_offset(self.gpu, *offset, &[]);
                 }
@@ -70,13 +68,13 @@ impl<'a, C: Component> BufferHelper<'a, C> {
                 let instances = components
                     .iter_mut()
                     .filter_map(|component| {
-                        if component.position().active() {
-                            Some(component.position().instance(self.world))
+                        if component.active() {
+                            Some(component.instance(self.world))
                         } else {
                             None
                         }
                     })
-                    .collect::<Vec<Instance2D>>();
+                    .collect::<Vec<C::Instance>>();
                 self.buffer.write(self.gpu, &instances);
             }
         };
@@ -85,12 +83,9 @@ impl<'a, C: Component> BufferHelper<'a, C> {
     pub fn buffer_with(&mut self, each: impl Fn(&mut C)) {
         match &mut self.inner {
             BufferHelperType::Single { offset, component } => {
-                if component.position().active() {
-                    self.buffer.write_offset(
-                        self.gpu,
-                        *offset,
-                        &[component.position().instance(self.world)],
-                    );
+                if component.active() {
+                    self.buffer
+                        .write_offset(self.gpu, *offset, &[component.instance(self.world)]);
                 } else {
                     self.buffer.write_offset(self.gpu, *offset, &[]);
                 }
@@ -100,13 +95,13 @@ impl<'a, C: Component> BufferHelper<'a, C> {
                     .iter_mut()
                     .filter_map(|component| {
                         each(component);
-                        if component.position().active() {
-                            Some(component.position().instance(self.world))
+                        if component.active() {
+                            Some(component.instance(self.world))
                         } else {
                             None
                         }
                     })
-                    .collect::<Vec<Instance2D>>();
+                    .collect::<Vec<C::Instance>>();
                 self.buffer.write(self.gpu, &instances);
             }
         };
@@ -114,16 +109,16 @@ impl<'a, C: Component> BufferHelper<'a, C> {
 }
 
 #[cfg(feature = "rayon")]
-impl<'a, C: Component + Send + Sync> BufferHelper<'a, C> {
+impl<'a, C: Component + Send + Sync> BufferHelper<'a, C>
+where
+    <C as Component>::Instance: Send,
+{
     pub fn par_buffer_with(&mut self, each: impl Fn(&mut C) + Send + Sync) {
         match &mut self.inner {
             BufferHelperType::Single { offset, component } => {
-                if component.position().active() {
-                    self.buffer.write_offset(
-                        self.gpu,
-                        *offset,
-                        &[component.position().instance(self.world)],
-                    );
+                if component.active() {
+                    self.buffer
+                        .write_offset(self.gpu, *offset, &[component.instance(self.world)]);
                 } else {
                     self.buffer.write_offset(self.gpu, *offset, &[]);
                 }
@@ -136,14 +131,14 @@ impl<'a, C: Component + Send + Sync> BufferHelper<'a, C> {
                         ArenaEntry::Free { .. } => None,
                         ArenaEntry::Occupied { data, .. } => {
                             each(data);
-                            if data.position().active() {
-                                Some(data.position().instance(self.world))
+                            if data.active() {
+                                Some(data.instance(self.world))
                             } else {
                                 None
                             }
                         }
                     })
-                    .collect::<Vec<Instance2D>>();
+                    .collect::<Vec<C::Instance>>();
                 self.buffer.write(self.gpu, &instances);
             }
         };
@@ -152,12 +147,9 @@ impl<'a, C: Component + Send + Sync> BufferHelper<'a, C> {
     pub fn par_buffer(&mut self) {
         match &mut self.inner {
             BufferHelperType::Single { offset, component } => {
-                if component.position().active() {
-                    self.buffer.write_offset(
-                        self.gpu,
-                        *offset,
-                        &[component.position().instance(self.world)],
-                    );
+                if component.active() {
+                    self.buffer
+                        .write_offset(self.gpu, *offset, &[component.instance(self.world)]);
                 } else {
                     self.buffer.write_offset(self.gpu, *offset, &[]);
                 }
@@ -169,14 +161,14 @@ impl<'a, C: Component + Send + Sync> BufferHelper<'a, C> {
                     .filter_map(|component| match component {
                         ArenaEntry::Free { .. } => None,
                         ArenaEntry::Occupied { data, .. } => {
-                            if data.position().active() {
-                                Some(data.position().instance(self.world))
+                            if data.active() {
+                                Some(data.instance(self.world))
                             } else {
                                 None
                             }
                         }
                     })
-                    .collect::<Vec<Instance2D>>();
+                    .collect::<Vec<C::Instance>>();
                 self.buffer.write(self.gpu, &instances);
             }
         };

@@ -5,11 +5,12 @@ use std::sync::Mutex;
 use std::{collections::HashSet, sync::OnceLock};
 use syn::{
     parse_macro_input, parse_quote, Data, DataStruct, DeriveInput, Expr, Fields, LitStr, Type,
+    TypePath,
 };
 
 const IDENT_NAME: &'static str = "shura";
 
-fn field_attribute(data_struct: &DataStruct, attr_name: &str) -> Option<Ident> {
+fn field_attribute(data_struct: &DataStruct, attr_name: &str) -> Option<(Ident, TypePath)> {
     let mut result = None;
     match &data_struct.fields {
         Fields::Named(fields_named) => {
@@ -19,13 +20,13 @@ fn field_attribute(data_struct: &DataStruct, attr_name: &str) -> Option<Ident> {
                         attr.parse_nested_meta(|meta| {
                             if meta.path.is_ident(attr_name) {
                                 match &field.ty {
-                                    Type::Path(_type_name) => {
+                                    Type::Path(type_name) => {
                                         let field_name = field.ident.as_ref().unwrap();
                                         assert!(
                                             result.is_none(),
                                             "{attr_name} is already defined!"
                                         );
-                                        result = Some(field_name.clone());
+                                        result = Some((field_name.clone(), type_name.clone()));
                                     }
                                     _ => panic!("Cannot extract the type of the component."),
                                 };
@@ -95,15 +96,6 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     let struct_identifier =
         struct_attribute_name_value(&ast, "name").unwrap_or(parse_quote!(#struct_name_str));
     let struct_identifier_str = struct_identifier.to_token_stream().to_string();
-    let (has_position, position_field_name) = field_attribute(data_struct, "position")
-        .map(|f| (true, quote!(#f)))
-        .unwrap_or((false, quote!(EMPTY_DEFAULT_COMPONENT)));
-    let var_position_field_name = if has_position {
-        quote!(self.#position_field_name)
-    } else {
-        quote!(::shura::#position_field_name)
-    };
-
     let mut hashes = USED_COMPONENT_HASHES
         .get_or_init(|| Mutex::new(HashSet::new()))
         .lock()
@@ -125,51 +117,84 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     let buffer_method_with = format_ident!("{}_with", buffer_method);
     let buffer_method = format_ident!("{}", buffer_method);
 
-    let init_finish = if has_position {
-        quote!(
-            fn init(&mut self, handle: ::shura::ComponentHandle, world: &mut ::shura::World) {
-                #var_position_field_name.init(handle, world)
-            }
-
-            fn finish(&mut self, world: &mut ::shura::World) {
-                #var_position_field_name.finish(world)
-            }
-        )
-    } else {
-        quote!(
-            fn init(&mut self, handle: ::shura::ComponentHandle, world: &mut ::shura::World) {}
-            fn finish(&mut self, world: &mut ::shura::World) {}
-        )
-    };
-
-    return quote!(
+    let identifier = quote!(
         impl #impl_generics ::shura::ComponentIdentifier for #struct_name #ty_generics #where_clause {
             const TYPE_NAME: &'static str = #struct_identifier;
             const IDENTIFIER: ::shura::ComponentTypeId = ::shura::ComponentTypeId::new(#hash);
-        }
-
-        impl #impl_generics ::shura::Component for #struct_name #ty_generics #where_clause {
-            #init_finish
-
-            fn position(&self) -> &dyn ::shura::Position {
-                &#var_position_field_name
-            }
-
-            fn buffer_with(
-                mut helper: BufferHelper<Self>,
-                each: impl Fn(&mut Self) + Send + Sync,
-            ) {
-                helper.#buffer_method_with(each)
-            }
-            fn buffer(mut helper: BufferHelper<Self>) {
-                helper.#buffer_method()
-            }
 
             fn component_type_id(&self) -> ::shura::ComponentTypeId {
                 Self::IDENTIFIER
             }
         }
-    ).into();
+    );
+    if let Some((instance_field_name, instance_type)) = field_attribute(data_struct, "instance") {
+        return quote!(
+            #identifier
+
+            impl #impl_generics ::shura::Component for #struct_name #ty_generics #where_clause {
+                type Instance = <#instance_type as ::shura::InstanceHandler>::Instance;
+
+                fn instance(&self, world: &::shura::World) -> Self::Instance {
+                    self.#instance_field_name.instance(world)
+                }
+
+                fn active(&self) -> bool {
+                    self.#instance_field_name.active()
+                }
+
+                fn init(&mut self, handle: ::shura::ComponentHandle, world: &mut ::shura::World) {
+                    self.#instance_field_name.init(handle, world)
+                }
+
+                fn finish(&mut self, world: &mut ::shura::World) {
+                    self.#instance_field_name.finish(world)
+                }
+
+                fn buffer_with(
+                    mut helper: BufferHelper<Self>,
+                    each: impl Fn(&mut Self) + Send + Sync,
+                ) {
+                    helper.#buffer_method_with(each)
+                }
+                fn buffer(mut helper: BufferHelper<Self>) {
+                    helper.#buffer_method()
+                }
+            }
+        )
+        .into();
+    } else {
+        return quote!(
+            #identifier
+
+
+            impl #impl_generics ::shura::Component for #struct_name #ty_generics #where_clause {
+                type Instance = ();
+
+                fn instance(&self, world: &::shura::World) -> Self::Instance {
+                    ()
+                }
+
+                fn active(&self) -> bool {
+                    false
+                }
+
+                fn init(&mut self, handle: ::shura::ComponentHandle, world: &mut ::shura::World) {}
+                fn finish(&mut self, world: &mut ::shura::World) {}
+
+                fn buffer_with(
+                    mut helper: BufferHelper<Self>,
+                    each: impl Fn(&mut Self) + Send + Sync,
+                ) {
+                    helper.#buffer_method_with(each)
+                }
+                
+                fn buffer(mut helper: BufferHelper<Self>) {
+                    helper.#buffer_method()
+                }
+            }
+        )
+        .into();
+    }
 }
 
 #[proc_macro_attribute]

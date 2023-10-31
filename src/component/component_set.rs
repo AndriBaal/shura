@@ -1,6 +1,6 @@
 use crate::{
-    Component, ComponentHandle, ComponentType, ComponentTypeId, Gpu, GroupHandle, Instance2D,
-    InstanceBuffer, InstanceBuffer2D, InstanceIndex, InstanceIndices, Renderer, World,
+    Component, ComponentHandle, ComponentType, ComponentTypeId, Gpu, GroupHandle,
+    InstanceBuffer, InstanceIndex, InstanceIndices, Renderer, World,
 };
 use std::cell::{Ref, RefMut};
 
@@ -73,7 +73,7 @@ impl<'a, C: Component> ComponentSet<'a, C> {
     pub fn render_each(
         &'a self,
         renderer: &mut Renderer<'a>,
-        each: impl FnMut(&mut Renderer<'a>, &'a C, &'a InstanceBuffer2D, InstanceIndex),
+        each: impl FnMut(&mut Renderer<'a>, &'a C, &'a InstanceBuffer<C::Instance>, InstanceIndex),
     ) {
         self.ty.render_each(renderer, each)
     }
@@ -81,7 +81,7 @@ impl<'a, C: Component> ComponentSet<'a, C> {
     pub fn render_single(
         &'a self,
         renderer: &mut Renderer<'a>,
-        each: impl FnOnce(&mut Renderer<'a>, &'a C, &'a InstanceBuffer2D, InstanceIndex),
+        each: impl FnOnce(&mut Renderer<'a>, &'a C, &'a InstanceBuffer<C::Instance>, InstanceIndex),
     ) {
         self.ty.render_single(renderer, each)
     }
@@ -89,7 +89,7 @@ impl<'a, C: Component> ComponentSet<'a, C> {
     pub fn render_all(
         &'a self,
         renderer: &mut Renderer<'a>,
-        all: impl FnMut(&mut Renderer<'a>, &'a InstanceBuffer2D, InstanceIndices),
+        all: impl FnMut(&mut Renderer<'a>, &'a InstanceBuffer<C::Instance>, InstanceIndices),
     ) {
         self.ty.render_all(renderer, all)
     }
@@ -271,7 +271,7 @@ impl<'a, C: Component> ComponentSetMut<'a, C> {
 
     pub fn iter_render(
         &'a self,
-    ) -> impl DoubleEndedIterator<Item = (&InstanceBuffer<Instance2D>, InstanceIndex, &C)> {
+    ) -> impl DoubleEndedIterator<Item = (&InstanceBuffer<C::Instance>, InstanceIndex, &C)> {
         self.ty.iter_render(self.groups)
     }
 
@@ -328,7 +328,7 @@ impl<'a, C: Component> ComponentSetMut<'a, C> {
     pub fn render_each(
         &'a self,
         renderer: &mut Renderer<'a>,
-        each: impl FnMut(&mut Renderer<'a>, &'a C, &'a InstanceBuffer2D, InstanceIndex),
+        each: impl FnMut(&mut Renderer<'a>, &'a C, &'a InstanceBuffer<C::Instance>, InstanceIndex),
     ) {
         self.ty.render_each(renderer, each)
     }
@@ -336,7 +336,7 @@ impl<'a, C: Component> ComponentSetMut<'a, C> {
     pub fn render_single(
         &'a self,
         renderer: &mut Renderer<'a>,
-        each: impl FnOnce(&mut Renderer<'a>, &'a C, &'a InstanceBuffer2D, InstanceIndex),
+        each: impl FnOnce(&mut Renderer<'a>, &'a C, &'a InstanceBuffer<C::Instance>, InstanceIndex),
     ) {
         self.ty.render_single(renderer, each)
     }
@@ -344,7 +344,7 @@ impl<'a, C: Component> ComponentSetMut<'a, C> {
     pub fn render_all(
         &'a self,
         renderer: &mut Renderer<'a>,
-        all: impl FnMut(&mut Renderer<'a>, &'a InstanceBuffer2D, InstanceIndices),
+        all: impl FnMut(&mut Renderer<'a>, &'a InstanceBuffer<C::Instance>, InstanceIndices),
     ) {
         self.ty.render_all(renderer, all)
     }

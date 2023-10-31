@@ -1,10 +1,10 @@
 use crate::{
     physics::{Collider, ColliderHandle},
-    Color, ComponentHandle, Instance2D, Position, SpriteAtlas, SpriteSheetIndex, Vector2, World,
+    Color, ComponentHandle, Instance2D, SpriteAtlas, SpriteSheetIndex, Vector2, World, InstanceHandler,
 };
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum ColliderStatus {
+pub(crate) enum ColliderStatus {
     Added { collider_handle: ColliderHandle },
     Pending { collider: Collider },
 }
@@ -114,8 +114,10 @@ impl ColliderComponent {
     }
 }
 
-impl Position for ColliderComponent {
-    fn instance(&self, world: &World) -> Instance2D {
+impl InstanceHandler for ColliderComponent {
+    type Instance = Instance2D;
+    
+    fn instance(&self, world: &World) -> Self::Instance {
         match &self.status {
             ColliderStatus::Added { collider_handle } => {
                 if let Some(collider) = world.collider(*collider_handle) {

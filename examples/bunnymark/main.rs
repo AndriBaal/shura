@@ -138,8 +138,8 @@ impl Resources {
 #[derive(Component)]
 #[shura(parallel_buffer)]
 struct Bunny {
-    #[shura(position)]
-    position: PositionComponent,
+    #[shura(instance)]
+    position: PositionInstance,
     linvel: Vector2<f32>,
     handle: ComponentHandle,
 }
@@ -147,7 +147,7 @@ struct Bunny {
 impl Bunny {
     pub fn new(translation: Vector2<f32>, handle: ComponentHandle) -> Bunny {
         let scale = rand::gen_range(0.75_f32..2.0);
-        let position = PositionComponent::new()
+        let position = PositionInstance::new()
             .with_translation(translation)
             .with_rotation(rand::gen_range(-1.0..1.0))
             .with_scale(scale * vector2(0.12, 0.18));

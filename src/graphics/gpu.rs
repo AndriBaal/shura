@@ -59,6 +59,15 @@ impl Gpu {
             backends: config.backends,
             dx12_shader_compiler: wgpu::Dx12Compiler::Fxc,
         });
+        // let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+        //     backends: config.backends,
+        //     #[cfg(debug_assertions)]
+        //     flags: wgpu::InstanceFlags::default(),
+        //     #[cfg(not(debug_assertions))]
+        //     flags: wgpu::InstanceFlags::debugging(),
+        //     dx12_shader_compiler: wgpu::Dx12Compiler::default(),
+        //     gles_minor_version: wgpu::Gles3MinorVersion::default(),
+        // });
         let surface = unsafe { instance.create_surface(window).unwrap() };
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {

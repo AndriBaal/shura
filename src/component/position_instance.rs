@@ -1,19 +1,19 @@
 use crate::{
-    Color, Instance2D, Isometry2, Position, Rotation2, SpriteAtlas, SpriteSheetIndex, Vector2,
+    Color, Instance2D, Isometry2, InstanceHandler, Rotation2, SpriteAtlas, SpriteSheetIndex, Vector2,
     World,
 };
 
 /// Component that is rendered to the screen by its given position and scale.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone)]
-pub struct PositionComponent {
+pub struct PositionInstance {
     scale: Vector2<f32>,
     position: Isometry2<f32>,
     active: bool,
     instance: Instance2D,
 }
 
-impl Default for PositionComponent {
+impl Default for PositionInstance {
     fn default() -> Self {
         Self {
             scale: Vector2::new(1.0, 1.0),
@@ -25,7 +25,7 @@ impl Default for PositionComponent {
 }
 
 #[allow(unreachable_patterns)]
-impl PositionComponent {
+impl PositionInstance {
     pub fn new() -> Self {
         Self::default()
     }
@@ -148,8 +148,10 @@ impl PositionComponent {
     }
 }
 
-impl Position for PositionComponent {
-    fn instance(&self, _world: &World) -> Instance2D {
+impl InstanceHandler for PositionInstance {
+    type Instance = Instance2D;
+
+    fn instance(&self, _world: &World) -> Self::Instance {
         self.instance
     }
 

@@ -24,7 +24,7 @@ pub use crate::{
     app::*,
     component::{
         component::*, component_config::*, component_handle::*, component_manager::*,
-        component_set::*, component_type::*, empty_component::*, group::*, position_component::*,
+        component_set::*, component_type::*, group::*, position_instance::*,
     },
     graphics::{
         camera::*, color::*, frame_manager::*, gpu::*, instance_buffer::*, model::*,
@@ -70,8 +70,8 @@ pub use world::world::World;
 pub mod physics {
     pub use crate::world::{
         // character_controller_component::*,
-        collider_component::*,
-        rigid_body_component::*,
+        collider_instance::*,
+        rigid_body_instance::*,
         world::*,
     };
     pub use rapier2d::control::{

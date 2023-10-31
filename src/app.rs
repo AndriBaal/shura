@@ -450,9 +450,6 @@ impl App {
         }
 
         scene
-            .world_camera
-            .apply_target(&scene.world, &scene.components);
-        scene
             .groups
             .update(&mut scene.components, &scene.world_camera);
     }

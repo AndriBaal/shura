@@ -182,8 +182,8 @@ impl Resources {
 
 #[derive(Component)]
 struct Player {
-    #[shura(position)]
-    body: RigidBodyComponent,
+    #[shura(instance)]
+    body: RigidBodyInstance,
 }
 
 impl Player {
@@ -197,7 +197,7 @@ impl Player {
         let collider = ColliderBuilder::new(SharedShape::new(Self::SHAPE))
             .active_events(ActiveEvents::COLLISION_EVENTS);
         Self {
-            body: RigidBodyComponent::new(
+            body: RigidBodyInstance::new(
                 RigidBodyBuilder::dynamic().translation(Vector2::new(5.0, 4.0)),
                 [collider],
             ),
@@ -207,7 +207,7 @@ impl Player {
 
 #[derive(Component)]
 struct Floor {
-    #[shura(position)]
+    #[shura(instance)]
     collider: ColliderComponent,
 }
 
@@ -230,8 +230,8 @@ impl Floor {
 
 #[derive(Component)]
 struct PhysicsBox {
-    #[shura(position)]
-    body: RigidBodyComponent,
+    #[shura(instance)]
+    body: RigidBodyInstance,
 }
 
 impl PhysicsBox {
@@ -239,10 +239,10 @@ impl PhysicsBox {
     const BOX_SHAPE: Cuboid = Cuboid {
         half_extents: Vector2::new(PhysicsBox::HALF_BOX_SIZE, PhysicsBox::HALF_BOX_SIZE),
     };
-    pub fn new(position: Vector2<f32>) -> Self {
+    pub fn new(instance: Vector2<f32>) -> Self {
         Self {
-            body: RigidBodyComponent::new(
-                RigidBodyBuilder::dynamic().translation(position),
+            body: RigidBodyInstance::new(
+                RigidBodyBuilder::dynamic().translation(instance),
                 [ColliderBuilder::new(SharedShape::new(
                     PhysicsBox::BOX_SHAPE,
                 ))],
