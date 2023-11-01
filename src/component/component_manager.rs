@@ -4,8 +4,8 @@ use rustc_hash::FxHashMap;
 use crate::{
     Camera2D, Component, ComponentConfig, ComponentHandle, ComponentScope, ComponentSet,
     ComponentSetMut, ComponentType, ComponentTypeId, DefaultResources, GlobalComponents, Gpu,
-    GroupHandle, Instance2D, InstanceBuffer, InstanceIndex, InstanceIndices, Model2D, Renderer,
-    Scene, SystemManager, World, WorldCamera2D,
+    GroupHandle, Instance2D, InstanceBuffer, InstanceHandler, InstanceIndex, InstanceIndices,
+    Model2D, Renderer, Scene, SystemManager, World, WorldCamera2D, BufferOperation,
 };
 
 #[cfg(feature = "serde")]
@@ -19,10 +19,10 @@ use std::{
 pub(crate) trait ComponentTypeImplementation: Downcast {
     fn add_group(&mut self);
     fn remove_group(&mut self, world: &mut World, handle: GroupHandle);
-    fn buffer(&mut self, world: &World, active: &[GroupHandle], gpu: &Gpu);
+    fn buffer(&mut self, world: &World, gpu: &Gpu, active: &[GroupHandle]);
     fn component_type_id(&self) -> ComponentTypeId;
     fn config(&self) -> ComponentConfig;
-    
+
     #[cfg(all(feature = "serde", feature = "physics"))]
     fn deinit_non_serialized(&self, world: &mut World);
     #[cfg(feature = "serde")]
@@ -217,7 +217,12 @@ impl<'a> ComponentResources<'a> {
     pub fn render_each<C: Component>(
         &self,
         renderer: &mut Renderer<'a>,
-        each: impl FnMut(&mut Renderer<'a>, &'a C, &'a InstanceBuffer<C::Instance>, InstanceIndex),
+        each: impl FnMut(
+            &mut Renderer<'a>,
+            &'a C,
+            &'a InstanceBuffer<<C::InstanceHandler as InstanceHandler>::Instance>,
+            InstanceIndex,
+        ),
     ) {
         let ty = type_render!(self.components, C);
         ty.render_each(renderer, each)
@@ -226,7 +231,12 @@ impl<'a> ComponentResources<'a> {
     pub fn render_single<C: Component>(
         &self,
         renderer: &mut Renderer<'a>,
-        each: impl FnOnce(&mut Renderer<'a>, &'a C, &'a InstanceBuffer<C::Instance>, InstanceIndex),
+        each: impl FnOnce(
+            &mut Renderer<'a>,
+            &'a C,
+            &'a InstanceBuffer<<C::InstanceHandler as InstanceHandler>::Instance>,
+            InstanceIndex,
+        ),
     ) {
         let ty = type_render!(self.components, C);
         ty.render_single(renderer, each)
@@ -235,7 +245,11 @@ impl<'a> ComponentResources<'a> {
     pub fn render_all<C: Component>(
         &self,
         renderer: &mut Renderer<'a>,
-        all: impl FnMut(&mut Renderer<'a>, &'a InstanceBuffer<C::Instance>, InstanceIndices),
+        all: impl FnMut(
+            &mut Renderer<'a>,
+            &'a InstanceBuffer<<C::InstanceHandler as InstanceHandler>::Instance>,
+            InstanceIndices,
+        ),
     ) {
         let ty = type_render!(self.components, C);
         ty.render_all(renderer, all)
@@ -314,7 +328,10 @@ impl ComponentManager {
 
     pub(crate) fn buffer(&mut self, world: &World, gpu: &Gpu) {
         for ty in &self.types {
-            ty.1.ref_mut_raw().buffer(world, &self.active_groups, &gpu);
+            let mut ty = ty.1.ref_mut_raw();
+            if ty.config().buffer != BufferOperation::Never {
+                ty.buffer(world, gpu, &self.active_groups);
+            }
         }
     }
 

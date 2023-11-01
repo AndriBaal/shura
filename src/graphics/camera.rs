@@ -3,8 +3,8 @@ use std::ops::*;
 
 use crate::AABB;
 use crate::{
-    ComponentHandle, ComponentManager, Gpu, Isometry2, Isometry3, Matrix4, Rotation2, Uniform,
-    Vector2, Vector3, World,
+    Gpu, Isometry2, Isometry3, Matrix4, Rotation2, Uniform,
+    Vector2, Vector3,
 };
 
 const MINIMAL_FOV: f32 = 0.0001;

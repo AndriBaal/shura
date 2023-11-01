@@ -230,10 +230,6 @@ impl<I: Instance> InstanceBuffer<I> {
         let instance_size: u64 = I::SIZE as u64;
         let data = bytemuck::cast_slice(data);
         let new_size = instance_offset * instance_size + data.len() as u64;
-        assert_eq!(data.len() as u64 % instance_size, 0);
-        assert_eq!(size_of::<I>() as u64, instance_size);
-
-        self.instances = new_size / instance_size;
 
         if new_size > self.buffer_size {
             self.buffer = gpu
@@ -244,10 +240,15 @@ impl<I: Instance> InstanceBuffer<I> {
                     contents: data,
                 });
         } else {
-            gpu.queue
-                .write_buffer(&self.buffer, instance_offset * instance_size, data);
+            if !data.is_empty() {
+                gpu.queue
+                    .write_buffer(&self.buffer, instance_offset * instance_size, data);
+            }
         }
+
         self.buffer_size = new_size;
+        self.instances = new_size / instance_size;
+
     }
 
     pub fn slice(&self) -> wgpu::BufferSlice {

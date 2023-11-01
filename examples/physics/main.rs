@@ -33,11 +33,7 @@ fn setup(ctx: &mut Context) {
     }
 
     let player = Player::new();
-    let player_handle = ctx.components.add(ctx.world, player);
-    ctx.world_camera.set_target(Some(WorldCameraTarget {
-        target: player_handle,
-        ..Default::default()
-    }));
+    ctx.components.add(ctx.world, player);
     let floor = Floor::new();
     ctx.components.add(ctx.world, floor);
 }
@@ -124,6 +120,9 @@ fn update(ctx: &mut Context) {
             }
         }
     });
+
+    ctx.world_camera
+        .set_translation(*player.body.get_mut(ctx.world).translation());
 }
 
 fn render(res: &ComponentResources, encoder: &mut RenderEncoder) {

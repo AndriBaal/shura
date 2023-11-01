@@ -71,7 +71,7 @@ fn update(ctx: &mut Context) {
 
     let frame = ctx.frame.frame_time();
     let fov = ctx.world_camera.fov();
-    bunnies.buffer_for_each_mut(ctx.world, &ctx.gpu, |bunny| {
+    bunnies.par_buffer_with(ctx.world, &ctx.gpu, |bunny| {
         let mut linvel = bunny.linvel;
         let mut translation = bunny.position.translation();
 
@@ -136,7 +136,6 @@ impl Resources {
 }
 
 #[derive(Component)]
-#[shura(parallel_buffer)]
 struct Bunny {
     #[shura(instance)]
     position: PositionInstance,

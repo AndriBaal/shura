@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, TokenStream as TokenStream2};
-use quote::{format_ident, quote, ToTokens};
+use quote::{quote, ToTokens};
 use std::sync::Mutex;
 use std::{collections::HashSet, sync::OnceLock};
 use syn::{
@@ -64,22 +64,22 @@ fn struct_attribute_name_value(ast: &DeriveInput, attr_name: &str) -> Option<Exp
     return result;
 }
 
-fn field_attribute_set(ast: &DeriveInput, attr_name: &str) -> bool {
-    let mut result = false;
-    for attr in &ast.attrs {
-        if attr.path().is_ident(IDENT_NAME) {
-            attr.parse_nested_meta(|meta| {
-                if meta.path.is_ident(attr_name) {
-                    assert!(!result, "{attr_name} is already defined!");
-                    result = true;
-                }
-                Ok(())
-            })
-            .unwrap();
-        }
-    }
-    return result;
-}
+// fn field_attribute_set(ast: &DeriveInput, attr_name: &str) -> bool {
+//     let mut result = false;
+//     for attr in &ast.attrs {
+//         if attr.path().is_ident(IDENT_NAME) {
+//             attr.parse_nested_meta(|meta| {
+//                 if meta.path.is_ident(attr_name) {
+//                     assert!(!result, "{attr_name} is already defined!");
+//                     result = true;
+//                 }
+//                 Ok(())
+//             })
+//             .unwrap();
+//         }
+//     }
+//     return result;
+// }
 
 static USED_COMPONENT_HASHES: OnceLock<Mutex<HashSet<u32>>> = OnceLock::new();
 
@@ -108,14 +108,14 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     hashes.insert(hash);
     drop(hashes); // Free the mutex lock
 
-    let parallel_buffer = field_attribute_set(&ast, "parallel_buffer");
-    let buffer_method = if cfg!(feature = "rayon") && parallel_buffer {
-        "par_buffer"
-    } else {
-        "buffer"
-    };
-    let buffer_method_with = format_ident!("{}_with", buffer_method);
-    let buffer_method = format_ident!("{}", buffer_method);
+    // let parallel_buffer = field_attribute_set(&ast, "parallel_buffer");
+    // let buffer_method = if cfg!(feature = "rayon") && parallel_buffer {
+    //     "par_buffer"
+    // } else {
+    //     "buffer"
+    // };
+    // let buffer_method_with = format_ident!("{}_with", buffer_method);
+    // let buffer_method = format_ident!("{}", buffer_method);
 
     let identifier = quote!(
         impl #impl_generics ::shura::ComponentIdentifier for #struct_name #ty_generics #where_clause {
@@ -132,14 +132,10 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             #identifier
 
             impl #impl_generics ::shura::Component for #struct_name #ty_generics #where_clause {
-                type Instance = <#instance_type as ::shura::InstanceHandler>::Instance;
+                type InstanceHandler = #instance_type;
 
-                fn instance(&self, world: &::shura::World) -> Self::Instance {
-                    self.#instance_field_name.instance(world)
-                }
-
-                fn active(&self) -> bool {
-                    self.#instance_field_name.active()
+                fn handler(&self) -> &Self::InstanceHandler {
+                    &self.#instance_field_name
                 }
 
                 fn init(&mut self, handle: ::shura::ComponentHandle, world: &mut ::shura::World) {
@@ -149,16 +145,6 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                 fn finish(&mut self, world: &mut ::shura::World) {
                     self.#instance_field_name.finish(world)
                 }
-
-                fn buffer_with(
-                    mut helper: BufferHelper<Self>,
-                    each: impl Fn(&mut Self) + Send + Sync,
-                ) {
-                    helper.#buffer_method_with(each)
-                }
-                fn buffer(mut helper: BufferHelper<Self>) {
-                    helper.#buffer_method()
-                }
             }
         )
         .into();
@@ -166,31 +152,15 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         return quote!(
             #identifier
 
-
             impl #impl_generics ::shura::Component for #struct_name #ty_generics #where_clause {
-                type Instance = ();
+                type InstanceHandler = ::shura::EmptyInstance;
 
-                fn instance(&self, world: &::shura::World) -> Self::Instance {
-                    ()
-                }
-
-                fn active(&self) -> bool {
-                    false
+                fn handler(&self) -> &Self::InstanceHandler {
+                    &::shura::EMPTY_DEFAULT_COMPONENT
                 }
 
                 fn init(&mut self, handle: ::shura::ComponentHandle, world: &mut ::shura::World) {}
                 fn finish(&mut self, world: &mut ::shura::World) {}
-
-                fn buffer_with(
-                    mut helper: BufferHelper<Self>,
-                    each: impl Fn(&mut Self) + Send + Sync,
-                ) {
-                    helper.#buffer_method_with(each)
-                }
-                
-                fn buffer(mut helper: BufferHelper<Self>) {
-                    helper.#buffer_method()
-                }
             }
         )
         .into();

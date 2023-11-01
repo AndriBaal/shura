@@ -4,10 +4,9 @@ use std::fmt::{Display, Formatter, Result};
 use crate::{data::arena::ArenaEntry, rayon::prelude::*};
 
 use crate::{
-    Arena, BufferHelper, BufferHelperType, BufferOperation, Component, ComponentConfig,
-    ComponentHandle, ComponentIndex, ComponentStorage, ComponentTypeImplementation, Gpu,
-    GroupHandle, InstanceBuffer, InstanceIndex, InstanceIndices,
-    Renderer, World, Instance2D,
+    Arena, BufferOperation, Component, ComponentConfig, ComponentHandle, ComponentIndex,
+    ComponentStorage, ComponentTypeImplementation, Gpu, GroupHandle, InstanceBuffer,
+    InstanceHandler, InstanceIndex, InstanceIndices, Renderer, World,
 };
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
@@ -60,7 +59,7 @@ pub(crate) enum ComponentTypeStorage<C: Component> {
     Single {
         #[cfg_attr(feature = "serde", serde(skip))]
         #[cfg_attr(feature = "serde", serde(default))]
-        buffer: Option<InstanceBuffer<C::Instance>>,
+        buffer: Option<InstanceBuffer<<C::InstanceHandler as InstanceHandler>::Instance>>,
         #[cfg_attr(feature = "serde", serde(skip))]
         #[cfg_attr(feature = "serde", serde(default = "default_true"))]
         force_buffer: bool,
@@ -90,10 +89,7 @@ pub(crate) struct ComponentTypeGroup<C: Component> {
     force_buffer: bool,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
-    buffer: Option<InstanceBuffer<C::Instance>>,
-    #[cfg_attr(feature = "serde", serde(skip))]
-    #[cfg_attr(feature = "serde", serde(default))]
-    last_gen_len: (u32, usize),
+    buffer: Option<InstanceBuffer<<C::InstanceHandler as InstanceHandler>::Instance>>,
 }
 
 impl<C: Component> Clone for ComponentTypeGroup<C> {
@@ -101,8 +97,7 @@ impl<C: Component> Clone for ComponentTypeGroup<C> {
         Self {
             buffer: None,
             components: Default::default(),
-            force_buffer: self.force_buffer.clone(),
-            last_gen_len: self.last_gen_len.clone(),
+            force_buffer: true,
         }
     }
 }
@@ -113,41 +108,126 @@ impl<C: Component> ComponentTypeGroup<C> {
             components: Arena::new(),
             buffer: None,
             force_buffer: true,
-            last_gen_len: (0, 0),
-        }
-    }
-
-    fn resize_buffer(&mut self, gpu: &Gpu) {
-        let new_len = self.components.len() as u64;
-        let instance_capacity = self
-            .buffer
-            .as_ref()
-            .map(|b| b.buffer_capacity())
-            .unwrap_or(0);
-        if new_len > instance_capacity || self.buffer.is_none() {
-            self.buffer = Some(InstanceBuffer::empty(gpu, new_len));
         }
     }
 
     fn buffer(&mut self, gpu: &Gpu, config: &ComponentConfig, world: &World) {
-        let gen_length = (self.components.generation, self.components.len());
-        if !self.components.is_empty()
-            && (config.buffer == BufferOperation::EveryFrame
-                || self.force_buffer
-                || gen_length != self.last_gen_len)
-        {
-            self.last_gen_len = gen_length;
-            self.resize_buffer(gpu);
+        if config.buffer == BufferOperation::EveryFrame || self.force_buffer {
             self.force_buffer = false;
-            let buffer = self.buffer.as_mut().unwrap();
-            C::buffer(BufferHelper::new(
-                world,
-                gpu,
-                buffer,
-                BufferHelperType::All {
-                    components: &mut self.components,
-                },
-            ))
+            let instances = self
+                .components
+                .iter()
+                .filter_map(|component| {
+                    if component.handler().active() {
+                        Some(component.handler().instance(world))
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<<C::InstanceHandler as InstanceHandler>::Instance>>();
+
+            if let Some(buffer) = self.buffer.as_mut() {
+                buffer.write(gpu, &instances);
+            } else {
+                self.buffer = Some(gpu.create_instance_buffer(&instances));
+            }
+        }
+    }
+
+    fn buffer_with(
+        &mut self,
+        gpu: &Gpu,
+        config: &ComponentConfig,
+        world: &World,
+        mut each: impl FnMut(&mut C),
+    ) {
+        if config.buffer == BufferOperation::EveryFrame || self.force_buffer {
+            self.force_buffer = false;
+            let instances = self
+                .components
+                .iter_mut()
+                .filter_map(|component| {
+                    (each)(component);
+                    if component.handler().active() {
+                        Some(component.handler().instance(world))
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<<C::InstanceHandler as InstanceHandler>::Instance>>();
+
+            if let Some(buffer) = self.buffer.as_mut() {
+                buffer.write(gpu, &instances);
+            } else {
+                self.buffer = Some(gpu.create_instance_buffer(&instances));
+            }
+        }
+    }
+}
+
+#[cfg(feature = "rayon")]
+impl<C: Component + Send + Sync> ComponentTypeGroup<C>
+where
+    <C::InstanceHandler as InstanceHandler>::Instance: Send,
+{
+    fn par_buffer(&mut self, gpu: &Gpu, config: &ComponentConfig, world: &World) {
+        if config.buffer == BufferOperation::EveryFrame || self.force_buffer {
+            self.force_buffer = false;
+            let instances = self
+                .components
+                .items
+                .par_iter_mut()
+                .filter_map(|component| match component {
+                    ArenaEntry::Free { .. } => None,
+                    ArenaEntry::Occupied { data, .. } => {
+                        if data.handler().active() {
+                            Some(data.handler().instance(world))
+                        } else {
+                            None
+                        }
+                    }
+                })
+                .collect::<Vec<<C::InstanceHandler as InstanceHandler>::Instance>>();
+
+            if let Some(buffer) = self.buffer.as_mut() {
+                buffer.write(gpu, &instances);
+            } else {
+                self.buffer = Some(gpu.create_instance_buffer(&instances));
+            }
+        }
+    }
+
+    fn par_buffer_with(
+        &mut self,
+        gpu: &Gpu,
+        config: &ComponentConfig,
+        world: &World,
+        each: impl Fn(&mut C) + Send + Sync,
+    ) {
+        if config.buffer == BufferOperation::EveryFrame || self.force_buffer {
+            self.force_buffer = false;
+            let instances = self
+                .components
+                .items
+                .par_iter_mut()
+                .filter_map(|component| match component {
+                    ArenaEntry::Free { .. } => None,
+                    ArenaEntry::Occupied { data, .. } => {
+                        (each)(data);
+                        if data.handler().active() {
+                            Some(data.handler().instance(world))
+                        } else {
+                            None
+                        }
+                    }
+                })
+                .collect::<Vec<<C::InstanceHandler as InstanceHandler>::Instance>>();
+
+            if let Some(buffer) = self.buffer.as_mut() {
+                buffer.write(gpu, &instances);
+            } else {
+                self.buffer = Some(gpu.create_instance_buffer(&instances));
+            }
         }
     }
 }
@@ -926,8 +1006,15 @@ impl<C: Component> ComponentType<C> {
     pub fn iter_render<'a>(
         &'a self,
         group_handles: &[GroupHandle],
-    ) -> Box<dyn DoubleEndedIterator<Item = (&'a InstanceBuffer<C::Instance>, InstanceIndex, &'a C)> + 'a>
-    {
+    ) -> Box<
+        dyn DoubleEndedIterator<
+                Item = (
+                    &'a InstanceBuffer<<C::InstanceHandler as InstanceHandler>::Instance>,
+                    InstanceIndex,
+                    &'a C,
+                ),
+            > + 'a,
+    > {
         match &self.storage {
             ComponentTypeStorage::Single {
                 component, buffer, ..
@@ -940,7 +1027,7 @@ impl<C: Component> ComponentType<C> {
                     )));
                 } else {
                     return Box::new(std::iter::empty::<(
-                        &InstanceBuffer<C::Instance>,
+                        &InstanceBuffer<<C::InstanceHandler as InstanceHandler>::Instance>,
                         InstanceIndex,
                         &C,
                     )>());
@@ -978,7 +1065,12 @@ impl<C: Component> ComponentType<C> {
     pub(crate) fn render_each<'a>(
         &'a self,
         renderer: &mut Renderer<'a>,
-        mut each: impl FnMut(&mut Renderer<'a>, &'a C, &'a InstanceBuffer<C::Instance>, InstanceIndex),
+        mut each: impl FnMut(
+            &mut Renderer<'a>,
+            &'a C,
+            &'a InstanceBuffer<<C::InstanceHandler as InstanceHandler>::Instance>,
+            InstanceIndex,
+        ),
     ) {
         match &self.storage {
             ComponentTypeStorage::Single {
@@ -1023,7 +1115,12 @@ impl<C: Component> ComponentType<C> {
     pub(crate) fn render_single<'a>(
         &'a self,
         renderer: &mut Renderer<'a>,
-        each: impl FnOnce(&mut Renderer<'a>, &'a C, &'a InstanceBuffer<C::Instance>, InstanceIndex),
+        each: impl FnOnce(
+            &mut Renderer<'a>,
+            &'a C,
+            &'a InstanceBuffer<<C::InstanceHandler as InstanceHandler>::Instance>,
+            InstanceIndex,
+        ),
     ) {
         match &self.storage {
             ComponentTypeStorage::Single {
@@ -1043,7 +1140,11 @@ impl<C: Component> ComponentType<C> {
     pub(crate) fn render_all<'a>(
         &'a self,
         renderer: &mut Renderer<'a>,
-        mut all: impl FnMut(&mut Renderer<'a>, &'a InstanceBuffer<C::Instance>, InstanceIndices),
+        mut all: impl FnMut(
+            &mut Renderer<'a>,
+            &'a InstanceBuffer<<C::InstanceHandler as InstanceHandler>::Instance>,
+            InstanceIndices,
+        ),
     ) {
         match &self.storage {
             ComponentTypeStorage::Single {
@@ -1190,64 +1291,54 @@ impl<C: Component> ComponentType<C> {
         }
     }
 
-    pub fn buffer_for_each_mut(
+    pub fn buffer_with(
         &mut self,
         world: &World,
         gpu: &Gpu,
         group_handles: &[GroupHandle],
-        each: impl Fn(&mut C) + Send + Sync + Copy,
+        mut each: impl FnMut(&mut C),
     ) {
         assert!(self.config.buffer != BufferOperation::Never);
         match &mut self.storage {
             ComponentTypeStorage::Single {
-                component, buffer, ..
+                component,
+                buffer,
+                force_buffer,
             } => {
-                if let Some(component) = component {
-                    if buffer.is_none() {
-                        *buffer = Some(InstanceBuffer::empty(gpu, 1));
+                if self.config.buffer == BufferOperation::EveryFrame || *force_buffer {
+                    *force_buffer = false;
+                    let instance = {
+                        if let Some(component) = component {
+                            (each)(component);
+                            if component.handler().active() {
+                                Some(component.handler().instance(world))
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    };
+
+                    if let Some(buffer) = buffer.as_mut() {
+                        buffer.write(
+                            gpu,
+                            instance.as_ref().map(core::slice::from_ref).unwrap_or(&[]),
+                        );
+                    } else {
+                        *buffer = Some(gpu.create_instance_buffer(
+                            instance.as_ref().map(core::slice::from_ref).unwrap_or(&[]),
+                        ));
                     }
-                    let buffer = buffer.as_mut().unwrap();
-                    let helper = BufferHelper::new(
-                        world,
-                        gpu,
-                        buffer,
-                        BufferHelperType::Single {
-                            offset: 0,
-                            component: component,
-                        },
-                    );
-                    C::buffer_with(helper, each);
                 }
             }
             ComponentTypeStorage::Multiple(multiple) => {
-                if !multiple.components.is_empty() {
-                    multiple.resize_buffer(gpu);
-                    let helper = BufferHelper::new(
-                        world,
-                        gpu,
-                        multiple.buffer.as_mut().unwrap(),
-                        BufferHelperType::All {
-                            components: &mut multiple.components,
-                        },
-                    );
-                    C::buffer_with(helper, each);
-                }
+                multiple.buffer_with(gpu, &self.config, world, each)
             }
             ComponentTypeStorage::MultipleGroups(groups) => {
                 for group in group_handles {
                     if let Some(group) = groups.get_mut(group.0) {
-                        if !group.components.is_empty() {
-                            group.resize_buffer(gpu);
-                            let helper = BufferHelper::new(
-                                world,
-                                gpu,
-                                group.buffer.as_mut().unwrap(),
-                                BufferHelperType::All {
-                                    components: &mut group.components,
-                                },
-                            );
-                            C::buffer_with(helper, each);
-                        }
+                        group.buffer_with(gpu, &self.config, world, &mut each)
                     }
                 }
             }
@@ -1279,10 +1370,8 @@ impl<C: Component> ComponentTypeImplementation for ComponentType<C> {
         }
     }
 
-    fn buffer(&mut self, world: &World, active: &[GroupHandle], gpu: &Gpu) {
-        if self.config.buffer == BufferOperation::Never {
-            return;
-        }
+    fn buffer(&mut self, world: &World, gpu: &Gpu, active: &[GroupHandle]) {
+        assert!(self.config.buffer != BufferOperation::Never);
 
         match &mut self.storage {
             ComponentTypeStorage::MultipleGroups(groups) => {
@@ -1297,21 +1386,28 @@ impl<C: Component> ComponentTypeImplementation for ComponentType<C> {
                 force_buffer,
                 component,
             } => {
-                if let Some(component) = component {
-                    if self.config.buffer == BufferOperation::EveryFrame || *force_buffer {
-                        if buffer.is_none() {
-                            *buffer = Some(InstanceBuffer::empty(gpu, 1));
+                if self.config.buffer == BufferOperation::EveryFrame || *force_buffer {
+                    *force_buffer = false;
+                    let instance = {
+                        if let Some(component) = component {
+                            if component.handler().active() {
+                                Some(component.handler().instance(world))
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
                         }
-                        *force_buffer = false;
-                        let buffer = buffer.as_mut().unwrap();
-                        C::buffer(BufferHelper::new(
-                            world,
+                    };
+
+                    if let Some(buffer) = buffer.as_mut() {
+                        buffer.write(
                             gpu,
-                            buffer,
-                            BufferHelperType::Single {
-                                offset: 0,
-                                component,
-                            },
+                            instance.as_ref().map(core::slice::from_ref).unwrap_or(&[]),
+                        );
+                    } else {
+                        *buffer = Some(gpu.create_instance_buffer(
+                            instance.as_ref().map(core::slice::from_ref).unwrap_or(&[]),
                         ));
                     }
                 }
@@ -1324,18 +1420,18 @@ impl<C: Component> ComponentTypeImplementation for ComponentType<C> {
         match &self.storage {
             ComponentTypeStorage::Single { component, .. } => {
                 if let Some(component) = component {
-                    world.test(component)
+                    world.remove_no_maintain(component.handler())
                 }
             }
             ComponentTypeStorage::Multiple(multiple) => {
                 for component in &multiple.components {
-                    world.remove_no_maintain(component.position())
+                    world.remove_no_maintain(component.handler())
                 }
             }
             ComponentTypeStorage::MultipleGroups(groups) => {
                 for group in groups {
                     for component in &group.components {
-                        world.remove_no_maintain(component.position())
+                        world.remove_no_maintain(component.handler())
                     }
                 }
             }
@@ -1433,6 +1529,62 @@ impl<C: Component + Send + Sync> ComponentType<C> {
                                 (each)(data);
                             }
                         })
+                    }
+                }
+            }
+        };
+    }
+}
+
+#[cfg(feature = "rayon")]
+impl<C: Component + Send + Sync> ComponentType<C>
+where
+    <C::InstanceHandler as InstanceHandler>::Instance: Send,
+{
+    pub fn par_buffer_with(
+        &mut self,
+        world: &World,
+        gpu: &Gpu,
+        group_handles: &[GroupHandle],
+        each: impl Fn(&mut C) + Send + Sync,
+    ) {
+        assert!(self.config.buffer != BufferOperation::Never);
+        match &mut self.storage {
+            ComponentTypeStorage::Single { .. } => {
+                self.buffer_with(world, gpu, group_handles, each)
+            }
+            ComponentTypeStorage::Multiple(multiple) => {
+                multiple.par_buffer_with(gpu, &self.config, world, each)
+            }
+            ComponentTypeStorage::MultipleGroups(groups) => {
+                for group in group_handles {
+                    if let Some(group) = groups.get_mut(group.0) {
+                        group.par_buffer_with(gpu, &self.config, world, &each)
+                    }
+                }
+            }
+        };
+    }
+
+    
+    pub fn par_buffer(
+        &mut self,
+        world: &World,
+        gpu: &Gpu,
+        group_handles: &[GroupHandle]
+    ) {
+        assert!(self.config.buffer != BufferOperation::Never);
+        match &mut self.storage {
+            ComponentTypeStorage::Single { .. } => {
+                self.buffer(world, gpu, group_handles)
+            }
+            ComponentTypeStorage::Multiple(multiple) => {
+                multiple.par_buffer(gpu, &self.config, world)
+            }
+            ComponentTypeStorage::MultipleGroups(groups) => {
+                for group in group_handles {
+                    if let Some(group) = groups.get_mut(group.0) {
+                        group.par_buffer(gpu, &self.config, world,)
                     }
                 }
             }

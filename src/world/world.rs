@@ -1,4 +1,6 @@
-use crate::{Component, ComponentHandle, FrameManager, Isometry2, Vector2, physics::RigidBodyInstance};
+use crate::{
+    physics::RigidBodyInstance, Component, ComponentHandle, FrameManager, Isometry2, Vector2,
+};
 use rapier2d::{crossbeam, prelude::*};
 pub use rapier2d::{
     prelude::CollisionEvent as RapierCollisionEvent,
@@ -360,48 +362,48 @@ impl World {
         };
     }
 
-    pub fn test(&mut self, i: &RigidBodyInstance) {
+    #[cfg(all(feature = "serde", feature = "physics"))]
+    pub(crate) fn remove_no_maintain<I: crate::Instance>(
+        &mut self,
+        instance: &dyn crate::InstanceHandler<Instance = I>,
+    ) {
 
+        use crate::physics::{
+            ColliderInstance, ColliderStatus, RigidBodyStatus,
+        };
+        if let Some(instance) = instance.as_any().downcast_ref::<RigidBodyInstance>() {
+            match instance.status {
+                RigidBodyStatus::Added { rigid_body_handle } => {
+                    if let Some(rigid_body) = self.bodies.remove(
+                        rigid_body_handle,
+                        &mut self.islands,
+                        &mut self.colliders,
+                        &mut self.impulse_joints,
+                        &mut self.multibody_joints,
+                        true,
+                    ) {
+                        for collider_handle in rigid_body.colliders() {
+                            self.collider_mapping.remove(collider_handle);
+                        }
+                    }
+                }
+                RigidBodyStatus::Pending { .. } => return,
+            }
+        } else if let Some(instance) = instance.as_any().downcast_ref::<ColliderInstance>() {
+            match instance.status {
+                ColliderStatus::Added { collider_handle } => {
+                    self.collider_mapping.remove(&collider_handle);
+                    self.colliders.remove(
+                        collider_handle,
+                        &mut self.islands,
+                        &mut self.bodies,
+                        false,
+                    );
+                }
+                ColliderStatus::Pending { .. } => return,
+            }
+        }
     }
-
-    // #[cfg(all(feature = "serde", feature = "physics"))]
-    // pub(crate) fn remove_no_maintain(&mut self, position: &dyn crate::Position) {
-    //     use crate::physics::{
-    //         ColliderComponent, ColliderStatus, RigidBodyComponent, RigidBodyStatus,
-    //     };
-    //     if let Some(component) = position.downcast_ref::<RigidBodyComponent>() {
-    //         match component.status {
-    //             RigidBodyStatus::Added { rigid_body_handle } => {
-    //                 if let Some(rigid_body) = self.bodies.remove(
-    //                     rigid_body_handle,
-    //                     &mut self.islands,
-    //                     &mut self.colliders,
-    //                     &mut self.impulse_joints,
-    //                     &mut self.multibody_joints,
-    //                     true,
-    //                 ) {
-    //                     for collider_handle in rigid_body.colliders() {
-    //                         self.collider_mapping.remove(collider_handle);
-    //                     }
-    //                 }
-    //             }
-    //             RigidBodyStatus::Pending { .. } => return,
-    //         }
-    //     } else if let Some(component) = position.downcast_ref::<ColliderComponent>() {
-    //         match component.status {
-    //             ColliderStatus::Added { collider_handle } => {
-    //                 self.collider_mapping.remove(&collider_handle);
-    //                 self.colliders.remove(
-    //                     collider_handle,
-    //                     &mut self.islands,
-    //                     &mut self.bodies,
-    //                     false,
-    //                 );
-    //             }
-    //             ColliderStatus::Pending { .. } => return,
-    //         }
-    //     }
-    // }
 
     // pub(crate) fn move_shape(
     //     &self,

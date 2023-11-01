@@ -1,6 +1,6 @@
 use crate::{
-    Component, ComponentHandle, ComponentType, ComponentTypeId, Gpu, GroupHandle,
-    InstanceBuffer, InstanceIndex, InstanceIndices, Renderer, World,
+    Component, ComponentHandle, ComponentType, ComponentTypeId, Gpu, GroupHandle, InstanceBuffer,
+    InstanceIndex, InstanceIndices, Renderer, World, InstanceHandler, ComponentTypeImplementation,
 };
 use std::cell::{Ref, RefMut};
 
@@ -73,7 +73,12 @@ impl<'a, C: Component> ComponentSet<'a, C> {
     pub fn render_each(
         &'a self,
         renderer: &mut Renderer<'a>,
-        each: impl FnMut(&mut Renderer<'a>, &'a C, &'a InstanceBuffer<C::Instance>, InstanceIndex),
+        each: impl FnMut(
+            &mut Renderer<'a>,
+            &'a C,
+            &'a InstanceBuffer<<C::InstanceHandler as InstanceHandler>::Instance>,
+            InstanceIndex,
+        ),
     ) {
         self.ty.render_each(renderer, each)
     }
@@ -81,7 +86,12 @@ impl<'a, C: Component> ComponentSet<'a, C> {
     pub fn render_single(
         &'a self,
         renderer: &mut Renderer<'a>,
-        each: impl FnOnce(&mut Renderer<'a>, &'a C, &'a InstanceBuffer<C::Instance>, InstanceIndex),
+        each: impl FnOnce(
+            &mut Renderer<'a>,
+            &'a C,
+            &'a InstanceBuffer<<C::InstanceHandler as InstanceHandler>::Instance>,
+            InstanceIndex,
+        ),
     ) {
         self.ty.render_single(renderer, each)
     }
@@ -89,7 +99,11 @@ impl<'a, C: Component> ComponentSet<'a, C> {
     pub fn render_all(
         &'a self,
         renderer: &mut Renderer<'a>,
-        all: impl FnMut(&mut Renderer<'a>, &'a InstanceBuffer<C::Instance>, InstanceIndices),
+        all: impl FnMut(
+            &mut Renderer<'a>,
+            &'a InstanceBuffer<<C::InstanceHandler as InstanceHandler>::Instance>,
+            InstanceIndices,
+        ),
     ) {
         self.ty.render_all(renderer, all)
     }
@@ -153,13 +167,23 @@ impl<'a, C: Component> ComponentSetMut<'a, C> {
         self.ty.for_each_mut_with_handles(self.groups, each);
     }
 
-    pub fn buffer_for_each_mut(
+    pub fn buffer(
+        &mut self,
+        world: &World,
+        gpu: &Gpu,
+    ) {
+        self.ty.force_buffer(self.groups);
+        self.ty.buffer(world, gpu, self.groups)
+    }
+
+    pub fn buffer_with(
         &mut self,
         world: &World,
         gpu: &Gpu,
         each: impl Fn(&mut C) + Send + Sync + Copy,
     ) {
-        self.ty.buffer_for_each_mut(world, gpu, self.groups, each)
+        self.ty.force_buffer(self.groups);
+        self.ty.buffer_with(world, gpu, self.groups, each)
     }
 
     pub fn retain(&mut self, world: &mut World, keep: impl FnMut(&mut C, &mut World) -> bool) {
@@ -271,7 +295,13 @@ impl<'a, C: Component> ComponentSetMut<'a, C> {
 
     pub fn iter_render(
         &'a self,
-    ) -> impl DoubleEndedIterator<Item = (&InstanceBuffer<C::Instance>, InstanceIndex, &C)> {
+    ) -> impl DoubleEndedIterator<
+        Item = (
+            &InstanceBuffer<<C::InstanceHandler as InstanceHandler>::Instance>,
+            InstanceIndex,
+            &C,
+        ),
+    > {
         self.ty.iter_render(self.groups)
     }
 
@@ -328,7 +358,12 @@ impl<'a, C: Component> ComponentSetMut<'a, C> {
     pub fn render_each(
         &'a self,
         renderer: &mut Renderer<'a>,
-        each: impl FnMut(&mut Renderer<'a>, &'a C, &'a InstanceBuffer<C::Instance>, InstanceIndex),
+        each: impl FnMut(
+            &mut Renderer<'a>,
+            &'a C,
+            &'a InstanceBuffer<<C::InstanceHandler as InstanceHandler>::Instance>,
+            InstanceIndex,
+        ),
     ) {
         self.ty.render_each(renderer, each)
     }
@@ -336,7 +371,12 @@ impl<'a, C: Component> ComponentSetMut<'a, C> {
     pub fn render_single(
         &'a self,
         renderer: &mut Renderer<'a>,
-        each: impl FnOnce(&mut Renderer<'a>, &'a C, &'a InstanceBuffer<C::Instance>, InstanceIndex),
+        each: impl FnOnce(
+            &mut Renderer<'a>,
+            &'a C,
+            &'a InstanceBuffer<<C::InstanceHandler as InstanceHandler>::Instance>,
+            InstanceIndex,
+        ),
     ) {
         self.ty.render_single(renderer, each)
     }
@@ -344,7 +384,11 @@ impl<'a, C: Component> ComponentSetMut<'a, C> {
     pub fn render_all(
         &'a self,
         renderer: &mut Renderer<'a>,
-        all: impl FnMut(&mut Renderer<'a>, &'a InstanceBuffer<C::Instance>, InstanceIndices),
+        all: impl FnMut(
+            &mut Renderer<'a>,
+            &'a InstanceBuffer<<C::InstanceHandler as InstanceHandler>::Instance>,
+            InstanceIndices,
+        ),
     ) {
         self.ty.render_all(renderer, all)
     }
@@ -360,3 +404,32 @@ impl<'a, C: Component + Send + Sync> ComponentSetMut<'a, C> {
         self.ty.par_for_each_mut(self.groups, each);
     }
 }
+
+
+
+#[cfg(feature = "rayon")]
+impl<'a, C: Component + Send + Sync> ComponentSetMut<'a, C>
+where
+    <C::InstanceHandler as InstanceHandler>::Instance: Send,
+{
+    pub fn par_buffer_with(
+        &mut self,
+        world: &World,
+        gpu: &Gpu,
+        each: impl Fn(&mut C) + Send + Sync,
+    ) {
+        self.ty.force_buffer(self.groups);
+        self.ty.par_buffer_with(world, gpu, self.groups, each)
+    }
+
+    
+    pub fn par_buffer(
+        &mut self,
+        world: &World,
+        gpu: &Gpu,
+    ) {
+        self.ty.force_buffer(self.groups);
+        self.ty.par_buffer(world, gpu, self.groups)
+    }
+}
+

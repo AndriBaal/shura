@@ -6,3 +6,4 @@ pub mod component_set;
 pub mod component_type;
 pub mod group;
 pub mod position_instance;
+pub mod empty_instance;

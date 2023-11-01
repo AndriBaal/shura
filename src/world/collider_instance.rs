@@ -34,7 +34,7 @@ impl ColliderStatus {
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct ColliderComponent {
+pub struct ColliderInstance {
     pub(crate) status: ColliderStatus,
     scale: Vector2<f32>,
     atlas: SpriteAtlas,
@@ -43,7 +43,7 @@ pub struct ColliderComponent {
     active: bool,
 }
 
-impl ColliderComponent {
+impl ColliderInstance {
     pub fn new(collider: impl Into<Collider>) -> Self {
         Self {
             status: ColliderStatus::Pending {
@@ -114,7 +114,7 @@ impl ColliderComponent {
     }
 }
 
-impl InstanceHandler for ColliderComponent {
+impl InstanceHandler for ColliderInstance {
     type Instance = Instance2D;
     
     fn instance(&self, world: &World) -> Self::Instance {
