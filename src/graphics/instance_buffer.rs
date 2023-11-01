@@ -2,6 +2,7 @@ use std::{marker::PhantomData, mem::size_of, ops::Range};
 
 use crate::{
     Color, Gpu, Isometry2, Isometry3, Matrix2, Matrix4, Rotation2, SpriteSheetIndex, Vector2,
+    Vector3,
 };
 use wgpu::{util::DeviceExt, vertex_attr_array};
 
@@ -27,19 +28,19 @@ impl Instance for () {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SpriteAtlas {
     pub offset: Vector2<f32>,
-    pub scale: Vector2<f32>,
+    pub scaling: Vector2<f32>,
 }
 
 impl SpriteAtlas {
-    pub fn new(scale: Vector2<f32>, offset: Vector2<f32>) -> Self {
-        Self { offset, scale }
+    pub fn new(scaling: Vector2<f32>, offset: Vector2<f32>) -> Self {
+        Self { offset, scaling }
     }
 }
 
 impl Default for SpriteAtlas {
     fn default() -> Self {
         Self {
-            scale: Vector2::new(1.0, 1.0),
+            scaling: Vector2::new(1.0, 1.0),
             offset: Vector2::default(),
         }
     }
@@ -71,17 +72,17 @@ impl Instance for Instance2D {
 impl Instance2D {
     pub fn new(
         pos: Isometry2<f32>,
-        scale: Vector2<f32>,
+        scaling: Vector2<f32>,
         atlas: SpriteAtlas,
         color: Color,
         sprite_sheet_index: SpriteSheetIndex,
     ) -> Self {
         Self {
             rot: Matrix2::new(
-                scale.x * pos.rotation.cos_angle(),
-                scale.x * pos.rotation.sin_angle(),
-                scale.y * -pos.rotation.sin_angle(),
-                scale.y * pos.rotation.cos_angle(),
+                scaling.x * pos.rotation.cos_angle(),
+                scaling.x * pos.rotation.sin_angle(),
+                scaling.y * -pos.rotation.sin_angle(),
+                scaling.y * pos.rotation.cos_angle(),
             ),
             pos: pos.translation.vector,
             atlas,
@@ -90,13 +91,13 @@ impl Instance2D {
         }
     }
 
-    pub fn new_position(pos: Isometry2<f32>, scale: Vector2<f32>) -> Self {
+    pub fn new_position(pos: Isometry2<f32>, scaling: Vector2<f32>) -> Self {
         Self {
             rot: Matrix2::new(
-                scale.x * pos.rotation.cos_angle(),
-                scale.x * pos.rotation.sin_angle(),
-                scale.y * -pos.rotation.sin_angle(),
-                scale.y * pos.rotation.cos_angle(),
+                scaling.x * pos.rotation.cos_angle(),
+                scaling.x * pos.rotation.sin_angle(),
+                scaling.y * -pos.rotation.sin_angle(),
+                scaling.y * pos.rotation.cos_angle(),
             ),
             pos: pos.translation.vector,
             ..Default::default()
@@ -107,18 +108,18 @@ impl Instance2D {
         self.pos = translation;
     }
 
-    pub fn set_position(&mut self, pos: Isometry2<f32>, scale: Vector2<f32>) {
+    pub fn set_position(&mut self, pos: Isometry2<f32>, scaling: Vector2<f32>) {
         self.rot = Matrix2::new(
-            scale.x * pos.rotation.cos_angle(),
-            scale.x * pos.rotation.sin_angle(),
-            scale.y * -pos.rotation.sin_angle(),
-            scale.y * pos.rotation.cos_angle(),
+            scaling.x * pos.rotation.cos_angle(),
+            scaling.x * pos.rotation.sin_angle(),
+            scaling.y * -pos.rotation.sin_angle(),
+            scaling.y * pos.rotation.cos_angle(),
         );
         self.pos = pos.translation.vector;
     }
 
-    pub fn set_scale_rotation(&mut self, scale: Vector2<f32>, rotation: Rotation2<f32>) {
-        self.rot = Matrix2::new(scale.x, 0.0, 0.0, scale.y)
+    pub fn set_rotation_scaling(&mut self, scaling: Vector2<f32>, rotation: Rotation2<f32>) {
+        self.rot = Matrix2::new(scaling.x, 0.0, 0.0, scaling.y)
             * Matrix2::new(
                 rotation.cos_angle(),
                 -rotation.sin_angle(),
@@ -154,22 +155,24 @@ pub struct Instance3D {
 
 impl Instance for Instance3D {
     const ATTRIBUTES: &'static [wgpu::VertexAttribute] = &vertex_attr_array![
-        0 => Float32x4,
-        1 => Float32x4,
         2 => Float32x4,
         3 => Float32x4,
+        4 => Float32x4,
+        5 => Float32x4,
     ];
 }
 
 impl Instance3D {
-    pub fn new(pos: Isometry3<f32>) -> Self {
-        Self { matrix: pos.into() }
+    pub fn new(position: Isometry3<f32>, scaling: Vector3<f32>) -> Self {
+        let mut matrix = position.to_matrix();
+        matrix.append_nonuniform_scaling_mut(&scaling);
+        Self { matrix }
     }
 }
 
 impl Default for Instance3D {
     fn default() -> Self {
-        return Self::new(Default::default());
+        return Self::new(Default::default(), Vector3::new(1.0, 1.0, 1.0));
     }
 }
 
@@ -248,7 +251,6 @@ impl<I: Instance> InstanceBuffer<I> {
 
         self.buffer_size = new_size;
         self.instances = new_size / instance_size;
-
     }
 
     pub fn slice(&self) -> wgpu::BufferSlice {

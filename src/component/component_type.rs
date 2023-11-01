@@ -1078,12 +1078,14 @@ impl<C: Component> ComponentType<C> {
             } => {
                 if let Some(component) = component {
                     let buffer = buffer.as_ref().expect(BUFFER_ERROR);
-                    (each)(renderer, component, buffer, InstanceIndex::new(0));
+                    if buffer.instance_amount() > 0 {
+                        (each)(renderer, component, buffer, InstanceIndex::new(0));
+                    }
                 }
             }
             ComponentTypeStorage::Multiple(multiple) => {
-                if !multiple.components.is_empty() {
-                    let buffer = multiple.buffer.as_ref().expect(BUFFER_ERROR);
+                let buffer = multiple.buffer.as_ref().expect(BUFFER_ERROR);
+                if buffer.instance_amount() > 0 {
                     for (instance, component) in multiple.components.iter().enumerate() {
                         (each)(
                             renderer,
@@ -1096,8 +1098,8 @@ impl<C: Component> ComponentType<C> {
             }
             ComponentTypeStorage::MultipleGroups(groups) => {
                 for group in groups {
-                    if !group.components.is_empty() {
-                        let buffer = group.buffer.as_ref().expect(BUFFER_ERROR);
+                    let buffer = group.buffer.as_ref().expect(BUFFER_ERROR);
+                    if buffer.instance_amount() > 0 {
                         for (instance, component) in group.components.iter().enumerate() {
                             (each)(
                                 renderer,
@@ -1128,7 +1130,9 @@ impl<C: Component> ComponentType<C> {
             } => {
                 if let Some(component) = component {
                     let buffer = buffer.as_ref().expect(BUFFER_ERROR);
-                    (each)(renderer, component, buffer, InstanceIndex::new(0));
+                    if buffer.instance_amount() > 0 {
+                        (each)(renderer, component, buffer, InstanceIndex::new(0));
+                    }
                 }
             }
             _ => {
@@ -1147,24 +1151,22 @@ impl<C: Component> ComponentType<C> {
         ),
     ) {
         match &self.storage {
-            ComponentTypeStorage::Single {
-                buffer, component, ..
-            } => {
-                if component.is_some() {
-                    let buffer = buffer.as_ref().expect(BUFFER_ERROR);
+            ComponentTypeStorage::Single { buffer, .. } => {
+                let buffer = buffer.as_ref().expect(BUFFER_ERROR);
+                if buffer.instance_amount() > 0 {
                     (all)(renderer, buffer, InstanceIndices::new(0, 1));
                 }
             }
             ComponentTypeStorage::Multiple(multiple) => {
-                if !multiple.components.is_empty() {
-                    let buffer = multiple.buffer.as_ref().expect(BUFFER_ERROR);
+                let buffer = multiple.buffer.as_ref().expect(BUFFER_ERROR);
+                if buffer.instance_amount() > 0 {
                     (all)(renderer, buffer, buffer.instances());
                 }
             }
             ComponentTypeStorage::MultipleGroups(groups) => {
                 for group in groups {
-                    if !group.components.is_empty() {
-                        let buffer = group.buffer.as_ref().expect(BUFFER_ERROR);
+                    let buffer = group.buffer.as_ref().expect(BUFFER_ERROR);
+                    if buffer.instance_amount() > 0 {
                         (all)(renderer, buffer, buffer.instances());
                     }
                 }
@@ -1566,25 +1568,17 @@ where
         };
     }
 
-    
-    pub fn par_buffer(
-        &mut self,
-        world: &World,
-        gpu: &Gpu,
-        group_handles: &[GroupHandle]
-    ) {
+    pub fn par_buffer(&mut self, world: &World, gpu: &Gpu, group_handles: &[GroupHandle]) {
         assert!(self.config.buffer != BufferOperation::Never);
         match &mut self.storage {
-            ComponentTypeStorage::Single { .. } => {
-                self.buffer(world, gpu, group_handles)
-            }
+            ComponentTypeStorage::Single { .. } => self.buffer(world, gpu, group_handles),
             ComponentTypeStorage::Multiple(multiple) => {
                 multiple.par_buffer(gpu, &self.config, world)
             }
             ComponentTypeStorage::MultipleGroups(groups) => {
                 for group in group_handles {
                     if let Some(group) = groups.get_mut(group.0) {
-                        group.par_buffer(gpu, &self.config, world,)
+                        group.par_buffer(gpu, &self.config, world)
                     }
                 }
             }

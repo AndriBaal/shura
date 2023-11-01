@@ -18,7 +18,7 @@ fn shura_main(config: AppConfig) {
 fn setup(ctx: &mut Context) {
     const PYRAMID_ELEMENTS: i32 = 8;
     const MINIMAL_SPACING: f32 = 0.1;
-    ctx.world_camera.set_scaling(WorldCameraScale::Max(5.0));
+    ctx.world_camera2d.set_scaling(WorldCameraScaling::Max(5.0));
     ctx.world.set_gravity(Vector2::new(0.00, -9.81));
     ctx.components.add(ctx.world, Resources::new(ctx));
 
@@ -43,14 +43,14 @@ fn update(ctx: &mut Context) {
     let mut player = ctx.components.single::<Player>();
 
     let scroll = ctx.input.wheel_delta();
-    let fov = ctx.world_camera.fov();
+    let fov = ctx.world_camera2d.fov();
     if scroll != 0.0 {
-        ctx.world_camera
-            .set_scaling(WorldCameraScale::Max(fov.x + scroll / 5.0));
+        ctx.world_camera2d
+            .set_scaling(WorldCameraScaling::Max(fov.x + scroll / 5.0));
     }
 
-    if ctx.input.is_held(MouseButton::Right) {
-        if ctx
+    if ctx.input.is_held(MouseButton::Right)
+        && ctx
             .world
             .intersection_with_shape(
                 &ctx.cursor.into(),
@@ -61,10 +61,9 @@ fn update(ctx: &mut Context) {
                 Default::default(),
             )
             .is_none()
-        {
-            let b = PhysicsBox::new(ctx.cursor);
-            boxes.add(ctx.world, b);
-        }
+    {
+        let b = PhysicsBox::new(ctx.cursor.coords);
+        boxes.add(ctx.world, b);
     }
     let delta = ctx.frame.frame_time();
     let cursor_world: Point2<f32> = (ctx.cursor).into();
@@ -121,7 +120,7 @@ fn update(ctx: &mut Context) {
         }
     });
 
-    ctx.world_camera
+    ctx.world_camera2d
         .set_translation(*player.body.get_mut(ctx.world).translation());
 }
 
@@ -132,18 +131,23 @@ fn render(res: &ComponentResources, encoder: &mut RenderEncoder) {
             renderer.render_sprite(
                 instances,
                 buffer,
-                res.world_camera,
+                res.world_camera2d,
                 &resources.player_model,
                 &resources.player_sprite,
             )
         });
 
         res.render_single::<Floor>(renderer, |renderer, _floor, buffer, instances| {
-            renderer.render_color(instances, buffer, res.world_camera, &resources.floor_model)
+            renderer.render_color(
+                instances,
+                buffer,
+                res.world_camera2d,
+                &resources.floor_model,
+            )
         });
 
         res.render_all::<PhysicsBox>(renderer, |renderer, buffer, instance| {
-            renderer.render_color(instance, buffer, res.world_camera, &resources.box_model);
+            renderer.render_color(instance, buffer, res.world_camera2d, &resources.box_model);
         });
     })
 }
@@ -159,7 +163,7 @@ struct Resources {
 impl Resources {
     pub fn new(ctx: &Context) -> Self {
         Self {
-            player_sprite: ctx.gpu.create_sprite(sprite_file!("./img/burger.png")),
+            player_sprite: ctx.gpu.create_sprite(SpriteBuilder::bytes(include_bytes!("../../res/burger.png"))),
             player_model: ctx.gpu.create_model(ModelBuilder2D::from_collider_shape(
                 &Player::SHAPE,
                 Player::RESOLUTION,
@@ -207,7 +211,7 @@ impl Player {
 #[derive(Component)]
 struct Floor {
     #[shura(instance)]
-    collider: ColliderComponent,
+    collider: ColliderInstance,
 }
 
 impl Floor {
@@ -222,7 +226,7 @@ impl Floor {
         let collider = ColliderBuilder::new(SharedShape::new(Self::SHAPE))
             .translation(Vector2::new(0.0, -1.0));
         Self {
-            collider: ColliderComponent::new(collider).with_color(Color::BLUE),
+            collider: ColliderInstance::new(collider).with_color(Color::BLUE),
         }
     }
 }

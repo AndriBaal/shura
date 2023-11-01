@@ -128,6 +128,7 @@ web-sys = { version = "0.3", features = [
 [dev-dependencies]
 egui_demo_lib = "0.23"
 
+
 [target.'cfg(target_os = "android")'.dependencies]
 winit = { version = "0.28", features = ["mint", "android-native-activity"] }
 

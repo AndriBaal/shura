@@ -4,7 +4,7 @@ use shura::*;
 fn shura_main(config: ShuraConfig) {
     config.init(|| {
         NewScene::new(1, |ctx| {
-            ctx.world_camera.set_scaling(WorldCameraScale::Min(10.0));
+            ctx.world_camera.set_scaling(WorldCameraScaling::Min(10.0));
             ctx.components.register::<ModelTest>(ctx.groups);
             let mut model_tests = ctx.components.set_mut::<ModelTest>();
             model_tests.add(

@@ -16,7 +16,7 @@ fn shura_main(config: AppConfig) {
 }
 
 fn setup(ctx: &mut Context) {
-    ctx.world_camera.set_scaling(WorldCameraScale::Min(3.0));
+    ctx.world_camera2d.set_scaling(WorldCameraScaling::Min(3.0));
     ctx.components
         .add_with(ctx.world, |handle| Bunny::new(vector2(0.0, 0.0), handle));
     ctx.components.add(ctx.world, Resources::new(ctx));
@@ -42,7 +42,7 @@ fn update(ctx: &mut Context) {
         });
 
     if ctx.input.is_held(MouseButton::Left) || ctx.input.is_held(ScreenTouch) {
-        let cursor = ctx.cursor;
+        let cursor: Vector2<f32> = ctx.cursor.coords;
         for _ in 0..MODIFY_STEP {
             bunnies.add_with(ctx.world, |handle| Bunny::new(cursor, handle));
         }
@@ -70,7 +70,7 @@ fn update(ctx: &mut Context) {
     }
 
     let frame = ctx.frame.frame_time();
-    let fov = ctx.world_camera.fov();
+    let fov = ctx.world_camera2d.fov();
     bunnies.par_buffer_with(ctx.world, &ctx.gpu, |bunny| {
         let mut linvel = bunny.linvel;
         let mut translation = bunny.position.translation();
@@ -106,7 +106,7 @@ fn render(res: &ComponentResources, encoder: &mut RenderEncoder) {
                 renderer.render_sprite(
                     instances,
                     buffer,
-                    res.world_camera,
+                    res.world_camera2d,
                     res.unit_model,
                     &resources.bunny_sprite,
                 );
@@ -138,18 +138,18 @@ impl Resources {
 #[derive(Component)]
 struct Bunny {
     #[shura(instance)]
-    position: PositionInstance,
+    position: PositionInstance2D,
     linvel: Vector2<f32>,
     handle: ComponentHandle,
 }
 
 impl Bunny {
     pub fn new(translation: Vector2<f32>, handle: ComponentHandle) -> Bunny {
-        let scale = rand::gen_range(0.75_f32..2.0);
-        let position = PositionInstance::new()
+        let scaling = rand::gen_range(0.75_f32..2.0);
+        let position = PositionInstance2D::new()
             .with_translation(translation)
             .with_rotation(rand::gen_range(-1.0..1.0))
-            .with_scale(scale * vector2(0.12, 0.18));
+            .with_scaling(scaling * vector2(0.12, 0.18));
         let linvel = vector2(rand::gen_range(-2.5..2.5), rand::gen_range(-7.5..7.5));
         Bunny {
             position,

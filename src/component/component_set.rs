@@ -1,6 +1,6 @@
 use crate::{
-    Component, ComponentHandle, ComponentType, ComponentTypeId, Gpu, GroupHandle, InstanceBuffer,
-    InstanceIndex, InstanceIndices, Renderer, World, InstanceHandler, ComponentTypeImplementation,
+    Component, ComponentHandle, ComponentType, ComponentTypeId, ComponentTypeImplementation, Gpu,
+    GroupHandle, InstanceBuffer, InstanceHandler, InstanceIndex, InstanceIndices, Renderer, World,
 };
 use std::cell::{Ref, RefMut};
 
@@ -167,11 +167,7 @@ impl<'a, C: Component> ComponentSetMut<'a, C> {
         self.ty.for_each_mut_with_handles(self.groups, each);
     }
 
-    pub fn buffer(
-        &mut self,
-        world: &World,
-        gpu: &Gpu,
-    ) {
+    pub fn buffer(&mut self, world: &World, gpu: &Gpu) {
         self.ty.force_buffer(self.groups);
         self.ty.buffer(world, gpu, self.groups)
     }
@@ -405,8 +401,6 @@ impl<'a, C: Component + Send + Sync> ComponentSetMut<'a, C> {
     }
 }
 
-
-
 #[cfg(feature = "rayon")]
 impl<'a, C: Component + Send + Sync> ComponentSetMut<'a, C>
 where
@@ -422,14 +416,8 @@ where
         self.ty.par_buffer_with(world, gpu, self.groups, each)
     }
 
-    
-    pub fn par_buffer(
-        &mut self,
-        world: &World,
-        gpu: &Gpu,
-    ) {
+    pub fn par_buffer(&mut self, world: &World, gpu: &Gpu) {
         self.ty.force_buffer(self.groups);
         self.ty.par_buffer(world, gpu, self.groups)
     }
 }
-

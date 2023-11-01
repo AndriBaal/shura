@@ -2,8 +2,9 @@
 use crate::text::Text;
 
 use crate::{
-    Camera, Camera2D, Color, DefaultResources, Gpu, Instance, InstanceBuffer, InstanceBuffer2D,
-    InstanceIndices, Model, Model2D, RenderTarget, Shader, Sprite, SpriteSheet, Uniform, Vertex,
+    Camera, CameraBuffer, CameraBuffer2D, Color, DefaultResources, Gpu, Instance, InstanceBuffer,
+    InstanceBuffer2D, InstanceBuffer3D, InstanceIndices, Model, Model2D, Model3D,
+    PerspectiveCamera3D, RenderTarget, Shader, Sprite, SpriteSheet, Uniform, Vertex,
 };
 use std::{ops::Range, ptr::null};
 
@@ -82,7 +83,7 @@ impl<'a> Renderer<'a> {
         }
     }
 
-    pub fn use_camera(&mut self, camera: &'a dyn Camera) {
+    pub fn use_camera<C: Camera>(&mut self, camera: &'a CameraBuffer<C>) {
         self.use_bind_group(camera.uniform().bind_group(), Self::CAMERA_SLOT)
     }
 
@@ -156,7 +157,7 @@ impl<'a> Renderer<'a> {
         &mut self,
         instances: impl Into<InstanceIndices>,
         buffer: &'a InstanceBuffer2D,
-        camera: &'a Camera2D,
+        camera: &'a CameraBuffer2D,
         model: &'a Model2D,
         sprite: &'a Sprite,
     ) {
@@ -172,7 +173,7 @@ impl<'a> Renderer<'a> {
         &mut self,
         instances: impl Into<InstanceIndices>,
         buffer: &'a InstanceBuffer2D,
-        camera: &'a Camera2D,
+        camera: &'a CameraBuffer2D,
         model: &'a Model2D,
         sprite: &'a SpriteSheet,
     ) {
@@ -188,7 +189,7 @@ impl<'a> Renderer<'a> {
         &mut self,
         instances: impl Into<InstanceIndices>,
         buffer: &'a InstanceBuffer2D,
-        camera: &'a Camera2D,
+        camera: &'a CameraBuffer2D,
         model: &'a Model2D,
     ) {
         if buffer.buffer_size() != 0 {
@@ -203,7 +204,7 @@ impl<'a> Renderer<'a> {
         &mut self,
         instances: impl Into<InstanceIndices>,
         buffer: &'a InstanceBuffer2D,
-        camera: &'a Camera2D,
+        camera: &'a CameraBuffer2D,
         text: &'a Text,
     ) {
         if buffer.buffer_size() != 0 && text.model().vertex_buffer_size() != 0 {
@@ -219,7 +220,7 @@ impl<'a> Renderer<'a> {
         &mut self,
         instances: impl Into<InstanceIndices>,
         buffer: &'a InstanceBuffer2D,
-        camera: &'a Camera2D,
+        camera: &'a CameraBuffer2D,
         model: &'a Model2D,
         sprite: &'a Sprite,
     ) {
@@ -235,7 +236,7 @@ impl<'a> Renderer<'a> {
         &mut self,
         instances: impl Into<InstanceIndices>,
         buffer: &'a InstanceBuffer2D,
-        camera: &'a Camera2D,
+        camera: &'a CameraBuffer2D,
         model: &'a Model2D,
         sprite: &'a Sprite,
     ) {
@@ -251,11 +252,26 @@ impl<'a> Renderer<'a> {
         &mut self,
         instances: impl Into<InstanceIndices>,
         buffer: &'a InstanceBuffer2D,
-        camera: &'a Camera2D,
+        camera: &'a CameraBuffer2D,
         model: &'a Model2D,
     ) {
         if buffer.buffer_size() != 0 {
             self.use_shader_with_buffers(&self.defaults.rainbow, buffer, model);
+            self.use_camera(camera);
+            self.use_uniform(&self.defaults.times, 1);
+            self.draw(instances);
+        }
+    }
+
+    pub fn renderr_test3d(
+        &mut self,
+        instances: impl Into<InstanceIndices>,
+        buffer: &'a InstanceBuffer3D,
+        camera: &'a CameraBuffer<PerspectiveCamera3D>,
+        model: &'a Model3D,
+    ) {
+        if buffer.buffer_size() != 0 {
+            self.use_shader_with_buffers(&self.defaults.test3d, buffer, model);
             self.use_camera(camera);
             self.use_uniform(&self.defaults.times, 1);
             self.draw(instances);

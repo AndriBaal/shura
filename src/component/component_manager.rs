@@ -2,10 +2,10 @@ use downcast_rs::{impl_downcast, Downcast};
 use rustc_hash::FxHashMap;
 
 use crate::{
-    Camera2D, Component, ComponentConfig, ComponentHandle, ComponentScope, ComponentSet,
-    ComponentSetMut, ComponentType, ComponentTypeId, DefaultResources, GlobalComponents, Gpu,
-    GroupHandle, Instance2D, InstanceBuffer, InstanceHandler, InstanceIndex, InstanceIndices,
-    Model2D, Renderer, Scene, SystemManager, World, WorldCamera2D, BufferOperation,
+    BufferOperation, CameraBuffer2D, Component, ComponentConfig, ComponentHandle, ComponentScope,
+    ComponentSet, ComponentSetMut, ComponentType, ComponentTypeId, DefaultResources,
+    GlobalComponents, Gpu, GroupHandle, Instance2D, InstanceBuffer, InstanceHandler, InstanceIndex,
+    InstanceIndices, Model2D, Renderer, Scene, SystemManager, World,
 };
 
 #[cfg(feature = "serde")]
@@ -165,13 +165,13 @@ impl GroupFilter<'static> {
 pub struct ComponentResources<'a> {
     components: &'a ComponentManager,
 
-    pub world_camera: &'a WorldCamera2D,
-    pub relative_camera: &'a Camera2D,
-    pub relative_bottom_left_camera: &'a Camera2D,
-    pub relative_bottom_right_camera: &'a Camera2D,
-    pub relative_top_left_camera: &'a Camera2D,
-    pub relative_top_right_camera: &'a Camera2D,
-    pub unit_camera: &'a Camera2D,
+    pub world_camera2d: &'a CameraBuffer2D,
+    pub relative_camera: &'a CameraBuffer2D,
+    pub relative_bottom_left_camera: &'a CameraBuffer2D,
+    pub relative_bottom_right_camera: &'a CameraBuffer2D,
+    pub relative_top_left_camera: &'a CameraBuffer2D,
+    pub relative_top_right_camera: &'a CameraBuffer2D,
+    pub unit_camera: &'a CameraBuffer2D,
     pub unit_model: &'a Model2D,
     pub centered_instance: &'a InstanceBuffer<Instance2D>,
 }
@@ -185,15 +185,15 @@ impl<'a> ComponentResources<'a> {
             &scene.systems,
             Self {
                 components: &scene.components,
-                relative_camera: &defaults.relative_camera,
-                relative_bottom_left_camera: &defaults.relative_bottom_left_camera,
-                relative_bottom_right_camera: &defaults.relative_bottom_right_camera,
-                relative_top_left_camera: &defaults.relative_top_left_camera,
-                relative_top_right_camera: &defaults.relative_top_right_camera,
-                unit_camera: &defaults.unit_camera,
+                relative_camera: &defaults.relative_camera.0,
+                relative_bottom_left_camera: &defaults.relative_bottom_left_camera.0,
+                relative_bottom_right_camera: &defaults.relative_bottom_right_camera.0,
+                relative_top_left_camera: &defaults.relative_top_left_camera.0,
+                relative_top_right_camera: &defaults.relative_top_right_camera.0,
+                unit_camera: &defaults.unit_camera.0,
                 centered_instance: &defaults.centered_instance,
                 unit_model: &defaults.unit_model,
-                world_camera: &scene.world_camera,
+                world_camera2d: &defaults.world_camera2d,
             },
         );
     }

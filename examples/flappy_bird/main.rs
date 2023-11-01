@@ -17,7 +17,7 @@ fn shura_main(config: ShuraConfig) {
             ctx.world.set_physics_priority(Some(10));
             ctx.world.set_gravity(Vector::new(0.0, -15.0));
             ctx.world_camera
-                .set_scaling(WorldCameraScale::Vertical(GAME_SIZE.y));
+                .set_scaling(WorldCameraScaling::Vertical(GAME_SIZE.y));
         })
     })
 }

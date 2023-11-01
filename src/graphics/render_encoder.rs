@@ -93,7 +93,7 @@ impl<'a> RenderEncoder<'a> {
             renderer.render_sprite(
                 0..1,
                 &renderer.defaults.centered_instance,
-                &renderer.defaults.unit_camera,
+                &renderer.defaults.unit_camera.0,
                 renderer.defaults.unit_model(),
                 src.sprite(),
             );

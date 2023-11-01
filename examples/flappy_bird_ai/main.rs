@@ -17,7 +17,7 @@ fn shura_main(config: ShuraConfig) {
         NewScene::new(1, |ctx| {
             register!(ctx, [Background, Ground, Pipe, Bird, BirdSimulation]);
             ctx.world_camera
-                .set_scaling(WorldCameraScale::Vertical(GAME_SIZE.y));
+                .set_scaling(WorldCameraScaling::Vertical(GAME_SIZE.y));
             ctx.components.add(ctx.world, BirdSimulation::new(ctx));
             ctx.components.add(ctx.world, Background::new(ctx));
             ctx.components.add(ctx.world, Ground::new(ctx));

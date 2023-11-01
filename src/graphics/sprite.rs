@@ -3,27 +3,6 @@ use wgpu::util::DeviceExt;
 use crate::{Gpu, RgbaColor, Vector2};
 use std::ops::Deref;
 
-#[macro_export]
-macro_rules! include_bytes_root {
-    ($file:expr $(,)?) => {
-        include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), '/', $file))
-    };
-}
-
-#[macro_export]
-macro_rules! sprite_file {
-    ($file:expr) => {
-        shura::SpriteBuilder::file(include_bytes!($file))
-    };
-}
-
-#[macro_export]
-macro_rules! sprite_file_root {
-    ($file:expr) => {
-        shura::SpriteBuilder::file(shura::include_bytes_root!($file))
-    };
-}
-
 pub struct SpriteBuilder<'a, D: Deref<Target = [u8]>> {
     pub size: Vector2<u32>,
     pub sampler: wgpu::SamplerDescriptor<'a>,
@@ -32,7 +11,21 @@ pub struct SpriteBuilder<'a, D: Deref<Target = [u8]>> {
 }
 
 impl<'a> SpriteBuilder<'a, image::RgbaImage> {
-    pub fn file(bytes: &[u8]) -> Self {
+    pub fn file(path: &str) -> Self {
+        let path = std::env::current_exe().unwrap().join("res").join(path);
+        let bytes = std::fs::read(path).unwrap();
+
+        let image = image::load_from_memory(&bytes).unwrap();
+        let size = Vector2::new(image.width(), image.height());
+        return Self {
+            size,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            sampler: Sprite::DEFAULT_SAMPLER,
+            data: image.to_rgba8(),
+        };
+    }
+
+    pub fn bytes(bytes: &[u8]) -> Self {
         let image = image::load_from_memory(bytes).unwrap();
         let size = Vector2::new(image.width(), image.height());
         return Self {

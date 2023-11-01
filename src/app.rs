@@ -394,7 +394,7 @@ impl App {
                 info!("Using framebuffer scale: {}", scale);
             }
             scene.screen_config.changed = false;
-            scene.world_camera.resize(window_size);
+            scene.world_camera2d.resize(window_size);
 
             self.gpu.apply_vsync(scene.screen_config.vsync());
             #[cfg(feature = "framebuffer")]
@@ -451,12 +451,14 @@ impl App {
 
         scene
             .groups
-            .update(&mut scene.components, &scene.world_camera);
+            .update(&mut scene.components, &scene.world_camera2d);
     }
 
     fn render(&mut self, _scene_id: u32, scene: &mut Scene) {
         scene.components.buffer(&mut scene.world, &self.gpu);
-        scene.world_camera.buffer(&self.gpu);
+        self.defaults
+            .world_camera2d
+            .write(&self.gpu, &scene.world_camera2d);
         self.defaults
             .buffer(&self.gpu, self.frame.total_time(), self.frame.frame_time());
 

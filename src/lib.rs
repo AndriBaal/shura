@@ -24,7 +24,7 @@ pub use crate::{
     app::*,
     component::{
         component::*, component_config::*, component_handle::*, component_manager::*,
-        component_set::*, component_type::*, group::*, position_instance::*, empty_instance::*
+        component_set::*, component_type::*, empty_instance::*, group::*, position_instance::*,
     },
     graphics::{
         camera::*, color::*, frame_manager::*, gpu::*, instance_buffer::*, model::*,

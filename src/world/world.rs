@@ -1,6 +1,4 @@
-use crate::{
-    physics::RigidBodyInstance, Component, ComponentHandle, FrameManager, Isometry2, Vector2,
-};
+use crate::{Component, ComponentHandle, FrameManager, Isometry2, Point2, Vector2};
 use rapier2d::{crossbeam, prelude::*};
 pub use rapier2d::{
     prelude::CollisionEvent as RapierCollisionEvent,
@@ -367,11 +365,11 @@ impl World {
         &mut self,
         instance: &dyn crate::InstanceHandler<Instance = I>,
     ) {
-
-        use crate::physics::{
-            ColliderInstance, ColliderStatus, RigidBodyStatus,
-        };
-        if let Some(instance) = instance.as_any().downcast_ref::<RigidBodyInstance>() {
+        use crate::physics::{ColliderInstance, ColliderStatus, RigidBodyStatus};
+        if let Some(instance) = instance
+            .as_any()
+            .downcast_ref::<crate::physics::RigidBodyInstance>()
+        {
             match instance.status {
                 RigidBodyStatus::Added { rigid_body_handle } => {
                     if let Some(rigid_body) = self.bodies.remove(
@@ -508,11 +506,9 @@ impl World {
         return None;
     }
 
-    pub fn intersects_point(&self, collider_handle: ColliderHandle, point: Vector2<f32>) -> bool {
+    pub fn intersects_point(&self, collider_handle: ColliderHandle, point: Point2<f32>) -> bool {
         if let Some(collider) = self.collider(collider_handle) {
-            return collider
-                .shape()
-                .contains_point(collider.position(), &(point.into()));
+            return collider.shape().contains_point(collider.position(), &point);
         }
         return false;
     }

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
-    App, ComponentManager, DefaultResources, FrameManager, Gpu, GroupManager, Input, Scene,
+    App, ComponentManager, DefaultResources, FrameManager, Gpu, GroupManager, Input, Point2, Scene,
     SceneManager, ScreenConfig, SystemManager, Vector2, World, WorldCamera2D,
 };
 
@@ -26,7 +26,7 @@ pub struct Context<'a> {
     // Scene
     pub render_components: &'a mut bool,
     pub screen_config: &'a mut ScreenConfig,
-    pub world_camera: &'a mut WorldCamera2D,
+    pub world_camera2d: &'a mut WorldCamera2D,
     pub components: &'a mut ComponentManager,
     pub groups: &'a mut GroupManager,
     pub world: &'a mut World,
@@ -47,7 +47,7 @@ pub struct Context<'a> {
     // Misc
     pub scene_id: &'a u32,
     pub window_size: Vector2<u32>,
-    pub cursor: Vector2<f32>,
+    pub cursor: Point2<f32>,
     pub resized: bool,
 }
 
@@ -59,14 +59,14 @@ impl<'a> Context<'a> {
     ) -> (&'a mut SystemManager, Context<'a>) {
         let mint: mint::Vector2<u32> = app.window.inner_size().into();
         let window_size = mint.into();
-        let cursor = app.input.cursor(&scene.world_camera);
+        let cursor = app.input.cursor(&scene.world_camera2d);
         (
             &mut scene.systems,
             Self {
                 // Scene
                 render_components: &mut scene.render_components,
                 screen_config: &mut scene.screen_config,
-                world_camera: &mut scene.world_camera,
+                world_camera2d: &mut scene.world_camera2d,
                 components: &mut scene.components,
                 groups: &mut scene.groups,
                 world: &mut scene.world,
@@ -106,7 +106,7 @@ impl<'a> Context<'a> {
         struct Scene<'a> {
             render_components: bool,
             screen_config: &'a ScreenConfig,
-            world_camera: &'a WorldCamera2D,
+            world_camera2d: &'a WorldCamera2D,
             groups: &'a GroupManager,
             world: &'a World,
         }
@@ -124,7 +124,7 @@ impl<'a> Context<'a> {
             let scene = Scene {
                 render_components: *self.render_components,
                 screen_config: self.screen_config,
-                world_camera: self.world_camera,
+                world_camera2d: self.world_camera2d,
                 groups: self.groups,
                 world: &world_cpy,
             };
@@ -139,7 +139,7 @@ impl<'a> Context<'a> {
             let scene = Scene {
                 render_components: *self.render_components,
                 screen_config: self.screen_config,
-                world_camera: self.world_camera,
+                world_camera2d: self.world_camera2d,
                 groups: self.groups,
                 world: &self.world,
             };

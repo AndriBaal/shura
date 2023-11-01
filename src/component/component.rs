@@ -1,4 +1,4 @@
-use downcast_rs::{Downcast, impl_downcast};
+use downcast_rs::Downcast;
 
 use crate::{ComponentHandle, ComponentIdentifier, Instance, World};
 

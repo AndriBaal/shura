@@ -7,7 +7,7 @@ fn shura_main(config: ShuraConfig) {
     config.init(|| {
         NewScene::new(1, |ctx| {
             register!(ctx, [Background, Light, LightResources]);
-            ctx.world_camera.set_scaling(WorldCameraScale::Min(10.0));
+            ctx.world_camera.set_scaling(WorldCameraScaling::Min(10.0));
             ctx.window
                 .set_inner_size(winit::dpi::PhysicalSize::new(SIZE.x, SIZE.y));
             ctx.window.set_resizable(false);
