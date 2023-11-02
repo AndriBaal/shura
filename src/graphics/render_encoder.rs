@@ -1,4 +1,4 @@
-use crate::{Color, DefaultResources, Gpu, RenderTarget, Renderer, SpriteRenderTarget};
+use crate::{Color, DefaultResources, Gpu, RenderTarget, Renderer, SpriteRenderTarget, DepthBuffer};
 
 /// Encoder of [Renderers](crate::Renderer) and utilities to copy, clear and render text onto [RenderTargets](crate::RenderTarget)
 pub struct RenderEncoder<'a> {
@@ -28,43 +28,29 @@ impl<'a> RenderEncoder<'a> {
         }
     }
 
-    pub fn render<'b>(&'b mut self, clear: Option<Color>, render: impl FnOnce(&mut Renderer<'b>)) {
+    pub fn render<'b>(&'b mut self, clear: Option<Color>, depth: bool, render: impl FnOnce(&mut Renderer<'b>)) {
         let mut renderer = Renderer::new(
             &mut self.inner,
             self.defaults,
             self.gpu,
             self.defaults.default_target(),
             clear,
+            if depth {
+                Some(&self.defaults.depth_buffer)
+            } else {
+                None
+            }
         );
         (render)(&mut renderer);
     }
 
-    pub fn render_to(
-        &mut self,
-        target: &dyn RenderTarget,
-        clear: Option<Color>,
-        render: impl FnOnce(&mut Renderer),
-    ) {
-        let mut renderer = Renderer::new(&mut self.inner, self.defaults, self.gpu, target, clear);
-        (render)(&mut renderer);
-    }
-
-    pub fn renderer<'b>(&'b mut self, clear: Option<Color>) -> Renderer<'b> {
-        Renderer::new(
-            &mut self.inner,
-            self.defaults,
-            self.gpu,
-            self.defaults.default_target(),
-            clear,
-        )
-    }
-
-    pub fn renderer_to<'b>(
+    pub fn renderer<'b>(
         &'b mut self,
         target: &'b dyn RenderTarget,
         clear: Option<Color>,
+        depth: Option<&'b DepthBuffer>
     ) -> Renderer<'b> {
-        Renderer::new(&mut self.inner, self.defaults, self.gpu, target, clear)
+        Renderer::new(&mut self.inner, self.defaults, self.gpu, target, clear, depth)
     }
 
     pub fn copy_target(&mut self, src: &dyn RenderTarget, target: &dyn RenderTarget) {
@@ -89,7 +75,7 @@ impl<'a> RenderEncoder<'a> {
             let src = src
                 .downcast_ref::<SpriteRenderTarget>()
                 .expect("Cannot copy this texture!");
-            let mut renderer = self.renderer_to(target, None);
+            let mut renderer = self.renderer(target, None, None);
             renderer.render_sprite(
                 0..1,
                 &renderer.defaults.centered_instance,

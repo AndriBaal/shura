@@ -3,9 +3,9 @@ use wgpu::include_wgsl;
 #[cfg(feature = "log")]
 use crate::log::info;
 #[cfg(feature = "text")]
-use crate::text::{Font, Text, TextSection, FontBuilder};
+use crate::text::{Font, FontBuilder, Text, TextSection};
 use crate::{
-    Camera, Camera2D, CameraBuffer, CameraBuffer2D, Instance, Instance2D, Instance3D,
+    Camera, Camera2D, CameraBuffer, CameraBuffer2D, DepthBuffer, Instance, Instance2D, Instance3D,
     InstanceBuffer, InstanceBuffer2D, Isometry2, Mesh, Mesh2D, MeshBuilder, MeshBuilder2D,
     RenderEncoder, RenderTarget, Shader, ShaderConfig, ShaderModule, ShaderModuleDescriptor,
     ShaderModuleSoure, Sprite, SpriteBuilder, SpriteRenderTarget, SpriteSheet, SpriteSheetBuilder,
@@ -368,7 +368,7 @@ impl WgpuDefaultResources {
         };
 
         let vertex_shader_module =
-            device.create_shader_module(include_wgsl!("../../shader/2d/vertex.wgsl"));
+            device.create_shader_module(include_wgsl!("../../static/shader/2d/vertex.wgsl"));
 
         Self {
             vertex_shader_module,
@@ -394,9 +394,11 @@ pub struct DefaultResources {
     pub text: Shader,
     pub blurr: Shader,
 
+    pub missing: Sprite,
+
     // 3D
     pub model: Shader,
-
+    pub depth_buffer: DepthBuffer,
     pub unit_mesh: Mesh2D,
 
     /// This field holds both total time and the frame time. Both are stored as f32 in the buffer.
@@ -425,8 +427,9 @@ impl DefaultResources {
             name: Some("sprite_sheet"),
             source: ShaderModuleSoure::Seperate {
                 vertex: &gpu.base.vertex_shader_module,
-                fragment: &gpu
-                    .create_shader_module(include_wgsl!("../../shader/2d/sprite_sheet.wgsl")),
+                fragment: &gpu.create_shader_module(include_wgsl!(
+                    "../../static/shader/2d/sprite_sheet.wgsl"
+                )),
             },
             uniforms: &[UniformField::Camera, UniformField::SpriteSheet],
             ..Default::default()
@@ -437,7 +440,7 @@ impl DefaultResources {
             name: Some("text"),
             uniforms: &[UniformField::Camera, UniformField::SpriteSheet],
             source: ShaderModuleSoure::Single(
-                &gpu.create_shader_module(include_wgsl!("../../shader/2d/text.wgsl")),
+                &gpu.create_shader_module(include_wgsl!("../../static/shader/2d/text.wgsl")),
             ),
             buffers: &[
                 crate::text::Vertex2DText::DESC,
@@ -462,9 +465,10 @@ impl DefaultResources {
             name: Some("model"),
             uniforms: &[UniformField::Camera, UniformField::Sprite],
             source: ShaderModuleSoure::Single(
-                &gpu.create_shader_module(include_wgsl!("../../shader/3d/model.wgsl")),
+                &gpu.create_shader_module(include_wgsl!("../../static/shader/3d/model.wgsl")),
             ),
             buffers: &[Vertex3D::DESC, Instance3D::DESC],
+            depth_stencil: Some(DepthBuffer::depth_state()),
             ..Default::default()
         });
 
@@ -472,7 +476,8 @@ impl DefaultResources {
             name: Some("color"),
             source: ShaderModuleSoure::Seperate {
                 vertex: &gpu.base.vertex_shader_module,
-                fragment: &gpu.create_shader_module(include_wgsl!("../../shader/2d/color.wgsl")),
+                fragment: &gpu
+                    .create_shader_module(include_wgsl!("../../static/shader/2d/color.wgsl")),
             },
             uniforms: &[UniformField::Camera],
             ..Default::default()
@@ -482,7 +487,8 @@ impl DefaultResources {
             name: Some("sprite"),
             source: ShaderModuleSoure::Seperate {
                 vertex: &gpu.base.vertex_shader_module,
-                fragment: &gpu.create_shader_module(include_wgsl!("../../shader/2d/sprite.wgsl")),
+                fragment: &gpu
+                    .create_shader_module(include_wgsl!("../../static/shader/2d/sprite.wgsl")),
             },
             uniforms: &[UniformField::Camera, UniformField::Sprite],
             ..Default::default()
@@ -492,7 +498,8 @@ impl DefaultResources {
             name: Some("rainbow"),
             source: ShaderModuleSoure::Seperate {
                 vertex: &gpu.base.vertex_shader_module,
-                fragment: &gpu.create_shader_module(include_wgsl!("../../shader/2d/rainbow.wgsl")),
+                fragment: &gpu
+                    .create_shader_module(include_wgsl!("../../static/shader/2d/rainbow.wgsl")),
             },
             uniforms: &[UniformField::Camera, UniformField::SingleUniform],
             ..Default::default()
@@ -502,7 +509,8 @@ impl DefaultResources {
             name: Some("grey"),
             source: ShaderModuleSoure::Seperate {
                 vertex: &gpu.base.vertex_shader_module,
-                fragment: &gpu.create_shader_module(include_wgsl!("../../shader/2d/grey.wgsl")),
+                fragment: &gpu
+                    .create_shader_module(include_wgsl!("../../static/shader/2d/grey.wgsl")),
             },
             uniforms: &[UniformField::Camera, UniformField::Sprite],
             ..Default::default()
@@ -512,7 +520,8 @@ impl DefaultResources {
             name: Some("blurr"),
             source: ShaderModuleSoure::Seperate {
                 vertex: &gpu.base.vertex_shader_module,
-                fragment: &gpu.create_shader_module(include_wgsl!("../../shader/2d/blurr.wgsl")),
+                fragment: &gpu
+                    .create_shader_module(include_wgsl!("../../static/shader/2d/blurr.wgsl")),
             },
             uniforms: &[UniformField::Camera, UniformField::Sprite],
             ..Default::default()
@@ -550,6 +559,18 @@ impl DefaultResources {
 
         #[cfg(feature = "framebuffer")]
         let framebuffer = SpriteRenderTarget::new(gpu, size);
+        let depth_buffer = DepthBuffer::new(gpu, size);
+
+        let missing = gpu.create_sprite(
+            SpriteBuilder::bytes(include_bytes!("../../static/img/missing.png")).sampler(
+                wgpu::SamplerDescriptor {
+                    address_mode_u: wgpu::AddressMode::Repeat,
+                    address_mode_v: wgpu::AddressMode::Repeat,
+                    address_mode_w: wgpu::AddressMode::Repeat,
+                    ..Sprite::DEFAULT_SAMPLER
+                },
+            ),
+        );
 
         Self {
             sprite_sheet,
@@ -564,6 +585,8 @@ impl DefaultResources {
             // test,
             model,
             unit_mesh,
+            depth_buffer,
+            missing,
 
             times,
             unit_camera,
@@ -595,6 +618,8 @@ impl DefaultResources {
 
         #[cfg(feature = "framebuffer")]
         self.framebuffer.resize(gpu, window_size);
+
+        self.depth_buffer.resize(gpu, window_size);
 
         let fov = Self::relative_fov(window_size);
         self.relative_bottom_left_camera.1 = Camera2D::new(Isometry2::new(fov, 0.0), fov);

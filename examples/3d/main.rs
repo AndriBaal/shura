@@ -5,7 +5,7 @@ fn shura_main(config: AppConfig) {
     App::run(config, || {
         NewScene::new(1)
             .component::<Cube>(ComponentConfig {
-                buffer: BufferOperation::Manual,
+                buffer: BufferOperation::EveryFrame,
                 ..ComponentConfig::DEFAULT
             })
             .component::<Resources>(ComponentConfig::RESOURCE)
@@ -59,17 +59,29 @@ fn update(ctx: &mut Context) {
     if ctx.input.is_held(Key::Right) {
         camera.eye = camera.target - (forward + right * speed).normalize() * forward_mag;
     }
+
     if ctx.input.is_held(Key::Left) {
         camera.eye = camera.target - (forward - right * speed).normalize() * forward_mag;
     }
 
     resources.camera_buffer.write(&ctx.gpu, camera);
+
+    ctx.components.set::<Cube>().for_each_mut(|cube| {
+        let mut rot = cube.position.rotation();
+        rot *= Rotation3::new(Vector3::new(
+            1.0 * ctx.frame.frame_time(),
+            1.0 * ctx.frame.frame_time(),
+            1.0 * ctx.frame.frame_time(),
+        ));
+        cube.position.set_rotation(rot);
+    });
 }
 
 fn render(res: &ComponentResources, encoder: &mut RenderEncoder) {
     let resources = res.single::<Resources>();
     encoder.render(
         Some(RgbaColor::new(220, 220, 220, 255).into()),
+        true,
         |renderer| {
             res.render_all::<Cube>(renderer, |renderer, buffer, instances| {
                 renderer.render_model(

@@ -25,6 +25,7 @@ pub struct ShaderConfig<'a> {
     pub uniforms: &'a [UniformField],
     pub blend: BlendState,
     pub write_mask: ColorWrites,
+    pub depth_stencil: Option<wgpu::DepthStencilState>,
 }
 
 impl Default for ShaderConfig<'static> {
@@ -36,6 +37,7 @@ impl Default for ShaderConfig<'static> {
             write_mask: ColorWrites::ALL,
             buffers: &[Vertex2D::DESC, Instance2D::DESC],
             source: ShaderModuleSoure::_Dummy,
+            depth_stencil: None,
         }
     }
 }
@@ -127,7 +129,7 @@ impl Shader {
                     unclipped_depth: false,
                     conservative: false,
                 },
-                depth_stencil: None,
+                depth_stencil: config.depth_stencil,
                 multisample: gpu.base.multisample,
                 multiview: None,
             });

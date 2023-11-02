@@ -27,9 +27,9 @@ pub use crate::{
         component_set::*, component_type::*, empty_instance::*, group::*, position_instance::*,
     },
     graphics::{
-        camera::*, color::*, frame_manager::*, gpu::*, instance_buffer::*, model::*,
-        render_encoder::*, render_target::*, renderer::*, screen_config::*, shader::*, sprite::*,
-        sprite_sheet::*, uniform::*, resources::*
+        camera::*, color::*, depth_buffer::*, frame_manager::*, gpu::*, instance_buffer::*,
+        model::*, render_encoder::*, render_target::*, renderer::*, resources::*, screen_config::*,
+        shader::*, sprite::*, sprite_sheet::*, uniform::*,
     },
     input::input::{Input, InputEvent, InputTrigger, Key, Modifier, MouseButton, ScreenTouch},
     math::{aabb::*, math::*},

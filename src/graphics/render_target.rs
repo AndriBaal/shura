@@ -7,6 +7,10 @@ use crate::{
     Camera2D, Color, DefaultResources, Gpu, RenderEncoder, Sprite, SpriteBuilder, Vector2,
 };
 
+pub struct DepthTexture {
+
+}
+
 pub trait RenderTarget: Downcast {
     fn msaa(&self) -> Option<&wgpu::TextureView>;
     fn view(&self) -> &wgpu::TextureView;

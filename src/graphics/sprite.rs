@@ -4,6 +4,7 @@ use crate::{Gpu, RgbaColor, Vector2, load_bytes};
 use std::{ops::Deref, path::Path};
 
 pub struct SpriteBuilder<'a, D: Deref<Target = [u8]>> {
+    pub label: Option<&'a str>,
     pub size: Vector2<u32>,
     pub sampler: wgpu::SamplerDescriptor<'a>,
     pub data: D,
@@ -16,6 +17,7 @@ impl<'a> SpriteBuilder<'a, image::RgbaImage> {
         let image = image::load_from_memory(&bytes).unwrap();
         let size = Vector2::new(image.width(), image.height());
         return Self {
+            label: None,
             size,
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
             sampler: Sprite::DEFAULT_SAMPLER,
@@ -27,6 +29,7 @@ impl<'a> SpriteBuilder<'a, image::RgbaImage> {
         let image = image::load_from_memory(bytes).unwrap();
         let size = Vector2::new(image.width(), image.height());
         return Self {
+            label: None,
             size,
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
             sampler: Sprite::DEFAULT_SAMPLER,
@@ -37,6 +40,7 @@ impl<'a> SpriteBuilder<'a, image::RgbaImage> {
     pub fn image(image: image::DynamicImage) -> Self {
         let size = Vector2::new(image.width(), image.height());
         return Self {
+            label: None,
             size,
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
             sampler: Sprite::DEFAULT_SAMPLER,
@@ -48,6 +52,7 @@ impl<'a> SpriteBuilder<'a, image::RgbaImage> {
 impl<'a> SpriteBuilder<'a, &'static [u8]> {
     pub fn empty(size: Vector2<u32>) -> Self {
         return Self {
+            label: None,
             size,
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
             sampler: Sprite::DEFAULT_SAMPLER,
@@ -59,6 +64,7 @@ impl<'a> SpriteBuilder<'a, &'static [u8]> {
 impl<'a> SpriteBuilder<'a, Vec<u8>> {
     pub fn color(color: RgbaColor) -> Self {
         Self {
+            label: None,
             size: Vector2::new(1, 1),
             sampler: Sprite::DEFAULT_SAMPLER,
             data: vec![color.r, color.g, color.b, color.a],
@@ -70,6 +76,7 @@ impl<'a> SpriteBuilder<'a, Vec<u8>> {
 impl<'a> SpriteBuilder<'a, &'a [u8]> {
     pub fn raw(size: Vector2<u32>, data: &'a [u8]) -> Self {
         return Self {
+            label: None,
             size,
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
             sampler: Sprite::DEFAULT_SAMPLER,
@@ -84,6 +91,11 @@ impl<'a, D: Deref<Target = [u8]>> SpriteBuilder<'a, D> {
         self
     }
 
+    pub fn label(mut self, label: Option<&'a str>) -> Self {
+        self.label = label;
+        self
+    }
+
     pub fn format(mut self, format: wgpu::TextureFormat) -> Self {
         self.format = format;
         self
@@ -95,6 +107,7 @@ impl<'a, D: Deref<Target = [u8]>> SpriteBuilder<'a, D> {
 pub struct Sprite {
     texture: wgpu::Texture,
     bind_group: wgpu::BindGroup,
+    view: wgpu::TextureView,
     _sampler: wgpu::Sampler,
     format: wgpu::TextureFormat,
     size: Vector2<u32>,
@@ -118,19 +131,21 @@ impl Sprite {
     };
 
     pub fn new<D: Deref<Target = [u8]>>(gpu: &Gpu, desc: SpriteBuilder<D>) -> Self {
-        let texture = Self::create_texture(gpu, desc.format, desc.size, &desc.data);
-        let (bind_group, sampler) = Self::create_bind_group(gpu, &texture, &desc.sampler);
+        let texture = Self::create_texture(gpu, desc.label, desc.format, desc.size, &desc.data);
+        let (view, bind_group, sampler) = Self::create_bind_group(gpu, &texture, &desc.sampler);
         return Self {
             _sampler: sampler,
             size: desc.size,
             format: desc.format,
             texture,
+            view,
             bind_group,
         };
     }
 
     fn create_texture(
         gpu: &Gpu,
+        label: Option<&str>,
         format: wgpu::TextureFormat,
         size: Vector2<u32>,
         data: &[u8],
@@ -138,7 +153,7 @@ impl Sprite {
         assert!(size.x != 0 && size.y != 0);
         let texture = if data.is_empty() {
             gpu.device.create_texture(&wgpu::TextureDescriptor {
-                label: Some("sprite_texture"),
+                label: label,
                 size: wgpu::Extent3d {
                     width: size.x,
                     height: size.y,
@@ -185,7 +200,7 @@ impl Sprite {
         gpu: &Gpu,
         texture: &wgpu::Texture,
         sampler: &wgpu::SamplerDescriptor,
-    ) -> (wgpu::BindGroup, wgpu::Sampler) {
+    ) -> (wgpu::TextureView, wgpu::BindGroup, wgpu::Sampler) {
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
         let sampler = gpu.device.create_sampler(&sampler);
         let bind_group = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -203,7 +218,7 @@ impl Sprite {
             label: Some("texture_bind_group"),
         });
 
-        return (bind_group, sampler);
+        return (view, bind_group, sampler);
     }
 
     /// Overwrite with an image of the same dimension
@@ -322,5 +337,9 @@ impl Sprite {
 
     pub const fn texture(&self) -> &wgpu::Texture {
         &self.texture
+    }
+
+    pub fn view(&self) -> &wgpu::TextureView {
+        &self.view
     }
 }

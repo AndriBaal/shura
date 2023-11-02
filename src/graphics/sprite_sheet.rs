@@ -6,8 +6,8 @@ use crate::{Gpu, RgbaColor, Vector2};
 pub type SpriteSheetIndex = u32;
 pub type SpriteSheetIndex2D = Vector2<u32>;
 
-
 pub struct SpriteSheetBuilder<'a, D: Deref<Target = [u8]>> {
+    pub label: Option<&'a str>,
     pub sprite_size: Vector2<u32>,
     pub sprite_amount: Vector2<u32>,
     pub sampler: wgpu::SamplerDescriptor<'a>,
@@ -37,6 +37,7 @@ impl<'a> SpriteSheetBuilder<'a, image::RgbaImage> {
             }
         }
         Self {
+            label: None,
             sprite_size,
             sprite_amount,
             sampler: Self::DEFAULT_SAMPLER,
@@ -54,6 +55,7 @@ impl<'a> SpriteSheetBuilder<'a, Vec<u8>> {
         }
 
         Self {
+            label: None,
             sprite_size: Vector2::new(1, 1),
             sprite_amount: Vector2::new(colors.len() as u32, 1),
             sampler: Self::DEFAULT_SAMPLER,
@@ -70,6 +72,7 @@ impl<'a> SpriteSheetBuilder<'a, &'a [u8]> {
         data: Vec<&'a [u8]>,
     ) -> Self {
         return Self {
+            label: None,
             sprite_size,
             sprite_amount,
             sampler: Self::DEFAULT_SAMPLER,
@@ -80,6 +83,7 @@ impl<'a> SpriteSheetBuilder<'a, &'a [u8]> {
 
     pub fn empty(sprite_size: Vector2<u32>, sprite_amount: Vector2<u32>) -> Self {
         return Self {
+            label: None,
             sprite_size,
             sprite_amount,
             sampler: Self::DEFAULT_SAMPLER,
@@ -115,6 +119,11 @@ impl<'a, D: Deref<Target = [u8]>> SpriteSheetBuilder<'a, D> {
         self.format = format;
         self
     }
+
+    pub fn label(mut self, label: Option<&'a str>) -> Self {
+        self.label = label;
+        self
+    }
 }
 
 pub struct SpriteSheet {
@@ -130,7 +139,7 @@ impl SpriteSheet {
         let amount = desc.sprite_amount.x * desc.sprite_amount.y;
 
         let texture_descriptor = wgpu::TextureDescriptor {
-            label: Some("sprite_texture"),
+            label: desc.label,
             size: wgpu::Extent3d {
                 width: desc.sprite_size.x,
                 height: desc.sprite_size.y,

@@ -12,7 +12,7 @@ fn main() {
             println!("cargo:rustc-link-lib=c++_shared");
         }
         Ok(_) => {
-            // println!("cargo:rerun-if-changed=res/*");
+            println!("cargo:rerun-if-changed=res/*");
 
             let build_type = env::var("PROFILE").unwrap();
             let path = env::var("CARGO_TARGET_DIR")

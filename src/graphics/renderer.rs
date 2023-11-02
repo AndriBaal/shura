@@ -4,7 +4,7 @@ use crate::text::Text;
 use crate::{
     Camera, CameraBuffer, CameraBuffer2D, Color, DefaultResources, Gpu, Instance, InstanceBuffer,
     InstanceBuffer2D, InstanceBuffer3D, InstanceIndices, Mesh, Mesh2D, Model, PerspectiveCamera3D,
-    RenderTarget, Shader, Sprite, SpriteSheet, Uniform, Vertex,
+    RenderTarget, Shader, Sprite, SpriteSheet, Uniform, Vertex, DepthBuffer,
 };
 use std::{ops::Range, ptr::null};
 
@@ -46,12 +46,23 @@ impl<'a> Renderer<'a> {
         gpu: &'a Gpu,
         target: &'a dyn RenderTarget,
         clear: Option<Color>,
+        depth: Option<&'a DepthBuffer>
     ) -> Renderer<'a> {
         let render_pass = render_encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("render_pass"),
             color_attachments: &[Some(target.attachment(clear))],
-
-            depth_stencil_attachment: None,
+            depth_stencil_attachment: if let Some(depth) = depth {
+                Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: depth.view(),
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: true,
+                    }),
+                    stencil_ops: None,
+                })
+            } else {
+                None
+            },
         });
 
         return Self {
@@ -276,7 +287,11 @@ impl<'a> Renderer<'a> {
             self.use_camera(camera);
             let instances = instances.into();
             for mesh in &model.meshes {
-                let sprite = &model.sprites[mesh.0];
+                let sprite = if let Some(index) = mesh.0 {
+                    &model.sprites[index]
+                } else {
+                    &self.defaults.missing
+                };
                 self.use_sprite(sprite, 1);
                 self.use_mesh(&mesh.1);
                 self.draw(instances.clone());

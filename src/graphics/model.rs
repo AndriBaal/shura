@@ -961,7 +961,7 @@ pub enum RoundingDirection {
 }
 
 pub struct Model {
-    pub meshes: Vec<(usize, Mesh3D)>,
+    pub meshes: Vec<(Option<usize>, Mesh3D)>,
     pub sprites: Vec<Sprite>,
 }
 
@@ -1012,7 +1012,7 @@ impl Model {
                     })
                     .collect::<Vec<_>>();
                 (
-                    m.mesh.material_id.unwrap_or(0),
+                    m.mesh.material_id,
                     gpu.create_mesh(MeshBuilder3D {
                         vertices,
                         indices: Index::from_vec(m.mesh.indices),
