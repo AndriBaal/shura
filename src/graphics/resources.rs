@@ -1,10 +1,8 @@
-
+use std::io::Result;
 use std::path::Path;
 use std::{env, fs, path::PathBuf};
-use std::io::Result;
 
-
-#[cfg(feature="log")]
+#[cfg(feature = "log")]
 use crate::log::info;
 
 pub fn load_bytes(path: impl AsRef<Path>) -> Result<Vec<u8>> {
@@ -22,8 +20,7 @@ pub fn resource_path(path: impl AsRef<Path>) -> Result<PathBuf> {
     let mut dir = fs::canonicalize(exe)?;
     dir.pop();
     let path = dir.join("res").join(path);
-    #[cfg(feature="log")]
+    #[cfg(feature = "log")]
     info!("Loading: {}", path.display());
     return Ok(path);
 }
-

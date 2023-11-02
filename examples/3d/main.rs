@@ -79,9 +79,8 @@ fn update(ctx: &mut Context) {
 
 fn render(res: &ComponentResources, encoder: &mut RenderEncoder) {
     let resources = res.single::<Resources>();
-    encoder.render(
+    encoder.render3d(
         Some(RgbaColor::new(220, 220, 220, 255).into()),
-        true,
         |renderer| {
             res.render_all::<Cube>(renderer, |renderer, buffer, instances| {
                 renderer.render_model(

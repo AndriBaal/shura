@@ -1,0 +1,38 @@
+[package]
+name = "shura_template"
+version = "0.4.0"
+edition = "2021"
+
+# Android
+# Important: key.keystore is only for demo. Replace key.keystore for your own private key when deploying
+# [lib]
+# crate_type=["cdylib"]
+
+# Desktop (Windows, Linux, MacOS, WASM)
+[[bin]]
+path="src/lib.rs"
+name="desktop"
+
+[dependencies]
+shura = {path = "../../"}
+
+[build-dependencies]
+fs_extra = "1.2"
+
+[workspace]
+members = ["run-wasm"]
+
+[package.metadata.android]
+package = "com.shura.template"
+apk_name = "Shura Template"
+
+[package.metadata.android.application]
+label = "Shura Template"
+theme = "@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen"
+
+[package.metadata.android.application.activity]
+orientation = "landscape"
+
+[package.metadata.android.signing.release]
+path = "./key.keystore"
+keystore_password = "android"

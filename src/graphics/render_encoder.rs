@@ -1,4 +1,6 @@
-use crate::{Color, DefaultResources, Gpu, RenderTarget, Renderer, SpriteRenderTarget, DepthBuffer};
+use crate::{
+    Color, DefaultResources, DepthBuffer, Gpu, RenderTarget, Renderer, SpriteRenderTarget,
+};
 
 /// Encoder of [Renderers](crate::Renderer) and utilities to copy, clear and render text onto [RenderTargets](crate::RenderTarget)
 pub struct RenderEncoder<'a> {
@@ -28,18 +30,34 @@ impl<'a> RenderEncoder<'a> {
         }
     }
 
-    pub fn render<'b>(&'b mut self, clear: Option<Color>, depth: bool, render: impl FnOnce(&mut Renderer<'b>)) {
+    pub fn render2d<'b>(
+        &'b mut self,
+        clear: Option<Color>,
+        render: impl FnOnce(&mut Renderer<'b>),
+    ) {
         let mut renderer = Renderer::new(
             &mut self.inner,
             self.defaults,
             self.gpu,
             self.defaults.default_target(),
             clear,
-            if depth {
-                Some(&self.defaults.depth_buffer)
-            } else {
-                None
-            }
+            None,
+        );
+        (render)(&mut renderer);
+    }
+
+    pub fn render3d<'b>(
+        &'b mut self,
+        clear: Option<Color>,
+        render: impl FnOnce(&mut Renderer<'b>),
+    ) {
+        let mut renderer = Renderer::new(
+            &mut self.inner,
+            self.defaults,
+            self.gpu,
+            self.defaults.default_target(),
+            clear,
+            Some(&self.defaults.depth_buffer),
         );
         (render)(&mut renderer);
     }
@@ -48,9 +66,16 @@ impl<'a> RenderEncoder<'a> {
         &'b mut self,
         target: &'b dyn RenderTarget,
         clear: Option<Color>,
-        depth: Option<&'b DepthBuffer>
+        depth: Option<&'b DepthBuffer>,
     ) -> Renderer<'b> {
-        Renderer::new(&mut self.inner, self.defaults, self.gpu, target, clear, depth)
+        Renderer::new(
+            &mut self.inner,
+            self.defaults,
+            self.gpu,
+            target,
+            clear,
+            depth,
+        )
     }
 
     pub fn copy_target(&mut self, src: &dyn RenderTarget, target: &dyn RenderTarget) {

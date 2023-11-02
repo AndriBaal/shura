@@ -1003,11 +1003,14 @@ impl Model {
                             m.mesh.positions[i * 3 + 1],
                             m.mesh.positions[i * 3 + 2],
                         ),
-                        tex: Vector2::new(m.mesh.texcoords[i * 2], m.mesh.texcoords[i * 2 + 1]),
+                        tex: Vector2::new(
+                            *m.mesh.texcoords.get(i * 2).unwrap_or(&0.0),
+                            *m.mesh.texcoords.get(i * 2 + 1).unwrap_or(&0.0),
+                        ),
                         normal: Vector3::new(
-                            m.mesh.normals[i * 3],
-                            m.mesh.normals[i * 3 + 1],
-                            m.mesh.normals[i * 3 + 2],
+                            *m.mesh.normals.get(i * 3).unwrap_or(&0.0),
+                            *m.mesh.normals.get(i * 3 + 1).unwrap_or(&0.0),
+                            *m.mesh.normals.get(i * 3 + 2).unwrap_or(&0.0),
                         ),
                     })
                     .collect::<Vec<_>>();
