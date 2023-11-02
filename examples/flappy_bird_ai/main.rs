@@ -32,10 +32,10 @@ fn shura_main(config: ShuraConfig) {
 
 #[derive(Component)]
 struct BirdSimulation {
-    bird_model: Model,
+    bird_mesh: Mesh,
     bird_sprite: Sprite,
-    top_pipe_model: Model,
-    bottom_pipe_model: Model,
+    top_pipe_mesh: Mesh,
+    bottom_pipe_mesh: Mesh,
     pipe_sprite: Sprite,
     spawn_timer: f32,
     generation: u32,
@@ -50,22 +50,22 @@ impl ComponentController for BirdSimulation {
 impl BirdSimulation {
     pub fn new(ctx: &Context) -> Self {
         return Self {
-            bird_model: ctx
+            bird_mesh: ctx
                 .gpu
-                .create_model(ModelBuilder::cuboid(Bird::HALF_EXTENTS)),
+                .create_mesh(MeshBuilder::cuboid(Bird::HALF_EXTENTS)),
             bird_sprite: ctx
                 .gpu
                 .create_sprite(sprite_file!("./sprites/yellowbird-downflap.png")),
-            top_pipe_model: ctx.gpu.create_model(
-                ModelBuilder::cuboid(Pipe::HALF_EXTENTS)
+            top_pipe_mesh: ctx.gpu.create_mesh(
+                MeshBuilder::cuboid(Pipe::HALF_EXTENTS)
                     .vertex_translation(Vector::new(
                         0.0,
                         Pipe::HALF_HOLE_SIZE + Pipe::HALF_EXTENTS.y,
                     ))
                     .tex_coord_rotation(Rotation::new(180.0_f32.to_radians())),
             ),
-            bottom_pipe_model: ctx.gpu.create_model(
-                ModelBuilder::cuboid(Pipe::HALF_EXTENTS).vertex_translation(Vector::new(
+            bottom_pipe_mesh: ctx.gpu.create_mesh(
+                MeshBuilder::cuboid(Pipe::HALF_EXTENTS).vertex_translation(Vector::new(
                     0.0,
                     -Pipe::HALF_HOLE_SIZE - Pipe::HALF_EXTENTS.y,
                 )),
@@ -244,7 +244,7 @@ impl ComponentController for Bird {
                 instance,
                 buffer,
                 renderer.world_camera,
-                &scene.bird_model,
+                &scene.bird_mesh,
                 &scene.bird_sprite,
             )
         });
@@ -253,7 +253,7 @@ impl ComponentController for Bird {
 
 #[derive(Component)]
 struct Ground {
-    model: Model,
+    mesh: Mesh,
     sprite: Sprite,
     #[position]
     pos: PositionComponent,
@@ -263,9 +263,9 @@ impl Ground {
     const HALF_EXTENTS: Vector<f32> = Vector::new(GAME_SIZE.data.0[0][0], 0.9375);
     pub fn new(ctx: &Context) -> Self {
         Self {
-            model: ctx
+            mesh: ctx
                 .gpu
-                .create_model(ModelBuilder::cuboid(Self::HALF_EXTENTS)),
+                .create_mesh(MeshBuilder::cuboid(Self::HALF_EXTENTS)),
             sprite: ctx.gpu.create_sprite(sprite_file!("./sprites/base.png")),
             pos: PositionComponent::new()
                 .with_translation(Vector::new(0.0, -GAME_SIZE.y + Self::HALF_EXTENTS.y)),
@@ -285,7 +285,7 @@ impl ComponentController for Ground {
                 instance,
                 buffer,
                 renderer.world_camera,
-                &ground.model,
+                &ground.mesh,
                 &ground.sprite,
             )
         });
@@ -294,7 +294,7 @@ impl ComponentController for Ground {
 
 #[derive(Component)]
 struct Background {
-    model: Model,
+    mesh: Mesh,
     sprite: Sprite,
     #[position]
     pos: PositionComponent,
@@ -306,7 +306,7 @@ impl Background {
             .gpu
             .create_sprite(sprite_file!("./sprites/background-night.png"));
         Self {
-            model: ctx.gpu.create_model(ModelBuilder::cuboid(GAME_SIZE)),
+            mesh: ctx.gpu.create_mesh(MeshBuilder::cuboid(GAME_SIZE)),
             sprite,
             pos: PositionComponent::default(),
         }
@@ -327,7 +327,7 @@ impl ComponentController for Background {
                 instance,
                 buffer,
                 renderer.world_camera,
-                &background.model,
+                &background.mesh,
                 &background.sprite,
             )
         });
@@ -383,14 +383,14 @@ impl ComponentController for Pipe {
                 instances,
                 buffer,
                 renderer.world_camera,
-                &scene.top_pipe_model,
+                &scene.top_pipe_mesh,
                 &scene.pipe_sprite,
             );
             renderer.render_sprite(
                 instances,
                 buffer,
                 renderer.world_camera,
-                &scene.bottom_pipe_model,
+                &scene.bottom_pipe_mesh,
                 &scene.pipe_sprite,
             );
         });

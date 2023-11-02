@@ -107,7 +107,7 @@ fn render(res: &ComponentResources, encoder: &mut RenderEncoder) {
                     instances,
                     buffer,
                     res.world_camera2d,
-                    res.unit_model,
+                    res.unit_mesh,
                     &resources.bunny_sprite,
                 );
             });
@@ -127,7 +127,7 @@ struct Resources {
 
 impl Resources {
     pub fn new(ctx: &Context) -> Self {
-        let bunny_sprite = ctx.gpu.create_sprite(sprite_file!("./img/wabbit.png"));
+        let bunny_sprite = ctx.gpu.create_sprite(SpriteBuilder::file("wabbit.png"));
         Resources {
             screenshot: None,
             bunny_sprite,

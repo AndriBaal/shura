@@ -3,8 +3,8 @@ use crate::text::Text;
 
 use crate::{
     Camera, CameraBuffer, CameraBuffer2D, Color, DefaultResources, Gpu, Instance, InstanceBuffer,
-    InstanceBuffer2D, InstanceBuffer3D, InstanceIndices, Model, Model2D, Model3D,
-    PerspectiveCamera3D, RenderTarget, Shader, Sprite, SpriteSheet, Uniform, Vertex,
+    InstanceBuffer2D, InstanceBuffer3D, InstanceIndices, Mesh, Mesh2D, Model, PerspectiveCamera3D,
+    RenderTarget, Shader, Sprite, SpriteSheet, Uniform, Vertex,
 };
 use std::{ops::Range, ptr::null};
 
@@ -99,24 +99,24 @@ impl<'a> Renderer<'a> {
         &mut self,
         shader: &'a Shader,
         instances: &'a InstanceBuffer<I>,
-        model: &'a Model<T>,
+        mesh: &'a Mesh<T>,
     ) {
         debug_assert_eq!(shader.instance_size(), instances.instance_size());
-        debug_assert_eq!(shader.vertex_size(), model.vertex_size());
+        debug_assert_eq!(shader.vertex_size(), mesh.vertex_size());
         self.use_shader(shader);
-        self.use_model(model);
+        self.use_mesh(mesh);
         self.use_instances(instances);
     }
 
-    pub fn use_model<T: Vertex>(&mut self, model: &'a Model<T>) {
-        let ptr = model.buffer() as *const _;
+    pub fn use_mesh<T: Vertex>(&mut self, mesh: &'a Mesh<T>) {
+        let ptr = mesh.buffer() as *const _;
         if self.cache.bound_buffers[Self::MODEL_SLOT as usize] != ptr {
             self.cache.bound_buffers[Self::MODEL_SLOT as usize] = ptr;
-            self.indices = model.index_amount();
+            self.indices = mesh.index_amount();
             self.render_pass
-                .set_index_buffer(model.index_buffer(), wgpu::IndexFormat::Uint32);
+                .set_index_buffer(mesh.index_buffer(), wgpu::IndexFormat::Uint32);
             self.render_pass
-                .set_vertex_buffer(Self::MODEL_SLOT, model.vertex_buffer());
+                .set_vertex_buffer(Self::MODEL_SLOT, mesh.vertex_buffer());
         }
     }
 
@@ -158,11 +158,11 @@ impl<'a> Renderer<'a> {
         instances: impl Into<InstanceIndices>,
         buffer: &'a InstanceBuffer2D,
         camera: &'a CameraBuffer2D,
-        model: &'a Model2D,
+        mesh: &'a Mesh2D,
         sprite: &'a Sprite,
     ) {
         if buffer.buffer_size() != 0 {
-            self.use_shader_with_buffers(&self.defaults.sprite, buffer, model);
+            self.use_shader_with_buffers(&self.defaults.sprite, buffer, mesh);
             self.use_camera(camera);
             self.use_sprite(sprite, 1);
             self.draw(instances);
@@ -174,11 +174,11 @@ impl<'a> Renderer<'a> {
         instances: impl Into<InstanceIndices>,
         buffer: &'a InstanceBuffer2D,
         camera: &'a CameraBuffer2D,
-        model: &'a Model2D,
+        mesh: &'a Mesh2D,
         sprite: &'a SpriteSheet,
     ) {
         if buffer.buffer_size() != 0 {
-            self.use_shader_with_buffers(&self.defaults.sprite_sheet, buffer, model);
+            self.use_shader_with_buffers(&self.defaults.sprite_sheet, buffer, mesh);
             self.use_camera(camera);
             self.use_sprite_sheet(sprite, 1);
             self.draw(instances);
@@ -190,10 +190,10 @@ impl<'a> Renderer<'a> {
         instances: impl Into<InstanceIndices>,
         buffer: &'a InstanceBuffer2D,
         camera: &'a CameraBuffer2D,
-        model: &'a Model2D,
+        mesh: &'a Mesh2D,
     ) {
         if buffer.buffer_size() != 0 {
-            self.use_shader_with_buffers(&self.defaults.color, buffer, model);
+            self.use_shader_with_buffers(&self.defaults.color, buffer, mesh);
             self.use_camera(camera);
             self.draw(instances);
         }
@@ -207,10 +207,10 @@ impl<'a> Renderer<'a> {
         camera: &'a CameraBuffer2D,
         text: &'a Text,
     ) {
-        if buffer.buffer_size() != 0 && text.model().vertex_buffer_size() != 0 {
-            self.use_shader_with_buffers(&self.defaults.text, buffer, text.model());
+        if buffer.buffer_size() != 0 && text.mesh().vertex_buffer_size() != 0 {
+            self.use_shader_with_buffers(&self.defaults.text, buffer, text.mesh());
             self.use_camera(camera);
-            self.use_model(text.model());
+            self.use_mesh(text.mesh());
             self.use_sprite_sheet(text.font(), 1);
             self.draw(instances);
         }
@@ -221,11 +221,11 @@ impl<'a> Renderer<'a> {
         instances: impl Into<InstanceIndices>,
         buffer: &'a InstanceBuffer2D,
         camera: &'a CameraBuffer2D,
-        model: &'a Model2D,
+        mesh: &'a Mesh2D,
         sprite: &'a Sprite,
     ) {
         if buffer.buffer_size() != 0 {
-            self.use_shader_with_buffers(&self.defaults.grey, buffer, model);
+            self.use_shader_with_buffers(&self.defaults.grey, buffer, mesh);
             self.use_camera(camera);
             self.use_sprite(sprite, 1);
             self.draw(instances);
@@ -237,11 +237,11 @@ impl<'a> Renderer<'a> {
         instances: impl Into<InstanceIndices>,
         buffer: &'a InstanceBuffer2D,
         camera: &'a CameraBuffer2D,
-        model: &'a Model2D,
+        mesh: &'a Mesh2D,
         sprite: &'a Sprite,
     ) {
         if buffer.buffer_size() != 0 {
-            self.use_shader_with_buffers(&self.defaults.blurr, buffer, model);
+            self.use_shader_with_buffers(&self.defaults.blurr, buffer, mesh);
             self.use_camera(camera);
             self.use_sprite(sprite, 1);
             self.draw(instances);
@@ -253,28 +253,34 @@ impl<'a> Renderer<'a> {
         instances: impl Into<InstanceIndices>,
         buffer: &'a InstanceBuffer2D,
         camera: &'a CameraBuffer2D,
-        model: &'a Model2D,
+        mesh: &'a Mesh2D,
     ) {
         if buffer.buffer_size() != 0 {
-            self.use_shader_with_buffers(&self.defaults.rainbow, buffer, model);
+            self.use_shader_with_buffers(&self.defaults.rainbow, buffer, mesh);
             self.use_camera(camera);
             self.use_uniform(&self.defaults.times, 1);
             self.draw(instances);
         }
     }
 
-    pub fn renderr_test3d(
+    pub fn render_model(
         &mut self,
         instances: impl Into<InstanceIndices>,
         buffer: &'a InstanceBuffer3D,
         camera: &'a CameraBuffer<PerspectiveCamera3D>,
-        model: &'a Model3D,
+        model: &'a Model,
     ) {
         if buffer.buffer_size() != 0 {
-            self.use_shader_with_buffers(&self.defaults.test3d, buffer, model);
+            self.use_shader(&self.defaults.model);
+            self.use_instances(buffer);
             self.use_camera(camera);
-            self.use_uniform(&self.defaults.times, 1);
-            self.draw(instances);
+            let instances = instances.into();
+            for mesh in &model.meshes {
+                let sprite = &model.sprites[mesh.0];
+                self.use_sprite(sprite, 1);
+                self.use_mesh(&mesh.1);
+                self.draw(instances.clone());
+            }
         }
     }
 }

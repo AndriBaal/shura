@@ -171,7 +171,7 @@ fn render(res: &ComponentResources, encoder: &mut RenderEncoder) {
                 instances,
                 buffer,
                 res.world_camera2d,
-                &resources.player_model,
+                &resources.player_mesh,
                 &resources.player_sprite,
             )
         });
@@ -181,12 +181,12 @@ fn render(res: &ComponentResources, encoder: &mut RenderEncoder) {
                 instances,
                 buffer,
                 res.world_camera2d,
-                &resources.floor_model,
+                &resources.floor_mesh,
             )
         });
 
         res.render_all::<PhysicsBox>(renderer, |renderer, buffer, instance| {
-            renderer.render_color(instance, buffer, res.world_camera2d, &resources.box_model);
+            renderer.render_color(instance, buffer, res.world_camera2d, &resources.box_mesh);
         });
     })
 }
@@ -212,27 +212,27 @@ fn serialize_scene(ctx: &mut Context) {
 
 #[derive(Component)]
 struct Resources {
-    floor_model: Model2D,
-    box_model: Model2D,
-    player_model: Model2D,
+    floor_mesh: Mesh2D,
+    box_mesh: Mesh2D,
+    player_mesh: Mesh2D,
     player_sprite: Sprite,
 }
 
 impl Resources {
     pub fn new(ctx: &Context) -> Self {
         Self {
-            player_sprite: ctx.gpu.create_sprite(sprite_file!("./img/burger.png")),
-            player_model: ctx.gpu.create_model(ModelBuilder2D::from_collider_shape(
+            player_sprite: ctx.gpu.create_sprite(SpriteBuilder::file("burger.png")),
+            player_mesh: ctx.gpu.create_mesh(MeshBuilder2D::from_collider_shape(
                 &Player::SHAPE,
                 Player::RESOLUTION,
                 0.0,
             )),
-            floor_model: ctx.gpu.create_model(ModelBuilder2D::from_collider_shape(
+            floor_mesh: ctx.gpu.create_mesh(MeshBuilder2D::from_collider_shape(
                 &Floor::SHAPE,
                 Floor::RESOLUTION,
                 0.0,
             )),
-            box_model: ctx.gpu.create_model(ModelBuilder2D::from_collider_shape(
+            box_mesh: ctx.gpu.create_mesh(MeshBuilder2D::from_collider_shape(
                 &PhysicsBox::BOX_SHAPE,
                 0,
                 0.0,

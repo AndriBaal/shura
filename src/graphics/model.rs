@@ -1,17 +1,21 @@
 #[cfg(feature = "physics")]
 use crate::physics::{Shape, TypedShape};
-use crate::{Gpu, Isometry2, Matrix2, Rotation2, Vector2, Vector3, AABB};
+use crate::{
+    load_string, Gpu, Isometry2, Matrix2, Rotation2, Sprite, SpriteBuilder, Vector2, Vector3, AABB,
+};
+use std::io::{BufReader, Cursor};
 use std::mem;
 use std::{
     f32::consts::{FRAC_PI_2, PI},
     marker::PhantomData,
 };
 use wgpu::util::DeviceExt;
+use wgpu::vertex_attr_array;
 
-pub type Model2D = Model<Vertex2D>;
-pub type Model3D = Model<Vertex3D>;
+pub type Mesh2D = Mesh<Vertex2D>;
+pub type Mesh3D = Mesh<Vertex3D>;
 
-pub trait ModelBuilder {
+pub trait MeshBuilder {
     type Vertex;
     fn indices<'a>(&'a self) -> &'a [Index];
     fn vertices<'a>(&'a self) -> &'a [Self::Vertex];
@@ -41,9 +45,22 @@ impl Index {
     pub const fn new(a: u32, b: u32, c: u32) -> Self {
         Self { a, b, c }
     }
+
+    pub fn from_vec(vec: Vec<u32>) -> Vec<Self> {
+        assert_eq!(vec.len() % 3, 0);
+        let mut indices = Vec::with_capacity(vec.len() / 3);
+        for index in vec.chunks(3) {
+            indices.push(Index {
+                a: index[0],
+                b: index[1],
+                c: index[2],
+            })
+        }
+        return indices;
+    }
 }
 
-impl<V: Vertex> ModelBuilder for (Vec<V>, Vec<Index>) {
+impl<V: Vertex> MeshBuilder for (Vec<V>, Vec<Index>) {
     type Vertex = V;
 
     fn indices<'a>(&'a self) -> &'a [Index] {
@@ -54,7 +71,7 @@ impl<V: Vertex> ModelBuilder for (Vec<V>, Vec<Index>) {
     }
 }
 
-/// Single vertex of a model. Which hold the coordniate of the vertex and the texture coordinates.
+/// Single vertex of a mesh. Which hold the coordniate of the vertex and the texture coordinates.
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Default, bytemuck::Pod, bytemuck::Zeroable)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -87,8 +104,8 @@ impl Vertex for Vertex2D {
 
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-/// Builder to easily create a [Model].
-pub struct ModelBuilder2D {
+/// Builder to easily create a [Mesh].
+pub struct MeshBuilder2D {
     pub vertices: Vec<Vertex2D>,
     pub indices: Vec<Index>,
     pub vertex_offset: Isometry2<f32>,
@@ -99,7 +116,7 @@ pub struct ModelBuilder2D {
     pub tex_coord_rotation_axis: Vector2<f32>,
 }
 
-impl ModelBuilder for ModelBuilder2D {
+impl MeshBuilder for MeshBuilder2D {
     type Vertex = Vertex2D;
 
     fn indices<'a>(&'a self) -> &'a [Index] {
@@ -110,7 +127,7 @@ impl ModelBuilder for ModelBuilder2D {
     }
 }
 
-impl ModelBuilder2D {
+impl MeshBuilder2D {
     pub const TRIANGLE_INDICES: [Index; 1] = [Index::new(0, 1, 2)];
     pub const CUBOID_INDICES: [Index; 2] = [Index::new(0, 1, 2), Index::new(2, 3, 0)];
 
@@ -697,7 +714,7 @@ impl ModelBuilder2D {
     }
 }
 
-impl Default for ModelBuilder2D {
+impl Default for MeshBuilder2D {
     fn default() -> Self {
         Self {
             vertices: Default::default(),
@@ -718,36 +735,30 @@ impl Default for ModelBuilder2D {
 pub struct Vertex3D {
     pub pos: Vector3<f32>,
     pub tex: Vector2<f32>,
+    pub normal: Vector3<f32>,
 }
 
 impl Vertex3D {
-    pub const fn new(pos: Vector3<f32>, tex: Vector2<f32>) -> Self {
-        Vertex3D { pos, tex }
+    pub const fn new(pos: Vector3<f32>, tex: Vector2<f32>, normal: Vector3<f32>) -> Self {
+        Vertex3D { pos, tex, normal }
     }
 }
 
 impl Vertex for Vertex3D {
     const SIZE: u64 = mem::size_of::<Self>() as u64;
-    const ATTRIBUTES: &'static [wgpu::VertexAttribute] = &[
-        wgpu::VertexAttribute {
-            offset: 0,
-            shader_location: 0,
-            format: wgpu::VertexFormat::Float32x3,
-        },
-        wgpu::VertexAttribute {
-            offset: mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
-            shader_location: 1,
-            format: wgpu::VertexFormat::Float32x2,
-        },
+    const ATTRIBUTES: &'static [wgpu::VertexAttribute] = &vertex_attr_array![
+        0 => Float32x3,
+        1 => Float32x2,
+        2 => Float32x3,
     ];
 }
 
-pub struct ModelBuilder3D {
+pub struct MeshBuilder3D {
     pub vertices: Vec<Vertex3D>,
     pub indices: Vec<Index>,
 }
 
-impl ModelBuilder for ModelBuilder3D {
+impl MeshBuilder for MeshBuilder3D {
     type Vertex = Vertex3D;
 
     fn indices<'a>(&'a self) -> &'a [Index] {
@@ -759,40 +770,48 @@ impl ModelBuilder for ModelBuilder3D {
     }
 }
 
-impl ModelBuilder3D {
+impl MeshBuilder3D {
     pub fn cube(half_size: Vector3<f32>) -> Self {
         Self {
             vertices: vec![
                 Vertex3D::new(
                     Vector3::new(-half_size.x, -half_size.y, -half_size.z),
                     Default::default(),
+                    Default::default(),
                 ),
                 Vertex3D::new(
                     Vector3::new(half_size.x, -half_size.y, -half_size.z),
+                    Default::default(),
                     Default::default(),
                 ),
                 Vertex3D::new(
                     Vector3::new(half_size.x, half_size.y, -half_size.z),
                     Default::default(),
+                    Default::default(),
                 ),
                 Vertex3D::new(
                     Vector3::new(-half_size.x, half_size.y, -half_size.z),
+                    Default::default(),
                     Default::default(),
                 ),
                 Vertex3D::new(
                     Vector3::new(-half_size.x, -half_size.y, half_size.z),
                     Default::default(),
+                    Default::default(),
                 ),
                 Vertex3D::new(
                     Vector3::new(half_size.x, -half_size.y, half_size.z),
+                    Default::default(),
                     Default::default(),
                 ),
                 Vertex3D::new(
                     Vector3::new(half_size.x, half_size.y, half_size.z),
                     Default::default(),
+                    Default::default(),
                 ),
                 Vertex3D::new(
                     Vector3::new(-half_size.x, half_size.y, half_size.z),
+                    Default::default(),
                     Default::default(),
                 ),
             ],
@@ -814,9 +833,8 @@ impl ModelBuilder3D {
     }
 }
 
-/// 2D Model represented by its [Vertices](Vertex) and [Indices](Index).
 #[derive(Debug)]
-pub struct Model<V: Vertex> {
+pub struct Mesh<V: Vertex> {
     vertex_amount: u32,
     index_amount: u32,
     vertex_buffer_size: wgpu::BufferAddress,
@@ -826,8 +844,8 @@ pub struct Model<V: Vertex> {
     marker: PhantomData<V>,
 }
 
-impl<V: Vertex> Model<V> {
-    pub fn new(gpu: &Gpu, builder: impl ModelBuilder<Vertex = V>) -> Self {
+impl<V: Vertex> Mesh<V> {
+    pub fn new(gpu: &Gpu, builder: impl MeshBuilder<Vertex = V>) -> Self {
         let vertices = builder.vertices();
         let indices = builder.indices();
         let vertices_slice = bytemuck::cast_slice(&vertices);
@@ -848,7 +866,7 @@ impl<V: Vertex> Model<V> {
                 usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
             });
 
-        Model {
+        Mesh {
             vertex_buffer_size: vertices_slice.len() as wgpu::BufferAddress,
             index_buffer_size: indices_slice.len() as wgpu::BufferAddress,
             vertex_buffer,
@@ -859,7 +877,7 @@ impl<V: Vertex> Model<V> {
         }
     }
 
-    pub fn write(&mut self, gpu: &Gpu, builder: impl ModelBuilder<Vertex = V>) {
+    pub fn write(&mut self, gpu: &Gpu, builder: impl MeshBuilder<Vertex = V>) {
         let vertices = builder.vertices();
         let indices = builder.indices();
         self.write_indices(gpu, &indices);
@@ -940,4 +958,69 @@ impl<V: Vertex> Model<V> {
 pub enum RoundingDirection {
     Inward,
     Outward,
+}
+
+pub struct Model {
+    pub meshes: Vec<(usize, Mesh3D)>,
+    pub sprites: Vec<Sprite>,
+}
+
+impl Model {
+    pub fn new(gpu: &Gpu, path: &str) -> Self {
+        let obj_text = load_string(path).unwrap();
+        let obj_cursor = Cursor::new(obj_text);
+        let mut obj_reader = BufReader::new(obj_cursor);
+        let mut path_buf: std::path::PathBuf = path.into();
+        path_buf.pop();
+
+        let (obj_meshs, obj_materials) = tobj::load_obj_buf(
+            &mut obj_reader,
+            &tobj::LoadOptions {
+                triangulate: true,
+                single_index: true,
+                ..Default::default()
+            },
+            |p| {
+                let mat_text = load_string(path_buf.join(p)).unwrap();
+                tobj::load_mtl_buf(&mut BufReader::new(Cursor::new(mat_text)))
+            },
+        )
+        .unwrap();
+
+        let mut sprites = Vec::new();
+        for m in obj_materials.unwrap() {
+            sprites.push(gpu.create_sprite(SpriteBuilder::file(
+                path_buf.join(&m.diffuse_texture.unwrap()),
+            )))
+        }
+        let meshes = obj_meshs
+            .into_iter()
+            .map(|m| {
+                let vertices = (0..m.mesh.positions.len() / 3)
+                    .map(|i| Vertex3D {
+                        pos: Vector3::new(
+                            m.mesh.positions[i * 3],
+                            m.mesh.positions[i * 3 + 1],
+                            m.mesh.positions[i * 3 + 2],
+                        ),
+                        tex: Vector2::new(m.mesh.texcoords[i * 2], m.mesh.texcoords[i * 2 + 1]),
+                        normal: Vector3::new(
+                            m.mesh.normals[i * 3],
+                            m.mesh.normals[i * 3 + 1],
+                            m.mesh.normals[i * 3 + 2],
+                        ),
+                    })
+                    .collect::<Vec<_>>();
+                (
+                    m.mesh.material_id.unwrap_or(0),
+                    gpu.create_mesh(MeshBuilder3D {
+                        vertices,
+                        indices: Index::from_vec(m.mesh.indices),
+                    }),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        Self { meshes, sprites }
+    }
 }

@@ -94,7 +94,7 @@ impl<'a> RenderEncoder<'a> {
                 0..1,
                 &renderer.defaults.centered_instance,
                 &renderer.defaults.unit_camera.0,
-                renderer.defaults.unit_model(),
+                renderer.defaults.unit_mesh(),
                 src.sprite(),
             );
         }

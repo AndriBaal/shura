@@ -31,7 +31,7 @@ fn shura_main(config: ShuraConfig) {
 
 #[derive(Component)]
 struct Background {
-    model: Model,
+    mesh: Mesh,
     level: Sprite,
     #[position]
     position: PositionComponent,
@@ -40,9 +40,9 @@ struct Background {
 impl Background {
     pub fn new(ctx: &Context) -> Self {
         Self {
-            model: ctx
+            mesh: ctx
                 .gpu
-                .create_model(ModelBuilder::cuboid(vector(10.0, 10.0))),
+                .create_mesh(MeshBuilder::cuboid(vector(10.0, 10.0))),
             level: ctx.gpu.create_sprite(sprite_file!("./level.png")),
             position: Default::default(),
         }
@@ -63,7 +63,7 @@ impl ComponentController for Background {
                 instances,
                 buffer,
                 renderer.world_camera,
-                &background.model,
+                &background.mesh,
                 &background.level,
             );
         });
@@ -72,7 +72,7 @@ impl ComponentController for Background {
 
 #[derive(Component)]
 pub struct LightResources {
-    light_model: Model,
+    light_mesh: Mesh,
     light_map: SpriteRenderTarget,
     light_shader: Shader,
     present_shader: Shader,
@@ -96,7 +96,7 @@ impl ComponentController for LightResources {
     fn render<'a>(components: &mut ComponentRenderer<'a>) {
         let res = components.single::<LightResources>();
         let renderer = &mut components.renderer;
-        renderer.use_model(renderer.unit_model);
+        renderer.use_mesh(renderer.unit_mesh);
         renderer.use_camera(&renderer.unit_camera);
         renderer.use_instances(renderer.single_centered_instance);
         renderer.use_shader(&res.present_shader);
@@ -136,7 +136,7 @@ impl LightResources {
                 ..Default::default()
             }),
             light_map: ctx.gpu.create_render_target(ctx.window_size),
-            light_model: ctx.gpu.create_model(ModelBuilder::cuboid(vector(1.0, 1.0))),
+            light_mesh: ctx.gpu.create_mesh(MeshBuilder::cuboid(vector(1.0, 1.0))),
         }
     }
 }
@@ -194,7 +194,7 @@ impl ComponentController for Light {
             renderer.use_instances(buffer);
             renderer.use_camera(renderer.world_camera);
             renderer.use_shader(&res.light_shader);
-            renderer.use_model(&res.light_model);
+            renderer.use_mesh(&res.light_mesh);
             renderer.draw(instances);
         });
     }

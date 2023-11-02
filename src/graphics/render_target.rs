@@ -230,12 +230,12 @@ impl SpriteRenderTarget {
     }
 
     pub fn compute_target_size(
-        model_half_extents: Vector2<f32>,
+        mesh_half_extents: Vector2<f32>,
         camera: &Camera2D,
         window_size: Vector2<u32>,
     ) -> Vector2<u32> {
         let camera_fov = camera.fov() * 2.0;
-        let size = model_half_extents * 2.0;
+        let size = mesh_half_extents * 2.0;
         return Vector2::new(
             (size.x / camera_fov.x * window_size.x as f32).ceil() as u32,
             (size.y / camera_fov.y * window_size.y as f32).ceil() as u32,

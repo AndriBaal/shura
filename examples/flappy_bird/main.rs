@@ -24,8 +24,8 @@ fn shura_main(config: ShuraConfig) {
 
 #[derive(Component)]
 struct FlappyManager {
-    top_pipe_model: Model,
-    bottom_pipe_model: Model,
+    top_pipe_mesh: Mesh,
+    bottom_pipe_mesh: Mesh,
     pipe_sprite: Sprite,
     high_score: u32,
     score: u32,
@@ -42,16 +42,16 @@ impl ComponentController for FlappyManager {
 impl FlappyManager {
     pub fn new(gpu: &Gpu, audio: &AudioManager) -> Self {
         return Self {
-            top_pipe_model: gpu.create_model(
-                ModelBuilder::cuboid(Pipe::HALF_EXTENTS)
+            top_pipe_mesh: gpu.create_mesh(
+                MeshBuilder::cuboid(Pipe::HALF_EXTENTS)
                     .vertex_translation(Vector::new(
                         0.0,
                         Pipe::HALF_HOLE_SIZE + Pipe::HALF_EXTENTS.y,
                     ))
                     .tex_coord_rotation(Rotation::new(180.0_f32.to_radians())),
             ),
-            bottom_pipe_model: gpu.create_model(
-                ModelBuilder::cuboid(Pipe::HALF_EXTENTS).vertex_translation(Vector::new(
+            bottom_pipe_mesh: gpu.create_mesh(
+                MeshBuilder::cuboid(Pipe::HALF_EXTENTS).vertex_translation(Vector::new(
                     0.0,
                     -Pipe::HALF_HOLE_SIZE - Pipe::HALF_EXTENTS.y,
                 )),
@@ -73,7 +73,7 @@ struct Bird {
     body: RigidBodyComponent,
     #[buffer]
     sprite: SpriteSheetIndex,
-    model: Model,
+    mesh: Mesh,
     sprite_sheet: SpriteSheet,
     sink: AudioSink,
     hit_sound: Sound,
@@ -96,7 +96,7 @@ impl Bird {
                 ],
             ),
 
-            model: gpu.create_model(ModelBuilder::cuboid(Self::HALF_EXTENTS)),
+            mesh: gpu.create_mesh(MeshBuilder::cuboid(Self::HALF_EXTENTS)),
             sprite_sheet: gpu.create_sprite_sheet(sprite_sheet_file!(
                 "./sprites/yellowbird.png",
                 Vector::new(17, 12),
@@ -121,7 +121,7 @@ impl ComponentController for Bird {
                 instance,
                 buffer,
                 renderer.world_camera,
-                &bird.model,
+                &bird.mesh,
                 &bird.sprite_sheet,
             )
         });
@@ -210,7 +210,7 @@ impl ComponentController for Bird {
 
 #[derive(Component)]
 struct Ground {
-    model: Model,
+    mesh: Mesh,
     sprite: Sprite,
     #[position]
     collider: ColliderComponent,
@@ -221,8 +221,8 @@ impl Ground {
     pub fn new(gpu: &Gpu) -> Self {
         let pos = Vector::new(0.0, -GAME_SIZE.y + Self::HALF_EXTENTS.y);
         Self {
-            model: gpu
-                .create_model(ModelBuilder::cuboid(Self::HALF_EXTENTS).vertex_translation(pos)),
+            mesh: gpu
+                .create_mesh(MeshBuilder::cuboid(Self::HALF_EXTENTS).vertex_translation(pos)),
             sprite: gpu.create_sprite(sprite_file!("./sprites/base.png")),
             collider: ColliderComponent::new(ColliderBuilder::compound(vec![
                 (
@@ -253,7 +253,7 @@ impl ComponentController for Ground {
                 instance,
                 buffer,
                 renderer.world_camera,
-                &ground.model,
+                &ground.mesh,
                 &ground.sprite,
             )
         });
@@ -262,7 +262,7 @@ impl ComponentController for Ground {
 
 #[derive(Component)]
 struct Background {
-    model: Model,
+    mesh: Mesh,
     sprite: Sprite,
     #[position]
     position: PositionComponent,
@@ -274,7 +274,7 @@ impl Background {
             .gpu
             .create_sprite(sprite_file!("./sprites/background-night.png"));
         Self {
-            model: ctx.gpu.create_model(ModelBuilder::cuboid(GAME_SIZE)),
+            mesh: ctx.gpu.create_mesh(MeshBuilder::cuboid(GAME_SIZE)),
             sprite,
             position: PositionComponent::default(),
         }
@@ -295,7 +295,7 @@ impl ComponentController for Background {
                 instance,
                 buffer,
                 renderer.world_camera,
-                &background.model,
+                &background.mesh,
                 &background.sprite,
             )
         });
@@ -374,14 +374,14 @@ impl ComponentController for Pipe {
                 instances,
                 buffer,
                 renderer.world_camera,
-                &scene.top_pipe_model,
+                &scene.top_pipe_mesh,
                 &scene.pipe_sprite,
             );
             renderer.render_sprite(
                 instances,
                 buffer,
                 renderer.world_camera,
-                &scene.bottom_pipe_model,
+                &scene.bottom_pipe_mesh,
                 &scene.pipe_sprite,
             );
         });

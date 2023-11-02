@@ -21,7 +21,7 @@ exclude = ["docs"]
 animation = []
 framebuffer = []
 gamepad = ["dep:gilrs"]
-text = ["dep:rusttype"]
+text = ["dep:rusttype", "dep:owned_ttf_parser"]
 audio = ["dep:rodio"]
 physics = ["dep:rapier2d"]
 gui = ["dep:egui", "dep:egui-wgpu", "dep:egui-winit"]
@@ -58,11 +58,13 @@ crate-type = ["lib", "cdylib"]
 
 [dependencies]
 env_logger = "0.10"
+tobj = "4.0"
 delaunator = "1"
 rayon = { version = "1.7", optional = true }
 mint = { version = "0.5" }
 nalgebra = { version = "0.32", features = ["convert-bytemuck", "mint"] }
 rusttype = { version = "0.9", optional = true }
+owned_ttf_parser = { version = "0.15", optional = true }
 gilrs = { version = "0.10", optional = true }
 egui-wgpu = { version = "0.23", features = ["winit"], optional = true }
 egui = { version = "0.23", default-features = false, optional = true, features = [
@@ -93,7 +95,7 @@ egui-winit = { version = "0.23", features = [
     "arboard",
     "webbrowser",
 ], optional = true }
-wgpu = { version = "0.17", features = ["glsl", "spirv"]}
+wgpu = { version = "0.17", features = ["glsl", "spirv"] }
 rodio = { version = "0.17", default-features = false, optional = true, features = [
     "symphonia-all",
 ] }
@@ -128,6 +130,8 @@ web-sys = { version = "0.3", features = [
 [dev-dependencies]
 egui_demo_lib = "0.23"
 
+[build-dependencies]
+fs_extra = "1.2"
 
 [target.'cfg(target_os = "android")'.dependencies]
 winit = { version = "0.28", features = ["mint", "android-native-activity"] }

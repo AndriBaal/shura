@@ -46,7 +46,7 @@ impl Default for SpriteAtlas {
     }
 }
 
-/// Single vertex of a model. Which hold the coordniate of the vertex and the texture coordinates.
+/// Single vertex of a mesh. Which hold the coordniate of the vertex and the texture coordinates.
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -145,7 +145,7 @@ impl Default for Instance2D {
     }
 }
 
-/// Single vertex of a model. Which hold the coordniate of the vertex and the texture coordinates.
+/// Single vertex of a mesh. Which hold the coordniate of the vertex and the texture coordinates.
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -155,10 +155,10 @@ pub struct Instance3D {
 
 impl Instance for Instance3D {
     const ATTRIBUTES: &'static [wgpu::VertexAttribute] = &vertex_attr_array![
-        2 => Float32x4,
         3 => Float32x4,
         4 => Float32x4,
         5 => Float32x4,
+        6 => Float32x4,
     ];
 }
 

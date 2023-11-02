@@ -5,7 +5,7 @@ use crate::{
     BufferOperation, CameraBuffer2D, Component, ComponentConfig, ComponentHandle, ComponentScope,
     ComponentSet, ComponentSetMut, ComponentType, ComponentTypeId, DefaultResources,
     GlobalComponents, Gpu, GroupHandle, Instance2D, InstanceBuffer, InstanceHandler, InstanceIndex,
-    InstanceIndices, Model2D, Renderer, Scene, SystemManager, World,
+    InstanceIndices, Mesh2D, Renderer, Scene, SystemManager, World,
 };
 
 #[cfg(feature = "serde")]
@@ -172,7 +172,7 @@ pub struct ComponentResources<'a> {
     pub relative_top_left_camera: &'a CameraBuffer2D,
     pub relative_top_right_camera: &'a CameraBuffer2D,
     pub unit_camera: &'a CameraBuffer2D,
-    pub unit_model: &'a Model2D,
+    pub unit_mesh: &'a Mesh2D,
     pub centered_instance: &'a InstanceBuffer<Instance2D>,
 }
 
@@ -192,7 +192,7 @@ impl<'a> ComponentResources<'a> {
                 relative_top_right_camera: &defaults.relative_top_right_camera.0,
                 unit_camera: &defaults.unit_camera.0,
                 centered_instance: &defaults.centered_instance,
-                unit_model: &defaults.unit_model,
+                unit_mesh: &defaults.unit_mesh,
                 world_camera2d: &defaults.world_camera2d,
             },
         );

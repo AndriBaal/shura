@@ -3,10 +3,10 @@ use wgpu::include_wgsl;
 #[cfg(feature = "log")]
 use crate::log::info;
 #[cfg(feature = "text")]
-use crate::text::{Font, Text, TextSection};
+use crate::text::{Font, Text, TextSection, FontBuilder};
 use crate::{
     Camera, Camera2D, CameraBuffer, CameraBuffer2D, Instance, Instance2D, Instance3D,
-    InstanceBuffer, InstanceBuffer2D, Isometry2, Model, Model2D, ModelBuilder, ModelBuilder2D,
+    InstanceBuffer, InstanceBuffer2D, Isometry2, Mesh, Mesh2D, MeshBuilder, MeshBuilder2D,
     RenderEncoder, RenderTarget, Shader, ShaderConfig, ShaderModule, ShaderModuleDescriptor,
     ShaderModuleSoure, Sprite, SpriteBuilder, SpriteRenderTarget, SpriteSheet, SpriteSheetBuilder,
     SurfaceRenderTarget, Uniform, UniformField, Vector2, Vertex, Vertex3D,
@@ -227,8 +227,8 @@ impl Gpu {
         CameraBuffer::new(self, camera)
     }
 
-    pub fn create_model<V: Vertex>(&self, builder: impl ModelBuilder<Vertex = V>) -> Model<V> {
-        Model::new(self, builder)
+    pub fn create_mesh<V: Vertex>(&self, builder: impl MeshBuilder<Vertex = V>) -> Mesh<V> {
+        Mesh::new(self, builder)
     }
 
     pub fn create_sprite<D: Deref<Target = [u8]>>(&self, desc: SpriteBuilder<D>) -> Sprite {
@@ -255,8 +255,8 @@ impl Gpu {
     }
 
     #[cfg(feature = "text")]
-    pub fn create_font(&self, data: &'static [u8]) -> Font {
-        Font::new(self, data)
+    pub fn create_font(&self, builder: FontBuilder) -> Font {
+        Font::new(self, builder)
     }
 
     #[cfg(feature = "text")]
@@ -395,9 +395,9 @@ pub struct DefaultResources {
     pub blurr: Shader,
 
     // 3D
-    pub test3d: Shader,
+    pub model: Shader,
 
-    pub unit_model: Model2D,
+    pub unit_mesh: Mesh2D,
 
     /// This field holds both total time and the frame time. Both are stored as f32 in the buffer.
     /// The first f32 is the `total_time` and the second f32 is the `frame_time`. In the shader
@@ -458,11 +458,11 @@ impl DefaultResources {
             ..Default::default()
         });
 
-        let test3d = gpu.create_shader(ShaderConfig {
-            name: Some("test3d"),
-            uniforms: &[UniformField::Camera],
+        let model = gpu.create_shader(ShaderConfig {
+            name: Some("model"),
+            uniforms: &[UniformField::Camera, UniformField::Sprite],
             source: ShaderModuleSoure::Single(
-                &gpu.create_shader_module(include_wgsl!("../../shader/3d/test3d.wgsl")),
+                &gpu.create_shader_module(include_wgsl!("../../shader/3d/model.wgsl")),
             ),
             buffers: &[Vertex3D::DESC, Instance3D::DESC],
             ..Default::default()
@@ -544,7 +544,7 @@ impl DefaultResources {
         );
         let world_camera2d = CameraBuffer2D::new(gpu, &unit_camera.1);
 
-        let unit_model = gpu.create_model(ModelBuilder2D::cuboid(Vector2::new(0.5, 0.5)));
+        let unit_mesh = gpu.create_mesh(MeshBuilder2D::cuboid(Vector2::new(0.5, 0.5)));
 
         let surface = SurfaceRenderTarget::new(gpu, size);
 
@@ -562,8 +562,8 @@ impl DefaultResources {
             color,
 
             // test,
-            test3d,
-            unit_model,
+            model,
+            unit_mesh,
 
             times,
             unit_camera,
@@ -624,8 +624,8 @@ impl DefaultResources {
         self.times.write(&gpu, [total_time, frame_time]);
     }
 
-    pub fn unit_model(&self) -> &Model2D {
-        return &self.unit_model;
+    pub fn unit_mesh(&self) -> &Mesh2D {
+        return &self.unit_mesh;
     }
 
     pub fn default_target(&self) -> &dyn RenderTarget {

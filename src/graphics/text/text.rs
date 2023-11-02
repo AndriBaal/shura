@@ -1,11 +1,31 @@
-use std::sync::Arc;
-
 use crate::{
-    Color, Gpu, Index, Isometry2, Model, ModelBuilder2D, SpriteSheet, SpriteSheetBuilder,
-    SpriteSheetIndex, Vector2, Vertex,
+    load_bytes, Color, Gpu, Index, Isometry2, Mesh, MeshBuilder2D, SpriteSheet,
+    SpriteSheetBuilder, SpriteSheetIndex, Vector2, Vertex,
 };
+use owned_ttf_parser::AsFaceRef;
 use rustc_hash::FxHashMap;
+use std::sync::Arc;
 use wgpu::vertex_attr_array;
+
+pub enum FontBuilder {
+    Ref(&'static [u8]),
+    Owned(Vec<u8>),
+}
+
+impl<'a> FontBuilder {
+    pub fn bytes(bytes: &'static [u8]) -> Self {
+        Self::Ref(bytes)
+    }
+
+    pub fn owned(bytes: Vec<u8>) -> Self {
+        Self::Owned(bytes)
+    }
+
+    pub fn file(path: &str) -> Self {
+        let bytes = load_bytes(path).unwrap();
+        Self::Owned(bytes)
+    }
+}
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Default, bytemuck::Pod, bytemuck::Zeroable)]
@@ -32,8 +52,8 @@ pub struct Font {
 }
 
 impl Font {
-    pub fn new(gpu: &Gpu, data: &'static [u8]) -> Self {
-        let inner = FontInner::new(gpu, data);
+    pub fn new(gpu: &Gpu, builder: FontBuilder) -> Self {
+        let inner = FontInner::new(gpu, builder);
         return Self {
             inner: Arc::new(inner),
         };
@@ -48,13 +68,15 @@ pub(crate) struct FontInner {
 impl FontInner {
     const RES: f32 = 400.0;
 
-    pub fn new(gpu: &Gpu, data: &'static [u8]) -> Self {
+    pub fn new(gpu: &Gpu, builder: FontBuilder) -> Self {
         let scale = rusttype::Scale::uniform(Self::RES);
-        let font = rusttype::Font::try_from_bytes(data).unwrap();
-
+        let font = match builder {
+            FontBuilder::Ref(bytes) => rusttype::Font::try_from_bytes(bytes).unwrap(),
+            FontBuilder::Owned(bytes) => rusttype::Font::try_from_vec(bytes).unwrap(),
+        };
         let face_ref = match &font {
-            rusttype::Font::Ref(r) => r,
-            rusttype::Font::Owned(_) => unreachable!(),
+            rusttype::Font::Ref(f) => f,
+            rusttype::Font::Owned(f) => f.as_face_ref(),
         };
 
         macro_rules! glyphs {
@@ -185,8 +207,8 @@ impl Default for TextSection<&str> {
             text: "",
             size: 1.0,
             vertex_offset: Isometry2::new(
-                ModelBuilder2D::DEFAULT_OFFSET,
-                ModelBuilder2D::DEFAULT_ROTATION,
+                MeshBuilder2D::DEFAULT_OFFSET,
+                MeshBuilder2D::DEFAULT_ROTATION,
             ),
             vertex_rotation_axis: Vector2::new(0.0, 0.0),
             horizontal_alignment: TextAlignment::Start,
@@ -202,8 +224,8 @@ impl Default for TextSection<String> {
             text: String::from(""),
             size: 1.0,
             vertex_offset: Isometry2::new(
-                ModelBuilder2D::DEFAULT_OFFSET,
-                ModelBuilder2D::DEFAULT_ROTATION,
+                MeshBuilder2D::DEFAULT_OFFSET,
+                MeshBuilder2D::DEFAULT_ROTATION,
             ),
             vertex_rotation_axis: Vector2::new(0.0, 0.0),
             horizontal_alignment: TextAlignment::Start,
@@ -214,16 +236,16 @@ impl Default for TextSection<String> {
 
 pub struct Text {
     font: Font,
-    model: Model<Vertex2DText>,
+    mesh: Mesh<Vertex2DText>,
 }
 
 impl Text {
     pub fn new<S: AsRef<str>>(gpu: &Gpu, font: &Font, sections: &[TextSection<S>]) -> Self {
         let builder = Self::compute_vertices(font, sections);
-        let model = gpu.create_model(builder);
+        let mesh = gpu.create_mesh(builder);
         return Self {
             font: font.clone(),
-            model,
+            mesh,
         };
     }
 
@@ -240,14 +262,14 @@ impl Text {
             vertex_rotation_axis: Vector2<f32>,
         ) {
             let angle = vertex_offset.rotation.angle();
-            if angle != ModelBuilder2D::DEFAULT_ROTATION {
+            if angle != MeshBuilder2D::DEFAULT_ROTATION {
                 for v in vertices.iter_mut() {
                     let delta = v.pos - vertex_rotation_axis;
                     v.pos = vertex_rotation_axis + vertex_offset.rotation * delta;
                 }
             }
 
-            if vertex_offset.translation.vector != ModelBuilder2D::DEFAULT_OFFSET {
+            if vertex_offset.translation.vector != MeshBuilder2D::DEFAULT_OFFSET {
                 for v in vertices.iter_mut() {
                     v.pos += vertex_offset.translation.vector;
                 }
@@ -357,14 +379,14 @@ impl Text {
 
     pub fn write<S: AsRef<str>>(&mut self, gpu: &Gpu, sections: &[TextSection<S>]) {
         let builder = Self::compute_vertices(&self.font, sections);
-        self.model.write(gpu, builder);
+        self.mesh.write(gpu, builder);
     }
 
     pub fn font(&self) -> &SpriteSheet {
         &self.font.inner.sprite_sheet
     }
 
-    pub fn model(&self) -> &Model<Vertex2DText> {
-        &self.model
+    pub fn mesh(&self) -> &Mesh<Vertex2DText> {
+        &self.mesh
     }
 }
