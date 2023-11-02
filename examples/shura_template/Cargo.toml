@@ -10,11 +10,11 @@ edition = "2021"
 
 # Desktop (Windows, Linux, MacOS, WASM)
 [[bin]]
-path="src/lib.rs"
-name="desktop"
+path = "src/lib.rs"
+name = "desktop"
 
 [dependencies]
-shura = {path = "../../"}
+shura = { path = "../../" }
 
 [build-dependencies]
 fs_extra = "1.2"
