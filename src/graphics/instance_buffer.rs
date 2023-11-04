@@ -165,7 +165,7 @@ impl Instance for Instance3D {
 impl Instance3D {
     pub fn new(position: Isometry3<f32>, scaling: Vector3<f32>) -> Self {
         let mut matrix = position.to_matrix();
-        matrix.append_nonuniform_scaling_mut(&scaling);
+        matrix.prepend_nonuniform_scaling_mut(&scaling);
         Self { matrix }
     }
 }

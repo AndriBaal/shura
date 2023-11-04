@@ -3,10 +3,7 @@ use env_logger::Logger as EnvLogger;
 use log::{LevelFilter, Log, SetLoggerError};
 
 #[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::JsValue;
-
-#[cfg(target_arch = "wasm32")]
-use web_sys::console;
+use web_sys::{console, wasm_bindgen::prelude::JsValue};
 
 #[cfg(target_arch = "wasm32")]
 use log::Level;

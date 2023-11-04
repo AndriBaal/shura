@@ -1,7 +1,8 @@
 #[cfg(feature = "physics")]
 use crate::physics::{Shape, TypedShape};
 use crate::{
-    load_string, Gpu, Isometry2, Matrix2, Rotation2, Sprite, SpriteBuilder, Vector2, Vector3, AABB,
+    load_bytes, load_string, Gpu, Isometry2, Matrix2, Rotation2, Sprite, SpriteBuilder, Vector2,
+    Vector3, AABB,
 };
 use std::io::{BufReader, Cursor};
 use std::mem;
@@ -185,18 +186,22 @@ impl MeshBuilder2D {
 
     pub fn cuboid(half_extents: Vector2<f32>) -> Self {
         let vertices = vec![
+            // Top left
             Vertex2D::new(
                 Vector2::new(-half_extents.x, half_extents.y),
                 Vector2::new(0.0, 0.0),
             ),
+            // Bottom left
             Vertex2D::new(
                 Vector2::new(-half_extents.x, -half_extents.y),
                 Vector2::new(0.0, 1.0),
             ),
+            // Bottom right
             Vertex2D::new(
                 Vector2::new(half_extents.x, -half_extents.y),
                 Vector2::new(1.0, 1.0),
             ),
+            // Top right
             Vertex2D::new(
                 Vector2::new(half_extents.x, half_extents.y),
                 Vector2::new(1.0, 0.0),
@@ -771,6 +776,24 @@ impl MeshBuilder for MeshBuilder3D {
 }
 
 impl MeshBuilder3D {
+    pub fn plane(top_left: Vector3<f32>, bottom_right: Vector3<f32>) -> Self {
+        let top_right = Vector3::new(bottom_right.x, top_left.y, 0.0);
+        let bottom_left = Vector3::new(top_left.x, bottom_right.y, 0.0);
+        Self {
+            vertices: vec![
+                // Top left
+                Vertex3D::new(top_left, Vector2::new(0.0, 0.0), Default::default()),
+                // Bottom left
+                Vertex3D::new(bottom_left, Vector2::new(0.0, 1.0), Default::default()),
+                // Bottom right
+                Vertex3D::new(bottom_right, Vector2::new(1.0, 1.0), Default::default()),
+                // Top right
+                Vertex3D::new(top_right, Vector2::new(1.0, 0.0), Default::default()),
+            ],
+            indices: vec![Index::new(0, 1, 2), Index::new(0, 2, 3)],
+        }
+    }
+
     pub fn cube(half_size: Vector3<f32>) -> Self {
         Self {
             vertices: vec![
@@ -960,20 +983,20 @@ pub enum RoundingDirection {
     Outward,
 }
 
-pub struct Model {
-    pub meshes: Vec<(Option<usize>, Mesh3D)>,
-    pub sprites: Vec<Sprite>,
+pub struct ModelBuilder {
+    pub meshes: Vec<tobj::Model>,
+    pub sprites: Vec<Vec<u8>>,
 }
 
-impl Model {
-    pub fn new(gpu: &Gpu, path: &str) -> Self {
+impl ModelBuilder {
+    pub fn file(path: &str) -> Self {
         let obj_text = load_string(path).unwrap();
-        let obj_cursor = Cursor::new(obj_text);
+        let obj_cursor = Cursor::new(&obj_text);
         let mut obj_reader = BufReader::new(obj_cursor);
         let mut path_buf: std::path::PathBuf = path.into();
         path_buf.pop();
 
-        let (obj_meshs, obj_materials) = tobj::load_obj_buf(
+        let (obj_meshes, obj_materials) = tobj::load_obj_buf(
             &mut obj_reader,
             &tobj::LoadOptions {
                 triangulate: true,
@@ -989,11 +1012,66 @@ impl Model {
 
         let mut sprites = Vec::new();
         for m in obj_materials.unwrap() {
-            sprites.push(gpu.create_sprite(SpriteBuilder::file(
-                path_buf.join(&m.diffuse_texture.unwrap()),
-            )))
+            sprites.push(load_bytes(m.diffuse_texture.unwrap()).unwrap());
         }
-        let meshes = obj_meshs
+
+        Self {
+            meshes: obj_meshes,
+            sprites,
+        }
+    }
+
+    pub fn bytes(obj: &str, mtl: &[(&str, &str)], materials: &[(&str, &[u8])]) -> Self {
+        let obj_cursor = Cursor::new(obj);
+        let mut obj_reader = BufReader::new(obj_cursor);
+
+        let (obj_meshes, obj_materials) = tobj::load_obj_buf(
+            &mut obj_reader,
+            &tobj::LoadOptions {
+                triangulate: true,
+                single_index: true,
+                ..Default::default()
+            },
+            |p| {
+                let mtl = mtl
+                    .iter()
+                    .find(|(key, _)| *key == p.to_str().unwrap())
+                    .unwrap();
+                tobj::load_mtl_buf(&mut BufReader::new(Cursor::new(mtl.1)))
+            },
+        )
+        .unwrap();
+
+        let mut sprites = Vec::new();
+        for m in obj_materials.unwrap() {
+            let material = materials
+                .iter()
+                .find(|(key, _)| *key == m.diffuse_texture.clone().unwrap())
+                .unwrap();
+            sprites.push(material.1.to_vec());
+        }
+
+        Self {
+            meshes: obj_meshes,
+            sprites,
+        }
+    }
+}
+
+pub struct Model {
+    pub meshes: Vec<(Option<usize>, Mesh3D)>,
+    pub sprites: Vec<Sprite>,
+}
+
+impl Model {
+    pub fn new(gpu: &Gpu, builder: ModelBuilder) -> Self {
+        let sprites = builder
+            .sprites
+            .into_iter()
+            .map(|m| gpu.create_sprite(SpriteBuilder::bytes(&m)))
+            .collect::<Vec<_>>();
+        let meshes = builder
+            .meshes
             .into_iter()
             .map(|m| {
                 let vertices = (0..m.mesh.positions.len() / 3)
