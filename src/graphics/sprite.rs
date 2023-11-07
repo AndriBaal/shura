@@ -1,6 +1,6 @@
 use wgpu::util::DeviceExt;
 
-use crate::{Gpu, RgbaColor, Vector2, load_bytes};
+use crate::{load_bytes, Gpu, RgbaColor, Vector2};
 use std::{ops::Deref, path::Path};
 
 pub struct SpriteBuilder<'a, D: Deref<Target = [u8]>> {
@@ -12,8 +12,10 @@ pub struct SpriteBuilder<'a, D: Deref<Target = [u8]>> {
 }
 
 impl<'a> SpriteBuilder<'a, image::RgbaImage> {
-    pub fn file(path: impl AsRef<Path>) -> Self {
-        let bytes = load_bytes(path).unwrap();
+    pub async fn file(
+        path: impl AsRef<Path>,
+    ) -> SpriteBuilder<'a, image::ImageBuffer<image::Rgba<u8>, Vec<u8>>> {
+        let bytes = load_bytes(path).await.unwrap();
         let image = image::load_from_memory(&bytes).unwrap();
         let size = Vector2::new(image.width(), image.height());
         return Self {

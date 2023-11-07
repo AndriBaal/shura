@@ -10,6 +10,7 @@ mod math;
 mod scene;
 mod systems;
 mod world;
+mod tasks;
 
 pub use instant::{Duration, Instant};
 pub use rustc_hash::{FxHashMap, FxHashSet};
@@ -35,6 +36,7 @@ pub use crate::{
     math::{aabb::*, math::*},
     scene::{context::*, scene::*, scene_manager::*},
     systems::systems::*,
+    tasks::tasks::*
 };
 
 /// Access to [wgpu](https://github.com/gfx-rs/wgpu) for creating custom graphics.

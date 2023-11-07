@@ -59,7 +59,7 @@ crate-type = ["lib", "cdylib"]
 [dependencies]
 anyhow = "1.0"
 env_logger = { version = "0.10", optional = true }
-tobj = "4.0"
+tobj = { version = "4.0", features = ["async"] }
 delaunator = "1"
 rayon = { version = "1.7", optional = true }
 mint = { version = "0.5" }
@@ -104,6 +104,7 @@ rodio = { version = "0.17", default-features = false, optional = true, features 
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 reqwest = "0.11"
+wasm-bindgen-futures = "0.4"
 egui-winit = { version = "0.23", features = [
     "links",
 ], optional = true, default-features = false }

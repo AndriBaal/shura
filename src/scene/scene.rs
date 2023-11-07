@@ -3,7 +3,7 @@ use std::cell::RefCell;
 use crate::{
     App, Component, ComponentConfig, ComponentManager, ComponentType, ComponentTypeImplementation,
     Context, GroupManager, ScreenConfig, System, SystemManager, Vector2, World, WorldCamera2D,
-    WorldCameraScaling,
+    WorldCameraScaling, TaskManager
 };
 
 /// Origin of a [Scene]
@@ -89,6 +89,9 @@ pub struct Scene {
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default = "SystemManager::empty"))]
     pub systems: SystemManager,
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[cfg_attr(feature = "serde", serde(default = "TaskManager::new"))]
+    pub tasks: TaskManager,
 }
 
 impl Scene {
@@ -114,6 +117,7 @@ impl Scene {
             screen_config: ScreenConfig::new(),
             render_components: true,
             world: World::new(),
+            tasks: TaskManager::new()
         };
 
         let (_, mut ctx) = Context::new(&id, app, &mut scene);

@@ -345,15 +345,6 @@ impl App {
                     self.window.set_inner_size(size);
                     #[cfg(feature = "log")]
                     {
-                        info!(
-                            "{:?}",
-                            browser_window
-                                .document()
-                                .unwrap()
-                                .body()
-                                .unwrap()
-                                .client_width()
-                        );
                         info!("Adjusting canvas to browser window!");
                     }
                 }
@@ -422,6 +413,11 @@ impl App {
             .begin(&self.frame.total_time_duration(), &self.window);
         let (systems, mut ctx) = Context::new(&scene_id, self, scene);
         let now = ctx.frame.update_time();
+
+        let receiver = ctx.tasks.receiver();
+        while let Ok(callback) = receiver.try_recv() {
+            (callback)(&mut ctx);
+        }
 
         if ctx.resized {
             for resize in &systems.resize_systems {

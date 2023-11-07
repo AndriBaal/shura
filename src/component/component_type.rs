@@ -811,8 +811,12 @@ impl<C: Component> ComponentType<C> {
 
     pub fn len(&self, group_handles: &[GroupHandle]) -> usize {
         match &self.storage {
-            ComponentTypeStorage::Single { .. } => {
-                return 1;
+            ComponentTypeStorage::Single { component, .. } => {
+                if component.is_some() {
+                    return 1;
+                } else {
+                    return 0;
+                }
             }
             ComponentTypeStorage::Multiple(multiple) => {
                 return multiple.components.len();

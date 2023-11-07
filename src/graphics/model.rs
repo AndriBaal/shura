@@ -989,30 +989,36 @@ pub struct ModelBuilder {
 }
 
 impl ModelBuilder {
-    pub fn file(path: &str) -> Self {
-        let obj_text = load_string(path).unwrap();
+    pub async fn file(path: &str) -> Self {
+        let obj_text = load_string(path).await.unwrap();
         let obj_cursor = Cursor::new(&obj_text);
         let mut obj_reader = BufReader::new(obj_cursor);
         let mut path_buf: std::path::PathBuf = path.into();
         path_buf.pop();
+        let path_buf = &path_buf;
 
-        let (obj_meshes, obj_materials) = tobj::load_obj_buf(
+        let (obj_meshes, obj_materials) = tobj::load_obj_buf_async(
             &mut obj_reader,
             &tobj::LoadOptions {
                 triangulate: true,
                 single_index: true,
                 ..Default::default()
             },
-            |p| {
-                let mat_text = load_string(path_buf.join(p)).unwrap();
+            |p| async move {
+                let mat_text = load_string(path_buf.join(p)).await.unwrap();
                 tobj::load_mtl_buf(&mut BufReader::new(Cursor::new(mat_text)))
             },
         )
+        .await
         .unwrap();
 
         let mut sprites = Vec::new();
         for m in obj_materials.unwrap() {
-            sprites.push(load_bytes(m.diffuse_texture.unwrap()).unwrap());
+            sprites.push(
+                load_bytes(path_buf.join(m.diffuse_texture.unwrap()))
+                    .await
+                    .unwrap(),
+            );
         }
 
         Self {

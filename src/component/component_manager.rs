@@ -214,6 +214,11 @@ impl<'a> ComponentResources<'a> {
         Ref::map(ty, |ty| ty.single())
     }
 
+    pub fn try_single<C: Component>(&self) -> Option<Ref<C>> {
+        let ty = type_ref!(self.components, C);
+        Ref::filter_map(ty, |ty| ty.try_single()).ok()
+    }
+
     pub fn render_each<C: Component>(
         &self,
         renderer: &mut Renderer<'a>,
@@ -438,6 +443,21 @@ impl ComponentManager {
     pub fn single<C: Component>(&self) -> RefMut<C> {
         let ty = type_ref_mut!(self, C);
         RefMut::map(ty, |ty| ty.single_mut())
+    }
+
+    pub fn try_single<C: Component>(&self) -> Option<RefMut<C>> {
+        let ty = type_ref_mut!(self, C);
+        RefMut::filter_map(ty, |ty: &mut ComponentType<C>| ty.try_single_mut()).ok()
+    }
+
+    pub fn try_single_mut<C: Component>(&mut self) -> Option<RefMut<C>> {
+        let ty = type_ref_mut!(self, C);
+        RefMut::filter_map(ty, |ty: &mut ComponentType<C>| ty.try_single_mut()).ok()
+    }
+
+    pub fn try_single_ref<C: Component>(&self) -> Option<Ref<C>> {
+        let ty = type_ref!(self, C);
+        Ref::filter_map(ty, |ty| ty.try_single()).ok()
     }
 
     pub fn add_to<C: Component>(

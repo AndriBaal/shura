@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     App, ComponentManager, DefaultResources, FrameManager, Gpu, GroupManager, Input, Point2, Scene,
-    SceneManager, ScreenConfig, SystemManager, Vector2, World, WorldCamera2D,
+    SceneManager, ScreenConfig, SystemManager, Vector2, World, WorldCamera2D, TaskManager,
 };
 
 #[cfg(feature = "serde")]
@@ -30,6 +30,7 @@ pub struct Context<'a> {
     pub components: &'a mut ComponentManager,
     pub groups: &'a mut GroupManager,
     pub world: &'a mut World,
+    pub tasks: &'a mut TaskManager,
 
     // App
     pub frame: &'a FrameManager,
@@ -70,6 +71,7 @@ impl<'a> Context<'a> {
                 components: &mut scene.components,
                 groups: &mut scene.groups,
                 world: &mut scene.world,
+                tasks: &mut scene.tasks,
 
                 // App
                 frame: &app.frame,

@@ -64,23 +64,6 @@ fn struct_attribute_name_value(ast: &DeriveInput, attr_name: &str) -> Option<Exp
     return result;
 }
 
-// fn field_attribute_set(ast: &DeriveInput, attr_name: &str) -> bool {
-//     let mut result = false;
-//     for attr in &ast.attrs {
-//         if attr.path().is_ident(IDENT_NAME) {
-//             attr.parse_nested_meta(|meta| {
-//                 if meta.path.is_ident(attr_name) {
-//                     assert!(!result, "{attr_name} is already defined!");
-//                     result = true;
-//                 }
-//                 Ok(())
-//             })
-//             .unwrap();
-//         }
-//     }
-//     return result;
-// }
-
 static USED_COMPONENT_HASHES: OnceLock<Mutex<HashSet<u32>>> = OnceLock::new();
 
 #[proc_macro_derive(Component, attributes(shura))]
@@ -107,15 +90,6 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     }
     hashes.insert(hash);
     drop(hashes); // Free the mutex lock
-
-    // let parallel_buffer = field_attribute_set(&ast, "parallel_buffer");
-    // let buffer_method = if cfg!(feature = "rayon") && parallel_buffer {
-    //     "par_buffer"
-    // } else {
-    //     "buffer"
-    // };
-    // let buffer_method_with = format_ident!("{}_with", buffer_method);
-    // let buffer_method = format_ident!("{}", buffer_method);
 
     let identifier = quote!(
         impl #impl_generics ::shura::ComponentIdentifier for #struct_name #ty_generics #where_clause {
@@ -156,7 +130,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                 type InstanceHandler = ::shura::EmptyInstance;
 
                 fn handler(&self) -> &Self::InstanceHandler {
-                    &::shura::EMPTY_DEFAULT_COMPONENT
+                    &::shura::EMPTY_INSTANCE
                 }
 
                 fn init(&mut self, handle: ::shura::ComponentHandle, world: &mut ::shura::World) {}

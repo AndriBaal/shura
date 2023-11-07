@@ -231,7 +231,7 @@ impl Gpu {
         Mesh::new(self, builder)
     }
 
-    pub fn create_model<V: Vertex>(&self, builder: ModelBuilder) -> Model {
+    pub fn create_model(&self, builder: ModelBuilder) -> Model {
         Model::new(self, builder)
     }
 

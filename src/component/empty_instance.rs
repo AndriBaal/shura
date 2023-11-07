@@ -3,7 +3,7 @@ use crate::{InstanceHandler, World};
 #[derive(Copy, Clone, Default)]
 /// Dummy component that should not be rendered to the screen
 pub struct EmptyInstance;
-pub static EMPTY_DEFAULT_COMPONENT: EmptyInstance = EmptyInstance;
+pub static EMPTY_INSTANCE: EmptyInstance = EmptyInstance;
 
 impl EmptyInstance {
     pub fn new() -> Self {

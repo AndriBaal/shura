@@ -21,8 +21,8 @@ impl<'a> FontBuilder {
         Self::Owned(bytes)
     }
 
-    pub fn file(path: &str) -> Self {
-        let bytes = load_bytes(path).unwrap();
+    pub async fn file(path: &str) -> Self {
+        let bytes = load_bytes(path).await.unwrap();
         Self::Owned(bytes)
     }
 }
