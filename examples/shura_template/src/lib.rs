@@ -11,8 +11,19 @@ fn shura_main(config: AppConfig) {
             .component::<Resources>(ComponentConfig::RESOURCE)
             .system(System::Update(update))
             .system(System::Setup(setup))
+            .system(System::Resize(resize))
             .system(System::Render(render))
     });
+}
+
+fn resize(ctx: &mut Context) {
+    let mut resources = ctx.components.set::<Resources>();
+    if resources.len() < 1 {
+        return;
+    }
+
+    let resources = resources.single_mut();
+    resources.camera.resize(ctx.window_size);
 }
 
 fn setup(ctx: &mut Context) {
@@ -31,13 +42,28 @@ fn setup(ctx: &mut Context) {
         })
         .collect::<Vec<_>>();
     ctx.components.add_many(ctx.world, cubes);
-    ctx.components.add(ctx.world, Resources::new(ctx));
+    // ctx.components.add(ctx.world, Resources::new(ctx));
+
+    let gpu = ctx.gpu.clone();
+    let window_size = ctx.window_size;
+    ctx.tasks.spawn_async(
+        async move { Resources::new(&gpu, window_size).await },
+        |ctx, mut res| {
+            res.camera.resize(ctx.window_size);
+            ctx.components.add(ctx.world, res);
+        },
+    );
 }
 
 fn update(ctx: &mut Context) {
     const SPEED: f32 = 7.0;
+
     let speed = SPEED * ctx.frame.frame_time();
     let mut resources = ctx.components.set::<Resources>();
+    if resources.len() < 1 {
+        return;
+    }
+
     let resources = resources.single_mut();
     let camera = &mut resources.camera;
 
@@ -78,20 +104,21 @@ fn update(ctx: &mut Context) {
 }
 
 fn render(res: &ComponentResources, encoder: &mut RenderEncoder) {
-    let resources = res.single::<Resources>();
-    encoder.render3d(
-        Some(RgbaColor::new(220, 220, 220, 255).into()),
-        |renderer| {
-            res.render_all::<Cube>(renderer, |renderer, buffer, instances| {
-                renderer.render_model(
-                    instances,
-                    buffer,
-                    &resources.camera_buffer,
-                    &resources.model,
-                );
-            });
-        },
-    );
+    if let Some(resources) = res.try_single::<Resources>() {
+        encoder.render3d(
+            Some(RgbaColor::new(220, 220, 220, 255).into()),
+            |renderer| {
+                res.render_all::<Cube>(renderer, |renderer, buffer, instances| {
+                    renderer.render_model(
+                        instances,
+                        buffer,
+                        &resources.camera_buffer,
+                        &resources.model,
+                    );
+                });
+            },
+        );
+    }
 }
 
 #[derive(Component)]
@@ -102,27 +129,11 @@ struct Resources {
 }
 
 impl Resources {
-    pub fn new(ctx: &Context) -> Self {
-        let camera = PerspectiveCamera3D::new(ctx.window_size);
+    pub async fn new(gpu: &Gpu, window_size: Vector2<u32>) -> Self {
+        let camera = PerspectiveCamera3D::new(window_size);
         Self {
-            model: Model::new(
-                &ctx.gpu,
-                ModelBuilder::bytes(
-                    include_str!("../res/cube/cube.obj"),
-                    &[("cube.mtl", include_str!("../res/cube/cube.mtl"))],
-                    &[
-                        (
-                            "cobble-diffuse.png",
-                            include_bytes!("../res/cube/cobble-diffuse.png"),
-                        ),
-                        (
-                            "cobble-normal.png",
-                            include_bytes!("../res/cube/cobble-normal.png"),
-                        ),
-                    ],
-                ),
-            ),
-            camera_buffer: ctx.gpu.create_camera_buffer(&camera),
+            model: gpu.create_model(ModelBuilder::file("cube/cube.obj").await),
+            camera_buffer: gpu.create_camera_buffer(&camera),
             camera,
         }
     }
@@ -137,9 +148,7 @@ struct Cube {
 impl Cube {
     pub fn new(position: Vector3<f32>) -> Cube {
         Cube {
-            position: PositionInstance3D::new()
-                .with_translation(position)
-                // .with_scaling(Vector3::new(0.001, 0.001, 0.001)),
+            position: PositionInstance3D::new().with_translation(position), // .with_scaling(Vector3::new(0.001, 0.001, 0.001)),
         }
     }
 }

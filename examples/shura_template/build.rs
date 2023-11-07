@@ -1,5 +1,6 @@
 use fs_extra::{copy_items, dir::CopyOptions};
 use std::env;
+use std::fs;
 use std::path::Path;
 
 fn main() {
@@ -21,26 +22,22 @@ fn main() {
                     .map(|dir| Path::new(&dir).to_path_buf())
                     .unwrap_or(root.join("target"));
                 if os == "unknown" && target_arch == "wasm32" {
-                    let dest = target_dir
-                        .join("wasm-examples")
-                        .join("desktop");
+                    let dest = target_dir.join("wasm-examples").join("desktop");
 
-                    let mut paths_to_copy = Vec::new();
-                    paths_to_copy.push(res);
-                    copy_items(&paths_to_copy, dest.clone(), &copy_options).unwrap();
+                    if !dest.exists() {
+                        fs::create_dir_all(dest.clone()).unwrap();
+                    }
+
+                    copy_items(&[res], dest, &copy_options).unwrap();
                 } else {
                     let build_type = env::var("PROFILE").unwrap();
                     let dest = target_dir.join(build_type);
 
                     if dest.exists() {
-                        let mut paths_to_copy = Vec::new();
-                        paths_to_copy.push(res);
-
-                        copy_items(&paths_to_copy, dest.clone(), &copy_options).unwrap();
-
+                        copy_items(&[res.clone()], dest.clone(), &copy_options).unwrap();
                         let examples = dest.join("examples");
                         if examples.exists() {
-                            copy_items(&paths_to_copy, examples, &copy_options).unwrap();
+                            copy_items(&[res], examples, &copy_options).unwrap();
                         }
                     }
                 }
