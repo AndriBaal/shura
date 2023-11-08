@@ -1,34 +1,18 @@
-use shura::{log::*, physics::*, serde::*, *};
+use shura::physics::*;
+use shura::*;
 
 #[shura::main]
 fn shura_main(config: AppConfig) {
-    if let Some(save_game) = std::fs::read("data.binc").ok() {
-        App::run(config, move || {
-            SerializedScene::new(1, &save_game)
-                .deserialize::<Floor>()
-                .deserialize::<Player>()
-                .deserialize::<PhysicsBox>()
-                .component::<Resources>(ComponentConfig::RESOURCE)
-                .system(System::Render(render))
-                .system(System::Setup(|ctx| {
-                    ctx.components.add(ctx.world, Resources::new(ctx));
-                }))
-                .system(System::Update(update))
-                .system(System::End(end))
-        })
-    } else {
-        App::run(config, || {
-            NewScene::new(1)
-                .component::<Floor>(ComponentConfig::SINGLE)
-                .component::<Player>(ComponentConfig::SINGLE)
-                .component::<PhysicsBox>(Default::default())
-                .component::<Resources>(ComponentConfig::RESOURCE)
-                .system(System::Render(render))
-                .system(System::Setup(setup))
-                .system(System::Update(update))
-                .system(System::End(end))
-        });
-    };
+    App::run(config, || {
+        NewScene::new(1)
+            .component::<Floor>(ComponentConfig::SINGLE)
+            .component::<Player>(ComponentConfig::SINGLE)
+            .component::<PhysicsBox>(Default::default())
+            .component::<Resources>(ComponentConfig::RESOURCE)
+            .system(System::Render(render))
+            .system(System::Setup(setup))
+            .system(System::Update(update))
+    });
 }
 
 fn setup(ctx: &mut Context) {
@@ -55,28 +39,6 @@ fn setup(ctx: &mut Context) {
 }
 
 fn update(ctx: &mut Context) {
-    if ctx.input.is_pressed(Key::Z) {
-        serialize_scene(ctx);
-    }
-
-    if ctx.input.is_pressed(Key::R) {
-        if let Some(save_game) = std::fs::read("data.binc").ok() {
-            ctx.scenes.add(
-                SerializedScene::new(1, &save_game)
-                    .deserialize::<Floor>()
-                    .deserialize::<Player>()
-                    .deserialize::<PhysicsBox>()
-                    .component::<Resources>(ComponentConfig::RESOURCE)
-                    .system(System::Render(render))
-                    .system(System::Setup(|ctx| {
-                        ctx.components.add(ctx.world, Resources::new(ctx));
-                    }))
-                    .system(System::Update(update))
-                    .system(System::End(end)),
-            );
-        }
-    }
-
     let mut boxes = ctx.components.set::<PhysicsBox>();
     let mut player = ctx.components.single::<Player>();
 
@@ -103,7 +65,6 @@ fn update(ctx: &mut Context) {
         let b = PhysicsBox::new(ctx.cursor.coords);
         boxes.add(ctx.world, b);
     }
-
     let delta = ctx.frame.frame_time();
     let cursor_world: Point2<f32> = (ctx.cursor).into();
     let remove = ctx.input.is_held(MouseButton::Left) || ctx.input.is_pressed(ScreenTouch);
@@ -165,7 +126,7 @@ fn update(ctx: &mut Context) {
 
 fn render(res: &ComponentResources, encoder: &mut RenderEncoder) {
     let resources = res.single::<Resources>();
-    encoder.render(Some(Color::BLACK), |renderer| {
+    encoder.render2d(Some(Color::BLACK), |renderer| {
         res.render_single::<Player>(renderer, |renderer, _player, buffer, instances| {
             renderer.render_sprite(
                 instances,
@@ -177,37 +138,13 @@ fn render(res: &ComponentResources, encoder: &mut RenderEncoder) {
         });
 
         res.render_single::<Floor>(renderer, |renderer, _floor, buffer, instances| {
-            renderer.render_color(
-                instances,
-                buffer,
-                res.world_camera2d,
-                &resources.floor_mesh,
-            )
+            renderer.render_color(instances, buffer, res.world_camera2d, &resources.floor_mesh)
         });
 
         res.render_all::<PhysicsBox>(renderer, |renderer, buffer, instance| {
             renderer.render_color(instance, buffer, res.world_camera2d, &resources.box_mesh);
         });
     })
-}
-
-fn end(ctx: &mut Context, reason: EndReason) {
-    match reason {
-        EndReason::EndProgram | EndReason::RemoveScene => serialize_scene(ctx),
-        EndReason::Replaced => (),
-    }
-}
-
-fn serialize_scene(ctx: &mut Context) {
-    info!("Serializing scene!");
-    let ser = ctx
-        .serialize_scene(|s| {
-            s.serialize::<Floor>();
-            s.serialize::<Player>();
-            s.serialize::<PhysicsBox>();
-        })
-        .unwrap();
-    std::fs::write("data.binc", ser).expect("Unable to write file");
 }
 
 #[derive(Component)]
@@ -221,7 +158,9 @@ struct Resources {
 impl Resources {
     pub fn new(ctx: &Context) -> Self {
         Self {
-            player_sprite: ctx.gpu.create_sprite(SpriteBuilder::file("burger.png")),
+            player_sprite: ctx
+                .gpu
+                .create_sprite(SpriteBuilder::bytes(include_res!("burger.png"))),
             player_mesh: ctx.gpu.create_mesh(MeshBuilder2D::from_collider_shape(
                 &Player::SHAPE,
                 Player::RESOLUTION,
@@ -241,7 +180,7 @@ impl Resources {
     }
 }
 
-#[derive(Component, ::serde::Serialize, ::serde::Deserialize)]
+#[derive(Component)]
 struct Player {
     #[shura(instance)]
     body: RigidBodyInstance,
@@ -266,7 +205,7 @@ impl Player {
     }
 }
 
-#[derive(Component, ::serde::Serialize, ::serde::Deserialize)]
+#[derive(Component)]
 struct Floor {
     #[shura(instance)]
     collider: ColliderInstance,
@@ -289,7 +228,7 @@ impl Floor {
     }
 }
 
-#[derive(Component, ::serde::Serialize, ::serde::Deserialize)]
+#[derive(Component)]
 struct PhysicsBox {
     #[shura(instance)]
     body: RigidBodyInstance,

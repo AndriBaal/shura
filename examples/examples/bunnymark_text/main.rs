@@ -97,7 +97,7 @@ fn update(ctx: &mut Context) {
 
 fn render(res: &ComponentResources, encoder: &mut RenderEncoder) {
     let resources = res.single::<Resources>();
-    encoder.render(
+    encoder.render2d(
         Some(RgbaColor::new(220, 220, 220, 255).into()),
         |renderer| {
             res.render_all::<Bunny>(renderer, |renderer, buffer, instances| {
@@ -133,8 +133,12 @@ struct Resources {
 
 impl Resources {
     pub fn new(ctx: &Context) -> Self {
-        let bunny_sprite = ctx.gpu.create_sprite(SpriteBuilder::file("wabbit.png"));
-        let font = ctx.gpu.create_font(FontBuilder::file("novem.ttf"));
+        let bunny_sprite = ctx
+            .gpu
+            .create_sprite(SpriteBuilder::bytes(include_res!("wabbit.png")));
+        let font = ctx
+            .gpu
+            .create_font(FontBuilder::bytes(include_res!("novem.ttf")));
         Resources {
             screenshot: None,
             bunny_sprite,

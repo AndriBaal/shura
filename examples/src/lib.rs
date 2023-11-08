@@ -31,15 +31,23 @@ fn setup(ctx: &mut Context) {
         })
         .collect::<Vec<_>>();
     ctx.components.add_many(ctx.world, cubes);
-    ctx.components.add(ctx.world, Resources::new(ctx));
+    // ctx.components.add(ctx.world, Resources::new(ctx));
+
+    let gpu = ctx.gpu.clone();
+    ctx.tasks
+        .spawn_async(async move { Resources::new(&gpu).await }, |ctx, res| {
+            ctx.components.add(ctx.world, res);
+        });
 }
 
 fn update(ctx: &mut Context) {
     const SPEED: f32 = 7.0;
+    if ctx.components.set::<Resources>().len() < 1 {
+        return;
+    }
+
     let speed = SPEED * ctx.frame.frame_time();
-    let mut resources = ctx.components.set::<Resources>();
-    let resources = resources.single_mut();
-    let camera = &mut resources.camera;
+    let camera = ctx.world_camera3d.perspective_mut().unwrap();
 
     let forward = camera.target - camera.eye;
     let forward_norm = forward.normalize();
@@ -64,8 +72,6 @@ fn update(ctx: &mut Context) {
         camera.eye = camera.target - (forward - right * speed).normalize() * forward_mag;
     }
 
-    resources.camera_buffer.write(&ctx.gpu, camera);
-
     ctx.components.set::<Cube>().for_each_mut(|cube| {
         let mut rot = cube.position.rotation();
         rot *= Rotation3::new(Vector3::new(
@@ -78,36 +84,27 @@ fn update(ctx: &mut Context) {
 }
 
 fn render(res: &ComponentResources, encoder: &mut RenderEncoder) {
-    let resources = res.single::<Resources>();
-    encoder.render3d(
-        Some(RgbaColor::new(220, 220, 220, 255).into()),
-        |renderer| {
-            res.render_all::<Cube>(renderer, |renderer, buffer, instances| {
-                renderer.render_model(
-                    instances,
-                    buffer,
-                    &resources.camera_buffer,
-                    &resources.model,
-                );
-            });
-        },
-    );
+    if let Some(resources) = res.try_single::<Resources>() {
+        encoder.render3d(
+            Some(RgbaColor::new(220, 220, 220, 255).into()),
+            |renderer| {
+                res.render_all::<Cube>(renderer, |renderer, buffer, instances| {
+                    renderer.render_model(instances, buffer, &res.world_camera3d, &resources.model);
+                });
+            },
+        );
+    }
 }
 
 #[derive(Component)]
 struct Resources {
     model: Model,
-    camera: PerspectiveCamera3D,
-    camera_buffer: CameraBuffer<PerspectiveCamera3D>,
 }
 
 impl Resources {
-    pub fn new(ctx: &Context) -> Self {
-        let camera = PerspectiveCamera3D::new(ctx.window_size);
+    pub async fn new(gpu: &Gpu) -> Self {
         Self {
-            model: Model::new(&ctx.gpu, "cube/cube.obj"),
-            camera_buffer: ctx.gpu.create_camera_buffer(&camera),
-            camera,
+            model: gpu.create_model(ModelBuilder::file("cube/cube.obj").await),
         }
     }
 }
@@ -121,7 +118,7 @@ struct Cube {
 impl Cube {
     pub fn new(position: Vector3<f32>) -> Cube {
         Cube {
-            position: PositionInstance3D::new().with_translation(position),
+            position: PositionInstance3D::new().with_translation(position), // .with_scaling(Vector3::new(0.001, 0.001, 0.001)),
         }
     }
 }

@@ -11,19 +11,8 @@ fn shura_main(config: AppConfig) {
             .component::<Resources>(ComponentConfig::RESOURCE)
             .system(System::Update(update))
             .system(System::Setup(setup))
-            .system(System::Resize(resize))
             .system(System::Render(render))
     });
-}
-
-fn resize(ctx: &mut Context) {
-    let mut resources = ctx.components.set::<Resources>();
-    if resources.len() < 1 {
-        return;
-    }
-
-    let resources = resources.single_mut();
-    resources.camera.resize(ctx.window_size);
 }
 
 fn setup(ctx: &mut Context) {
@@ -45,27 +34,20 @@ fn setup(ctx: &mut Context) {
     // ctx.components.add(ctx.world, Resources::new(ctx));
 
     let gpu = ctx.gpu.clone();
-    let window_size = ctx.window_size;
-    ctx.tasks.spawn_async(
-        async move { Resources::new(&gpu, window_size).await },
-        |ctx, mut res| {
-            res.camera.resize(ctx.window_size);
+    ctx.tasks
+        .spawn_async(async move { Resources::new(&gpu).await }, |ctx, res| {
             ctx.components.add(ctx.world, res);
-        },
-    );
+        });
 }
 
 fn update(ctx: &mut Context) {
     const SPEED: f32 = 7.0;
-
-    let speed = SPEED * ctx.frame.frame_time();
-    let mut resources = ctx.components.set::<Resources>();
-    if resources.len() < 1 {
+    if ctx.components.set::<Resources>().len() < 1 {
         return;
     }
 
-    let resources = resources.single_mut();
-    let camera = &mut resources.camera;
+    let speed = SPEED * ctx.frame.frame_time();
+    let camera = ctx.world_camera3d.perspective_mut().unwrap();
 
     let forward = camera.target - camera.eye;
     let forward_norm = forward.normalize();
@@ -90,8 +72,6 @@ fn update(ctx: &mut Context) {
         camera.eye = camera.target - (forward - right * speed).normalize() * forward_mag;
     }
 
-    resources.camera_buffer.write(&ctx.gpu, camera);
-
     ctx.components.set::<Cube>().for_each_mut(|cube| {
         let mut rot = cube.position.rotation();
         rot *= Rotation3::new(Vector3::new(
@@ -109,12 +89,7 @@ fn render(res: &ComponentResources, encoder: &mut RenderEncoder) {
             Some(RgbaColor::new(220, 220, 220, 255).into()),
             |renderer| {
                 res.render_all::<Cube>(renderer, |renderer, buffer, instances| {
-                    renderer.render_model(
-                        instances,
-                        buffer,
-                        &resources.camera_buffer,
-                        &resources.model,
-                    );
+                    renderer.render_model(instances, buffer, &res.world_camera3d, &resources.model);
                 });
             },
         );
@@ -124,17 +99,12 @@ fn render(res: &ComponentResources, encoder: &mut RenderEncoder) {
 #[derive(Component)]
 struct Resources {
     model: Model,
-    camera: PerspectiveCamera3D,
-    camera_buffer: CameraBuffer<PerspectiveCamera3D>,
 }
 
 impl Resources {
-    pub async fn new(gpu: &Gpu, window_size: Vector2<u32>) -> Self {
-        let camera = PerspectiveCamera3D::new(window_size);
+    pub async fn new(gpu: &Gpu) -> Self {
         Self {
             model: gpu.create_model(ModelBuilder::file("cube/cube.obj").await),
-            camera_buffer: gpu.create_camera_buffer(&camera),
-            camera,
         }
     }
 }
