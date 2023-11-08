@@ -9,7 +9,7 @@ use crate::{
     InstanceBuffer, InstanceBuffer2D, Isometry2, Mesh, Mesh2D, MeshBuilder, MeshBuilder2D,
     RenderEncoder, RenderTarget, Shader, ShaderConfig, ShaderModule, ShaderModuleDescriptor,
     ShaderModuleSoure, Sprite, SpriteBuilder, SpriteRenderTarget, SpriteSheet, SpriteSheetBuilder,
-    SurfaceRenderTarget, Uniform, UniformField, Vector2, Vertex, Vertex3D, ModelBuilder, Model,
+    SurfaceRenderTarget, Uniform, UniformField, Vector2, Vertex, Vertex3D, ModelBuilder, Model, WorldCamera3D,
 };
 use std::{ops::Deref, sync::Mutex};
 
@@ -412,6 +412,7 @@ pub struct DefaultResources {
     pub times: Uniform<[f32; 2]>,
     /// Camera2D where the smaller side is always 1.0 and the otherside is scaled to match the window aspect ratio.
     pub world_camera2d: CameraBuffer2D,
+    pub world_camera3d: CameraBuffer<WorldCamera3D>,
     pub relative_camera: (CameraBuffer2D, Camera2D),
     pub relative_bottom_left_camera: (CameraBuffer2D, Camera2D),
     pub relative_bottom_right_camera: (CameraBuffer2D, Camera2D),
@@ -555,7 +556,8 @@ impl DefaultResources {
             gpu,
             Camera2D::new(Default::default(), Vector2::new(0.5, 0.5)),
         );
-        let world_camera2d = CameraBuffer2D::new(gpu, &unit_camera.1);
+        let world_camera2d = CameraBuffer2D::empty(gpu);
+        let world_camera3d = CameraBuffer::empty(gpu);
 
         let unit_mesh = gpu.create_mesh(MeshBuilder2D::cuboid(Vector2::new(0.5, 0.5)));
 
@@ -601,6 +603,7 @@ impl DefaultResources {
             relative_top_left_camera,
             relative_top_right_camera,
             world_camera2d,
+            world_camera3d,
 
             surface,
             #[cfg(feature = "framebuffer")]
@@ -647,10 +650,6 @@ impl DefaultResources {
             .0
             .write(gpu, &self.relative_top_left_camera.1);
         self.relative_camera.0.write(gpu, &self.relative_camera.1);
-    }
-
-    pub(crate) fn buffer(&mut self, gpu: &Gpu, total_time: f32, frame_time: f32) {
-        self.times.write(&gpu, [total_time, frame_time]);
     }
 
     pub fn unit_mesh(&self) -> &Mesh2D {

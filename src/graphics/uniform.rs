@@ -16,18 +16,18 @@ impl<T: bytemuck::Pod> Uniform<T> {
         Self::new_custom_layout(&gpu, &gpu.base.single_uniform_layout, data)
     }
 
-    pub fn new_vertex(gpu: &Gpu, data: T) -> Self {
+    pub fn camera(gpu: &Gpu, data: T) -> Self {
         Self::new_custom_layout(&gpu, &gpu.base.camera_layout, data)
     }
 
-    pub fn new_custom(gpu: &Gpu, desc: &wgpu::BindGroupLayoutDescriptor, data: T) -> Uniform<T> {
+    pub fn custom(gpu: &Gpu, desc: &wgpu::BindGroupLayoutDescriptor, data: T) -> Uniform<T> {
         let layout = gpu.device.create_bind_group_layout(desc);
         return Self::new_custom_layout(gpu, &layout, data);
     }
 
-    pub fn new_custom_layout(gpu: &Gpu, layout: &wgpu::BindGroupLayout, data: T) -> Uniform<T> {
+    pub fn empty(gpu: &Gpu, layout: &wgpu::BindGroupLayout) -> Uniform<T>  {
         const BUFFER_ALIGNMENT: u64 = 16;
-        let data_size = std::mem::size_of_val(&data) as u64;
+        let data_size = std::mem::size_of::<T>() as u64;
         let buffer_size = wgpu::util::align_to(data_size, BUFFER_ALIGNMENT);
         assert!(
             buffer_size % BUFFER_ALIGNMENT == 0,
@@ -40,9 +40,6 @@ impl<T: bytemuck::Pod> Uniform<T> {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-
-        gpu.queue
-            .write_buffer(&buffer, 0, bytemuck::cast_slice(&[data]));
 
         let bind_group = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout,
@@ -58,6 +55,12 @@ impl<T: bytemuck::Pod> Uniform<T> {
             bind_group,
             marker: PhantomData::<T>,
         }
+    }
+
+    pub fn new_custom_layout(gpu: &Gpu, layout: &wgpu::BindGroupLayout, data: T) -> Uniform<T> {
+        let mut uniform = Uniform::empty(gpu, layout);
+        uniform.write(gpu, data);
+        return uniform;
     }
 
     pub fn write(&mut self, gpu: &Gpu, data: T) {

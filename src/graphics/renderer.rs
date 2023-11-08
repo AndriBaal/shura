@@ -2,9 +2,9 @@
 use crate::text::Text;
 
 use crate::{
-    Camera, CameraBuffer, CameraBuffer2D, Color, DefaultResources, Gpu, Instance, InstanceBuffer,
-    InstanceBuffer2D, InstanceBuffer3D, InstanceIndices, Mesh, Mesh2D, Model, PerspectiveCamera3D,
-    RenderTarget, Shader, Sprite, SpriteSheet, Uniform, Vertex, DepthBuffer,
+    Camera, CameraBuffer, CameraBuffer2D, Color, DefaultResources, DepthBuffer, Gpu, Instance,
+    InstanceBuffer, InstanceBuffer2D, InstanceBuffer3D, InstanceIndices, Mesh, Mesh2D, Model,
+    RenderTarget, Shader, Sprite, SpriteSheet, Uniform, Vertex,
 };
 use std::{ops::Range, ptr::null};
 
@@ -46,7 +46,7 @@ impl<'a> Renderer<'a> {
         gpu: &'a Gpu,
         target: &'a dyn RenderTarget,
         clear: Option<Color>,
-        depth: Option<&'a DepthBuffer>
+        depth: Option<&'a DepthBuffer>,
     ) -> Renderer<'a> {
         let render_pass = render_encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("render_pass"),
@@ -274,11 +274,11 @@ impl<'a> Renderer<'a> {
         }
     }
 
-    pub fn render_model(
+    pub fn render_model<C: Camera>(
         &mut self,
         instances: impl Into<InstanceIndices>,
         buffer: &'a InstanceBuffer3D,
-        camera: &'a CameraBuffer<PerspectiveCamera3D>,
+        camera: &'a CameraBuffer<C>,
         model: &'a Model,
     ) {
         if buffer.buffer_size() != 0 {

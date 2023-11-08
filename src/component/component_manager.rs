@@ -2,10 +2,11 @@ use downcast_rs::{impl_downcast, Downcast};
 use rustc_hash::FxHashMap;
 
 use crate::{
-    BufferOperation, CameraBuffer2D, Component, ComponentConfig, ComponentHandle, ComponentScope,
-    ComponentSet, ComponentSetMut, ComponentType, ComponentTypeId, DefaultResources,
-    GlobalComponents, Gpu, GroupHandle, Instance2D, InstanceBuffer, InstanceHandler, InstanceIndex,
-    InstanceIndices, Mesh2D, Renderer, Scene, SystemManager, World,
+    BufferOperation, CameraBuffer, CameraBuffer2D, Component, ComponentConfig, ComponentHandle,
+    ComponentScope, ComponentSet, ComponentSetMut, ComponentType, ComponentTypeId,
+    DefaultResources, GlobalComponents, Gpu, GroupHandle, Instance2D, InstanceBuffer,
+    InstanceHandler, InstanceIndex, InstanceIndices, Mesh2D, Renderer, Scene, SystemManager, World,
+    WorldCamera3D,
 };
 
 #[cfg(feature = "serde")]
@@ -166,6 +167,7 @@ pub struct ComponentResources<'a> {
     components: &'a ComponentManager,
 
     pub world_camera2d: &'a CameraBuffer2D,
+    pub world_camera3d: &'a CameraBuffer<WorldCamera3D>,
     pub relative_camera: &'a CameraBuffer2D,
     pub relative_bottom_left_camera: &'a CameraBuffer2D,
     pub relative_bottom_right_camera: &'a CameraBuffer2D,
@@ -194,6 +196,7 @@ impl<'a> ComponentResources<'a> {
                 centered_instance: &defaults.centered_instance,
                 unit_mesh: &defaults.unit_mesh,
                 world_camera2d: &defaults.world_camera2d,
+                world_camera3d: &defaults.world_camera3d,
             },
         );
     }

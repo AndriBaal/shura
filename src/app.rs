@@ -386,6 +386,7 @@ impl App {
             }
             scene.screen_config.changed = false;
             scene.world_camera2d.resize(window_size);
+            scene.world_camera3d.resize(window_size);
 
             self.gpu.apply_vsync(scene.screen_config.vsync());
             #[cfg(feature = "framebuffer")]
@@ -455,8 +456,15 @@ impl App {
         self.defaults
             .world_camera2d
             .write(&self.gpu, &scene.world_camera2d);
+
         self.defaults
-            .buffer(&self.gpu, self.frame.total_time(), self.frame.frame_time());
+            .world_camera3d
+            .write(&self.gpu, &scene.world_camera3d);
+
+        self.defaults.times.write(
+            &self.gpu,
+            [self.frame.total_time(), self.frame.frame_time()],
+        );
 
         let (systems, res) = ComponentResources::new(&self.defaults, scene);
         let mut encoder = RenderEncoder::new(&self.gpu, &self.defaults);

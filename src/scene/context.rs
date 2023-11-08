@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     App, ComponentManager, DefaultResources, FrameManager, Gpu, GroupManager, Input, Point2, Scene,
-    SceneManager, ScreenConfig, SystemManager, Vector2, World, WorldCamera2D, TaskManager,
+    SceneManager, ScreenConfig, SystemManager, TaskManager, Vector2, World, WorldCamera2D, WorldCamera3D,
 };
 
 #[cfg(feature = "serde")]
@@ -27,6 +27,7 @@ pub struct Context<'a> {
     pub render_components: &'a mut bool,
     pub screen_config: &'a mut ScreenConfig,
     pub world_camera2d: &'a mut WorldCamera2D,
+    pub world_camera3d: &'a mut WorldCamera3D,
     pub components: &'a mut ComponentManager,
     pub groups: &'a mut GroupManager,
     pub world: &'a mut World,
@@ -68,6 +69,7 @@ impl<'a> Context<'a> {
                 render_components: &mut scene.render_components,
                 screen_config: &mut scene.screen_config,
                 world_camera2d: &mut scene.world_camera2d,
+                world_camera3d: &mut scene.world_camera3d,
                 components: &mut scene.components,
                 groups: &mut scene.groups,
                 world: &mut scene.world,
@@ -109,6 +111,7 @@ impl<'a> Context<'a> {
             render_components: bool,
             screen_config: &'a ScreenConfig,
             world_camera2d: &'a WorldCamera2D,
+            world_camera3d: &'a WorldCamera3D,
             groups: &'a GroupManager,
             world: &'a World,
         }
@@ -127,6 +130,7 @@ impl<'a> Context<'a> {
                 render_components: *self.render_components,
                 screen_config: self.screen_config,
                 world_camera2d: self.world_camera2d,
+                world_camera3d: self.world_camera3d,
                 groups: self.groups,
                 world: &world_cpy,
             };
@@ -142,6 +146,7 @@ impl<'a> Context<'a> {
                 render_components: *self.render_components,
                 screen_config: self.screen_config,
                 world_camera2d: self.world_camera2d,
+                world_camera3d: self.world_camera3d,
                 groups: self.groups,
                 world: &self.world,
             };

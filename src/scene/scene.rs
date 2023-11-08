@@ -1,9 +1,9 @@
 use std::cell::RefCell;
 
 use crate::{
-    App, Component, ComponentConfig, ComponentManager, ComponentType, ComponentTypeImplementation,
-    Context, GroupManager, ScreenConfig, System, SystemManager, Vector2, World, WorldCamera2D,
-    WorldCameraScaling, TaskManager
+    App, CameraViewSelection, Component, ComponentConfig, ComponentManager, ComponentType,
+    ComponentTypeImplementation, Context, GroupManager, PerspectiveCamera3D, ScreenConfig, System,
+    SystemManager, TaskManager, Vector2, World, WorldCamera2D, WorldCamera3D, WorldCameraScaling,
 };
 
 /// Origin of a [Scene]
@@ -81,6 +81,7 @@ pub struct Scene {
     pub render_components: bool,
     pub screen_config: ScreenConfig,
     pub world_camera2d: WorldCamera2D,
+    pub world_camera3d: WorldCamera3D,
     pub groups: GroupManager,
     pub world: World,
     #[cfg_attr(feature = "serde", serde(skip))]
@@ -107,9 +108,9 @@ impl Scene {
 
         let mut scene = Self {
             world_camera2d: WorldCamera2D::new(
+                window_size,
                 Default::default(),
                 WorldCameraScaling::Min(Self::DEFAULT_VERTICAL_CAMERA_FOV),
-                window_size,
             ),
             components: ComponentManager::new(&app.globals, components),
             systems: SystemManager::new(&systems),
@@ -117,7 +118,11 @@ impl Scene {
             screen_config: ScreenConfig::new(),
             render_components: true,
             world: World::new(),
-            tasks: TaskManager::new()
+            tasks: TaskManager::new(),
+            world_camera3d: WorldCamera3D::new(
+                window_size,
+                CameraViewSelection::PerspectiveCamera3D(PerspectiveCamera3D::default()),
+            ),
         };
 
         let (_, mut ctx) = Context::new(&id, app, &mut scene);

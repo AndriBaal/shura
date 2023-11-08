@@ -20,7 +20,14 @@ impl<C: Camera> CameraBuffer<C> {
 
     pub fn new(gpu: &Gpu, camera: &C) -> Self {
         Self {
-            uniform: Uniform::new_vertex(gpu, camera.matrix()),
+            uniform: Uniform::camera(gpu, camera.matrix()),
+            marker: PhantomData,
+        }
+    }
+
+    pub fn empty(gpu: &Gpu) -> Self {
+        Self {
+            uniform: Uniform::empty(gpu, &gpu.base.camera_layout),
             marker: PhantomData,
         }
     }
@@ -144,9 +151,9 @@ pub struct WorldCamera2D {
 
 impl WorldCamera2D {
     pub fn new(
+        window_size: Vector2<u32>,
         position: Isometry2<f32>,
         scale: WorldCameraScaling,
-        window_size: Vector2<u32>,
     ) -> Self {
         let window_size = window_size.cast();
         let fov = scale.fov(window_size);
@@ -268,15 +275,11 @@ impl WorldCameraScaling {
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PerspectiveCamera3D {
     pub eye: Point3<f32>,
     pub target: Point3<f32>,
     pub up: Vector3<f32>,
-    pub fovy: f32,
-    pub znear: f32,
-    pub zfar: f32,
-    pub aspect: f32,
 }
 
 impl Default for PerspectiveCamera3D {
@@ -285,6 +288,84 @@ impl Default for PerspectiveCamera3D {
             eye: Point3::new(0.0, 1.0, 2.0),
             target: Default::default(),
             up: Vector3::y(),
+        }
+    }
+}
+
+impl PerspectiveCamera3D {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn view(&self) -> Isometry3<f32> {
+        Isometry3::look_at_rh(&self.eye, &self.target, &self.up)
+    }
+}
+
+impl CameraView3D for PerspectiveCamera3D {
+    fn matrix(&self) -> Matrix4<f32> {
+        self.view().to_matrix()
+    }
+}
+
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone)]
+pub struct FirstPersonCamera3D {
+    pub position: Point3<f32>,
+    pub yaw: Rotation2<f32>,
+    pub pitch: Rotation2<f32>,
+    pub up: Vector3<f32>,
+}
+
+impl Default for FirstPersonCamera3D {
+    fn default() -> Self {
+        Self {
+            position: Point3::new(0.0, 1.0, 2.0),
+            yaw: Rotation2::new(0.0),
+            pitch: Rotation2::new(0.0),
+            up: Vector3::y(),
+        }
+    }
+}
+
+impl FirstPersonCamera3D {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn view(&self) -> Matrix4<f32> {
+        Matrix4::look_at_rh(
+            &self.position,
+            &Vector3::new(
+                self.pitch.cos_angle() * self.yaw.cos_angle(),
+                self.pitch.sin_angle(),
+                self.pitch.cos_angle() * self.yaw.sin_angle(),
+            )
+            .normalize()
+            .into(),
+            &self.up,
+        )
+    }
+}
+
+impl CameraView3D for FirstPersonCamera3D {
+    fn matrix(&self) -> Matrix4<f32> {
+        self.view()
+    }
+}
+
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone)]
+pub struct CameraProjection3D {
+    pub fovy: f32,
+    pub znear: f32,
+    pub zfar: f32,
+    pub aspect: f32,
+}
+
+impl Default for CameraProjection3D {
+    fn default() -> Self {
+        Self {
             fovy: 45.0,
             znear: 0.1,
             zfar: 1000.0,
@@ -293,39 +374,125 @@ impl Default for PerspectiveCamera3D {
     }
 }
 
-impl PerspectiveCamera3D {
-    pub fn new(window_size: Vector2<u32>) -> Self {
+impl CameraProjection3D {
+    pub fn new(aspect: f32) -> Self {
         Self {
-            aspect: window_size.x as f32 / window_size.y as f32,
+            aspect,
             ..Default::default()
         }
     }
 
-    pub fn resize(&mut self, window_size: Vector2<u32>) {
-        self.aspect = window_size.x as f32 / window_size.y as f32;
+    pub fn resize(&mut self, aspect: f32) {
+        self.aspect = aspect;
     }
 
-    pub fn view(&self) -> Isometry3<f32> {
-        Isometry3::look_at_rh(&self.eye, &self.target, &self.up)
-    }
-
-    pub fn proj(&self) -> Perspective3<f32> {
+    pub fn matrix(&self) -> Perspective3<f32> {
         Perspective3::new(self.aspect, self.fovy, self.znear, self.zfar)
     }
+}
 
-    pub fn view_proj(&self) -> Matrix4<f32> {
-        self.proj().to_homogeneous() * self.view().to_homogeneous()
+pub trait CameraView3D {
+    fn matrix(&self) -> Matrix4<f32>;
+}
+
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone)]
+pub struct Camera3D<V: CameraView3D> {
+    pub view: V,
+    pub proj: CameraProjection3D,
+}
+
+impl<V: CameraView3D> Camera3D<V> {
+    pub fn new(window_size: Vector2<u32>, view: V) -> Self {
+        Self {
+            view,
+            proj: CameraProjection3D::new(window_size.x as f32 / window_size.y as f32),
+        }
     }
 }
 
-impl Camera for PerspectiveCamera3D {
+impl<V: CameraView3D> Camera for Camera3D<V> {
     fn matrix(&self) -> Matrix4<f32> {
-        self.view_proj()
+        self.proj.matrix().to_homogeneous() * self.view.matrix()
     }
 }
 
-pub struct FirstPersonCamera3D {}
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone)]
+pub enum CameraViewSelection {
+    FirstPersonCamera3D(FirstPersonCamera3D),
+    PerspectiveCamera3D(PerspectiveCamera3D),
+}
 
-// pub struct OrthographicCamera3D {
+impl CameraViewSelection {
+    pub fn matrix(&self) -> Matrix4<f32> {
+        match self {
+            CameraViewSelection::FirstPersonCamera3D(view) => view.matrix(),
+            CameraViewSelection::PerspectiveCamera3D(view) => view.matrix(),
+        }
+    }
+}
 
-// }
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone)]
+pub struct WorldCamera3D {
+    pub view: CameraViewSelection,
+    proj: CameraProjection3D,
+}
+
+impl WorldCamera3D {
+    pub fn new(window_size: Vector2<u32>, view: CameraViewSelection) -> Self {
+        Self {
+            view,
+            proj: CameraProjection3D::new(window_size.x as f32 / window_size.y as f32),
+        }
+    }
+
+    pub(crate) fn resize(&mut self, window_size: Vector2<u32>) {
+        self.proj
+            .resize(window_size.x as f32 / window_size.y as f32)
+    }
+
+    pub fn perspective(&self) -> Option<&PerspectiveCamera3D> {
+        match &self.view {
+            CameraViewSelection::PerspectiveCamera3D(cam) => Some(cam),
+            _ => None,
+        }
+    }
+
+    pub fn perspective_mut(&mut self) -> Option<&mut PerspectiveCamera3D> {
+        match &mut self.view {
+            CameraViewSelection::PerspectiveCamera3D(cam) => Some(cam),
+            _ => None,
+        }
+    }
+
+    pub fn first_person(&self) -> Option<&FirstPersonCamera3D> {
+        match &self.view {
+            CameraViewSelection::FirstPersonCamera3D(cam) => Some(cam),
+            _ => None,
+        }
+    }
+
+    pub fn first_person_mut(&mut self) -> Option<&mut FirstPersonCamera3D> {
+        match &mut self.view {
+            CameraViewSelection::FirstPersonCamera3D(cam) => Some(cam),
+            _ => None,
+        }
+    }
+
+    pub fn set_first_person(&mut self, cam: FirstPersonCamera3D) {
+        self.view = CameraViewSelection::FirstPersonCamera3D(cam)
+    }
+
+
+    pub fn set_perspective(&mut self, cam: PerspectiveCamera3D) {
+        self.view = CameraViewSelection::PerspectiveCamera3D(cam)
+    }
+}
+
+impl Camera for WorldCamera3D {
+    fn matrix(&self) -> Matrix4<f32> {
+        self.proj.matrix().to_homogeneous() * self.view.matrix()
+    }
+}

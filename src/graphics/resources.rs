@@ -7,6 +7,14 @@ use std::{env, fs, path::PathBuf};
 #[cfg(feature = "log")]
 use crate::log::info;
 
+#[macro_export]
+macro_rules! include_res {
+    ($file:expr $(,)?) => {
+        include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/res/", $file))
+    };
+}
+
+
 pub async fn load_bytes(path: impl AsRef<Path>) -> Result<Vec<u8>> {
     #[cfg(target_arch = "wasm32")]
     {

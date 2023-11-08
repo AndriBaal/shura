@@ -165,7 +165,7 @@ fn update(ctx: &mut Context) {
 
 fn render(res: &ComponentResources, encoder: &mut RenderEncoder) {
     let resources = res.single::<Resources>();
-    encoder.render(Some(Color::BLACK), |renderer| {
+    encoder.render2d(Some(Color::BLACK), |renderer| {
         res.render_single::<Player>(renderer, |renderer, _player, buffer, instances| {
             renderer.render_sprite(
                 instances,
@@ -221,7 +221,7 @@ struct Resources {
 impl Resources {
     pub fn new(ctx: &Context) -> Self {
         Self {
-            player_sprite: ctx.gpu.create_sprite(SpriteBuilder::file("burger.png")),
+            player_sprite: ctx.gpu.create_sprite(SpriteBuilder::bytes(include_res!("burger.png"))),
             player_mesh: ctx.gpu.create_mesh(MeshBuilder2D::from_collider_shape(
                 &Player::SHAPE,
                 Player::RESOLUTION,
@@ -242,6 +242,7 @@ impl Resources {
 }
 
 #[derive(Component, serde::Serialize, serde::Deserialize)]
+#[serde(crate = "shura::serde")]
 struct Player {
     #[shura(instance)]
     body: RigidBodyInstance,
