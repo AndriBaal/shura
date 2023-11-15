@@ -50,13 +50,7 @@ fn update(ctx: &mut Context) {
     let mut simulation = ctx.components.single::<BirdSimulation>();
     let mut birds = ctx.components.set::<Bird>();
     let fps = ctx.frame.fps();
-    let delta = ctx.frame.frame_time() * {
-        if simulation.time_scale.is_nan() {
-            simulation.time_scale
-        } else {
-            1.0
-        }
-    };
+    let delta = ctx.frame.frame_time() * simulation.time_scale;
     let step = ctx.frame.frame_time() * simulation.time_scale * Pipe::VELOCITY;
     pipes.retain(ctx.world, |pipe, _| {
         let new_pos = pipe.pos.translation() + step;
