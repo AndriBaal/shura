@@ -79,7 +79,6 @@ impl<'a> RenderEncoder<'a> {
     }
 
     pub fn copy_target(&mut self, src: &dyn RenderTarget, target: &dyn RenderTarget) {
-        assert_eq!(src.size(), target.size());
         if src
             .texture()
             .usage()

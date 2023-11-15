@@ -5,13 +5,13 @@ edition = "2021"
 
 # Android
 # Important: key.keystore is only for demo. Replace key.keystore for your own private key when deploying
-# [lib]
-# crate_type=["cdylib"]
+[lib]
+crate_type=["cdylib"]
 
 # Desktop (Windows, Linux, MacOS, WASM)
-[[bin]]
-path = "src/lib.rs"
-name = "desktop"
+# [[bin]]
+# path = "src/lib.rs"
+# name = "desktop"
 
 [dependencies]
 shura = { path = "../" }

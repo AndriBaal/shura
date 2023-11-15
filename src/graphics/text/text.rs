@@ -242,7 +242,7 @@ pub struct Text {
 impl Text {
     pub fn new<S: AsRef<str>>(gpu: &Gpu, font: &Font, sections: &[TextSection<S>]) -> Self {
         let builder = Self::compute_vertices(font, sections);
-        let mesh = gpu.create_mesh(builder);
+        let mesh = gpu.create_mesh(&builder);
         return Self {
             font: font.clone(),
             mesh,

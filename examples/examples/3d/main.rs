@@ -104,7 +104,7 @@ struct Resources {
 impl Resources {
     pub async fn new(gpu: &Gpu) -> Self {
         Self {
-            model: gpu.create_model(ModelBuilder::file("cube/cube.obj").await),
+            model: gpu.create_model(ModelBuilder::file("3d/cube/cube.obj").await),
         }
     }
 }

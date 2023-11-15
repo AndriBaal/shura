@@ -227,7 +227,7 @@ impl Gpu {
         CameraBuffer::new(self, camera)
     }
 
-    pub fn create_mesh<V: Vertex>(&self, builder: impl MeshBuilder<Vertex = V>) -> Mesh<V> {
+    pub fn create_mesh<V: Vertex>(&self, builder: &dyn MeshBuilder<Vertex = V>) -> Mesh<V> {
         Mesh::new(self, builder)
     }
 
@@ -559,7 +559,7 @@ impl DefaultResources {
         let world_camera2d = CameraBuffer2D::empty(gpu);
         let world_camera3d = CameraBuffer::empty(gpu);
 
-        let unit_mesh = gpu.create_mesh(MeshBuilder2D::cuboid(Vector2::new(0.5, 0.5)));
+        let unit_mesh = gpu.create_mesh(&MeshBuilder2D::cuboid(Vector2::new(0.5, 0.5)));
 
         let surface = SurfaceRenderTarget::new(gpu, size);
 

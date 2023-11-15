@@ -15,7 +15,7 @@ categories = [
     "game-engines",
     "game-development",
 ]
-exclude = ["docs"]
+exclude = ["docs", "macro", "examples"]
 
 [features]
 animation = []

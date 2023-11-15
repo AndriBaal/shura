@@ -160,18 +160,18 @@ impl Resources {
         Self {
             player_sprite: ctx
                 .gpu
-                .create_sprite(SpriteBuilder::bytes(include_res!("burger.png"))),
-            player_mesh: ctx.gpu.create_mesh(MeshBuilder2D::from_collider_shape(
+                .create_sprite(SpriteBuilder::bytes(include_bytes_res!("physics/burger.png"))),
+            player_mesh: ctx.gpu.create_mesh(&MeshBuilder2D::from_collider_shape(
                 &Player::SHAPE,
                 Player::RESOLUTION,
                 0.0,
             )),
-            floor_mesh: ctx.gpu.create_mesh(MeshBuilder2D::from_collider_shape(
+            floor_mesh: ctx.gpu.create_mesh(&MeshBuilder2D::from_collider_shape(
                 &Floor::SHAPE,
                 Floor::RESOLUTION,
                 0.0,
             )),
-            box_mesh: ctx.gpu.create_mesh(MeshBuilder2D::from_collider_shape(
+            box_mesh: ctx.gpu.create_mesh(&MeshBuilder2D::from_collider_shape(
                 &PhysicsBox::BOX_SHAPE,
                 0,
                 0.0,

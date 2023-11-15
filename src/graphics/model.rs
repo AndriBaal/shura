@@ -284,6 +284,7 @@ impl MeshBuilder2D {
         border_radius: f32,
         resolution: u32,
     ) -> Self {
+        let inner = inner.apply();
         let v = inner.vertices.iter().map(|v| v.pos).collect();
         let border = border_radius;
 
@@ -868,7 +869,7 @@ pub struct Mesh<V: Vertex> {
 }
 
 impl<V: Vertex> Mesh<V> {
-    pub fn new(gpu: &Gpu, builder: impl MeshBuilder<Vertex = V>) -> Self {
+    pub fn new(gpu: &Gpu, builder: &dyn MeshBuilder<Vertex = V>) -> Self {
         let vertices = builder.vertices();
         let indices = builder.indices();
         let vertices_slice = bytemuck::cast_slice(&vertices);
@@ -1100,7 +1101,7 @@ impl Model {
                     .collect::<Vec<_>>();
                 (
                     m.mesh.material_id,
-                    gpu.create_mesh(MeshBuilder3D {
+                    gpu.create_mesh(&MeshBuilder3D {
                         vertices,
                         indices: Index::from_vec(m.mesh.indices),
                     }),

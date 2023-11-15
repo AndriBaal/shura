@@ -8,9 +8,16 @@ use std::{env, fs, path::PathBuf};
 use crate::log::info;
 
 #[macro_export]
-macro_rules! include_res {
+macro_rules! include_bytes_res {
     ($file:expr $(,)?) => {
         include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/res/", $file))
+    };
+}
+
+#[macro_export]
+macro_rules! include_str_res {
+    ($file:expr $(,)?) => {
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/res/", $file))
     };
 }
 

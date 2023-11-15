@@ -135,10 +135,10 @@ impl Resources {
     pub fn new(ctx: &Context) -> Self {
         let bunny_sprite = ctx
             .gpu
-            .create_sprite(SpriteBuilder::bytes(include_res!("wabbit.png")));
+            .create_sprite(SpriteBuilder::bytes(include_bytes_res!("bunnymark/wabbit.png")));
         let font = ctx
             .gpu
-            .create_font(FontBuilder::bytes(include_res!("novem.ttf")));
+            .create_font(FontBuilder::bytes(include_bytes_res!("bunnymark/novem.ttf")));
         Resources {
             screenshot: None,
             bunny_sprite,
