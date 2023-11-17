@@ -4,7 +4,7 @@
 
 ### Native:
 ```
-cargo run --release --bin desktop
+cargo run --release
 ```
 
 ### Android:
@@ -19,7 +19,7 @@ cargo apk run --release
 Make sure that [wasm-server-runner](https://github.com/jakobhellermann/wasm-server-runner) is installed.
 
 ```
-cargo build --release --target wasm32-unknown-unknown --bin desktop
+cargo build --release --target wasm32-unknown-unknown
 
 wasm-server-runner ./target/wasm32-unknown-unknown/release/desktop.wasm
 

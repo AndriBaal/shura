@@ -5,13 +5,10 @@ edition = "2021"
 
 # Android
 # Important: key.keystore is only for demo. Replace key.keystore for your own private key when deploying
-[lib]
-crate_type=["cdylib"]
+# [lib]
+# path = "./src/main.rs"
+# crate_type=["cdylib"]
 
-# Desktop (Windows, Linux, MacOS, WASM)
-# [[bin]]
-# path = "src/lib.rs"
-# name = "desktop"
 
 [dependencies]
 shura = { path = "../" }
@@ -21,9 +18,6 @@ egui_demo_lib = "0.23"
 
 [build-dependencies]
 fs_extra = "1.2"
-
-[target.wasm32-unknown-unknown]
-runner = "wasm-server-runner"
 
 [package.metadata.android]
 package = "com.shura.examples"
