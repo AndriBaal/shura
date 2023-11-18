@@ -6,10 +6,11 @@ use crate::log::info;
 use crate::text::{Font, FontBuilder, Text, TextSection};
 use crate::{
     Camera, Camera2D, CameraBuffer, CameraBuffer2D, DepthBuffer, Instance, Instance2D, Instance3D,
-    InstanceBuffer, InstanceBuffer2D, Isometry2, Mesh, Mesh2D, MeshBuilder, MeshBuilder2D,
-    RenderEncoder, RenderTarget, Shader, ShaderConfig, ShaderModule, ShaderModuleDescriptor,
-    ShaderModuleSoure, Sprite, SpriteBuilder, SpriteRenderTarget, SpriteSheet, SpriteSheetBuilder,
-    SurfaceRenderTarget, Uniform, UniformField, Vector2, Vertex, Vertex3D, ModelBuilder, Model, WorldCamera3D,
+    InstanceBuffer, InstanceBuffer2D, Isometry2, Mesh, Mesh2D, MeshBuilder, MeshBuilder2D, Model,
+    ModelBuilder, RenderEncoder, RenderTarget, Shader, ShaderConfig, ShaderModule,
+    ShaderModuleDescriptor, ShaderModuleSoure, Sprite, SpriteBuilder, SpriteRenderTarget,
+    SpriteSheet, SpriteSheetBuilder, SurfaceRenderTarget, Uniform, UniformField, Vector2, Vertex,
+    Vertex3D, WorldCamera3D,
 };
 use std::{ops::Deref, sync::Mutex};
 
@@ -49,6 +50,7 @@ pub struct Gpu {
     pub(crate) config: Mutex<wgpu::SurfaceConfiguration>,
     pub(crate) format: wgpu::TextureFormat,
     pub(crate) base: WgpuDefaultResources,
+    pub command_buffers: Mutex<Vec<wgpu::CommandBuffer>>,
 }
 
 impl Gpu {
@@ -149,6 +151,7 @@ impl Gpu {
             format: config.format,
             surface: Mutex::new(surface),
             config: Mutex::new(config),
+            command_buffers: Mutex::new(Default::default()),
         };
 
         return gpu;
@@ -204,8 +207,10 @@ impl Gpu {
             .poll(wgpu::MaintainBase::WaitForSubmissionIndex(handle));
     }
 
-    pub fn submit(&self, encoder: RenderEncoder) -> wgpu::SubmissionIndex {
-        self.queue.submit(std::iter::once(encoder.finish()))
+    pub fn submit(&self) -> wgpu::SubmissionIndex {
+        let mut command_buffers = self.command_buffers.lock().unwrap();
+        let command_buffers = std::mem::replace(&mut *command_buffers, Vec::new());
+        self.queue.submit(command_buffers)
     }
 
     pub fn create_render_target(&self, size: Vector2<u32>) -> SpriteRenderTarget {
@@ -432,9 +437,8 @@ impl DefaultResources {
             name: Some("sprite_sheet"),
             source: ShaderModuleSoure::Seperate {
                 vertex: &gpu.base.vertex_shader_module,
-                fragment: &gpu.create_shader_module(include_wgsl!(
-                    "../../res/shader/2d/sprite_sheet.wgsl"
-                )),
+                fragment: &gpu
+                    .create_shader_module(include_wgsl!("../../res/shader/2d/sprite_sheet.wgsl")),
             },
             uniforms: &[UniformField::Camera, UniformField::SpriteSheet],
             ..Default::default()
@@ -514,8 +518,7 @@ impl DefaultResources {
             name: Some("grey"),
             source: ShaderModuleSoure::Seperate {
                 vertex: &gpu.base.vertex_shader_module,
-                fragment: &gpu
-                    .create_shader_module(include_wgsl!("../../res/shader/2d/grey.wgsl")),
+                fragment: &gpu.create_shader_module(include_wgsl!("../../res/shader/2d/grey.wgsl")),
             },
             uniforms: &[UniformField::Camera, UniformField::Sprite],
             ..Default::default()

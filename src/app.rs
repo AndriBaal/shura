@@ -479,7 +479,8 @@ impl App {
         #[cfg(feature = "gui")]
         self.gui.render(&self.gpu, &self.defaults, &mut encoder);
 
-        encoder.submit(&self.gpu);
+        encoder.finish();
+        self.gpu.submit();
     }
 
     fn end(&mut self) {

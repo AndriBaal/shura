@@ -230,7 +230,6 @@ impl SpriteRenderTarget {
     ) {
         let mut encoder = RenderEncoder::new(gpu, defaults);
         compute(&mut encoder);
-        encoder.submit(gpu);
     }
 
     pub fn compute_target_size(
