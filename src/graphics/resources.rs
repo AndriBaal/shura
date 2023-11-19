@@ -21,7 +21,6 @@ macro_rules! include_str_res {
     };
 }
 
-
 pub async fn load_bytes(path: impl AsRef<Path>) -> Result<Vec<u8>> {
     #[cfg(target_arch = "wasm32")]
     {

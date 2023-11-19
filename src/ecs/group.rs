@@ -1,7 +1,7 @@
 #[cfg(feature = "serde")]
-use crate::{ComponentTypeId, FxHashMap};
+use crate::{EntityTypeId, FxHashMap};
 
-use crate::{data::arena::Arena, Camera2D, ComponentManager, GroupHandle, Instant, World, AABB};
+use crate::{data::arena::Arena, Camera2D, EntityManager, GroupHandle, Instant, World, AABB};
 use std::fmt;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -13,10 +13,10 @@ impl GroupManager {
     pub const DEFAULT_GROUP_NAME: &str = "Default Group";
     pub const DEFAULT_GROUP: GroupHandle = GroupHandle::DEFAULT_GROUP;
     pub(crate) fn new() -> Self {
-        let default_component_group =
+        let default_entity_group =
             Group::new(GroupActivation::Always, 0, Some(Self::DEFAULT_GROUP_NAME));
         let mut groups = Arena::default();
-        groups.insert(default_component_group);
+        groups.insert(default_entity_group);
         Self { groups }
     }
 
@@ -46,18 +46,18 @@ impl GroupManager {
         return self.groups.get_mut(handle.0);
     }
 
-    pub fn add(&mut self, components: &mut ComponentManager, group: Group) -> GroupHandle {
+    pub fn add(&mut self, entities: &mut EntityManager, group: Group) -> GroupHandle {
         let handle = GroupHandle(self.groups.insert(group));
-        for mut ty in components.types_mut() {
+        for mut ty in entities.types_mut() {
             ty.add_group();
         }
-        components.all_groups.push(handle);
+        entities.all_groups.push(handle);
         return handle;
     }
 
     pub fn remove(
         &mut self,
-        components: &mut ComponentManager,
+        entities: &mut EntityManager,
         world: &mut World,
         handle: GroupHandle,
     ) -> Option<Group> {
@@ -66,12 +66,12 @@ impl GroupManager {
         }
         let group = self.groups.remove(handle.0);
         if group.is_some() {
-            components.active_groups.retain(|g| *g != handle);
-            components.all_groups.retain(|g| *g != handle);
-            for mut ty in components.types_mut() {
+            entities.active_groups.retain(|g| *g != handle);
+            entities.all_groups.retain(|g| *g != handle);
+            for mut ty in entities.types_mut() {
                 ty.remove_group(world, handle);
             }
-            components.all_groups.retain(|h| *h != handle);
+            entities.all_groups.retain(|h| *h != handle);
         }
         return group;
     }
@@ -79,38 +79,38 @@ impl GroupManager {
     #[cfg(feature = "serde")]
     pub fn remove_serialize(
         &mut self,
-        components: &mut ComponentManager,
+        entities: &mut EntityManager,
         world: &mut World,
         handle: GroupHandle,
-    ) -> Option<(Group, FxHashMap<ComponentTypeId, Box<dyn std::any::Any>>)> {
+    ) -> Option<(Group, FxHashMap<EntityTypeId, Box<dyn std::any::Any>>)> {
         if handle == GroupHandle::DEFAULT_GROUP {
             panic!("Cannot remove default group!");
         }
         let group = self.groups.remove(handle.0);
         if let Some(group) = group {
-            components.active_groups.retain(|g| *g != handle);
-            components.all_groups.retain(|g| *g != handle);
+            entities.active_groups.retain(|g| *g != handle);
+            entities.all_groups.retain(|g| *g != handle);
             let mut out = FxHashMap::default();
-            for mut ty in components.types_mut() {
+            for mut ty in entities.types_mut() {
                 if let Some(g) = ty.remove_group_serialize(world, handle) {
-                    out.insert(ty.component_type_id(), g);
+                    out.insert(ty.entity_type_id(), g);
                 }
             }
-            components.all_groups.retain(|h| *h != handle);
+            entities.all_groups.retain(|h| *h != handle);
             return Some((group, out));
         } else {
             return None;
         }
     }
 
-    pub fn update(&mut self, components: &mut ComponentManager, camera: &Camera2D) {
+    pub fn update(&mut self, entities: &mut EntityManager, camera: &Camera2D) {
         let cam_aabb = camera.aabb();
-        components.active_groups.clear();
+        entities.active_groups.clear();
         let now = Instant::now();
         for (index, group) in self.groups.iter_mut_with_index() {
             if group.intersects_camera(cam_aabb) {
                 group.set_active(true, now);
-                components.active_groups.push(GroupHandle(index));
+                entities.active_groups.push(GroupHandle(index));
             }
         }
     }
@@ -118,16 +118,9 @@ impl GroupManager {
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Copy, Clone, PartialEq)]
-/// Decides when a group is active.
-///
-/// # Important
-/// Components in a inactive [Group] still physics events
 pub enum GroupActivation {
-    /// Group is only active when it collides with the fov of the [WorldCamera2D](crate::WorldCamera2D)
     Position { aabb: AABB },
-    /// Group is always active
     Always,
-    /// Never
     Never,
 }
 
@@ -140,10 +133,6 @@ impl fmt::Display for GroupActivation {
         }
     }
 }
-/// Groups can be used like a chunk system to make huge 2D worlds possible or to just order your components.
-/// The Engine has a default [Group](crate::Group) with the [default handle](crate::GroupHandle::DEFAULT_GROUP).
-/// After every update and before rendering, the set of active groups gets
-/// computed.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone)]
 pub struct Group {
@@ -186,7 +175,6 @@ impl Group {
         self.last_update = now;
     }
 
-    /// Set the activation of this group.
     pub fn set_activation(&mut self, activation: GroupActivation) {
         self.activation = activation;
     }
@@ -199,12 +187,10 @@ impl Group {
         self.user_data = user_data;
     }
 
-    /// Get the activation of this Group.
     pub const fn activation(&self) -> &GroupActivation {
         &self.activation
     }
 
-    /// See if this group is active in the current cycle.
     pub const fn active(&self) -> bool {
         self.active
     }

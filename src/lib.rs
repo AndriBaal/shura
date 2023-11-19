@@ -2,15 +2,15 @@
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 mod app;
-mod component;
 mod data;
+mod ecs;
 mod graphics;
 mod input;
 mod math;
 mod scene;
 mod systems;
-mod world;
 mod tasks;
+mod world;
 
 pub use instant::{Duration, Instant};
 pub use rustc_hash::{FxHashMap, FxHashSet};
@@ -23,9 +23,9 @@ pub(crate) use data::arena::*;
 
 pub use crate::{
     app::*,
-    component::{
-        component::*, component_config::*, component_handle::*, component_manager::*,
-        component_set::*, component_type::*, empty_instance::*, group::*, position_instance::*,
+    ecs::{
+        entity::*, entity_config::*, entity_handle::*, entity_manager::*, entity_set::*,
+        entity_type::*, group::*, position_component::*,
     },
     graphics::{
         camera::*, color::*, depth_buffer::*, frame_manager::*, gpu::*, instance_buffer::*,
@@ -36,7 +36,7 @@ pub use crate::{
     math::{aabb::*, math::*},
     scene::{context::*, scene::*, scene_manager::*},
     systems::systems::*,
-    tasks::tasks::*
+    tasks::tasks::*,
 };
 
 /// Access to [wgpu](https://github.com/gfx-rs/wgpu) for creating custom graphics.
@@ -72,8 +72,8 @@ pub use world::world::World;
 pub mod physics {
     pub use crate::world::{
         // character_controller_component::*,
-        collider_instance::*,
-        rigid_body_instance::*,
+        collider_component::*,
+        rigid_body_component::*,
         world::*,
     };
     pub use rapier2d::control::{
@@ -179,4 +179,3 @@ pub mod log {
     pub use env_logger;
     pub use log::{debug, error, info, trace, warn, Level, LevelFilter, SetLoggerError};
 }
-

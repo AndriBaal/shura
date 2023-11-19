@@ -35,7 +35,6 @@ pub trait Vertex: bytemuck::Pod + bytemuck::Zeroable {
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-/// Represents the order in which [Vertices](Vertex) are drawn in a triangle.
 pub struct Index {
     pub a: u32,
     pub b: u32,
@@ -72,7 +71,6 @@ impl<V: Vertex> MeshBuilder for (Vec<V>, Vec<Index>) {
     }
 }
 
-/// Single vertex of a mesh. Which hold the coordniate of the vertex and the texture coordinates.
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Default, bytemuck::Pod, bytemuck::Zeroable)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -105,7 +103,6 @@ impl Vertex for Vertex2D {
 
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-/// Builder to easily create a [Mesh].
 pub struct MeshBuilder2D {
     pub vertices: Vec<Vertex2D>,
     pub indices: Vec<Index>,
@@ -537,7 +534,6 @@ impl MeshBuilder2D {
         };
     }
 
-    /// Triangulation of vertices
     pub fn triangulate(vertices: &Vec<Vertex2D>) -> Vec<Index> {
         use delaunator::{triangulate, Point};
 
@@ -561,7 +557,6 @@ impl MeshBuilder2D {
         return indices;
     }
 
-    /// Generates the texture coordinates
     pub fn create_tex(vertices: Vec<Vector2<f32>>) -> Vec<Vertex2D> {
         let mut min_x = vertices[0].x;
         let mut max_x = vertices[0].x;

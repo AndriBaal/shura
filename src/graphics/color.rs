@@ -164,7 +164,6 @@ impl Into<[u8; 4]> for RgbaColor {
 #[repr(C)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Copy, Clone, Debug, PartialEq, Default, bytemuck::Pod, bytemuck::Zeroable)]
-/// RGBA color represented by 4 floats between 0 and 1.
 pub struct Color {
     pub r: f32,
     pub g: f32,

@@ -46,7 +46,6 @@ impl Default for SpriteAtlas {
     }
 }
 
-/// Single vertex of a mesh. Which hold the coordniate of the vertex and the texture coordinates.
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -145,7 +144,6 @@ impl Default for Instance2D {
     }
 }
 
-/// Single vertex of a mesh. Which hold the coordniate of the vertex and the texture coordinates.
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -176,7 +174,6 @@ impl Default for Instance3D {
     }
 }
 
-/// Buffer holding multiple [Positions](crate::Isometry2) in form of [Matrices](crate::Matrix2).
 pub struct InstanceBuffer<I: Instance> {
     buffer: wgpu::Buffer,
     buffer_size: wgpu::BufferAddress,
@@ -283,7 +280,6 @@ impl<I: Instance> InstanceBuffer<I> {
 }
 
 #[derive(Debug, Copy, Clone)]
-/// Index of a [Position](crate::Isometry2) in a [InstanceBuffer] represented by a [Matrix2]
 pub struct InstanceIndex {
     pub index: u32,
 }
@@ -313,7 +309,6 @@ impl Into<InstanceIndices> for Range<u32> {
 }
 
 #[derive(Debug, Copy, Clone)]
-/// Range of [InstanceIndex]
 pub struct InstanceIndices {
     pub start: u32,
     pub end: u32,

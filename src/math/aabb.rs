@@ -2,7 +2,6 @@ use crate::{Isometry2, Vector2, Vertex2D};
 
 #[derive(Debug, Copy, Clone, PartialEq, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-/// Simple Axis-aligned minimum bounding box collision detection
 pub struct AABB {
     pub min: Vector2<f32>,
     pub max: Vector2<f32>,

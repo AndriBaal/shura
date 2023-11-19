@@ -140,9 +140,6 @@ impl Camera for Camera2D {
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone)]
-/// Limits a [Camera] to always maintain the aspect ratio of the window. This behaviour can be controlled
-/// through the [WorldCameraScaling]. This camera is also in charge of deciding which [Groups](crate::Group)
-/// is active based on if the [Groups](crate::Group) intersects with the camera.
 pub struct WorldCamera2D {
     pub(crate) camera: Camera2D,
     scale: WorldCameraScaling,
@@ -484,7 +481,6 @@ impl WorldCamera3D {
     pub fn set_first_person(&mut self, cam: FirstPersonCamera3D) {
         self.view = CameraViewSelection::FirstPersonCamera3D(cam)
     }
-
 
     pub fn set_perspective(&mut self, cam: PerspectiveCamera3D) {
         self.view = CameraViewSelection::PerspectiveCamera3D(cam)

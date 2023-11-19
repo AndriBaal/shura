@@ -15,9 +15,9 @@ use crate::{
     VERSION,
 };
 use crate::{
-    ComponentResources, ComponentTypeId, ComponentTypeImplementation, Context, DefaultResources,
-    EndReason, FrameManager, Gpu, GpuConfig, Input, RenderEncoder, Scene, SceneCreator,
-    SceneManager, UpdateOperation, Vector2,
+    Context, DefaultResources, EndReason, EntityTypeId, EntityTypeImplementation, FrameManager,
+    Gpu, GpuConfig, Input, RenderContext, RenderEncoder, Scene, SceneCreator, SceneManager,
+    UpdateOperation, Vector2,
 };
 use rustc_hash::FxHashMap;
 #[cfg(target_os = "android")]
@@ -26,7 +26,6 @@ use winit::platform::android::activity::AndroidApp;
 #[cfg(feature = "audio")]
 use crate::audio::AudioManager;
 
-/// Configuration for the base of the game engine
 pub struct AppConfig {
     pub window: winit::window::WindowBuilder,
     pub gpu: GpuConfig,
@@ -68,12 +67,11 @@ impl AppConfig {
     }
 }
 
-// The Option<> is here to keep track of component, that have already been added to scenes and therefore
-// can not be registered as a global component.
-pub struct GlobalComponents(
-    pub(crate)  Rc<
-        RefCell<FxHashMap<ComponentTypeId, Option<Rc<RefCell<dyn ComponentTypeImplementation>>>>>,
-    >,
+// The Option<> is here to keep track of entities, that have already been added to scenes and therefore
+// can not be registered as a global entities.
+pub struct GlobalEntitys(
+    pub(crate) 
+        Rc<RefCell<FxHashMap<EntityTypeId, Option<Rc<RefCell<dyn EntityTypeImplementation>>>>>>,
 );
 
 pub struct App {
@@ -81,7 +79,7 @@ pub struct App {
     pub resized: bool,
     pub frame: FrameManager,
     pub scenes: SceneManager,
-    pub globals: GlobalComponents,
+    pub globals: GlobalEntitys,
     pub window: winit::window::Window,
     pub input: Input,
     pub defaults: DefaultResources,
@@ -95,8 +93,7 @@ pub struct App {
 }
 
 impl App {
-    /// Start a new game with the given callback to initialize the first [Scene](crate::Scene).
-    pub fn run<C: SceneCreator + 'static>(config: AppConfig, init: impl FnOnce() -> C + 'static) {
+    pub fn run<S: SceneCreator + 'static>(config: AppConfig, init: impl FnOnce() -> S + 'static) {
         #[cfg(target_os = "android")]
         use winit::platform::android::EventLoopBuilderExtAndroid;
 
@@ -242,11 +239,11 @@ impl App {
         });
     }
 
-    fn new<C: SceneCreator + 'static>(
+    fn new<S: SceneCreator + 'static>(
         window: winit::window::Window,
         _event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
         gpu: GpuConfig,
-        creator: impl FnOnce() -> C,
+        creator: impl FnOnce() -> S,
         #[cfg(target_arch = "wasm32")] auto_scale_canvas: bool,
     ) -> Self {
         let gpu = pollster::block_on(Gpu::new(&window, gpu));
@@ -260,7 +257,7 @@ impl App {
         Self {
             scenes: SceneManager::new(scene.new_id(), scene),
             frame: FrameManager::new(),
-            globals: GlobalComponents(Default::default()),
+            globals: GlobalEntitys(Default::default()),
             input: Input::new(window_size),
             #[cfg(feature = "audio")]
             audio: AudioManager::new(),
@@ -396,7 +393,7 @@ impl App {
         }
 
         self.update(scene_id, scene);
-        if scene.render_components {
+        if scene.render_entities {
             self.defaults.surface.start_frame(&self.gpu)?;
             self.render(scene_id, scene);
             self.defaults.surface.finish_frame();
@@ -406,7 +403,7 @@ impl App {
     }
 
     fn update(&mut self, scene_id: u32, scene: &mut Scene) {
-        self.frame.update(scene.components.active_groups().len());
+        self.frame.update(scene.entities.active_groups().len());
         #[cfg(feature = "gamepad")]
         self.input.sync_gamepad();
         #[cfg(feature = "gui")]
@@ -448,11 +445,11 @@ impl App {
 
         scene
             .groups
-            .update(&mut scene.components, &scene.world_camera2d);
+            .update(&mut scene.entities, &scene.world_camera2d);
     }
 
     fn render(&mut self, _scene_id: u32, scene: &mut Scene) {
-        scene.components.buffer(&mut scene.world, &self.gpu);
+        scene.entities.buffer(&mut scene.world, &self.gpu);
         self.defaults
             .world_camera2d
             .write(&self.gpu, &scene.world_camera2d);
@@ -466,7 +463,7 @@ impl App {
             [self.frame.total_time(), self.frame.frame_time()],
         );
 
-        let (systems, res) = ComponentResources::new(&self.defaults, scene);
+        let (systems, res) = RenderContext::new(&self.defaults, scene);
         let mut encoder = RenderEncoder::new(&self.gpu, &self.defaults);
 
         for render in &systems.render_systems {

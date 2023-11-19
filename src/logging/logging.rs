@@ -8,7 +8,6 @@ use web_sys::{console, wasm_bindgen::prelude::JsValue};
 #[cfg(target_arch = "wasm32")]
 use log::Level;
 
-/// Configuration for logging
 pub struct LoggerBuilder {
     pub env: EnvLoggerBuilder,
 }

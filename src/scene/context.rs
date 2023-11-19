@@ -1,14 +1,15 @@
 use std::sync::Arc;
 
 use crate::{
-    App, ComponentManager, DefaultResources, FrameManager, Gpu, GroupManager, Input, Point2, Scene,
-    SceneManager, ScreenConfig, SystemManager, TaskManager, Vector2, World, WorldCamera2D, WorldCamera3D,
+    App, DefaultResources, EntityManager, FrameManager, Gpu, GroupManager, Input, Point2, Scene,
+    SceneManager, ScreenConfig, SystemManager, TaskManager, Vector2, World, WorldCamera2D,
+    WorldCamera3D,
 };
 
 #[cfg(feature = "serde")]
 use crate::{
     serde::{GroupDeserializer, GroupSerializer, SceneSerializer},
-    ComponentTypeId, GroupHandle,
+    EntityTypeId, GroupHandle,
 };
 
 #[cfg(feature = "serde")]
@@ -20,15 +21,14 @@ use crate::audio::AudioManager;
 #[cfg(feature = "gui")]
 use crate::gui::Gui;
 
-/// Context to communicate with the game engine to access components, scenes, camera, physics and much more.
 #[non_exhaustive]
 pub struct Context<'a> {
     // Scene
-    pub render_components: &'a mut bool,
+    pub render_entities: &'a mut bool,
     pub screen_config: &'a mut ScreenConfig,
     pub world_camera2d: &'a mut WorldCamera2D,
     pub world_camera3d: &'a mut WorldCamera3D,
-    pub components: &'a mut ComponentManager,
+    pub entities: &'a mut EntityManager,
     pub groups: &'a mut GroupManager,
     pub world: &'a mut World,
     pub tasks: &'a mut TaskManager,
@@ -66,11 +66,11 @@ impl<'a> Context<'a> {
             &mut scene.systems,
             Self {
                 // Scene
-                render_components: &mut scene.render_components,
+                render_entities: &mut scene.render_entities,
                 screen_config: &mut scene.screen_config,
                 world_camera2d: &mut scene.world_camera2d,
                 world_camera3d: &mut scene.world_camera3d,
-                components: &mut scene.components,
+                entities: &mut scene.entities,
                 groups: &mut scene.groups,
                 world: &mut scene.world,
                 tasks: &mut scene.tasks,
@@ -102,13 +102,13 @@ impl<'a> Context<'a> {
         &mut self,
         mut serialize: impl FnMut(&mut SceneSerializer),
     ) -> Result<Vec<u8>, Box<bincode::ErrorKind>> {
-        let components = &self.components;
-        let mut serializer = SceneSerializer::new(components);
+        let entities = &self.entities;
+        let mut serializer = SceneSerializer::new(entities);
         (serialize)(&mut serializer);
 
         #[derive(serde::Serialize)]
         struct Scene<'a> {
-            render_components: bool,
+            render_entities: bool,
             screen_config: &'a ScreenConfig,
             world_camera2d: &'a WorldCamera2D,
             world_camera3d: &'a WorldCamera3D,
@@ -118,39 +118,39 @@ impl<'a> Context<'a> {
 
         #[cfg(feature = "physics")]
         {
-            let ser_components = serializer.finish();
+            let ser_entities = serializer.finish();
             let mut world_cpy = self.world.clone();
-            for ty in self.components.types_mut() {
-                if !ser_components.contains_key(&ty.component_type_id()) {
+            for ty in self.entities.types_mut() {
+                if !ser_entities.contains_key(&ty.entity_type_id()) {
                     ty.deinit_non_serialized(&mut world_cpy);
                 }
             }
 
             let scene = Scene {
-                render_components: *self.render_components,
+                render_entities: *self.render_entities,
                 screen_config: self.screen_config,
                 world_camera2d: self.world_camera2d,
                 world_camera3d: self.world_camera3d,
                 groups: self.groups,
                 world: &world_cpy,
             };
-            let scene: (&Scene, FxHashMap<ComponentTypeId, Vec<u8>>) = (&scene, ser_components);
+            let scene: (&Scene, FxHashMap<EntityTypeId, Vec<u8>>) = (&scene, ser_entities);
             let result = bincode::serialize(&scene);
             return result;
         }
 
         #[cfg(not(feature = "physics"))]
         {
-            let ser_components = serializer.finish();
+            let ser_entities = serializer.finish();
             let scene = Scene {
-                render_components: *self.render_components,
+                render_entities: *self.render_entities,
                 screen_config: self.screen_config,
                 world_camera2d: self.world_camera2d,
                 world_camera3d: self.world_camera3d,
                 groups: self.groups,
                 world: &self.world,
             };
-            let scene: (&Scene, FxHashMap<ComponentTypeId, Vec<u8>>) = (&scene, ser_components);
+            let scene: (&Scene, FxHashMap<ComponentTypeId, Vec<u8>>) = (&scene, ser_entities);
             let result = bincode::serialize(&scene);
             return result;
         }
@@ -162,8 +162,7 @@ impl<'a> Context<'a> {
         group: GroupHandle,
         serialize: impl FnOnce(&mut GroupSerializer),
     ) -> Option<Result<Vec<u8>, Box<bincode::ErrorKind>>> {
-        if let Some(mut ser) = GroupSerializer::new(self.world, self.groups, self.components, group)
-        {
+        if let Some(mut ser) = GroupSerializer::new(self.world, self.groups, self.entities, group) {
             serialize(&mut ser);
             return Some(ser.finish());
         }
@@ -175,3 +174,7 @@ impl<'a> Context<'a> {
         deserialize.finish(self)
     }
 }
+
+
+
+

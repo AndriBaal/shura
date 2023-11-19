@@ -1,22 +1,20 @@
 use std::cell::RefCell;
 
 use crate::{
-    App, CameraViewSelection, Component, ComponentConfig, ComponentManager, ComponentType,
-    ComponentTypeImplementation, Context, GroupManager, PerspectiveCamera3D, ScreenConfig, System,
+    App, CameraViewSelection, Context, Entity, EntityConfig, EntityManager, EntityType,
+    EntityTypeImplementation, GroupManager, PerspectiveCamera3D, ScreenConfig, System,
     SystemManager, TaskManager, Vector2, World, WorldCamera2D, WorldCamera3D, WorldCameraScaling,
 };
 
-/// Origin of a [Scene]
 pub trait SceneCreator {
     fn new_id(&self) -> u32;
     fn create(self: Box<Self>, app: &mut App) -> Scene;
 }
 
-/// Create a new [Scene] from scratch
 pub struct NewScene {
     pub id: u32,
     systems: Vec<System>,
-    components: Vec<Box<RefCell<dyn ComponentTypeImplementation>>>,
+    entities: Vec<Box<RefCell<dyn EntityTypeImplementation>>>,
 }
 
 impl NewScene {
@@ -24,13 +22,13 @@ impl NewScene {
         Self {
             id,
             systems: Default::default(),
-            components: Default::default(),
+            entities: Default::default(),
         }
     }
 
-    pub fn component<C: Component>(mut self, config: ComponentConfig) -> Self {
-        self.components
-            .push(Box::new(RefCell::new(ComponentType::<C>::new(config))));
+    pub fn entity<E: Entity>(mut self, config: EntityConfig) -> Self {
+        self.entities
+            .push(Box::new(RefCell::new(EntityType::<E>::new(config))));
         self
     }
 
@@ -46,11 +44,10 @@ impl SceneCreator for NewScene {
     }
 
     fn create(self: Box<Self>, app: &mut App) -> Scene {
-        return Scene::new(self.id, app, self.systems, self.components);
+        return Scene::new(self.id, app, self.systems, self.entities);
     }
 }
 
-/// Add a [Scene] that previously has been removed.
 pub struct RecycleScene {
     pub id: u32,
     pub scene: Scene,
@@ -76,17 +73,16 @@ impl SceneCreator for RecycleScene {
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
-/// [states](StateManager) and [camera](WorldCamera) identified by an Id
 pub struct Scene {
-    pub render_components: bool,
+    pub render_entities: bool,
     pub screen_config: ScreenConfig,
     pub world_camera2d: WorldCamera2D,
     pub world_camera3d: WorldCamera3D,
     pub groups: GroupManager,
     pub world: World,
     #[cfg_attr(feature = "serde", serde(skip))]
-    #[cfg_attr(feature = "serde", serde(default = "ComponentManager::empty"))]
-    pub components: ComponentManager,
+    #[cfg_attr(feature = "serde", serde(default = "EntityManager::empty"))]
+    pub entities: EntityManager,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default = "SystemManager::empty"))]
     pub systems: SystemManager,
@@ -101,7 +97,7 @@ impl Scene {
         id: u32,
         app: &mut App,
         systems: Vec<System>,
-        components: Vec<Box<RefCell<dyn ComponentTypeImplementation>>>,
+        entities: Vec<Box<RefCell<dyn EntityTypeImplementation>>>,
     ) -> Self {
         let mint: mint::Vector2<u32> = app.window.inner_size().into();
         let window_size: Vector2<u32> = mint.into();
@@ -112,11 +108,11 @@ impl Scene {
                 Default::default(),
                 WorldCameraScaling::Min(Self::DEFAULT_VERTICAL_CAMERA_FOV),
             ),
-            components: ComponentManager::new(&app.globals, components),
+            entities: EntityManager::new(&app.globals, entities),
             systems: SystemManager::new(&systems),
             groups: GroupManager::new(),
             screen_config: ScreenConfig::new(),
-            render_components: true,
+            render_entities: true,
             world: World::new(),
             tasks: TaskManager::new(),
             world_camera3d: WorldCamera3D::new(

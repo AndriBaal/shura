@@ -1,6 +1,6 @@
 use crate::{
-    load_bytes, Color, Gpu, Index, Isometry2, Mesh, MeshBuilder2D, SpriteSheet,
-    SpriteSheetBuilder, SpriteSheetIndex, Vector2, Vertex,
+    load_bytes, Color, Gpu, Index, Isometry2, Mesh, MeshBuilder2D, SpriteSheet, SpriteSheetBuilder,
+    SpriteSheetIndex, Vector2, Vertex,
 };
 use owned_ttf_parser::AsFaceRef;
 use rustc_hash::FxHashMap;

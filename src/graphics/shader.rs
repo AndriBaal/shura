@@ -17,7 +17,6 @@ pub enum ShaderModuleSoure<'a> {
     _Dummy,
 }
 
-/// Properties of a [Shader]
 pub struct ShaderConfig<'a> {
     pub name: Option<&'a str>,
     pub source: ShaderModuleSoure<'a>,

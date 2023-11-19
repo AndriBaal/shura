@@ -2,27 +2,26 @@ use downcast_rs::{impl_downcast, Downcast};
 use rustc_hash::FxHashMap;
 
 use crate::{
-    BufferOperation, CameraBuffer, CameraBuffer2D, Component, ComponentConfig, ComponentHandle,
-    ComponentScope, ComponentSet, ComponentSetMut, ComponentType, ComponentTypeId,
-    DefaultResources, GlobalComponents, Gpu, GroupHandle, Instance2D, InstanceBuffer,
-    InstanceHandler, InstanceIndex, InstanceIndices, Mesh2D, Renderer, Scene, SystemManager, World,
-    WorldCamera3D,
+    BufferOperation, CameraBuffer, CameraBuffer2D, Component, DefaultResources, Entity,
+    EntityConfig, EntityHandle, EntityScope, EntitySet, EntitySetMut, EntityType, EntityTypeId,
+    GlobalEntitys, Gpu, GroupHandle, Instance2D, InstanceBuffer, InstanceIndex, InstanceIndices,
+    Mesh2D, Renderer, Scene, SystemManager, World, WorldCamera3D,
 };
 
 #[cfg(feature = "serde")]
-use crate::{ComponentTypeGroup, ComponentTypeStorage};
+use crate::{EntityTypeGroup, EntityTypeStorage};
 
 use std::{
     cell::{Ref, RefCell, RefMut},
     rc::Rc,
 };
 
-pub(crate) trait ComponentTypeImplementation: Downcast {
+pub(crate) trait EntityTypeImplementation: Downcast {
     fn add_group(&mut self);
     fn remove_group(&mut self, world: &mut World, handle: GroupHandle);
     fn buffer(&mut self, world: &World, gpu: &Gpu, active: &[GroupHandle]);
-    fn component_type_id(&self) -> ComponentTypeId;
-    fn config(&self) -> ComponentConfig;
+    fn entity_type_id(&self) -> EntityTypeId;
+    fn config(&self) -> EntityConfig;
 
     #[cfg(all(feature = "serde", feature = "physics"))]
     fn deinit_non_serialized(&self, world: &mut World);
@@ -33,7 +32,7 @@ pub(crate) trait ComponentTypeImplementation: Downcast {
         handle: GroupHandle,
     ) -> Option<Box<dyn std::any::Any>>;
 }
-impl_downcast!(ComponentTypeImplementation);
+impl_downcast!(EntityTypeImplementation);
 
 macro_rules! group_filter {
     ($self:expr, $filter: expr) => {
@@ -79,66 +78,66 @@ macro_rules! type_render {
 }
 
 const ALREADY_BORROWED: &'static str = "This type is already borrowed!";
-fn no_type_error<C: Component>() -> String {
-    format!("The type '{}' first needs to be registered!", C::TYPE_NAME)
+fn no_type_error<E: Entity>() -> String {
+    format!("The type '{}' first needs to be registered!", E::TYPE_NAME)
 }
 
-pub(crate) enum ComponentTypeScope {
-    Scene(Box<RefCell<dyn ComponentTypeImplementation>>),
-    Global(Rc<RefCell<dyn ComponentTypeImplementation>>),
+pub(crate) enum EntityTypeScope {
+    Scene(Box<RefCell<dyn EntityTypeImplementation>>),
+    Global(Rc<RefCell<dyn EntityTypeImplementation>>),
 }
 
-impl ComponentTypeScope {
-    fn ref_mut_raw(&self) -> RefMut<dyn ComponentTypeImplementation> {
+impl EntityTypeScope {
+    fn ref_mut_raw(&self) -> RefMut<dyn EntityTypeImplementation> {
         match &self {
-            ComponentTypeScope::Scene(scene) => scene.try_borrow_mut().expect(ALREADY_BORROWED),
-            ComponentTypeScope::Global(global) => global.try_borrow_mut().expect(ALREADY_BORROWED),
+            EntityTypeScope::Scene(scene) => scene.try_borrow_mut().expect(ALREADY_BORROWED),
+            EntityTypeScope::Global(global) => global.try_borrow_mut().expect(ALREADY_BORROWED),
         }
     }
 
-    fn _ref<C: Component>(&self) -> Ref<ComponentType<C>> {
+    fn _ref<E: Entity>(&self) -> Ref<EntityType<E>> {
         match &self {
-            ComponentTypeScope::Scene(scene) => {
+            EntityTypeScope::Scene(scene) => {
                 Ref::map(scene.try_borrow().expect(ALREADY_BORROWED), |ty| {
-                    ty.downcast_ref::<ComponentType<C>>().unwrap()
+                    ty.downcast_ref::<EntityType<E>>().unwrap()
                 })
             }
-            ComponentTypeScope::Global(global) => {
+            EntityTypeScope::Global(global) => {
                 Ref::map(global.try_borrow().expect(ALREADY_BORROWED), |ty| {
-                    ty.downcast_ref::<ComponentType<C>>().unwrap()
+                    ty.downcast_ref::<EntityType<E>>().unwrap()
                 })
             }
         }
     }
 
-    fn ref_mut<C: Component>(&self) -> RefMut<ComponentType<C>> {
+    fn ref_mut<E: Entity>(&self) -> RefMut<EntityType<E>> {
         match &self {
-            ComponentTypeScope::Scene(scene) => {
+            EntityTypeScope::Scene(scene) => {
                 RefMut::map(scene.try_borrow_mut().expect(ALREADY_BORROWED), |ty| {
-                    ty.downcast_mut::<ComponentType<C>>().unwrap()
+                    ty.downcast_mut::<EntityType<E>>().unwrap()
                 })
             }
-            ComponentTypeScope::Global(global) => {
+            EntityTypeScope::Global(global) => {
                 RefMut::map(global.try_borrow_mut().expect(ALREADY_BORROWED), |ty| {
-                    ty.downcast_mut::<ComponentType<C>>().unwrap()
+                    ty.downcast_mut::<EntityType<E>>().unwrap()
                 })
             }
         }
     }
 
-    fn resource<C: Component>(&self) -> &ComponentType<C> {
+    fn resource<E: Entity>(&self) -> &EntityType<E> {
         // This is safe, because we disallow .borrow_mut() with the ContextUse
         unsafe {
             match &self {
-                ComponentTypeScope::Scene(scene) => scene
+                EntityTypeScope::Scene(scene) => scene
                     .try_borrow_unguarded()
                     .unwrap()
-                    .downcast_ref::<ComponentType<C>>()
+                    .downcast_ref::<EntityType<E>>()
                     .unwrap(),
-                ComponentTypeScope::Global(global) => global
+                EntityTypeScope::Global(global) => global
                     .try_borrow_unguarded()
                     .unwrap()
-                    .downcast_ref::<ComponentType<C>>()
+                    .downcast_ref::<EntityType<E>>()
                     .unwrap(),
             }
         }
@@ -146,7 +145,6 @@ impl ComponentTypeScope {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Ord, Eq)]
-/// Filter components by groups
 pub enum GroupFilter<'a> {
     All,
     Active,
@@ -163,8 +161,8 @@ impl GroupFilter<'static> {
     pub const DEFAULT_GROUP: Self = GroupFilter::Custom(&[GroupHandle::DEFAULT_GROUP]);
 }
 
-pub struct ComponentResources<'a> {
-    components: &'a ComponentManager,
+pub struct RenderContext<'a> {
+    entities: &'a EntityManager,
 
     pub world_camera2d: &'a CameraBuffer2D,
     pub world_camera3d: &'a CameraBuffer<WorldCamera3D>,
@@ -178,7 +176,7 @@ pub struct ComponentResources<'a> {
     pub centered_instance: &'a InstanceBuffer<Instance2D>,
 }
 
-impl<'a> ComponentResources<'a> {
+impl<'a> RenderContext<'a> {
     pub(crate) fn new(
         defaults: &'a DefaultResources,
         scene: &'a Scene,
@@ -186,7 +184,7 @@ impl<'a> ComponentResources<'a> {
         return (
             &scene.systems,
             Self {
-                components: &scene.components,
+                entities: &scene.entities,
                 relative_camera: &defaults.relative_camera.0,
                 relative_bottom_left_camera: &defaults.relative_bottom_left_camera.0,
                 relative_bottom_right_camera: &defaults.relative_bottom_right_camera.0,
@@ -202,76 +200,75 @@ impl<'a> ComponentResources<'a> {
     }
 
     #[inline]
-    pub fn set<C: Component>(&'a self) -> ComponentSet<'a, C> {
+    pub fn set<E: Entity>(&'a self) -> EntitySet<'a, E> {
         self.set_of(GroupFilter::Active)
     }
 
-    pub fn set_of<C: Component>(&'a self, filter: GroupFilter<'a>) -> ComponentSet<'a, C> {
-        let groups = group_filter!(self.components, filter).1;
-        let ty = type_ref!(self.components, C);
-        return ComponentSet::new(ty, groups);
+    pub fn set_of<E: Entity>(&'a self, filter: GroupFilter<'a>) -> EntitySet<'a, E> {
+        let groups = group_filter!(self.entities, filter).1;
+        let ty = type_ref!(self.entities, E);
+        return EntitySet::new(ty, groups);
     }
 
-    pub fn single<C: Component>(&self) -> Ref<C> {
-        let ty = type_ref!(self.components, C);
+    pub fn single<E: Entity>(&self) -> Ref<E> {
+        let ty = type_ref!(self.entities, E);
         Ref::map(ty, |ty| ty.single())
     }
 
-    pub fn try_single<C: Component>(&self) -> Option<Ref<C>> {
-        let ty = type_ref!(self.components, C);
+    pub fn try_single<E: Entity>(&self) -> Option<Ref<E>> {
+        let ty = type_ref!(self.entities, E);
         Ref::filter_map(ty, |ty| ty.try_single()).ok()
     }
 
-    pub fn render_each<C: Component>(
+    pub fn render_each<E: Entity>(
         &self,
         renderer: &mut Renderer<'a>,
         each: impl FnMut(
             &mut Renderer<'a>,
-            &'a C,
-            &'a InstanceBuffer<<C::InstanceHandler as InstanceHandler>::Instance>,
+            &'a E,
+            &'a InstanceBuffer<<E::Component as Component>::Instance>,
             InstanceIndex,
         ),
     ) {
-        let ty = type_render!(self.components, C);
+        let ty = type_render!(self.entities, E);
         ty.render_each(renderer, each)
     }
 
-    pub fn render_single<C: Component>(
+    pub fn render_single<E: Entity>(
         &self,
         renderer: &mut Renderer<'a>,
         each: impl FnOnce(
             &mut Renderer<'a>,
-            &'a C,
-            &'a InstanceBuffer<<C::InstanceHandler as InstanceHandler>::Instance>,
+            &'a E,
+            &'a InstanceBuffer<<E::Component as Component>::Instance>,
             InstanceIndex,
         ),
     ) {
-        let ty = type_render!(self.components, C);
+        let ty = type_render!(self.entities, E);
         ty.render_single(renderer, each)
     }
 
-    pub fn render_all<C: Component>(
+    pub fn render_all<E: Entity>(
         &self,
         renderer: &mut Renderer<'a>,
         all: impl FnMut(
             &mut Renderer<'a>,
-            &'a InstanceBuffer<<C::InstanceHandler as InstanceHandler>::Instance>,
+            &'a InstanceBuffer<<E::Component as Component>::Instance>,
             InstanceIndices,
         ),
     ) {
-        let ty = type_render!(self.components, C);
+        let ty = type_render!(self.entities, E);
         ty.render_all(renderer, all)
     }
 }
 
-/// Access to the component system
-pub struct ComponentManager {
+pub struct EntityManager {
     pub(super) active_groups: Vec<GroupHandle>,
     pub(super) all_groups: Vec<GroupHandle>,
-    pub(crate) types: FxHashMap<ComponentTypeId, ComponentTypeScope>,
+    pub(crate) types: FxHashMap<EntityTypeId, EntityTypeScope>,
 }
 
-impl ComponentManager {
+impl EntityManager {
     pub(crate) fn empty() -> Self {
         return Self {
             all_groups: Vec::from_iter([GroupHandle::DEFAULT_GROUP]),
@@ -281,52 +278,49 @@ impl ComponentManager {
     }
 
     pub(crate) fn new(
-        global: &GlobalComponents,
-        components: Vec<Box<RefCell<dyn ComponentTypeImplementation>>>,
+        global: &GlobalEntitys,
+        entities: Vec<Box<RefCell<dyn EntityTypeImplementation>>>,
     ) -> Self {
         let mut manager = Self::empty();
-        manager.init(global, components);
+        manager.init(global, entities);
         return manager;
     }
 
     pub(crate) fn init(
         &mut self,
-        global: &GlobalComponents,
-        components: Vec<Box<RefCell<dyn ComponentTypeImplementation>>>,
+        global: &GlobalEntitys,
+        entities: Vec<Box<RefCell<dyn EntityTypeImplementation>>>,
     ) {
         let mut globals = global.0.borrow_mut();
-        for component in components {
-            let config = component.borrow().config();
-            let id = component.borrow().component_type_id();
+        for entity in entities {
+            let config = entity.borrow().config();
+            let id = entity.borrow().entity_type_id();
             match config.scope {
-                ComponentScope::Scene => {
+                EntityScope::Scene => {
                     if let Some(ty) = globals.get(&id) {
                         assert!(
                             ty.is_none(),
-                            "This component already exists as a global component!"
+                            "This entity already exists as a global entity!"
                         );
                     } else {
                         globals.insert(id, None);
                     }
-                    self.types
-                        .insert(id, ComponentTypeScope::Scene(component.into()));
+                    self.types.insert(id, EntityTypeScope::Scene(entity.into()));
                 }
-                ComponentScope::Global => {
+                EntityScope::Global => {
                     if let Some(ty) = globals.get(&id) {
                         if let Some(ty) = ty {
                             if !self.types.contains_key(&id) {
-                                self.types
-                                    .insert(id, ComponentTypeScope::Global(ty.clone()));
+                                self.types.insert(id, EntityTypeScope::Global(ty.clone()));
                             }
                         } else {
-                            panic!("This component already exists as a non global component!");
+                            panic!("This entity already exists as a non global entity!");
                         }
                     } else {
-                        globals.insert(id, Some(component.into()));
+                        globals.insert(id, Some(entity.into()));
                         let ty = globals[&id].as_ref().unwrap();
                         if !self.types.contains_key(&id) {
-                            self.types
-                                .insert(id, ComponentTypeScope::Global(ty.clone()));
+                            self.types.insert(id, EntityTypeScope::Global(ty.clone()));
                         }
                     }
                 }
@@ -345,27 +339,27 @@ impl ComponentManager {
 
     pub(crate) fn types_mut(
         &mut self,
-    ) -> impl Iterator<Item = RefMut<'_, dyn ComponentTypeImplementation>> {
+    ) -> impl Iterator<Item = RefMut<'_, dyn EntityTypeImplementation>> {
         self.types.values_mut().map(|r| r.ref_mut_raw())
     }
 
     #[cfg(feature = "serde")]
-    pub(crate) fn deserialize_group<C: Component + serde::de::DeserializeOwned>(
+    pub(crate) fn deserialize_group<E: Entity + serde::de::DeserializeOwned>(
         &mut self,
-        mut storage: ComponentTypeGroup<C>,
+        mut storage: EntityTypeGroup<E>,
         world: &mut World,
     ) -> GroupHandle {
-        use crate::ComponentIndex;
+        use crate::EntityIndex;
 
-        let mut ty = type_ref_mut!(self, C);
+        let mut ty = type_ref_mut!(self, E);
         match &mut ty.storage {
-            ComponentTypeStorage::MultipleGroups(groups) => {
+            EntityTypeStorage::MultipleGroups(groups) => {
                 let index = groups.insert_with(|group_index| {
-                    for (component_index, component) in storage.components.iter_mut_with_index() {
-                        component.init(
-                            ComponentHandle::new(
-                                ComponentIndex(component_index),
-                                C::IDENTIFIER,
+                    for (entity_index, entity) in storage.entities.iter_mut_with_index() {
+                        entity.init(
+                            EntityHandle::new(
+                                EntityIndex(entity_index),
+                                E::IDENTIFIER,
                                 GroupHandle(group_index),
                             ),
                             world,
@@ -376,13 +370,13 @@ impl ComponentManager {
                 });
                 return GroupHandle(index);
             }
-            _ => panic!("Component does not have ComponentStorage::Groups"),
+            _ => panic!("Entity does not have EntityStorage::Groups"),
         }
     }
 
     #[cfg(feature = "serde")]
-    pub(crate) fn serialize<C: Component + serde::Serialize>(&self) -> Vec<u8> {
-        bincode::serialize(&*type_ref!(self, C)).unwrap()
+    pub(crate) fn serialize<E: Entity + serde::Serialize>(&self) -> Vec<u8> {
+        bincode::serialize(&*type_ref!(self, E)).unwrap()
     }
 
     pub fn active_groups(&self) -> &[GroupHandle] {
@@ -398,120 +392,117 @@ impl ComponentManager {
     }
 
     #[inline]
-    pub fn set_ref<'a, C: Component>(&'a self) -> ComponentSet<'a, C> {
+    pub fn set_ref<'a, E: Entity>(&'a self) -> EntitySet<'a, E> {
         self.set_ref_of(GroupFilter::Active)
     }
 
-    pub fn set_ref_of<'a, C: Component>(&'a self, filter: GroupFilter<'a>) -> ComponentSet<'a, C> {
+    pub fn set_ref_of<'a, E: Entity>(&'a self, filter: GroupFilter<'a>) -> EntitySet<'a, E> {
         let groups = group_filter!(self, filter).1;
-        let ty = type_ref!(self, C);
-        return ComponentSet::new(ty, groups);
+        let ty = type_ref!(self, E);
+        return EntitySet::new(ty, groups);
     }
 
     #[inline]
-    pub fn set_mut<'a, C: Component>(&'a mut self) -> ComponentSetMut<'a, C> {
+    pub fn set_mut<'a, E: Entity>(&'a mut self) -> EntitySetMut<'a, E> {
         self.set_mut_of(GroupFilter::Active)
     }
 
-    pub fn set_mut_of<'a, C: Component>(
-        &'a mut self,
-        filter: GroupFilter<'a>,
-    ) -> ComponentSetMut<'a, C> {
+    pub fn set_mut_of<'a, E: Entity>(&'a mut self, filter: GroupFilter<'a>) -> EntitySetMut<'a, E> {
         let (check, groups) = group_filter!(self, filter);
-        let ty = type_ref_mut!(self, C);
-        return ComponentSetMut::new(ty, groups, check);
+        let ty = type_ref_mut!(self, E);
+        return EntitySetMut::new(ty, groups, check);
     }
 
     #[inline]
-    pub fn set<'a, C: Component>(&'a self) -> ComponentSetMut<'a, C> {
+    pub fn set<'a, E: Entity>(&'a self) -> EntitySetMut<'a, E> {
         self.set_of(GroupFilter::Active)
     }
 
-    pub fn set_of<'a, C: Component>(&'a self, filter: GroupFilter<'a>) -> ComponentSetMut<'a, C> {
+    pub fn set_of<'a, E: Entity>(&'a self, filter: GroupFilter<'a>) -> EntitySetMut<'a, E> {
         let (check, groups) = group_filter!(self, filter);
-        let ty = type_ref_mut!(self, C);
-        return ComponentSetMut::new(ty, groups, check);
+        let ty = type_ref_mut!(self, E);
+        return EntitySetMut::new(ty, groups, check);
     }
 
-    pub fn single_ref<C: Component>(&self) -> Ref<C> {
-        let ty = type_ref!(self, C);
+    pub fn single_ref<E: Entity>(&self) -> Ref<E> {
+        let ty = type_ref!(self, E);
         Ref::map(ty, |ty| ty.single())
     }
 
-    pub fn single_mut<C: Component>(&mut self) -> RefMut<C> {
-        let ty = type_ref_mut!(self, C);
+    pub fn single_mut<E: Entity>(&mut self) -> RefMut<E> {
+        let ty = type_ref_mut!(self, E);
         RefMut::map(ty, |ty| ty.single_mut())
     }
 
-    pub fn single<C: Component>(&self) -> RefMut<C> {
-        let ty = type_ref_mut!(self, C);
+    pub fn single<E: Entity>(&self) -> RefMut<E> {
+        let ty = type_ref_mut!(self, E);
         RefMut::map(ty, |ty| ty.single_mut())
     }
 
-    pub fn try_single<C: Component>(&self) -> Option<RefMut<C>> {
-        let ty = type_ref_mut!(self, C);
-        RefMut::filter_map(ty, |ty: &mut ComponentType<C>| ty.try_single_mut()).ok()
+    pub fn try_single<E: Entity>(&self) -> Option<RefMut<E>> {
+        let ty = type_ref_mut!(self, E);
+        RefMut::filter_map(ty, |ty: &mut EntityType<E>| ty.try_single_mut()).ok()
     }
 
-    pub fn try_single_mut<C: Component>(&mut self) -> Option<RefMut<C>> {
-        let ty = type_ref_mut!(self, C);
-        RefMut::filter_map(ty, |ty: &mut ComponentType<C>| ty.try_single_mut()).ok()
+    pub fn try_single_mut<E: Entity>(&mut self) -> Option<RefMut<E>> {
+        let ty = type_ref_mut!(self, E);
+        RefMut::filter_map(ty, |ty: &mut EntityType<E>| ty.try_single_mut()).ok()
     }
 
-    pub fn try_single_ref<C: Component>(&self) -> Option<Ref<C>> {
-        let ty = type_ref!(self, C);
+    pub fn try_single_ref<E: Entity>(&self) -> Option<Ref<E>> {
+        let ty = type_ref!(self, E);
         Ref::filter_map(ty, |ty| ty.try_single()).ok()
     }
 
-    pub fn add_to<C: Component>(
+    pub fn add_to<E: Entity>(
         &mut self,
         world: &mut World,
         group_handle: GroupHandle,
-        component: C,
-    ) -> ComponentHandle {
-        let mut ty = type_ref_mut!(self, C);
-        ty.add(world, group_handle, component)
+        entity: E,
+    ) -> EntityHandle {
+        let mut ty = type_ref_mut!(self, E);
+        ty.add(world, group_handle, entity)
     }
 
-    pub fn add<C: Component>(&mut self, world: &mut World, component: C) -> ComponentHandle {
-        self.add_to(world, GroupHandle::DEFAULT_GROUP, component)
+    pub fn add<E: Entity>(&mut self, world: &mut World, entity: E) -> EntityHandle {
+        self.add_to(world, GroupHandle::DEFAULT_GROUP, entity)
     }
 
     #[inline]
-    pub fn add_many<C: Component>(
+    pub fn add_many<E: Entity>(
         &mut self,
         world: &mut World,
-        components: impl IntoIterator<Item = C>,
-    ) -> Vec<ComponentHandle> {
-        self.add_many_to(world, GroupHandle::DEFAULT_GROUP, components)
+        entities: impl IntoIterator<Item = E>,
+    ) -> Vec<EntityHandle> {
+        self.add_many_to(world, GroupHandle::DEFAULT_GROUP, entities)
     }
 
-    pub fn add_many_to<C: Component>(
+    pub fn add_many_to<E: Entity>(
         &mut self,
         world: &mut World,
         group_handle: GroupHandle,
-        components: impl IntoIterator<Item = C>,
-    ) -> Vec<ComponentHandle> {
-        let mut ty = type_ref_mut!(self, C);
-        ty.add_many(world, group_handle, components)
+        entities: impl IntoIterator<Item = E>,
+    ) -> Vec<EntityHandle> {
+        let mut ty = type_ref_mut!(self, E);
+        ty.add_many(world, group_handle, entities)
     }
 
     #[inline]
-    pub fn add_with<C: Component>(
+    pub fn add_with<E: Entity>(
         &mut self,
         world: &mut World,
-        create: impl FnOnce(ComponentHandle) -> C,
-    ) -> ComponentHandle {
+        create: impl FnOnce(EntityHandle) -> E,
+    ) -> EntityHandle {
         self.add_with_to(world, GroupHandle::DEFAULT_GROUP, create)
     }
 
-    pub fn add_with_to<C: Component>(
+    pub fn add_with_to<E: Entity>(
         &mut self,
         world: &mut World,
         group_handle: GroupHandle,
-        create: impl FnOnce(ComponentHandle) -> C,
-    ) -> ComponentHandle {
-        let mut ty = type_ref_mut!(self, C);
+        create: impl FnOnce(EntityHandle) -> E,
+    ) -> EntityHandle {
+        let mut ty = type_ref_mut!(self, E);
         ty.add_with(world, group_handle, create)
     }
 }

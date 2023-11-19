@@ -1,4 +1,4 @@
-use crate::{Component, ComponentHandle, FrameManager, Isometry2, Point2, Vector2};
+use crate::{Entity, EntityHandle, FrameManager, Isometry2, Point2, Vector2};
 use rapier2d::{crossbeam, prelude::*};
 pub use rapier2d::{
     prelude::CollisionEvent as RapierCollisionEvent,
@@ -7,8 +7,8 @@ pub use rapier2d::{
 use rustc_hash::FxHashMap;
 
 type EventReceiver<T> = crossbeam::channel::Receiver<T>;
-type ColliderMapping = FxHashMap<ColliderHandle, ComponentHandle>;
-type RigidBodyMapping = FxHashMap<RigidBodyHandle, ComponentHandle>;
+type ColliderMapping = FxHashMap<ColliderHandle, EntityHandle>;
+type RigidBodyMapping = FxHashMap<RigidBodyHandle, EntityHandle>;
 
 #[derive(Clone)]
 pub struct CollectedEvents {
@@ -33,39 +33,38 @@ impl CollectedEvents {
 
 pub trait WorldEvent: Sized {
     type Event;
-    fn is<C1: Component, C2: Component>(&self, world: &World) -> Option<Self::Event>;
+    fn is<E1: Entity, E2: Entity>(&self, world: &World) -> Option<Self::Event>;
 }
 
 impl WorldEvent for RapierCollisionEvent {
     type Event = CollisionEvent;
 
-    fn is<C1: Component, C2: Component>(&self, world: &World) -> Option<Self::Event> {
+    fn is<E1: Entity, E2: Entity>(&self, world: &World) -> Option<Self::Event> {
         let collider1 = self.collider1();
         let collider2 = self.collider2();
-        let component1 = world.component_from_collider(&collider1)?;
-        let component2 = world.component_from_collider(&collider2)?;
-        if component1.component_type_id() == C1::IDENTIFIER
-            && component2.component_type_id() == C2::IDENTIFIER
+        let entity1 = world.entity_from_collider(&collider1)?;
+        let entity2 = world.entity_from_collider(&collider2)?;
+        if entity1.entity_type_id() == E1::IDENTIFIER && entity2.entity_type_id() == E2::IDENTIFIER
         {
             return Some(CollisionEvent {
                 collider1,
                 collider2,
-                component1: *component1,
-                component2: *component2,
+                entity1: *entity1,
+                entity2: *entity2,
                 collision_type: if self.started() {
                     CollisionType::Started
                 } else {
                     CollisionType::Stopped
                 },
             });
-        } else if component2.component_type_id() == C1::IDENTIFIER
-            && component1.component_type_id() == C2::IDENTIFIER
+        } else if entity2.entity_type_id() == E1::IDENTIFIER
+            && entity1.entity_type_id() == E2::IDENTIFIER
         {
             return Some(CollisionEvent {
                 collider1: collider2,
                 collider2: collider1,
-                component1: *component2,
-                component2: *component1,
+                entity1: *entity2,
+                entity2: *entity1,
                 collision_type: if self.started() {
                     CollisionType::Started
                 } else {
@@ -81,32 +80,31 @@ impl WorldEvent for RapierCollisionEvent {
 impl WorldEvent for RapierContactForceEvent {
     type Event = ContactForceEvent;
 
-    fn is<C1: Component, C2: Component>(&self, world: &World) -> Option<Self::Event> {
+    fn is<E1: Entity, E2: Entity>(&self, world: &World) -> Option<Self::Event> {
         let collider1 = self.collider1;
         let collider2 = self.collider2;
-        let component1 = world.component_from_collider(&collider1)?;
-        let component2 = world.component_from_collider(&collider2)?;
-        if component1.component_type_id() == C1::IDENTIFIER
-            && component2.component_type_id() == C2::IDENTIFIER
+        let entity1 = world.entity_from_collider(&collider1)?;
+        let entity2 = world.entity_from_collider(&collider2)?;
+        if entity1.entity_type_id() == E1::IDENTIFIER && entity2.entity_type_id() == E2::IDENTIFIER
         {
             return Some(ContactForceEvent {
                 collider1,
                 collider2,
-                component1: *component1,
-                component2: *component2,
+                entity1: *entity1,
+                entity2: *entity2,
                 total_force: self.total_force,
                 total_force_magnitude: self.total_force_magnitude,
                 max_force_direction: self.max_force_direction,
                 max_force_magnitude: self.max_force_magnitude,
             });
-        } else if component2.component_type_id() == C1::IDENTIFIER
-            && component1.component_type_id() == C2::IDENTIFIER
+        } else if entity2.entity_type_id() == E1::IDENTIFIER
+            && entity1.entity_type_id() == E2::IDENTIFIER
         {
             return Some(ContactForceEvent {
                 collider1: collider2,
                 collider2: collider1,
-                component1: *component2,
-                component2: *component1,
+                entity1: *entity2,
+                entity2: *entity1,
                 total_force: self.total_force,
                 total_force_magnitude: self.total_force_magnitude,
                 max_force_direction: self.max_force_direction,
@@ -147,8 +145,8 @@ impl Default for EventCollector {
 pub struct CollisionEvent {
     pub collider1: ColliderHandle,
     pub collider2: ColliderHandle,
-    pub component1: ComponentHandle,
-    pub component2: ComponentHandle,
+    pub entity1: EntityHandle,
+    pub entity2: EntityHandle,
     pub collision_type: CollisionType,
 }
 
@@ -156,8 +154,8 @@ pub struct CollisionEvent {
 pub struct ContactForceEvent {
     pub collider1: ColliderHandle,
     pub collider2: ColliderHandle,
-    pub component1: ComponentHandle,
-    pub component2: ComponentHandle,
+    pub entity1: EntityHandle,
+    pub entity2: EntityHandle,
     pub total_force: Vector2<f32>,
     pub total_force_magnitude: f32,
     pub max_force_direction: Vector2<f32>,
@@ -236,12 +234,11 @@ impl World {
 
     pub(crate) fn add_collider(
         &mut self,
-        component_handle: ComponentHandle,
+        entity_handle: EntityHandle,
         collider: Collider,
     ) -> ColliderHandle {
         let collider_handle = self.colliders.insert(collider.clone());
-        self.collider_mapping
-            .insert(collider_handle, component_handle);
+        self.collider_mapping.insert(collider_handle, entity_handle);
         return collider_handle;
     }
 
@@ -249,19 +246,18 @@ impl World {
         &mut self,
         rigid_body: RigidBody,
         colliders: Vec<Collider>,
-        component_handle: ComponentHandle,
+        entity_handle: EntityHandle,
     ) -> RigidBodyHandle {
         let rigid_body_handle = self.bodies.insert(rigid_body.clone());
         self.rigid_body_mapping
-            .insert(rigid_body_handle, component_handle);
+            .insert(rigid_body_handle, entity_handle);
         for collider in colliders {
             let collider_handle = self.colliders.insert_with_parent(
                 collider.clone(),
                 rigid_body_handle,
                 &mut self.bodies,
             );
-            self.collider_mapping
-                .insert(collider_handle, component_handle);
+            self.collider_mapping.insert(collider_handle, entity_handle);
         }
         return rigid_body_handle;
     }
@@ -312,11 +308,11 @@ impl World {
         rigid_body_handle: RigidBodyHandle,
         collider: impl Into<Collider>,
     ) -> Option<ColliderHandle> {
-        if let Some(component) = self.rigid_body_mapping.get(&rigid_body_handle) {
+        if let Some(entity) = self.rigid_body_mapping.get(&rigid_body_handle) {
             let collider =
                 self.colliders
                     .insert_with_parent(collider, rigid_body_handle, &mut self.bodies);
-            self.collider_mapping.insert(collider, *component);
+            self.collider_mapping.insert(collider, *entity);
             return Some(collider);
         }
         return None;
@@ -363,14 +359,14 @@ impl World {
     #[cfg(all(feature = "serde", feature = "physics"))]
     pub(crate) fn remove_no_maintain<I: crate::Instance>(
         &mut self,
-        instance: &dyn crate::InstanceHandler<Instance = I>,
+        component: &dyn crate::Component<Instance = I>,
     ) {
         use crate::physics::{ColliderInstance, ColliderStatus, RigidBodyStatus};
-        if let Some(instance) = instance
+        if let Some(component) = component
             .as_any()
             .downcast_ref::<crate::physics::RigidBodyInstance>()
         {
-            match instance.status {
+            match component.status {
                 RigidBodyStatus::Added { rigid_body_handle } => {
                     if let Some(rigid_body) = self.bodies.remove(
                         rigid_body_handle,
@@ -387,8 +383,8 @@ impl World {
                 }
                 RigidBodyStatus::Pending { .. } => return,
             }
-        } else if let Some(instance) = instance.as_any().downcast_ref::<ColliderInstance>() {
-            match instance.status {
+        } else if let Some(component) = component.as_any().downcast_ref::<ColliderInstance>() {
+            match component.status {
                 ColliderStatus::Added { collider_handle } => {
                     self.collider_mapping.remove(&collider_handle);
                     self.colliders.remove(
@@ -405,7 +401,7 @@ impl World {
 
     // pub(crate) fn move_shape(
     //     &self,
-    //     controller: &mut CharacterControllerComponent,
+    //     controller: &mut CharacterControllerEntity,
     //     frame: &FrameManager,
     //     bodies: &RigidBodySet,
     //     colliders: &ColliderSet,
@@ -419,10 +415,7 @@ impl World {
 
     // }
 
-    pub fn component_from_collider(
-        &self,
-        collider_handle: &ColliderHandle,
-    ) -> Option<&ComponentHandle> {
+    pub fn entity_from_collider(&self, collider_handle: &ColliderHandle) -> Option<&EntityHandle> {
         self.collider_mapping.get(collider_handle)
     }
 
@@ -446,13 +439,13 @@ impl World {
         max_toi: f32,
         solid: bool,
         filter: QueryFilter,
-    ) -> Option<(ComponentHandle, ColliderHandle, f32)> {
+    ) -> Option<(EntityHandle, ColliderHandle, f32)> {
         if let Some(collider) =
             self.query_pipeline
                 .cast_ray(&self.bodies, &self.colliders, ray, max_toi, solid, filter)
         {
-            if let Some(component) = self.component_from_collider(&collider.0) {
-                return Some((*component, collider.0, collider.1));
+            if let Some(entity) = self.entity_from_collider(&collider.0) {
+                return Some((*entity, collider.0, collider.1));
             }
         }
         return None;
@@ -466,7 +459,7 @@ impl World {
         max_toi: f32,
         stop_at_penetration: bool,
         filter: QueryFilter,
-    ) -> Option<(ComponentHandle, ColliderHandle, TOI)> {
+    ) -> Option<(EntityHandle, ColliderHandle, TOI)> {
         if let Some(collider) = self.query_pipeline.cast_shape(
             &self.bodies,
             &self.colliders,
@@ -477,8 +470,8 @@ impl World {
             stop_at_penetration,
             filter,
         ) {
-            if let Some(component) = self.component_from_collider(&collider.0) {
-                return Some((*component, collider.0, collider.1));
+            if let Some(entity) = self.entity_from_collider(&collider.0) {
+                return Some((*entity, collider.0, collider.1));
             }
         }
         return None;
@@ -490,7 +483,7 @@ impl World {
         max_toi: f32,
         solid: bool,
         filter: QueryFilter,
-    ) -> Option<(ComponentHandle, ColliderHandle, RayIntersection)> {
+    ) -> Option<(EntityHandle, ColliderHandle, RayIntersection)> {
         if let Some(collider) = self.query_pipeline.cast_ray_and_get_normal(
             &self.bodies,
             &self.colliders,
@@ -499,8 +492,8 @@ impl World {
             solid,
             filter,
         ) {
-            if let Some(component) = self.component_from_collider(&collider.0) {
-                return Some((*component, collider.0, collider.1));
+            if let Some(entity) = self.entity_from_collider(&collider.0) {
+                return Some((*entity, collider.0, collider.1));
             }
         }
         return None;
@@ -537,7 +530,7 @@ impl World {
         max_toi: f32,
         solid: bool,
         filter: QueryFilter,
-        mut callback: impl FnMut(ComponentHandle, ColliderHandle, RayIntersection) -> bool,
+        mut callback: impl FnMut(EntityHandle, ColliderHandle, RayIntersection) -> bool,
     ) {
         self.query_pipeline.intersections_with_ray(
             &self.bodies,
@@ -547,8 +540,8 @@ impl World {
             solid,
             filter,
             |collider, ray| {
-                if let Some(component) = self.component_from_collider(&collider) {
-                    return callback(*component, collider, ray);
+                if let Some(entity) = self.entity_from_collider(&collider) {
+                    return callback(*entity, collider, ray);
                 }
                 return true;
             },
@@ -560,7 +553,7 @@ impl World {
         shape_pos: &Isometry2<f32>,
         shape: &dyn Shape,
         filter: QueryFilter,
-        mut callback: impl FnMut(ComponentHandle, ColliderHandle) -> bool,
+        mut callback: impl FnMut(EntityHandle, ColliderHandle) -> bool,
     ) {
         self.query_pipeline.intersections_with_shape(
             &self.bodies,
@@ -569,8 +562,8 @@ impl World {
             shape,
             filter,
             |collider| {
-                if let Some(component) = self.component_from_collider(&collider) {
-                    return callback(*component, collider);
+                if let Some(entity) = self.entity_from_collider(&collider) {
+                    return callback(*entity, collider);
                 }
                 return true;
             },
@@ -582,7 +575,7 @@ impl World {
         shape_pos: &Isometry2<f32>,
         shape: &dyn Shape,
         filter: QueryFilter,
-    ) -> Option<(ComponentHandle, ColliderHandle)> {
+    ) -> Option<(EntityHandle, ColliderHandle)> {
         if let Some(collider) = self.query_pipeline.intersection_with_shape(
             &self.bodies,
             &self.colliders,
@@ -590,8 +583,8 @@ impl World {
             shape,
             filter,
         ) {
-            if let Some(component) = self.component_from_collider(&collider) {
-                return Some((*component, collider));
+            if let Some(entity) = self.entity_from_collider(&collider) {
+                return Some((*entity, collider));
             }
         }
         return None;
@@ -601,7 +594,7 @@ impl World {
         &self,
         point: &Point<f32>,
         filter: QueryFilter,
-        mut callback: impl FnMut(ComponentHandle, ColliderHandle) -> bool,
+        mut callback: impl FnMut(EntityHandle, ColliderHandle) -> bool,
     ) {
         self.query_pipeline.intersections_with_point(
             &self.bodies,
@@ -609,8 +602,8 @@ impl World {
             point,
             filter,
             |collider| {
-                if let Some(component) = self.component_from_collider(&collider) {
-                    return callback(*component, collider);
+                if let Some(entity) = self.entity_from_collider(&collider) {
+                    return callback(*entity, collider);
                 }
                 return true;
             },

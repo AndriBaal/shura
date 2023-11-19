@@ -1,44 +1,40 @@
 use crate::{
-    Component, ComponentHandle, ComponentType, ComponentTypeId, ComponentTypeImplementation, Gpu,
-    GroupHandle, InstanceBuffer, InstanceHandler, InstanceIndex, InstanceIndices, Renderer, World,
+    Component, Entity, EntityHandle, EntityType, EntityTypeId, EntityTypeImplementation, Gpu,
+    GroupHandle, InstanceBuffer, InstanceIndex, InstanceIndices, Renderer, World,
 };
 use std::cell::{Ref, RefMut};
 
-/// Set of components from  the same type only from the specified (groups)[crate::Group]
-pub struct ComponentSet<'a, C: Component> {
-    ty: Ref<'a, ComponentType<C>>,
+pub struct EntitySet<'a, E: Entity> {
+    ty: Ref<'a, EntityType<E>>,
     groups: &'a [GroupHandle],
 }
 
-impl<'a, C: Component> ComponentSet<'a, C> {
-    pub(crate) fn new(
-        ty: Ref<'a, ComponentType<C>>,
-        groups: &'a [GroupHandle],
-    ) -> ComponentSet<'a, C> {
+impl<'a, E: Entity> EntitySet<'a, E> {
+    pub(crate) fn new(ty: Ref<'a, EntityType<E>>, groups: &'a [GroupHandle]) -> EntitySet<'a, E> {
         Self { ty, groups }
     }
 
-    pub fn component_type_id(&self) -> ComponentTypeId {
-        self.ty.component_type_id()
+    pub fn entity_type_id(&self) -> EntityTypeId {
+        self.ty.entity_type_id()
     }
 
-    pub fn for_each(&self, each: impl FnMut(&C)) {
+    pub fn for_each(&self, each: impl FnMut(&E)) {
         self.ty.for_each(self.groups, each);
     }
 
-    pub fn for_each_with_handles(&self, each: impl FnMut(ComponentHandle, &C)) {
+    pub fn for_each_with_handles(&self, each: impl FnMut(EntityHandle, &E)) {
         self.ty.for_each_with_handles(self.groups, each);
     }
 
-    pub fn index(&self, index: usize) -> Option<&C> {
+    pub fn index(&self, index: usize) -> Option<&E> {
         self.index_of(GroupHandle::DEFAULT_GROUP, index)
     }
 
-    pub fn index_of(&self, group: GroupHandle, index: usize) -> Option<&C> {
+    pub fn index_of(&self, group: GroupHandle, index: usize) -> Option<&E> {
         self.ty.index(group, index)
     }
 
-    pub fn get(&self, handle: ComponentHandle) -> Option<&C> {
+    pub fn get(&self, handle: EntityHandle) -> Option<&E> {
         self.ty.get(handle)
     }
 
@@ -46,27 +42,27 @@ impl<'a, C: Component> ComponentSet<'a, C> {
         self.ty.len(self.groups)
     }
 
-    pub fn iter(&self) -> impl DoubleEndedIterator<Item = &C> {
+    pub fn iter(&self) -> impl DoubleEndedIterator<Item = &E> {
         self.ty.iter(self.groups)
     }
 
-    pub fn iter_with_handles(&self) -> impl DoubleEndedIterator<Item = (ComponentHandle, &C)> {
+    pub fn iter_with_handles(&self) -> impl DoubleEndedIterator<Item = (EntityHandle, &E)> {
         self.ty.iter_with_handles(self.groups)
     }
 
-    pub fn try_single(&self) -> Option<&C> {
+    pub fn try_single(&self) -> Option<&E> {
         self.ty.try_single()
     }
 
-    pub fn single(&self) -> &C {
+    pub fn single(&self) -> &E {
         self.ty.try_single().unwrap()
     }
 
-    pub fn try_single_ref(self) -> Option<Ref<'a, C>> {
+    pub fn try_single_ref(self) -> Option<Ref<'a, E>> {
         Ref::filter_map(self.ty, |ty| ty.try_single()).ok()
     }
 
-    pub fn single_ref(self) -> Ref<'a, C> {
+    pub fn single_ref(self) -> Ref<'a, E> {
         Ref::map(self.ty, |ty| ty.single())
     }
 
@@ -75,8 +71,8 @@ impl<'a, C: Component> ComponentSet<'a, C> {
         renderer: &mut Renderer<'a>,
         each: impl FnMut(
             &mut Renderer<'a>,
-            &'a C,
-            &'a InstanceBuffer<<C::InstanceHandler as InstanceHandler>::Instance>,
+            &'a E,
+            &'a InstanceBuffer<<E::Component as Component>::Instance>,
             InstanceIndex,
         ),
     ) {
@@ -88,8 +84,8 @@ impl<'a, C: Component> ComponentSet<'a, C> {
         renderer: &mut Renderer<'a>,
         each: impl FnOnce(
             &mut Renderer<'a>,
-            &'a C,
-            &'a InstanceBuffer<<C::InstanceHandler as InstanceHandler>::Instance>,
+            &'a E,
+            &'a InstanceBuffer<<E::Component as Component>::Instance>,
             InstanceIndex,
         ),
     ) {
@@ -101,7 +97,7 @@ impl<'a, C: Component> ComponentSet<'a, C> {
         renderer: &mut Renderer<'a>,
         all: impl FnMut(
             &mut Renderer<'a>,
-            &'a InstanceBuffer<<C::InstanceHandler as InstanceHandler>::Instance>,
+            &'a InstanceBuffer<<E::Component as Component>::Instance>,
             InstanceIndices,
         ),
     ) {
@@ -110,24 +106,23 @@ impl<'a, C: Component> ComponentSet<'a, C> {
 }
 
 #[cfg(feature = "rayon")]
-impl<'a, C: Component + Send + Sync> ComponentSet<'a, C> {
-    pub fn par_for_each(&self, each: impl Fn(&C) + Send + Sync) {
+impl<'a, E: Entity + Send + Sync> EntitySet<'a, E> {
+    pub fn par_for_each(&self, each: impl Fn(&E) + Send + Sync) {
         self.ty.par_for_each(self.groups, each);
     }
 }
 
-/// Set of mutable components from  the same type only from the specified (groups)[crate::Group]
-pub struct ComponentSetMut<'a, C: Component> {
-    ty: RefMut<'a, ComponentType<C>>,
+pub struct EntitySetMut<'a, E: Entity> {
+    ty: RefMut<'a, EntityType<E>>,
     groups: &'a [GroupHandle],
 }
 
-impl<'a, C: Component> ComponentSetMut<'a, C> {
+impl<'a, E: Entity> EntitySetMut<'a, E> {
     pub(crate) fn new(
-        ty: RefMut<'a, ComponentType<C>>,
+        ty: RefMut<'a, EntityType<E>>,
         groups: &'a [GroupHandle],
         _check: bool,
-    ) -> ComponentSetMut<'a, C> {
+    ) -> EntitySetMut<'a, E> {
         #[cfg(debug_assertions)]
         if _check && groups.len() > 1 {
             for (index, value) in groups.iter().enumerate() {
@@ -139,31 +134,31 @@ impl<'a, C: Component> ComponentSetMut<'a, C> {
         Self { ty, groups }
     }
 
-    pub fn component_type_id(&self) -> ComponentTypeId {
-        self.ty.component_type_id()
+    pub fn entity_type_id(&self) -> EntityTypeId {
+        self.ty.entity_type_id()
     }
 
     pub fn change_group(
         &mut self,
-        component: ComponentHandle,
+        entity: EntityHandle,
         new_group_handle: GroupHandle,
-    ) -> Option<ComponentHandle> {
-        self.ty.change_group(component, new_group_handle)
+    ) -> Option<EntityHandle> {
+        self.ty.change_group(entity, new_group_handle)
     }
 
-    pub fn for_each(&self, each: impl FnMut(&C)) {
+    pub fn for_each(&self, each: impl FnMut(&E)) {
         self.ty.for_each(self.groups, each);
     }
 
-    pub fn for_each_mut(&mut self, each: impl FnMut(&mut C)) {
+    pub fn for_each_mut(&mut self, each: impl FnMut(&mut E)) {
         self.ty.for_each_mut(self.groups, each);
     }
 
-    pub fn for_each_with_handles(&self, each: impl FnMut(ComponentHandle, &C)) {
+    pub fn for_each_with_handles(&self, each: impl FnMut(EntityHandle, &E)) {
         self.ty.for_each_with_handles(self.groups, each);
     }
 
-    pub fn for_each_mut_with_handles(&mut self, each: impl FnMut(ComponentHandle, &mut C)) {
+    pub fn for_each_mut_with_handles(&mut self, each: impl FnMut(EntityHandle, &mut E)) {
         self.ty.for_each_mut_with_handles(self.groups, each);
     }
 
@@ -176,91 +171,91 @@ impl<'a, C: Component> ComponentSetMut<'a, C> {
         &mut self,
         world: &World,
         gpu: &Gpu,
-        each: impl Fn(&mut C) + Send + Sync + Copy,
+        each: impl Fn(&mut E) + Send + Sync + Copy,
     ) {
         self.ty.force_buffer(self.groups);
         self.ty.buffer_with(world, gpu, self.groups, each)
     }
 
-    pub fn retain(&mut self, world: &mut World, keep: impl FnMut(&mut C, &mut World) -> bool) {
+    pub fn retain(&mut self, world: &mut World, keep: impl FnMut(&mut E, &mut World) -> bool) {
         self.ty.retain(world, self.groups, keep);
     }
 
-    pub fn index(&self, index: usize) -> Option<&C> {
+    pub fn index(&self, index: usize) -> Option<&E> {
         self.index_of(GroupHandle::DEFAULT_GROUP, index)
     }
 
-    pub fn index_mut(&mut self, index: usize) -> Option<&mut C> {
+    pub fn index_mut(&mut self, index: usize) -> Option<&mut E> {
         self.index_mut_of(GroupHandle::DEFAULT_GROUP, index)
     }
 
-    pub fn index_of(&self, group: GroupHandle, index: usize) -> Option<&C> {
+    pub fn index_of(&self, group: GroupHandle, index: usize) -> Option<&E> {
         self.ty.index(group, index)
     }
 
-    pub fn index_mut_of(&mut self, group: GroupHandle, index: usize) -> Option<&mut C> {
+    pub fn index_mut_of(&mut self, group: GroupHandle, index: usize) -> Option<&mut E> {
         self.ty.index_mut(group, index)
     }
 
-    pub fn get(&self, handle: ComponentHandle) -> Option<&C> {
+    pub fn get(&self, handle: EntityHandle) -> Option<&E> {
         self.ty.get(handle)
     }
 
-    pub fn get_mut(&mut self, handle: ComponentHandle) -> Option<&mut C> {
+    pub fn get_mut(&mut self, handle: EntityHandle) -> Option<&mut E> {
         self.ty.get_mut(handle)
     }
 
     pub fn get2_mut(
         &mut self,
-        handle1: ComponentHandle,
-        handle2: ComponentHandle,
-    ) -> (Option<&mut C>, Option<&mut C>) {
+        handle1: EntityHandle,
+        handle2: EntityHandle,
+    ) -> (Option<&mut E>, Option<&mut E>) {
         self.ty.get2_mut(handle1, handle2)
     }
 
-    pub fn remove(&mut self, world: &mut World, handle: ComponentHandle) -> Option<C> {
+    pub fn remove(&mut self, world: &mut World, handle: EntityHandle) -> Option<E> {
         self.ty.remove(world, handle)
     }
 
-    pub fn remove_all(&mut self, world: &mut World) -> Vec<C> {
+    pub fn remove_all(&mut self, world: &mut World) -> Vec<E> {
         self.ty.remove_all(world, self.groups)
     }
 
-    pub fn add(&mut self, world: &mut World, component: C) -> ComponentHandle {
-        self.add_to(world, GroupHandle::DEFAULT_GROUP, component)
+    pub fn add(&mut self, world: &mut World, entity: E) -> EntityHandle {
+        self.add_to(world, GroupHandle::DEFAULT_GROUP, entity)
     }
 
     pub fn add_to(
         &mut self,
         world: &mut World,
         group_handle: GroupHandle,
-        component: C,
-    ) -> ComponentHandle {
-        self.ty.add(world, group_handle, component)
+        entity: E,
+    ) -> EntityHandle {
+        self.ty.add(world, group_handle, entity)
     }
 
     pub fn add_many(
         &mut self,
         world: &mut World,
-        components: impl IntoIterator<Item = C>,
-    ) -> Vec<ComponentHandle> {
-        self.add_many_to(world, GroupHandle::DEFAULT_GROUP, components)
+        entities: impl IntoIterator<Item = E>,
+    ) -> Vec<EntityHandle> {
+        self.add_many_to(world, GroupHandle::DEFAULT_GROUP, entities)
     }
 
     pub fn add_many_to(
         &mut self,
         world: &mut World,
         group_handle: GroupHandle,
-        components: impl IntoIterator<Item = C>,
-    ) -> Vec<ComponentHandle> {
-        self.ty.add_many(world, group_handle, components)
+        entities: impl IntoIterator<Item = E>,
+    ) -> Vec<EntityHandle> {
+        self.ty.add_many(world, group_handle, entities)
     }
 
     pub fn add_with(
         &mut self,
         world: &mut World,
-        create: impl FnOnce(ComponentHandle) -> C,
-    ) -> ComponentHandle {
+        create: impl FnOnce(EntityHandle) -> E,
+    ) -> EntityHandle {
         self.add_with_to(world, GroupHandle::DEFAULT_GROUP, create)
     }
 
@@ -268,8 +263,8 @@ impl<'a, C: Component> ComponentSetMut<'a, C> {
         &mut self,
         world: &mut World,
         group_handle: GroupHandle,
-        create: impl FnOnce(ComponentHandle) -> C,
-    ) -> ComponentHandle {
+        create: impl FnOnce(EntityHandle) -> E,
+    ) -> EntityHandle {
         self.ty.add_with(world, group_handle, create)
     }
 
@@ -281,11 +276,11 @@ impl<'a, C: Component> ComponentSetMut<'a, C> {
         self.ty.len(self.groups)
     }
 
-    pub fn iter(&self) -> impl DoubleEndedIterator<Item = &C> {
+    pub fn iter(&self) -> impl DoubleEndedIterator<Item = &E> {
         self.ty.iter(self.groups)
     }
 
-    pub fn iter_mut(&mut self) -> impl DoubleEndedIterator<Item = &mut C> {
+    pub fn iter_mut(&mut self) -> impl DoubleEndedIterator<Item = &mut E> {
         self.ty.iter_mut(self.groups)
     }
 
@@ -293,61 +288,61 @@ impl<'a, C: Component> ComponentSetMut<'a, C> {
         &'a self,
     ) -> impl DoubleEndedIterator<
         Item = (
-            &InstanceBuffer<<C::InstanceHandler as InstanceHandler>::Instance>,
+            &InstanceBuffer<<E::Component as Component>::Instance>,
             InstanceIndex,
-            &C,
+            &E,
         ),
     > {
         self.ty.iter_render(self.groups)
     }
 
-    pub fn iter_with_handles(&self) -> impl DoubleEndedIterator<Item = (ComponentHandle, &C)> {
+    pub fn iter_with_handles(&self) -> impl DoubleEndedIterator<Item = (EntityHandle, &E)> {
         self.ty.iter_with_handles(self.groups)
     }
 
     pub fn iter_mut_with_handles(
         &mut self,
-    ) -> impl DoubleEndedIterator<Item = (ComponentHandle, &mut C)> {
+    ) -> impl DoubleEndedIterator<Item = (EntityHandle, &mut E)> {
         self.ty.iter_mut_with_handles(self.groups)
     }
 
-    pub fn try_single(&self) -> Option<&C> {
+    pub fn try_single(&self) -> Option<&E> {
         self.ty.try_single()
     }
 
-    pub fn single(&self) -> &C {
+    pub fn single(&self) -> &E {
         self.ty.single()
     }
 
-    pub fn try_single_mut(&mut self) -> Option<&mut C> {
+    pub fn try_single_mut(&mut self) -> Option<&mut E> {
         self.ty.try_single_mut()
     }
 
-    pub fn single_mut(&mut self) -> &mut C {
+    pub fn single_mut(&mut self) -> &mut E {
         self.ty.single_mut()
     }
 
-    pub fn try_single_ref(self) -> Option<RefMut<'a, C>> {
+    pub fn try_single_ref(self) -> Option<RefMut<'a, E>> {
         RefMut::filter_map(self.ty, |ty| ty.try_single_mut()).ok()
     }
 
-    pub fn single_ref(self) -> RefMut<'a, C> {
+    pub fn single_ref(self) -> RefMut<'a, E> {
         RefMut::map(self.ty, |ty| ty.single_mut())
     }
 
-    pub fn remove_single(&mut self, world: &mut World) -> Option<C> {
+    pub fn remove_single(&mut self, world: &mut World) -> Option<E> {
         self.ty.remove_single(world)
     }
 
-    pub fn set_single(&mut self, world: &mut World, new: C) -> ComponentHandle {
+    pub fn set_single(&mut self, world: &mut World, new: E) -> EntityHandle {
         self.ty.set_single(world, new)
     }
 
     pub fn set_single_with(
         &mut self,
         world: &mut World,
-        create: impl FnOnce(ComponentHandle) -> C,
-    ) -> ComponentHandle {
+        create: impl FnOnce(EntityHandle) -> E,
+    ) -> EntityHandle {
         self.ty.set_single_with(world, create)
     }
 
@@ -356,8 +351,8 @@ impl<'a, C: Component> ComponentSetMut<'a, C> {
         renderer: &mut Renderer<'a>,
         each: impl FnMut(
             &mut Renderer<'a>,
-            &'a C,
-            &'a InstanceBuffer<<C::InstanceHandler as InstanceHandler>::Instance>,
+            &'a E,
+            &'a InstanceBuffer<<E::Component as Component>::Instance>,
             InstanceIndex,
         ),
     ) {
@@ -369,8 +364,8 @@ impl<'a, C: Component> ComponentSetMut<'a, C> {
         renderer: &mut Renderer<'a>,
         each: impl FnOnce(
             &mut Renderer<'a>,
-            &'a C,
-            &'a InstanceBuffer<<C::InstanceHandler as InstanceHandler>::Instance>,
+            &'a E,
+            &'a InstanceBuffer<<E::Component as Component>::Instance>,
             InstanceIndex,
         ),
     ) {
@@ -382,7 +377,7 @@ impl<'a, C: Component> ComponentSetMut<'a, C> {
         renderer: &mut Renderer<'a>,
         all: impl FnMut(
             &mut Renderer<'a>,
-            &'a InstanceBuffer<<C::InstanceHandler as InstanceHandler>::Instance>,
+            &'a InstanceBuffer<<E::Component as Component>::Instance>,
             InstanceIndices,
         ),
     ) {
@@ -391,26 +386,26 @@ impl<'a, C: Component> ComponentSetMut<'a, C> {
 }
 
 #[cfg(feature = "rayon")]
-impl<'a, C: Component + Send + Sync> ComponentSetMut<'a, C> {
-    pub fn par_for_each(&self, each: impl Fn(&C) + Send + Sync) {
+impl<'a, E: Entity + Send + Sync> EntitySetMut<'a, E> {
+    pub fn par_for_each(&self, each: impl Fn(&E) + Send + Sync) {
         self.ty.par_for_each(self.groups, each);
     }
 
-    pub fn par_for_each_mut(&mut self, each: impl Fn(&mut C) + Send + Sync) {
+    pub fn par_for_each_mut(&mut self, each: impl Fn(&mut E) + Send + Sync) {
         self.ty.par_for_each_mut(self.groups, each);
     }
 }
 
 #[cfg(feature = "rayon")]
-impl<'a, C: Component + Send + Sync> ComponentSetMut<'a, C>
+impl<'a, E: Entity + Send + Sync> EntitySetMut<'a, E>
 where
-    <C::InstanceHandler as InstanceHandler>::Instance: Send,
+    <E::Component as Component>::Instance: Send,
 {
     pub fn par_buffer_with(
         &mut self,
         world: &World,
         gpu: &Gpu,
-        each: impl Fn(&mut C) + Send + Sync,
+        each: impl Fn(&mut E) + Send + Sync,
     ) {
         self.ty.force_buffer(self.groups);
         self.ty.par_buffer_with(world, gpu, self.groups, each)

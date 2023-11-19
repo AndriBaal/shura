@@ -1,9 +1,7 @@
 use crate::Gpu;
 use std::marker::PhantomData;
 
-/// Uniform abstraction used to send data to the GPU. You can use the uniform in the
-/// shader by binding it via the `Renderer`. You should look that every Uniform
-/// is 16 byte aligned since not all gpu.devices / browser support other aligned values.
+
 #[derive(Debug)]
 pub struct Uniform<T: bytemuck::Pod> {
     buffer: wgpu::Buffer,
@@ -25,7 +23,7 @@ impl<T: bytemuck::Pod> Uniform<T> {
         return Self::new_custom_layout(gpu, &layout, data);
     }
 
-    pub fn empty(gpu: &Gpu, layout: &wgpu::BindGroupLayout) -> Uniform<T>  {
+    pub fn empty(gpu: &Gpu, layout: &wgpu::BindGroupLayout) -> Uniform<T> {
         const BUFFER_ALIGNMENT: u64 = 16;
         let data_size = std::mem::size_of::<T>() as u64;
         let buffer_size = wgpu::util::align_to(data_size, BUFFER_ALIGNMENT);

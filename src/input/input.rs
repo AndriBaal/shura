@@ -14,13 +14,11 @@ pub use winit::event::VirtualKeyCode as Key;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-/// Indicates if the screen is touched anywhere.
 pub struct ScreenTouch;
 
 #[cfg(feature = "gamepad")]
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-/// Button on a GamePad
 pub struct GamepadButton {
     pub gamepad: GamepadId,
     pub button: Button,
@@ -68,7 +66,6 @@ impl From<ScreenTouch> for InputTrigger {
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-/// Trigger of a key-like event
 pub enum InputTrigger {
     Key(Key),
     MouseButton(MouseButton),
@@ -85,7 +82,6 @@ pub enum InputEventState {
     JustReleased,
 }
 
-/// Event of a [InputTrigger] that holds the trigger and the time of the event.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct InputEvent {
     trigger: InputTrigger,
@@ -147,7 +143,6 @@ impl InputEvent {
     }
 }
 
-/// Manage input from touch devices, keyboards, mice and gamepads.
 pub struct Input {
     cursor_raw: Point2<u32>,
     touches: FxHashMap<u64, Point2<u32>>,
@@ -424,7 +419,6 @@ impl Input {
     }
 
     #[cfg(feature = "gamepad")]
-    /// Returns a Vector2 between [-1.0, -1.0] and [1.0, 1.0]
     pub fn gamepad_stick_deadzone(
         &self,
         gamepad_id: GamepadId,
@@ -461,7 +455,6 @@ impl Input {
     }
 
     #[cfg(feature = "gamepad")]
-    /// Returns a Vector2 between [-1.0, -1.0] and [1.0, 1.0]
     pub fn gamepad_stick(&self, gamepad_id: GamepadId, stick: GamepadStick) -> Vector2<f32> {
         return Self::gamepad_stick_deadzone(&self, gamepad_id, stick, self.dead_zone);
     }

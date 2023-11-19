@@ -2,7 +2,6 @@ use crate::{
     Color, DefaultResources, DepthBuffer, Gpu, RenderTarget, Renderer, SpriteRenderTarget,
 };
 
-/// Encoder of [Renderers](crate::Renderer) and utilities to copy, clear and render text onto [RenderTargets](crate::RenderTarget)
 pub struct RenderEncoder<'a> {
     pub inner: wgpu::CommandEncoder,
     pub defaults: &'a DefaultResources,
@@ -114,7 +113,11 @@ impl<'a> RenderEncoder<'a> {
         self.inner.finish()
     }
 
-    pub fn finish(self)  {
-        self.gpu.command_buffers.lock().unwrap().push(self.finish_get())
+    pub fn finish(self) {
+        self.gpu
+            .command_buffers
+            .lock()
+            .unwrap()
+            .push(self.finish_get())
     }
 }

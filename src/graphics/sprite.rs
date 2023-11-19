@@ -104,7 +104,6 @@ impl<'a, D: Deref<Target = [u8]>> SpriteBuilder<'a, D> {
     }
 }
 
-/// 2D Sprite used for rendering
 #[derive(Debug)]
 pub struct Sprite {
     texture: wgpu::Texture,
@@ -223,7 +222,6 @@ impl Sprite {
         return (view, bind_group, sampler);
     }
 
-    /// Overwrite with an image of the same dimension
     pub fn write_image(&mut self, gpu: &Gpu, rgba: &image::RgbaImage) {
         Self::write(self, gpu, Vector2::new(rgba.width(), rgba.height()), rgba)
     }

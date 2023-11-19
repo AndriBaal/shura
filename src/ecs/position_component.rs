@@ -1,19 +1,18 @@
 use crate::{
-    Color, Instance2D, Instance3D, InstanceHandler, Isometry2, Isometry3, Rotation2, Rotation3,
+    Color, Component, Instance2D, Instance3D, Isometry2, Isometry3, Rotation2, Rotation3,
     SpriteAtlas, SpriteSheetIndex, Vector2, Vector3, World,
 };
 
-/// Component that is rendered to the screen by its given position and scaling.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone)]
-pub struct PositionInstance2D {
+pub struct PositionComponent2D {
     scaling: Vector2<f32>,
     position: Isometry2<f32>,
     active: bool,
     instance: Instance2D,
 }
 
-impl Default for PositionInstance2D {
+impl Default for PositionComponent2D {
     fn default() -> Self {
         Self {
             scaling: Vector2::new(1.0, 1.0),
@@ -25,7 +24,7 @@ impl Default for PositionInstance2D {
 }
 
 #[allow(unreachable_patterns)]
-impl PositionInstance2D {
+impl PositionComponent2D {
     pub fn new() -> Self {
         Self::default()
     }
@@ -140,7 +139,7 @@ impl PositionInstance2D {
     }
 }
 
-impl InstanceHandler for PositionInstance2D {
+impl Component for PositionComponent2D {
     type Instance = Instance2D;
 
     fn instance(&self, _world: &World) -> Self::Instance {
@@ -152,16 +151,15 @@ impl InstanceHandler for PositionInstance2D {
     }
 }
 
-/// Component that is rendered to the screen by its given position and scaling.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone)]
-pub struct PositionInstance3D {
+pub struct PositionComponent3D {
     active: bool,
     position: Isometry3<f32>,
     scaling: Vector3<f32>,
 }
 
-impl Default for PositionInstance3D {
+impl Default for PositionComponent3D {
     fn default() -> Self {
         Self {
             scaling: Vector3::new(1.0, 1.0, 1.0),
@@ -172,7 +170,7 @@ impl Default for PositionInstance3D {
 }
 
 #[allow(unreachable_patterns)]
-impl PositionInstance3D {
+impl PositionComponent3D {
     pub fn new() -> Self {
         Self::default()
     }
@@ -243,7 +241,7 @@ impl PositionInstance3D {
     }
 }
 
-impl InstanceHandler for PositionInstance3D {
+impl Component for PositionComponent3D {
     type Instance = Instance3D;
 
     fn instance(&self, _world: &World) -> Self::Instance {

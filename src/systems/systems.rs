@@ -1,11 +1,11 @@
-use crate::ComponentResources;
+use crate::RenderContext;
 
 use crate::{Context, Duration, EndReason, Instant, RenderEncoder};
 
 type SetupSystem = fn(ctx: &mut Context);
 type ResizeSystem = fn(ctx: &mut Context);
 type UpdateSystem = fn(ctx: &mut Context);
-type RenderSystem = fn(ctx: &ComponentResources, encoder: &mut RenderEncoder);
+type RenderSystem = fn(ctx: &RenderContext, encoder: &mut RenderEncoder);
 type EndSystem = fn(&mut Context, reason: EndReason);
 
 pub enum System {

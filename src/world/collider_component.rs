@@ -1,7 +1,6 @@
 use crate::{
     physics::{Collider, ColliderHandle},
-    Color, ComponentHandle, Instance2D, InstanceHandler, SpriteAtlas, SpriteSheetIndex, Vector2,
-    World,
+    Color, Component, EntityHandle, Instance2D, SpriteAtlas, SpriteSheetIndex, Vector2, World,
 };
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -115,7 +114,7 @@ impl ColliderInstance {
     }
 }
 
-impl InstanceHandler for ColliderInstance {
+impl Component for ColliderInstance {
     type Instance = Instance2D;
 
     fn instance(&self, world: &World) -> Self::Instance {
@@ -144,7 +143,7 @@ impl InstanceHandler for ColliderInstance {
         return Instance2D::default();
     }
 
-    fn init(&mut self, handle: ComponentHandle, world: &mut World) {
+    fn init(&mut self, handle: EntityHandle, world: &mut World) {
         match self.status {
             ColliderStatus::Added { .. } => {
                 return;

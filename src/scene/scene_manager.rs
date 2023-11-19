@@ -2,7 +2,6 @@ use crate::{Scene, SceneCreator};
 use rustc_hash::FxHashMap;
 use std::{cell::RefCell, rc::Rc};
 
-/// Access to the scenes.
 pub struct SceneManager {
     pub(crate) scenes: FxHashMap<u32, Rc<RefCell<Scene>>>,
     pub(crate) remove: Vec<u32>,
@@ -59,7 +58,6 @@ impl SceneManager {
         self.scene_switched
     }
 
-    /// Remove a scene by its id.
     pub fn remove(&mut self, scene_id: u32) {
         self.remove.push(scene_id)
     }

@@ -7,9 +7,7 @@ use crate::{
     Camera2D, Color, DefaultResources, Gpu, RenderEncoder, Sprite, SpriteBuilder, Vector2,
 };
 
-pub struct DepthTexture {
-
-}
+pub struct DepthTexture {}
 
 pub trait RenderTarget: Downcast {
     fn msaa(&self) -> Option<&wgpu::TextureView>;
@@ -149,7 +147,6 @@ impl RenderTarget for SpriteRenderTarget {
     }
 }
 
-/// Texture to render onto with a [RenderEncoder]
 pub struct SpriteRenderTarget {
     target_msaa: Option<wgpu::TextureView>,
     target_view: wgpu::TextureView,

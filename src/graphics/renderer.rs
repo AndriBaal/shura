@@ -25,8 +25,6 @@ impl Default for RenderCache {
     }
 }
 
-/// Render grpahics to the screen or a sprite. The renderer can be extended with custom graphcis throught
-/// the [RenderPass](wgpu::RenderPass) or the provided methods for shura's shader system.
 pub struct Renderer<'a> {
     pub(crate) target: &'a dyn RenderTarget,
     pub gpu: &'a Gpu,
@@ -84,7 +82,6 @@ impl<'a> Renderer<'a> {
         return &mut self.render_pass;
     }
 
-    /// Sets the instance buffer at the position 1
     pub fn use_instances<I: Instance>(&mut self, buffer: &'a InstanceBuffer<I>) {
         let ptr = buffer.buffer() as *const _;
         if self.cache.bound_buffers[Self::INSTANCE_SLOT as usize] != ptr {

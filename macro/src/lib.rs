@@ -28,7 +28,7 @@ fn field_attribute(data_struct: &DataStruct, attr_name: &str) -> Option<(Ident, 
                                         );
                                         result = Some((field_name.clone(), type_name.clone()));
                                     }
-                                    _ => panic!("Cannot extract the type of the component."),
+                                    _ => panic!("Cannot extract the type of the entity."),
                                 };
                             }
                             Ok(())
@@ -66,8 +66,8 @@ fn struct_attribute_name_value(ast: &DeriveInput, attr_name: &str) -> Option<Exp
 
 static USED_COMPONENT_HASHES: OnceLock<Mutex<HashSet<u32>>> = OnceLock::new();
 
-#[proc_macro_derive(Component, attributes(shura))]
-pub fn derive_component(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(Entity, attributes(shura))]
+pub fn derive_entity(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let data_struct = match ast.data {
         Data::Struct(ref data_struct) => data_struct,
@@ -92,32 +92,32 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     drop(hashes); // Free the mutex lock
 
     let identifier = quote!(
-        impl #impl_generics ::shura::ComponentIdentifier for #struct_name #ty_generics #where_clause {
+        impl #impl_generics ::shura::EntityIdentifier for #struct_name #ty_generics #where_clause {
             const TYPE_NAME: &'static str = #struct_identifier;
-            const IDENTIFIER: ::shura::ComponentTypeId = ::shura::ComponentTypeId::new(#hash);
+            const IDENTIFIER: ::shura::EntityTypeId = ::shura::EntityTypeId::new(#hash);
 
-            fn component_type_id(&self) -> ::shura::ComponentTypeId {
+            fn entity_type_id(&self) -> ::shura::EntityTypeId {
                 Self::IDENTIFIER
             }
         }
     );
-    if let Some((instance_field_name, instance_type)) = field_attribute(data_struct, "instance") {
+    if let Some((component_field_name, component_type)) = field_attribute(data_struct, "component") {
         return quote!(
             #identifier
 
-            impl #impl_generics ::shura::Component for #struct_name #ty_generics #where_clause {
-                type InstanceHandler = #instance_type;
+            impl #impl_generics ::shura::Entity for #struct_name #ty_generics #where_clause {
+                type Component = #component_type;
 
-                fn handler(&self) -> &Self::InstanceHandler {
-                    &self.#instance_field_name
+                fn component(&self) -> &Self::Component {
+                    &self.#component_field_name
                 }
 
-                fn init(&mut self, handle: ::shura::ComponentHandle, world: &mut ::shura::World) {
-                    self.#instance_field_name.init(handle, world)
+                fn init(&mut self, handle: ::shura::EntityHandle, world: &mut ::shura::World) {
+                    self.#component_field_name.init(handle, world)
                 }
 
                 fn finish(&mut self, world: &mut ::shura::World) {
-                    self.#instance_field_name.finish(world)
+                    self.#component_field_name.finish(world)
                 }
             }
         )
@@ -126,14 +126,14 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         return quote!(
             #identifier
 
-            impl #impl_generics ::shura::Component for #struct_name #ty_generics #where_clause {
-                type InstanceHandler = ::shura::EmptyInstance;
+            impl #impl_generics ::shura::Entity for #struct_name #ty_generics #where_clause {
+                type Component = ::shura::PositionComponent2D;
 
-                fn handler(&self) -> &Self::InstanceHandler {
-                    &::shura::EMPTY_INSTANCE
+                fn component(&self) -> &Self::Component {
+                    panic!()
                 }
 
-                fn init(&mut self, handle: ::shura::ComponentHandle, world: &mut ::shura::World) {}
+                fn init(&mut self, handle: ::shura::EntityHandle, world: &mut ::shura::World) {}
                 fn finish(&mut self, world: &mut ::shura::World) {}
             }
         )

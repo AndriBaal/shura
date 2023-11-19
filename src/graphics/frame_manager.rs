@@ -2,7 +2,6 @@ pub use crate::{Duration, Instant};
 #[cfg(feature = "log")]
 use log::info;
 
-/// Acces to various frame information.
 pub struct FrameManager {
     frame_time: Duration,
     total_time: Duration,
@@ -75,7 +74,6 @@ impl FrameManager {
         Instant::now()
     }
 
-    /// Frame time with a limit of [MAX_FRAME_TIME]
     pub fn frame_time(&self) -> f32 {
         self.frame_time.as_secs_f32()
     }

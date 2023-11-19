@@ -17,7 +17,6 @@ use std::{ops::Deref, sync::Mutex};
 pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 0.5;
 
 #[derive(Clone)]
-/// Configuration of the [wgpu](https://github.com/gfx-rs/wgpu) limits, features and backend graphics api
 pub struct GpuConfig {
     pub backends: wgpu::Backends,
     pub device_features: wgpu::Features,
@@ -40,7 +39,6 @@ impl Default for GpuConfig {
     }
 }
 
-/// Holds the connection to the GPU using wgpu. Also has some default buffers, layouts etc.
 pub struct Gpu {
     pub instance: wgpu::Instance,
     pub device: wgpu::Device,
@@ -283,7 +281,6 @@ impl Gpu {
     }
 }
 
-/// Base Wgpu objects needed to create any further graphics object.
 pub struct WgpuDefaultResources {
     pub sample_count: u32,
     pub vertex_shader_module: ShaderModule,
@@ -391,7 +388,6 @@ impl WgpuDefaultResources {
     }
 }
 
-/// Holds default buffers, shaders, sprites and layouts needed by shura.
 pub struct DefaultResources {
     // 2D
     pub sprite: Shader,
@@ -410,12 +406,7 @@ pub struct DefaultResources {
     pub depth_buffer: DepthBuffer,
     pub unit_mesh: Mesh2D,
 
-    /// This field holds both total time and the frame time. Both are stored as f32 in the buffer.
-    /// The first f32 is the `total_time` and the second f32 is the `frame_time`. In the shader
-    /// the struct also needs 2 additional floats which are empty to match the 16 byte alignment
-    /// some devices need.
     pub times: Uniform<[f32; 2]>,
-    /// Camera2D where the smaller side is always 1.0 and the otherside is scaled to match the window aspect ratio.
     pub world_camera2d: CameraBuffer2D,
     pub world_camera3d: CameraBuffer<WorldCamera3D>,
     pub relative_camera: (CameraBuffer2D, Camera2D),

@@ -268,7 +268,6 @@ impl SpriteSheet {
     }
 }
 
-// /// Create a [SpriteSheet] from multiple, by flattening all provided SpriteSheets to have their own row.
 // pub fn from_multiple(gpu: &Gpu, sheets: &[&[u8]], sprite_size: Vector2<u32>) -> Self {
 //     let sprite_amount = size.component_div(&sprite_size);
 //     let mut sprites: Vec<Vec<u8>> = vec![];
