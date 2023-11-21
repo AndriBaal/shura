@@ -15,14 +15,6 @@ pub enum EntityScope {
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum BufferOperation {
-    Manual,
-    EveryFrame,
-    Never,
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum EntityStorage {
     Single,
     Multiple,
@@ -32,14 +24,14 @@ pub enum EntityStorage {
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct EntityConfig {
-    pub buffer: BufferOperation,
+    // pub buffer: BufferConfig,
     pub storage: EntityStorage,
     pub scope: EntityScope,
 }
 
 impl EntityConfig {
     pub const DEFAULT: EntityConfig = EntityConfig {
-        buffer: BufferOperation::EveryFrame,
+        // buffer: BufferConfig::EveryFrame,
         storage: EntityStorage::Multiple,
         scope: EntityScope::Scene,
     };
@@ -48,7 +40,7 @@ impl EntityConfig {
         ..Self::DEFAULT
     };
     pub const RESOURCE: EntityConfig = EntityConfig {
-        buffer: BufferOperation::Never,
+        // buffer: BufferConfig::Never,
         storage: EntityStorage::Single,
         ..Self::DEFAULT
     };

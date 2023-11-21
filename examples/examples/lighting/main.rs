@@ -52,7 +52,7 @@ impl Background {
 impl ComponentController for Background {
     const CONFIG: ComponentConfig = ComponentConfig {
         update: UpdateOperation::Never,
-        buffer: BufferOperation::Manual,
+        buffer: BufferConfig::Manual,
         storage: ComponentStorage::Single,
         render_priority: 1,
         ..ComponentConfig::DEFAULT
@@ -81,7 +81,7 @@ pub struct LightResources {
 impl ComponentController for LightResources {
     const CONFIG: ComponentConfig = ComponentConfig {
         update: UpdateOperation::Never,
-        buffer: BufferOperation::Never,
+        buffer: BufferConfig::Never,
         storage: ComponentStorage::Single,
         render_priority: 3,
         ..ComponentConfig::DEFAULT

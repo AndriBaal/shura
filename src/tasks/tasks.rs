@@ -75,20 +75,6 @@ impl TaskManager {
                     .unwrap();
             });
         }
-
-        #[cfg(target_arch = "wasm32")]
-        {
-            let sender = self.sender.clone();
-            let _ = wasm_bindgen_futures::future_to_promise(async move {
-                let result = task.await;
-                sender
-                    .send(Box::new(|ctx| {
-                        (callback)(ctx, result);
-                    }))
-                    .unwrap();
-                Ok(wasm_bindgen_futures::wasm_bindgen::JsValue::NULL)
-            });
-        }
     }
 
     #[cfg(target_arch = "wasm32")]

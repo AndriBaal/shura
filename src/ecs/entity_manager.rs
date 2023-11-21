@@ -2,10 +2,10 @@ use downcast_rs::{impl_downcast, Downcast};
 use rustc_hash::FxHashMap;
 
 use crate::{
-    BufferOperation, CameraBuffer, CameraBuffer2D, Component, DefaultResources, Entity,
-    EntityConfig, EntityHandle, EntityScope, EntitySet, EntitySetMut, EntityType, EntityTypeId,
-    GlobalEntitys, Gpu, GroupHandle, Instance2D, InstanceBuffer, InstanceIndex, InstanceIndices,
-    Mesh2D, Renderer, Scene, SystemManager, World, WorldCamera3D,
+    BufferConfig, CameraBuffer, CameraBuffer2D, Component, ComponentBufferManager,
+    DefaultResources, Entity, EntityConfig, EntityHandle, EntityScope, EntitySet, EntitySetMut,
+    EntityType, EntityTypeId, GlobalEntitys, Gpu, GroupHandle, Instance2D, InstanceBuffer,
+    InstanceIndex, InstanceIndices, Mesh2D, Renderer, Scene, SystemManager, World, WorldCamera3D,
 };
 
 #[cfg(feature = "serde")]
@@ -19,7 +19,12 @@ use std::{
 pub(crate) trait EntityTypeImplementation: Downcast {
     fn add_group(&mut self);
     fn remove_group(&mut self, world: &mut World, handle: GroupHandle);
-    fn buffer(&mut self, world: &World, gpu: &Gpu, active: &[GroupHandle]);
+    fn buffer(
+        &self,
+        buffers: &mut ComponentBufferManager,
+        world: &World,
+        active_groups: &[GroupHandle],
+    );
     fn entity_type_id(&self) -> EntityTypeId;
     fn config(&self) -> EntityConfig;
 
@@ -66,17 +71,6 @@ macro_rules! type_ref_mut {
     }};
 }
 
-macro_rules! type_render {
-    ($self:expr, $C: ident) => {{
-        let ty = $self
-            .types
-            .get(&$C::IDENTIFIER)
-            .expect(&no_type_error::<$C>())
-            .resource::<$C>();
-        ty
-    }};
-}
-
 const ALREADY_BORROWED: &'static str = "This type is already borrowed!";
 fn no_type_error<E: Entity>() -> String {
     format!("The type '{}' first needs to be registered!", E::TYPE_NAME)
@@ -92,6 +86,13 @@ impl EntityTypeScope {
         match &self {
             EntityTypeScope::Scene(scene) => scene.try_borrow_mut().expect(ALREADY_BORROWED),
             EntityTypeScope::Global(global) => global.try_borrow_mut().expect(ALREADY_BORROWED),
+        }
+    }
+
+    fn ref_raw(&self) -> Ref<dyn EntityTypeImplementation> {
+        match &self {
+            EntityTypeScope::Scene(scene) => scene.try_borrow().expect(ALREADY_BORROWED),
+            EntityTypeScope::Global(global) => global.try_borrow().expect(ALREADY_BORROWED),
         }
     }
 
@@ -163,6 +164,7 @@ impl GroupFilter<'static> {
 
 pub struct RenderContext<'a> {
     entities: &'a EntityManager,
+    components: &'a ComponentBufferManager,
 
     pub world_camera2d: &'a CameraBuffer2D,
     pub world_camera3d: &'a CameraBuffer<WorldCamera3D>,
@@ -185,6 +187,7 @@ impl<'a> RenderContext<'a> {
             &scene.systems,
             Self {
                 entities: &scene.entities,
+                components: &scene.components,
                 relative_camera: &defaults.relative_camera.0,
                 relative_bottom_left_camera: &defaults.relative_bottom_left_camera.0,
                 relative_bottom_right_camera: &defaults.relative_bottom_right_camera.0,
@@ -220,45 +223,49 @@ impl<'a> RenderContext<'a> {
         Ref::filter_map(ty, |ty| ty.try_single()).ok()
     }
 
-    pub fn render_each<E: Entity>(
-        &self,
-        renderer: &mut Renderer<'a>,
-        each: impl FnMut(
-            &mut Renderer<'a>,
-            &'a E,
-            &'a InstanceBuffer<<E::Component as Component>::Instance>,
-            InstanceIndex,
-        ),
-    ) {
-        let ty = type_render!(self.entities, E);
-        ty.render_each(renderer, each)
-    }
+    // pub fn render_each<E: Entity>(
+    //     &self,
+    //     renderer: &mut Renderer<'a>,
+    //     each: impl FnMut(
+    //         &mut Renderer<'a>,
+    //         &'a E,
+    //         &'a InstanceBuffer<<E::Component as Component>::Instance>,
+    //         InstanceIndex,
+    //     ),
+    // ) {
+    //     let ty = type_render!(self.entities, E);
+    //     ty.render_each(renderer, each)
+    // }
 
-    pub fn render_single<E: Entity>(
-        &self,
-        renderer: &mut Renderer<'a>,
-        each: impl FnOnce(
-            &mut Renderer<'a>,
-            &'a E,
-            &'a InstanceBuffer<<E::Component as Component>::Instance>,
-            InstanceIndex,
-        ),
-    ) {
-        let ty = type_render!(self.entities, E);
-        ty.render_single(renderer, each)
-    }
+    // pub fn render_single<E: Entity>(
+    //     &self,
+    //     renderer: &mut Renderer<'a>,
+    //     each: impl FnOnce(
+    //         &mut Renderer<'a>,
+    //         &'a E,
+    //         &'a InstanceBuffer<<E::Component as Component>::Instance>,
+    //         InstanceIndex,
+    //     ),
+    // ) {
+    //     let ty = type_render!(self.entities, E);
+    //     ty.render_single(renderer, each)
+    // }
 
-    pub fn render_all<E: Entity>(
+    pub fn render_all<I: crate::Instance>(
         &self,
         renderer: &mut Renderer<'a>,
-        all: impl FnMut(
-            &mut Renderer<'a>,
-            &'a InstanceBuffer<<E::Component as Component>::Instance>,
-            InstanceIndices,
-        ),
+        name: &'static str,
+        all: impl Fn(&mut Renderer<'a>, &'a InstanceBuffer<I>, InstanceIndices),
     ) {
-        let ty = type_render!(self.entities, E);
-        ty.render_all(renderer, all)
+        let buffer = self
+            .components
+            .get::<I>(name)
+            .expect(&format!("Component {name} is not registered!"))
+            .buffer();
+
+        if buffer.instance_amount() != 0 {
+            (all)(renderer, buffer, buffer.instances());
+        }
     }
 }
 
@@ -328,12 +335,10 @@ impl EntityManager {
         }
     }
 
-    pub(crate) fn buffer(&mut self, world: &World, gpu: &Gpu) {
+    pub(crate) fn buffer(&mut self, buffers: &mut ComponentBufferManager, world: &World) {
         for ty in &self.types {
-            let mut ty = ty.1.ref_mut_raw();
-            if ty.config().buffer != BufferOperation::Never {
-                ty.buffer(world, gpu, &self.active_groups);
-            }
+            let ty = ty.1.ref_raw();
+            ty.buffer(buffers, world, &self.active_groups);
         }
     }
 

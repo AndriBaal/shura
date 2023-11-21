@@ -5,7 +5,7 @@ fn shura_main(config: AppConfig) {
     App::run(config, || {
         NewScene::new(1)
             .component::<Cube>(ComponentConfig {
-                buffer: BufferOperation::EveryFrame,
+                buffer: BufferConfig::EveryFrame,
                 ..ComponentConfig::DEFAULT
             })
             .component::<Resources>(ComponentConfig::RESOURCE)

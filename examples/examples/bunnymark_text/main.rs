@@ -5,7 +5,7 @@ fn shura_main(config: AppConfig) {
     App::run(config, || {
         NewScene::new(1)
             .component::<Bunny>(ComponentConfig {
-                buffer: BufferOperation::Manual,
+                buffer: BufferConfig::Manual,
                 ..ComponentConfig::DEFAULT
             })
             .component::<Resources>(ComponentConfig::RESOURCE)

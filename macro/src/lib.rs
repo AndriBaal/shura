@@ -10,8 +10,41 @@ use syn::{
 
 const IDENT_NAME: &'static str = "shura";
 
-fn field_attribute(data_struct: &DataStruct, attr_name: &str) -> Option<(Ident, TypePath)> {
-    let mut result = None;
+// fn field_attribute(data_struct: &DataStruct, attr_name: &str) -> Option<(Ident, TypePath)> {
+//     let mut result = None;
+//     match &data_struct.fields {
+//         Fields::Named(fields_named) => {
+//             for field in fields_named.named.iter() {
+//                 for attr in &field.attrs {
+//                     if attr.path().is_ident(IDENT_NAME) {
+//                         attr.parse_nested_meta(|meta| {
+//                             if meta.path.is_ident(attr_name) {
+//                                 match &field.ty {
+//                                     Type::Path(type_name) => {
+//                                         let field_name = field.ident.as_ref().unwrap();
+//                                         assert!(
+//                                             result.is_none(),
+//                                             "{attr_name} is already defined!"
+//                                         );
+//                                         result = Some((field_name.clone(), type_name.clone()));
+//                                     }
+//                                     _ => panic!("Cannot extract the type of the entity."),
+//                                 };
+//                             }
+//                             Ok(())
+//                         })
+//                         .unwrap();
+//                     }
+//                 }
+//             }
+//         }
+//         _ => (),
+//     };
+//     return result;
+// }
+
+fn components(data_struct: &DataStruct, attr_name: &str) -> Vec<(Ident, LitStr, TypePath)> {
+    let mut components = Vec::new();
     match &data_struct.fields {
         Fields::Named(fields_named) => {
             for field in fields_named.named.iter() {
@@ -22,11 +55,13 @@ fn field_attribute(data_struct: &DataStruct, attr_name: &str) -> Option<(Ident, 
                                 match &field.ty {
                                     Type::Path(type_name) => {
                                         let field_name = field.ident.as_ref().unwrap();
-                                        assert!(
-                                            result.is_none(),
-                                            "{attr_name} is already defined!"
-                                        );
-                                        result = Some((field_name.clone(), type_name.clone()));
+                                        let value = meta.value()?;
+                                        let component_name: LitStr = value.parse()?;
+                                        components.push((
+                                            field_name.clone(),
+                                            component_name,
+                                            type_name.clone(),
+                                        ));
                                     }
                                     _ => panic!("Cannot extract the type of the entity."),
                                 };
@@ -40,7 +75,7 @@ fn field_attribute(data_struct: &DataStruct, attr_name: &str) -> Option<(Ident, 
         }
         _ => (),
     };
-    return result;
+    return components;
 }
 
 fn struct_attribute_name_value(ast: &DeriveInput, attr_name: &str) -> Option<Expr> {
@@ -91,7 +126,20 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
     hashes.insert(hash);
     drop(hashes); // Free the mutex lock
 
-    let identifier = quote!(
+    let components = components(&data_struct, "component");
+    let names_init = components.iter().map(|&(ref first, ..)| first);
+    let names_finish = names_init.clone();
+
+    let buffer = components
+        .iter()
+        .map(|(field_name, component_name, component_type)| {
+            quote! {
+                let buffer = buffers.get_mut::<<#component_type as shura::Component> ::Instance>(#component_name).unwrap();
+                buffer.push_components_from_entities(entities, |e| e.#field_name.instance(world));
+            }
+        });
+
+    return quote!(
         impl #impl_generics ::shura::EntityIdentifier for #struct_name #ty_generics #where_clause {
             const TYPE_NAME: &'static str = #struct_identifier;
             const IDENTIFIER: ::shura::EntityTypeId = ::shura::EntityTypeId::new(#hash);
@@ -100,45 +148,26 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
                 Self::IDENTIFIER
             }
         }
-    );
-    if let Some((component_field_name, component_type)) = field_attribute(data_struct, "component") {
-        return quote!(
-            #identifier
 
-            impl #impl_generics ::shura::Entity for #struct_name #ty_generics #where_clause {
-                type Component = #component_type;
-
-                fn component(&self) -> &Self::Component {
-                    &self.#component_field_name
-                }
-
-                fn init(&mut self, handle: ::shura::EntityHandle, world: &mut ::shura::World) {
-                    self.#component_field_name.init(handle, world)
-                }
-
-                fn finish(&mut self, world: &mut ::shura::World) {
-                    self.#component_field_name.finish(world)
-                }
+        impl #impl_generics ::shura::Entity for #struct_name #ty_generics #where_clause {
+            fn buffer<'a>(
+                entities: impl Iterator<Item = &'a Self>,
+                buffers: &mut ::shura::ComponentBufferManager,
+                world: &::shura::World,
+            ) {
+                #( #buffer )*
             }
-        )
-        .into();
-    } else {
-        return quote!(
-            #identifier
 
-            impl #impl_generics ::shura::Entity for #struct_name #ty_generics #where_clause {
-                type Component = ::shura::PositionComponent2D;
-
-                fn component(&self) -> &Self::Component {
-                    panic!()
-                }
-
-                fn init(&mut self, handle: ::shura::EntityHandle, world: &mut ::shura::World) {}
-                fn finish(&mut self, world: &mut ::shura::World) {}
+            fn init(&mut self, handle: ::shura::EntityHandle, world: &mut ::shura::World) {
+                #( self.#names_init.init(handle, world) )*
             }
-        )
-        .into();
-    }
+
+            fn finish(&mut self, world: &mut ::shura::World) {
+                #( self.#names_finish.finish(world) )*
+            }
+        }
+    )
+    .into();
 }
 
 #[proc_macro_attribute]

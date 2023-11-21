@@ -66,43 +66,43 @@ impl<'a, E: Entity> EntitySet<'a, E> {
         Ref::map(self.ty, |ty| ty.single())
     }
 
-    pub fn render_each(
-        &'a self,
-        renderer: &mut Renderer<'a>,
-        each: impl FnMut(
-            &mut Renderer<'a>,
-            &'a E,
-            &'a InstanceBuffer<<E::Component as Component>::Instance>,
-            InstanceIndex,
-        ),
-    ) {
-        self.ty.render_each(renderer, each)
-    }
+    // pub fn render_each(
+    //     &'a self,
+    //     renderer: &mut Renderer<'a>,
+    //     each: impl FnMut(
+    //         &mut Renderer<'a>,
+    //         &'a E,
+    //         &'a InstanceBuffer<<E::Component as Component>::Instance>,
+    //         InstanceIndex,
+    //     ),
+    // ) {
+    //     self.ty.render_each(renderer, each)
+    // }
 
-    pub fn render_single(
-        &'a self,
-        renderer: &mut Renderer<'a>,
-        each: impl FnOnce(
-            &mut Renderer<'a>,
-            &'a E,
-            &'a InstanceBuffer<<E::Component as Component>::Instance>,
-            InstanceIndex,
-        ),
-    ) {
-        self.ty.render_single(renderer, each)
-    }
+    // pub fn render_single(
+    //     &'a self,
+    //     renderer: &mut Renderer<'a>,
+    //     each: impl FnOnce(
+    //         &mut Renderer<'a>,
+    //         &'a E,
+    //         &'a InstanceBuffer<<E::Component as Component>::Instance>,
+    //         InstanceIndex,
+    //     ),
+    // ) {
+    //     self.ty.render_single(renderer, each)
+    // }
 
-    pub fn render_all(
-        &'a self,
-        renderer: &mut Renderer<'a>,
-        all: impl FnMut(
-            &mut Renderer<'a>,
-            &'a InstanceBuffer<<E::Component as Component>::Instance>,
-            InstanceIndices,
-        ),
-    ) {
-        self.ty.render_all(renderer, all)
-    }
+    // pub fn render_all(
+    //     &'a self,
+    //     renderer: &mut Renderer<'a>,
+    //     all: impl FnMut(
+    //         &mut Renderer<'a>,
+    //         &'a InstanceBuffer<<E::Component as Component>::Instance>,
+    //         InstanceIndices,
+    //     ),
+    // ) {
+    //     self.ty.render_all(renderer, all)
+    // }
 }
 
 #[cfg(feature = "rayon")]
@@ -162,20 +162,20 @@ impl<'a, E: Entity> EntitySetMut<'a, E> {
         self.ty.for_each_mut_with_handles(self.groups, each);
     }
 
-    pub fn buffer(&mut self, world: &World, gpu: &Gpu) {
-        self.ty.force_buffer(self.groups);
-        self.ty.buffer(world, gpu, self.groups)
-    }
+    // pub fn buffer(&mut self, world: &World, gpu: &Gpu) {
+    //     self.ty.force_buffer(self.groups);
+    //     self.ty.buffer(world, gpu, self.groups)
+    // }
 
-    pub fn buffer_with(
-        &mut self,
-        world: &World,
-        gpu: &Gpu,
-        each: impl Fn(&mut E) + Send + Sync + Copy,
-    ) {
-        self.ty.force_buffer(self.groups);
-        self.ty.buffer_with(world, gpu, self.groups, each)
-    }
+    // pub fn buffer_with(
+    //     &mut self,
+    //     world: &World,
+    //     gpu: &Gpu,
+    //     each: impl Fn(&mut E) + Send + Sync + Copy,
+    // ) {
+    //     self.ty.force_buffer(self.groups);
+    //     self.ty.buffer_with(world, gpu, self.groups, each)
+    // }
 
     pub fn retain(&mut self, world: &mut World, keep: impl FnMut(&mut E, &mut World) -> bool) {
         self.ty.retain(world, self.groups, keep);
@@ -268,9 +268,9 @@ impl<'a, E: Entity> EntitySetMut<'a, E> {
         self.ty.add_with(world, group_handle, create)
     }
 
-    pub fn force_buffer(&mut self) {
-        self.ty.force_buffer(self.groups)
-    }
+    // pub fn force_buffer(&mut self) {
+    //     self.ty.force_buffer(self.groups)
+    // }
 
     pub fn len(&self) -> usize {
         self.ty.len(self.groups)
@@ -284,17 +284,17 @@ impl<'a, E: Entity> EntitySetMut<'a, E> {
         self.ty.iter_mut(self.groups)
     }
 
-    pub fn iter_render(
-        &'a self,
-    ) -> impl DoubleEndedIterator<
-        Item = (
-            &InstanceBuffer<<E::Component as Component>::Instance>,
-            InstanceIndex,
-            &E,
-        ),
-    > {
-        self.ty.iter_render(self.groups)
-    }
+    // pub fn iter_render(
+    //     &'a self,
+    // ) -> impl DoubleEndedIterator<
+    //     Item = (
+    //         &InstanceBuffer<<E::Component as Component>::Instance>,
+    //         InstanceIndex,
+    //         &E,
+    //     ),
+    // > {
+    //     self.ty.iter_render(self.groups)
+    // }
 
     pub fn iter_with_handles(&self) -> impl DoubleEndedIterator<Item = (EntityHandle, &E)> {
         self.ty.iter_with_handles(self.groups)
@@ -346,43 +346,43 @@ impl<'a, E: Entity> EntitySetMut<'a, E> {
         self.ty.set_single_with(world, create)
     }
 
-    pub fn render_each(
-        &'a self,
-        renderer: &mut Renderer<'a>,
-        each: impl FnMut(
-            &mut Renderer<'a>,
-            &'a E,
-            &'a InstanceBuffer<<E::Component as Component>::Instance>,
-            InstanceIndex,
-        ),
-    ) {
-        self.ty.render_each(renderer, each)
-    }
+    // pub fn render_each(
+    //     &'a self,
+    //     renderer: &mut Renderer<'a>,
+    //     each: impl FnMut(
+    //         &mut Renderer<'a>,
+    //         &'a E,
+    //         &'a InstanceBuffer<<E::Component as Component>::Instance>,
+    //         InstanceIndex,
+    //     ),
+    // ) {
+    //     self.ty.render_each(renderer, each)
+    // }
 
-    pub fn render_single(
-        &'a self,
-        renderer: &mut Renderer<'a>,
-        each: impl FnOnce(
-            &mut Renderer<'a>,
-            &'a E,
-            &'a InstanceBuffer<<E::Component as Component>::Instance>,
-            InstanceIndex,
-        ),
-    ) {
-        self.ty.render_single(renderer, each)
-    }
+    // pub fn render_single(
+    //     &'a self,
+    //     renderer: &mut Renderer<'a>,
+    //     each: impl FnOnce(
+    //         &mut Renderer<'a>,
+    //         &'a E,
+    //         &'a InstanceBuffer<<E::Component as Component>::Instance>,
+    //         InstanceIndex,
+    //     ),
+    // ) {
+    //     self.ty.render_single(renderer, each)
+    // }
 
-    pub fn render_all(
-        &'a self,
-        renderer: &mut Renderer<'a>,
-        all: impl FnMut(
-            &mut Renderer<'a>,
-            &'a InstanceBuffer<<E::Component as Component>::Instance>,
-            InstanceIndices,
-        ),
-    ) {
-        self.ty.render_all(renderer, all)
-    }
+    // pub fn render_all(
+    //     &'a self,
+    //     renderer: &mut Renderer<'a>,
+    //     all: impl FnMut(
+    //         &mut Renderer<'a>,
+    //         &'a InstanceBuffer<<E::Component as Component>::Instance>,
+    //         InstanceIndices,
+    //     ),
+    // ) {
+    //     self.ty.render_all(renderer, all)
+    // }
 }
 
 #[cfg(feature = "rayon")]
@@ -396,23 +396,23 @@ impl<'a, E: Entity + Send + Sync> EntitySetMut<'a, E> {
     }
 }
 
-#[cfg(feature = "rayon")]
-impl<'a, E: Entity + Send + Sync> EntitySetMut<'a, E>
-where
-    <E::Component as Component>::Instance: Send,
-{
-    pub fn par_buffer_with(
-        &mut self,
-        world: &World,
-        gpu: &Gpu,
-        each: impl Fn(&mut E) + Send + Sync,
-    ) {
-        self.ty.force_buffer(self.groups);
-        self.ty.par_buffer_with(world, gpu, self.groups, each)
-    }
+// #[cfg(feature = "rayon")]
+// impl<'a, E: Entity + Send + Sync> EntitySetMut<'a, E>
+// where
+//     <E::Component as Component>::Instance: Send,
+// {
+//     pub fn par_buffer_with(
+//         &mut self,
+//         world: &World,
+//         gpu: &Gpu,
+//         each: impl Fn(&mut E) + Send + Sync,
+//     ) {
+//         self.ty.force_buffer(self.groups);
+//         self.ty.par_buffer_with(world, gpu, self.groups, each)
+//     }
 
-    pub fn par_buffer(&mut self, world: &World, gpu: &Gpu) {
-        self.ty.force_buffer(self.groups);
-        self.ty.par_buffer(world, gpu, self.groups)
-    }
-}
+//     pub fn par_buffer(&mut self, world: &World, gpu: &Gpu) {
+//         self.ty.force_buffer(self.groups);
+//         self.ty.par_buffer(world, gpu, self.groups)
+//     }
+// }

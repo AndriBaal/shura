@@ -30,7 +30,7 @@ pub use crate::{
     graphics::{
         camera::*, color::*, depth_buffer::*, frame_manager::*, gpu::*, instance_buffer::*,
         model::*, render_encoder::*, render_target::*, renderer::*, resources::*, screen_config::*,
-        shader::*, sprite::*, sprite_sheet::*, uniform::*,
+        shader::*, sprite::*, sprite_sheet::*, uniform::*, component_buffer::*
     },
     input::input::{Input, InputEvent, InputTrigger, Key, Modifier, MouseButton, ScreenTouch},
     math::{aabb::*, math::*},
