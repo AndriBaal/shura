@@ -1,4 +1,4 @@
-use crate::{Entity, Gpu, Instance, InstanceBuffer};
+use crate::{Entity, Gpu, Instance, InstanceBuffer, Component, World};
 use downcast_rs::{impl_downcast, Downcast};
 use rustc_hash::FxHashMap;
 
@@ -32,13 +32,17 @@ impl<I: Instance> ComponentBuffer<I> {
         }
     }
 
-    pub fn push_components_from_entities<'a, E: Entity>(
+    pub fn push_components_from_entities<'a, E: Entity, C: Component<Instance = I>>(
         &mut self,
+        world: &World,
         entites: impl Iterator<Item = &'a E>,
-        each: impl Fn(&E) -> I,
+        each: impl Fn(&E) -> &C,
     ) {
         for entity in entites {
-            self.data.push((each)(entity));
+            let component = (each)(entity);
+            if component.active() {
+                self.data.push(component.instance(world));
+            }
         }
     }
 

@@ -135,7 +135,7 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
         .map(|(field_name, component_name, component_type)| {
             quote! {
                 let buffer = buffers.get_mut::<<#component_type as shura::Component> ::Instance>(#component_name).unwrap();
-                buffer.push_components_from_entities(entities, |e| e.#field_name.instance(world));
+                buffer.push_components_from_entities(world, entities, |e| &e.#field_name);
             }
         });
 
