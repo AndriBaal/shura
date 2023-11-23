@@ -15,7 +15,7 @@ categories = [
     "game-engines",
     "game-development",
 ]
-exclude = ["docs", "macro", "examples"]
+exclude = ["docs", "macro"]
 
 [features]
 animation = []
@@ -46,7 +46,7 @@ default = [
     "audio",
     # "physics",
     # "serde",
-    "gui",
+    # "gui",
     "log",
     "rayon",
     "framebuffer",
@@ -55,9 +55,12 @@ default = [
 [lib]
 crate-type = ["lib", "cdylib"]
 
+[dev-dependencies]
+egui_demo_lib = "0.24"
+
 [dependencies]
 winit = { version = "0.28", features = ["mint"] }
-wgpu = { version = "0.17", features = ["glsl", "spirv", "webgl"] }
+wgpu = { version = "0.18", features = ["glsl", "spirv", "webgl"] }
 anyhow = "1.0"
 env_logger = { version = "0.10", optional = true }
 tobj = { version = "4.0", features = ["async"] }
@@ -68,8 +71,8 @@ nalgebra = { version = "0.32", features = ["convert-bytemuck", "mint"] }
 rusttype = { version = "0.9", optional = true }
 owned_ttf_parser = { version = "0.15", optional = true }
 gilrs = { version = "0.10", optional = true }
-egui-wgpu = { version = "0.23", features = ["winit"], optional = true }
-egui = { version = "0.23", default-features = false, optional = true, features = [
+egui-wgpu = { version = "0.24", features = ["winit"], optional = true }
+egui = { version = "0.24", default-features = false, optional = true, features = [
     "bytemuck",
     "default_fonts",
     "mint",
@@ -93,7 +96,7 @@ rand = "0.8.5"
 rodio = { version = "0.17", default-features = false, optional = true, features = [
     "symphonia-all",
 ] }
-egui-winit = { version = "0.23", features = [
+egui-winit = { version = "0.24", features = [
     "links",
 ], default-features = false, optional = true }
 
@@ -114,7 +117,7 @@ web-sys = { version = "0.3", features = [
 
 [target.'cfg(target_arch = "wasm32")'.dependencies.wgpu]
 features = ["fragile-send-sync-non-atomic-wasm"]
-version = "0.17"
+version = "0.18"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies.rodio]
 features = ["symphonia-all", "wasm-bindgen"]
@@ -123,7 +126,7 @@ version = "0.17"
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies.egui-winit]
 features = ["arboard", "webbrowser"]
 default-features = true
-version = "0.23"
+version = "0.24"
 
 [target.'cfg(target_os = "android")'.dependencies.winit]
 features = ["android-native-activity"]

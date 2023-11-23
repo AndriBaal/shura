@@ -74,7 +74,6 @@ pub mod physics {
         // character_controller_component::*,
         collider_component::*,
         rigid_body_component::*,
-        world::*,
     };
     pub use rapier2d::control::{
         CharacterAutostep, CharacterCollision, CharacterLength, EffectiveCharacterMovement,

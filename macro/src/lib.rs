@@ -10,39 +10,6 @@ use syn::{
 
 const IDENT_NAME: &'static str = "shura";
 
-// fn field_attribute(data_struct: &DataStruct, attr_name: &str) -> Option<(Ident, TypePath)> {
-//     let mut result = None;
-//     match &data_struct.fields {
-//         Fields::Named(fields_named) => {
-//             for field in fields_named.named.iter() {
-//                 for attr in &field.attrs {
-//                     if attr.path().is_ident(IDENT_NAME) {
-//                         attr.parse_nested_meta(|meta| {
-//                             if meta.path.is_ident(attr_name) {
-//                                 match &field.ty {
-//                                     Type::Path(type_name) => {
-//                                         let field_name = field.ident.as_ref().unwrap();
-//                                         assert!(
-//                                             result.is_none(),
-//                                             "{attr_name} is already defined!"
-//                                         );
-//                                         result = Some((field_name.clone(), type_name.clone()));
-//                                     }
-//                                     _ => panic!("Cannot extract the type of the entity."),
-//                                 };
-//                             }
-//                             Ok(())
-//                         })
-//                         .unwrap();
-//                     }
-//                 }
-//             }
-//         }
-//         _ => (),
-//     };
-//     return result;
-// }
-
 fn components(data_struct: &DataStruct, attr_name: &str) -> Vec<(Ident, LitStr, TypePath)> {
     let mut components = Vec::new();
     match &data_struct.fields {
@@ -68,7 +35,7 @@ fn components(data_struct: &DataStruct, attr_name: &str) -> Vec<(Ident, LitStr, 
                             }
                             Ok(())
                         })
-                        .unwrap();
+                        .expect("Define your component like the this: #[shura(component = \"name\")]");
                     }
                 }
             }

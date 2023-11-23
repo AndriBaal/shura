@@ -10,7 +10,7 @@ pub struct GroupManager {
 }
 
 impl GroupManager {
-    pub const DEFAULT_GROUP_NAME: &str = "Default Group";
+    pub const DEFAULT_GROUP_NAME: &'static str = "Default Group";
     pub const DEFAULT_GROUP: GroupHandle = GroupHandle::DEFAULT_GROUP;
     pub(crate) fn new() -> Self {
         let default_entity_group =

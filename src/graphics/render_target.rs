@@ -33,7 +33,7 @@ pub trait RenderTarget: Downcast {
                 } else {
                     wgpu::LoadOp::Load
                 },
-                store: true,
+                store: wgpu::StoreOp::Store,
             },
         }
     }

@@ -9,12 +9,8 @@ edition = "2021"
 # path = "./src/main.rs"
 # crate_type=["cdylib"]
 
-
 [dependencies]
 shura = { path = "../" }
-
-[dev-dependencies]
-egui_demo_lib = "0.23"
 
 [build-dependencies]
 fs_extra = "1.2"

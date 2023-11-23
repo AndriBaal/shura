@@ -160,8 +160,8 @@ impl App {
                             if window_id == shura_window_id {
                                 match event {
                                     WindowEvent::CloseRequested | WindowEvent::Destroyed => {
-                                        app.end = true;
                                         *control_flow = winit::event_loop::ControlFlow::Exit;
+                                        app.end = true;
                                         app.end();
                                     }
                                     WindowEvent::Resized(physical_size) => {
@@ -263,7 +263,7 @@ impl App {
             audio: AudioManager::new(),
             end: false,
             #[cfg(feature = "gui")]
-            gui: Gui::new(_event_loop, &gpu),
+            gui: Gui::new(&window, _event_loop, &gpu),
             window,
             gpu,
             defaults,

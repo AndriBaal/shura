@@ -357,15 +357,9 @@ impl World {
     }
 
     #[cfg(all(feature = "serde", feature = "physics"))]
-    pub(crate) fn remove_no_maintain<I: crate::Instance>(
-        &mut self,
-        component: &dyn crate::Component<Instance = I>,
-    ) {
+    pub(crate) fn remove_no_maintain(&mut self, component: &dyn std::any::Any) {
         use crate::physics::{ColliderInstance, ColliderStatus, RigidBodyStatus};
-        if let Some(component) = component
-            .as_any()
-            .downcast_ref::<crate::physics::RigidBodyInstance>()
-        {
+        if let Some(component) = component.downcast_ref::<crate::physics::RigidBodyInstance>() {
             match component.status {
                 RigidBodyStatus::Added { rigid_body_handle } => {
                     if let Some(rigid_body) = self.bodies.remove(
@@ -383,7 +377,7 @@ impl World {
                 }
                 RigidBodyStatus::Pending { .. } => return,
             }
-        } else if let Some(component) = component.as_any().downcast_ref::<ColliderInstance>() {
+        } else if let Some(component) = component.downcast_ref::<ColliderInstance>() {
             match component.status {
                 ColliderStatus::Added { collider_handle } => {
                     self.collider_mapping.remove(&collider_handle);

@@ -59,6 +59,7 @@ impl Gpu {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: config.backends,
             dx12_shader_compiler: wgpu::Dx12Compiler::Fxc,
+            ..Default::default()
         });
         // let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
         //     backends: config.backends,
@@ -374,7 +375,7 @@ impl WgpuDefaultResources {
         };
 
         let vertex_shader_module =
-            device.create_shader_module(include_wgsl!("../../res/shader/2d/vertex.wgsl"));
+            device.create_shader_module(include_wgsl!("../../static/shader/2d/vertex.wgsl"));
 
         Self {
             vertex_shader_module,
@@ -429,7 +430,7 @@ impl DefaultResources {
             source: ShaderModuleSoure::Seperate {
                 vertex: &gpu.base.vertex_shader_module,
                 fragment: &gpu
-                    .create_shader_module(include_wgsl!("../../res/shader/2d/sprite_sheet.wgsl")),
+                    .create_shader_module(include_wgsl!("../../static/shader/2d/sprite_sheet.wgsl")),
             },
             uniforms: &[UniformField::Camera, UniformField::SpriteSheet],
             ..Default::default()
@@ -440,7 +441,7 @@ impl DefaultResources {
             name: Some("text"),
             uniforms: &[UniformField::Camera, UniformField::SpriteSheet],
             source: ShaderModuleSoure::Single(
-                &gpu.create_shader_module(include_wgsl!("../../res/shader/2d/text.wgsl")),
+                &gpu.create_shader_module(include_wgsl!("../../static/shader/2d/text.wgsl")),
             ),
             buffers: &[
                 crate::text::Vertex2DText::DESC,
@@ -465,7 +466,7 @@ impl DefaultResources {
             name: Some("model"),
             uniforms: &[UniformField::Camera, UniformField::Sprite],
             source: ShaderModuleSoure::Single(
-                &gpu.create_shader_module(include_wgsl!("../../res/shader/3d/model.wgsl")),
+                &gpu.create_shader_module(include_wgsl!("../../static/shader/3d/model.wgsl")),
             ),
             buffers: &[Vertex3D::DESC, Instance3D::DESC],
             depth_stencil: Some(DepthBuffer::depth_state()),
@@ -477,7 +478,7 @@ impl DefaultResources {
             source: ShaderModuleSoure::Seperate {
                 vertex: &gpu.base.vertex_shader_module,
                 fragment: &gpu
-                    .create_shader_module(include_wgsl!("../../res/shader/2d/color.wgsl")),
+                    .create_shader_module(include_wgsl!("../../static/shader/2d/color.wgsl")),
             },
             uniforms: &[UniformField::Camera],
             ..Default::default()
@@ -488,7 +489,7 @@ impl DefaultResources {
             source: ShaderModuleSoure::Seperate {
                 vertex: &gpu.base.vertex_shader_module,
                 fragment: &gpu
-                    .create_shader_module(include_wgsl!("../../res/shader/2d/sprite.wgsl")),
+                    .create_shader_module(include_wgsl!("../../static/shader/2d/sprite.wgsl")),
             },
             uniforms: &[UniformField::Camera, UniformField::Sprite],
             ..Default::default()
@@ -499,7 +500,7 @@ impl DefaultResources {
             source: ShaderModuleSoure::Seperate {
                 vertex: &gpu.base.vertex_shader_module,
                 fragment: &gpu
-                    .create_shader_module(include_wgsl!("../../res/shader/2d/rainbow.wgsl")),
+                    .create_shader_module(include_wgsl!("../../static/shader/2d/rainbow.wgsl")),
             },
             uniforms: &[UniformField::Camera, UniformField::SingleUniform],
             ..Default::default()
@@ -509,7 +510,7 @@ impl DefaultResources {
             name: Some("grey"),
             source: ShaderModuleSoure::Seperate {
                 vertex: &gpu.base.vertex_shader_module,
-                fragment: &gpu.create_shader_module(include_wgsl!("../../res/shader/2d/grey.wgsl")),
+                fragment: &gpu.create_shader_module(include_wgsl!("../../static/shader/2d/grey.wgsl")),
             },
             uniforms: &[UniformField::Camera, UniformField::Sprite],
             ..Default::default()
@@ -520,7 +521,7 @@ impl DefaultResources {
             source: ShaderModuleSoure::Seperate {
                 vertex: &gpu.base.vertex_shader_module,
                 fragment: &gpu
-                    .create_shader_module(include_wgsl!("../../res/shader/2d/blurr.wgsl")),
+                    .create_shader_module(include_wgsl!("../../static/shader/2d/blurr.wgsl")),
             },
             uniforms: &[UniformField::Camera, UniformField::Sprite],
             ..Default::default()
@@ -562,7 +563,7 @@ impl DefaultResources {
         let depth_buffer = DepthBuffer::new(gpu, size);
 
         let missing = gpu.create_sprite(
-            SpriteBuilder::bytes(include_bytes!("../../res/img/missing.png")).sampler(
+            SpriteBuilder::bytes(include_bytes!("../../static/img/missing.png")).sampler(
                 wgpu::SamplerDescriptor {
                     address_mode_u: wgpu::AddressMode::Repeat,
                     address_mode_v: wgpu::AddressMode::Repeat,

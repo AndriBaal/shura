@@ -4,11 +4,11 @@ use shura::*;
 fn shura_main(config: AppConfig) {
     App::run(config, || {
         NewScene::new(1)
-            .component::<Cube>(ComponentConfig {
-                buffer: BufferConfig::EveryFrame,
-                ..ComponentConfig::DEFAULT
+            .component::<Instance3D>("cube", BufferConfig::EveryFrame)
+            .entity::<Cube>(EntityConfig {
+                ..EntityConfig::DEFAULT
             })
-            .component::<Resources>(ComponentConfig::RESOURCE)
+            .entity::<Resources>(EntityConfig::RESOURCE)
             .system(System::Update(update))
             .system(System::Setup(setup))
             .system(System::Render(render))
@@ -23,26 +23,25 @@ fn setup(ctx: &mut Context) {
             (0..NUM_INSTANCES_PER_ROW).map(move |x| {
                 let x = SPACE_BETWEEN * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
                 let z = SPACE_BETWEEN * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
-
                 let position = Vector3::new(x, 0.0, z);
 
                 Cube::new(position)
             })
         })
         .collect::<Vec<_>>();
-    ctx.components.add_many(ctx.world, cubes);
-    // ctx.components.add(ctx.world, Resources::new(ctx));
+    ctx.entities.add_many(ctx.world, cubes);
+    // ctx.entities.add(ctx.world, Resources::new(ctx));
 
     let gpu = ctx.gpu.clone();
     ctx.tasks
         .spawn_async(async move { Resources::new(&gpu).await }, |ctx, res| {
-            ctx.components.add(ctx.world, res);
+            ctx.entities.add(ctx.world, res);
         });
 }
 
 fn update(ctx: &mut Context) {
     const SPEED: f32 = 7.0;
-    if ctx.components.set::<Resources>().len() < 1 {
+    if ctx.entities.set::<Resources>().len() < 1 {
         return;
     }
 
@@ -72,7 +71,7 @@ fn update(ctx: &mut Context) {
         camera.eye = camera.target - (forward - right * speed).normalize() * forward_mag;
     }
 
-    ctx.components.set::<Cube>().for_each_mut(|cube| {
+    ctx.entities.set::<Cube>().for_each_mut(|cube| {
         let mut rot = cube.position.rotation();
         rot *= Rotation3::new(Vector3::new(
             1.0 * ctx.frame.frame_time(),
@@ -83,20 +82,20 @@ fn update(ctx: &mut Context) {
     });
 }
 
-fn render(res: &ComponentResources, encoder: &mut RenderEncoder) {
-    if let Some(resources) = res.try_single::<Resources>() {
+fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
+    if let Some(resources) = ctx.try_single::<Resources>() {
         encoder.render3d(
             Some(RgbaColor::new(220, 220, 220, 255).into()),
             |renderer| {
-                res.render_all::<Cube>(renderer, |renderer, buffer, instances| {
-                    renderer.render_model(instances, buffer, &res.world_camera3d, &resources.model);
+                ctx.render_all(renderer, "cube", |renderer, buffer, instances| {
+                    renderer.render_model(instances, buffer, &ctx.world_camera3d, &resources.model);
                 });
             },
         );
     }
 }
 
-#[derive(Component)]
+#[derive(Entity)]
 struct Resources {
     model: Model,
 }
@@ -109,16 +108,16 @@ impl Resources {
     }
 }
 
-#[derive(Component)]
+#[derive(Entity)]
 struct Cube {
-    #[shura(instance)]
-    position: PositionInstance3D,
+    #[shura(component="cube")]
+    position: PositionComponent3D,
 }
 
 impl Cube {
     pub fn new(position: Vector3<f32>) -> Cube {
         Cube {
-            position: PositionInstance3D::new().with_translation(position), // .with_scaling(Vector3::new(0.001, 0.001, 0.001)),
+            position: PositionComponent3D::new().with_translation(position), // .with_scaling(Vector3::new(0.001, 0.001, 0.001)),
         }
     }
 }

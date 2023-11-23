@@ -21,6 +21,13 @@ macro_rules! include_str_res {
     };
 }
 
+#[macro_export]
+macro_rules! include_wgsl_res {
+    ($file:expr $(,)?) => {
+        ::shura::include_wgsl!(concat!(env!("CARGO_MANIFEST_DIR"), "/res/", $file))
+    };
+}
+
 pub async fn load_bytes(path: impl AsRef<Path>) -> Result<Vec<u8>> {
     #[cfg(target_arch = "wasm32")]
     {

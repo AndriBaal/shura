@@ -15,12 +15,18 @@ pub struct Gui {
 
 impl Gui {
     pub(crate) fn new(
+        window: &Window,
         event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
         gpu: &Gpu,
     ) -> Self {
         let device = &gpu.device;
         let renderer = Renderer::new(device, gpu.format, None, gpu.base.sample_count);
-        let state = State::new(event_loop);
+        let state = State::new(
+            egui::ViewportId::ROOT,
+            event_loop,
+            Some(window.scale_factor() as f32),
+            Some(gpu.device.limits().max_texture_dimension_2d as _),
+        );
         let context = GuiContext::default();
         let size = gpu.render_size();
 
@@ -44,7 +50,7 @@ impl Gui {
     }
 
     pub(crate) fn handle_event(&mut self, event: &winit::event::WindowEvent) {
-        self.state.on_event(&self.context, event).consumed;
+        self.state.on_window_event(&self.context, event).consumed;
     }
 
     pub(crate) fn begin(&mut self, total_time: &Duration, window: &Window) {
@@ -60,7 +66,7 @@ impl Gui {
         encoder: &mut RenderEncoder,
     ) {
         let output = self.context.end_frame();
-        let paint_jobs = self.context.tessellate(output.shapes);
+        let paint_jobs = self.context.tessellate(output.shapes, 1.0);
 
         for add in &output.textures_delta.set {
             self.renderer
@@ -83,6 +89,8 @@ impl Gui {
                     color_attachments: &[Some(target.attachment(None))],
                     depth_stencil_attachment: None,
                     label: Some("egui main render pass"),
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
                 });
 
             self.renderer

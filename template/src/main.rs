@@ -4,7 +4,7 @@ use shura::*;
 fn shura_main(config: AppConfig) {
     App::run(config, || {
         NewScene::new(1)
-            .component::<Instance3D>("aahh", BufferConfig::EveryFrame)
+            .component::<Instance3D>("cube", BufferConfig::EveryFrame)
             .entity::<Cube>(EntityConfig {
                 ..EntityConfig::DEFAULT
             })
@@ -87,7 +87,7 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
         encoder.render3d(
             Some(RgbaColor::new(220, 220, 220, 255).into()),
             |renderer| {
-                ctx.render_all(renderer, "aahh", |renderer, buffer, instances| {
+                ctx.render_all(renderer, "cube", |renderer, buffer, instances| {
                     renderer.render_model(instances, buffer, &ctx.world_camera3d, &resources.model);
                 });
             },
@@ -110,7 +110,7 @@ impl Resources {
 
 #[derive(Entity)]
 struct Cube {
-    #[shura(component="aahh")]
+    #[shura(component="cube")]
     position: PositionComponent3D,
 }
 

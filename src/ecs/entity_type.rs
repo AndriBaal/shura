@@ -201,7 +201,6 @@ impl<E: Entity> EntityTypeGroup<E> {
 //     }
 // }
 
-
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone)]
 pub(crate) struct EntityType<E: Entity> {
@@ -1242,76 +1241,39 @@ impl<E: Entity> EntityTypeImplementation for EntityType<E> {
         }
     }
 
-    fn buffer(&self, buffers: &mut ComponentBufferManager, world: &World, active_groups: &[GroupHandle]) {
+    fn buffer(
+        &self,
+        buffers: &mut ComponentBufferManager,
+        world: &World,
+        active_groups: &[GroupHandle],
+    ) {
         let iter = self.iter(active_groups);
         E::buffer(iter, buffers, world);
-        // E::buffer(self, buffers, world)
-
-
-
-        // let set = crate::EntitySet::new(self, groups);
-
-        // assert!(self.config.buffer != BufferConfig::Never);
-
-        // match &mut self.storage {
-        //     EntityTypeStorage::MultipleGroups(groups) => {
-        //         for index in active {
-        //             let group = &mut groups[index.0];
-        //             group.buffer(gpu, &self.config, world)
-        //         }
-        //     }
-        //     EntityTypeStorage::Multiple(multiple) => multiple.buffer(gpu, &self.config, world),
-        //     EntityTypeStorage::Single {
-        //         buffer,
-        //         force_buffer,
-        //         entity,
-        //     } => {
-        //         if self.config.buffer == BufferConfig::EveryFrame || *force_buffer {
-        //             *force_buffer = false;
-        //             let component = {
-        //                 if let Some(entity) = entity {
-        //                     if entity.component().active() {
-        //                         Some(entity.component().instance(world))
-        //                     } else {
-        //                         None
-        //                     }
-        //                 } else {
-        //                     None
-        //                 }
-        //             };
-
-        //             if let Some(buffer) = buffer.as_mut() {
-        //                 buffer.write(
-        //                     gpu,
-        //                     component.as_ref().map(core::slice::from_ref).unwrap_or(&[]),
-        //                 );
-        //             } else {
-        //                 *buffer = Some(gpu.create_instance_buffer(
-        //                     component.as_ref().map(core::slice::from_ref).unwrap_or(&[]),
-        //                 ));
-        //             }
-        //         }
-        //     }
-        // }
     }
 
     #[cfg(all(feature = "serde", feature = "physics"))]
     fn deinit_non_serialized(&self, world: &mut World) {
         match &self.storage {
             EntityTypeStorage::Single(entity) => {
-                if let Some(entity) = entity {
-                    world.remove_no_maintain(entity.component())
-                }
+                    if let Some(entity) = entity {
+                        for component in entity.components() {
+                            world.remove_no_maintain(component)
+                        }
+                    }
             }
             EntityTypeStorage::Multiple(multiple) => {
                 for entity in &multiple.entities {
-                    world.remove_no_maintain(entity.component())
+                    for component in entity.components() {
+                        world.remove_no_maintain(component)
+                    }
                 }
             }
             EntityTypeStorage::MultipleGroups(groups) => {
                 for group in groups {
                     for entity in &group.entities {
-                        world.remove_no_maintain(entity.component())
+                        for component in entity.components() {
+                            world.remove_no_maintain(component)
+                        }
                     }
                 }
             }
