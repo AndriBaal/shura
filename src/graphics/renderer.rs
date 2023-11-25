@@ -63,7 +63,6 @@ impl<'a> Renderer<'a> {
             },
             timestamp_writes: None,
             occlusion_query_set: None,
-        
         });
 
         return Self {

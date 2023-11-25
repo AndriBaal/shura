@@ -9,8 +9,9 @@ use syn::{
 };
 
 const IDENT_NAME: &'static str = "shura";
+const ALLOWED_ATTRIBUTES: &'static [&'static str] = &["component"];
 
-fn components(data_struct: &DataStruct, attr_name: &str) -> Vec<(Ident, LitStr, TypePath)> {
+fn components(data_struct: &DataStruct, attr_name: &str) -> Vec<(Ident, Option<LitStr>, TypePath)> {
     let mut components = Vec::new();
     match &data_struct.fields {
         Fields::Named(fields_named) => {
@@ -18,12 +19,22 @@ fn components(data_struct: &DataStruct, attr_name: &str) -> Vec<(Ident, LitStr, 
                 for attr in &field.attrs {
                     if attr.path().is_ident(IDENT_NAME) {
                         attr.parse_nested_meta(|meta| {
+                            ALLOWED_ATTRIBUTES
+                                .iter()
+                                .find(|a| meta.path.is_ident(a))
+                                .expect("Unexpected attribute!");
                             if meta.path.is_ident(attr_name) {
                                 match &field.ty {
                                     Type::Path(type_name) => {
-                                        let field_name = field.ident.as_ref().unwrap();
-                                        let value = meta.value()?;
-                                        let component_name: LitStr = value.parse()?;
+                                        let field_name = field
+                                            .ident
+                                            .as_ref()
+                                            .expect("Entity fields must be named!");
+                                        let component_name = if let Ok(value) = meta.value() {
+                                            value.parse().ok()
+                                        } else {
+                                            None
+                                        };
                                         components.push((
                                             field_name.clone(),
                                             component_name,
@@ -35,7 +46,9 @@ fn components(data_struct: &DataStruct, attr_name: &str) -> Vec<(Ident, LitStr, 
                             }
                             Ok(())
                         })
-                        .expect("Define your component like the this: #[shura(component = \"name\")]");
+                        .expect(
+                            "Define your component like the this: #[shura(component = \"name\")]",
+                        );
                     }
                 }
             }
@@ -100,9 +113,13 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
     let buffer = components
         .iter()
         .map(|(field_name, component_name, component_type)| {
-            quote! {
-                let buffer = buffers.get_mut::<<#component_type as shura::Component> ::Instance>(#component_name).unwrap();
-                buffer.push_components_from_entities(world, entities, |e| &e.#field_name);
+            if let Some(component_name) = component_name {
+                quote! {
+                    let buffer = buffers.get_mut::<<#component_type as shura::Component> ::Instance>(#component_name).unwrap();
+                    buffer.push_components_from_entities(world, entities, |e| &e.#field_name);
+                }
+            } else {
+                quote!()
             }
         });
 
@@ -118,7 +135,7 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
 
         impl #impl_generics ::shura::Entity for #struct_name #ty_generics #where_clause {
             fn buffer<'a>(
-                entities: impl Iterator<Item = &'a Self>,
+                entities: ::shura::EntityIter<'a, Self>,
                 buffers: &mut ::shura::ComponentBufferManager,
                 world: &::shura::World,
             ) {
@@ -126,11 +143,11 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
             }
 
             fn init(&mut self, handle: ::shura::EntityHandle, world: &mut ::shura::World) {
-                #( self.#names_init.init(handle, world) )*
+                #( self.#names_init.init(handle, world); )*
             }
 
             fn finish(&mut self, world: &mut ::shura::World) {
-                #( self.#names_finish.finish(world) )*
+                #( self.#names_finish.finish(world); )*
             }
         }
     )

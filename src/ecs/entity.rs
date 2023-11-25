@@ -1,4 +1,4 @@
-use crate::{ComponentBufferManager, EntityHandle, EntityIdentifier, Instance, World};
+use crate::{ComponentBufferManager, EntityHandle, EntityIdentifier, Instance, World, EntityIter};
 
 
 #[allow(unused_variables)]
@@ -12,7 +12,7 @@ pub trait Component {
 
 pub trait Entity: EntityIdentifier + Sized + 'static {
     fn buffer<'a>(
-        entities: impl Iterator<Item = &'a Self>,
+        entities: EntityIter<'a, Self>,
         buffers: &mut ComponentBufferManager,
         world: &World,
     );

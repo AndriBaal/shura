@@ -245,7 +245,7 @@ impl Resources {
 #[serde(crate = "shura::serde")]
 struct Player {
     #[shura(instance)]
-    body: RigidBodyInstance,
+    body: RigidBodyComponent,
 }
 
 impl Player {
@@ -259,7 +259,7 @@ impl Player {
         let collider = ColliderBuilder::new(SharedShape::new(Self::SHAPE))
             .active_events(ActiveEvents::COLLISION_EVENTS);
         Self {
-            body: RigidBodyInstance::new(
+            body: RigidBodyComponent::new(
                 RigidBodyBuilder::dynamic().translation(Vector2::new(5.0, 4.0)),
                 [collider],
             ),
@@ -271,7 +271,7 @@ impl Player {
 #[serde(crate = "shura::serde")]
 struct Floor {
     #[shura(instance)]
-    collider: ColliderInstance,
+    collider: ColliderComponent,
 }
 
 impl Floor {
@@ -286,7 +286,7 @@ impl Floor {
         let collider = ColliderBuilder::new(SharedShape::new(Self::SHAPE))
             .translation(Vector2::new(0.0, -1.0));
         Self {
-            collider: ColliderInstance::new(collider).with_color(Color::BLUE),
+            collider: ColliderComponent::new(collider).with_color(Color::BLUE),
         }
     }
 }
@@ -295,7 +295,7 @@ impl Floor {
 #[serde(crate = "shura::serde")]
 struct PhysicsBox {
     #[shura(instance)]
-    body: RigidBodyInstance,
+    body: RigidBodyComponent,
 }
 
 impl PhysicsBox {
@@ -305,7 +305,7 @@ impl PhysicsBox {
     };
     pub fn new(instance: Vector2<f32>) -> Self {
         Self {
-            body: RigidBodyInstance::new(
+            body: RigidBodyComponent::new(
                 RigidBodyBuilder::dynamic().translation(instance),
                 [ColliderBuilder::new(SharedShape::new(
                     PhysicsBox::BOX_SHAPE,

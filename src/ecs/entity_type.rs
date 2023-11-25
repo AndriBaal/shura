@@ -736,7 +736,7 @@ impl<E: Entity> EntityType<E> {
     pub fn iter<'a>(
         &'a self,
         group_handles: &[GroupHandle],
-    ) -> Box<dyn DoubleEndedIterator<Item = &'a E> + 'a> {
+    ) -> EntityIter<'a, E> {
         match &self.storage {
             EntityTypeStorage::Single(entity) => {
                 if let Some(entity) = entity {
@@ -765,7 +765,7 @@ impl<E: Entity> EntityType<E> {
     pub fn iter_with_handles<'a>(
         &'a self,
         group_handles: &'a [GroupHandle],
-    ) -> Box<dyn DoubleEndedIterator<Item = (EntityHandle, &'a E)> + 'a> {
+    ) -> EntityIterHandles<'a, E> {
         match &self.storage {
             EntityTypeStorage::Single(entity) => {
                 if let Some(entity) = entity {
@@ -815,7 +815,7 @@ impl<E: Entity> EntityType<E> {
     pub fn iter_mut<'a>(
         &'a mut self,
         group_handles: &[GroupHandle],
-    ) -> Box<dyn DoubleEndedIterator<Item = &'a mut E> + 'a> {
+    ) -> EntityIterMut<'a, E> {
         match &mut self.storage {
             EntityTypeStorage::Single(entity) => {
                 if let Some(entity) = entity {
@@ -846,7 +846,7 @@ impl<E: Entity> EntityType<E> {
     pub fn iter_mut_with_handles<'a>(
         &'a mut self,
         group_handles: &'a [GroupHandle],
-    ) -> Box<dyn DoubleEndedIterator<Item = (EntityHandle, &'a mut E)> + 'a> {
+    ) -> EntityIterHandlesMut<'a, E> {
         match &mut self.storage {
             EntityTypeStorage::Single(entity) => {
                 if let Some(entity) = entity {
@@ -1377,6 +1377,14 @@ impl<E: Entity + Send + Sync> EntityType<E> {
         };
     }
 }
+
+pub type EntityIter<'a, E> = Box<dyn DoubleEndedIterator<Item = &'a E> + 'a>;
+pub type EntityIterHandles<'a, E> = Box<dyn DoubleEndedIterator<Item = (EntityHandle, &'a E)> + 'a>;
+pub type EntityIterMut<'a, E> = Box<dyn DoubleEndedIterator<Item = &'a mut E> + 'a>;
+pub type EntityIterHandlesMut<'a, E> = Box<dyn DoubleEndedIterator<Item = (EntityHandle, &'a mut E)> + 'a>;
+
+
+
 
 // #[cfg(feature = "rayon")]
 // impl<E: Entity + Send + Sync> EntityType<E>

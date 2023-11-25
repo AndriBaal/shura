@@ -72,6 +72,7 @@ pub use world::world::World;
 pub mod physics {
     pub use crate::world::{
         // character_controller_component::*,
+        world::*,
         collider_component::*,
         rigid_body_component::*,
     };

@@ -4,11 +4,9 @@ use shura::{log, rand, text::*, *};
 fn shura_main(config: AppConfig) {
     App::run(config, || {
         NewScene::new(1)
-            .component::<Bunny>(ComponentConfig {
-                buffer: BufferConfig::Manual,
-                ..ComponentConfig::DEFAULT
-            })
-            .component::<Resources>(ComponentConfig::RESOURCE)
+            .component("bunny", BufferConfig::Manual)
+            .entity::<Bunny>(EntityConfig::DEFAULT)
+            .entity::<Resources>(EntityConfig::RESOURCE)
             .system(System::Update(update))
             .system(System::Setup(setup))
             .system(System::Render(render))
@@ -17,17 +15,17 @@ fn shura_main(config: AppConfig) {
 
 fn setup(ctx: &mut Context) {
     ctx.world_camera2d.set_scaling(WorldCameraScaling::Min(3.0));
-    ctx.components
+    ctx.entities
         .add_with(ctx.world, |handle| Bunny::new(vector2(0.0, 0.0), handle));
-    ctx.components.add(ctx.world, Resources::new(ctx));
+    ctx.entities.add(ctx.world, Resources::new(ctx));
 }
 
 fn update(ctx: &mut Context) {
     const MODIFY_STEP: usize = 1500;
     const GRAVITY: f32 = -2.5;
 
-    let mut bunnies = ctx.components.set::<Bunny>();
-    let mut resources = ctx.components.single::<Resources>();
+    let mut bunnies = ctx.entities.set::<Bunny>();
+    let mut resources = ctx.entities.single::<Resources>();
 
     if ctx.input.is_held(MouseButton::Left) || ctx.input.is_held(ScreenTouch) {
         let cursor: Vector2<f32> = ctx.cursor.coords;
@@ -36,7 +34,7 @@ fn update(ctx: &mut Context) {
         }
     }
     if ctx.input.is_held(MouseButton::Right) {
-        let mut dead: Vec<ComponentHandle> = vec![];
+        let mut dead: Vec<EntityHandle> = vec![];
         for bunny in bunnies.iter().rev() {
             if dead.len() == MODIFY_STEP {
                 break;
@@ -95,25 +93,25 @@ fn update(ctx: &mut Context) {
     });
 }
 
-fn render(res: &ComponentResources, encoder: &mut RenderEncoder) {
-    let resources = res.single::<Resources>();
+fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
+    let resources = ctx.single::<Resources>();
     encoder.render2d(
         Some(RgbaColor::new(220, 220, 220, 255).into()),
         |renderer| {
-            res.render_all::<Bunny>(renderer, |renderer, buffer, instances| {
+            ctx.render_all(renderer, "bunny", |renderer, buffer, instances| {
                 renderer.render_sprite(
                     instances,
                     buffer,
-                    res.world_camera2d,
-                    res.unit_mesh,
+                    ctx.world_camera2d,
+                    ctx.unit_mesh,
                     &resources.bunny_sprite,
                 );
             });
 
             renderer.render_text(
                 0..1,
-                res.centered_instance,
-                res.relative_top_right_camera,
+                ctx.centered_instance,
+                ctx.relative_top_right_camera,
                 &resources.text,
             );
         },
@@ -124,7 +122,7 @@ fn render(res: &ComponentResources, encoder: &mut RenderEncoder) {
     }
 }
 
-#[derive(Component)]
+#[derive(Entity)]
 struct Resources {
     screenshot: Option<SpriteRenderTarget>,
     bunny_sprite: Sprite,
@@ -149,7 +147,7 @@ impl Resources {
                     text: format!(
                         "FPS: {}\nBunnies: {}",
                         ctx.frame.fps(),
-                        ctx.components.set::<Bunny>().len()
+                        ctx.entities.set::<Bunny>().len()
                     ),
                     size: 0.05,
                     horizontal_alignment: text::TextAlignment::End,
@@ -161,19 +159,18 @@ impl Resources {
     }
 }
 
-#[derive(Component)]
-#[shura(parallel_buffer)]
+#[derive(Entity)]
 struct Bunny {
-    #[shura(instance)]
-    position: PositionInstance2D,
+    #[shura(component="bunny")]
+    position: PositionComponent2D,
     linvel: Vector2<f32>,
-    handle: ComponentHandle,
+    handle: EntityHandle,
 }
 
 impl Bunny {
-    pub fn new(translation: Vector2<f32>, handle: ComponentHandle) -> Bunny {
+    pub fn new(translation: Vector2<f32>, handle: EntityHandle) -> Bunny {
         let scaling = rand::gen_range(0.75_f32..2.0);
-        let position = PositionInstance2D::new()
+        let position = PositionComponent2D::new()
             .with_translation(translation)
             .with_rotation(rand::gen_range(-1.0..1.0))
             .with_scaling(scaling * vector2(0.12, 0.18));

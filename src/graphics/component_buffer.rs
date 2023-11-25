@@ -1,4 +1,4 @@
-use crate::{Entity, Gpu, Instance, InstanceBuffer, Component, World};
+use crate::{Entity, Gpu, Instance, InstanceBuffer, Component, World, EntitySetMut};
 use downcast_rs::{impl_downcast, Downcast};
 use rustc_hash::FxHashMap;
 

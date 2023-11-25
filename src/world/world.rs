@@ -37,7 +37,7 @@ pub trait WorldEvent: Sized {
 }
 
 impl WorldEvent for RapierCollisionEvent {
-    type Event = CollisionEvent;
+    type Event = EntityCollisionEvent;
 
     fn is<E1: Entity, E2: Entity>(&self, world: &World) -> Option<Self::Event> {
         let collider1 = self.collider1();
@@ -46,7 +46,7 @@ impl WorldEvent for RapierCollisionEvent {
         let entity2 = world.entity_from_collider(&collider2)?;
         if entity1.entity_type_id() == E1::IDENTIFIER && entity2.entity_type_id() == E2::IDENTIFIER
         {
-            return Some(CollisionEvent {
+            return Some(EntityCollisionEvent {
                 collider1,
                 collider2,
                 entity1: *entity1,
@@ -60,7 +60,7 @@ impl WorldEvent for RapierCollisionEvent {
         } else if entity2.entity_type_id() == E1::IDENTIFIER
             && entity1.entity_type_id() == E2::IDENTIFIER
         {
-            return Some(CollisionEvent {
+            return Some(EntityCollisionEvent {
                 collider1: collider2,
                 collider2: collider1,
                 entity1: *entity2,
@@ -78,7 +78,7 @@ impl WorldEvent for RapierCollisionEvent {
 }
 
 impl WorldEvent for RapierContactForceEvent {
-    type Event = ContactForceEvent;
+    type Event = EntityContactForceEvent;
 
     fn is<E1: Entity, E2: Entity>(&self, world: &World) -> Option<Self::Event> {
         let collider1 = self.collider1;
@@ -87,7 +87,7 @@ impl WorldEvent for RapierContactForceEvent {
         let entity2 = world.entity_from_collider(&collider2)?;
         if entity1.entity_type_id() == E1::IDENTIFIER && entity2.entity_type_id() == E2::IDENTIFIER
         {
-            return Some(ContactForceEvent {
+            return Some(EntityContactForceEvent {
                 collider1,
                 collider2,
                 entity1: *entity1,
@@ -100,7 +100,7 @@ impl WorldEvent for RapierContactForceEvent {
         } else if entity2.entity_type_id() == E1::IDENTIFIER
             && entity1.entity_type_id() == E2::IDENTIFIER
         {
-            return Some(ContactForceEvent {
+            return Some(EntityContactForceEvent {
                 collider1: collider2,
                 collider2: collider1,
                 entity1: *entity2,
@@ -142,7 +142,7 @@ impl Default for EventCollector {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct CollisionEvent {
+pub struct EntityCollisionEvent {
     pub collider1: ColliderHandle,
     pub collider2: ColliderHandle,
     pub entity1: EntityHandle,
@@ -151,7 +151,7 @@ pub struct CollisionEvent {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct ContactForceEvent {
+pub struct EntityContactForceEvent {
     pub collider1: ColliderHandle,
     pub collider2: ColliderHandle,
     pub entity1: EntityHandle,
@@ -358,8 +358,8 @@ impl World {
 
     #[cfg(all(feature = "serde", feature = "physics"))]
     pub(crate) fn remove_no_maintain(&mut self, component: &dyn std::any::Any) {
-        use crate::physics::{ColliderInstance, ColliderStatus, RigidBodyStatus};
-        if let Some(component) = component.downcast_ref::<crate::physics::RigidBodyInstance>() {
+        use crate::physics::{ColliderComponent, ColliderStatus, RigidBodyStatus};
+        if let Some(component) = component.downcast_ref::<crate::physics::RigidBodyComponent>() {
             match component.status {
                 RigidBodyStatus::Added { rigid_body_handle } => {
                     if let Some(rigid_body) = self.bodies.remove(
@@ -377,7 +377,7 @@ impl World {
                 }
                 RigidBodyStatus::Pending { .. } => return,
             }
-        } else if let Some(component) = component.downcast_ref::<ColliderInstance>() {
+        } else if let Some(component) = component.downcast_ref::<ColliderComponent>() {
             match component.status {
                 ColliderStatus::Added { collider_handle } => {
                     self.collider_mapping.remove(&collider_handle);

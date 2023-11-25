@@ -112,12 +112,15 @@ impl Resources {
 struct Cube {
     #[shura(component="cube")]
     position: PositionComponent3D,
+    #[shura(component="cube")]
+    position1: PositionComponent3D,
 }
 
 impl Cube {
     pub fn new(position: Vector3<f32>) -> Cube {
         Cube {
             position: PositionComponent3D::new().with_translation(position), // .with_scaling(Vector3::new(0.001, 0.001, 0.001)),
+            position1: PositionComponent3D::new().with_translation(position + Vector3::new(0.1, 0.1, 0.1)), // .with_scaling(Vector3::new(0.001, 0.001, 0.001)),
         }
     }
 }

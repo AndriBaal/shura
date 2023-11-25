@@ -65,7 +65,7 @@ impl RigidBodyStatus {
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct RigidBodyInstance {
+pub struct RigidBodyComponent {
     pub(crate) status: RigidBodyStatus,
     scale: Vector2<f32>,
     atlas: SpriteAtlas,
@@ -74,7 +74,7 @@ pub struct RigidBodyInstance {
     active: bool,
 }
 
-impl RigidBodyInstance {
+impl RigidBodyComponent {
     pub fn new(
         rigid_body: impl Into<RigidBody>,
         colliders: impl IntoIterator<Item = impl Into<Collider>>,
@@ -165,7 +165,7 @@ impl RigidBodyInstance {
     }
 }
 
-impl Component for RigidBodyInstance {
+impl Component for RigidBodyComponent {
     type Instance = Instance2D;
 
     fn instance(&self, world: &World) -> Self::Instance {

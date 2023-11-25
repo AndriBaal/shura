@@ -226,7 +226,7 @@ impl FlappyManager {
 #[derive(Component)]
 struct Bird {
     #[shura(instance)]
-    body: RigidBodyInstance,
+    body: RigidBodyComponent,
     mesh: Mesh2D,
     sprite_sheet: SpriteSheet,
     sink: AudioSink,
@@ -238,7 +238,7 @@ impl Bird {
     const HALF_EXTENTS: Vector2<f32> = Vector2::new(0.3, 0.21176472);
     pub fn new(gpu: &Gpu, audio: &AudioManager) -> Self {
         Self {
-            body: RigidBodyInstance::new(
+            body: RigidBodyComponent::new(
                 RigidBodyBuilder::dynamic()
                     .locked_axes(LockedAxes::TRANSLATION_LOCKED_X)
                     .lock_rotations()
@@ -267,7 +267,7 @@ struct Ground {
     mesh: Mesh2D,
     sprite: Sprite,
     #[shura(instance)]
-    collider: ColliderInstance,
+    collider: ColliderComponent,
 }
 
 impl Ground {
@@ -283,7 +283,7 @@ impl Ground {
             sprite: gpu.create_sprite(SpriteBuilder::bytes(include_bytes_res!(
                 "flappy_bird/sprites/base.png"
             ))),
-            collider: ColliderInstance::new(ColliderBuilder::compound(vec![
+            collider: ColliderComponent::new(ColliderBuilder::compound(vec![
                 (
                     pos.into(),
                     SharedShape::cuboid(Self::HALF_EXTENTS.x, Self::HALF_EXTENTS.y),
@@ -324,7 +324,7 @@ impl Background {
 #[derive(Component)]
 struct Pipe {
     #[shura(instance)]
-    body: RigidBodyInstance,
+    body: RigidBodyComponent,
     point_awarded: bool,
 }
 
@@ -341,7 +341,7 @@ impl Pipe {
         );
         Self {
             point_awarded: false,
-            body: RigidBodyInstance::new(
+            body: RigidBodyComponent::new(
                 RigidBodyBuilder::kinematic_velocity_based()
                     .translation(Vector2::new(GAME_SIZE.x, y))
                     .linvel(Vector2::new(Self::PIPE_SPEED, 0.0)),
