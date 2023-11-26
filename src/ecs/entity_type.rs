@@ -4,8 +4,8 @@ use std::fmt::{Display, Formatter, Result};
 use crate::{data::arena::ArenaEntry, rayon::prelude::*};
 
 use crate::{
-    Arena, ComponentBufferManager, Entity, EntityConfig, EntityHandle, EntityIndex, EntityStorage,
-    EntityTypeImplementation, GroupHandle, World,
+    Arena, ComponentBufferManager, Entity, EntityConfig, EntityHandle, EntityIndex, EntitySet,
+    EntityStorage, EntityTypeImplementation, GroupHandle, World,
 };
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
@@ -37,11 +37,6 @@ pub trait EntityIdentifier {
     const TYPE_NAME: &'static str;
     const IDENTIFIER: EntityTypeId;
     fn entity_type_id(&self) -> EntityTypeId;
-}
-
-#[cfg(feature = "serde")]
-fn default_true() -> bool {
-    true
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -733,10 +728,7 @@ impl<E: Entity> EntityType<E> {
         };
     }
 
-    pub fn iter<'a>(
-        &'a self,
-        group_handles: &[GroupHandle],
-    ) -> EntityIter<'a, E> {
+    pub fn iter<'a>(&'a self, group_handles: &[GroupHandle]) -> EntityIter<'a, E> {
         match &self.storage {
             EntityTypeStorage::Single(entity) => {
                 if let Some(entity) = entity {
@@ -812,10 +804,7 @@ impl<E: Entity> EntityType<E> {
         };
     }
 
-    pub fn iter_mut<'a>(
-        &'a mut self,
-        group_handles: &[GroupHandle],
-    ) -> EntityIterMut<'a, E> {
+    pub fn iter_mut<'a>(&'a mut self, group_handles: &[GroupHandle]) -> EntityIterMut<'a, E> {
         match &mut self.storage {
             EntityTypeStorage::Single(entity) => {
                 if let Some(entity) = entity {
@@ -898,171 +887,6 @@ impl<E: Entity> EntityType<E> {
             }
         };
     }
-
-    // pub fn iter_render<'a>(
-    //     &'a self,
-    //     group_handles: &[GroupHandle],
-    // ) -> Box<
-    //     dyn DoubleEndedIterator<
-    //             Item = (
-    //                 &'a InstanceBuffer<<E::Component as Component>::Instance>,
-    //                 InstanceIndex,
-    //                 &'a E,
-    //             ),
-    //         > + 'a,
-    // > {
-    //     match &self.storage {
-    //         EntityTypeStorage::Single { entity, buffer, .. } => {
-    //             if let Some(entity) = entity {
-    //                 return Box::new(std::iter::once((
-    //                     buffer.as_ref().expect(BUFFER_ERROR),
-    //                     InstanceIndex::new(0),
-    //                     entity,
-    //                 )));
-    //             } else {
-    //                 return Box::new(std::iter::empty::<(
-    //                     &InstanceBuffer<<E::Component as Component>::Instance>,
-    //                     InstanceIndex,
-    //                     &E,
-    //                 )>());
-    //             }
-    //         }
-    //         EntityTypeStorage::Multiple(multiple) => {
-    //             return Box::new(multiple.entities.iter().enumerate().map(|(i, c)| {
-    //                 (
-    //                     multiple.buffer.as_ref().expect(BUFFER_ERROR),
-    //                     InstanceIndex::new(i as u32),
-    //                     c,
-    //                 )
-    //             }));
-    //         }
-    //         EntityTypeStorage::MultipleGroups(groups) => {
-    //             let mut iters = Vec::with_capacity(groups.len());
-    //             for group in group_handles {
-    //                 if let Some(group) = groups.get(group.0) {
-    //                     if !group.entities.is_empty() {
-    //                         iters.push(group.entities.iter().enumerate().map(|(i, c)| {
-    //                             (
-    //                                 group.buffer.as_ref().expect(BUFFER_ERROR),
-    //                                 InstanceIndex::new(i as u32),
-    //                                 c,
-    //                             )
-    //                         }));
-    //                     }
-    //                 }
-    //             }
-    //             return Box::new(iters.into_iter().flatten());
-    //         }
-    //     };
-    // }
-
-    // pub(crate) fn render_each<'a>(
-    //     &'a self,
-    //     renderer: &mut Renderer<'a>,
-    //     mut each: impl FnMut(
-    //         &mut Renderer<'a>,
-    //         &'a E,
-    //         &'a InstanceBuffer<<E::Component as Component>::Instance>,
-    //         InstanceIndex,
-    //     ),
-    // ) {
-    //     match &self.storage {
-    //         EntityTypeStorage::Single { buffer, entity, .. } => {
-    //             if let Some(entity) = entity {
-    //                 let buffer = buffer.as_ref().expect(BUFFER_ERROR);
-    //                 if buffer.instance_amount() > 0 {
-    //                     (each)(renderer, entity, buffer, InstanceIndex::new(0));
-    //                 }
-    //             }
-    //         }
-    //         EntityTypeStorage::Multiple(multiple) => {
-    //             let buffer = multiple.buffer.as_ref().expect(BUFFER_ERROR);
-    //             if buffer.instance_amount() > 0 {
-    //                 for (instance, entity) in multiple.entities.iter().enumerate() {
-    //                     (each)(
-    //                         renderer,
-    //                         entity,
-    //                         buffer,
-    //                         InstanceIndex::new(instance as u32),
-    //                     );
-    //                 }
-    //             }
-    //         }
-    //         EntityTypeStorage::MultipleGroups(groups) => {
-    //             for group in groups {
-    //                 let buffer = group.buffer.as_ref().expect(BUFFER_ERROR);
-    //                 if buffer.instance_amount() > 0 {
-    //                     for (instance, entity) in group.entities.iter().enumerate() {
-    //                         (each)(
-    //                             renderer,
-    //                             entity,
-    //                             buffer,
-    //                             InstanceIndex::new(instance as u32),
-    //                         );
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
-
-    // pub(crate) fn render_single<'a>(
-    //     &'a self,
-    //     renderer: &mut Renderer<'a>,
-    //     each: impl FnOnce(
-    //         &mut Renderer<'a>,
-    //         &'a E,
-    //         &'a InstanceBuffer<<E::Component as Component>::Instance>,
-    //         InstanceIndex,
-    //     ),
-    // ) {
-    //     match &self.storage {
-    //         EntityTypeStorage::Single { buffer, entity, .. } => {
-    //             if let Some(entity) = entity {
-    //                 let buffer = buffer.as_ref().expect(BUFFER_ERROR);
-    //                 if buffer.instance_amount() > 0 {
-    //                     (each)(renderer, entity, buffer, InstanceIndex::new(0));
-    //                 }
-    //             }
-    //         }
-    //         _ => {
-    //             panic!("Cannot get single on entity without EntityStorage::Single!")
-    //         }
-    //     }
-    // }
-
-    // pub(crate) fn render_all<'a>(
-    //     &'a self,
-    //     renderer: &mut Renderer<'a>,
-    //     mut all: impl FnMut(
-    //         &mut Renderer<'a>,
-    //         &'a InstanceBuffer<<E::Component as Component>::Instance>,
-    //         InstanceIndices,
-    //     ),
-    // ) {
-    //     match &self.storage {
-    //         EntityTypeStorage::Single { buffer, .. } => {
-    //             let buffer = buffer.as_ref().expect(BUFFER_ERROR);
-    //             if buffer.instance_amount() > 0 {
-    //                 (all)(renderer, buffer, InstanceIndices::new(0, 1));
-    //             }
-    //         }
-    //         EntityTypeStorage::Multiple(multiple) => {
-    //             let buffer = multiple.buffer.as_ref().expect(BUFFER_ERROR);
-    //             if buffer.instance_amount() > 0 {
-    //                 (all)(renderer, buffer, buffer.instances());
-    //             }
-    //         }
-    //         EntityTypeStorage::MultipleGroups(groups) => {
-    //             for group in groups {
-    //                 let buffer = group.buffer.as_ref().expect(BUFFER_ERROR);
-    //                 if buffer.instance_amount() > 0 {
-    //                     (all)(renderer, buffer, buffer.instances());
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
 
     pub fn change_group(
         &mut self,
@@ -1243,23 +1067,25 @@ impl<E: Entity> EntityTypeImplementation for EntityType<E> {
 
     fn buffer(
         &self,
+        ty: std::cell::Ref<dyn EntityTypeImplementation>,
         buffers: &mut ComponentBufferManager,
         world: &World,
         active_groups: &[GroupHandle],
     ) {
-        let iter = self.iter(active_groups);
-        E::buffer(iter, buffers, world);
+        let ty = std::cell::Ref::map(ty, |ty| ty.downcast_ref::<EntityType<E>>().unwrap());
+        let set = EntitySet::new(ty, active_groups);
+        E::buffer(set, buffers, world);
     }
 
     #[cfg(all(feature = "serde", feature = "physics"))]
     fn deinit_non_serialized(&self, world: &mut World) {
         match &self.storage {
             EntityTypeStorage::Single(entity) => {
-                    if let Some(entity) = entity {
-                        for component in entity.components() {
-                            world.remove_no_maintain(component)
-                        }
+                if let Some(entity) = entity {
+                    for component in entity.components() {
+                        world.remove_no_maintain(component)
                     }
+                }
             }
             EntityTypeStorage::Multiple(multiple) => {
                 for entity in &multiple.entities {
@@ -1376,56 +1202,110 @@ impl<E: Entity + Send + Sync> EntityType<E> {
             }
         };
     }
+
+    pub fn par_for_each_collect<C: crate::Component>(
+        &self,
+        world: &World,
+        group_handles: &[GroupHandle],
+        each: impl Fn(&E) -> &C + Send + Sync,
+        collection: &mut Vec<C::Instance>,
+    ) where
+        C::Instance: Send + Sync,
+    {
+        match &self.storage {
+            EntityTypeStorage::Single(entity) => {
+                collection.extend(entity.iter().map(|e| (each)(e).instance(world)));
+            }
+            EntityTypeStorage::Multiple(multiple) => {
+                collection.par_extend(multiple.entities.items.par_iter().filter_map(|e| match e {
+                    ArenaEntry::Free { .. } => None,
+                    ArenaEntry::Occupied { data, .. } => {
+                        let component = (each)(data);
+                        if component.active() {
+                            Some(component.instance(world))
+                        } else {
+                            None
+                        }
+                    }
+                }));
+            }
+            EntityTypeStorage::MultipleGroups(groups) => {
+                for group in group_handles {
+                    if let Some(group) = groups.get(group.0) {
+                        collection.par_extend(group.entities.items.par_iter().filter_map(
+                            |e| match e {
+                                ArenaEntry::Free { .. } => None,
+                                ArenaEntry::Occupied { data, .. } => {
+                                    let component = (each)(data);
+                                    if component.active() {
+                                        Some(component.instance(world))
+                                    } else {
+                                        None
+                                    }
+                                }
+                            },
+                        ));
+                    }
+                }
+            }
+        };
+    }
+
+    pub fn par_for_each_collect_mut<C: crate::Component>(
+        &mut self,
+        world: &World,
+        group_handles: &[GroupHandle],
+        each: impl Fn(&mut E) -> &C + Send + Sync,
+        collection: &mut Vec<C::Instance>,
+    ) where
+        C::Instance: Send + Sync,
+    {
+        match &mut self.storage {
+            EntityTypeStorage::Single(entity) => {
+                collection.extend(entity.iter_mut().map(|e| (each)(e).instance(world)));
+            }
+            EntityTypeStorage::Multiple(multiple) => {
+                collection.par_extend(multiple.entities.items.par_iter_mut().filter_map(
+                    |e| match e {
+                        ArenaEntry::Free { .. } => None,
+                        ArenaEntry::Occupied { data, .. } => {
+                            let component = (each)(data);
+                            if component.active() {
+                                Some(component.instance(world))
+                            } else {
+                                None
+                            }
+                        }
+                    },
+                ));
+            }
+            EntityTypeStorage::MultipleGroups(groups) => {
+                for group in group_handles {
+                    if let Some(group) = groups.get_mut(group.0) {
+                        collection.par_extend(group.entities.items.par_iter_mut().filter_map(
+                            |e| match e {
+                                ArenaEntry::Free { .. } => None,
+                                ArenaEntry::Occupied { data, .. } => {
+                                    let component = (each)(data);
+                                    if component.active() {
+                                        Some(component.instance(world))
+                                    } else {
+                                        None
+                                    }
+                                }
+                            },
+                        ));
+                    }
+                }
+            }
+        };
+    }
 }
 
-pub type EntityIter<'a, E> = Box<dyn DoubleEndedIterator<Item = &'a E> + 'a>;
-pub type EntityIterHandles<'a, E> = Box<dyn DoubleEndedIterator<Item = (EntityHandle, &'a E)> + 'a>;
-pub type EntityIterMut<'a, E> = Box<dyn DoubleEndedIterator<Item = &'a mut E> + 'a>;
-pub type EntityIterHandlesMut<'a, E> = Box<dyn DoubleEndedIterator<Item = (EntityHandle, &'a mut E)> + 'a>;
-
-
-
-
-// #[cfg(feature = "rayon")]
-// impl<E: Entity + Send + Sync> EntityType<E>
-// where
-//     <E::Component as Component>::Instance: Send,
-// {
-//     pub fn par_buffer_with(
-//         &mut self,
-//         world: &World,
-//         gpu: &Gpu,
-//         group_handles: &[GroupHandle],
-//         each: impl Fn(&mut E) + Send + Sync,
-//     ) {
-//         assert!(self.config.buffer != BufferConfig::Never);
-//         match &mut self.storage {
-//             EntityTypeStorage::Single { .. } => self.buffer_with(world, gpu, group_handles, each),
-//             EntityTypeStorage::Multiple(multiple) => {
-//                 multiple.par_buffer_with(gpu, &self.config, world, each)
-//             }
-//             EntityTypeStorage::MultipleGroups(groups) => {
-//                 for group in group_handles {
-//                     if let Some(group) = groups.get_mut(group.0) {
-//                         group.par_buffer_with(gpu, &self.config, world, &each)
-//                     }
-//                 }
-//             }
-//         };
-//     }
-
-//     pub fn par_buffer(&mut self, world: &World, gpu: &Gpu, group_handles: &[GroupHandle]) {
-//         assert!(self.config.buffer != BufferConfig::Never);
-//         match &mut self.storage {
-//             EntityTypeStorage::Single { .. } => self.buffer(world, gpu, group_handles),
-//             EntityTypeStorage::Multiple(multiple) => multiple.par_buffer(gpu, &self.config, world),
-//             EntityTypeStorage::MultipleGroups(groups) => {
-//                 for group in group_handles {
-//                     if let Some(group) = groups.get_mut(group.0) {
-//                         group.par_buffer(gpu, &self.config, world)
-//                     }
-//                 }
-//             }
-//         };
-//     }
-// }
+pub trait EntityIterator: DoubleEndedIterator {}
+impl<T> EntityIterator for T where T: DoubleEndedIterator {}
+pub type EntityIter<'a, E> = Box<dyn EntityIterator<Item = &'a E> + 'a>;
+pub type EntityIterHandles<'a, E> = Box<dyn EntityIterator<Item = (EntityHandle, &'a E)> + 'a>;
+pub type EntityIterMut<'a, E> = Box<dyn EntityIterator<Item = &'a mut E> + 'a>;
+pub type EntityIterHandlesMut<'a, E> =
+    Box<dyn EntityIterator<Item = (EntityHandle, &'a mut E)> + 'a>;

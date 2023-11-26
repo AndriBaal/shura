@@ -1,5 +1,4 @@
 use std::cell::RefCell;
-
 use rustc_hash::FxHashMap;
 
 use crate::{
@@ -10,16 +9,53 @@ use crate::{
     GLOBAL_GPU,
 };
 
+#[allow(private_interfaces)]
 pub trait SceneCreator {
     fn new_id(&self) -> u32;
     fn create(self: Box<Self>, app: &mut App) -> Scene;
+    fn systems(&mut self) -> &mut Vec<System>;
+    fn entities(&mut self) -> &mut Vec<Box<RefCell<dyn EntityTypeImplementation>>>;
+    fn components(&mut self) -> &mut FxHashMap<&'static str, Box<dyn ComponentBufferImpl>>;
+    fn component<I: Instance>(mut self, name: &'static str, operation: BufferConfig) -> Self
+    where
+        Self: Sized,
+    {
+        if self.components().contains_key(name) {
+            panic!("Component {} already defined!", name);
+        }
+        self.components().insert(
+            name,
+            Box::new(ComponentBuffer::<I>::new(
+                GLOBAL_GPU.get().unwrap(),
+                operation,
+            )),
+        );
+        self
+    }
+
+    fn entity<E: Entity>(mut self, config: EntityConfig) -> Self
+    where
+        Self: Sized,
+    {
+        self.entities()
+            .push(Box::new(RefCell::new(EntityType::<E>::new(config))));
+        self
+    }
+
+    fn system(mut self, system: System) -> Self
+    where
+        Self: Sized,
+    {
+        self.systems().push(system);
+        self
+    }
 }
 
 pub struct NewScene {
     pub id: u32,
     systems: Vec<System>,
     entities: Vec<Box<RefCell<dyn EntityTypeImplementation>>>,
-    components: FxHashMap<&'static str, Box<dyn ComponentBufferImpl>>,
+    component_buffers: FxHashMap<&'static str, Box<dyn ComponentBufferImpl>>,
 }
 
 impl NewScene {
@@ -28,40 +64,31 @@ impl NewScene {
             id,
             systems: Default::default(),
             entities: Default::default(),
-            components: Default::default(),
+            component_buffers: Default::default(),
         }
-    }
-
-    pub fn component<I: Instance>(mut self, name: &'static str, operation: BufferConfig) -> Self {
-        if self.components.contains_key(name) {
-            panic!("Component {} already defined!", name);
-        }
-        self.components.insert(
-            name,
-            Box::new(ComponentBuffer::<I>::new(GLOBAL_GPU.get().unwrap(), operation)),
-        );
-        self
-    }
-
-    pub fn entity<E: Entity>(mut self, config: EntityConfig) -> Self {
-        self.entities
-            .push(Box::new(RefCell::new(EntityType::<E>::new(config))));
-        self
-    }
-
-    pub fn system(mut self, system: System) -> Self {
-        self.systems.push(system);
-        self
     }
 }
 
+#[allow(private_interfaces)]
 impl SceneCreator for NewScene {
     fn new_id(&self) -> u32 {
         self.id
     }
 
     fn create(self: Box<Self>, app: &mut App) -> Scene {
-        return Scene::new(self.id, app, self.systems, self.entities, self.components);
+        return Scene::new(self.id, app, self.systems, self.entities, self.component_buffers);
+    }
+
+    fn systems(&mut self) -> &mut Vec<System> {
+        &mut self.systems
+    }
+
+    fn entities(&mut self) -> &mut Vec<Box<RefCell<dyn EntityTypeImplementation>>> {
+        &mut self.entities
+    }
+
+    fn components(&mut self) -> &mut FxHashMap<&'static str, Box<dyn ComponentBufferImpl>> {
+        &mut self.component_buffers
     }
 }
 
@@ -70,7 +97,7 @@ pub struct RecycleScene {
     pub scene: Scene,
     systems: Vec<System>,
     entities: Vec<Box<RefCell<dyn EntityTypeImplementation>>>,
-    components: FxHashMap<&'static str, Box<dyn ComponentBufferImpl>>,
+    component_buffers: FxHashMap<&'static str, Box<dyn ComponentBufferImpl>>,
 }
 
 impl RecycleScene {
@@ -80,33 +107,12 @@ impl RecycleScene {
             scene,
             systems: Default::default(),
             entities: Default::default(),
-            components: Default::default(),
+            component_buffers: Default::default(),
         }
-    }
-
-    pub fn component<I: Instance>(mut self, name: &'static str, operation: BufferConfig) -> Self {
-        if self.components.contains_key(name) {
-            panic!("Component {} already defined!", name);
-        }
-        self.components.insert(
-            name,
-            Box::new(ComponentBuffer::<I>::new(GLOBAL_GPU.get().unwrap(), operation)),
-        );
-        self
-    }
-
-    pub fn entity<E: Entity>(mut self, config: EntityConfig) -> Self {
-        self.entities
-            .push(Box::new(RefCell::new(EntityType::<E>::new(config))));
-        self
-    }
-
-    pub fn system(mut self, system: System) -> Self {
-        self.systems.push(system);
-        self
     }
 }
 
+#[allow(private_interfaces)]
 impl SceneCreator for RecycleScene {
     fn new_id(&self) -> u32 {
         self.id
@@ -116,10 +122,22 @@ impl SceneCreator for RecycleScene {
         let mint: mint::Vector2<u32> = app.window.inner_size().into();
         let window_size: Vector2<u32> = mint.into();
         self.scene.world_camera2d.resize(window_size);
-        self.scene.components.init(self.components);
+        self.scene.component_buffers.init(self.component_buffers);
         self.scene.systems.init(&self.systems);
         self.scene.entities.init(&app.globals, self.entities);
         return self.scene;
+    }
+
+    fn systems(&mut self) -> &mut Vec<System> {
+        &mut self.systems
+    }
+
+    fn entities(&mut self) -> &mut Vec<Box<RefCell<dyn EntityTypeImplementation>>> {
+        &mut self.entities
+    }
+
+    fn components(&mut self) -> &mut FxHashMap<&'static str, Box<dyn ComponentBufferImpl>> {
+        &mut self.component_buffers
     }
 }
 
@@ -139,7 +157,7 @@ pub struct Scene {
     pub systems: SystemManager,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default = "ComponentBufferManager::empty"))]
-    pub components: ComponentBufferManager,
+    pub component_buffers: ComponentBufferManager,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default = "TaskManager::new"))]
     pub tasks: TaskManager,
@@ -152,7 +170,7 @@ impl Scene {
         app: &mut App,
         systems: Vec<System>,
         entities: Vec<Box<RefCell<dyn EntityTypeImplementation>>>,
-        components: FxHashMap<&'static str, Box<dyn ComponentBufferImpl>>,
+        component_buffers: FxHashMap<&'static str, Box<dyn ComponentBufferImpl>>,
     ) -> Self {
         let mint: mint::Vector2<u32> = app.window.inner_size().into();
         let window_size: Vector2<u32> = mint.into();
@@ -174,7 +192,7 @@ impl Scene {
                 window_size,
                 CameraViewSelection::PerspectiveCamera3D(PerspectiveCamera3D::default()),
             ),
-            components: ComponentBufferManager::new(components),
+            component_buffers: ComponentBufferManager::new(component_buffers),
         };
 
         let (_, mut ctx) = Context::new(&id, app, &mut scene);

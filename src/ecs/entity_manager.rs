@@ -2,10 +2,10 @@ use downcast_rs::{impl_downcast, Downcast};
 use rustc_hash::FxHashMap;
 
 use crate::{
-    BufferConfig, CameraBuffer, CameraBuffer2D, Component, ComponentBufferManager,
-    DefaultResources, Entity, EntityConfig, EntityHandle, EntityScope, EntitySet, EntitySetMut,
-    EntityType, EntityTypeId, GlobalEntitys, Gpu, GroupHandle, Instance2D, InstanceBuffer,
-    InstanceIndex, InstanceIndices, Mesh2D, Renderer, Scene, SystemManager, World, WorldCamera3D,
+    CameraBuffer, CameraBuffer2D, ComponentBufferManager, DefaultResources, Entity, EntityConfig,
+    EntityHandle, EntityScope, EntitySet, EntitySetMut, EntityType, EntityTypeId, GlobalEntitys,
+    GroupHandle, Instance2D, InstanceBuffer, InstanceIndices, Mesh2D, Renderer, Scene,
+    SystemManager, World, WorldCamera3D,
 };
 
 #[cfg(feature = "serde")]
@@ -21,6 +21,7 @@ pub(crate) trait EntityTypeImplementation: Downcast {
     fn remove_group(&mut self, world: &mut World, handle: GroupHandle);
     fn buffer(
         &self,
+        ty: Ref<dyn EntityTypeImplementation>,
         buffers: &mut ComponentBufferManager,
         world: &World,
         active_groups: &[GroupHandle],
@@ -125,24 +126,6 @@ impl EntityTypeScope {
             }
         }
     }
-
-    fn resource<E: Entity>(&self) -> &EntityType<E> {
-        // This is safe, because we disallow .borrow_mut() with the ContextUse
-        unsafe {
-            match &self {
-                EntityTypeScope::Scene(scene) => scene
-                    .try_borrow_unguarded()
-                    .unwrap()
-                    .downcast_ref::<EntityType<E>>()
-                    .unwrap(),
-                EntityTypeScope::Global(global) => global
-                    .try_borrow_unguarded()
-                    .unwrap()
-                    .downcast_ref::<EntityType<E>>()
-                    .unwrap(),
-            }
-        }
-    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Ord, Eq)]
@@ -164,7 +147,7 @@ impl GroupFilter<'static> {
 
 pub struct RenderContext<'a> {
     entities: &'a EntityManager,
-    components: &'a ComponentBufferManager,
+    pub component_buffers: &'a ComponentBufferManager,
 
     pub world_camera2d: &'a CameraBuffer2D,
     pub world_camera3d: &'a CameraBuffer<WorldCamera3D>,
@@ -187,7 +170,7 @@ impl<'a> RenderContext<'a> {
             &scene.systems,
             Self {
                 entities: &scene.entities,
-                components: &scene.components,
+                component_buffers: &scene.component_buffers,
                 relative_camera: &defaults.relative_camera.0,
                 relative_bottom_left_camera: &defaults.relative_bottom_left_camera.0,
                 relative_bottom_right_camera: &defaults.relative_bottom_right_camera.0,
@@ -258,7 +241,7 @@ impl<'a> RenderContext<'a> {
         all: impl Fn(&mut Renderer<'a>, &'a InstanceBuffer<I>, InstanceIndices),
     ) {
         let buffer = self
-            .components
+            .component_buffers
             .get::<I>(name)
             .expect(&format!("Component {name} is not registered!"))
             .buffer();
@@ -338,7 +321,7 @@ impl EntityManager {
     pub(crate) fn buffer(&mut self, buffers: &mut ComponentBufferManager, world: &World) {
         for ty in &self.types {
             let ty = ty.1.ref_raw();
-            ty.buffer(buffers, world, &self.active_groups);
+            Ref::clone(&ty).buffer(ty, buffers, world, &self.active_groups);
         }
     }
 

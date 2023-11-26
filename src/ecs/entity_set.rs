@@ -1,7 +1,4 @@
-use crate::{
-    Component, Entity, EntityHandle, EntityType, EntityTypeId, EntityTypeImplementation, Gpu,
-    GroupHandle, InstanceBuffer, InstanceIndex, InstanceIndices, Renderer, World,
-};
+use crate::{Entity, EntityHandle, EntityType, EntityTypeId, GroupHandle, World};
 use std::cell::{Ref, RefMut};
 
 pub struct EntitySet<'a, E: Entity> {
@@ -71,6 +68,18 @@ impl<'a, E: Entity> EntitySet<'a, E> {
 impl<'a, E: Entity + Send + Sync> EntitySet<'a, E> {
     pub fn par_for_each(&self, each: impl Fn(&E) + Send + Sync) {
         self.ty.par_for_each(self.groups, each);
+    }
+
+    pub fn par_for_each_collect<C: crate::Component>(
+        &self,
+        world: &World,
+        each: impl Fn(&E) -> &C + Send + Sync,
+        collection: &mut Vec<C::Instance>,
+    ) where
+        C::Instance: Send + Sync,
+    {
+        self.ty
+            .par_for_each_collect(world, self.groups, each, collection);
     }
 }
 
@@ -286,5 +295,29 @@ impl<'a, E: Entity + Send + Sync> EntitySetMut<'a, E> {
 
     pub fn par_for_each_mut(&mut self, each: impl Fn(&mut E) + Send + Sync) {
         self.ty.par_for_each_mut(self.groups, each);
+    }
+
+    pub fn par_for_each_collect<C: crate::Component>(
+        &self,
+        world: &World,
+        each: impl Fn(&E) -> &C + Send + Sync,
+        collection: &mut Vec<C::Instance>,
+    ) where
+        C::Instance: Send + Sync,
+    {
+        self.ty
+            .par_for_each_collect(world, self.groups, each, collection);
+    }
+
+    pub fn par_for_each_collect_mut<C: crate::Component>(
+        &mut self,
+        world: &World,
+        each: impl Fn(&mut E) -> &C + Send + Sync,
+        collection: &mut Vec<C::Instance>,
+    ) where
+        C::Instance: Send + Sync,
+    {
+        self.ty
+            .par_for_each_collect_mut(world, self.groups, each, collection);
     }
 }

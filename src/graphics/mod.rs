@@ -1,5 +1,6 @@
 pub mod camera;
 pub mod color;
+pub mod component_buffer;
 pub mod depth_buffer;
 pub mod frame_manager;
 pub mod gpu;
@@ -18,4 +19,3 @@ pub mod sprite_sheet;
 #[cfg(feature = "text")]
 pub mod text;
 pub mod uniform;
-pub mod component_buffer;

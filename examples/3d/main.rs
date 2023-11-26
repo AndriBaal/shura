@@ -30,13 +30,14 @@ fn setup(ctx: &mut Context) {
         })
         .collect::<Vec<_>>();
     ctx.entities.add_many(ctx.world, cubes);
-    // ctx.entities.add(ctx.world, Resources::new(ctx));
 
     let gpu = ctx.gpu.clone();
-    ctx.tasks
-        .spawn_async(async move { Resources::new(&gpu).await }, |ctx, res| {
+    ctx.tasks.spawn(
+        move || Resources::new(&gpu),
+        |ctx, res| {
             ctx.entities.add(ctx.world, res);
-        });
+        },
+    );
 }
 
 fn update(ctx: &mut Context) {
@@ -101,26 +102,30 @@ struct Resources {
 }
 
 impl Resources {
-    pub async fn new(gpu: &Gpu) -> Self {
+    pub fn new(gpu: &Gpu) -> Self {
         Self {
-            model: gpu.create_model(ModelBuilder::file("3d/cube/cube.obj").await),
+            model: gpu.create_model(ModelBuilder::bytes(
+                include_str_res!("3d/cube/cube.obj"),
+                &[("cube.mtl", include_str_res!("3d/cube/cube.mtl"))],
+                &[(
+                    "cobble-diffuse.png",
+                    include_bytes_res!("3d/cube/cobble-diffuse.png"),
+                )],
+            )),
         }
     }
 }
 
 #[derive(Entity)]
 struct Cube {
-    #[shura(component="cube")]
+    #[shura(component = "cube")]
     position: PositionComponent3D,
-    #[shura(component="cube")]
-    position1: PositionComponent3D,
 }
 
 impl Cube {
     pub fn new(position: Vector3<f32>) -> Cube {
         Cube {
             position: PositionComponent3D::new().with_translation(position), // .with_scaling(Vector3::new(0.001, 0.001, 0.001)),
-            position1: PositionComponent3D::new().with_translation(position + Vector3::new(0.1, 0.1, 0.1)), // .with_scaling(Vector3::new(0.001, 0.001, 0.001)),
         }
     }
 }

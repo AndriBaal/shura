@@ -1,10 +1,10 @@
-use shura::{log, rand, text::*, *};
+use shura::{log, rand, *};
 
 #[shura::main]
 fn shura_main(config: AppConfig) {
     App::run(config, || {
         NewScene::new(1)
-            .component("bunny", BufferConfig::Manual)
+            .component::<Instance2D>("bunny", BufferConfig::EveryFrame)
             .entity::<Bunny>(EntityConfig::DEFAULT)
             .entity::<Resources>(EntityConfig::RESOURCE)
             .system(System::Update(update))
@@ -46,17 +46,17 @@ fn update(ctx: &mut Context) {
         }
     }
 
-    resources.text.write(
-        &ctx.gpu,
-        &[text::TextSection {
-            color: Color::RED,
-            text: format!("FPS: {}\nBunnies: {}", ctx.frame.fps(), bunnies.len()),
-            size: 0.05,
-            horizontal_alignment: text::TextAlignment::End,
-            vertical_alignment: text::TextAlignment::End,
-            ..Default::default()
-        }],
-    );
+    gui::Window::new("bunnymark")
+        .anchor(gui::Align2::LEFT_TOP, gui::Vec2::default())
+        .resizable(false)
+        .collapsible(false)
+        .show(ctx.gui, |ui| {
+            ui.label(format!("FPS: {}", ctx.frame.fps()));
+            ui.label(format!("Bunnies: {}", bunnies.len()));
+            if ui.button("Clear Bunnies").clicked() {
+                bunnies.remove_all(ctx.world);
+            }
+        });
 
     if let Some(screenshot) = resources.screenshot.take() {
         log::info!("Saving Screenshot!");
@@ -67,7 +67,7 @@ fn update(ctx: &mut Context) {
 
     let frame = ctx.frame.frame_time();
     let fov = ctx.world_camera2d.fov();
-    bunnies.buffer_with(ctx.world, &ctx.gpu, |bunny| {
+    bunnies.for_each_mut(|bunny| {
         let mut linvel = bunny.linvel;
         let mut translation = bunny.position.translation();
 
@@ -107,13 +107,6 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
                     &resources.bunny_sprite,
                 );
             });
-
-            renderer.render_text(
-                0..1,
-                ctx.centered_instance,
-                ctx.relative_top_right_camera,
-                &resources.text,
-            );
         },
     );
 
@@ -126,42 +119,25 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
 struct Resources {
     screenshot: Option<SpriteRenderTarget>,
     bunny_sprite: Sprite,
-    text: Text,
 }
 
 impl Resources {
     pub fn new(ctx: &Context) -> Self {
         let bunny_sprite = ctx
             .gpu
-            .create_sprite(SpriteBuilder::bytes(include_bytes_res!("bunnymark/wabbit.png")));
-        let font = ctx
-            .gpu
-            .create_font(FontBuilder::bytes(include_bytes_res!("bunnymark/novem.ttf")));
+            .create_sprite(SpriteBuilder::bytes(include_bytes_res!(
+                "bunnymark/wabbit.png"
+            )));
         Resources {
             screenshot: None,
             bunny_sprite,
-            text: ctx.gpu.create_text(
-                &font,
-                &[text::TextSection {
-                    color: Color::RED,
-                    text: format!(
-                        "FPS: {}\nBunnies: {}",
-                        ctx.frame.fps(),
-                        ctx.entities.set::<Bunny>().len()
-                    ),
-                    size: 0.05,
-                    horizontal_alignment: text::TextAlignment::End,
-                    vertical_alignment: text::TextAlignment::End,
-                    ..Default::default()
-                }],
-            ),
         }
     }
 }
 
 #[derive(Entity)]
 struct Bunny {
-    #[shura(component="bunny")]
+    #[shura(component = "bunny")]
     position: PositionComponent2D,
     linvel: Vector2<f32>,
     handle: EntityHandle,

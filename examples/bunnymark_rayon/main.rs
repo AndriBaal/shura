@@ -4,7 +4,7 @@ use shura::{log, rand, text::*, *};
 fn shura_main(config: AppConfig) {
     App::run(config, || {
         NewScene::new(1)
-            .component::<Instance2D>("bunny", BufferConfig::EveryFrame)
+            .component::<Instance2D>("bunny", BufferConfig::Manual)
             .entity::<Bunny>(EntityConfig::DEFAULT)
             .entity::<Resources>(EntityConfig::RESOURCE)
             .system(System::Update(update))
@@ -67,7 +67,9 @@ fn update(ctx: &mut Context) {
 
     let frame = ctx.frame.frame_time();
     let fov = ctx.world_camera2d.fov();
-    bunnies.for_each_mut(|bunny| {
+    let buffer = ctx.component_buffers.get_mut("bunny").unwrap();
+    buffer.set_update_buffer(true);
+    buffer.par_push_from_entities_mut(ctx.world, &mut bunnies, |bunny| {
         let mut linvel = bunny.linvel;
         let mut translation = bunny.position.translation();
 
@@ -90,6 +92,7 @@ fn update(ctx: &mut Context) {
         }
         bunny.linvel = linvel;
         bunny.position.set_translation(translation);
+        &bunny.position
     });
 }
 

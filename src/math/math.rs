@@ -4,7 +4,6 @@ pub use nalgebra::{
     UnitVector2, UnitVector3, Vector2, Vector3, Vector4,
 };
 
-
 pub const fn vector2<T>(x: T, y: T) -> Vector2<T> {
     return Vector2::new(x, y);
 }

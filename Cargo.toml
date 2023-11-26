@@ -15,7 +15,7 @@ categories = [
     "game-engines",
     "game-development",
 ]
-exclude = ["docs", "macro"]
+exclude = ["docs", "macro", "template"]
 
 [features]
 animation = []
@@ -45,8 +45,8 @@ default = [
     "text",
     "audio",
     "physics",
-    # "serde",
-    # "gui",
+    "serde",
+    "gui",
     "log",
     "rayon",
     "framebuffer",

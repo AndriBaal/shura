@@ -25,7 +25,8 @@ fn render(res: &ComponentResources, encoder: &mut RenderEncoder) {
 }
 
 fn setup(ctx: &mut Context) {
-    ctx.world_camera2d.set_scaling(WorldCameraScaling::Min(10.0));
+    ctx.world_camera2d
+        .set_scaling(WorldCameraScaling::Min(10.0));
     let mut mesh_tests = ctx.components.set_mut::<MeshTest>();
     mesh_tests.add(
         ctx.world,
@@ -86,7 +87,8 @@ fn setup(ctx: &mut Context) {
         ctx.world,
         MeshTest::new(
             Vector2::new(-3.0, 1.0),
-            ctx.gpu.create_mesh(&MeshBuilder2D::regular_polygon(0.5, 32)),
+            ctx.gpu
+                .create_mesh(&MeshBuilder2D::regular_polygon(0.5, 32)),
             Color::NAVY,
         ),
     );

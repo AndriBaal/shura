@@ -28,9 +28,9 @@ pub use crate::{
         entity_type::*, group::*, position_component::*,
     },
     graphics::{
-        camera::*, color::*, depth_buffer::*, frame_manager::*, gpu::*, instance_buffer::*,
-        model::*, render_encoder::*, render_target::*, renderer::*, resources::*, screen_config::*,
-        shader::*, sprite::*, sprite_sheet::*, uniform::*, component_buffer::*
+        camera::*, color::*, component_buffer::*, depth_buffer::*, frame_manager::*, gpu::*,
+        instance_buffer::*, model::*, render_encoder::*, render_target::*, renderer::*,
+        resources::*, screen_config::*, shader::*, sprite::*, sprite_sheet::*, uniform::*,
     },
     input::input::{Input, InputEvent, InputTrigger, Key, Modifier, MouseButton, ScreenTouch},
     math::{aabb::*, math::*},
@@ -71,10 +71,10 @@ pub use world::world::World;
 /// Access to the to [rapier2d](https://github.com/dimforge/rapier)
 pub mod physics {
     pub use crate::world::{
-        // character_controller_component::*,
-        world::*,
         collider_component::*,
         rigid_body_component::*,
+        // character_controller_component::*,
+        world::*,
     };
     pub use rapier2d::control::{
         CharacterAutostep, CharacterCollision, CharacterLength, EffectiveCharacterMovement,

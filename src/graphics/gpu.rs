@@ -429,8 +429,9 @@ impl DefaultResources {
             name: Some("sprite_sheet"),
             source: ShaderModuleSoure::Seperate {
                 vertex: &gpu.base.vertex_shader_module,
-                fragment: &gpu
-                    .create_shader_module(include_wgsl!("../../static/shader/2d/sprite_sheet.wgsl")),
+                fragment: &gpu.create_shader_module(include_wgsl!(
+                    "../../static/shader/2d/sprite_sheet.wgsl"
+                )),
             },
             uniforms: &[UniformField::Camera, UniformField::SpriteSheet],
             ..Default::default()
@@ -510,7 +511,8 @@ impl DefaultResources {
             name: Some("grey"),
             source: ShaderModuleSoure::Seperate {
                 vertex: &gpu.base.vertex_shader_module,
-                fragment: &gpu.create_shader_module(include_wgsl!("../../static/shader/2d/grey.wgsl")),
+                fragment: &gpu
+                    .create_shader_module(include_wgsl!("../../static/shader/2d/grey.wgsl")),
             },
             uniforms: &[UniformField::Camera, UniformField::Sprite],
             ..Default::default()

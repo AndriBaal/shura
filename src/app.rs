@@ -449,8 +449,8 @@ impl App {
     }
 
     fn render(&mut self, _scene_id: u32, scene: &mut Scene) {
-        scene.entities.buffer(&mut scene.components, &scene.world);
-        scene.components.apply_buffers(&self.gpu);
+        scene.entities.buffer(&mut scene.component_buffers, &scene.world);
+        scene.component_buffers.apply_buffers(&self.gpu);
         self.defaults
             .world_camera2d
             .write(&self.gpu, &scene.world_camera2d);

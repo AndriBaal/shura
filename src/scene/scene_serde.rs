@@ -1,11 +1,12 @@
-use std::{any::Any, cell::RefCell, sync::Arc};
+#[allow(private_interfaces)]
 
+use std::{any::Any, cell::RefCell, sync::Arc};
 use rustc_hash::FxHashMap;
 
 use crate::{
-    App, Context, Entity, EntityConfig, EntityManager, EntityType, EntityTypeGroup, EntityTypeId,
-    EntityTypeImplementation, EntityTypeStorage, Gpu, Group, GroupHandle, GroupManager, Scene,
-    SceneCreator, System, World, GLOBAL_GPU,
+    App, ComponentBufferImpl, Context, Entity, EntityManager,
+    EntityType, EntityTypeGroup, EntityTypeId, EntityTypeImplementation, EntityTypeStorage, Gpu,
+    Group, GroupHandle, GroupManager, Scene, SceneCreator, System, World, GLOBAL_GPU,
 };
 
 pub fn gpu() -> Arc<Gpu> {
@@ -42,6 +43,7 @@ pub struct SerializedScene {
     systems: Vec<System>,
     entities: Vec<Box<RefCell<dyn EntityTypeImplementation>>>,
     ser_entities: FxHashMap<EntityTypeId, Vec<u8>>,
+    component_buffers: FxHashMap<&'static str, Box<dyn ComponentBufferImpl>>,
 }
 
 impl SerializedScene {
@@ -54,18 +56,8 @@ impl SerializedScene {
             ser_entities,
             systems: Default::default(),
             entities: Default::default(),
+            component_buffers: Default::default(),
         }
-    }
-
-    pub fn entity<E: Entity>(mut self, config: EntityConfig) -> Self {
-        self.entities
-            .push(Box::new(RefCell::new(EntityType::<E>::new(config))));
-        self
-    }
-
-    pub fn system(mut self, system: System) -> Self {
-        self.systems.push(system);
-        self
     }
 
     pub fn deserialize<E: serde::de::DeserializeOwned + Entity>(mut self) -> Self {
@@ -79,12 +71,26 @@ impl SerializedScene {
     }
 }
 
+#[allow(private_interfaces)]
 impl SceneCreator for SerializedScene {
     fn new_id(&self) -> u32 {
         self.id
     }
 
+    fn systems(&mut self) -> &mut Vec<System> {
+        &mut self.systems
+    }
+
+    fn entities(&mut self) -> &mut Vec<Box<RefCell<dyn EntityTypeImplementation>>> {
+        &mut self.entities
+    }
+
+    fn components(&mut self) -> &mut FxHashMap<&'static str, Box<dyn ComponentBufferImpl>> {
+        &mut self.component_buffers
+    }
+
     fn create(mut self: Box<Self>, app: &mut App) -> Scene {
+        self.scene.component_buffers.init(self.component_buffers);
         self.scene.entities.init(&app.globals, self.entities);
         self.scene.systems.init(&self.systems);
         let (_, mut ctx) = Context::new(&self.id, app, &mut self.scene);

@@ -5,10 +5,10 @@ use shura::*;
 fn shura_main(config: AppConfig) {
     App::run(config, || {
         NewScene::new(1)
-        .component::<Instance2D>("player", BufferConfig::EveryFrame)
-        .component::<Instance2D>("floor", BufferConfig::EveryFrame)
-        .component::<Instance2D>("box", BufferConfig::EveryFrame)
-        .entity::<Floor>(EntityConfig::SINGLE)
+            .component::<Instance2D>("player", BufferConfig::EveryFrame)
+            .component::<Instance2D>("floor", BufferConfig::Manual)
+            .component::<Instance2D>("box", BufferConfig::EveryFrame)
+            .entity::<Floor>(EntityConfig::SINGLE)
             .entity::<Player>(EntityConfig::SINGLE)
             .entity::<PhysicsBox>(EntityConfig::DEFAULT)
             .entity::<Resources>(EntityConfig::RESOURCE)
@@ -187,7 +187,7 @@ impl Resources {
 
 #[derive(Entity)]
 struct Player {
-    #[shura(component="player")]
+    #[shura(component = "player")]
     body: RigidBodyComponent,
 }
 

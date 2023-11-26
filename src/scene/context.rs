@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::{
     App, DefaultResources, EntityManager, FrameManager, Gpu, GroupManager, Input, Point2, Scene,
     SceneManager, ScreenConfig, SystemManager, TaskManager, Vector2, World, WorldCamera2D,
-    WorldCamera3D,
+    WorldCamera3D, ComponentBufferManager,
 };
 
 #[cfg(feature = "serde")]
@@ -32,6 +32,7 @@ pub struct Context<'a> {
     pub groups: &'a mut GroupManager,
     pub world: &'a mut World,
     pub tasks: &'a mut TaskManager,
+    pub component_buffers: &'a mut ComponentBufferManager,
 
     // App
     pub frame: &'a FrameManager,
@@ -74,6 +75,7 @@ impl<'a> Context<'a> {
                 groups: &mut scene.groups,
                 world: &mut scene.world,
                 tasks: &mut scene.tasks,
+                component_buffers: &mut scene.component_buffers,
 
                 // App
                 frame: &app.frame,
@@ -174,7 +176,3 @@ impl<'a> Context<'a> {
         deserialize.finish(self)
     }
 }
-
-
-
-

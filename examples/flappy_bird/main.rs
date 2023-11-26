@@ -207,7 +207,8 @@ impl FlappyManager {
                     .vertex_translation(Vector2::new(
                         0.0,
                         -Pipe::HALF_HOLE_SIZE - Pipe::HALF_EXTENTS.y,
-                    )).apply()
+                    ))
+                    .apply()
                     .apply(),
             ),
             point_sink: audio.create_sink(),
@@ -310,9 +311,11 @@ struct Background {
 
 impl Background {
     pub fn new(ctx: &Context) -> Self {
-        let sprite = ctx.gpu.create_sprite(SpriteBuilder::bytes(include_bytes_res!(
-            "flappy_bird/sprites/background-night.png"
-        )));
+        let sprite = ctx
+            .gpu
+            .create_sprite(SpriteBuilder::bytes(include_bytes_res!(
+                "flappy_bird/sprites/background-night.png"
+            )));
         Self {
             mesh: ctx.gpu.create_mesh(&MeshBuilder2D::cuboid(GAME_SIZE)),
             sprite,

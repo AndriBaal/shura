@@ -1,4 +1,5 @@
-use crate::{Entity, Gpu, Instance, InstanceBuffer, Component, World, EntitySetMut};
+use crate::{Component, Entity, EntitySet, EntitySetMut, Gpu, Instance, InstanceBuffer, World};
+
 use downcast_rs::{impl_downcast, Downcast};
 use rustc_hash::FxHashMap;
 
@@ -32,18 +33,32 @@ impl<I: Instance> ComponentBuffer<I> {
         }
     }
 
-    pub fn push_components_from_entities<'a, E: Entity, C: Component<Instance = I>>(
+    pub fn push_from_entities<'a, E: Entity, C: Component<Instance = I>>(
         &mut self,
         world: &World,
-        entites: impl Iterator<Item = &'a E>,
+        entites: &EntitySet<'a, E>,
         each: impl Fn(&E) -> &C,
     ) {
-        for entity in entites {
+        entites.for_each(|entity| {
             let component = (each)(entity);
             if component.active() {
                 self.data.push(component.instance(world));
             }
-        }
+        });
+    }
+
+    pub fn push_from_entities_mut<'a, E: Entity, C: Component<Instance = I>>(
+        &mut self,
+        world: &World,
+        entites: &mut EntitySetMut<'a, E>,
+        each: impl Fn(&E) -> &C,
+    ) {
+        entites.for_each_mut(|entity| {
+            let component = (each)(entity);
+            if component.active() {
+                self.data.push(component.instance(world));
+            }
+        });
     }
 
     pub fn push(&mut self, instance: I) {
@@ -60,6 +75,27 @@ impl<I: Instance> ComponentBuffer<I> {
 
     pub fn set_update_buffer(&mut self, update_buffer: bool) {
         self.update_buffer = update_buffer;
+    }
+}
+
+#[cfg(feature = "rayon")]
+impl<I: Instance + Send + Sync> ComponentBuffer<I> {
+    pub fn par_push_from_entities<'a, E: Entity + Send + Sync, C: Component<Instance = I>>(
+        &mut self,
+        world: &World,
+        entites: &EntitySet<'a, E>,
+        each: impl Fn(&E) -> &C + Send + Sync,
+    ) {
+        entites.par_for_each_collect(world, each, &mut self.data);
+    }
+
+    pub fn par_push_from_entities_mut<'a, E: Entity + Send + Sync, C: Component<Instance = I>>(
+        &mut self,
+        world: &World,
+        entites: &mut EntitySetMut<'a, E>,
+        each: impl Fn(&mut E) -> &C + Send + Sync,
+    ) {
+        entites.par_for_each_collect_mut(world, each, &mut self.data);
     }
 }
 

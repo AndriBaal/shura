@@ -108,6 +108,7 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
 
     let components = components(&data_struct, "component");
     let names_init = components.iter().map(|&(ref first, ..)| first);
+    let names_components = names_init.clone();
     let names_finish = names_init.clone();
 
     let buffer = components
@@ -116,7 +117,7 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
             if let Some(component_name) = component_name {
                 quote! {
                     let buffer = buffers.get_mut::<<#component_type as shura::Component> ::Instance>(#component_name).unwrap();
-                    buffer.push_components_from_entities(world, entities, |e| &e.#field_name);
+                    buffer.par_push_from_entities(world, &entities, |e| &e.#field_name);
                 }
             } else {
                 quote!()
@@ -135,11 +136,15 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
 
         impl #impl_generics ::shura::Entity for #struct_name #ty_generics #where_clause {
             fn buffer<'a>(
-                entities: ::shura::EntityIter<'a, Self>,
+                entities: ::shura::EntitySet<'a, Self>,
                 buffers: &mut ::shura::ComponentBufferManager,
                 world: &::shura::World,
             ) {
                 #( #buffer )*
+            }
+
+            fn components(&self) -> Vec<&dyn std::any::Any> {
+                vec![ #( &self.#names_components as &dyn std::any::Any, )* ]
             }
 
             fn init(&mut self, handle: ::shura::EntityHandle, world: &mut ::shura::World) {

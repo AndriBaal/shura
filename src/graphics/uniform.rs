@@ -1,7 +1,6 @@
 use crate::Gpu;
 use std::marker::PhantomData;
 
-
 #[derive(Debug)]
 pub struct Uniform<T: bytemuck::Pod> {
     buffer: wgpu::Buffer,
