@@ -39,7 +39,7 @@ impl SceneManager {
     }
 
     pub fn scene_ids(&self) -> impl Iterator<Item = &u32> {
-        self.scenes.keys().into_iter()
+        self.scenes.keys()
     }
 
     pub const fn active_scene_id(&self) -> u32 {
@@ -63,10 +63,8 @@ impl SceneManager {
     }
 
     pub(crate) fn get_active_scene(&mut self) -> Rc<RefCell<Scene>> {
-        return self.try_get_active_scene().expect(&format!(
-            "Cannot find the currently active scene {}!",
-            self.active_scene_id
-        ));
+        self.try_get_active_scene().unwrap_or_else(|| panic!("Cannot find the currently active scene {}!",
+            self.active_scene_id))
     }
 
     pub(crate) fn try_get_active_scene(&mut self) -> Option<Rc<RefCell<Scene>>> {
@@ -77,9 +75,9 @@ impl SceneManager {
                 self.scene_switched = true;
             }
             self.last_active = Some(self.active_scene_id);
-            return Some(scene.clone());
+            Some(scene.clone())
         } else {
-            return None;
+            None
         }
     }
 }

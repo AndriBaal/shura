@@ -56,24 +56,24 @@ impl AABB {
             }
         }
 
-        return Self {
+        Self {
             min: Vector2::new(min_x, min_y),
             max: Vector2::new(max_x, max_y),
-        };
+        }
     }
 
     pub fn from_position(half_extents: Vector2<f32>, position: Isometry2<f32>) -> Self {
-        return Self {
+        Self {
             min: -half_extents,
             max: half_extents,
         }
-        .with_position(position);
+        .with_position(position)
     }
 
     pub fn with_translation(mut self, translation: Vector2<f32>) -> Self {
         self.min += translation;
         self.max += translation;
-        return self;
+        self
     }
 
     pub fn with_position(mut self, position: Isometry2<f32>) -> Self {
@@ -96,7 +96,7 @@ impl AABB {
             self.max = Vector2::new(*xs.last().unwrap(), *ys.last().unwrap());
         }
 
-        return self;
+        self
     }
 
     pub fn contains_point(&self, point: &Vector2<f32>) -> bool {

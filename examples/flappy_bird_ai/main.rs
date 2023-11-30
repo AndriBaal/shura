@@ -15,15 +15,18 @@ const AMOUNT_BIRDS: u32 = 1000;
 fn shura_main(config: AppConfig) {
     App::run(config, || {
         NewScene::new(1)
-            .component::<Background>(ComponentConfig {
+            .component("ground", BufferConfig::Manual)
+            .component("pipe", BufferConfig::EveryFrame)
+            .component("bird", BufferConfig::EveryFrame)
+            .entity::<Background>(ComponentConfig {
                 buffer: BufferConfig::Manual,
                 storage: ComponentStorage::Single,
                 ..ComponentConfig::DEFAULT
             })
-            .component::<Ground>(ComponentConfig::SINGLE)
-            .component::<Pipe>(ComponentConfig::DEFAULT)
-            .component::<Bird>(ComponentConfig::DEFAULT)
-            .component::<BirdSimulation>(ComponentConfig::RESOURCE)
+            .entity::<Ground>(ComponentConfig::SINGLE)
+            .entity::<Pipe>(ComponentConfig::DEFAULT)
+            .entity::<Bird>(ComponentConfig::DEFAULT)
+            .entity::<BirdSimulation>(ComponentConfig::RESOURCE)
             .system(System::Update(update))
             .system(System::Setup(setup))
             .system(System::Render(render))
@@ -178,52 +181,52 @@ fn update(ctx: &mut Context) {
         });
 }
 
-fn render(res: &ComponentResources, encoder: &mut RenderEncoder) {
-    let simulation = res.single::<BirdSimulation>();
+fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
+    let simulation = ctx.single::<BirdSimulation>();
     encoder.render2d(
         Some(RgbaColor::new(220, 220, 220, 255).into()),
         |renderer| {
-            res.render_single::<Background>(renderer, |renderer, background, buffer, instance| {
+            ctx.render_single::<Background>(renderer, |renderer, background, buffer, instance| {
                 renderer.render_sprite(
                     instance,
                     buffer,
-                    res.world_camera2d,
+                    ctx.world_camera2d,
                     &background.mesh,
                     &background.sprite,
                 )
             });
 
-            res.render_single::<Ground>(renderer, |renderer, ground, buffer, instance| {
+            ctx.render_single::<Ground>(renderer, |renderer, ground, buffer, instance| {
                 renderer.render_sprite(
                     instance,
                     buffer,
-                    res.world_camera2d,
+                    ctx.world_camera2d,
                     &ground.mesh,
                     &ground.sprite,
                 )
             });
-            res.render_all::<Pipe>(renderer, |renderer, buffer, instances| {
+            ctx.render_all::<Pipe>(renderer, |renderer, buffer, instances| {
                 renderer.render_sprite(
                     instances,
                     buffer,
-                    res.world_camera2d,
+                    ctx.world_camera2d,
                     &simulation.top_pipe_mesh,
                     &simulation.pipe_sprite,
                 );
                 renderer.render_sprite(
                     instances,
                     buffer,
-                    res.world_camera2d,
+                    ctx.world_camera2d,
                     &simulation.bottom_pipe_mesh,
                     &simulation.pipe_sprite,
                 );
             });
 
-            res.render_all::<Bird>(renderer, |renderer, buffer, instance| {
+            ctx.render_all::<Bird>(renderer, |renderer, buffer, instance| {
                 renderer.render_sprite(
                     instance,
                     buffer,
-                    res.world_camera2d,
+                    ctx.world_camera2d,
                     &simulation.bird_mesh,
                     &simulation.bird_sprite,
                 )
@@ -232,7 +235,7 @@ fn render(res: &ComponentResources, encoder: &mut RenderEncoder) {
     );
 }
 
-#[derive(Component)]
+#[derive(Entity)]
 struct BirdSimulation {
     bird_mesh: Mesh2D,
     bird_sprite: Sprite,
@@ -291,7 +294,7 @@ impl BirdSimulation {
     }
 }
 
-#[derive(Component)]
+#[derive(Entity)]
 struct Bird {
     #[shura(instance)]
     pos: PositionInstance2D,
@@ -319,7 +322,7 @@ impl Bird {
     }
 }
 
-#[derive(Component)]
+#[derive(Entity)]
 struct Ground {
     mesh: Mesh2D,
     sprite: Sprite,
@@ -345,7 +348,7 @@ impl Ground {
     }
 }
 
-#[derive(Component)]
+#[derive(Entity)]
 struct Background {
     mesh: Mesh2D,
     sprite: Sprite,
@@ -368,7 +371,7 @@ impl Background {
     }
 }
 
-#[derive(Component)]
+#[derive(Entity)]
 struct Pipe {
     #[shura(instance)]
     pos: PositionInstance2D,

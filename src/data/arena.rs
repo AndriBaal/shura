@@ -69,7 +69,7 @@ impl<T> Arena<T> {
         match self.try_alloc_next_index() {
             None => Err(data),
             Some(index) => {
-                self.items[index.index as usize] = ArenaEntry::Occupied {
+                self.items[index.index] = ArenaEntry::Occupied {
                     generation: self.generation,
                     data,
                 };
@@ -86,7 +86,7 @@ impl<T> Arena<T> {
         match self.try_alloc_next_index() {
             None => Err(create),
             Some(index) => {
-                self.items[index.index as usize] = ArenaEntry::Occupied {
+                self.items[index.index] = ArenaEntry::Occupied {
                     generation: self.generation,
                     data: create(index),
                 };
@@ -98,7 +98,7 @@ impl<T> Arena<T> {
     fn try_alloc_next_index(&mut self) -> Option<ArenaIndex> {
         match self.free_list_head {
             None => None,
-            Some(i) => match self.items[i as usize] {
+            Some(i) => match self.items[i] {
                 ArenaEntry::Free { next_free } => {
                     self.free_list_head = next_free;
                     self.len += 1;
@@ -162,10 +162,10 @@ impl<T> Arena<T> {
             return None;
         }
 
-        match self.items[i.index as usize] {
+        match self.items[i.index] {
             ArenaEntry::Occupied { generation, .. } if i.generation == generation => {
                 let entry = mem::replace(
-                    &mut self.items[i.index as usize],
+                    &mut self.items[i.index],
                     ArenaEntry::Free {
                         next_free: self.free_list_head,
                     },
@@ -191,7 +191,7 @@ impl<T> Arena<T> {
     }
 
     pub fn get(&self, i: ArenaIndex) -> Option<&T> {
-        match self.items.get(i.index as usize) {
+        match self.items.get(i.index) {
             Some(ArenaEntry::Occupied { generation, data }) if *generation == i.generation => {
                 Some(data)
             }
@@ -200,7 +200,7 @@ impl<T> Arena<T> {
     }
 
     pub fn get_mut(&mut self, i: ArenaIndex) -> Option<&mut T> {
-        match self.items.get_mut(i.index as usize) {
+        match self.items.get_mut(i.index) {
             Some(ArenaEntry::Occupied { generation, data }) if *generation == i.generation => {
                 Some(data)
             }
@@ -306,8 +306,8 @@ impl<T> Arena<T> {
 
     pub fn get2_mut(&mut self, i1: ArenaIndex, i2: ArenaIndex) -> (Option<&mut T>, Option<&mut T>) {
         let len = self.items.len();
-        let i1_index = i1.index as usize;
-        let i2_index = i2.index as usize;
+        let i1_index = i1.index;
+        let i2_index = i2.index;
 
         assert!(i1_index != i2_index);
         assert!(i1_index < len);
@@ -365,7 +365,7 @@ impl<'a, T> Iterator for ArenaIter<'a, T> {
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             match self.base.next() {
-                Some(&ArenaEntry::Occupied { ref data, .. }) => {
+                Some(ArenaEntry::Occupied { data, .. }) => {
                     self.len -= 1;
                     return Some(data);
                 }
@@ -387,7 +387,7 @@ impl<'a, T> DoubleEndedIterator for ArenaIter<'a, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
         loop {
             match self.base.next_back() {
-                Some(&ArenaEntry::Occupied { ref data, .. }) => {
+                Some(ArenaEntry::Occupied { data, .. }) => {
                     self.len -= 1;
                     return Some(data);
                 }
@@ -603,7 +603,7 @@ impl<'a, T> Iterator for ArenaIterWithIndex<'a, T> {
                 )) => {
                     self.len -= 1;
                     let idx = ArenaIndex {
-                        index: index,
+                        index,
                         generation,
                     };
                     return Some((idx, data));
@@ -635,7 +635,7 @@ impl<'a, T> DoubleEndedIterator for ArenaIterWithIndex<'a, T> {
                 )) => {
                     self.len -= 1;
                     let idx = ArenaIndex {
-                        index: index,
+                        index,
                         generation,
                     };
                     return Some((idx, data));
@@ -678,7 +678,7 @@ impl<'a, T> Iterator for ArenaIterWithIndexMut<'a, T> {
                 )) => {
                     self.len -= 1;
                     let idx = ArenaIndex {
-                        index: index,
+                        index,
                         generation,
                     };
                     return Some((idx, data));
@@ -710,7 +710,7 @@ impl<'a, T> DoubleEndedIterator for ArenaIterWithIndexMut<'a, T> {
                 )) => {
                     self.len -= 1;
                     let idx = ArenaIndex {
-                        index: index,
+                        index,
                         generation,
                     };
                     return Some((idx, data));

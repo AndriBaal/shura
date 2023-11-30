@@ -9,10 +9,10 @@ pub struct AudioManager {
 impl AudioManager {
     pub(crate) fn new() -> Self {
         let (output_stream, output_handle) = rodio::OutputStream::try_default().unwrap();
-        return Self {
+        Self {
             output_stream,
             output_handle,
-        };
+        }
     }
 
     pub fn play_once(&self, sound: &Sound) {
@@ -33,6 +33,6 @@ impl AudioManager {
     }
 
     pub fn create_sound(&self, bytes: &'static [u8]) -> Sound {
-        return Sound::new(bytes);
+        Sound::new(bytes)
     }
 }

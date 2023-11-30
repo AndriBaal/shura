@@ -2,7 +2,7 @@ use shura::{log::*, physics::*, serde, *};
 
 #[shura::main]
 fn shura_main(config: AppConfig) {
-    if let Some(save_game) = std::fs::read("data.binc").ok() {
+    if let Ok(save_game) = load_data_bytes("data.binc") {
         App::run(config, move || {
             serde::SerializedScene::new(1, &save_game)
                 .component::<Instance2D>("player", BufferConfig::EveryFrame)
@@ -65,7 +65,7 @@ fn update(ctx: &mut Context) {
     }
 
     if ctx.input.is_pressed(Key::R) {
-        if let Some(save_game) = std::fs::read("data.binc").ok() {
+        if let Ok(save_game) = load_data_bytes("data.binc") {
             ctx.scenes.add(
                 serde::SerializedScene::new(1, &save_game)
                     .component::<Instance2D>("player", BufferConfig::EveryFrame)
@@ -113,7 +113,7 @@ fn update(ctx: &mut Context) {
     }
 
     let delta = ctx.frame.frame_time();
-    let cursor_world: Point2<f32> = (ctx.cursor).into();
+    let cursor_world: Point2<f32> = ctx.cursor;
     let remove = ctx.input.is_held(MouseButton::Left) || ctx.input.is_pressed(ScreenTouch);
     boxes.for_each_mut(|physics_box| {
         if *physics_box.body.color() == Color::RED {
@@ -210,7 +210,7 @@ fn serialize_scene(ctx: &mut Context) {
             s.serialize::<PhysicsBox>();
         })
         .unwrap();
-    std::fs::write("data.binc", ser).expect("Unable to write file");
+    save_data("data.binc", ser).unwrap();
 }
 
 #[derive(Entity)]

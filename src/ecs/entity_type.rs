@@ -74,127 +74,8 @@ impl<E: Entity> EntityTypeGroup<E> {
             entities: Default::default(),
         }
     }
-
-    // fn buffer(&mut self, gpu: &Gpu, config: &EntityConfig, world: &World) {
-    //     if config.buffer == BufferConfig::EveryFrame || self.force_buffer {
-    //         self.force_buffer = false;
-    //         let instances = self
-    //             .entities
-    //             .iter()
-    //             .filter_map(|entity| {
-    //                 if entity.component().active() {
-    //                     Some(entity.component().instance(world))
-    //                 } else {
-    //                     None
-    //                 }
-    //             })
-    //             .collect::<Vec<<E::Component as Component>::Instance>>();
-
-    //         if let Some(buffer) = self.buffer.as_mut() {
-    //             buffer.write(gpu, &instances);
-    //         } else {
-    //             self.buffer = Some(gpu.create_instance_buffer(&instances));
-    //         }
-    //     }
-    // }
-
-    // fn buffer_with(
-    //     &mut self,
-    //     gpu: &Gpu,
-    //     config: &EntityConfig,
-    //     world: &World,
-    //     mut each: impl FnMut(&mut E),
-    // ) {
-    //     if config.buffer == BufferConfig::EveryFrame || self.force_buffer {
-    //         self.force_buffer = false;
-    //         let instances = self
-    //             .entities
-    //             .iter_mut()
-    //             .filter_map(|entity| {
-    //                 (each)(entity);
-    //                 if entity.component().active() {
-    //                     Some(entity.component().instance(world))
-    //                 } else {
-    //                     None
-    //                 }
-    //             })
-    //             .collect::<Vec<<E::Component as Component>::Instance>>();
-
-    //         if let Some(buffer) = self.buffer.as_mut() {
-    //             buffer.write(gpu, &instances);
-    //         } else {
-    //             self.buffer = Some(gpu.create_instance_buffer(&instances));
-    //         }
-    //     }
-    // }
 }
 
-// #[cfg(feature = "rayon")]
-// impl<E: Entity + Send + Sync> EntityTypeGroup<E>
-// where
-//     <E::Component as Component>::Instance: Send,
-// {
-//     fn par_buffer(&mut self, gpu: &Gpu, config: &EntityConfig, world: &World) {
-//         if config.buffer == BufferConfig::EveryFrame || self.force_buffer {
-//             self.force_buffer = false;
-//             let instances = self
-//                 .entities
-//                 .items
-//                 .par_iter_mut()
-//                 .filter_map(|entity| match entity {
-//                     ArenaEntry::Free { .. } => None,
-//                     ArenaEntry::Occupied { data, .. } => {
-//                         if data.component().active() {
-//                             Some(data.component().instance(world))
-//                         } else {
-//                             None
-//                         }
-//                     }
-//                 })
-//                 .collect::<Vec<<E::Component as Component>::Instance>>();
-
-//             if let Some(buffer) = self.buffer.as_mut() {
-//                 buffer.write(gpu, &instances);
-//             } else {
-//                 self.buffer = Some(gpu.create_instance_buffer(&instances));
-//             }
-//         }
-//     }
-
-//     fn par_buffer_with(
-//         &mut self,
-//         gpu: &Gpu,
-//         config: &EntityConfig,
-//         world: &World,
-//         each: impl Fn(&mut E) + Send + Sync,
-//     ) {
-//         if config.buffer == BufferConfig::EveryFrame || self.force_buffer {
-//             self.force_buffer = false;
-//             let instances = self
-//                 .entities
-//                 .items
-//                 .par_iter_mut()
-//                 .filter_map(|entity| match entity {
-//                     ArenaEntry::Free { .. } => None,
-//                     ArenaEntry::Occupied { data, .. } => {
-//                         (each)(data);
-//                         if data.component().active() {
-//                             Some(data.component().instance(world))
-//                         } else {
-//                             None
-//                         }
-//                     }
-//                 })
-//                 .collect::<Vec<<E::Component as Component>::Instance>>();
-
-//             if let Some(buffer) = self.buffer.as_mut() {
-//                 buffer.write(gpu, &instances);
-//             } else {
-//                 self.buffer = Some(gpu.create_instance_buffer(&instances));
-//             }
-//         }
-//     }
-// }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone)]
@@ -222,19 +103,19 @@ impl<E: Entity> EntityType<E> {
         match &self.storage {
             EntityTypeStorage::Single(entity) => {
                 if let Some(entity) = entity {
-                    (each)(entity);
+                    each(entity);
                 }
             }
             EntityTypeStorage::Multiple(multiple) => {
                 for entity in &multiple.entities {
-                    (each)(entity);
+                    each(entity);
                 }
             }
             EntityTypeStorage::MultipleGroups(groups) => {
                 for group in group_handles {
                     if let Some(group) = groups.get(group.0) {
                         for entity in &group.entities {
-                            (each)(entity);
+                            each(entity);
                         }
                     }
                 }
@@ -246,19 +127,19 @@ impl<E: Entity> EntityType<E> {
         match &mut self.storage {
             EntityTypeStorage::Single(entity) => {
                 if let Some(entity) = entity {
-                    (each)(entity);
+                    each(entity);
                 }
             }
             EntityTypeStorage::Multiple(multiple) => {
                 for entity in &mut multiple.entities {
-                    (each)(entity);
+                    each(entity);
                 }
             }
             EntityTypeStorage::MultipleGroups(groups) => {
                 for group in group_handles {
                     if let Some(group) = groups.get_mut(group.0) {
                         for entity in &mut group.entities {
-                            (each)(entity);
+                            each(entity);
                         }
                     }
                 }
@@ -274,7 +155,7 @@ impl<E: Entity> EntityType<E> {
         match &self.storage {
             EntityTypeStorage::Single(entity) => {
                 if let Some(entity) = entity {
-                    (each)(
+                    each(
                         EntityHandle::new(
                             EntityIndex::INVALID,
                             E::IDENTIFIER,
@@ -286,7 +167,7 @@ impl<E: Entity> EntityType<E> {
             }
             EntityTypeStorage::Multiple(multiple) => {
                 for (idx, entity) in multiple.entities.iter_with_index() {
-                    (each)(
+                    each(
                         EntityHandle::new(EntityIndex(idx), E::IDENTIFIER, GroupHandle::INVALID),
                         entity,
                     );
@@ -296,7 +177,7 @@ impl<E: Entity> EntityType<E> {
                 for group_handle in group_handles {
                     if let Some(group) = groups.get(group_handle.0) {
                         for (idx, entity) in group.entities.iter_with_index() {
-                            (each)(
+                            each(
                                 EntityHandle::new(EntityIndex(idx), E::IDENTIFIER, *group_handle),
                                 entity,
                             );
@@ -315,7 +196,7 @@ impl<E: Entity> EntityType<E> {
         match &mut self.storage {
             EntityTypeStorage::Single(entity) => {
                 if let Some(entity) = entity {
-                    (each)(
+                    each(
                         EntityHandle::new(
                             EntityIndex::INVALID,
                             E::IDENTIFIER,
@@ -327,7 +208,7 @@ impl<E: Entity> EntityType<E> {
             }
             EntityTypeStorage::Multiple(multiple) => {
                 for (idx, entity) in multiple.entities.iter_mut_with_index() {
-                    (each)(
+                    each(
                         EntityHandle::new(EntityIndex(idx), E::IDENTIFIER, GroupHandle::INVALID),
                         entity,
                     );
@@ -337,7 +218,7 @@ impl<E: Entity> EntityType<E> {
                 for group_handle in group_handles {
                     if let Some(group) = groups.get_mut(group_handle.0) {
                         for (idx, entity) in group.entities.iter_mut_with_index() {
-                            (each)(
+                            each(
                                 EntityHandle::new(EntityIndex(idx), E::IDENTIFIER, *group_handle),
                                 entity,
                             );
@@ -366,7 +247,6 @@ impl<E: Entity> EntityType<E> {
             }
             EntityTypeStorage::Multiple(multiple) => {
                 multiple.entities.retain(|_, entity| {
-                    let entity = entity;
                     if keep(entity, world) {
                         true
                     } else {
@@ -405,9 +285,9 @@ impl<E: Entity> EntityType<E> {
                 if let Some(group) = groups.get(group.0) {
                     return group.entities.get_unknown_gen(index);
                 }
-                return None;
+                None
             }
-        };
+        }
     }
 
     pub fn index_mut(&mut self, group: GroupHandle, index: usize) -> Option<&mut E> {
@@ -416,7 +296,7 @@ impl<E: Entity> EntityType<E> {
                 if index == 0 {
                     return entity.as_mut();
                 }
-                return None;
+                None
             }
             EntityTypeStorage::Multiple(multiple) => {
                 return multiple.entities.get_unknown_gen_mut(index);
@@ -425,9 +305,9 @@ impl<E: Entity> EntityType<E> {
                 if let Some(group) = groups.get_mut(group.0) {
                     return group.entities.get_unknown_gen_mut(index);
                 }
-                return None;
+                None
             }
-        };
+        }
     }
 
     pub fn get(&self, handle: EntityHandle) -> Option<&E> {
@@ -440,9 +320,9 @@ impl<E: Entity> EntityType<E> {
                 if let Some(group) = groups.get(handle.group_handle().0) {
                     return group.entities.get(handle.entity_index().0);
                 }
-                return None;
+                None
             }
-        };
+        }
     }
 
     pub fn get_mut(&mut self, handle: EntityHandle) -> Option<&mut E> {
@@ -457,9 +337,9 @@ impl<E: Entity> EntityType<E> {
                 if let Some(group) = groups.get_mut(handle.group_handle().0) {
                     return group.entities.get_mut(handle.entity_index().0);
                 }
-                return None;
+                None
             }
-        };
+        }
     }
 
     pub fn get2_mut(
@@ -496,9 +376,9 @@ impl<E: Entity> EntityType<E> {
                         e2 = group.entities.get_mut(handle2.entity_index().0);
                     }
                 }
-                return (e1, e2);
+                (e1, e2)
             }
-        };
+        }
     }
 
     pub fn remove(&mut self, world: &mut World, handle: EntityHandle) -> Option<E> {
@@ -508,14 +388,14 @@ impl<E: Entity> EntityType<E> {
                     entity.finish(world);
                     return Some(entity);
                 }
-                return None;
+                None
             }
             EntityTypeStorage::Multiple(multiple) => {
                 if let Some(mut entity) = multiple.entities.remove(handle.entity_index().0) {
                     entity.finish(world);
                     return Some(entity);
                 }
-                return None;
+                None
             }
             EntityTypeStorage::MultipleGroups(groups) => {
                 if let Some(group) = groups.get_mut(handle.group_handle().0) {
@@ -524,9 +404,9 @@ impl<E: Entity> EntityType<E> {
                         return Some(entity);
                     }
                 }
-                return None;
+                None
             }
-        };
+        }
     }
 
     pub fn remove_all(&mut self, world: &mut World, group_handles: &[GroupHandle]) -> Vec<E> {
@@ -537,31 +417,31 @@ impl<E: Entity> EntityType<E> {
                     entity.finish(world);
                     result.push(entity);
                 }
-                return result;
+                result
             }
             EntityTypeStorage::Multiple(multiple) => {
                 let mut result = Vec::with_capacity(multiple.entities.len());
-                let entities = std::mem::replace(&mut multiple.entities, Default::default());
+                let entities = std::mem::take(&mut multiple.entities);
                 for mut entity in entities {
                     entity.finish(world);
                     result.push(entity)
                 }
-                return result;
+                result
             }
             EntityTypeStorage::MultipleGroups(groups) => {
                 let mut result = Vec::new();
                 for group_handle in group_handles {
                     if let Some(group) = groups.get_mut(group_handle.0) {
-                        let entities = std::mem::replace(&mut group.entities, Default::default());
+                        let entities = std::mem::take(&mut group.entities);
                         for mut entity in entities {
                             entity.finish(world);
                             result.push(entity);
                         }
                     }
                 }
-                return result;
+                result
             }
-        };
+        }
     }
 
     pub fn add(
@@ -577,7 +457,7 @@ impl<E: Entity> EntityType<E> {
                     EntityHandle::new(EntityIndex::INVALID, E::IDENTIFIER, GroupHandle::INVALID);
                 new.init(handle, world);
                 *entity = Some(new);
-                return handle;
+                handle
             }
             EntityTypeStorage::Multiple(multiple) => {
                 let mut handle = Default::default();
@@ -587,7 +467,7 @@ impl<E: Entity> EntityType<E> {
                     new.init(handle, world);
                     new
                 });
-                return handle;
+                handle
             }
             EntityTypeStorage::MultipleGroups(groups) => {
                 let group = &mut groups[group_handle.0];
@@ -597,9 +477,9 @@ impl<E: Entity> EntityType<E> {
                     new.init(handle, world);
                     new
                 });
-                return handle;
+                handle
             }
-        };
+        }
     }
 
     pub fn add_with(
@@ -616,7 +496,7 @@ impl<E: Entity> EntityType<E> {
                 let mut new = create(handle);
                 new.init(handle, world);
                 *entity = Some(new);
-                return handle;
+                handle
             }
             EntityTypeStorage::Multiple(multiple) => {
                 let mut handle = Default::default();
@@ -627,7 +507,7 @@ impl<E: Entity> EntityType<E> {
                     new.init(handle, world);
                     new
                 });
-                return handle;
+                handle
             }
             EntityTypeStorage::MultipleGroups(groups) => {
                 let group = &mut groups[group_handle.0];
@@ -638,9 +518,9 @@ impl<E: Entity> EntityType<E> {
                     new.init(handle, world);
                     new
                 });
-                return handle;
+                handle
             }
-        };
+        }
     }
 
     pub fn add_many(
@@ -668,7 +548,7 @@ impl<E: Entity> EntityType<E> {
                         entity
                     });
                 }
-                return handles;
+                handles
             }
             EntityTypeStorage::MultipleGroups(groups) => {
                 let entities = entities.into_iter();
@@ -684,37 +564,22 @@ impl<E: Entity> EntityType<E> {
                         });
                     }
                 }
-                return handles;
+                handles
             }
-        };
+        }
     }
-
-    // pub fn force_buffer(&mut self, group_handles: &[GroupHandle]) {
-    //     match &mut self.storage {
-    //         EntityTypeStorage::Single { force_buffer, .. } => {
-    //         }
-    //         EntityTypeStorage::Multiple(multiple) => {
-    //         }
-    //         EntityTypeStorage::MultipleGroups(groups) => {
-    //             for group in group_handles {
-    //                 if let Some(group) = groups.get_mut(group.0) {
-    //                 }
-    //             }
-    //         }
-    //     };
-    // }
 
     pub fn len(&self, group_handles: &[GroupHandle]) -> usize {
         match &self.storage {
             EntityTypeStorage::Single(entity) => {
                 if entity.is_some() {
-                    return 1;
+                    1
                 } else {
-                    return 0;
+                    0
                 }
             }
             EntityTypeStorage::Multiple(multiple) => {
-                return multiple.entities.len();
+                multiple.entities.len()
             }
             EntityTypeStorage::MultipleGroups(groups) => {
                 let mut len = 0;
@@ -723,18 +588,40 @@ impl<E: Entity> EntityType<E> {
                         len += group.entities.len();
                     }
                 }
-                return len;
+                len
             }
-        };
+        }
+    }
+
+
+    pub fn is_empty(&self, group_handles: &[GroupHandle]) -> bool {
+        match &self.storage {
+            EntityTypeStorage::Single(entity) => {
+                entity.is_some()
+            }
+            EntityTypeStorage::Multiple(multiple) => {
+                multiple.entities.len() > 0
+            }
+            EntityTypeStorage::MultipleGroups(groups) => {
+                for group in group_handles {
+                    if let Some(group) = groups.get(group.0) {
+                        if !group.entities.is_empty() {
+                            return true;
+                        }
+                    }
+                }
+                false
+            }
+        }
     }
 
     pub fn iter<'a>(&'a self, group_handles: &[GroupHandle]) -> EntityIter<'a, E> {
         match &self.storage {
             EntityTypeStorage::Single(entity) => {
                 if let Some(entity) = entity {
-                    return Box::new(std::iter::once(entity));
+                    Box::new(std::iter::once(entity))
                 } else {
-                    return Box::new(std::iter::empty::<&E>());
+                    Box::new(std::iter::empty::<&E>())
                 }
             }
             EntityTypeStorage::Multiple(multiple) => {
@@ -749,9 +636,9 @@ impl<E: Entity> EntityType<E> {
                         }
                     }
                 }
-                return Box::new(iters.into_iter().flatten());
+                Box::new(iters.into_iter().flatten())
             }
-        };
+        }
     }
 
     pub fn iter_with_handles<'a>(
@@ -761,16 +648,16 @@ impl<E: Entity> EntityType<E> {
         match &self.storage {
             EntityTypeStorage::Single(entity) => {
                 if let Some(entity) = entity {
-                    return Box::new(std::iter::once((
+                    Box::new(std::iter::once((
                         EntityHandle::new(
                             EntityIndex::INVALID,
                             E::IDENTIFIER,
                             GroupHandle::INVALID,
                         ),
                         entity,
-                    )));
+                    )))
                 } else {
-                    return Box::new(std::iter::empty::<(EntityHandle, &'a E)>());
+                    Box::new(std::iter::empty::<(EntityHandle, &'a E)>())
                 }
             }
             EntityTypeStorage::Multiple(multiple) => {
@@ -799,18 +686,18 @@ impl<E: Entity> EntityType<E> {
                         }
                     }
                 }
-                return Box::new(iters.into_iter().flatten());
+                Box::new(iters.into_iter().flatten())
             }
-        };
+        }
     }
 
     pub fn iter_mut<'a>(&'a mut self, group_handles: &[GroupHandle]) -> EntityIterMut<'a, E> {
         match &mut self.storage {
             EntityTypeStorage::Single(entity) => {
                 if let Some(entity) = entity {
-                    return Box::new(std::iter::once(entity));
+                    Box::new(std::iter::once(entity))
                 } else {
-                    return Box::new(std::iter::empty::<&mut E>());
+                    Box::new(std::iter::empty::<&mut E>())
                 }
             }
             EntityTypeStorage::Multiple(multiple) => {
@@ -821,15 +708,15 @@ impl<E: Entity> EntityType<E> {
                 let ptr: *mut Arena<EntityTypeGroup<E>> = groups as *mut _;
                 unsafe {
                     for group_handle in group_handles {
-                        if let Some(group) = (&mut *ptr).get_mut(group_handle.0) {
+                        if let Some(group) = (*ptr).get_mut(group_handle.0) {
                             iters.push(group.entities.iter_mut());
                         };
                     }
                 }
 
-                return Box::new(iters.into_iter().flatten());
+                Box::new(iters.into_iter().flatten())
             }
-        };
+        }
     }
 
     pub fn iter_mut_with_handles<'a>(
@@ -839,16 +726,16 @@ impl<E: Entity> EntityType<E> {
         match &mut self.storage {
             EntityTypeStorage::Single(entity) => {
                 if let Some(entity) = entity {
-                    return Box::new(std::iter::once((
+                    Box::new(std::iter::once((
                         EntityHandle::new(
                             EntityIndex::INVALID,
                             E::IDENTIFIER,
                             GroupHandle::INVALID,
                         ),
                         entity,
-                    )));
+                    )))
                 } else {
-                    return Box::new(std::iter::empty::<(EntityHandle, &mut E)>());
+                    Box::new(std::iter::empty::<(EntityHandle, &mut E)>())
                 }
             }
             EntityTypeStorage::Multiple(multiple) => {
@@ -864,7 +751,7 @@ impl<E: Entity> EntityType<E> {
                 let ptr: *mut Arena<EntityTypeGroup<E>> = groups as *mut _;
                 unsafe {
                     for group_handle in group_handles {
-                        if let Some(group) = (&mut *ptr).get_mut(group_handle.0) {
+                        if let Some(group) = (*ptr).get_mut(group_handle.0) {
                             let type_id = &E::IDENTIFIER;
 
                             iters.push(group.entities.iter_mut_with_index().map(
@@ -883,9 +770,9 @@ impl<E: Entity> EntityType<E> {
                     }
                 }
 
-                return Box::new(iters.into_iter().flatten());
+                Box::new(iters.into_iter().flatten())
             }
-        };
+        }
     }
 
     pub fn change_group(
@@ -902,11 +789,11 @@ impl<E: Entity> EntityType<E> {
                 let entity = old_group.entities.remove(entity.entity_index().0)?;
                 let entity_index = EntityIndex(new_group.entities.insert(entity));
 
-                return Some(EntityHandle::new(
+                Some(EntityHandle::new(
                     entity_index,
                     E::IDENTIFIER,
                     new_group_handle,
-                ));
+                ))
             }
             _ => panic!("Cannot get change group on entity without EntityStorage::Group!"),
         }
@@ -945,7 +832,7 @@ impl<E: Entity> EntityType<E> {
                     entity.finish(world);
                     return Some(entity);
                 }
-                return None;
+                None
             }
             _ => panic!("Cannot get single on entity without EntityStorage::Single!"),
         }
@@ -960,7 +847,7 @@ impl<E: Entity> EntityType<E> {
                 if let Some(mut _old) = entity.replace(new) {
                     _old.finish(world);
                 }
-                return handle;
+                handle
             }
             _ => panic!("Cannot get single on entity without EntityStorage::Single!"),
         }
@@ -980,65 +867,11 @@ impl<E: Entity> EntityType<E> {
                 if let Some(mut _old) = entity.replace(new) {
                     _old.finish(world);
                 }
-                return handle;
+                handle
             }
             _ => panic!("Cannot get single on entity without EntityStorage::Single!"),
         }
     }
-
-    // pub fn buffer_with(
-    //     &mut self,
-    //     world: &World,
-    //     gpu: &Gpu,
-    //     group_handles: &[GroupHandle],
-    //     mut each: impl FnMut(&mut E),
-    // ) {
-    //     assert!(self.config.buffer != BufferConfig::Never);
-    //     match &mut self.storage {
-    //         EntityTypeStorage::Single {
-    //             entity,
-    //             buffer,
-    //             force_buffer,
-    //         } => {
-    //             if self.config.buffer == BufferConfig::EveryFrame || *force_buffer {
-    //                 *force_buffer = false;
-    //                 let instance = {
-    //                     if let Some(entity) = entity {
-    //                         (each)(entity);
-    //                         if entity.component().active() {
-    //                             Some(entity.component().instance(world))
-    //                         } else {
-    //                             None
-    //                         }
-    //                     } else {
-    //                         None
-    //                     }
-    //                 };
-
-    //                 if let Some(buffer) = buffer.as_mut() {
-    //                     buffer.write(
-    //                         gpu,
-    //                         instance.as_ref().map(core::slice::from_ref).unwrap_or(&[]),
-    //                     );
-    //                 } else {
-    //                     *buffer = Some(gpu.create_instance_buffer(
-    //                         instance.as_ref().map(core::slice::from_ref).unwrap_or(&[]),
-    //                     ));
-    //                 }
-    //             }
-    //         }
-    //         EntityTypeStorage::Multiple(multiple) => {
-    //             multiple.buffer_with(gpu, &self.config, world, each)
-    //         }
-    //         EntityTypeStorage::MultipleGroups(groups) => {
-    //             for group in group_handles {
-    //                 if let Some(group) = groups.get_mut(group.0) {
-    //                     group.buffer_with(gpu, &self.config, world, &mut each)
-    //                 }
-    //             }
-    //         }
-    //     };
-    // }
 }
 
 impl<E: Entity> EntityTypeImplementation for EntityType<E> {
@@ -1106,6 +939,14 @@ impl<E: Entity> EntityTypeImplementation for EntityType<E> {
         }
     }
 
+    fn is_groups(&self) -> bool {
+        return match self.storage  {
+            EntityTypeStorage::Single(_) => false,
+            EntityTypeStorage::Multiple(_) => false,
+            EntityTypeStorage::MultipleGroups(_) => true
+        }
+    }
+
     #[cfg(feature = "serde")]
     fn remove_group_serialize(
         &mut self,
@@ -1123,7 +964,7 @@ impl<E: Entity> EntityTypeImplementation for EntityType<E> {
             }
             _ => {}
         }
-        return None;
+        None
     }
 
     fn entity_type_id(&self) -> EntityTypeId {
@@ -1141,14 +982,14 @@ impl<E: Entity + Send + Sync> EntityType<E> {
         match &self.storage {
             EntityTypeStorage::Single(entity) => {
                 if let Some(entity) = entity {
-                    (each)(entity);
+                    each(entity);
                 }
             }
             EntityTypeStorage::Multiple(multiple) => {
                 multiple.entities.items.par_iter().for_each(|e| match e {
                     ArenaEntry::Free { .. } => (),
                     ArenaEntry::Occupied { data, .. } => {
-                        (each)(data);
+                        each(data);
                     }
                 })
             }
@@ -1158,7 +999,7 @@ impl<E: Entity + Send + Sync> EntityType<E> {
                         group.entities.items.par_iter().for_each(|e| match e {
                             ArenaEntry::Free { .. } => (),
                             ArenaEntry::Occupied { data, .. } => {
-                                (each)(data);
+                                each(data);
                             }
                         })
                     }
@@ -1175,7 +1016,7 @@ impl<E: Entity + Send + Sync> EntityType<E> {
         match &mut self.storage {
             EntityTypeStorage::Single(entity) => {
                 if let Some(entity) = entity {
-                    (each)(entity);
+                    each(entity);
                 }
             }
             EntityTypeStorage::Multiple(multiple) => multiple
@@ -1185,7 +1026,7 @@ impl<E: Entity + Send + Sync> EntityType<E> {
                 .for_each(|e| match e {
                     ArenaEntry::Free { .. } => (),
                     ArenaEntry::Occupied { data, .. } => {
-                        (each)(data);
+                        each(data);
                     }
                 }),
             EntityTypeStorage::MultipleGroups(groups) => {
@@ -1194,7 +1035,7 @@ impl<E: Entity + Send + Sync> EntityType<E> {
                         group.entities.items.par_iter_mut().for_each(|e| match e {
                             ArenaEntry::Free { .. } => (),
                             ArenaEntry::Occupied { data, .. } => {
-                                (each)(data);
+                                each(data);
                             }
                         })
                     }
@@ -1214,13 +1055,13 @@ impl<E: Entity + Send + Sync> EntityType<E> {
     {
         match &self.storage {
             EntityTypeStorage::Single(entity) => {
-                collection.extend(entity.iter().map(|e| (each)(e).instance(world)));
+                collection.extend(entity.iter().map(|e| each(e).instance(world)));
             }
             EntityTypeStorage::Multiple(multiple) => {
                 collection.par_extend(multiple.entities.items.par_iter().filter_map(|e| match e {
                     ArenaEntry::Free { .. } => None,
                     ArenaEntry::Occupied { data, .. } => {
-                        let component = (each)(data);
+                        let component = each(data);
                         if component.active() {
                             Some(component.instance(world))
                         } else {
@@ -1236,7 +1077,7 @@ impl<E: Entity + Send + Sync> EntityType<E> {
                             |e| match e {
                                 ArenaEntry::Free { .. } => None,
                                 ArenaEntry::Occupied { data, .. } => {
-                                    let component = (each)(data);
+                                    let component = each(data);
                                     if component.active() {
                                         Some(component.instance(world))
                                     } else {
@@ -1262,14 +1103,14 @@ impl<E: Entity + Send + Sync> EntityType<E> {
     {
         match &mut self.storage {
             EntityTypeStorage::Single(entity) => {
-                collection.extend(entity.iter_mut().map(|e| (each)(e).instance(world)));
+                collection.extend(entity.iter_mut().map(|e| each(e).instance(world)));
             }
             EntityTypeStorage::Multiple(multiple) => {
                 collection.par_extend(multiple.entities.items.par_iter_mut().filter_map(
                     |e| match e {
                         ArenaEntry::Free { .. } => None,
                         ArenaEntry::Occupied { data, .. } => {
-                            let component = (each)(data);
+                            let component = each(data);
                             if component.active() {
                                 Some(component.instance(world))
                             } else {
@@ -1286,7 +1127,7 @@ impl<E: Entity + Send + Sync> EntityType<E> {
                             |e| match e {
                                 ArenaEntry::Free { .. } => None,
                                 ArenaEntry::Occupied { data, .. } => {
-                                    let component = (each)(data);
+                                    let component = each(data);
                                     if component.active() {
                                         Some(component.instance(world))
                                     } else {

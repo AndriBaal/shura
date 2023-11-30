@@ -10,8 +10,8 @@ pub trait Component {
 }
 
 pub trait Entity: EntityIdentifier + Sized + 'static {
-    fn buffer<'a>(
-        entites: EntitySet<'a, Self>,
+    fn buffer(
+        entites: EntitySet<'_, Self>,
         buffers: &mut ComponentBufferManager,
         world: &World,
     );

@@ -223,9 +223,7 @@ impl Input {
                     let trigger = key.into();
                     match input.state {
                         ElementState::Pressed => {
-                            if !self.events.contains_key(&trigger) {
-                                self.events.insert(trigger, InputEvent::new(trigger, 1.0));
-                            }
+                            self.events.entry(trigger).or_insert_with(|| InputEvent::new(trigger, 1.0));
                         }
                         ElementState::Released => {
                             if let Some(event) = self.events.get_mut(&trigger) {
@@ -278,7 +276,7 @@ impl Input {
         trigger
             .iter()
             .all(|trigger| match self.events.get(&(*trigger).into()) {
-                Some(i) => return i.is_pressed(),
+                Some(i) => i.is_pressed(),
                 None => false,
             })
     }
@@ -287,7 +285,7 @@ impl Input {
         trigger
             .iter()
             .all(|trigger| match self.events.get(&(*trigger).into()) {
-                Some(i) => return i.is_held(),
+                Some(i) => i.is_held(),
                 None => false,
             })
     }
@@ -296,7 +294,7 @@ impl Input {
         trigger
             .iter()
             .any(|trigger| match self.events.get(&(*trigger).into()) {
-                Some(i) => return i.is_pressed(),
+                Some(i) => i.is_pressed(),
                 None => false,
             })
     }
@@ -305,7 +303,7 @@ impl Input {
         trigger
             .iter()
             .any(|trigger| match self.events.get(&(*trigger).into()) {
-                Some(i) => return i.is_held(),
+                Some(i) => i.is_held(),
                 None => false,
             })
     }
@@ -320,37 +318,34 @@ impl Input {
 
     pub fn is_just_released(&self, trigger: impl Into<InputTrigger>) -> bool {
         match self.events.get(&trigger.into()) {
-            Some(i) => return i.is_just_released(),
+            Some(i) => i.is_just_released(),
             None => false,
         }
     }
 
     pub fn is_pressed(&self, trigger: impl Into<InputTrigger>) -> bool {
         match self.events.get(&trigger.into()) {
-            Some(i) => return i.is_pressed(),
+            Some(i) => i.is_pressed(),
             None => false,
         }
     }
 
     pub fn is_held(&self, trigger: impl Into<InputTrigger>) -> bool {
         match self.events.get(&trigger.into()) {
-            Some(i) => return i.is_held(),
+            Some(i) => i.is_held(),
             None => false,
         }
     }
 
     pub fn held_time(&self, trigger: impl Into<InputTrigger>) -> f32 {
         match self.events.get(&trigger.into()) {
-            Some(i) => return i.held_time().as_secs_f32(),
+            Some(i) => i.held_time().as_secs_f32(),
             None => 0.0,
         }
     }
 
     pub fn held_time_duration(&self, trigger: impl Into<InputTrigger>) -> Option<Duration> {
-        match self.events.get(&trigger.into()) {
-            Some(i) => return Some(i.held_time()),
-            None => None,
-        }
+        self.events.get(&trigger.into()).map(|i| i.held_time())
     }
 
     #[cfg(feature = "gamepad")]
@@ -433,13 +428,13 @@ impl Input {
         ) -> Vector2<f32> {
             fn axis(gamepad: &Gamepad, x_axis: Axis) -> f32 {
                 let value = gamepad.axis_data(x_axis).map(|a| a.value()).unwrap_or(0.0);
-                return value;
+                value
             }
             let value = Vector2::new(axis(gamepad, x_axis), axis(gamepad, y_axis));
             if value.magnitude() >= deadzone {
                 return value;
             }
-            return Vector2::default();
+            Vector2::default()
         }
         if let Some(gamepad) = self.gamepad(gamepad_id) {
             match stick {
@@ -451,17 +446,17 @@ impl Input {
                 }
             }
         }
-        return Vector2::default();
+        Vector2::default()
     }
 
     #[cfg(feature = "gamepad")]
     pub fn gamepad_stick(&self, gamepad_id: GamepadId, stick: GamepadStick) -> Vector2<f32> {
-        return Self::gamepad_stick_deadzone(&self, gamepad_id, stick, self.dead_zone);
+        Self::gamepad_stick_deadzone(self, gamepad_id, stick, self.dead_zone)
     }
 
     #[cfg(feature = "gamepad")]
     pub fn dead_zone(&self) -> f32 {
-        return self.dead_zone;
+        self.dead_zone
     }
 
     #[cfg(feature = "gamepad")]
@@ -471,7 +466,7 @@ impl Input {
 
     #[cfg(feature = "gamepad")]
     pub fn active_gamepad(&self) -> Option<GamepadId> {
-        return self.active_gamepad;
+        self.active_gamepad
     }
 
     #[cfg(feature = "gamepad")]
@@ -526,7 +521,7 @@ impl Input {
         for (id, raw) in &self.touches {
             touches.push((*id, self.cursor_from_pixel(*raw, camera)));
         }
-        return touches;
+        touches
     }
 
     #[cfg(feature = "gamepad")]
@@ -536,9 +531,9 @@ impl Input {
         mapping: &Mapping,
         name: Option<&str>,
     ) -> Result<String, MappingError> {
-        return self
+        self
             .game_pad_manager
-            .set_mapping(gamepad_id.into(), mapping, name);
+            .set_mapping(gamepad_id.into(), mapping, name)
     }
 
     #[cfg(feature = "gamepad")]
@@ -548,8 +543,8 @@ impl Input {
         mapping: &Mapping,
         name: Option<&str>,
     ) -> Result<String, MappingError> {
-        return self
+        self
             .game_pad_manager
-            .set_mapping_strict(gamepad_id.into(), mapping, name);
+            .set_mapping_strict(gamepad_id.into(), mapping, name)
     }
 }

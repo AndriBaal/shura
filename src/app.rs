@@ -28,23 +28,31 @@ use crate::audio::AudioManager;
 
 pub struct AppConfig {
     pub window: winit::window::WindowBuilder,
+    pub winit_event: Option<Box<dyn Fn(&winit::event::Event<()>)>>,
     pub gpu: GpuConfig,
     #[cfg(target_os = "android")]
     pub android: AndroidApp,
     #[cfg(feature = "log")]
     pub logger: Option<LoggerBuilder>,
     #[cfg(target_arch = "wasm32")]
-    pub canvas_attrs: FxHashMap<&'static str, &'static str>,
+    pub canvas_attrs: FxHashMap<String, String>,
     #[cfg(target_arch = "wasm32")]
     pub auto_scale_canvas: bool,
 }
 
+impl Default for AppConfig {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AppConfig {
-    pub fn default(#[cfg(target_os = "android")] android: AndroidApp) -> Self {
+    pub fn new(#[cfg(target_os = "android")] android: AndroidApp) -> Self {
         AppConfig {
             window: winit::window::WindowBuilder::new()
                 .with_inner_size(winit::dpi::PhysicalSize::new(800, 600))
                 .with_title("App Game"),
+            winit_event: None,
             gpu: GpuConfig::default(),
             #[cfg(target_os = "android")]
             android,
@@ -55,31 +63,72 @@ impl AppConfig {
             #[cfg(target_arch = "wasm32")]
             canvas_attrs: {
                 let mut map = FxHashMap::default();
-                map.insert("tabindex", "0");
-                map.insert("oncontextmenu", "return false;");
+                map.insert("tabindex".into(), "0".into());
+                map.insert("oncontextmenu".into(), "return false;".into());
                 map.insert(
-                    "style",
-                    "margin: auto; position: absolute; top: 0; bottom: 0; left: 0; right: 0;",
+                    "style".into(),
+                    "margin: auto; position: absolute; top: 0; bottom: 0; left: 0; right: 0;"
+                        .into(),
                 );
                 map
             },
         }
     }
+
+    pub fn window(mut self, window: winit::window::WindowBuilder) -> Self {
+        self.window = window;
+        self
+    }
+
+    pub fn gpu(mut self, gpu: GpuConfig) -> Self {
+        self.gpu = gpu;
+        self
+    }
+
+    #[cfg(feature = "log")]
+    pub fn logger(mut self, logger: Option<LoggerBuilder>) -> Self {
+        self.logger = logger;
+        self
+    }
+
+    pub fn winit_event(
+        mut self,
+        event: Option<impl for<'a, 'b> Fn(&'a winit::event::Event<'b, ()>) + 'static>,
+    ) -> Self {
+        if let Some(event) = event {
+            self.winit_event = Some(Box::new(event));
+        } else {
+            self.winit_event = None;
+        }
+        self
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    pub fn canvas_attr(mut self, key: String, value: String) -> Self {
+        self.canvas_attrs.insert(key, value);
+        self
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    pub fn auto_scale_canvas(mut self, auto_scale_canvas: bool) -> Self {
+        self.auto_scale_canvas = auto_scale_canvas;
+        self
+    }
 }
+
+pub(crate) type InnerGlobalEntities =
+    Rc<RefCell<FxHashMap<EntityTypeId, Option<Rc<RefCell<dyn EntityTypeImplementation>>>>>>;
 
 // The Option<> is here to keep track of entities, that have already been added to scenes and therefore
 // can not be registered as a global entities.
-pub struct GlobalEntitys(
-    pub(crate) 
-        Rc<RefCell<FxHashMap<EntityTypeId, Option<Rc<RefCell<dyn EntityTypeImplementation>>>>>>,
-);
+pub struct GlobalEntities(pub(crate) InnerGlobalEntities);
 
 pub struct App {
     pub end: bool,
     pub resized: bool,
     pub frame: FrameManager,
     pub scenes: SceneManager,
-    pub globals: GlobalEntitys,
+    pub globals: GlobalEntities,
     pub window: winit::window::Window,
     pub input: Input,
     pub defaults: DefaultResources,
@@ -148,6 +197,9 @@ impl App {
 
         events.run(move |event, _target, control_flow| {
             use winit::event::{Event, WindowEvent};
+            if let Some(callback) = &config.winit_event {
+                callback(&event);
+            }
             if let Some(app) = &mut app {
                 if !app.end {
                     match event {
@@ -156,7 +208,7 @@ impl App {
                             window_id,
                         } => {
                             #[cfg(feature = "gui")]
-                            app.gui.handle_event(&event);
+                            app.gui.handle_event(event);
                             if window_id == shura_window_id {
                                 match event {
                                     WindowEvent::CloseRequested | WindowEvent::Destroyed => {
@@ -257,7 +309,7 @@ impl App {
         Self {
             scenes: SceneManager::new(scene.new_id(), scene),
             frame: FrameManager::new(),
-            globals: GlobalEntitys(Default::default()),
+            globals: GlobalEntities(Default::default()),
             input: Input::new(window_size),
             #[cfg(feature = "audio")]
             audio: AudioManager::new(),
@@ -399,7 +451,7 @@ impl App {
             self.defaults.surface.finish_frame();
         }
 
-        return Ok(());
+        Ok(())
     }
 
     fn update(&mut self, scene_id: u32, scene: &mut Scene) {
@@ -449,7 +501,9 @@ impl App {
     }
 
     fn render(&mut self, _scene_id: u32, scene: &mut Scene) {
-        scene.entities.buffer(&mut scene.component_buffers, &scene.world);
+        scene
+            .entities
+            .buffer(&mut scene.component_buffers, &scene.world);
         scene.component_buffers.apply_buffers(&self.gpu);
         self.defaults
             .world_camera2d

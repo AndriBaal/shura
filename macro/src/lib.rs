@@ -169,13 +169,13 @@ pub fn main(_args: TokenStream, item: TokenStream) -> TokenStream {
         #[cfg(target_os = "android")]
         #[no_mangle]
         fn android_main(app: ::shura::AndroidApp) {
-            shura_main(::shura::AppConfig::default(app));
+            shura_main(::shura::AppConfig::new(app));
         }
 
         #[cfg(not(target_os = "android"))]
         #[allow(dead_code)]
         fn main() {
-            shura_main(::shura::AppConfig::default());
+            shura_main(::shura::AppConfig::new());
         }
     )
     .into()

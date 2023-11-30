@@ -13,7 +13,7 @@ fn shura_main(config: AppConfig) {
     });
 }
 
-fn render(res: &ComponentResources, encoder: &mut RenderEncoder) {
+fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
     encoder.render2d(
         Some(RgbaColor::new(220, 220, 220, 255).into()),
         |renderer| {

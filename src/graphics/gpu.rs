@@ -141,7 +141,9 @@ impl Gpu {
             info!("Using Present mode: {:?}", config.present_mode);
         }
 
-        let gpu = Self {
+        
+
+        Self {
             instance,
             queue,
             device,
@@ -151,9 +153,7 @@ impl Gpu {
             surface: Mutex::new(surface),
             config: Mutex::new(config),
             command_buffers: Mutex::new(Default::default()),
-        };
-
-        return gpu;
+        }
     }
 
     #[cfg(target_os = "android")]
@@ -208,7 +208,7 @@ impl Gpu {
 
     pub fn submit(&self) -> wgpu::SubmissionIndex {
         let mut command_buffers = self.command_buffers.lock().unwrap();
-        let command_buffers = std::mem::replace(&mut *command_buffers, Vec::new());
+        let command_buffers = std::mem::take(&mut *command_buffers);
         self.queue.submit(command_buffers)
     }
 
@@ -278,7 +278,7 @@ impl Gpu {
         sprite: SpriteBuilder<D>,
         compute: impl FnMut(&mut RenderEncoder),
     ) -> SpriteRenderTarget {
-        return SpriteRenderTarget::computed(self, defaults, sprite, compute);
+        SpriteRenderTarget::computed(self, defaults, sprite, compute)
     }
 }
 
@@ -379,7 +379,7 @@ impl WgpuDefaultResources {
 
         Self {
             vertex_shader_module,
-            sample_count: sample_count,
+            sample_count,
             multisample,
             sprite_sheet_layout,
             sprite_layout,
@@ -650,7 +650,7 @@ impl DefaultResources {
     }
 
     pub fn unit_mesh(&self) -> &Mesh2D {
-        return &self.unit_mesh;
+        &self.unit_mesh
     }
 
     pub fn default_target(&self) -> &dyn RenderTarget {
@@ -664,10 +664,10 @@ impl DefaultResources {
         let yx = window_size.y as f32 / window_size.x as f32;
         let xy = window_size.x as f32 / window_size.y as f32;
         let scale = yx.max(xy) / 2.0;
-        return if window_size.x > window_size.y {
+        if window_size.x > window_size.y {
             Vector2::new(scale, RELATIVE_CAMERA_SIZE)
         } else {
             Vector2::new(RELATIVE_CAMERA_SIZE, scale)
-        };
+        }
     }
 }

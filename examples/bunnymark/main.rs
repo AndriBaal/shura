@@ -2,15 +2,18 @@ use shura::{log, rand, text::*, *};
 
 #[shura::main]
 fn shura_main(config: AppConfig) {
-    App::run(config, || {
-        NewScene::new(1)
-            .component::<Instance2D>("bunny", BufferConfig::EveryFrame)
-            .entity::<Bunny>(EntityConfig::DEFAULT)
-            .entity::<Resources>(EntityConfig::RESOURCE)
-            .system(System::Update(update))
-            .system(System::Setup(setup))
-            .system(System::Render(render))
-    });
+    App::run(
+        config,
+        || {
+            NewScene::new(1)
+                .component::<Instance2D>("bunny", BufferConfig::EveryFrame)
+                .entity::<Bunny>(EntityConfig::DEFAULT)
+                .entity::<Resources>(EntityConfig::RESOURCE)
+                .system(System::Update(update))
+                .system(System::Setup(setup))
+                .system(System::Render(render))
+        },
+    );
 }
 
 fn setup(ctx: &mut Context) {
@@ -60,7 +63,8 @@ fn update(ctx: &mut Context) {
 
     if let Some(screenshot) = resources.screenshot.take() {
         log::info!("Saving Screenshot!");
-        screenshot.sprite().save(&ctx.gpu, "screenshot.png").ok();
+        let bytes = screenshot.sprite().to_bytes(&ctx.gpu);
+        save_data("screenshot.png", bytes).unwrap();
     } else if ctx.input.is_pressed(Key::S) {
         resources.screenshot = Some(ctx.gpu.create_render_target(ctx.window_size));
     }

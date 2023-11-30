@@ -2,10 +2,9 @@ use downcast_rs::{impl_downcast, Downcast};
 use rustc_hash::FxHashMap;
 
 use crate::{
-    CameraBuffer, CameraBuffer2D, ComponentBufferManager, DefaultResources, Entity, EntityConfig,
-    EntityHandle, EntityScope, EntitySet, EntitySetMut, EntityType, EntityTypeId, GlobalEntitys,
-    GroupHandle, Instance2D, InstanceBuffer, InstanceIndices, Mesh2D, Renderer, Scene,
-    SystemManager, World, WorldCamera3D,
+    ComponentBufferManager, Entity, EntityConfig,
+    EntityHandle, EntityScope, EntitySet, EntitySetMut, EntityType, EntityTypeId, GlobalEntities,
+    GroupHandle, World,
 };
 
 #[cfg(feature = "serde")]
@@ -19,6 +18,7 @@ use std::{
 pub(crate) trait EntityTypeImplementation: Downcast {
     fn add_group(&mut self);
     fn remove_group(&mut self, world: &mut World, handle: GroupHandle);
+    fn is_groups(&self) -> bool;
     fn buffer(
         &self,
         ty: Ref<dyn EntityTypeImplementation>,
@@ -28,7 +28,6 @@ pub(crate) trait EntityTypeImplementation: Downcast {
     );
     fn entity_type_id(&self) -> EntityTypeId;
     fn config(&self) -> EntityConfig;
-
     #[cfg(all(feature = "serde", feature = "physics"))]
     fn deinit_non_serialized(&self, world: &mut World);
     #[cfg(feature = "serde")]
@@ -45,6 +44,7 @@ macro_rules! group_filter {
         match $filter {
             GroupFilter::All => (false, &$self.all_groups[..]),
             GroupFilter::Active => (false, &$self.active_groups[..]),
+            GroupFilter::Render => (false, &$self.render_groups[..]),
             GroupFilter::Custom(h) => (true, h),
         }
     };
@@ -72,7 +72,7 @@ macro_rules! type_ref_mut {
     }};
 }
 
-const ALREADY_BORROWED: &'static str = "This type is already borrowed!";
+const ALREADY_BORROWED: &str = "This type is already borrowed!";
 fn no_type_error<E: Entity>() -> String {
     format!("The type '{}' first needs to be registered!", E::TYPE_NAME)
 }
@@ -129,156 +129,48 @@ impl EntityTypeScope {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Ord, Eq)]
+#[derive(Default)]
 pub enum GroupFilter<'a> {
     All,
+    #[default]
     Active,
+    Render,
     Custom(&'a [GroupHandle]),
-}
-
-impl<'a> Default for GroupFilter<'a> {
-    fn default() -> Self {
-        return GroupFilter::Active;
-    }
 }
 
 impl GroupFilter<'static> {
     pub const DEFAULT_GROUP: Self = GroupFilter::Custom(&[GroupHandle::DEFAULT_GROUP]);
 }
 
-pub struct RenderContext<'a> {
-    entities: &'a EntityManager,
-    pub component_buffers: &'a ComponentBufferManager,
-
-    pub world_camera2d: &'a CameraBuffer2D,
-    pub world_camera3d: &'a CameraBuffer<WorldCamera3D>,
-    pub relative_camera: &'a CameraBuffer2D,
-    pub relative_bottom_left_camera: &'a CameraBuffer2D,
-    pub relative_bottom_right_camera: &'a CameraBuffer2D,
-    pub relative_top_left_camera: &'a CameraBuffer2D,
-    pub relative_top_right_camera: &'a CameraBuffer2D,
-    pub unit_camera: &'a CameraBuffer2D,
-    pub unit_mesh: &'a Mesh2D,
-    pub centered_instance: &'a InstanceBuffer<Instance2D>,
-}
-
-impl<'a> RenderContext<'a> {
-    pub(crate) fn new(
-        defaults: &'a DefaultResources,
-        scene: &'a Scene,
-    ) -> (&'a SystemManager, Self) {
-        return (
-            &scene.systems,
-            Self {
-                entities: &scene.entities,
-                component_buffers: &scene.component_buffers,
-                relative_camera: &defaults.relative_camera.0,
-                relative_bottom_left_camera: &defaults.relative_bottom_left_camera.0,
-                relative_bottom_right_camera: &defaults.relative_bottom_right_camera.0,
-                relative_top_left_camera: &defaults.relative_top_left_camera.0,
-                relative_top_right_camera: &defaults.relative_top_right_camera.0,
-                unit_camera: &defaults.unit_camera.0,
-                centered_instance: &defaults.centered_instance,
-                unit_mesh: &defaults.unit_mesh,
-                world_camera2d: &defaults.world_camera2d,
-                world_camera3d: &defaults.world_camera3d,
-            },
-        );
-    }
-
-    #[inline]
-    pub fn set<E: Entity>(&'a self) -> EntitySet<'a, E> {
-        self.set_of(GroupFilter::Active)
-    }
-
-    pub fn set_of<E: Entity>(&'a self, filter: GroupFilter<'a>) -> EntitySet<'a, E> {
-        let groups = group_filter!(self.entities, filter).1;
-        let ty = type_ref!(self.entities, E);
-        return EntitySet::new(ty, groups);
-    }
-
-    pub fn single<E: Entity>(&self) -> Ref<E> {
-        let ty = type_ref!(self.entities, E);
-        Ref::map(ty, |ty| ty.single())
-    }
-
-    pub fn try_single<E: Entity>(&self) -> Option<Ref<E>> {
-        let ty = type_ref!(self.entities, E);
-        Ref::filter_map(ty, |ty| ty.try_single()).ok()
-    }
-
-    // pub fn render_each<E: Entity>(
-    //     &self,
-    //     renderer: &mut Renderer<'a>,
-    //     each: impl FnMut(
-    //         &mut Renderer<'a>,
-    //         &'a E,
-    //         &'a InstanceBuffer<<E::Component as Component>::Instance>,
-    //         InstanceIndex,
-    //     ),
-    // ) {
-    //     let ty = type_render!(self.entities, E);
-    //     ty.render_each(renderer, each)
-    // }
-
-    // pub fn render_single<E: Entity>(
-    //     &self,
-    //     renderer: &mut Renderer<'a>,
-    //     each: impl FnOnce(
-    //         &mut Renderer<'a>,
-    //         &'a E,
-    //         &'a InstanceBuffer<<E::Component as Component>::Instance>,
-    //         InstanceIndex,
-    //     ),
-    // ) {
-    //     let ty = type_render!(self.entities, E);
-    //     ty.render_single(renderer, each)
-    // }
-
-    pub fn render_all<I: crate::Instance>(
-        &self,
-        renderer: &mut Renderer<'a>,
-        name: &'static str,
-        all: impl Fn(&mut Renderer<'a>, &'a InstanceBuffer<I>, InstanceIndices),
-    ) {
-        let buffer = self
-            .component_buffers
-            .get::<I>(name)
-            .expect(&format!("Component {name} is not registered!"))
-            .buffer();
-
-        if buffer.instance_amount() != 0 {
-            (all)(renderer, buffer, buffer.instances());
-        }
-    }
-}
-
 pub struct EntityManager {
     pub(super) active_groups: Vec<GroupHandle>,
+    pub(super) render_groups: Vec<GroupHandle>,
     pub(super) all_groups: Vec<GroupHandle>,
     pub(crate) types: FxHashMap<EntityTypeId, EntityTypeScope>,
 }
 
 impl EntityManager {
     pub(crate) fn empty() -> Self {
-        return Self {
+        Self {
             all_groups: Vec::from_iter([GroupHandle::DEFAULT_GROUP]),
             active_groups: Vec::from_iter([GroupHandle::DEFAULT_GROUP]),
-            types: Default::default(),
-        };
+            render_groups: Vec::from_iter([GroupHandle::DEFAULT_GROUP]),
+            types: Default::default()
+        }
     }
 
     pub(crate) fn new(
-        global: &GlobalEntitys,
+        global: &GlobalEntities,
         entities: Vec<Box<RefCell<dyn EntityTypeImplementation>>>,
     ) -> Self {
         let mut manager = Self::empty();
         manager.init(global, entities);
-        return manager;
+        manager
     }
 
     pub(crate) fn init(
         &mut self,
-        global: &GlobalEntitys,
+        global: &GlobalEntities,
         entities: Vec<Box<RefCell<dyn EntityTypeImplementation>>>,
     ) {
         let mut globals = global.0.borrow_mut();
@@ -295,23 +187,22 @@ impl EntityManager {
                     } else {
                         globals.insert(id, None);
                     }
-                    self.types.insert(id, EntityTypeScope::Scene(entity.into()));
+                    self.types.insert(id, EntityTypeScope::Scene(entity));
                 }
                 EntityScope::Global => {
                     if let Some(ty) = globals.get(&id) {
                         if let Some(ty) = ty {
-                            if !self.types.contains_key(&id) {
-                                self.types.insert(id, EntityTypeScope::Global(ty.clone()));
-                            }
+                            self.types.entry(id).or_insert_with(|| EntityTypeScope::Global(ty.clone()));
                         } else {
                             panic!("This entity already exists as a non global entity!");
                         }
                     } else {
                         globals.insert(id, Some(entity.into()));
                         let ty = globals[&id].as_ref().unwrap();
-                        if !self.types.contains_key(&id) {
-                            self.types.insert(id, EntityTypeScope::Global(ty.clone()));
+                        if ty.borrow().is_groups() {
+                            panic!("Global component can not be stored as group!");
                         }
+                        self.types.entry(id).or_insert_with(|| EntityTypeScope::Global(ty.clone()));
                     }
                 }
             }
@@ -356,7 +247,7 @@ impl EntityManager {
 
                     storage
                 });
-                return GroupHandle(index);
+                GroupHandle(index)
             }
             _ => panic!("Entity does not have EntityStorage::Groups"),
         }
@@ -376,11 +267,11 @@ impl EntityManager {
     }
 
     pub fn group_filter<'a>(&'a self, filter: GroupFilter<'a>) -> &'a [GroupHandle] {
-        return group_filter!(self, filter).1;
+        group_filter!(self, filter).1
     }
 
     #[inline]
-    pub fn set_ref<'a, E: Entity>(&'a self) -> EntitySet<'a, E> {
+    pub fn set_ref<E: Entity>(&self) -> EntitySet<'_, E> {
         self.set_ref_of(GroupFilter::Active)
     }
 
@@ -391,7 +282,7 @@ impl EntityManager {
     }
 
     #[inline]
-    pub fn set_mut<'a, E: Entity>(&'a mut self) -> EntitySetMut<'a, E> {
+    pub fn set_mut<E: Entity>(&mut self) -> EntitySetMut<'_, E> {
         self.set_mut_of(GroupFilter::Active)
     }
 
@@ -402,7 +293,7 @@ impl EntityManager {
     }
 
     #[inline]
-    pub fn set<'a, E: Entity>(&'a self) -> EntitySetMut<'a, E> {
+    pub fn set<E: Entity>(&self) -> EntitySetMut<'_, E> {
         self.set_of(GroupFilter::Active)
     }
 

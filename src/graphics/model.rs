@@ -1,7 +1,7 @@
 #[cfg(feature = "physics")]
 use crate::physics::{Shape, TypedShape};
 use crate::{
-    load_bytes, load_string, Gpu, Isometry2, Matrix2, Rotation2, Sprite, SpriteBuilder, Vector2,
+    load_res_bytes, load_res_string, Gpu, Isometry2, Matrix2, Rotation2, Sprite, SpriteBuilder, Vector2,
     Vector3, AABB,
 };
 use std::io::{BufReader, Cursor};
@@ -18,8 +18,8 @@ pub type Mesh3D = Mesh<Vertex3D>;
 
 pub trait MeshBuilder {
     type Vertex;
-    fn indices<'a>(&'a self) -> &'a [Index];
-    fn vertices<'a>(&'a self) -> &'a [Self::Vertex];
+    fn indices(&self) -> &[Index];
+    fn vertices(&self) -> &[Self::Vertex];
 }
 
 pub trait Vertex: bytemuck::Pod + bytemuck::Zeroable {
@@ -28,7 +28,7 @@ pub trait Vertex: bytemuck::Pod + bytemuck::Zeroable {
     const DESC: wgpu::VertexBufferLayout<'static> = wgpu::VertexBufferLayout {
         array_stride: Self::SIZE,
         step_mode: wgpu::VertexStepMode::Vertex,
-        attributes: &Self::ATTRIBUTES,
+        attributes: Self::ATTRIBUTES,
     };
 }
 
@@ -56,17 +56,17 @@ impl Index {
                 c: index[2],
             })
         }
-        return indices;
+        indices
     }
 }
 
 impl<V: Vertex> MeshBuilder for (Vec<V>, Vec<Index>) {
     type Vertex = V;
 
-    fn indices<'a>(&'a self) -> &'a [Index] {
+    fn indices(&self) -> &[Index] {
         &self.1
     }
-    fn vertices<'a>(&'a self) -> &'a [Self::Vertex] {
+    fn vertices(&self) -> &[Self::Vertex] {
         &self.0
     }
 }
@@ -117,10 +117,10 @@ pub struct MeshBuilder2D {
 impl MeshBuilder for MeshBuilder2D {
     type Vertex = Vertex2D;
 
-    fn indices<'a>(&'a self) -> &'a [Index] {
+    fn indices(&self) -> &[Index] {
         &self.indices
     }
-    fn vertices<'a>(&'a self) -> &'a [Self::Vertex] {
+    fn vertices(&self) -> &[Self::Vertex] {
         &self.vertices
     }
 }
@@ -286,11 +286,11 @@ impl MeshBuilder2D {
         let border = border_radius;
 
         fn det(v0: Vector2<f32>, v1: Vector2<f32>) -> f32 {
-            return v0.x * v1.y - v0.y * v1.x;
+            v0.x * v1.y - v0.y * v1.x
         }
 
         fn sign(n: f32) -> f32 {
-            return ((n > 0.0) as i32 - (n < 0.0) as i32) as f32;
+            ((n > 0.0) as i32 - (n < 0.0) as i32) as f32
         }
 
         struct WrapIter<'a> {
@@ -319,7 +319,7 @@ impl MeshBuilder2D {
                 } else if i == self.len {
                     return Some((self.len, 0, self.vertices[self.len], self.vertices[0]));
                 }
-                return None;
+                None
             }
         }
 
@@ -457,50 +457,50 @@ impl MeshBuilder2D {
     pub fn from_collider_shape(shape: &dyn Shape, resolution: u32, half_thickness: f32) -> Self {
         match shape.as_typed_shape() {
             TypedShape::Ball(ball) => {
-                return Self::ball(ball.radius, resolution);
+                Self::ball(ball.radius, resolution)
             }
             TypedShape::Cuboid(cuboid) => {
-                return Self::cuboid(cuboid.half_extents.into());
+                Self::cuboid(cuboid.half_extents)
             }
             TypedShape::Capsule(capsule) => {
-                return Self::capsule(capsule.radius, capsule.half_height(), resolution);
+                Self::capsule(capsule.radius, capsule.half_height(), resolution)
             }
             TypedShape::Segment(segmenet) => {
-                return Self::segment(segmenet.a.coords, segmenet.b.coords, half_thickness)
+                Self::segment(segmenet.a.coords, segmenet.b.coords, half_thickness)
             }
             TypedShape::Triangle(triangle) => {
-                return Self::triangle(triangle.a.coords, triangle.b.coords, triangle.c.coords);
+                Self::triangle(triangle.a.coords, triangle.b.coords, triangle.c.coords)
             }
             TypedShape::ConvexPolygon(convex_polygon) => {
                 let vertices = convex_polygon.points().iter().map(|p| p.coords).collect();
-                return Self::convex_polygon(vertices);
+                Self::convex_polygon(vertices)
             }
             TypedShape::RoundCuboid(round_cuboid) => {
-                return Self::rounded(
-                    Self::cuboid(round_cuboid.inner_shape.half_extents.into()),
+                Self::rounded(
+                    Self::cuboid(round_cuboid.inner_shape.half_extents),
                     RoundingDirection::Outward,
                     round_cuboid.border_radius,
                     resolution,
-                );
+                )
             }
             TypedShape::RoundTriangle(round_triangle) => {
                 let inner = round_triangle.inner_shape;
-                return Self::rounded(
+                Self::rounded(
                     Self::triangle(inner.a.coords, inner.b.coords, inner.c.coords),
                     RoundingDirection::Outward,
                     round_triangle.border_radius,
                     resolution,
-                );
+                )
             }
             TypedShape::RoundConvexPolygon(round_convex_polygon) => {
                 let inner = &round_convex_polygon.inner_shape;
                 let vertices = inner.points().iter().map(|p| p.coords).collect();
-                return Self::rounded(
+                Self::rounded(
                     Self::convex_polygon(vertices),
                     RoundingDirection::Outward,
                     round_convex_polygon.border_radius,
                     resolution,
-                );
+                )
             }
             TypedShape::Compound(compound) => {
                 let builders = compound
@@ -512,26 +512,26 @@ impl MeshBuilder2D {
                     })
                     .collect();
 
-                return Self::compound(builders);
+                Self::compound(builders)
             }
             TypedShape::TriMesh(tri_mesh) => {
                 let builders = tri_mesh
                     .triangles()
                     .map(|s| Self::triangle(s.a.coords, s.b.coords, s.c.coords))
                     .collect();
-                return Self::compound(builders);
+                Self::compound(builders)
             }
             TypedShape::Polyline(poly_line) => {
                 let builders = poly_line
                     .segments()
                     .map(|s| Self::segment(s.a.coords, s.b.coords, half_thickness))
                     .collect();
-                return Self::compound(builders);
+                Self::compound(builders)
             }
             TypedShape::Custom(_) | TypedShape::HalfSpace(_) | TypedShape::HeightField(_) => {
                 panic!("Unsupported collider shape!");
             }
-        };
+        }
     }
 
     pub fn triangulate(vertices: &Vec<Vertex2D>) -> Vec<Index> {
@@ -554,7 +554,7 @@ impl MeshBuilder2D {
                 t.triangles[3 * i + 2] as u32,
             ));
         }
-        return indices;
+        indices
     }
 
     pub fn create_tex(vertices: Vec<Vector2<f32>>) -> Vec<Vertex2D> {
@@ -588,7 +588,7 @@ impl MeshBuilder2D {
             let tex = Vector2::new(ratio_x, ratio_y);
             result.push(Vertex2D::new(v, tex));
         }
-        return result;
+        result
     }
 
     pub fn vertex_scale(mut self, scale: Vector2<f32>) -> Self {
@@ -762,11 +762,11 @@ pub struct MeshBuilder3D {
 impl MeshBuilder for MeshBuilder3D {
     type Vertex = Vertex3D;
 
-    fn indices<'a>(&'a self) -> &'a [Index] {
+    fn indices(&self) -> &[Index] {
         &self.indices
     }
 
-    fn vertices<'a>(&'a self) -> &'a [Self::Vertex] {
+    fn vertices(&self) -> &[Self::Vertex] {
         &self.vertices
     }
 }
@@ -867,8 +867,8 @@ impl<V: Vertex> Mesh<V> {
     pub fn new(gpu: &Gpu, builder: &dyn MeshBuilder<Vertex = V>) -> Self {
         let vertices = builder.vertices();
         let indices = builder.indices();
-        let vertices_slice = bytemuck::cast_slice(&vertices);
-        let indices_slice = bytemuck::cast_slice(&indices);
+        let vertices_slice = bytemuck::cast_slice(vertices);
+        let indices_slice = bytemuck::cast_slice(indices);
         let vertex_buffer = gpu
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -899,12 +899,12 @@ impl<V: Vertex> Mesh<V> {
     pub fn write(&mut self, gpu: &Gpu, builder: impl MeshBuilder<Vertex = V>) {
         let vertices = builder.vertices();
         let indices = builder.indices();
-        self.write_indices(gpu, &indices);
-        self.write_vertices(gpu, &vertices);
+        self.write_indices(gpu, indices);
+        self.write_vertices(gpu, vertices);
     }
 
     pub fn write_indices(&mut self, gpu: &Gpu, indices: &[Index]) {
-        let indices_slice = bytemuck::cast_slice(&indices[..]);
+        let indices_slice = bytemuck::cast_slice(indices);
         let new_size = indices_slice.len() as wgpu::BufferAddress;
         if new_size > self.index_buffer_size {
             self.index_buffer = gpu
@@ -922,7 +922,7 @@ impl<V: Vertex> Mesh<V> {
     }
 
     pub fn write_vertices(&mut self, gpu: &Gpu, vertices: &[V]) {
-        let vertices_slice = bytemuck::cast_slice(&vertices[..]);
+        let vertices_slice = bytemuck::cast_slice(vertices);
         let new_size = vertices_slice.len() as wgpu::BufferAddress;
         if new_size > self.vertex_buffer_size {
             self.vertex_buffer = gpu
@@ -986,7 +986,7 @@ pub struct ModelBuilder {
 
 impl ModelBuilder {
     pub async fn file(path: &str) -> Self {
-        let obj_text = load_string(path).await.unwrap();
+        let obj_text = load_res_string(path).await.unwrap();
         let obj_cursor = Cursor::new(&obj_text);
         let mut obj_reader = BufReader::new(obj_cursor);
         let mut path_buf: std::path::PathBuf = path.into();
@@ -1001,7 +1001,7 @@ impl ModelBuilder {
                 ..Default::default()
             },
             |p| async move {
-                let mat_text = load_string(path_buf.join(p)).await.unwrap();
+                let mat_text = load_res_string(path_buf.join(p)).await.unwrap();
                 tobj::load_mtl_buf(&mut BufReader::new(Cursor::new(mat_text)))
             },
         )
@@ -1011,7 +1011,7 @@ impl ModelBuilder {
         let mut sprites = Vec::new();
         for m in obj_materials.unwrap() {
             sprites.push(
-                load_bytes(path_buf.join(m.diffuse_texture.unwrap()))
+                load_res_bytes(path_buf.join(m.diffuse_texture.unwrap()))
                     .await
                     .unwrap(),
             );

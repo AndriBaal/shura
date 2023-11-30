@@ -50,7 +50,7 @@ impl Gui {
     }
 
     pub(crate) fn handle_event(&mut self, event: &winit::event::WindowEvent) {
-        self.state.on_window_event(&self.context, event).consumed;
+        let _ = self.state.on_window_event(&self.context, event);
     }
 
     pub(crate) fn begin(&mut self, total_time: &Duration, window: &Window) {

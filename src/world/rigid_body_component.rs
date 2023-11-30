@@ -21,7 +21,7 @@ impl RigidBodyStatus {
                 return world.rigid_body(*rigid_body_handle).unwrap();
             }
             RigidBodyStatus::Pending { rigid_body, .. } => {
-                return rigid_body;
+                rigid_body
             }
         }
     }
@@ -32,7 +32,7 @@ impl RigidBodyStatus {
                 return world.rigid_body_mut(*rigid_body_handle).unwrap();
             }
             RigidBodyStatus::Pending { rigid_body, .. } => {
-                return rigid_body;
+                rigid_body
             }
         }
     }
@@ -48,7 +48,7 @@ impl RigidBodyStatus {
             }
             RigidBodyStatus::Pending { colliders, .. } => colliders.push(collider.into()),
         }
-        return None;
+        None
     }
 
     pub fn detach_collider(
@@ -60,7 +60,7 @@ impl RigidBodyStatus {
             RigidBodyStatus::Added { .. } => return world.detach_collider(collider),
             RigidBodyStatus::Pending { .. } => (),
         }
-        return None;
+        None
     }
 }
 
@@ -191,13 +191,12 @@ impl Component for RigidBodyComponent {
                 );
             }
         }
-        return Instance2D::default();
+        Instance2D::default()
     }
 
     fn init(&mut self, handle: EntityHandle, world: &mut World) {
         match self.status {
             RigidBodyStatus::Added { .. } => {
-                return;
             }
             RigidBodyStatus::Pending {
                 ref rigid_body,
@@ -220,7 +219,7 @@ impl Component for RigidBodyComponent {
                     }
                 }
             }
-            RigidBodyStatus::Pending { .. } => return,
+            RigidBodyStatus::Pending { .. } => (),
         }
     }
 

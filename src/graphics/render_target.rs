@@ -81,7 +81,7 @@ impl SurfaceRenderTarget {
         };
         self.target_view = Some(surface.texture.create_view(&Default::default()));
         self.surface = Some(surface);
-        return Ok(());
+        Ok(())
     }
 
     pub(crate) fn finish_frame(&mut self) {
@@ -170,11 +170,11 @@ impl SpriteRenderTarget {
             Some(SpriteRenderTarget::create_msaa(gpu, size))
         };
 
-        return Self {
+        Self {
             target_msaa,
             target,
             target_view,
-        };
+        }
     }
 
     pub fn computed<D: Deref<Target = [u8]>>(
@@ -185,7 +185,7 @@ impl SpriteRenderTarget {
     ) -> Self {
         let target = SpriteRenderTarget::custom(gpu, sprite);
         target.draw(gpu, defaults, compute);
-        return target;
+        target
     }
 
     pub fn create_msaa(gpu: &Gpu, size: Vector2<u32>) -> wgpu::TextureView {
@@ -236,15 +236,15 @@ impl SpriteRenderTarget {
     ) -> Vector2<u32> {
         let camera_fov = camera.fov() * 2.0;
         let size = mesh_half_extents * 2.0;
-        return Vector2::new(
+        Vector2::new(
             (size.x / camera_fov.x * window_size.x as f32).ceil() as u32,
             (size.y / camera_fov.y * window_size.y as f32).ceil() as u32,
-        );
+        )
     }
 }
 
-impl Into<Sprite> for SpriteRenderTarget {
-    fn into(self) -> Sprite {
-        return self.target;
+impl From<SpriteRenderTarget> for Sprite {
+    fn from(color: SpriteRenderTarget) -> Self {
+        color.target
     }
 }

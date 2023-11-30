@@ -131,7 +131,7 @@ pub trait Ease {
 }
 
 mod f32 {
-    pub const PI_2: f32 = 6.28318530717958647692528676655900576;
+    pub const PI_2: f32 = 6.283_185_5;
 
     pub fn clamp(p: f32) -> f32 {
         match () {

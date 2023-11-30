@@ -73,7 +73,7 @@ impl WorldEvent for RapierCollisionEvent {
             });
         }
 
-        return None;
+        None
     }
 }
 
@@ -112,7 +112,7 @@ impl WorldEvent for RapierContactForceEvent {
             });
         }
 
-        return None;
+        None
     }
 }
 
@@ -195,8 +195,8 @@ impl Clone for World {
             collider_mapping: self.collider_mapping.clone(),
             rigid_body_mapping: self.rigid_body_mapping.clone(),
             query_pipeline: self.query_pipeline.clone(),
-            gravity: self.gravity.clone(),
-            integration_parameters: self.integration_parameters.clone(),
+            gravity: self.gravity,
+            integration_parameters: self.integration_parameters,
             islands: self.islands.clone(),
             broad_phase: self.broad_phase.clone(),
             narrow_phase: self.narrow_phase.clone(),
@@ -239,7 +239,7 @@ impl World {
     ) -> ColliderHandle {
         let collider_handle = self.colliders.insert(collider.clone());
         self.collider_mapping.insert(collider_handle, entity_handle);
-        return collider_handle;
+        collider_handle
     }
 
     pub(crate) fn add_rigid_body(
@@ -259,7 +259,7 @@ impl World {
             );
             self.collider_mapping.insert(collider_handle, entity_handle);
         }
-        return rigid_body_handle;
+        rigid_body_handle
     }
 
     pub(crate) fn remove_rigid_body(
@@ -289,7 +289,7 @@ impl World {
             }
             return Some((rigid_body, colliders));
         }
-        return None;
+        None
     }
 
     pub(crate) fn remove_collider(&mut self, collider: ColliderHandle) -> Option<Collider> {
@@ -300,7 +300,7 @@ impl World {
         {
             return Some(collider);
         }
-        return None;
+        None
     }
 
     pub(crate) fn attach_collider(
@@ -315,15 +315,14 @@ impl World {
             self.collider_mapping.insert(collider, *entity);
             return Some(collider);
         }
-        return None;
+        None
     }
 
     pub(crate) fn detach_collider(&mut self, collider_handle: ColliderHandle) -> Option<Collider> {
         self.collider_mapping.remove(&collider_handle);
-        let collider =
-            self.colliders
-                .remove(collider_handle, &mut self.islands, &mut self.bodies, true);
-        return collider;
+        
+        self.colliders
+                .remove(collider_handle, &mut self.islands, &mut self.bodies, true)
     }
 
     pub fn step(&mut self, frame: &FrameManager) -> CollectedEvents {
@@ -346,14 +345,14 @@ impl World {
             &self.collector.collector,
         );
         self.query_pipeline.update(&self.bodies, &self.colliders);
-        return self.events();
+        self.events()
     }
 
     pub fn events(&self) -> CollectedEvents {
-        return CollectedEvents {
+        CollectedEvents {
             collision: self.collector.collision.clone(),
             contact_force: self.collector.contact_force.clone(),
-        };
+        }
     }
 
     #[cfg(all(feature = "serde", feature = "physics"))]
@@ -375,7 +374,7 @@ impl World {
                         }
                     }
                 }
-                RigidBodyStatus::Pending { .. } => return,
+                RigidBodyStatus::Pending { .. } => (),
             }
         } else if let Some(component) = component.downcast_ref::<ColliderComponent>() {
             match component.status {
@@ -442,7 +441,7 @@ impl World {
                 return Some((*entity, collider.0, collider.1));
             }
         }
-        return None;
+        None
     }
 
     pub fn cast_shape(
@@ -468,7 +467,7 @@ impl World {
                 return Some((*entity, collider.0, collider.1));
             }
         }
-        return None;
+        None
     }
 
     pub fn cast_ray_and_get_normal(
@@ -490,14 +489,14 @@ impl World {
                 return Some((*entity, collider.0, collider.1));
             }
         }
-        return None;
+        None
     }
 
     pub fn intersects_point(&self, collider_handle: ColliderHandle, point: Point2<f32>) -> bool {
         if let Some(collider) = self.collider(collider_handle) {
             return collider.shape().contains_point(collider.position(), &point);
         }
-        return false;
+        false
     }
 
     pub fn intersects_ray(&self, collider_handle: ColliderHandle, ray: Ray, max_toi: f32) -> bool {
@@ -506,7 +505,7 @@ impl World {
                 .shape()
                 .intersects_ray(collider.position(), &ray, max_toi);
         }
-        return false;
+        false
     }
 
     pub fn test_filter(
@@ -537,7 +536,7 @@ impl World {
                 if let Some(entity) = self.entity_from_collider(&collider) {
                     return callback(*entity, collider, ray);
                 }
-                return true;
+                true
             },
         );
     }
@@ -559,7 +558,7 @@ impl World {
                 if let Some(entity) = self.entity_from_collider(&collider) {
                     return callback(*entity, collider);
                 }
-                return true;
+                true
             },
         );
     }
@@ -581,7 +580,7 @@ impl World {
                 return Some((*entity, collider));
             }
         }
-        return None;
+        None
     }
 
     pub fn intersections_with_point(
@@ -599,7 +598,7 @@ impl World {
                 if let Some(entity) = self.entity_from_collider(&collider) {
                     return callback(*entity, collider);
                 }
-                return true;
+                true
             },
         );
     }

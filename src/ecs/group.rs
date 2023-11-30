@@ -1,12 +1,16 @@
 #[cfg(feature = "serde")]
 use crate::{EntityTypeId, FxHashMap};
 
-use crate::{data::arena::Arena, Camera2D, EntityManager, GroupHandle, Instant, World, AABB};
+use crate::{
+    data::arena::Arena, Camera2D, EntityManager, GroupHandle, Instant, Vector2, World,
+    WorldCamera2D, AABB,
+};
 use std::fmt;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GroupManager {
     pub(super) groups: Arena<Group>,
+    pub active_size: Vector2<f32>,
 }
 
 impl GroupManager {
@@ -17,7 +21,13 @@ impl GroupManager {
             Group::new(GroupActivation::Always, 0, Some(Self::DEFAULT_GROUP_NAME));
         let mut groups = Arena::default();
         groups.insert(default_entity_group);
-        Self { groups }
+        Self {
+            groups,
+            active_size: Vector2::new(
+                WorldCamera2D::DEFAULT_VERTICAL_CAMERA_FOV,
+                WorldCamera2D::DEFAULT_VERTICAL_CAMERA_FOV,
+            ),
+        }
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (GroupHandle, &Group)> + Clone {
@@ -35,7 +45,7 @@ impl GroupManager {
     }
 
     pub fn contains(&self, handle: GroupHandle) -> bool {
-        return self.groups.contains(handle.0);
+        self.groups.contains(handle.0)
     }
 
     pub fn get(&self, handle: GroupHandle) -> Option<&Group> {
@@ -52,7 +62,7 @@ impl GroupManager {
             ty.add_group();
         }
         entities.all_groups.push(handle);
-        return handle;
+        handle
     }
 
     pub fn remove(
@@ -73,7 +83,7 @@ impl GroupManager {
             }
             entities.all_groups.retain(|h| *h != handle);
         }
-        return group;
+        group
     }
 
     #[cfg(feature = "serde")]
@@ -97,18 +107,22 @@ impl GroupManager {
                 }
             }
             entities.all_groups.retain(|h| *h != handle);
-            return Some((group, out));
+            Some((group, out))
         } else {
-            return None;
+            None
         }
     }
 
     pub fn update(&mut self, entities: &mut EntityManager, camera: &Camera2D) {
-        let cam_aabb = camera.aabb();
         entities.active_groups.clear();
+        let render_aabb = camera.aabb();
+        let active_aabb = AABB::from_center(*camera.translation(), self.active_size);
         let now = Instant::now();
         for (index, group) in self.groups.iter_mut_with_index() {
-            if group.intersects_camera(cam_aabb) {
+            if group.intersects_aabb(render_aabb) {
+                entities.render_groups.push(GroupHandle(index));
+            }
+            if group.intersects_aabb(active_aabb) {
                 group.set_active(true, now);
                 entities.active_groups.push(GroupHandle(index));
             }
@@ -158,15 +172,11 @@ impl Group {
         }
     }
 
-    pub(crate) fn intersects_camera(&self, cam_aabb: AABB) -> bool {
+    pub(crate) fn intersects_aabb(&self, cam_aabb: AABB) -> bool {
         match &self.activation {
-            GroupActivation::Position { aabb } => return cam_aabb.intersects(aabb),
-            GroupActivation::Always => {
-                return true;
-            }
-            GroupActivation::Never => {
-                return false;
-            }
+            GroupActivation::Position { aabb } => cam_aabb.intersects(aabb),
+            GroupActivation::Always => true,
+            GroupActivation::Never => false,
         }
     }
 

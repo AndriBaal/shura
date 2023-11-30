@@ -36,7 +36,7 @@ impl DepthBuffer {
         let texture = gpu.device.create_texture(&desc);
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-        return Self { view, size };
+        Self { view, size }
     }
 
     pub fn resize(&mut self, gpu: &Gpu, size: Vector2<u32>) {

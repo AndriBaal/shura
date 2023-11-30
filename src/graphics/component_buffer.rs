@@ -33,10 +33,10 @@ impl<I: Instance> ComponentBuffer<I> {
         }
     }
 
-    pub fn push_from_entities<'a, E: Entity, C: Component<Instance = I>>(
+    pub fn push_from_entities<E: Entity, C: Component<Instance = I>>(
         &mut self,
         world: &World,
-        entites: &EntitySet<'a, E>,
+        entites: &EntitySet<'_, E>,
         each: impl Fn(&E) -> &C,
     ) {
         entites.for_each(|entity| {
@@ -47,10 +47,10 @@ impl<I: Instance> ComponentBuffer<I> {
         });
     }
 
-    pub fn push_from_entities_mut<'a, E: Entity, C: Component<Instance = I>>(
+    pub fn push_from_entities_mut<E: Entity, C: Component<Instance = I>>(
         &mut self,
         world: &World,
-        entites: &mut EntitySetMut<'a, E>,
+        entites: &mut EntitySetMut<'_, E>,
         each: impl Fn(&E) -> &C,
     ) {
         entites.for_each_mut(|entity| {
@@ -66,11 +66,11 @@ impl<I: Instance> ComponentBuffer<I> {
     }
 
     pub fn update_buffer(&self) -> bool {
-        return self.update_buffer;
+        self.update_buffer
     }
 
     pub fn buffer(&self) -> &InstanceBuffer<I> {
-        return &self.buffer;
+        &self.buffer
     }
 
     pub fn set_update_buffer(&mut self, update_buffer: bool) {
@@ -80,19 +80,19 @@ impl<I: Instance> ComponentBuffer<I> {
 
 #[cfg(feature = "rayon")]
 impl<I: Instance + Send + Sync> ComponentBuffer<I> {
-    pub fn par_push_from_entities<'a, E: Entity + Send + Sync, C: Component<Instance = I>>(
+    pub fn par_push_from_entities<E: Entity + Send + Sync, C: Component<Instance = I>>(
         &mut self,
         world: &World,
-        entites: &EntitySet<'a, E>,
+        entites: &EntitySet<'_, E>,
         each: impl Fn(&E) -> &C + Send + Sync,
     ) {
         entites.par_for_each_collect(world, each, &mut self.data);
     }
 
-    pub fn par_push_from_entities_mut<'a, E: Entity + Send + Sync, C: Component<Instance = I>>(
+    pub fn par_push_from_entities_mut<E: Entity + Send + Sync, C: Component<Instance = I>>(
         &mut self,
         world: &World,
-        entites: &mut EntitySetMut<'a, E>,
+        entites: &mut EntitySetMut<'_, E>,
         each: impl Fn(&mut E) -> &C + Send + Sync,
     ) {
         entites.par_for_each_collect_mut(world, each, &mut self.data);
@@ -118,15 +118,15 @@ pub struct ComponentBufferManager {
 
 impl ComponentBufferManager {
     pub(crate) fn empty() -> Self {
-        return Self {
+        Self {
             buffers: Default::default(),
-        };
+        }
     }
 
     pub(crate) fn new(buffers: FxHashMap<&'static str, Box<dyn ComponentBufferImpl>>) -> Self {
         let mut component_buffer_manager = Self::empty();
         component_buffer_manager.init(buffers);
-        return component_buffer_manager;
+        component_buffer_manager
     }
 
     pub(crate) fn init(&mut self, buffers: FxHashMap<&'static str, Box<dyn ComponentBufferImpl>>) {

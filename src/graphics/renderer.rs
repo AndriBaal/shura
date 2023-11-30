@@ -49,30 +49,26 @@ impl<'a> Renderer<'a> {
         let render_pass = render_encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("render_pass"),
             color_attachments: &[Some(target.attachment(clear))],
-            depth_stencil_attachment: if let Some(depth) = depth {
-                Some(wgpu::RenderPassDepthStencilAttachment {
+            depth_stencil_attachment: depth.map(|depth| wgpu::RenderPassDepthStencilAttachment {
                     view: depth.view(),
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Clear(1.0),
                         store: wgpu::StoreOp::Store,
                     }),
                     stencil_ops: None,
-                })
-            } else {
-                None
-            },
+                }),
             timestamp_writes: None,
             occlusion_query_set: None,
         });
 
-        return Self {
+        Self {
             indices: 0,
             render_pass,
             defaults,
             target,
             gpu,
             cache: RenderCache::default(),
-        };
+        }
     }
 
     pub fn target(&self) -> &dyn RenderTarget {
@@ -81,7 +77,7 @@ impl<'a> Renderer<'a> {
 
     pub fn pass(&'a mut self) -> &mut wgpu::RenderPass {
         self.cache = Default::default();
-        return &mut self.render_pass;
+        &mut self.render_pass
     }
 
     pub fn use_instances<I: Instance>(&mut self, buffer: &'a InstanceBuffer<I>) {
@@ -293,7 +289,7 @@ impl<'a> Renderer<'a> {
                 };
                 self.use_sprite(sprite, 1);
                 self.use_mesh(&mesh.1);
-                self.draw(instances.clone());
+                self.draw(instances);
             }
         }
     }

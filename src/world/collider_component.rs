@@ -16,7 +16,7 @@ impl ColliderStatus {
                 return world.collider(*collider_handle).unwrap();
             }
             ColliderStatus::Pending { collider } => {
-                return collider;
+                collider
             }
         }
     }
@@ -27,7 +27,7 @@ impl ColliderStatus {
                 return world.collider_mut(*collider_handle).unwrap();
             }
             ColliderStatus::Pending { collider } => {
-                return collider;
+                collider
             }
         }
     }
@@ -140,13 +140,12 @@ impl Component for ColliderComponent {
                 );
             }
         }
-        return Instance2D::default();
+        Instance2D::default()
     }
 
     fn init(&mut self, handle: EntityHandle, world: &mut World) {
         match self.status {
             ColliderStatus::Added { .. } => {
-                return;
             }
             ColliderStatus::Pending { ref collider } => {
                 let collider_handle = world.add_collider(handle, collider.clone());
@@ -162,7 +161,7 @@ impl Component for ColliderComponent {
                     self.status = ColliderStatus::Pending { collider }
                 }
             }
-            ColliderStatus::Pending { .. } => return,
+            ColliderStatus::Pending { .. } => (),
         }
     }
 

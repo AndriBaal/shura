@@ -10,23 +10,23 @@ pub struct Uniform<T: bytemuck::Pod> {
 
 impl<T: bytemuck::Pod> Uniform<T> {
     pub fn new(gpu: &Gpu, data: T) -> Self {
-        Self::new_custom_layout(&gpu, &gpu.base.single_uniform_layout, data)
+        Self::custom_layout(gpu, &gpu.base.single_uniform_layout, data)
     }
 
     pub fn camera(gpu: &Gpu, data: T) -> Self {
-        Self::new_custom_layout(&gpu, &gpu.base.camera_layout, data)
+        Self::custom_layout(gpu, &gpu.base.camera_layout, data)
     }
 
     pub fn custom(gpu: &Gpu, desc: &wgpu::BindGroupLayoutDescriptor, data: T) -> Uniform<T> {
         let layout = gpu.device.create_bind_group_layout(desc);
-        return Self::new_custom_layout(gpu, &layout, data);
+        Self::custom_layout(gpu, &layout, data)
     }
 
     pub fn empty(gpu: &Gpu, layout: &wgpu::BindGroupLayout) -> Uniform<T> {
         const BUFFER_ALIGNMENT: u64 = 16;
         let data_size = std::mem::size_of::<T>() as u64;
         let buffer_size = wgpu::util::align_to(data_size, BUFFER_ALIGNMENT);
-        assert!(
+        debug_assert!(
             buffer_size % BUFFER_ALIGNMENT == 0,
             "Unaligned buffer size: {}",
             buffer_size
@@ -54,10 +54,10 @@ impl<T: bytemuck::Pod> Uniform<T> {
         }
     }
 
-    pub fn new_custom_layout(gpu: &Gpu, layout: &wgpu::BindGroupLayout, data: T) -> Uniform<T> {
+    pub fn custom_layout(gpu: &Gpu, layout: &wgpu::BindGroupLayout, data: T) -> Uniform<T> {
         let mut uniform = Uniform::empty(gpu, layout);
         uniform.write(gpu, data);
-        return uniform;
+        uniform
     }
 
     pub fn write(&mut self, gpu: &Gpu, data: T) {

@@ -89,7 +89,7 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
             Some(RgbaColor::new(220, 220, 220, 255).into()),
             |renderer| {
                 ctx.render_all(renderer, "cube", |renderer, buffer, instances| {
-                    renderer.render_model(instances, buffer, &ctx.world_camera3d, &resources.model);
+                    renderer.render_model(instances, buffer, ctx.world_camera3d, &resources.model);
                 });
             },
         );

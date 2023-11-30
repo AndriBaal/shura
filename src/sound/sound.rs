@@ -4,7 +4,7 @@ pub struct Sound(pub &'static [u8]);
 
 impl Sound {
     pub fn new(sound: &'static [u8]) -> Sound {
-        return Self(sound);
+        Self(sound)
     }
 
     pub fn decode(&self) -> Decoder<std::io::Cursor<&'static [u8]>> {

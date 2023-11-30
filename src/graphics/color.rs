@@ -125,7 +125,7 @@ impl RgbaColor {
     };
 
     pub const fn new(r: u8, g: u8, b: u8, a: u8) -> Self {
-        return Self { r, g, b, a };
+        Self { r, g, b, a }
     }
 
     pub fn set(&mut self, r: u8, g: u8, b: u8, a: u8) {
@@ -142,22 +142,22 @@ impl RgbaColor {
     }
 }
 
-impl Into<image::Rgba<u8>> for RgbaColor {
-    fn into(self) -> image::Rgba<u8> {
-        image::Rgba([self.r, self.g, self.b, self.a])
+impl From<RgbaColor> for image::Rgba<u8> {
+    fn from(val: RgbaColor) -> Self {
+        image::Rgba([val.r, val.g, val.b, val.a])
     }
 }
 
 #[cfg(feature = "gui")]
-impl Into<crate::gui::Color32> for RgbaColor {
-    fn into(self) -> crate::gui::Color32 {
-        crate::gui::Color32::from_rgba_premultiplied(self.r, self.g, self.b, self.a)
+impl From<RgbaColor> for crate::gui::Color32 {
+    fn from(val: RgbaColor) -> Self {
+        crate::gui::Color32::from_rgba_premultiplied(val.r, val.g, val.b, val.a)
     }
 }
 
-impl Into<[u8; 4]> for RgbaColor {
-    fn into(self) -> [u8; 4] {
-        [self.r, self.g, self.b, self.a]
+impl From<RgbaColor> for [u8; 4] {
+    fn from(val: RgbaColor) -> Self {
+        [val.r, val.g, val.b, val.a]
     }
 }
 
@@ -289,7 +289,7 @@ impl Color {
     };
 
     pub const fn new(r: f32, g: f32, b: f32, a: f32) -> Self {
-        return Self { r, g, b, a };
+        Self { r, g, b, a }
     }
 
     pub fn set(&mut self, r: f32, g: f32, b: f32, a: f32) {
@@ -306,41 +306,41 @@ impl Color {
     }
 }
 
-impl Into<wgpu::Color> for Color {
-    fn into(self) -> wgpu::Color {
+impl From<Color> for wgpu::Color {
+    fn from(val: Color) -> Self {
         wgpu::Color {
-            r: self.r as f64,
-            g: self.g as f64,
-            b: self.b as f64,
-            a: self.a as f64,
+            r: val.r as f64,
+            g: val.g as f64,
+            b: val.b as f64,
+            a: val.a as f64,
         }
     }
 }
 
-impl Into<[f32; 4]> for Color {
-    fn into(self) -> [f32; 4] {
-        [self.r, self.g, self.b, self.a]
+impl From<Color> for [f32; 4] {
+    fn from(val: Color) -> Self {
+        [val.r, val.g, val.b, val.a]
     }
 }
 
-impl Into<Color> for RgbaColor {
-    fn into(self) -> Color {
-        return Color {
-            r: self.r as f32 / 255.0,
-            g: self.g as f32 / 255.0,
-            b: self.b as f32 / 255.0,
-            a: self.a as f32 / 255.0,
-        };
+impl From<RgbaColor> for Color {
+    fn from(color: RgbaColor) -> Self {
+        Color {
+            r: color.r as f32 / 255.0,
+            g: color.g as f32 / 255.0,
+            b: color.b as f32 / 255.0,
+            a: color.a as f32 / 255.0,
+        }
     }
 }
 
-impl Into<RgbaColor> for Color {
-    fn into(self) -> RgbaColor {
-        return RgbaColor {
-            r: (self.r * 255.0) as u8,
-            g: (self.g * 255.0) as u8,
-            b: (self.b * 255.0) as u8,
-            a: (self.a * 255.0) as u8,
-        };
+impl From<Color> for RgbaColor {
+    fn from(color: Color) -> Self {
+        RgbaColor {
+            r: (color.r * 255.0) as u8,
+            g: (color.g * 255.0) as u8,
+            b: (color.b * 255.0) as u8,
+            a: (color.a * 255.0) as u8,
+        }
     }
 }

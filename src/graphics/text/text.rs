@@ -1,5 +1,5 @@
 use crate::{
-    load_bytes, Color, Gpu, Index, Isometry2, Mesh, MeshBuilder2D, SpriteSheet, SpriteSheetBuilder,
+    load_res_bytes, Color, Gpu, Index, Isometry2, Mesh, MeshBuilder2D, SpriteSheet, SpriteSheetBuilder,
     SpriteSheetIndex, Vector2, Vertex,
 };
 use owned_ttf_parser::AsFaceRef;
@@ -22,7 +22,7 @@ impl<'a> FontBuilder {
     }
 
     pub async fn file(path: &str) -> Self {
-        let bytes = load_bytes(path).await.unwrap();
+        let bytes = load_res_bytes(path).await.unwrap();
         Self::Owned(bytes)
     }
 }
@@ -54,9 +54,9 @@ pub struct Font {
 impl Font {
     pub fn new(gpu: &Gpu, builder: FontBuilder) -> Self {
         let inner = FontInner::new(gpu, builder);
-        return Self {
+        Self {
             inner: Arc::new(inner),
-        };
+        }
     }
 }
 
@@ -176,11 +176,11 @@ impl FontInner {
             }
         }
 
-        return Self {
+        Self {
             sprite_sheet,
             index_map,
             font,
-        };
+        }
     }
 }
 
@@ -243,10 +243,10 @@ impl Text {
     pub fn new<S: AsRef<str>>(gpu: &Gpu, font: &Font, sections: &[TextSection<S>]) -> Self {
         let builder = Self::compute_vertices(font, sections);
         let mesh = gpu.create_mesh(&builder);
-        return Self {
+        Self {
             font: font.clone(),
             mesh,
-        };
+        }
     }
 
     fn compute_vertices<S: AsRef<str>>(
@@ -364,8 +364,8 @@ impl Text {
                                 section.vertex_rotation_axis,
                             );
                             indices.extend([
-                                Index::new(base_index + 0, base_index + 1, base_index + 2),
-                                Index::new(base_index + 2, base_index + 3, base_index + 0),
+                                Index::new(base_index, base_index + 1, base_index + 2),
+                                Index::new(base_index + 2, base_index + 3, base_index),
                             ]);
                         }
                     }
@@ -374,7 +374,7 @@ impl Text {
                 off_y += section.size + metrics.descent.abs() + metrics.line_gap;
             }
         }
-        return (vertices, indices);
+        (vertices, indices)
     }
 
     pub fn write<S: AsRef<str>>(&mut self, gpu: &Gpu, sections: &[TextSection<S>]) {

@@ -49,7 +49,7 @@ pub struct SerializedScene {
 impl SerializedScene {
     pub fn new(id: u32, scene: &[u8]) -> SerializedScene {
         let (scene, ser_entities): (Scene, FxHashMap<EntityTypeId, Vec<u8>>) =
-            bincode::deserialize(&scene).unwrap();
+            bincode::deserialize(scene).unwrap();
         Self {
             id,
             scene,
@@ -102,7 +102,7 @@ impl SceneCreator for SerializedScene {
                 _ => (),
             }
         }
-        return self.scene;
+        self.scene
     }
 }
 
@@ -126,7 +126,7 @@ impl GroupSerializer {
                 ser_entities: Default::default(),
             });
         }
-        return None;
+        None
     }
 
     pub fn remove_serialize<E: Entity + Clone + serde::Serialize>(&mut self) {
@@ -138,7 +138,7 @@ impl GroupSerializer {
     }
 
     pub fn finish(self) -> Result<Vec<u8>, Box<bincode::ErrorKind>> {
-        return bincode::serialize(&(self.group, self.ser_entities));
+        bincode::serialize(&(self.group, self.ser_entities))
     }
 }
 
@@ -153,7 +153,7 @@ pub struct GroupDeserializer {
 impl GroupDeserializer {
     pub fn new(data: &[u8]) -> Self {
         let (group, ser_entities): (Group, FxHashMap<EntityTypeId, Vec<u8>>) =
-            bincode::deserialize(&data).unwrap();
+            bincode::deserialize(data).unwrap();
         Self {
             group,
             ser_entities,
@@ -181,6 +181,6 @@ impl GroupDeserializer {
         for call in self.init_callbacks.drain(..) {
             call(&mut self.entities, ctx);
         }
-        return handle;
+        handle
     }
 }

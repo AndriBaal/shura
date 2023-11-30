@@ -76,7 +76,7 @@ impl SceneCreator for NewScene {
     }
 
     fn create(self: Box<Self>, app: &mut App) -> Scene {
-        return Scene::new(self.id, app, self.systems, self.entities, self.component_buffers);
+        Scene::new(self.id, app, self.systems, self.entities, self.component_buffers)
     }
 
     fn systems(&mut self) -> &mut Vec<System> {
@@ -125,7 +125,7 @@ impl SceneCreator for RecycleScene {
         self.scene.component_buffers.init(self.component_buffers);
         self.scene.systems.init(&self.systems);
         self.scene.entities.init(&app.globals, self.entities);
-        return self.scene;
+        self.scene
     }
 
     fn systems(&mut self) -> &mut Vec<System> {
@@ -164,7 +164,6 @@ pub struct Scene {
 }
 
 impl Scene {
-    pub const DEFAULT_VERTICAL_CAMERA_FOV: f32 = 3.0;
     pub(crate) fn new(
         id: u32,
         app: &mut App,
@@ -179,7 +178,7 @@ impl Scene {
             world_camera2d: WorldCamera2D::new(
                 window_size,
                 Default::default(),
-                WorldCameraScaling::Min(Self::DEFAULT_VERTICAL_CAMERA_FOV),
+                WorldCameraScaling::Min(WorldCamera2D::DEFAULT_VERTICAL_CAMERA_FOV),
             ),
             entities: EntityManager::new(&app.globals, entities),
             systems: SystemManager::new(&systems),
@@ -205,6 +204,6 @@ impl Scene {
             }
         }
 
-        return scene;
+        scene
     }
 }

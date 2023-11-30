@@ -130,6 +130,6 @@ where
             items.push(item);
         }
 
-        return Ok(Arena::from_items(items, generation));
+        Ok(Arena::from_items(items, generation))
     }
 }

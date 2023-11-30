@@ -11,6 +11,12 @@ mod scene;
 mod systems;
 mod tasks;
 mod world;
+#[cfg(feature = "animation")]
+mod tween;
+#[cfg(feature = "log")]
+mod logging;
+#[cfg(feature = "audio")]
+mod sound;
 
 pub use instant::{Duration, Instant};
 pub use rustc_hash::{FxHashMap, FxHashSet};
@@ -45,9 +51,24 @@ pub use wgpu;
 /// Access to [winit](https://github.com/rust-windowing/winit).
 pub use winit;
 
-// Rodio
-#[cfg(feature = "audio")]
-mod sound;
+pub use bytemuck;
+
+/// Access to [image](https://github.com/image-rs/image)
+pub use image;
+
+/// Access to [nalgebra](https://github.com/dimforge/nalgebra), the math library used by shura
+pub use nalgebra;
+
+/// Access to [mint](https://github.com/kvark/mint) to convert between the diffrent math types
+pub use mint;
+
+#[cfg(target_arch = "wasm32")]
+pub use web_sys;
+#[cfg(target_arch = "wasm32")]
+pub use reqwest;
+#[cfg(target_arch = "wasm32")]
+pub use wasm_bindgen_futures;
+
 #[cfg(feature = "audio")]
 /// Access to [rodio](https://github.com/RustAudio/rodio)
 pub mod audio {
@@ -56,10 +77,6 @@ pub mod audio {
     pub use rodio::Sink as AudioSink;
     pub use rodio::*;
 }
-
-pub use bytemuck;
-/// Access to [image](https://github.com/image-rs/image)
-pub use image;
 
 #[cfg(not(feature = "physics"))]
 pub use world::world_no_rapier::World;
@@ -132,25 +149,15 @@ pub mod gamepad {
     };
 }
 
-// animation
-#[cfg(feature = "animation")]
-mod tween;
-
 /// Access to animations inspired by [bevy_tweening](https://github.com/djeedai/bevy_tweening)
 #[cfg(feature = "animation")]
 pub mod animation {
     pub use crate::tween::{ease::*, tween::*};
 }
 
-/// Access to [nalgebra](https://github.com/dimforge/nalgebra), the math library used by shura
-pub use nalgebra;
-
 /// Access to [rayon](https://github.com/rayon-rs/rayon)
 #[cfg(feature = "rayon")]
 pub use rayon;
-
-/// Access to [mint](https://github.com/kvark/mint) to convert between the diffrent math types
-pub use mint;
 
 /// Access to some easy randomizer functions
 pub mod rand {
@@ -160,17 +167,14 @@ pub mod rand {
     >(
         range: R,
     ) -> T {
-        return thread_rng().gen_range(range);
+        thread_rng().gen_range(range)
     }
     pub fn gen_bool(p: f64) -> bool {
-        return thread_rng().gen_bool(p);
+        thread_rng().gen_bool(p)
     }
 
     pub use rand::*;
 }
-
-#[cfg(feature = "log")]
-mod logging;
 
 #[cfg(feature = "log")]
 /// Access to the logging abstraction over [env_logger](https://github.com/rust-cli/env_logger) and modified version of [wasm_logger](https://gitlab.com/limira-rs/wasm-logger)

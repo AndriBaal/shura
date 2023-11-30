@@ -25,8 +25,8 @@ impl<'a> SpriteSheetBuilder<'a, image::RgbaImage> {
         let size = Vector2::new(image.width(), image.height());
         let sprite_amount = size.component_div(&sprite_size);
         let mut data = vec![];
-        for i in 0..sprite_amount.y as u32 {
-            for j in 0..sprite_amount.x as u32 {
+        for i in 0..sprite_amount.y {
+            for j in 0..sprite_amount.x {
                 let sprite = image.crop(
                     j * sprite_size.x,
                     i * sprite_size.y,
@@ -71,25 +71,25 @@ impl<'a> SpriteSheetBuilder<'a, &'a [u8]> {
         sprite_amount: Vector2<u32>,
         data: Vec<&'a [u8]>,
     ) -> Self {
-        return Self {
+        Self {
             label: None,
             sprite_size,
             sprite_amount,
             sampler: Self::DEFAULT_SAMPLER,
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
             data,
-        };
+        }
     }
 
     pub fn empty(sprite_size: Vector2<u32>, sprite_amount: Vector2<u32>) -> Self {
-        return Self {
+        Self {
             label: None,
             sprite_size,
             sprite_amount,
             sampler: Self::DEFAULT_SAMPLER,
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
             data: vec![],
-        };
+        }
     }
 }
 
@@ -201,13 +201,13 @@ impl SpriteSheet {
             label: Some("sprite_sheet_bind_group"),
         });
 
-        return Self {
+        Self {
             texture,
             _sampler: sampler,
             bind_group,
             sprite_size: desc.sprite_size,
             sprite_amount: desc.sprite_amount,
-        };
+        }
     }
 
     pub fn write(
@@ -225,7 +225,7 @@ impl SpriteSheet {
                 origin: wgpu::Origin3d {
                     x: 0,
                     y: 0,
-                    z: index as u32,
+                    z: index,
                 },
                 aspect: wgpu::TextureAspect::All,
             },
@@ -256,11 +256,11 @@ impl SpriteSheet {
     }
 
     pub fn index(&self, index_2d: SpriteSheetIndex2D) -> SpriteSheetIndex {
-        return index_2d.y * self.sprite_amount.x + index_2d.x;
+        index_2d.y * self.sprite_amount.x + index_2d.x
     }
 
     pub fn compute_index(sprite_amount_x: u32, index_2d: SpriteSheetIndex2D) -> SpriteSheetIndex {
-        return index_2d.y * sprite_amount_x + index_2d.x;
+        index_2d.y * sprite_amount_x + index_2d.x
     }
 
     pub fn sprite_size(&self) -> &Vector2<u32> {

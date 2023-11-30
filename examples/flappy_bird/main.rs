@@ -123,7 +123,7 @@ fn update(ctx: &mut Context) {
     });
 }
 
-fn render(res: &ComponentResources, encoder: &mut RenderEncoder) {
+fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
     let manager = res.single::<FlappyManager>();
     encoder.render2d(
         Some(RgbaColor::new(220, 220, 220, 255).into()),

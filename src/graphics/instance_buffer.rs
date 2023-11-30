@@ -15,7 +15,7 @@ pub trait Instance: bytemuck::Pod + bytemuck::Zeroable {
     const DESC: wgpu::VertexBufferLayout<'static> = wgpu::VertexBufferLayout {
         array_stride: Self::SIZE,
         step_mode: wgpu::VertexStepMode::Instance,
-        attributes: &Self::ATTRIBUTES,
+        attributes: Self::ATTRIBUTES,
     };
 }
 
@@ -134,13 +134,13 @@ impl Instance2D {
 
 impl Default for Instance2D {
     fn default() -> Self {
-        return Self::new(
+        Self::new(
             Isometry2::new(Vector2::default(), 0.0),
             Vector2::new(1.0, 1.0),
             Default::default(),
             Color::WHITE,
             0,
-        );
+        )
     }
 }
 
@@ -170,7 +170,7 @@ impl Instance3D {
 
 impl Default for Instance3D {
     fn default() -> Self {
-        return Self::new(Default::default(), Vector3::new(1.0, 1.0, 1.0));
+        Self::new(Default::default(), Vector3::new(1.0, 1.0, 1.0))
     }
 }
 
@@ -186,8 +186,8 @@ impl<I: Instance> InstanceBuffer<I> {
         let instance_size = size_of::<I>() as u64;
         let data = bytemuck::cast_slice(data);
         let buffer_size = data.len() as u64;
-        assert!(buffer_size % instance_size == 0);
-        assert!(I::SIZE != 0);
+        debug_assert!(buffer_size % instance_size == 0);
+        debug_assert!(I::SIZE != 0);
         let buffer = gpu
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -196,30 +196,30 @@ impl<I: Instance> InstanceBuffer<I> {
                 contents: data,
             });
 
-        return Self {
+        Self {
             buffer,
-            buffer_size: buffer_size,
+            buffer_size,
             instances: buffer_size / instance_size,
             marker: PhantomData,
-        };
+        }
     }
 
     pub fn empty(gpu: &Gpu, amount: u64) -> Self {
-        assert!(I::SIZE != 0);
+        debug_assert!(I::SIZE != 0);
         let instance_size = size_of::<I>() as u64;
         let buffer = gpu.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("instance_buffer"),
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-            size: instance_size as u64 * amount as u64,
+            size: instance_size as u64 * amount,
             mapped_at_creation: false,
         });
 
-        return Self {
+        Self {
             buffer,
             instances: 0,
             buffer_size: 0,
             marker: PhantomData,
-        };
+        }
     }
 
     pub fn write(&mut self, gpu: &Gpu, data: &[I]) {
@@ -227,7 +227,7 @@ impl<I: Instance> InstanceBuffer<I> {
     }
 
     pub fn write_offset(&mut self, gpu: &Gpu, instance_offset: u64, data: &[I]) {
-        let instance_size: u64 = I::SIZE as u64;
+        let instance_size: u64 = I::SIZE;
         let data = bytemuck::cast_slice(data);
         let new_size = instance_offset * instance_size + data.len() as u64;
 
@@ -239,11 +239,9 @@ impl<I: Instance> InstanceBuffer<I> {
                     usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
                     contents: data,
                 });
-        } else {
-            if !data.is_empty() {
-                gpu.queue
-                    .write_buffer(&self.buffer, instance_offset * instance_size, data);
-            }
+        } else if !data.is_empty() {
+            gpu.queue
+                .write_buffer(&self.buffer, instance_offset * instance_size, data);
         }
 
         self.buffer_size = new_size;
@@ -263,7 +261,7 @@ impl<I: Instance> InstanceBuffer<I> {
     }
 
     pub fn buffer_size(&self) -> wgpu::BufferAddress {
-        return self.buffer_size;
+        self.buffer_size
     }
 
     pub fn instance_amount(&self) -> wgpu::BufferAddress {
@@ -271,7 +269,7 @@ impl<I: Instance> InstanceBuffer<I> {
     }
 
     pub fn instance_size(&self) -> wgpu::BufferAddress {
-        I::SIZE as u64
+        I::SIZE
     }
 
     pub(crate) fn buffer(&self) -> &wgpu::Buffer {
@@ -290,21 +288,21 @@ impl InstanceIndex {
     }
 }
 
-impl Into<InstanceIndices> for InstanceIndex {
-    fn into(self) -> InstanceIndices {
-        InstanceIndices::new(self.index, self.index + 1)
+impl From<InstanceIndex> for InstanceIndices {
+    fn from(val: InstanceIndex) -> Self {
+        InstanceIndices::new(val.index, val.index + 1)
     }
 }
 
-impl Into<InstanceIndices> for u32 {
-    fn into(self) -> InstanceIndices {
-        InstanceIndices::new(self, self + 1)
+impl From<u32> for InstanceIndices {
+    fn from(val: u32) -> Self {
+        InstanceIndices::new(val, val + 1)
     }
 }
 
-impl Into<InstanceIndices> for Range<u32> {
-    fn into(self) -> InstanceIndices {
-        InstanceIndices::new(self.start, self.end)
+impl From<Range<u32>> for InstanceIndices {
+    fn from(val: Range<u32>) -> Self {
+        InstanceIndices::new(val.start, val.end)
     }
 }
 

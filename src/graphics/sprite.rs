@@ -1,7 +1,8 @@
 use wgpu::util::DeviceExt;
 
-use crate::{load_bytes, Gpu, RgbaColor, Vector2};
+use crate::{load_res_bytes, Gpu, RgbaColor, Vector2};
 use std::{ops::Deref, path::Path};
+use image::ImageOutputFormat;
 
 pub struct SpriteBuilder<'a, D: Deref<Target = [u8]>> {
     pub label: Option<&'a str>,
@@ -15,51 +16,51 @@ impl<'a> SpriteBuilder<'a, image::RgbaImage> {
     pub async fn file(
         path: impl AsRef<Path>,
     ) -> SpriteBuilder<'a, image::ImageBuffer<image::Rgba<u8>, Vec<u8>>> {
-        let bytes = load_bytes(path).await.unwrap();
+        let bytes = load_res_bytes(path).await.unwrap();
         let image = image::load_from_memory(&bytes).unwrap();
         let size = Vector2::new(image.width(), image.height());
-        return Self {
+        Self {
             label: None,
             size,
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
             sampler: Sprite::DEFAULT_SAMPLER,
             data: image.to_rgba8(),
-        };
+        }
     }
 
     pub fn bytes(bytes: &[u8]) -> Self {
         let image = image::load_from_memory(bytes).unwrap();
         let size = Vector2::new(image.width(), image.height());
-        return Self {
+        Self {
             label: None,
             size,
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
             sampler: Sprite::DEFAULT_SAMPLER,
             data: image.to_rgba8(),
-        };
+        }
     }
 
     pub fn image(image: image::DynamicImage) -> Self {
         let size = Vector2::new(image.width(), image.height());
-        return Self {
+        Self {
             label: None,
             size,
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
             sampler: Sprite::DEFAULT_SAMPLER,
             data: image.to_rgba8(),
-        };
+        }
     }
 }
 
 impl<'a> SpriteBuilder<'a, &'static [u8]> {
     pub fn empty(size: Vector2<u32>) -> Self {
-        return Self {
+        Self {
             label: None,
             size,
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
             sampler: Sprite::DEFAULT_SAMPLER,
             data: &[],
-        };
+        }
     }
 }
 
@@ -77,13 +78,13 @@ impl<'a> SpriteBuilder<'a, Vec<u8>> {
 
 impl<'a> SpriteBuilder<'a, &'a [u8]> {
     pub fn raw(size: Vector2<u32>, data: &'a [u8]) -> Self {
-        return Self {
+        Self {
             label: None,
             size,
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
             sampler: Sprite::DEFAULT_SAMPLER,
             data,
-        };
+        }
     }
 }
 
@@ -134,14 +135,14 @@ impl Sprite {
     pub fn new<D: Deref<Target = [u8]>>(gpu: &Gpu, desc: SpriteBuilder<D>) -> Self {
         let texture = Self::create_texture(gpu, desc.label, desc.format, desc.size, &desc.data);
         let (view, bind_group, sampler) = Self::create_bind_group(gpu, &texture, &desc.sampler);
-        return Self {
+        Self {
             _sampler: sampler,
             size: desc.size,
             format: desc.format,
             texture,
             view,
             bind_group,
-        };
+        }
     }
 
     fn create_texture(
@@ -152,9 +153,11 @@ impl Sprite {
         data: &[u8],
     ) -> wgpu::Texture {
         assert!(size.x != 0 && size.y != 0);
-        let texture = if data.is_empty() {
+        
+
+        if data.is_empty() {
             gpu.device.create_texture(&wgpu::TextureDescriptor {
-                label: label,
+                label,
                 size: wgpu::Extent3d {
                     width: size.x,
                     height: size.y,
@@ -192,9 +195,7 @@ impl Sprite {
                 },
                 data,
             )
-        };
-
-        return texture;
+        }
     }
 
     fn create_bind_group(
@@ -203,7 +204,7 @@ impl Sprite {
         sampler: &wgpu::SamplerDescriptor,
     ) -> (wgpu::TextureView, wgpu::BindGroup, wgpu::Sampler) {
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let sampler = gpu.device.create_sampler(&sampler);
+        let sampler = gpu.device.create_sampler(sampler);
         let bind_group = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &gpu.base.sprite_layout,
             entries: &[
@@ -219,7 +220,7 @@ impl Sprite {
             label: Some("texture_bind_group"),
         });
 
-        return (view, bind_group, sampler);
+        (view, bind_group, sampler)
     }
 
     pub fn write_image(&mut self, gpu: &Gpu, rgba: &image::RgbaImage) {
@@ -243,11 +244,10 @@ impl Sprite {
         );
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
-    #[cfg(not(target_os = "android"))]
-    #[cfg(not(target_os = "ios"))]
-    pub fn save(&self, gpu: &Gpu, file_name: &str) -> image::ImageResult<()> {
-        self.to_image(gpu).to_rgba8().save(file_name)
+    pub fn to_bytes(&self, gpu: &Gpu) -> Vec<u8> {
+        let mut result = std::io::Cursor::new(Vec::new());
+        self.to_image(gpu).write_to(&mut result, ImageOutputFormat::Png).unwrap();
+        return result.into_inner();
     }
 
     pub fn to_image(&self, gpu: &Gpu) -> image::DynamicImage {
@@ -320,7 +320,7 @@ impl Sprite {
         };
 
         output_buffer.unmap();
-        return image;
+        image
     }
 
     pub const fn size(&self) -> Vector2<u32> {
@@ -332,7 +332,7 @@ impl Sprite {
     }
 
     pub const fn format(&self) -> wgpu::TextureFormat {
-        return self.format;
+        self.format
     }
 
     pub const fn texture(&self) -> &wgpu::Texture {

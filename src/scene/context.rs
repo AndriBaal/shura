@@ -1,9 +1,10 @@
-use std::sync::Arc;
+use std::{cell::Ref, sync::Arc};
 
 use crate::{
-    App, DefaultResources, EntityManager, FrameManager, Gpu, GroupManager, Input, Point2, Scene,
-    SceneManager, ScreenConfig, SystemManager, TaskManager, Vector2, World, WorldCamera2D,
-    WorldCamera3D, ComponentBufferManager,
+    App, CameraBuffer, CameraBuffer2D, ComponentBufferManager, DefaultResources, Entity,
+    EntityManager, EntitySet, FrameManager, Gpu, GroupFilter, GroupManager, Input, Instance2D,
+    InstanceBuffer, InstanceIndices, Mesh2D, Point2, Renderer, Scene, SceneManager, ScreenConfig,
+    SystemManager, TaskManager, Vector2, World, WorldCamera2D, WorldCamera3D,
 };
 
 #[cfg(feature = "serde")]
@@ -137,8 +138,8 @@ impl<'a> Context<'a> {
                 world: &world_cpy,
             };
             let scene: (&Scene, FxHashMap<EntityTypeId, Vec<u8>>) = (&scene, ser_entities);
-            let result = bincode::serialize(&scene);
-            return result;
+
+            bincode::serialize(&scene)
         }
 
         #[cfg(not(feature = "physics"))]
@@ -168,11 +169,86 @@ impl<'a> Context<'a> {
             serialize(&mut ser);
             return Some(ser.finish());
         }
-        return None;
+        None
     }
 
     #[cfg(feature = "serde")]
     pub fn deserialize_group(&mut self, deserialize: GroupDeserializer) -> GroupHandle {
         deserialize.finish(self)
+    }
+}
+
+pub struct RenderContext<'a> {
+    entities: &'a EntityManager,
+    pub component_buffers: &'a ComponentBufferManager,
+
+    pub world_camera2d: &'a CameraBuffer2D,
+    pub world_camera3d: &'a CameraBuffer<WorldCamera3D>,
+    pub relative_camera: &'a CameraBuffer2D,
+    pub relative_bottom_left_camera: &'a CameraBuffer2D,
+    pub relative_bottom_right_camera: &'a CameraBuffer2D,
+    pub relative_top_left_camera: &'a CameraBuffer2D,
+    pub relative_top_right_camera: &'a CameraBuffer2D,
+    pub unit_camera: &'a CameraBuffer2D,
+    pub unit_mesh: &'a Mesh2D,
+    pub centered_instance: &'a InstanceBuffer<Instance2D>,
+}
+
+impl<'a> RenderContext<'a> {
+    pub(crate) fn new(
+        defaults: &'a DefaultResources,
+        scene: &'a Scene,
+    ) -> (&'a SystemManager, Self) {
+        (
+            &scene.systems,
+            Self {
+                entities: &scene.entities,
+                component_buffers: &scene.component_buffers,
+                relative_camera: &defaults.relative_camera.0,
+                relative_bottom_left_camera: &defaults.relative_bottom_left_camera.0,
+                relative_bottom_right_camera: &defaults.relative_bottom_right_camera.0,
+                relative_top_left_camera: &defaults.relative_top_left_camera.0,
+                relative_top_right_camera: &defaults.relative_top_right_camera.0,
+                unit_camera: &defaults.unit_camera.0,
+                centered_instance: &defaults.centered_instance,
+                unit_mesh: &defaults.unit_mesh,
+                world_camera2d: &defaults.world_camera2d,
+                world_camera3d: &defaults.world_camera3d,
+            },
+        )
+    }
+
+    #[inline]
+    pub fn set<E: Entity>(&'a self) -> EntitySet<'a, E> {
+        self.set_of(GroupFilter::Active)
+    }
+
+    pub fn set_of<E: Entity>(&'a self, filter: GroupFilter<'a>) -> EntitySet<'a, E> {
+        self.entities.set_ref_of(filter)
+    }
+
+    pub fn single<E: Entity>(&self) -> Ref<E> {
+        self.entities.single_ref::<E>()
+    }
+
+    pub fn try_single<E: Entity>(&self) -> Option<Ref<E>> {
+        self.entities.try_single_ref()
+    }
+
+    pub fn render_all<I: crate::Instance>(
+        &self,
+        renderer: &mut Renderer<'a>,
+        name: &'static str,
+        all: impl Fn(&mut Renderer<'a>, &'a InstanceBuffer<I>, InstanceIndices),
+    ) {
+        let buffer = self
+            .component_buffers
+            .get::<I>(name)
+            .unwrap_or_else(|| panic!("Component {name} is not registered!"))
+            .buffer();
+
+        if buffer.instance_amount() != 0 {
+            (all)(renderer, buffer, buffer.instances());
+        }
     }
 }

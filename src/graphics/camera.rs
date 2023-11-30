@@ -15,7 +15,7 @@ pub struct CameraBuffer<C: Camera> {
 
 impl<C: Camera> CameraBuffer<C> {
     pub fn new_camera(gpu: &Gpu, camera: C) -> (Self, C) {
-        return (Self::new(gpu, &camera), camera);
+        (Self::new(gpu, &camera), camera)
     }
 
     pub fn new(gpu: &Gpu, camera: &C) -> Self {
@@ -56,9 +56,9 @@ pub struct Camera2D {
 impl Clone for Camera2D {
     fn clone(&self) -> Self {
         Self {
-            position: self.position.clone(),
-            fov: self.fov.clone(),
-            proj: self.proj.clone(),
+            position: self.position,
+            fov: self.fov,
+            proj: self.proj,
         }
     }
 }
@@ -74,7 +74,7 @@ impl Camera2D {
     }
 
     pub fn aabb(&self) -> AABB {
-        return AABB::from_position(self.fov(), self.position);
+        AABB::from_position(self.fov(), self.position)
     }
 
     pub const fn position(&self) -> &Isometry2<f32> {
@@ -147,6 +147,7 @@ pub struct WorldCamera2D {
 }
 
 impl WorldCamera2D {
+    pub const DEFAULT_VERTICAL_CAMERA_FOV: f32 = 3.0;
     pub fn new(
         window_size: Vector2<u32>,
         position: Isometry2<f32>,
@@ -231,11 +232,11 @@ impl WorldCameraScaling {
                     max = MINIMAL_FOV;
                 }
 
-                return if window_size.x > window_size.y {
+                if window_size.x > window_size.y {
                     Vector2::new(max, window_size.y / window_size.x * max)
                 } else {
                     Vector2::new(window_size.x / window_size.y * max, max)
-                };
+                }
             }
             WorldCameraScaling::Min(mut min) => {
                 if min < MINIMAL_FOV {
@@ -245,11 +246,11 @@ impl WorldCameraScaling {
                 let yx = window_size.y / window_size.x;
                 let xy = window_size.x / window_size.y;
                 let scale = yx.max(xy);
-                return if window_size.x > window_size.y {
+                if window_size.x > window_size.y {
                     Vector2::new(scale * min, min)
                 } else {
                     Vector2::new(min, scale * min)
-                };
+                }
             }
             WorldCameraScaling::Horizontal(mut horizontal) => {
                 if horizontal < MINIMAL_FOV {

@@ -39,6 +39,10 @@ impl<'a, E: Entity> EntitySet<'a, E> {
         self.ty.len(self.groups)
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.ty.is_empty(self.groups)
+    }
+
     pub fn iter(&self) -> impl DoubleEndedIterator<Item = &E> {
         self.ty.iter(self.groups)
     }
@@ -226,6 +230,10 @@ impl<'a, E: Entity> EntitySetMut<'a, E> {
 
     pub fn len(&self) -> usize {
         self.ty.len(self.groups)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.ty.is_empty(self.groups)
     }
 
     pub fn iter(&self) -> impl DoubleEndedIterator<Item = &E> {

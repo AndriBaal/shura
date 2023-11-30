@@ -78,6 +78,6 @@ impl ScreenConfig {
         if let Some(max_fps) = self.max_fps {
             return Some(Duration::from_secs_f32(1.0 / max_fps as f32));
         }
-        return None;
+        None
     }
 }
