@@ -1,10 +1,11 @@
 use std::{cell::Ref, sync::Arc};
 
 use crate::{
-    App, CameraBuffer, CameraBuffer2D, ComponentBufferManager, DefaultResources, Entity,
-    EntityManager, EntitySet, FrameManager, Gpu, GroupFilter, GroupManager, Input, Instance2D,
-    InstanceBuffer, InstanceIndices, Mesh2D, Point2, Renderer, Scene, SceneManager, ScreenConfig,
-    SystemManager, TaskManager, Vector2, World, WorldCamera2D, WorldCamera3D,
+    App, CameraBuffer, CameraBuffer2D, ComponentBufferManager, DefaultResources, Entities,
+    EntityIdentifier, EntityManager, EntityType, FrameManager, Gpu, GroupManager, GroupedEntities,
+    Input, Instance2D, InstanceBuffer, InstanceIndices, Mesh2D, Point2, Renderer, Scene,
+    SceneManager, ScreenConfig, SingleEntity, SystemManager, TaskManager, Vector2, World,
+    WorldCamera2D, WorldCamera3D,
 };
 
 #[cfg(feature = "serde")]
@@ -218,21 +219,20 @@ impl<'a> RenderContext<'a> {
         )
     }
 
-    #[inline]
-    pub fn set<E: Entity>(&'a self) -> EntitySet<'a, E> {
-        self.set_of(GroupFilter::Active)
+    pub fn type_raw<E: EntityIdentifier>(&self) -> Ref<dyn EntityType> {
+        self.entities.type_raw_ref::<E>()
     }
 
-    pub fn set_of<E: Entity>(&'a self, filter: GroupFilter<'a>) -> EntitySet<'a, E> {
-        self.entities.set_ref_of(filter)
-    }
-
-    pub fn single<E: Entity>(&self) -> Ref<E> {
+    pub fn single<E: EntityIdentifier>(&self) -> Ref<SingleEntity<E>> {
         self.entities.single_ref::<E>()
     }
 
-    pub fn try_single<E: Entity>(&self) -> Option<Ref<E>> {
-        self.entities.try_single_ref()
+    pub fn multiple<E: EntityIdentifier>(&self) -> Ref<Entities<E>> {
+        self.entities.multiple_ref::<E>()
+    }
+
+    pub fn group<ET: EntityType + Default>(&self) -> Ref<GroupedEntities<ET>> {
+        self.entities.group_ref::<ET>()
     }
 
     pub fn render_all<I: crate::Instance>(

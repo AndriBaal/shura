@@ -1,4 +1,4 @@
-use crate::{ArenaIndex, Entity, EntityTypeId};
+use crate::{ArenaIndex, EntityTypeId, EntityIdentifier};
 use core::hash::Hash;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
@@ -70,7 +70,7 @@ impl EntityHandle {
         self.group_handle
     }
 
-    pub fn type_of<E: Entity>(&self) -> bool {
+    pub fn type_of<E: EntityIdentifier>(&self) -> bool {
         self.type_id == E::IDENTIFIER
     }
 

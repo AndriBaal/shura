@@ -5,7 +5,7 @@ use rustc_hash::FxHashMap;
 
 use crate::{
     App, ComponentBufferImpl, Context, Entity, EntityManager,
-    EntityType, EntityTypeGroup, EntityTypeId, EntityTypeImplementation, EntityTypeStorage, Gpu,
+    EntityType, EntityTypeId, Gpu,
     Group, GroupHandle, GroupManager, Scene, SceneCreator, System, World, GLOBAL_GPU,
 };
 
@@ -41,7 +41,7 @@ pub struct SerializedScene {
     pub id: u32,
     pub scene: Scene,
     systems: Vec<System>,
-    entities: Vec<Box<RefCell<dyn EntityTypeImplementation>>>,
+    entities: Vec<Box<RefCell<dyn EntityType>>>,
     ser_entities: FxHashMap<EntityTypeId, Vec<u8>>,
     component_buffers: FxHashMap<&'static str, Box<dyn ComponentBufferImpl>>,
 }
@@ -81,7 +81,7 @@ impl SceneCreator for SerializedScene {
         &mut self.systems
     }
 
-    fn entities(&mut self) -> &mut Vec<Box<RefCell<dyn EntityTypeImplementation>>> {
+    fn entities(&mut self) -> &mut Vec<Box<RefCell<dyn EntityType>>> {
         &mut self.entities
     }
 

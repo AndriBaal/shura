@@ -30,8 +30,8 @@ pub(crate) use data::arena::*;
 pub use crate::{
     app::*,
     ecs::{
-        entity::*, entity_config::*, entity_handle::*, entity_manager::*, entity_set::*,
-        entity_type::*, group::*, position_component::*,
+        entity::*, entity_handle::*, entity_manager::*,
+        entity_type::*, group_manager::*, position_component::*,
     },
     graphics::{
         camera::*, color::*, component_buffer::*, depth_buffer::*, frame_manager::*, gpu::*,

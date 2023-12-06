@@ -6,11 +6,21 @@ use crate::{
     WorldCamera2D, AABB,
 };
 use std::fmt;
+use std::mem::swap;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GroupManager {
     pub(super) groups: Arena<Group>,
     pub active_size: Vector2<f32>,
+    all_groups: Vec<GroupHandle>,
+    active_groups_changed: bool,
+    render_groups_changed: bool,
+
+    active_groups: Vec<GroupHandle>,
+    render_groups: Vec<GroupHandle>,
+
+    last_active_groups: Vec<GroupHandle>,
+    last_render_groups: Vec<GroupHandle>,
 }
 
 impl GroupManager {
@@ -23,10 +33,17 @@ impl GroupManager {
         groups.insert(default_entity_group);
         Self {
             groups,
+            all_groups: Vec::from_iter([GroupHandle::DEFAULT_GROUP]),
+            active_groups: Vec::from_iter([GroupHandle::DEFAULT_GROUP]),
+            render_groups: Vec::from_iter([GroupHandle::DEFAULT_GROUP]),
             active_size: Vector2::new(
                 WorldCamera2D::DEFAULT_VERTICAL_CAMERA_FOV,
                 WorldCamera2D::DEFAULT_VERTICAL_CAMERA_FOV,
             ),
+            last_active_groups: Default::default(),
+            last_render_groups: Default::default(),
+            active_groups_changed: true,
+            render_groups_changed: true,
         }
     }
 
@@ -61,7 +78,7 @@ impl GroupManager {
         for mut ty in entities.types_mut() {
             ty.add_group();
         }
-        entities.all_groups.push(handle);
+        self.all_groups.push(handle);
         handle
     }
 
@@ -76,12 +93,12 @@ impl GroupManager {
         }
         let group = self.groups.remove(handle.0);
         if group.is_some() {
-            entities.active_groups.retain(|g| *g != handle);
-            entities.all_groups.retain(|g| *g != handle);
+            self.active_groups.retain(|g| *g != handle);
+            self.all_groups.retain(|g| *g != handle);
             for mut ty in entities.types_mut() {
                 ty.remove_group(world, handle);
             }
-            entities.all_groups.retain(|h| *h != handle);
+            self.all_groups.retain(|h| *h != handle);
         }
         group
     }
@@ -98,35 +115,85 @@ impl GroupManager {
         }
         let group = self.groups.remove(handle.0);
         if let Some(group) = group {
-            entities.active_groups.retain(|g| *g != handle);
-            entities.all_groups.retain(|g| *g != handle);
+            self.active_groups.retain(|g| *g != handle);
+            self.all_groups.retain(|g| *g != handle);
             let mut out = FxHashMap::default();
             for mut ty in entities.types_mut() {
                 if let Some(g) = ty.remove_group_serialize(world, handle) {
                     out.insert(ty.entity_type_id(), g);
                 }
             }
-            entities.all_groups.retain(|h| *h != handle);
+            self.all_groups.retain(|h| *h != handle);
             Some((group, out))
         } else {
             None
         }
     }
 
-    pub fn update(&mut self, entities: &mut EntityManager, camera: &Camera2D) {
-        entities.active_groups.clear();
+    pub fn update(&mut self, camera: &Camera2D) {
+        self.last_render_groups.clear();
+        self.last_active_groups.clear();
+        swap(&mut self.active_groups, &mut self.last_active_groups);
+        swap(&mut self.render_groups, &mut self.last_render_groups);
+
         let render_aabb = camera.aabb();
         let active_aabb = AABB::from_center(*camera.translation(), self.active_size);
         let now = Instant::now();
+        self.active_groups_changed = false;
+        self.render_groups_changed = false;
         for (index, group) in self.groups.iter_mut_with_index() {
             if group.intersects_aabb(render_aabb) {
-                entities.render_groups.push(GroupHandle(index));
+                self.render_groups.push(GroupHandle(index));
+                let i = self.render_groups.len() - 1;
+                if self.render_groups[i]
+                    != self.last_render_groups.get(i).cloned().unwrap_or_default()
+                {
+                    self.render_groups_changed = true;
+                }
             }
+
             if group.intersects_aabb(active_aabb) {
                 group.set_active(true, now);
-                entities.active_groups.push(GroupHandle(index));
+                self.active_groups.push(GroupHandle(index));
+                let i = self.active_groups.len() - 1;
+                if self.active_groups[i]
+                    != self.last_active_groups.get(i).cloned().unwrap_or_default()
+                {
+                    self.active_groups_changed = true;
+                }
             }
         }
+
+        #[cfg(feature = "log")]
+        {
+            if self.active_groups_changed {
+                log::info!("Active groups changed. Now: {}", self.active_groups.len());
+            }
+
+            if self.render_groups_changed {
+                log::info!("Render groups changed. Now: {}", self.render_groups.len());
+            }
+        }
+    }
+
+    pub fn render_groups(&self) -> &[GroupHandle] {
+        &self.render_groups
+    }
+
+    pub fn active_groups(&self) -> &[GroupHandle] {
+        &self.active_groups
+    }
+
+    pub fn render_groups_changed(&self) -> bool {
+        self.render_groups_changed
+    }
+
+    pub fn active_groups_changed(&self) -> bool {
+        self.active_groups_changed
+    }
+
+    pub fn all_groups(&self) -> &[GroupHandle] {
+        &self.all_groups
     }
 }
 

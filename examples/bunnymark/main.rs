@@ -2,33 +2,33 @@ use shura::{log, rand, text::*, *};
 
 #[shura::main]
 fn shura_main(config: AppConfig) {
-    App::run(
-        config,
-        || {
-            NewScene::new(1)
-                .component::<Instance2D>("bunny", BufferConfig::EveryFrame)
-                .entity::<Bunny>(EntityConfig::DEFAULT)
-                .entity::<Resources>(EntityConfig::RESOURCE)
-                .system(System::Update(update))
-                .system(System::Setup(setup))
-                .system(System::Render(render))
-        },
-    );
+    App::run(config, || {
+        NewScene::new(1)
+            .component::<Instance2D>("bunny", BufferConfig::default())
+            .entity_multiple::<Bunny>(EntityScope::Global)
+            .entity_single::<Resources>(EntityScope::Scene)
+            .system(System::Update(update))
+            .system(System::Setup(setup))
+            .system(System::Render(render))
+    });
 }
 
 fn setup(ctx: &mut Context) {
     ctx.world_camera2d.set_scaling(WorldCameraScaling::Min(3.0));
     ctx.entities
+        .multiple::<Bunny>()
         .add_with(ctx.world, |handle| Bunny::new(vector2(0.0, 0.0), handle));
-    ctx.entities.add(ctx.world, Resources::new(ctx));
+    ctx.entities
+        .single::<Resources>()
+        .set(ctx.world, Resources::new(ctx));
 }
 
 fn update(ctx: &mut Context) {
     const MODIFY_STEP: usize = 1500;
     const GRAVITY: f32 = -2.5;
 
-    let mut bunnies = ctx.entities.set::<Bunny>();
-    let mut resources = ctx.entities.single::<Resources>();
+    let mut bunnies = ctx.entities.multiple::<Bunny>();
+    let mut resources = ctx.entities.single::<Resources>().get_mut().unwrap();
 
     if ctx.input.is_held(MouseButton::Left) || ctx.input.is_held(ScreenTouch) {
         let cursor: Vector2<f32> = ctx.cursor.coords;
@@ -71,7 +71,7 @@ fn update(ctx: &mut Context) {
 
     let frame = ctx.frame.frame_time();
     let fov = ctx.world_camera2d.fov();
-    bunnies.for_each_mut(|bunny| {
+    for bunny in bunnies.iter_mut() {
         let mut linvel = bunny.linvel;
         let mut translation = bunny.position.translation();
 
@@ -94,11 +94,11 @@ fn update(ctx: &mut Context) {
         }
         bunny.linvel = linvel;
         bunny.position.set_translation(translation);
-    });
+    }
 }
 
 fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
-    let resources = ctx.single::<Resources>();
+    let resources = ctx.single::<Resources>().get().unwrap();
     encoder.render2d(
         Some(RgbaColor::new(220, 220, 220, 255).into()),
         |renderer| {
@@ -146,20 +146,9 @@ impl Resources {
         Resources {
             screenshot: None,
             bunny_sprite,
-            text: ctx.gpu.create_text(
+            text: ctx.gpu.create_text::<&str>(
                 &font,
-                &[text::TextSection {
-                    color: Color::RED,
-                    text: format!(
-                        "FPS: {}\nBunnies: {}",
-                        ctx.frame.fps(),
-                        ctx.entities.set::<Bunny>().len()
-                    ),
-                    size: 0.05,
-                    horizontal_alignment: text::TextAlignment::End,
-                    vertical_alignment: text::TextAlignment::End,
-                    ..Default::default()
-                }],
+                &[],
             ),
         }
     }

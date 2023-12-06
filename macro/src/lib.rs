@@ -117,7 +117,7 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
             if let Some(component_name) = component_name {
                 quote! {
                     let buffer = buffers.get_mut::<<#component_type as shura::Component> ::Instance>(#component_name).unwrap();
-                    buffer.par_push_from_entities(world, &entities, |e| &e.#field_name);
+                    buffer.extend(entities.clone().map(|e| e.#field_name.instance(world)));
                 }
             } else {
                 quote!()
@@ -136,7 +136,7 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
 
         impl #impl_generics ::shura::Entity for #struct_name #ty_generics #where_clause {
             fn buffer<'a>(
-                entities: ::shura::EntitySet<'a, Self>,
+                entities: impl ::shura::RenderEntityIterator<'a, Self>,
                 buffers: &mut ::shura::ComponentBufferManager,
                 world: &::shura::World,
             ) {

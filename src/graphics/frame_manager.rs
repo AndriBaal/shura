@@ -32,7 +32,7 @@ impl FrameManager {
         }
     }
 
-    pub(crate) fn update(&mut self, _groups: usize) {
+    pub(crate) fn update(&mut self) {
         self.update_time = Instant::now();
         self.total_time = self.update_time - self.start_time;
 
@@ -55,7 +55,6 @@ impl FrameManager {
                 info!("fps: {}\tdelta: {}", self.fps, self.frame_time());
                 #[cfg(feature = "rayon")]
                 info!("threads: {}", rayon::current_num_threads());
-                info!("active groups: {}", _groups);
             }
         }
 

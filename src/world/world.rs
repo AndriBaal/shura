@@ -1,4 +1,4 @@
-use crate::{Entity, EntityHandle, FrameManager, Isometry2, Point2, Vector2};
+use crate::{EntityHandle, FrameManager, Isometry2, Point2, Vector2, EntityIdentifier};
 use rapier2d::{crossbeam, prelude::*};
 pub use rapier2d::{
     prelude::CollisionEvent as RapierCollisionEvent,
@@ -33,13 +33,13 @@ impl CollectedEvents {
 
 pub trait WorldEvent: Sized {
     type Event;
-    fn is<E1: Entity, E2: Entity>(&self, world: &World) -> Option<Self::Event>;
+    fn is<E1: EntityIdentifier, E2: EntityIdentifier>(&self, world: &World) -> Option<Self::Event>;
 }
 
 impl WorldEvent for RapierCollisionEvent {
     type Event = EntityCollisionEvent;
 
-    fn is<E1: Entity, E2: Entity>(&self, world: &World) -> Option<Self::Event> {
+    fn is<E1: EntityIdentifier, E2: EntityIdentifier>(&self, world: &World) -> Option<Self::Event> {
         let collider1 = self.collider1();
         let collider2 = self.collider2();
         let entity1 = world.entity_from_collider(&collider1)?;
@@ -80,7 +80,7 @@ impl WorldEvent for RapierCollisionEvent {
 impl WorldEvent for RapierContactForceEvent {
     type Event = EntityContactForceEvent;
 
-    fn is<E1: Entity, E2: Entity>(&self, world: &World) -> Option<Self::Event> {
+    fn is<E1: EntityIdentifier, E2: EntityIdentifier>(&self, world: &World) -> Option<Self::Event> {
         let collider1 = self.collider1;
         let collider2 = self.collider2;
         let entity1 = world.entity_from_collider(&collider1)?;

@@ -1,22 +1,21 @@
-use std::cell::RefCell;
+use std::{cell::RefCell, any::TypeId};
 use rustc_hash::FxHashMap;
 
 use crate::{
     App, BufferConfig, CameraViewSelection, ComponentBuffer, ComponentBufferImpl,
-    ComponentBufferManager, Context, Entity, EntityConfig, EntityManager, EntityType,
-    EntityTypeImplementation, GroupManager, Instance, PerspectiveCamera3D, ScreenConfig, System,
+    ComponentBufferManager, Context, EntityManager, EntityType,
+    GroupManager, Instance, PerspectiveCamera3D, ScreenConfig, System,
     SystemManager, TaskManager, Vector2, World, WorldCamera2D, WorldCamera3D, WorldCameraScaling,
-    GLOBAL_GPU,
+    GLOBAL_GPU, EntityScope, GroupedEntities, SingleEntity, EntityIdentifier, Entities,
 };
 
-#[allow(private_interfaces)]
 pub trait SceneCreator {
     fn new_id(&self) -> u32;
     fn create(self: Box<Self>, app: &mut App) -> Scene;
     fn systems(&mut self) -> &mut Vec<System>;
-    fn entities(&mut self) -> &mut Vec<Box<RefCell<dyn EntityTypeImplementation>>>;
+    fn entities(&mut self) -> &mut Vec<(EntityScope, Box<RefCell<dyn EntityType>>)>;
     fn components(&mut self) -> &mut FxHashMap<&'static str, Box<dyn ComponentBufferImpl>>;
-    fn component<I: Instance>(mut self, name: &'static str, operation: BufferConfig) -> Self
+    fn component<I: Instance>(mut self, name: &'static str, buffer: BufferConfig) -> Self
     where
         Self: Sized,
     {
@@ -27,18 +26,45 @@ pub trait SceneCreator {
             name,
             Box::new(ComponentBuffer::<I>::new(
                 GLOBAL_GPU.get().unwrap(),
-                operation,
+                buffer,
             )),
         );
         self
     }
 
-    fn entity<E: Entity>(mut self, config: EntityConfig) -> Self
+    fn entity_single<E: EntityIdentifier>(self, scope: EntityScope) -> Self
     where
         Self: Sized,
     {
+        self.entity(SingleEntity::<E>::default(), scope)
+    }
+
+    fn entity_multiple<E: EntityIdentifier>(self, scope: EntityScope) -> Self
+    where
+        Self: Sized,
+    {
+        self.entity(Entities::<E>::default(), scope)
+    }
+
+
+    fn entity_grouped<E: EntityIdentifier>(self, scope: EntityScope) -> Self
+    where
+        Self: Sized,
+    {
+        self.entity(GroupedEntities::<Entities<E>>::default(), scope)
+    }
+
+
+    fn entity<T: EntityType>(mut self, ty: T, scope: EntityScope) -> Self
+    where
+        Self: Sized,
+    {
+        if TypeId::of::<T>() == TypeId::of::<GroupedEntities<T>>() && scope == EntityScope::Global {
+            panic!("Global component can not be stored in groups because groups are scene specific!");
+        } 
+        
         self.entities()
-            .push(Box::new(RefCell::new(EntityType::<E>::new(config))));
+            .push((scope, Box::new(RefCell::new(ty))));
         self
     }
 
@@ -54,7 +80,7 @@ pub trait SceneCreator {
 pub struct NewScene {
     pub id: u32,
     systems: Vec<System>,
-    entities: Vec<Box<RefCell<dyn EntityTypeImplementation>>>,
+    entities: Vec<(EntityScope, Box<RefCell<dyn EntityType>>)>,
     component_buffers: FxHashMap<&'static str, Box<dyn ComponentBufferImpl>>,
 }
 
@@ -83,7 +109,7 @@ impl SceneCreator for NewScene {
         &mut self.systems
     }
 
-    fn entities(&mut self) -> &mut Vec<Box<RefCell<dyn EntityTypeImplementation>>> {
+    fn entities(&mut self) -> &mut Vec<(EntityScope, Box<RefCell<dyn EntityType>>)> {
         &mut self.entities
     }
 
@@ -96,7 +122,7 @@ pub struct RecycleScene {
     pub id: u32,
     pub scene: Scene,
     systems: Vec<System>,
-    entities: Vec<Box<RefCell<dyn EntityTypeImplementation>>>,
+    entities: Vec<(EntityScope, Box<RefCell<dyn EntityType>>)>,
     component_buffers: FxHashMap<&'static str, Box<dyn ComponentBufferImpl>>,
 }
 
@@ -132,7 +158,7 @@ impl SceneCreator for RecycleScene {
         &mut self.systems
     }
 
-    fn entities(&mut self) -> &mut Vec<Box<RefCell<dyn EntityTypeImplementation>>> {
+    fn entities(&mut self) -> &mut Vec<(EntityScope, Box<RefCell<dyn EntityType>>)> {
         &mut self.entities
     }
 
@@ -168,7 +194,7 @@ impl Scene {
         id: u32,
         app: &mut App,
         systems: Vec<System>,
-        entities: Vec<Box<RefCell<dyn EntityTypeImplementation>>>,
+        entities: Vec<(EntityScope, Box<RefCell<dyn EntityType>>)>,
         component_buffers: FxHashMap<&'static str, Box<dyn ComponentBufferImpl>>,
     ) -> Self {
         let mint: mint::Vector2<u32> = app.window.inner_size().into();

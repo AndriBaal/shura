@@ -15,7 +15,7 @@ use crate::{
     VERSION,
 };
 use crate::{
-    Context, DefaultResources, EndReason, EntityTypeId, EntityTypeImplementation, FrameManager,
+    Context, DefaultResources, EndReason, EntityTypeId, EntityType, FrameManager,
     Gpu, GpuConfig, Input, RenderContext, RenderEncoder, Scene, SceneCreator, SceneManager,
     UpdateOperation, Vector2,
 };
@@ -117,7 +117,7 @@ impl AppConfig {
 }
 
 pub(crate) type InnerGlobalEntities =
-    Rc<RefCell<FxHashMap<EntityTypeId, Option<Rc<RefCell<dyn EntityTypeImplementation>>>>>>;
+    Rc<RefCell<FxHashMap<EntityTypeId, Option<Rc<RefCell<dyn EntityType>>>>>>;
 
 // The Option<> is here to keep track of entities, that have already been added to scenes and therefore
 // can not be registered as a global entities.
@@ -455,7 +455,7 @@ impl App {
     }
 
     fn update(&mut self, scene_id: u32, scene: &mut Scene) {
-        self.frame.update(scene.entities.active_groups().len());
+        self.frame.update();
         #[cfg(feature = "gamepad")]
         self.input.sync_gamepad();
         #[cfg(feature = "gui")]
@@ -497,14 +497,14 @@ impl App {
 
         scene
             .groups
-            .update(&mut scene.entities, &scene.world_camera2d);
+            .update(&scene.world_camera2d);
     }
 
     fn render(&mut self, _scene_id: u32, scene: &mut Scene) {
         scene
             .entities
-            .buffer(&mut scene.component_buffers, &scene.world);
-        scene.component_buffers.apply_buffers(&self.gpu);
+            .buffer(&mut scene.component_buffers, &scene.groups, &scene.world);
+        scene.component_buffers.apply_buffers(&scene.groups,&self.gpu);
         self.defaults
             .world_camera2d
             .write(&self.gpu, &scene.world_camera2d);

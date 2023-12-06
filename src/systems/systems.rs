@@ -1,12 +1,20 @@
 use crate::RenderContext;
 
-use crate::{Context, Duration, EndReason, Instant, RenderEncoder};
+use crate::{Context, Duration, Instant, RenderEncoder};
 
 type SetupSystem = fn(ctx: &mut Context);
 type ResizeSystem = fn(ctx: &mut Context);
 type UpdateSystem = fn(ctx: &mut Context);
 type RenderSystem = fn(ctx: &RenderContext, encoder: &mut RenderEncoder);
 type EndSystem = fn(&mut Context, reason: EndReason);
+
+#[derive(Clone, Copy, Eq, PartialEq, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum EndReason {
+    EndProgram,
+    RemoveScene,
+    Replaced,
+}
 
 pub enum System {
     Setup(SetupSystem),

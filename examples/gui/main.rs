@@ -4,7 +4,7 @@ use shura::*;
 fn shura_main(config: AppConfig) {
     App::run(config, || {
         NewScene::new(1)
-            .entity::<Demo>(EntityConfig::RESOURCE)
+            .entity_single::<Demo>(Default::default())
             .system(System::Update(update))
             .system(System::Setup(setup))
     });
@@ -16,10 +16,10 @@ struct Demo {
 }
 
 fn setup(ctx: &mut Context) {
-    ctx.entities.add(ctx.world, Demo::default());
+    ctx.entities.single::<Demo>().set(ctx.world, Demo::default());
 }
 
 fn update(ctx: &mut Context) {
-    let mut gui = ctx.entities.single::<Demo>();
+    let mut gui = ctx.entities.single::<Demo>().get_mut().unwrap();
     gui.demo.ui(ctx.gui);
 }
