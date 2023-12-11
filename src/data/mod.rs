@@ -1,3 +1,5 @@
-pub mod arena;
+mod arena;
 #[cfg(feature = "serde")]
-pub mod arena_serde;
+mod arena_serde;
+
+pub use arena::*;

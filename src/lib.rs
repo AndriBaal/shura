@@ -1,185 +1,149 @@
 /// Shura version
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-mod app;
-mod data;
-mod ecs;
-mod graphics;
-mod input;
-mod math;
-mod scene;
-mod systems;
-mod tasks;
-mod world;
 #[cfg(feature = "animation")]
-mod tween;
-#[cfg(feature = "log")]
-mod logging;
+pub mod animation;
+pub mod app;
 #[cfg(feature = "audio")]
-mod sound;
-
-pub use instant::{Duration, Instant};
-pub use rustc_hash::{FxHashMap, FxHashSet};
-pub use shura_proc::*;
-
-#[cfg(target_os = "android")]
-pub use ::winit::platform::android::activity::AndroidApp;
-
-pub(crate) use data::arena::*;
-
-pub use crate::{
-    app::*,
-    ecs::{
-        entity::*, entity_handle::*, entity_manager::*,
-        entity_type::*, group_manager::*, position_component::*,
-    },
-    graphics::{
-        camera::*, color::*, component_buffer::*, depth_buffer::*, frame_manager::*, gpu::*,
-        instance_buffer::*, model::*, render_encoder::*, render_target::*, renderer::*,
-        resources::*, screen_config::*, shader::*, sprite::*, sprite_sheet::*, uniform::*,
-    },
-    input::input::{Input, InputEvent, InputTrigger, Key, Modifier, MouseButton, ScreenTouch},
-    math::{aabb::*, math::*},
-    scene::{context::*, scene::*, scene_manager::*},
-    systems::systems::*,
-    tasks::tasks::*,
-};
-
-/// Access to [wgpu](https://github.com/gfx-rs/wgpu) for creating custom graphics.
-pub use wgpu;
-
-/// Access to [winit](https://github.com/rust-windowing/winit).
-pub use winit;
+pub mod audio;
+pub mod component;
+pub mod context;
+pub mod data;
+pub mod entity;
+pub mod graphics;
+#[cfg(feature = "gui")]
+pub mod gui;
+pub mod input;
+#[cfg(feature = "log")]
+pub mod log;
+pub mod math;
+#[cfg(feature = "physics")]
+pub mod physics;
+pub mod rand;
+pub mod resource;
+pub mod scene;
+#[cfg(feature = "serde")]
+pub mod serde;
+pub mod system;
+pub mod tasks;
+#[cfg(feature = "text")]
+pub mod text;
+pub mod time;
 
 pub use bytemuck;
-
-/// Access to [image](https://github.com/image-rs/image)
 pub use image;
-
-/// Access to [nalgebra](https://github.com/dimforge/nalgebra), the math library used by shura
-pub use nalgebra;
-
-/// Access to [mint](https://github.com/kvark/mint) to convert between the diffrent math types
+pub use instant;
 pub use mint;
+pub use nalgebra as na;
+#[cfg(feature = "rayon")]
+pub use rayon;
+pub use rustc_hash;
+pub use shura_proc as macros;
+pub use wgpu;
+pub use winit;
 
 #[cfg(target_arch = "wasm32")]
 pub use web_sys;
+
 #[cfg(target_arch = "wasm32")]
 pub use reqwest;
+
 #[cfg(target_arch = "wasm32")]
 pub use wasm_bindgen_futures;
 
-#[cfg(feature = "audio")]
-/// Access to [rodio](https://github.com/RustAudio/rodio)
-pub mod audio {
-    pub use crate::sound::audio_manager::*;
-    pub use crate::sound::sound::*;
-    pub use rodio::Sink as AudioSink;
-    pub use rodio::*;
+pub use crate::macros::main;
+
+pub mod prelude {
+    pub use crate::macros::main;
+
+    #[cfg(feature = "animation")]
+    pub use crate::animation::*;
+    pub use crate::app::*;
+    #[cfg(feature = "audio")]
+    pub use crate::audio::*;
+    pub use crate::component::*;
+    pub use crate::context::*;
+    pub use crate::data::*;
+    pub use crate::entity::*;
+    pub use crate::graphics::*;
+    #[cfg(feature = "gui")]
+    pub use crate::gui;
+    pub use crate::input::*;
+    #[cfg(feature = "log")]
+    pub use crate::log::*;
+    pub use crate::macros::*;
+    pub use crate::math::*;
+    #[cfg(feature = "physics")]
+    pub use crate::physics;
+    pub use crate::rand::*;
+    pub use crate::resource::*;
+    pub use crate::scene::*;
+    #[cfg(feature = "serde")]
+    pub use crate::serde::*;
+    pub use crate::system::*;
+    pub use crate::tasks::*;
+    #[cfg(feature = "text")]
+    pub use crate::text::*;
+    pub use crate::time::*;
+
+    pub use bytemuck;
+    pub use image;
+    pub use instant;
+    pub use mint;
+    pub use nalgebra as na;
+    pub use rayon;
+    pub use rustc_hash;
+    pub use shura_proc as macros;
+    pub use wgpu;
+    pub use winit;
+
+    #[cfg(feature = "rayon")]
+    pub use rayon::prelude::ParallelIterator;
+
+    #[cfg(target_arch = "wasm32")]
+    pub use web_sys;
+
+    #[cfg(target_arch = "wasm32")]
+    pub use reqwest;
+
+    #[cfg(target_arch = "wasm32")]
+    pub use wasm_bindgen_futures;
 }
 
-#[cfg(not(feature = "physics"))]
-pub use world::world_no_rapier::World;
+// pub(crate) use data::arena::*;
 
-#[cfg(feature = "physics")]
-pub use world::world::World;
+// #[cfg(not(feature = "physics"))]
+// pub use physics::world_no_rapier::World;
 
-#[cfg(feature = "physics")]
-/// Access to the to [rapier2d](https://github.com/dimforge/rapier)
-pub mod physics {
-    pub use crate::world::{
-        collider_component::*,
-        rigid_body_component::*,
-        // character_controller_component::*,
-        world::*,
-    };
-    pub use rapier2d::control::{
-        CharacterAutostep, CharacterCollision, CharacterLength, EffectiveCharacterMovement,
-        KinematicCharacterController,
-    };
-    pub use rapier2d::geometry::*;
-    pub use rapier2d::parry;
-    pub use rapier2d::prelude::{
-        ActiveCollisionTypes, ActiveEvents, ActiveHooks, CoefficientCombineRule, Collider,
-        ColliderBroadPhaseData, ColliderBuilder, ColliderChanges, ColliderFlags, ColliderHandle,
-        ColliderMaterial, ColliderParent, ColliderSet, ColliderShape, ColliderType, FixedJoint,
-        FixedJointBuilder, GenericJoint, GenericJointBuilder, Group, ImpulseJoint,
-        ImpulseJointHandle, InteractionGroups, LockedAxes, MassProperties, MotorModel,
-        PrismaticJoint, QueryFilter, QueryFilterFlags, Ray, RayIntersection, RevoluteJoint,
-        RevoluteJointBuilder, RigidBody, RigidBodyActivation, RigidBodyBuilder, RigidBodyHandle,
-        RigidBodySet, RigidBodyType, Shape, ShapeType, SharedShape, SpacialVector, TypedShape, TOI,
-    };
-    pub mod rapier {
-        pub use rapier2d::*;
-    }
-}
+// #[cfg(feature = "physics")]
+// pub use physics::world::World;
 
-// egui
-#[cfg(feature = "gui")]
-/// Access to [egui](https://github.com/emilk/egui)
-pub mod gui {
-    pub(crate) use crate::graphics::gui::gui::*;
-    pub use egui::Context as GuiContext;
-    pub use egui::*;
-}
-
-// serde
-#[cfg(feature = "serde")]
-pub mod serde {
-    pub use crate::scene::scene_serde::*;
-    pub use bincode;
-    pub use serde::*;
-}
-
-// text
-#[cfg(feature = "text")]
-/// Text rendering inspired by [wgpu_text](https://github.com/Blatko1/wgpu-text)
-pub mod text {
-    pub use crate::graphics::text::text::*;
-}
-
-// gamepad
-#[cfg(feature = "gamepad")]
-/// Access to [gilrs](https://gitlab.com/gilrs-project/gilrs)
-pub mod gamepad {
-    pub use crate::input::input::{GamepadButton, GamepadStick};
-    pub use gilrs::{
-        ev, ff, Axis, Button, ConnectedGamepadsIterator, Gamepad, GamepadId, Mapping, MappingError,
-        MappingSource, PowerInfo,
-    };
-}
-
-/// Access to animations inspired by [bevy_tweening](https://github.com/djeedai/bevy_tweening)
-#[cfg(feature = "animation")]
-pub mod animation {
-    pub use crate::tween::{ease::*, tween::*};
-}
-
-/// Access to [rayon](https://github.com/rayon-rs/rayon)
-#[cfg(feature = "rayon")]
-pub use rayon;
-
-/// Access to some easy randomizer functions
-pub mod rand {
-    pub fn gen_range<
-        T: distributions::uniform::SampleUniform,
-        R: distributions::uniform::SampleRange<T>,
-    >(
-        range: R,
-    ) -> T {
-        thread_rng().gen_range(range)
-    }
-    pub fn gen_bool(p: f64) -> bool {
-        thread_rng().gen_bool(p)
-    }
-
-    pub use rand::*;
-}
-
-#[cfg(feature = "log")]
-/// Access to the logging abstraction over [env_logger](https://github.com/rust-cli/env_logger) and modified version of [wasm_logger](https://gitlab.com/limira-rs/wasm-logger)
-pub mod log {
-    pub use crate::logging::logging::LoggerBuilder;
-    pub use env_logger;
-    pub use log::{debug, error, info, trace, warn, Level, LevelFilter, SetLoggerError};
-}
+// #[cfg(feature = "physics")]
+// /// Access to the to [rapier2d](https://github.com/dimforge/rapier)
+// pub mod physics {
+//     pub use crate::physics::{
+//         collider_component::*,
+//         rigid_body_component::*,
+//         // character_controller_component::*,
+//         world::*,
+//     };
+//     pub use rapier2d::control::{
+//         CharacterAutostep, CharacterCollision, CharacterLength, EffectiveCharacterMovement,
+//         KinematicCharacterController,
+//     };
+//     pub use rapier2d::geometry::*;
+//     pub use rapier2d::parry;
+//     pub use rapier2d::prelude::{
+//         ActiveCollisionTypes, ActiveEvents, ActiveHooks, CoefficientCombineRule, Collider,
+//         ColliderBroadPhaseData, ColliderBuilder, ColliderChanges, ColliderFlags, ColliderHandle,
+//         ColliderMaterial, ColliderParent, ColliderSet, ColliderShape, ColliderType, FixedJoint,
+//         FixedJointBuilder, GenericJoint, GenericJointBuilder, Group, ImpulseJoint,
+//         ImpulseJointHandle, InteractionGroups, LockedAxes, MassProperties, MotorModel,
+//         PrismaticJoint, QueryFilter, QueryFilterFlags, Ray, RayIntersection, RevoluteJoint,
+//         RevoluteJointBuilder, RigidBody, RigidBodyActivation, RigidBodyBuilder, RigidBodyHandle,
+//         RigidBodySet, RigidBodyType, Shape, ShapeType, SharedShape, SpacialVector, TypedShape, TOI,
+//     };
+//     pub mod rapier {
+//         pub use rapier2d::*;
+//     }
+// }

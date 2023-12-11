@@ -5,11 +5,11 @@ use core::ops;
 use core::slice;
 
 #[derive(Clone)]
-pub(crate) struct Arena<T> {
+pub struct Arena<T> {
     pub(crate) items: Vec<ArenaEntry<T>>,
-    pub(crate) generation: u32,
-    pub(crate) free_list_head: Option<usize>,
-    pub(crate) len: usize,
+    pub(super) generation: u32,
+    pub(super) free_list_head: Option<usize>,
+    pub(super) len: usize,
 }
 
 #[derive(Clone, Debug)]

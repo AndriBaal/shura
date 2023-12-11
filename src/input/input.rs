@@ -1,16 +1,16 @@
-use crate::{Camera2D, Point2, Vector2};
+#[cfg(all(feature = "log", feature = "gamepad"))]
+use crate::log::info;
+use crate::{
+    graphics::Camera2D,
+    math::{Point2, Vector2},
+};
 #[cfg(feature = "gamepad")]
 use gilrs::*;
 use instant::{Duration, Instant};
 use rustc_hash::FxHashMap;
 use winit::event::*;
 
-#[cfg(all(feature = "log", feature = "gamepad"))]
-use crate::log::info;
-
-pub use winit::event::ModifiersState as Modifier;
-pub use winit::event::MouseButton;
-pub use winit::event::VirtualKeyCode as Key;
+pub use winit::event::{ModifiersState as Modifier, MouseButton, VirtualKeyCode as Key};
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -223,7 +223,9 @@ impl Input {
                     let trigger = key.into();
                     match input.state {
                         ElementState::Pressed => {
-                            self.events.entry(trigger).or_insert_with(|| InputEvent::new(trigger, 1.0));
+                            self.events
+                                .entry(trigger)
+                                .or_insert_with(|| InputEvent::new(trigger, 1.0));
                         }
                         ElementState::Released => {
                             if let Some(event) = self.events.get_mut(&trigger) {
@@ -531,8 +533,7 @@ impl Input {
         mapping: &Mapping,
         name: Option<&str>,
     ) -> Result<String, MappingError> {
-        self
-            .game_pad_manager
+        self.game_pad_manager
             .set_mapping(gamepad_id.into(), mapping, name)
     }
 
@@ -543,8 +544,7 @@ impl Input {
         mapping: &Mapping,
         name: Option<&str>,
     ) -> Result<String, MappingError> {
-        self
-            .game_pad_manager
+        self.game_pad_manager
             .set_mapping_strict(gamepad_id.into(), mapping, name)
     }
 }

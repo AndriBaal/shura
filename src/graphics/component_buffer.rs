@@ -1,4 +1,7 @@
-use crate::{Gpu, GroupManager, Instance, InstanceBuffer};
+use crate::{
+    entity::GroupManager,
+    graphics::{Gpu, Instance, InstanceBuffer},
+};
 use downcast_rs::{impl_downcast, Downcast};
 use rustc_hash::FxHashMap;
 
@@ -8,9 +11,9 @@ use rayon::prelude::*;
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct BufferConfig {
-    call: BufferCall,
-    mapped: bool,
-    buffer_on_group_change: bool,
+    pub call: BufferCall,
+    pub mapped: bool,
+    pub buffer_on_group_change: bool,
 }
 
 impl Default for BufferConfig {

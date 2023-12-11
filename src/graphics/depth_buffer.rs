@@ -1,4 +1,4 @@
-use crate::{Gpu, Vector2};
+use crate::{graphics::Gpu, math::Vector2};
 
 pub struct DepthBuffer {
     view: wgpu::TextureView,

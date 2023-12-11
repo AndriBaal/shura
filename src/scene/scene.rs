@@ -1,12 +1,20 @@
-use std::{cell::RefCell, any::TypeId};
 use rustc_hash::FxHashMap;
+use std::{any::TypeId, cell::RefCell};
 
 use crate::{
-    App, BufferConfig, CameraViewSelection, ComponentBuffer, ComponentBufferImpl,
-    ComponentBufferManager, Context, EntityManager, EntityType,
-    GroupManager, Instance, PerspectiveCamera3D, ScreenConfig, System,
-    SystemManager, TaskManager, Vector2, World, WorldCamera2D, WorldCamera3D, WorldCameraScaling,
-    GLOBAL_GPU, EntityScope, GroupedEntities, SingleEntity, EntityIdentifier, Entities,
+    app::{GLOBAL_GPU, App},
+    entity::{Entities, EntityIdentifier, EntityScope, GroupedEntities, SingleEntity, EntityType, EntityManager, GroupManager},
+    graphics::{
+        BufferConfig, CameraViewSelection, ComponentBuffer, ComponentBufferImpl,
+        ComponentBufferManager, Instance,
+        PerspectiveCamera3D, ScreenConfig,
+        WorldCamera2D, WorldCamera3D, WorldCameraScaling,
+    },
+    system::{System, SystemManager},
+    context::Context,
+    math::Vector2,
+    tasks::TaskManager,
+    physics::World
 };
 
 pub trait SceneCreator {
@@ -24,10 +32,7 @@ pub trait SceneCreator {
         }
         self.components().insert(
             name,
-            Box::new(ComponentBuffer::<I>::new(
-                GLOBAL_GPU.get().unwrap(),
-                buffer,
-            )),
+            Box::new(ComponentBuffer::<I>::new(GLOBAL_GPU.get().unwrap(), buffer)),
         );
         self
     }
@@ -46,7 +51,6 @@ pub trait SceneCreator {
         self.entity(Entities::<E>::default(), scope)
     }
 
-
     fn entity_grouped<E: EntityIdentifier>(self, scope: EntityScope) -> Self
     where
         Self: Sized,
@@ -54,17 +58,17 @@ pub trait SceneCreator {
         self.entity(GroupedEntities::<Entities<E>>::default(), scope)
     }
 
-
     fn entity<T: EntityType>(mut self, ty: T, scope: EntityScope) -> Self
     where
         Self: Sized,
     {
         if TypeId::of::<T>() == TypeId::of::<GroupedEntities<T>>() && scope == EntityScope::Global {
-            panic!("Global component can not be stored in groups because groups are scene specific!");
-        } 
-        
-        self.entities()
-            .push((scope, Box::new(RefCell::new(ty))));
+            panic!(
+                "Global component can not be stored in groups because groups are scene specific!"
+            );
+        }
+
+        self.entities().push((scope, Box::new(RefCell::new(ty))));
         self
     }
 
@@ -102,7 +106,13 @@ impl SceneCreator for NewScene {
     }
 
     fn create(self: Box<Self>, app: &mut App) -> Scene {
-        Scene::new(self.id, app, self.systems, self.entities, self.component_buffers)
+        Scene::new(
+            self.id,
+            app,
+            self.systems,
+            self.entities,
+            self.component_buffers,
+        )
     }
 
     fn systems(&mut self) -> &mut Vec<System> {

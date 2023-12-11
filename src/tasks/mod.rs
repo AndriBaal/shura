@@ -1,1 +1,3 @@
-pub mod tasks;
+mod tasks;
+
+pub use tasks::*;

@@ -116,7 +116,7 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
         .map(|(field_name, component_name, component_type)| {
             if let Some(component_name) = component_name {
                 quote! {
-                    let buffer = buffers.get_mut::<<#component_type as shura::Component> ::Instance>(#component_name).unwrap();
+                    let buffer = buffers.get_mut::<<#component_type as shura::component::Component> ::Instance>(#component_name).unwrap();
                     buffer.extend(entities.clone().map(|e| e.#field_name.instance(world)));
                 }
             } else {
@@ -125,33 +125,33 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
         });
 
     return quote!(
-        impl #impl_generics ::shura::EntityIdentifier for #struct_name #ty_generics #where_clause {
+        impl #impl_generics ::shura::entity::EntityIdentifier for #struct_name #ty_generics #where_clause {
             const TYPE_NAME: &'static str = #struct_identifier;
-            const IDENTIFIER: ::shura::EntityTypeId = ::shura::EntityTypeId::new(#hash);
+            const IDENTIFIER: ::shura::entity::EntityTypeId = ::shura::entity::EntityTypeId::new(#hash);
 
-            fn entity_type_id(&self) -> ::shura::EntityTypeId {
+            fn entity_type_id(&self) -> ::shura::entity::EntityTypeId {
                 Self::IDENTIFIER
             }
         }
 
-        impl #impl_generics ::shura::Entity for #struct_name #ty_generics #where_clause {
+        impl #impl_generics ::shura::entity::Entity for #struct_name #ty_generics #where_clause {
             fn buffer<'a>(
-                entities: impl ::shura::RenderEntityIterator<'a, Self>,
-                buffers: &mut ::shura::ComponentBufferManager,
-                world: &::shura::World,
+                entities: impl ::shura::entity::RenderEntityIterator<'a, Self>,
+                buffers: &mut ::shura::graphics::ComponentBufferManager,
+                world: &::shura::physics::World,
             ) {
                 #( #buffer )*
             }
 
-            fn components(&self) -> Vec<&dyn std::any::Any> {
-                vec![ #( &self.#names_components as &dyn std::any::Any, )* ]
+            fn components(&self) -> Vec<&dyn ::shura::component::Component> {
+                vec![ #( &self.#names_components as &dyn ::shura::component::Component, )* ]
             }
 
-            fn init(&mut self, handle: ::shura::EntityHandle, world: &mut ::shura::World) {
+            fn init(&mut self, handle: ::shura::entity::EntityHandle, world: &mut ::shura::physics::World) {
                 #( self.#names_init.init(handle, world); )*
             }
 
-            fn finish(&mut self, world: &mut ::shura::World) {
+            fn finish(&mut self, world: &mut ::shura::physics::World) {
                 #( self.#names_finish.finish(world); )*
             }
         }
@@ -168,14 +168,14 @@ pub fn main(_args: TokenStream, item: TokenStream) -> TokenStream {
 
         #[cfg(target_os = "android")]
         #[no_mangle]
-        fn android_main(app: ::shura::AndroidApp) {
-            shura_main(::shura::AppConfig::new(app));
+        fn android_main(app: ::shura::winit::platform::android::activity::AndroidApp) {
+            shura_main(::shura::app::AppConfig::new(app));
         }
 
         #[cfg(not(target_os = "android"))]
         #[allow(dead_code)]
         fn main() {
-            shura_main(::shura::AppConfig::new());
+            shura_main(::shura::app::AppConfig::new());
         }
     )
     .into()

@@ -1,4 +1,4 @@
-use crate::Gpu;
+use crate::graphics::Gpu;
 use std::marker::PhantomData;
 
 #[derive(Debug)]

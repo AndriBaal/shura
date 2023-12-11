@@ -1,12 +1,12 @@
-use shura::{log, rand, text::*, *, rayon::prelude::ParallelIterator};
+use shura::prelude::*;
 
 #[shura::main]
 fn shura_main(config: AppConfig) {
     App::run(config, || {
         NewScene::new(1)
-        .component::<Instance2D>("bunny", BufferConfig::default())
-        .entity_multiple::<Bunny>(EntityScope::Global)
-        .entity_single::<Resources>(EntityScope::Scene)
+            .component::<Instance2D>("bunny", BufferConfig::default())
+            .entity_multiple::<Bunny>(EntityScope::Global)
+            .entity_single::<Resources>(EntityScope::Scene)
             .system(System::Update(update))
             .system(System::Setup(setup))
             .system(System::Render(render))
@@ -28,7 +28,8 @@ fn update(ctx: &mut Context) {
     const GRAVITY: f32 = -2.5;
 
     let mut bunnies = ctx.entities.multiple::<Bunny>();
-    let mut resources: std::cell::RefMut<'_, Resources> = ctx.entities.single::<Resources>().get_mut().unwrap();
+    let mut resources: std::cell::RefMut<'_, Resources> =
+        ctx.entities.single::<Resources>().get_mut().unwrap();
 
     if ctx.input.is_held(MouseButton::Left) || ctx.input.is_held(ScreenTouch) {
         let cursor: Vector2<f32> = ctx.cursor.coords;
@@ -51,12 +52,12 @@ fn update(ctx: &mut Context) {
 
     resources.text.write(
         &ctx.gpu,
-        &[text::TextSection {
+        &[TextSection {
             color: Color::RED,
             text: format!("FPS: {}\nBunnies: {}", ctx.frame.fps(), bunnies.len()),
             size: 0.05,
-            horizontal_alignment: text::TextAlignment::End,
-            vertical_alignment: text::TextAlignment::End,
+            horizontal_alignment: TextAlignment::End,
+            vertical_alignment: TextAlignment::End,
             ..Default::default()
         }],
     );
@@ -88,7 +89,7 @@ fn update(ctx: &mut Context) {
         }
 
         if translation.y < -fov.y {
-            linvel.y = rand::gen_range(0.0..15.0);
+            linvel.y = gen_range(0.0..15.0);
             translation.y = -fov.y;
         } else if translation.y > fov.y {
             linvel.y = -1.0;
@@ -149,10 +150,7 @@ impl Resources {
         Resources {
             screenshot: None,
             bunny_sprite,
-            text: ctx.gpu.create_text::<&str>(
-                &font,
-                &[],
-            ),
+            text: ctx.gpu.create_text::<&str>(&font, &[]),
         }
     }
 }
@@ -167,12 +165,12 @@ struct Bunny {
 
 impl Bunny {
     pub fn new(translation: Vector2<f32>, handle: EntityHandle) -> Bunny {
-        let scaling = rand::gen_range(0.75_f32..2.0);
+        let scaling = gen_range(0.75_f32..2.0);
         let position = PositionComponent2D::new()
             .with_translation(translation)
-            .with_rotation(rand::gen_range(-1.0..1.0))
+            .with_rotation(gen_range(-1.0..1.0))
             .with_scaling(scaling * vector2(0.12, 0.18));
-        let linvel = vector2(rand::gen_range(-2.5..2.5), rand::gen_range(-7.5..7.5));
+        let linvel = vector2(gen_range(-2.5..2.5), gen_range(-7.5..7.5));
         Bunny {
             position,
             linvel,

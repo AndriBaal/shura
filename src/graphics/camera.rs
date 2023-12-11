@@ -2,8 +2,11 @@ use nalgebra::{Orthographic3, Perspective3};
 use std::marker::PhantomData;
 use std::ops::*;
 
-use crate::AABB;
-use crate::{Gpu, Isometry2, Isometry3, Matrix4, Point3, Rotation2, Uniform, Vector2, Vector3};
+use crate::{
+    graphics::Gpu,
+    graphics::Uniform,
+    math::{Isometry2, Isometry3, Matrix4, Point3, Rotation2, Vector2, Vector3, AABB},
+};
 
 const MINIMAL_FOV: f32 = 0.0001;
 

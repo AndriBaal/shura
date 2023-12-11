@@ -1,6 +1,6 @@
 use instant::Duration;
 
-use crate::Color;
+use crate::graphics::Color;
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Clone, Debug)]

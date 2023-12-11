@@ -1,4 +1,4 @@
-use shura::{log, rand, text::*, *};
+use shura::prelude::*;
 
 #[shura::main]
 fn shura_main(config: AppConfig) {
@@ -51,12 +51,12 @@ fn update(ctx: &mut Context) {
 
     resources.text.write(
         &ctx.gpu,
-        &[text::TextSection {
+        &[TextSection {
             color: Color::RED,
             text: format!("FPS: {}\nBunnies: {}", ctx.frame.fps(), bunnies.len()),
             size: 0.05,
-            horizontal_alignment: text::TextAlignment::End,
-            vertical_alignment: text::TextAlignment::End,
+            horizontal_alignment: TextAlignment::End,
+            vertical_alignment: TextAlignment::End,
             ..Default::default()
         }],
     );
@@ -86,7 +86,7 @@ fn update(ctx: &mut Context) {
         }
 
         if translation.y < -fov.y {
-            linvel.y = rand::gen_range(0.0..15.0);
+            linvel.y = gen_range(0.0..15.0);
             translation.y = -fov.y;
         } else if translation.y > fov.y {
             linvel.y = -1.0;
@@ -146,10 +146,7 @@ impl Resources {
         Resources {
             screenshot: None,
             bunny_sprite,
-            text: ctx.gpu.create_text::<&str>(
-                &font,
-                &[],
-            ),
+            text: ctx.gpu.create_text::<&str>(&font, &[]),
         }
     }
 }
@@ -164,12 +161,12 @@ struct Bunny {
 
 impl Bunny {
     pub fn new(translation: Vector2<f32>, handle: EntityHandle) -> Bunny {
-        let scaling = rand::gen_range(0.75_f32..2.0);
+        let scaling = gen_range(0.75_f32..2.0);
         let position = PositionComponent2D::new()
             .with_translation(translation)
-            .with_rotation(rand::gen_range(-1.0..1.0))
+            .with_rotation(gen_range(-1.0..1.0))
             .with_scaling(scaling * vector2(0.12, 0.18));
-        let linvel = vector2(rand::gen_range(-2.5..2.5), rand::gen_range(-7.5..7.5));
+        let linvel = vector2(gen_range(-2.5..2.5), gen_range(-7.5..7.5));
         Bunny {
             position,
             linvel,

@@ -1,4 +1,4 @@
-use crate::{Scene, SceneCreator};
+use crate::scene::{Scene, SceneCreator};
 use rustc_hash::FxHashMap;
 use std::{cell::RefCell, rc::Rc};
 

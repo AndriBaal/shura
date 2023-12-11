@@ -4,7 +4,8 @@ use downcast_rs::{impl_downcast, Downcast};
 use wgpu::SurfaceTexture;
 
 use crate::{
-    Camera2D, Color, DefaultResources, Gpu, RenderEncoder, Sprite, SpriteBuilder, Vector2,
+    graphics::{Camera2D, Color, DefaultResources, Gpu, RenderEncoder, Sprite, SpriteBuilder},
+    math::Vector2,
 };
 
 pub struct DepthTexture {}

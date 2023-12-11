@@ -5,13 +5,19 @@ use shura::*;
 fn shura_main(config: AppConfig) {
     App::run(config, || {
         NewScene::new(1)
-            .component::<Instance2D>("player", BufferConfig::EveryFrame)
-            .component::<Instance2D>("floor", BufferConfig::Manual)
-            .component::<Instance2D>("box", BufferConfig::EveryFrame)
-            .entity::<Floor>(EntityConfig::SINGLE)
-            .entity::<Player>(EntityConfig::SINGLE)
-            .entity::<PhysicsBox>(EntityConfig::DEFAULT)
-            .entity::<Resources>(EntityConfig::RESOURCE)
+            .component::<Instance2D>("player", BufferConfig::default())
+            .component::<Instance2D>("box", BufferConfig::default())
+            .component::<Instance2D>(
+                "floor",
+                BufferConfig {
+                    call: BufferCall::Manual,
+                    ..Default::default()
+                },
+            )
+            .entity_single::<Floor>(Default::default())
+            .entity_single::<Player>(Default::default())
+            .entity_multiple::<PhysicsBox>(Default::default())
+            .entity_single::<Resources>(Default::default())
             .system(System::Render(render))
             .system(System::Setup(setup))
             .system(System::Update(update))
@@ -23,7 +29,7 @@ fn setup(ctx: &mut Context) {
     const MINIMAL_SPACING: f32 = 0.1;
     ctx.world_camera2d.set_scaling(WorldCameraScaling::Max(5.0));
     ctx.world.set_gravity(Vector2::new(0.00, -9.81));
-    ctx.entities.add(ctx.world, Resources::new(ctx));
+    ctx.entities.single().set(ctx.world, Resources::new(ctx));
 
     for x in -PYRAMID_ELEMENTS..PYRAMID_ELEMENTS {
         for y in 0..(PYRAMID_ELEMENTS - x.abs()) {
@@ -31,19 +37,19 @@ fn setup(ctx: &mut Context) {
                 x as f32 * (PhysicsBox::HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING),
                 y as f32 * (PhysicsBox::HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING * 2.0),
             ));
-            ctx.entities.add(ctx.world, b);
+            ctx.entities.multiple().add(ctx.world, b);
         }
     }
 
     let player = Player::new();
-    ctx.entities.add(ctx.world, player);
+    ctx.entities.single().set(ctx.world, player);
     let floor = Floor::new();
-    ctx.entities.add(ctx.world, floor);
+    ctx.entities.single().set(ctx.world, floor);
 }
 
 fn update(ctx: &mut Context) {
-    let mut boxes = ctx.entities.set::<PhysicsBox>();
-    let mut player = ctx.entities.single::<Player>();
+    let mut boxes = ctx.entities.multiple::<PhysicsBox>();
+    let mut player = ctx.entities.single::<Player>().get_mut().unwrap();
 
     let scroll = ctx.input.wheel_delta();
     let fov = ctx.world_camera2d.fov();
@@ -71,11 +77,11 @@ fn update(ctx: &mut Context) {
     let delta = ctx.frame.frame_time();
     let cursor_world: Point2<f32> = (ctx.cursor).into();
     let remove = ctx.input.is_held(MouseButton::Left) || ctx.input.is_pressed(ScreenTouch);
-    boxes.for_each_mut(|physics_box| {
+    for physics_box in boxes.iter_mut() {
         if *physics_box.body.color() == Color::RED {
             physics_box.body.set_color(Color::GREEN);
         }
-    });
+    }
     let mut entity: Option<EntityHandle> = None;
     ctx.world
         .intersections_with_point(&cursor_world, Default::default(), |component_handle, _| {
@@ -128,7 +134,7 @@ fn update(ctx: &mut Context) {
 }
 
 fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
-    let resources = ctx.single::<Resources>();
+    let resources = ctx.single::<Resources>().get().unwrap();
     encoder.render2d(Some(Color::BLACK), |renderer| {
         ctx.render_all(renderer, "player", |renderer, buffer, instances| {
             renderer.render_sprite(

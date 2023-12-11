@@ -1,8 +1,8 @@
 use std::{marker::PhantomData, mem::size_of, ops::Range};
 
 use crate::{
-    Color, Gpu, Isometry2, Isometry3, Matrix2, Matrix4, Rotation2, SpriteSheetIndex, Vector2,
-    Vector3,
+    graphics::{Color, Gpu, SpriteSheetIndex},
+    math::{Isometry2, Isometry3, Matrix2, Matrix4, Rotation2, Vector2, Vector3},
 };
 use wgpu::{util::DeviceExt, vertex_attr_array};
 

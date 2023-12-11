@@ -1,4 +1,4 @@
-use crate::{
+use crate::graphics::{
     Color, DefaultResources, DepthBuffer, Gpu, RenderTarget, Renderer, SpriteRenderTarget,
 };
 

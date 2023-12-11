@@ -1,7 +1,10 @@
 use std::ops::Deref;
 use wgpu::ImageCopyTexture;
 
-use crate::{Gpu, RgbaColor, Vector2};
+use crate::{
+    graphics::{Gpu, RgbaColor},
+    math::Vector2,
+};
 
 pub type SpriteSheetIndex = u32;
 pub type SpriteSheetIndex2D = Vector2<u32>;

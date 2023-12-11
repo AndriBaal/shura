@@ -5,26 +5,30 @@ use std::{
     sync::{Arc, OnceLock},
 };
 
-pub static GLOBAL_GPU: OnceLock<Arc<Gpu>> = OnceLock::new();
-
 #[cfg(feature = "gui")]
 use crate::gui::Gui;
+use crate::{
+    context::{Context, RenderContext},
+    graphics::{DefaultResources, Gpu, GpuConfig, RenderEncoder},
+    input::Input,
+    math::Vector2,
+    scene::{Scene, SceneCreator, SceneManager},
+    system::{EndReason, UpdateOperation},
+    time::FrameManager,
+    entity::GlobalEntities
+};
 #[cfg(feature = "log")]
 use crate::{
     log::{error, info, LoggerBuilder},
     VERSION,
 };
-use crate::{
-    Context, DefaultResources, EndReason, EntityTypeId, EntityType, FrameManager,
-    Gpu, GpuConfig, Input, RenderContext, RenderEncoder, Scene, SceneCreator, SceneManager,
-    UpdateOperation, Vector2,
-};
-use rustc_hash::FxHashMap;
 #[cfg(target_os = "android")]
 use winit::platform::android::activity::AndroidApp;
 
 #[cfg(feature = "audio")]
 use crate::audio::AudioManager;
+
+pub static GLOBAL_GPU: OnceLock<Arc<Gpu>> = OnceLock::new();
 
 pub struct AppConfig {
     pub window: winit::window::WindowBuilder,
@@ -115,13 +119,6 @@ impl AppConfig {
         self
     }
 }
-
-pub(crate) type InnerGlobalEntities =
-    Rc<RefCell<FxHashMap<EntityTypeId, Option<Rc<RefCell<dyn EntityType>>>>>>;
-
-// The Option<> is here to keep track of entities, that have already been added to scenes and therefore
-// can not be registered as a global entities.
-pub struct GlobalEntities(pub(crate) InnerGlobalEntities);
 
 pub struct App {
     pub end: bool,
@@ -495,16 +492,16 @@ impl App {
             (update)(&mut ctx);
         }
 
-        scene
-            .groups
-            .update(&scene.world_camera2d);
+        scene.groups.update(&scene.world_camera2d);
     }
 
     fn render(&mut self, _scene_id: u32, scene: &mut Scene) {
         scene
             .entities
             .buffer(&mut scene.component_buffers, &scene.groups, &scene.world);
-        scene.component_buffers.apply_buffers(&scene.groups,&self.gpu);
+        scene
+            .component_buffers
+            .apply_buffers(&scene.groups, &self.gpu);
         self.defaults
             .world_camera2d
             .write(&self.gpu, &scene.world_camera2d);

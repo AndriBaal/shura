@@ -5,12 +5,15 @@ use crate::log::info;
 #[cfg(feature = "text")]
 use crate::text::{Font, FontBuilder, Text, TextSection};
 use crate::{
-    Camera, Camera2D, CameraBuffer, CameraBuffer2D, DepthBuffer, Instance, Instance2D, Instance3D,
-    InstanceBuffer, InstanceBuffer2D, Isometry2, Mesh, Mesh2D, MeshBuilder, MeshBuilder2D, Model,
-    ModelBuilder, RenderEncoder, RenderTarget, Shader, ShaderConfig, ShaderModule,
-    ShaderModuleDescriptor, ShaderModuleSoure, Sprite, SpriteBuilder, SpriteRenderTarget,
-    SpriteSheet, SpriteSheetBuilder, SurfaceRenderTarget, Uniform, UniformField, Vector2, Vertex,
-    Vertex3D, WorldCamera3D,
+    graphics::{
+        Camera, Camera2D, CameraBuffer, CameraBuffer2D, DepthBuffer, Instance, Instance2D,
+        Instance3D, InstanceBuffer, InstanceBuffer2D, Mesh, Mesh2D, MeshBuilder, MeshBuilder2D,
+        Model, ModelBuilder, RenderEncoder, RenderTarget, Shader, ShaderConfig, ShaderModule,
+        ShaderModuleDescriptor, ShaderModuleSoure, Sprite, SpriteBuilder, SpriteRenderTarget,
+        SpriteSheet, SpriteSheetBuilder, SurfaceRenderTarget, Uniform, UniformField, Vertex,
+        Vertex3D, WorldCamera3D,
+    },
+    math::{Isometry2, Vector2},
 };
 use std::{ops::Deref, sync::Mutex};
 
@@ -140,8 +143,6 @@ impl Gpu {
             info!("Using texture format: {:?}", config.format);
             info!("Using Present mode: {:?}", config.present_mode);
         }
-
-        
 
         Self {
             instance,

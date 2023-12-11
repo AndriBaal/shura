@@ -1,4 +1,7 @@
-use crate::{Isometry2, Vector2, Vertex2D};
+use crate::{
+    graphics::Vertex2D,
+    math::{Isometry2, Vector2},
+};
 
 #[derive(Debug, Copy, Clone, PartialEq, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

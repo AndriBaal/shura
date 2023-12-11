@@ -1,7 +1,7 @@
 #[cfg(feature = "text")]
 use crate::text::Text;
 
-use crate::{
+use crate::graphics::{
     Camera, CameraBuffer, CameraBuffer2D, Color, DefaultResources, DepthBuffer, Gpu, Instance,
     InstanceBuffer, InstanceBuffer2D, InstanceBuffer3D, InstanceIndices, Mesh, Mesh2D, Model,
     RenderTarget, Shader, Sprite, SpriteSheet, Uniform, Vertex,
@@ -50,13 +50,13 @@ impl<'a> Renderer<'a> {
             label: Some("render_pass"),
             color_attachments: &[Some(target.attachment(clear))],
             depth_stencil_attachment: depth.map(|depth| wgpu::RenderPassDepthStencilAttachment {
-                    view: depth.view(),
-                    depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(1.0),
-                        store: wgpu::StoreOp::Store,
-                    }),
-                    stencil_ops: None,
+                view: depth.view(),
+                depth_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(1.0),
+                    store: wgpu::StoreOp::Store,
                 }),
+                stencil_ops: None,
+            }),
             timestamp_writes: None,
             occlusion_query_set: None,
         });

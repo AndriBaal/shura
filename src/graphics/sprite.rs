@@ -1,8 +1,12 @@
 use wgpu::util::DeviceExt;
 
-use crate::{load_res_bytes, Gpu, RgbaColor, Vector2};
-use std::{ops::Deref, path::Path};
+use crate::{
+    graphics::{Gpu, RgbaColor},
+    math::Vector2,
+    resource::load_res_bytes,
+};
 use image::ImageOutputFormat;
+use std::{ops::Deref, path::Path};
 
 pub struct SpriteBuilder<'a, D: Deref<Target = [u8]>> {
     pub label: Option<&'a str>,
@@ -153,7 +157,6 @@ impl Sprite {
         data: &[u8],
     ) -> wgpu::Texture {
         assert!(size.x != 0 && size.y != 0);
-        
 
         if data.is_empty() {
             gpu.device.create_texture(&wgpu::TextureDescriptor {
@@ -246,7 +249,9 @@ impl Sprite {
 
     pub fn to_bytes(&self, gpu: &Gpu) -> Vec<u8> {
         let mut result = std::io::Cursor::new(Vec::new());
-        self.to_image(gpu).write_to(&mut result, ImageOutputFormat::Png).unwrap();
+        self.to_image(gpu)
+            .write_to(&mut result, ImageOutputFormat::Png)
+            .unwrap();
         return result.into_inner();
     }
 
