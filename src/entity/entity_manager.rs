@@ -2,7 +2,7 @@ use rustc_hash::FxHashMap;
 
 use crate::{
     entity::{
-        Entities, EntityIdentifier, EntityType, EntityTypeId, GlobalEntities, GroupManager,
+        Entities, EntityIdentifier, EntityType, EntityTypeId, GroupManager,
         GroupedEntities, SingleEntity,
     },
     graphics::ComponentBufferManager,
@@ -10,12 +10,15 @@ use crate::{
 };
 
 #[cfg(feature = "serde")]
-use crate::entity::{Entity, GroupHandle};
+use crate::entity::GroupHandle;
 
 use std::{
+    any::TypeId,
     cell::{Ref, RefCell, RefMut},
     rc::Rc,
 };
+
+use super::GLOBAL_ENTITIES;
 
 const ALREADY_BORROWED: &str = "This type is already borrowed!";
 const WRONG_TYPE: &str = "Wrong type";
@@ -87,63 +90,60 @@ pub struct EntityManager {
 }
 
 impl EntityManager {
-    pub(crate) fn empty() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             types: Default::default(),
         }
     }
 
-    pub(crate) fn new(
-        global: &GlobalEntities,
-        entities: Vec<(EntityScope, Box<RefCell<dyn EntityType>>)>,
-    ) -> Self {
-        let mut manager = Self::empty();
-        manager.init(global, entities);
-        manager
-    }
+    pub fn register_entity<ET: EntityType>(&mut self, scope: EntityScope, ty: ET) {
+        let rc = GLOBAL_ENTITIES.get_or_init(|| Default::default()).clone();
+        let mut globals = rc.borrow_mut();
+        let id = ET::Entity::IDENTIFIER;
+        if self.types.contains_key(&id) {
+            panic!("Entity {} already defined!", ET::Entity::TYPE_NAME);
+        }
 
-    pub(crate) fn init(
-        &mut self,
-        global: &GlobalEntities,
-        entities: Vec<(EntityScope, Box<RefCell<dyn EntityType>>)>,
-    ) {
-        let mut globals = global.0.borrow_mut();
-        for (scope, entity) in entities {
-            let id = entity.borrow().entity_type_id();
-            match scope {
-                EntityScope::Scene => {
-                    if let Some(ty) = globals.get(&id) {
-                        assert!(
-                            ty.is_none(),
-                            "This entity already exists as a global entity!"
-                        );
-                    } else {
-                        globals.insert(id, None);
-                    }
-                    self.types.insert(id, EntityTypeScope::Scene(entity));
+        if TypeId::of::<ET>() == TypeId::of::<GroupedEntities<ET>>() && scope == EntityScope::Global
+        {
+            panic!(
+                "Global component can not be stored in groups because groups are scene specific!"
+            );
+        }
+        match scope {
+            EntityScope::Scene => {
+                if let Some(ty) = globals.get(&id) {
+                    assert!(
+                        ty.is_none(),
+                        "This entity already exists as a global entity!"
+                    );
+                } else {
+                    globals.insert(id, None);
                 }
-                EntityScope::Global => {
-                    if let Some(ty) = globals.get(&id) {
-                        if let Some(ty) = ty {
-                            self.types
-                                .entry(id)
-                                .or_insert_with(|| EntityTypeScope::Global(ty.clone()));
-                        } else {
-                            panic!("This entity already exists as a non global entity!");
-                        }
-                    } else {
-                        globals.insert(id, Some(entity.into()));
-                        let ty = globals[&id].as_ref().unwrap();
+                self.types
+                    .insert(id, EntityTypeScope::Scene(Box::new(RefCell::new(ty))));
+            }
+            EntityScope::Global => {
+                if let Some(ty) = globals.get(&id) {
+                    if let Some(ty) = ty {
                         self.types
                             .entry(id)
                             .or_insert_with(|| EntityTypeScope::Global(ty.clone()));
+                    } else {
+                        panic!("This entity already exists as a non global entity!");
                     }
+                } else {
+                    globals.insert(id, Some(Rc::new(RefCell::new(ty))));
+                    let ty = globals[&id].as_ref().unwrap();
+                    self.types
+                        .entry(id)
+                        .or_insert_with(|| EntityTypeScope::Global(ty.clone()));
                 }
             }
         }
     }
 
-    pub(crate) fn buffer(
+    pub fn buffer(
         &mut self,
         buffers: &mut ComponentBufferManager,
         groups: &GroupManager,
@@ -160,12 +160,17 @@ impl EntityManager {
     }
 
     #[cfg(feature = "serde")]
-    pub(crate) fn deserialize_group<ET: EntityType>(
+    pub(crate) fn deserialize_group<ET: EntityType + Default>(
         &mut self,
+        group: GroupHandle,
         mut storage: ET,
         world: &mut World,
-    ) -> GroupHandle {
-        panic!()
+    ) {
+        // let mut groups = self.group::<ET>();
+        // let group = groups.get_group_mut(group).unwrap();
+        // for entity in group.iter_dyn_mut_handle() {
+        // }
+
         // use crate::EntityIndex;
 
         // let mut ty = type_ref_mut!(self, E);

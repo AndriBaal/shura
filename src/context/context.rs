@@ -105,14 +105,46 @@ impl<'a> Context<'a> {
         )
     }
 
+    // pub(crate) fn new_from_ctx(
+    //     scene_id: &'a u32,
+    //     ctx: Context<'a>,
+    //     scene: &'a mut Scene,
+    // ) -> (&'a mut SystemManager, Context<'a>) {
+    //     let mint: mint::Vector2<u32> = ctx.window.inner_size().into();
+    //     let window_size = mint.into();
+    //     let cursor = ctx.input.cursor(&scene.world_camera2d);
+    //     (
+    //         &mut scene.systems,
+    //         Self {
+    //             // Scene
+    //             render_entities: &mut scene.render_entities,
+    //             screen_config: &mut scene.screen_config,
+    //             world_camera2d: &mut scene.world_camera2d,
+    //             world_camera3d: &mut scene.world_camera3d,
+    //             entities: &mut scene.entities,
+    //             groups: &mut scene.groups,
+    //             world: &mut scene.world,
+    //             tasks: &mut scene.tasks,
+    //             component_buffers: &mut scene.component_buffers,
+
+    //             // Misc
+    //             scene_id,
+    //             window_size,
+    //             cursor,
+    //             resized: false,
+
+    //             ..ctx
+    //         },
+    //     )
+    // }
+
     #[cfg(feature = "serde")]
     pub fn serialize_scene(
         &mut self,
-        mut serialize: impl FnMut(&mut SceneSerializer),
+        serialize: impl FnOnce(SceneSerializer) -> SceneSerializer,
     ) -> Result<Vec<u8>, Box<bincode::ErrorKind>> {
         let entities = &self.entities;
-        let mut serializer = SceneSerializer::new(entities);
-        (serialize)(&mut serializer);
+        let serializer = (serialize)(SceneSerializer::new(entities));
 
         #[derive(serde::Serialize)]
         struct Scene<'a> {
@@ -131,7 +163,7 @@ impl<'a> Context<'a> {
             for ty in self.entities.types_mut() {
                 if !ser_entities.contains_key(&ty.entity_type_id()) {
                     for entity in ty.iter_dyn() {
-                        for component in entity.components() {
+                        for component in entity.components_dyn() {
                             world_cpy.remove_no_maintain(component);
                         }
                     }
@@ -162,7 +194,7 @@ impl<'a> Context<'a> {
                 groups: self.groups,
                 world: &self.world,
             };
-            let scene: (&Scene, FxHashMap<ComponentTypeId, Vec<u8>>) = (&scene, ser_entities);
+            let scene: (&Scene, FxHashMap<EntityTypeId, Vec<u8>>) = (&scene, ser_entities);
             let result = bincode::serialize(&scene);
             return result;
         }

@@ -15,9 +15,11 @@ use crate::{
     },
     math::{Isometry2, Vector2},
 };
-use std::{ops::Deref, sync::Mutex};
+use std::{ops::Deref, sync::{Mutex, OnceLock, Arc}};
 
 pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 0.5;
+
+pub static GLOBAL_GPU: OnceLock<Arc<Gpu>> = OnceLock::new();
 
 #[derive(Clone)]
 pub struct GpuConfig {

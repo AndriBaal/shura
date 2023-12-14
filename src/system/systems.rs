@@ -13,8 +13,8 @@ pub type EndSystem = fn(&mut Context, reason: EndReason);
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum EndReason {
-    EndProgram,
-    RemoveScene,
+    End,
+    Removed,
     Replaced,
 }
 
@@ -35,6 +35,7 @@ pub enum UpdateOperation {
 }
 
 pub struct SystemManager {
+    pub setup_systems: Vec<SetupSystem>,
     pub resize_systems: Vec<ResizeSystem>,
     pub update_systems: Vec<(UpdateOperation, UpdateSystem)>,
     pub end_systems: Vec<EndSystem>,
@@ -42,39 +43,32 @@ pub struct SystemManager {
 }
 
 impl SystemManager {
-    pub fn empty() -> Self {
+    pub fn new() -> Self {
         Self {
             resize_systems: Default::default(),
             update_systems: Default::default(),
             end_systems: Default::default(),
             render_systems: Default::default(),
+            setup_systems: Default::default(),
         }
     }
 
-    pub fn new(systems: &[System]) -> Self {
-        let mut system_manager = Self::empty();
-        system_manager.init(systems);
-        system_manager
-    }
-
-    pub fn init(&mut self, systems: &[System]) {
-        for system in systems {
-            match *system {
-                System::Update(update) => self
-                    .update_systems
-                    .push((UpdateOperation::EveryFrame, update)),
-                System::UpdateNFrame(frame, update) => self
-                    .update_systems
-                    .push((UpdateOperation::EveryNFrame(frame), update)),
-                System::UpdateAfter(duration, update) => self.update_systems.push((
-                    UpdateOperation::UpdaterAfter(Instant::now(), duration),
-                    update,
-                )),
-                System::Render(render) => self.render_systems.push(render),
-                System::End(end) => self.end_systems.push(end),
-                System::Resize(resize) => self.resize_systems.push(resize),
-                System::Setup(_) => {}
-            }
+    pub fn register_system(&mut self, system: System) {
+        match system {
+            System::Update(update) => self
+                .update_systems
+                .push((UpdateOperation::EveryFrame, update)),
+            System::UpdateNFrame(frame, update) => self
+                .update_systems
+                .push((UpdateOperation::EveryNFrame(frame), update)),
+            System::UpdateAfter(duration, update) => self.update_systems.push((
+                UpdateOperation::UpdaterAfter(Instant::now(), duration),
+                update,
+            )),
+            System::Render(render) => self.render_systems.push(render),
+            System::End(end) => self.end_systems.push(end),
+            System::Resize(resize) => self.resize_systems.push(resize),
+            System::Setup(setup) => self.setup_systems.push(setup)
         }
     }
 }

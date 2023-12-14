@@ -143,8 +143,8 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
                 #( #buffer )*
             }
 
-            fn components(&self) -> Vec<&dyn ::shura::component::Component> {
-                vec![ #( &self.#names_components as &dyn ::shura::component::Component, )* ]
+            fn components_dyn<'a>(&'a self) -> Box<dyn Iterator<Item=&dyn ::shura::component::Component> + 'a> {
+                Box::new([ #( &self.#names_components as &dyn ::shura::component::Component, )* ].into_iter())
             }
 
             fn init(&mut self, handle: ::shura::entity::EntityHandle, world: &mut ::shura::physics::World) {

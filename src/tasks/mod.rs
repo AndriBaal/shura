@@ -1,3 +1,3 @@
-mod tasks;
+mod task_manager;
 
-pub use tasks::*;
+pub use task_manager::*;

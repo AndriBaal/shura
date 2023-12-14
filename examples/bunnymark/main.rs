@@ -5,8 +5,8 @@ fn shura_main(config: AppConfig) {
     App::run(config, || {
         NewScene::new(1)
             .component::<Instance2D>("bunny", BufferConfig::default())
-            .entity_multiple::<Bunny>(EntityScope::Global)
-            .entity_single::<Resources>(EntityScope::Scene)
+            .entities::<Bunny>(EntityScope::Global)
+            .single_entity::<Resources>(EntityScope::Scene)
             .system(System::Update(update))
             .system(System::Setup(setup))
             .system(System::Render(render))

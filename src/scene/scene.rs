@@ -1,74 +1,64 @@
-use rustc_hash::FxHashMap;
-use std::{any::TypeId, cell::RefCell};
-
 use crate::{
-    app::{GLOBAL_GPU, App},
-    entity::{Entities, EntityIdentifier, EntityScope, GroupedEntities, SingleEntity, EntityType, EntityManager, GroupManager},
-    graphics::{
-        BufferConfig, CameraViewSelection, ComponentBuffer, ComponentBufferImpl,
-        ComponentBufferManager, Instance,
-        PerspectiveCamera3D, ScreenConfig,
-        WorldCamera2D, WorldCamera3D, WorldCameraScaling,
+    entity::{
+        Entities, EntityIdentifier, EntityManager, EntityScope, EntityType, GroupManager,
+        GroupedEntities, SingleEntity,
     },
-    system::{System, SystemManager},
-    context::Context,
+    graphics::{
+        BufferConfig, CameraViewSelection, ComponentBufferManager, Instance, Instance2D,
+        PerspectiveCamera3D, ScreenConfig, WorldCamera2D, WorldCamera3D, WorldCameraScaling,
+    },
     math::Vector2,
+    physics::World,
+    system::{System, SystemManager},
     tasks::TaskManager,
-    physics::World
 };
 
 pub trait SceneCreator {
     fn new_id(&self) -> u32;
-    fn create(self: Box<Self>, app: &mut App) -> Scene;
-    fn systems(&mut self) -> &mut Vec<System>;
-    fn entities(&mut self) -> &mut Vec<(EntityScope, Box<RefCell<dyn EntityType>>)>;
-    fn components(&mut self) -> &mut FxHashMap<&'static str, Box<dyn ComponentBufferImpl>>;
-    fn component<I: Instance>(mut self, name: &'static str, buffer: BufferConfig) -> Self
+    fn create(self: Box<Self>) -> Scene;
+    fn scene(&mut self) -> &mut Scene;
+    fn component<I: Instance>(mut self, name: &'static str, config: BufferConfig) -> Self
     where
         Self: Sized,
     {
-        if self.components().contains_key(name) {
-            panic!("Component {} already defined!", name);
-        }
-        self.components().insert(
-            name,
-            Box::new(ComponentBuffer::<I>::new(GLOBAL_GPU.get().unwrap(), buffer)),
-        );
+        self.scene()
+            .component_buffers
+            .register_component::<I>(name, config);
         self
     }
+    fn component2d(self, name: &'static str, config: BufferConfig) -> Self
+    where
+        Self: Sized,
+    {
+        self.component::<Instance2D>(name, config)
+    }
 
-    fn entity_single<E: EntityIdentifier>(self, scope: EntityScope) -> Self
+    fn single_entity<E: EntityIdentifier>(self, scope: EntityScope) -> Self
     where
         Self: Sized,
     {
         self.entity(SingleEntity::<E>::default(), scope)
     }
 
-    fn entity_multiple<E: EntityIdentifier>(self, scope: EntityScope) -> Self
+    fn entities<E: EntityIdentifier>(self, scope: EntityScope) -> Self
     where
         Self: Sized,
     {
         self.entity(Entities::<E>::default(), scope)
     }
 
-    fn entity_grouped<E: EntityIdentifier>(self, scope: EntityScope) -> Self
+    fn grouped_entity<E: EntityIdentifier>(self, scope: EntityScope) -> Self
     where
         Self: Sized,
     {
         self.entity(GroupedEntities::<Entities<E>>::default(), scope)
     }
 
-    fn entity<T: EntityType>(mut self, ty: T, scope: EntityScope) -> Self
+    fn entity<ET: EntityType>(mut self, ty: ET, scope: EntityScope) -> Self
     where
         Self: Sized,
     {
-        if TypeId::of::<T>() == TypeId::of::<GroupedEntities<T>>() && scope == EntityScope::Global {
-            panic!(
-                "Global component can not be stored in groups because groups are scene specific!"
-            );
-        }
-
-        self.entities().push((scope, Box::new(RefCell::new(ty))));
+        self.scene().entities.register_entity::<ET>(scope, ty);
         self
     }
 
@@ -76,106 +66,65 @@ pub trait SceneCreator {
     where
         Self: Sized,
     {
-        self.systems().push(system);
+        self.scene().systems.register_system(system);
         self
     }
 }
 
 pub struct NewScene {
-    pub id: u32,
-    systems: Vec<System>,
-    entities: Vec<(EntityScope, Box<RefCell<dyn EntityType>>)>,
-    component_buffers: FxHashMap<&'static str, Box<dyn ComponentBufferImpl>>,
+    id: u32,
+    scene: Scene,
 }
 
 impl NewScene {
     pub fn new(id: u32) -> NewScene {
         Self {
             id,
-            systems: Default::default(),
-            entities: Default::default(),
-            component_buffers: Default::default(),
+            scene: Scene::new(),
         }
     }
 }
 
-#[allow(private_interfaces)]
 impl SceneCreator for NewScene {
     fn new_id(&self) -> u32 {
         self.id
     }
 
-    fn create(self: Box<Self>, app: &mut App) -> Scene {
-        Scene::new(
-            self.id,
-            app,
-            self.systems,
-            self.entities,
-            self.component_buffers,
-        )
-    }
-
-    fn systems(&mut self) -> &mut Vec<System> {
-        &mut self.systems
-    }
-
-    fn entities(&mut self) -> &mut Vec<(EntityScope, Box<RefCell<dyn EntityType>>)> {
-        &mut self.entities
-    }
-
-    fn components(&mut self) -> &mut FxHashMap<&'static str, Box<dyn ComponentBufferImpl>> {
-        &mut self.component_buffers
-    }
-}
-
-pub struct RecycleScene {
-    pub id: u32,
-    pub scene: Scene,
-    systems: Vec<System>,
-    entities: Vec<(EntityScope, Box<RefCell<dyn EntityType>>)>,
-    component_buffers: FxHashMap<&'static str, Box<dyn ComponentBufferImpl>>,
-}
-
-impl RecycleScene {
-    pub fn new(id: u32, scene: Scene) -> RecycleScene {
-        Self {
-            id,
-            scene,
-            systems: Default::default(),
-            entities: Default::default(),
-            component_buffers: Default::default(),
-        }
-    }
-}
-
-#[allow(private_interfaces)]
-impl SceneCreator for RecycleScene {
-    fn new_id(&self) -> u32 {
-        self.id
-    }
-
-    fn create(mut self: Box<Self>, app: &mut App) -> Scene {
-        let mint: mint::Vector2<u32> = app.window.inner_size().into();
-        let window_size: Vector2<u32> = mint.into();
-        self.scene.world_camera2d.resize(window_size);
-        self.scene.component_buffers.init(self.component_buffers);
-        self.scene.systems.init(&self.systems);
-        self.scene.entities.init(&app.globals, self.entities);
+    fn create(self: Box<Self>) -> Scene {
         self.scene
     }
 
-    fn systems(&mut self) -> &mut Vec<System> {
-        &mut self.systems
-    }
-
-    fn entities(&mut self) -> &mut Vec<(EntityScope, Box<RefCell<dyn EntityType>>)> {
-        &mut self.entities
-    }
-
-    fn components(&mut self) -> &mut FxHashMap<&'static str, Box<dyn ComponentBufferImpl>> {
-        &mut self.component_buffers
+    fn scene(&mut self) -> &mut Scene {
+        &mut self.scene
     }
 }
+
+// pub struct RecycleScene {
+//     pub id: u32,
+//     pub scene: Scene,
+// }
+
+// impl RecycleScene {
+//     pub fn new(id: u32, scene: Scene) -> RecycleScene {
+//         Self { id, scene }
+//     }
+// }
+
+// impl SceneCreator for RecycleScene {
+//     fn new_id(&self) -> u32 {
+//         self.id
+//     }
+
+//     fn create(mut self: Box<Self>, app: &mut App) -> Scene {
+//         let mint: mint::Vector2<u32> = app.window.inner_size().into();
+//         let window_size: Vector2<u32> = mint.into();
+//         self.scene.world_camera2d.resize(window_size);
+//         // self.scene.component_buffers.init(self.component_buffers);
+//         // self.scene.systems.init(&self.systems);
+//         // self.scene.entities.init(&app.globals, self.entities);
+//         self.scene
+//     }
+// }
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub struct Scene {
@@ -186,13 +135,13 @@ pub struct Scene {
     pub groups: GroupManager,
     pub world: World,
     #[cfg_attr(feature = "serde", serde(skip))]
-    #[cfg_attr(feature = "serde", serde(default = "EntityManager::empty"))]
+    #[cfg_attr(feature = "serde", serde(default = "EntityManager::new"))]
     pub entities: EntityManager,
     #[cfg_attr(feature = "serde", serde(skip))]
-    #[cfg_attr(feature = "serde", serde(default = "SystemManager::empty"))]
+    #[cfg_attr(feature = "serde", serde(default = "SystemManager::new"))]
     pub systems: SystemManager,
     #[cfg_attr(feature = "serde", serde(skip))]
-    #[cfg_attr(feature = "serde", serde(default = "ComponentBufferManager::empty"))]
+    #[cfg_attr(feature = "serde", serde(default = "ComponentBufferManager::new"))]
     pub component_buffers: ComponentBufferManager,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default = "TaskManager::new"))]
@@ -200,46 +149,29 @@ pub struct Scene {
 }
 
 impl Scene {
-    pub(crate) fn new(
-        id: u32,
-        app: &mut App,
-        systems: Vec<System>,
-        entities: Vec<(EntityScope, Box<RefCell<dyn EntityType>>)>,
-        component_buffers: FxHashMap<&'static str, Box<dyn ComponentBufferImpl>>,
-    ) -> Self {
-        let mint: mint::Vector2<u32> = app.window.inner_size().into();
-        let window_size: Vector2<u32> = mint.into();
+    pub(crate) fn new() -> Self {
+        // let mint: mint::Vector2<u32> = window.inner_size().into();
+        let window_size: Vector2<u32> = Vector2::new(800, 800);
 
-        let mut scene = Self {
-            world_camera2d: WorldCamera2D::new(
-                window_size,
-                Default::default(),
-                WorldCameraScaling::Min(WorldCamera2D::DEFAULT_VERTICAL_CAMERA_FOV),
-            ),
-            entities: EntityManager::new(&app.globals, entities),
-            systems: SystemManager::new(&systems),
+        Self {
+            entities: EntityManager::new(),
+            systems: SystemManager::new(),
             groups: GroupManager::new(),
             screen_config: ScreenConfig::new(),
             render_entities: true,
             world: World::new(),
             tasks: TaskManager::new(),
+            component_buffers: ComponentBufferManager::new(),
             world_camera3d: WorldCamera3D::new(
                 window_size,
                 CameraViewSelection::PerspectiveCamera3D(PerspectiveCamera3D::default()),
             ),
-            component_buffers: ComponentBufferManager::new(component_buffers),
-        };
 
-        let (_, mut ctx) = Context::new(&id, app, &mut scene);
-        for system in &systems {
-            match system {
-                System::Setup(setup) => {
-                    (setup)(&mut ctx);
-                }
-                _ => (),
-            }
+            world_camera2d: WorldCamera2D::new(
+                window_size,
+                Default::default(),
+                WorldCameraScaling::Min(WorldCamera2D::DEFAULT_VERTICAL_CAMERA_FOV),
+            ),
         }
-
-        scene
     }
 }

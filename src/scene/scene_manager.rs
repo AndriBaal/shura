@@ -14,10 +14,10 @@ pub struct SceneManager {
 impl SceneManager {
     pub(crate) fn new(active_scene_id: u32, creator: impl SceneCreator + 'static) -> Self {
         Self {
-            active_scene_id,
-            remove: Default::default(),
             scenes: Default::default(),
+            remove: Default::default(),
             add: vec![Box::new(creator)],
+            active_scene_id,
             last_active: None,
             scene_switched: false,
         }
@@ -50,10 +50,6 @@ impl SceneManager {
         self.scenes.contains_key(&id)
     }
 
-    pub fn add(&mut self, scene: impl SceneCreator + 'static) {
-        self.add.push(Box::new(scene))
-    }
-
     pub fn switched(&self) -> bool {
         self.scene_switched
     }
@@ -61,6 +57,25 @@ impl SceneManager {
     pub fn remove(&mut self, scene_id: u32) {
         self.remove.push(scene_id)
     }
+
+    pub fn add(&mut self, scene: impl SceneCreator + 'static) {
+        self.add.push(Box::new(scene))
+    }
+
+    // pub fn remove(&mut self, scene_id: u32) -> Option<Scene> {
+    //     assert!(
+    //         scene_id != self.active_scene_id,
+    //         "Cannot remove active scene!"
+    //     );
+    //     self.scenes.remove(&scene_id).and_then(|s| {
+    //         Some(
+    //             Rc::try_unwrap(s)
+    //                 .ok()
+    //                 .expect("Scene already in use!")
+    //                 .into_inner(),
+    //         )
+    //     })
+    // }
 
     pub(crate) fn get_active_scene(&mut self) -> Rc<RefCell<Scene>> {
         self.try_get_active_scene().unwrap_or_else(|| panic!("Cannot find the currently active scene {}!",

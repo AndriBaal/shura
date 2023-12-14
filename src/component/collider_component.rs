@@ -43,28 +43,7 @@ pub struct ColliderComponent {
 }
 
 impl ColliderComponent {
-    pub fn new(world: &mut World, collider: impl Into<Collider>) -> Self {
-        Self {
-            status: ColliderComponentStatus::Uninitialized {
-                collider: collider.into(),
-            },
-            scale: Vector2::new(1.0, 1.0),
-            atlas: Default::default(),
-            color: Color::WHITE,
-            index: 0,
-            active: true,
-        }
-    }
-
-    pub fn init(&mut self, world: &mut World) {
-
-    }
-
-    pub fn uninit(&mut self, world: &mut World) {
-
-    }
-
-    pub fn new_uninit(collider: impl Into<Collider>) -> Self {
+    pub fn new(collider: impl Into<Collider>) -> Self {
         Self {
             status: ColliderComponentStatus::Uninitialized {
                 collider: collider.into(),

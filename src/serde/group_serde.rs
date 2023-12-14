@@ -1,7 +1,13 @@
 use rustc_hash::FxHashMap;
 
-use crate::{entity::{EntityTypeId, EntityType, Group, GroupManager, EntityManager, GroupHandle, EntityIdentifier, SingleEntity, Entities, GroupedEntities}, physics::World, context::Context};
-
+use crate::{
+    context::Context,
+    entity::{
+        Entities, EntityIdentifier, EntityManager, EntityType, EntityTypeId, Group, GroupHandle,
+        GroupManager, GroupedEntities, SingleEntity,
+    },
+    physics::World,
+};
 
 pub struct GroupSerializer {
     entities: FxHashMap<EntityTypeId, Box<dyn EntityType>>,
@@ -54,9 +60,7 @@ impl GroupSerializer {
 pub struct GroupDeserializer {
     group: Group,
     ser_entities: FxHashMap<EntityTypeId, Vec<u8>>,
-    pub(crate) entities: FxHashMap<EntityTypeId, Box<dyn EntityType>>,
-    pub(crate) init_callbacks:
-        Vec<Box<dyn FnOnce(&mut FxHashMap<EntityTypeId, Box<dyn EntityType>>, &mut Context)>>,
+    pub(crate) init_callbacks: Vec<Box<dyn FnOnce(GroupHandle, &mut Context)>>,
 }
 
 impl GroupDeserializer {
@@ -66,13 +70,12 @@ impl GroupDeserializer {
         Self {
             group,
             ser_entities,
-            entities: Default::default(),
             init_callbacks: Default::default(),
         }
     }
 
     pub fn deserialize<
-        ET: EntityType<Entity = E> + serde::de::DeserializeOwned,
+        ET: EntityType<Entity = E> + serde::de::DeserializeOwned + Default,
         E: serde::de::DeserializeOwned + EntityIdentifier,
     >(
         &mut self,
@@ -80,12 +83,9 @@ impl GroupDeserializer {
         let type_id = E::IDENTIFIER;
         if let Some(data) = self.ser_entities.remove(&type_id) {
             let deserialized: ET = bincode::deserialize(&data).unwrap();
-            self.entities.insert(type_id, Box::new(deserialized));
-            self.init_callbacks.push(Box::new(|des, ctx| {
-                if let Some(data) = des.remove(&E::IDENTIFIER) {
-                    let storage = *data.downcast::<ET>().ok().unwrap();
-                    ctx.entities.deserialize_group(storage, ctx.world);
-                }
+            self.init_callbacks.push(Box::new(|group, ctx| {
+                ctx.entities
+                    .deserialize_group(group, deserialized, ctx.world);
             }));
         }
     }
@@ -93,7 +93,7 @@ impl GroupDeserializer {
     pub(crate) fn finish(mut self, ctx: &mut Context) -> GroupHandle {
         let handle = ctx.groups.add(ctx.entities, self.group.clone());
         for call in self.init_callbacks.drain(..) {
-            call(&mut self.entities, ctx);
+            call(handle, ctx);
         }
         handle
     }

@@ -5,7 +5,7 @@ use std::cell::{Ref, RefMut};
 use crate::{data::ArenaEntry, rayon::prelude::*};
 
 use crate::{
-    data::{Arena, ArenaIter, ArenaIterMut},
+    data::{Arena, ArenaIndex, ArenaIter, ArenaIterMut},
     entity::{
         Entity, EntityHandle, EntityIdentifier, EntityIndex, EntityTypeId, GroupHandle,
         GroupManager,
@@ -54,11 +54,15 @@ pub trait SingleEntityRefMut<'a, E: Entity> {
 #[derive(Clone)]
 pub struct SingleEntity<E: Entity> {
     entity: Option<E>,
+    generation: u32,
 }
 
 impl<E: Entity> Default for SingleEntity<E> {
     fn default() -> Self {
-        Self { entity: None }
+        Self {
+            entity: None,
+            generation: 0,
+        }
     }
 }
 
@@ -75,37 +79,62 @@ impl<'a, E: Entity> SingleEntityRefMut<'a, E> for RefMut<'a, SingleEntity<E>> {
 }
 
 impl<E: EntityIdentifier> SingleEntity<E> {
-    pub fn handle(&self) -> Option<EntityHandle> {
-        self.entity
-            .as_ref()
-            .map(|_e| EntityHandle::new(EntityIndex::INVALID, E::IDENTIFIER, GroupHandle::INVALID))
-    }
-
     pub fn is_some(&self) -> bool {
         self.entity.is_some()
     }
 
-    // pub fn get(&self) -> Option<&E> {
-    //     self.entity.as_ref()
-    // }
+    pub fn handle(&self) -> Option<EntityHandle> {
+        if self.entity.is_some() {
+            return Some(EntityHandle::new(
+                EntityIndex(ArenaIndex {
+                    index: 0,
+                    generation: self.generation,
+                }),
+                E::IDENTIFIER,
+                GroupHandle::INVALID,
+            ));
+        }
+        return None;
+    }
 
-    // pub fn get_mut(&mut self) -> Option<&mut E> {
-    //     self.entity.as_mut()
-    // }
+    pub fn get_by_handle(&self, handle: EntityHandle) -> Option<&E> {
+        if let Some(entity) = &self.entity {
+            if handle.entity_index().0.generation == self.generation {
+                return Some(entity);
+            }
+        }
+        return None;
+    }
+
+    pub fn get_by_handle_mut(&mut self, handle: EntityHandle) -> Option<&mut E> {
+        if let Some(entity) = &mut self.entity {
+            if handle.entity_index().0.generation == self.generation {
+                return Some(entity);
+            }
+        }
+        return None;
+    }
 
     pub fn remove(&mut self, world: &mut World) -> Option<E> {
-        if let Some(mut entity) = self.entity.take() {
+        if let Some(entity) = &mut self.entity {
             entity.finish(world);
-            return Some(entity);
         }
-        None
+        return self.entity.take();
     }
 
     pub fn set(&mut self, world: &mut World, mut new: E) -> EntityHandle {
-        let handle = EntityHandle::new(EntityIndex::INVALID, E::IDENTIFIER, GroupHandle::INVALID);
+        self.generation += 1;
+        let handle = EntityHandle::new(
+            EntityIndex(ArenaIndex {
+                index: 0,
+                generation: self.generation,
+            }),
+            E::IDENTIFIER,
+            GroupHandle::INVALID,
+        );
         new.init(handle, world);
-        if let Some(mut _old) = self.entity.replace(new) {
-            _old.finish(world);
+        if let Some(mut old) = self.entity.replace(new) {
+            old.finish(world);
         }
         handle
     }
@@ -115,7 +144,15 @@ impl<E: EntityIdentifier> SingleEntity<E> {
         world: &mut World,
         create: impl FnOnce(EntityHandle) -> E,
     ) -> EntityHandle {
-        let handle = EntityHandle::new(EntityIndex::INVALID, E::IDENTIFIER, GroupHandle::INVALID);
+        self.generation += 1;
+        let handle = EntityHandle::new(
+            EntityIndex(ArenaIndex {
+                index: 0,
+                generation: self.generation,
+            }),
+            E::IDENTIFIER,
+            GroupHandle::INVALID,
+        );
         let mut new = create(handle);
         new.init(handle, world);
         if let Some(mut _old) = self.entity.replace(new) {
@@ -275,11 +312,11 @@ impl<E: EntityIdentifier> Entities<E> {
         self.len() > 0
     }
 
-    pub fn iter<'a>(&'a self) -> impl EntityIterator<'a, E> {
+    pub fn iter<'a>(&'a self) -> ArenaIter<'a, E> {
         self.entities.iter()
     }
 
-    pub fn iter_with_handles<'a>(&'a self) -> impl EntityIteratorWithHandle<'a, E> {
+    pub fn iter_with_handles<'a>(&'a self) -> impl ExactSizeIterator<Item = (EntityHandle, &'a E)> {
         self.entities.iter_with_index().map(|(idx, c)| {
             (
                 EntityHandle::new(EntityIndex(idx), E::IDENTIFIER, GroupHandle::INVALID),
@@ -288,11 +325,13 @@ impl<E: EntityIdentifier> Entities<E> {
         })
     }
 
-    pub fn iter_mut<'a>(&'a mut self) -> impl EntityIteratorMut<'a, E> {
+    pub fn iter_mut<'a>(&'a mut self) -> ArenaIterMut<'a, E> {
         self.entities.iter_mut()
     }
 
-    pub fn iter_mut_with_handles<'a>(&'a mut self) -> impl EntityIteratorMutWithHandle<'a, E> {
+    pub fn iter_mut_with_handles<'a>(
+        &'a mut self,
+    ) -> impl ExactSizeIterator<Item = (EntityHandle, &'a mut E)> {
         self.entities.iter_mut_with_index().map(|(idx, c)| {
             (
                 EntityHandle::new(EntityIndex(idx), E::IDENTIFIER, GroupHandle::INVALID),
@@ -628,59 +667,3 @@ impl<ET: EntityType + Default> EntityType for GroupedEntities<ET> {
 
 pub trait RenderEntityIterator<'a, E: Entity>: Iterator<Item = &'a E> + Clone + 'a {}
 impl<'a, E: Entity, I: Iterator<Item = &'a E> + Clone + 'a> RenderEntityIterator<'a, E> for I {}
-
-
-pub trait EntityIterator<'a, E: Entity>:
-    DoubleEndedIterator<Item = &'a E> + ExactSizeIterator<Item = &'a E> + Clone
-{
-}
-impl<
-        'a,
-        E: Entity,
-        I: DoubleEndedIterator<Item = &'a E> + ExactSizeIterator<Item = &'a E> + Clone,
-    > EntityIterator<'a, E> for I
-{
-}
-
-pub trait EntityIteratorWithHandle<'a, E: Entity>:
-    DoubleEndedIterator<Item = (EntityHandle, &'a E)>
-    + ExactSizeIterator<Item = (EntityHandle, &'a E)>
-    + Clone
-{
-}
-
-impl<
-        'a,
-        E: Entity,
-        I: DoubleEndedIterator<Item = (EntityHandle, &'a E)>
-            + ExactSizeIterator<Item = (EntityHandle, &'a E)>
-            + Clone,
-    > EntityIteratorWithHandle<'a, E> for I
-{
-}
-
-pub trait EntityIteratorMut<'a, E: Entity>:
-    DoubleEndedIterator<Item = &'a mut E> + ExactSizeIterator<Item = &'a mut E>
-{
-}
-impl<
-        'a,
-        E: Entity,
-        I: DoubleEndedIterator<Item = &'a mut E> + ExactSizeIterator<Item = &'a mut E>,
-    > EntityIteratorMut<'a, E> for I
-{
-}
-
-pub trait EntityIteratorMutWithHandle<'a, E: Entity>:
-    DoubleEndedIterator<Item = (EntityHandle, &'a mut E)>
-    + ExactSizeIterator<Item = (EntityHandle, &'a mut E)>
-{
-}
-impl<
-        'a,
-        E: Entity,
-        I: DoubleEndedIterator<Item = (EntityHandle, &'a mut E)>
-            + ExactSizeIterator<Item = (EntityHandle, &'a mut E)>,
-    > EntityIteratorMutWithHandle<'a, E> for I
-{
-}

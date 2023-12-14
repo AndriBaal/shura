@@ -1,7 +1,7 @@
-use shura::{log::*, physics::*, serde, *};
+use shura::{physics::*, prelude::*};
 
-fn deserialized_scene(data: Vec<u8>) -> serde::SerializedScene {
-    serde::SerializedScene::new(1, &data)
+fn deserialized_scene(data: Vec<u8>) -> SerializedScene {
+    SerializedScene::new(1, &data)
         .component::<Instance2D>("player", BufferConfig::default())
         .component::<Instance2D>("box", BufferConfig::default())
         .component::<Instance2D>(
@@ -11,10 +11,10 @@ fn deserialized_scene(data: Vec<u8>) -> serde::SerializedScene {
                 ..Default::default()
             },
         )
-        .deserialize_single::<Floor>(Default::default())
-        .deserialize_single::<Player>(Default::default())
-        .deserialize_multiple::<PhysicsBox>(Default::default())
-        .entity_single::<Resources>(Default::default())
+        .deserialize_single_entity::<Floor>(Default::default())
+        .deserialize_single_entity::<Player>(Default::default())
+        .deserialize_entities::<PhysicsBox>(Default::default())
+        .single_entity::<Resources>(Default::default())
         .system(System::Render(render))
         .system(System::Setup(|ctx| {
             ctx.entities.single().set(ctx.world, Resources::new(ctx));
@@ -39,10 +39,10 @@ fn shura_main(config: AppConfig) {
                         ..Default::default()
                     },
                 )
-                .entity_single::<Floor>(Default::default())
-                .entity_single::<Player>(Default::default())
-                .entity_multiple::<PhysicsBox>(Default::default())
-                .entity_single::<Resources>(Default::default())
+                .single_entity::<Floor>(Default::default())
+                .single_entity::<Player>(Default::default())
+                .entities::<PhysicsBox>(Default::default())
+                .single_entity::<Resources>(Default::default())
                 .system(System::Render(render))
                 .system(System::Setup(setup))
                 .system(System::Update(update))
@@ -55,7 +55,7 @@ fn setup(ctx: &mut Context) {
     const MINIMAL_SPACING: f32 = 0.1;
     ctx.world_camera2d.set_scaling(WorldCameraScaling::Max(5.0));
     ctx.world.set_gravity(Vector2::new(0.00, -9.81));
-    ctx.entities.multiple().add(ctx.world, Resources::new(ctx));
+    ctx.entities.single().set(ctx.world, Resources::new(ctx));
 
     for x in -PYRAMID_ELEMENTS..PYRAMID_ELEMENTS {
         for y in 0..(PYRAMID_ELEMENTS - x.abs()) {
@@ -114,11 +114,11 @@ fn update(ctx: &mut Context) {
     let delta = ctx.frame.frame_time();
     let cursor_world: Point2<f32> = ctx.cursor;
     let remove = ctx.input.is_held(MouseButton::Left) || ctx.input.is_pressed(ScreenTouch);
-    for physics_box in boxes.iter() {
+    for physics_box in boxes.iter_mut() {
         if *physics_box.body.color() == Color::RED {
             physics_box.body.set_color(Color::GREEN);
         }
-    };
+    }
     let mut entity: Option<EntityHandle> = None;
     ctx.world
         .intersections_with_point(&cursor_world, Default::default(), |entity_handle, _| {
@@ -171,7 +171,7 @@ fn update(ctx: &mut Context) {
 }
 
 fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
-    let resources = ctx.single::<Resources>();
+    let resources = ctx.single::<Resources>().get().unwrap();
     encoder.render2d(Some(Color::BLACK), |renderer| {
         ctx.render_all(renderer, "player", |renderer, buffer, instances| {
             renderer.render_sprite(
@@ -195,7 +195,7 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
 
 fn end(ctx: &mut Context, reason: EndReason) {
     match reason {
-        EndReason::EndProgram | EndReason::RemoveScene => serialize_scene(ctx),
+        EndReason::End | EndReason::Removed => serialize_scene(ctx),
         EndReason::Replaced => (),
     }
 }
@@ -203,10 +203,11 @@ fn end(ctx: &mut Context, reason: EndReason) {
 fn serialize_scene(ctx: &mut Context) {
     info!("Serializing scene!");
     let ser = ctx
-        .serialize_scene(|s| {
-            s.serialize::<Floor>();
-            s.serialize::<Player>();
-            s.serialize::<PhysicsBox>();
+        .serialize_scene(|serializer| {
+            serializer
+                .serialize_single_entity::<Floor>()
+                .serialize_single_entity::<Player>()
+                .serialize_entities::<PhysicsBox>()
         })
         .unwrap();
     save_data("data.binc", ser).unwrap();

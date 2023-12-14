@@ -10,4 +10,4 @@ pub use entity_handle::*;
 pub use entity_manager::*;
 pub use entity_type::*;
 pub use group_manager::*;
-pub use global_entities::*;
+pub(crate) use global_entities::*;

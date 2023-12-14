@@ -20,8 +20,8 @@ pub(crate) enum ArenaEntry<T> {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ArenaIndex {
-    pub(super) index: usize,
-    pub(super) generation: u32,
+    pub(crate) index: usize,
+    pub(crate) generation: u32,
 }
 
 impl ArenaIndex {

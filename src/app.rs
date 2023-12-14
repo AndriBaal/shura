@@ -1,21 +1,15 @@
-use std::{
-    cell::RefCell,
-    ops::DerefMut,
-    rc::Rc,
-    sync::{Arc, OnceLock},
-};
+use std::{cell::RefCell, ops::DerefMut, rc::Rc, sync::Arc};
 
 #[cfg(feature = "gui")]
 use crate::gui::Gui;
 use crate::{
     context::{Context, RenderContext},
-    graphics::{DefaultResources, Gpu, GpuConfig, RenderEncoder},
+    graphics::{DefaultResources, Gpu, GpuConfig, RenderEncoder, GLOBAL_GPU},
     input::Input,
     math::Vector2,
     scene::{Scene, SceneCreator, SceneManager},
     system::{EndReason, UpdateOperation},
     time::FrameManager,
-    entity::GlobalEntities
 };
 #[cfg(feature = "log")]
 use crate::{
@@ -27,8 +21,6 @@ use winit::platform::android::activity::AndroidApp;
 
 #[cfg(feature = "audio")]
 use crate::audio::AudioManager;
-
-pub static GLOBAL_GPU: OnceLock<Arc<Gpu>> = OnceLock::new();
 
 pub struct AppConfig {
     pub window: winit::window::WindowBuilder,
@@ -125,7 +117,6 @@ pub struct App {
     pub resized: bool,
     pub frame: FrameManager,
     pub scenes: SceneManager,
-    pub globals: GlobalEntities,
     pub window: winit::window::Window,
     pub input: Input,
     pub defaults: DefaultResources,
@@ -306,7 +297,6 @@ impl App {
         Self {
             scenes: SceneManager::new(scene.new_id(), scene),
             frame: FrameManager::new(),
-            globals: GlobalEntities(Default::default()),
             input: Input::new(window_size),
             #[cfg(feature = "audio")]
             audio: AudioManager::new(),
@@ -349,14 +339,14 @@ impl App {
                 let mut removed = removed.borrow_mut();
                 let (systems, mut ctx) = Context::new(&remove, self, &mut removed);
                 for end in &systems.end_systems {
-                    (end)(&mut ctx, EndReason::RemoveScene)
+                    (end)(&mut ctx, EndReason::Removed)
                 }
             }
         }
 
         while let Some(add) = self.scenes.add.pop() {
             let id = add.new_id();
-            let scene = add.create(self);
+            let scene = add.create();
             if let Some(old) = self.scenes.scenes.insert(id, Rc::new(RefCell::new(scene))) {
                 let mut removed = old.borrow_mut();
                 let (systems, mut ctx) = Context::new(&id, self, &mut removed);
@@ -461,6 +451,10 @@ impl App {
         let (systems, mut ctx) = Context::new(&scene_id, self, scene);
         let now = ctx.frame.update_time();
 
+        for setup in systems.setup_systems.drain(..) {
+            (setup)(&mut ctx)
+        }
+
         let receiver = ctx.tasks.receiver();
         while let Ok(callback) = receiver.try_recv() {
             (callback)(&mut ctx);
@@ -537,7 +531,7 @@ impl App {
             let mut scene = scene.borrow_mut();
             let (systems, mut ctx) = Context::new(&id, self, &mut scene);
             for end in &systems.end_systems {
-                (end)(&mut ctx, EndReason::EndProgram)
+                (end)(&mut ctx, EndReason::End)
             }
         }
     }

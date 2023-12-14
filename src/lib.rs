@@ -53,6 +53,17 @@ pub use wasm_bindgen_futures;
 
 pub use crate::macros::main;
 
+#[cfg(not(feature = "physics"))]
+pub mod physics {
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    pub struct World {}
+    impl World {
+        pub fn new() -> Self {
+            Self {}
+        }
+    }
+}
+
 pub mod prelude {
     pub use crate::macros::main;
 

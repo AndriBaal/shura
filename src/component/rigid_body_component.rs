@@ -78,28 +78,6 @@ pub struct RigidBodyComponent {
 
 impl RigidBodyComponent {
     pub fn new(
-        world: &mut World,
-        rigid_body: impl Into<RigidBody>,
-        colliders: impl IntoIterator<Item = impl Into<Collider>>,
-    ) -> Self {
-        Self {
-            status: RigidBodyComponentStatus::Uninitialized {
-                rigid_body: rigid_body.into(),
-                colliders: colliders.into_iter().map(|c| c.into()).collect(),
-            },
-            scale: Vector2::new(1.0, 1.0),
-            atlas: Default::default(),
-            color: Color::WHITE,
-            index: 0,
-            active: true,
-        }
-    }
-
-    pub fn init(&mut self, world: &mut World) {}
-
-    pub fn uninit(&mut self, world: &mut World) {}
-
-    pub fn new_uninit(
         rigid_body: impl Into<RigidBody>,
         colliders: impl IntoIterator<Item = impl Into<Collider>>,
     ) -> Self {

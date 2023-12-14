@@ -1,6 +1,8 @@
+use std::collections::hash_map::{Iter, IterMut};
+
 use crate::{
     entity::GroupManager,
-    graphics::{Gpu, Instance, InstanceBuffer},
+    graphics::{Gpu, Instance, InstanceBuffer, GLOBAL_GPU},
 };
 use downcast_rs::{impl_downcast, Downcast};
 use rustc_hash::FxHashMap;
@@ -12,6 +14,7 @@ use rayon::prelude::*;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct BufferConfig {
     pub call: BufferCall,
+    pub init: bool,
     pub mapped: bool,
     pub buffer_on_group_change: bool,
 }
@@ -22,6 +25,7 @@ impl Default for BufferConfig {
             call: BufferCall::EveryFrame,
             mapped: false,
             buffer_on_group_change: true,
+            init: true,
         }
     }
 }
@@ -35,23 +39,30 @@ pub enum BufferCall {
 
 pub trait ComponentBufferImpl: Downcast {
     fn apply(&mut self, groups: &GroupManager, gpu: &Gpu);
+    fn deinit(&mut self);
+    fn update_buffer(&self) -> bool;
+    fn set_update_buffer(&mut self, update_buffer: bool);
 }
 impl_downcast!(ComponentBufferImpl);
 
 pub struct ComponentBuffer<I: Instance> {
-    buffer: InstanceBuffer<I>,
+    buffer: Option<InstanceBuffer<I>>,
     config: BufferConfig,
     data: Vec<I>,
     update_buffer: bool,
 }
 
 impl<I: Instance> ComponentBuffer<I> {
+    const ALLOC: u64 = 16;
     pub(crate) fn new(gpu: &Gpu, config: BufferConfig) -> Self {
-        const ALLOC: u64 = 16;
         Self {
-            buffer: InstanceBuffer::<I>::empty(gpu, ALLOC),
+            buffer: if config.init {
+                Some(InstanceBuffer::<I>::empty(gpu, Self::ALLOC))
+            } else {
+                None
+            },
             update_buffer: true,
-            data: Vec::with_capacity(ALLOC as usize),
+            data: Vec::with_capacity(Self::ALLOC as usize),
             config,
         }
     }
@@ -92,16 +103,8 @@ impl<I: Instance> ComponentBuffer<I> {
         self.data.extend(instances);
     }
 
-    pub fn update_buffer(&self) -> bool {
-        self.update_buffer
-    }
-
     pub fn buffer(&self) -> &InstanceBuffer<I> {
-        &self.buffer
-    }
-
-    pub fn set_update_buffer(&mut self, update_buffer: bool) {
-        self.update_buffer = update_buffer;
+        self.buffer.as_ref().expect("Buffer uninitialized!")
     }
 }
 
@@ -117,13 +120,27 @@ impl<I: Instance> ComponentBufferImpl for ComponentBuffer<I> {
         if self.update_buffer
             || (groups.render_groups_changed() && self.config.buffer_on_group_change)
         {
-            self.buffer.write(gpu, &self.data);
+            self.buffer
+                .get_or_insert_with(|| InstanceBuffer::<I>::empty(gpu, Self::ALLOC))
+                .write(gpu, &self.data);
             self.data.clear();
             self.update_buffer = match self.config.call {
                 BufferCall::Manual => false,
                 BufferCall::EveryFrame => true,
             }
         }
+    }
+
+    fn update_buffer(&self) -> bool {
+        self.update_buffer
+    }
+
+    fn set_update_buffer(&mut self, update_buffer: bool) {
+        self.update_buffer = update_buffer;
+    }
+
+    fn deinit(&mut self) {
+        self.buffer = None;
     }
 }
 
@@ -132,20 +149,25 @@ pub struct ComponentBufferManager {
 }
 
 impl ComponentBufferManager {
-    pub(crate) fn empty() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             buffers: Default::default(),
         }
     }
 
-    pub(crate) fn new(buffers: FxHashMap<&'static str, Box<dyn ComponentBufferImpl>>) -> Self {
-        let mut component_buffer_manager = Self::empty();
-        component_buffer_manager.init(buffers);
-        component_buffer_manager
-    }
+    pub(crate) fn register_component<I: Instance>(
+        &mut self,
+        name: &'static str,
+        config: BufferConfig,
+    ) {
+        if self.buffers.contains_key(name) {
+            panic!("Component {} already defined!", name);
+        }
 
-    pub(crate) fn init(&mut self, buffers: FxHashMap<&'static str, Box<dyn ComponentBufferImpl>>) {
-        self.buffers = buffers;
+        self.buffers.insert(
+            name,
+            Box::new(ComponentBuffer::<I>::new(GLOBAL_GPU.get().unwrap(), config)),
+        );
     }
 
     pub(crate) fn apply_buffers(&mut self, groups: &GroupManager, gpu: &Gpu) {
@@ -164,5 +186,13 @@ impl ComponentBufferManager {
         self.buffers
             .get_mut(name)
             .and_then(|b| b.downcast_mut::<ComponentBuffer<I>>())
+    }
+
+    pub fn iter(&self) -> Iter<'_, &str, Box<dyn ComponentBufferImpl>> {
+        return self.buffers.iter();
+    }
+
+    pub fn iter_mut(&mut self) -> IterMut<'_, &str, Box<dyn ComponentBufferImpl>> {
+        return self.buffers.iter_mut();
     }
 }
