@@ -1,7 +1,16 @@
 use std::cell::Ref;
 
-use crate::{entity::{EntityManager, EntityIdentifier, EntityType, SingleEntity, Entities, GroupedEntities}, graphics::{ComponentBufferManager, CameraBuffer2D, WorldCamera3D, CameraBuffer, Instance2D, InstanceBuffer, Mesh2D, DefaultResources, Instance, Renderer, InstanceIndices}, system::SystemManager, prelude::Scene};
-
+use crate::{
+    entity::{
+        Entities, EntityIdentifier, EntityManager, EntityType, GroupedEntities, SingleEntity,
+    },
+    graphics::{
+        CameraBuffer, CameraBuffer2D, ComponentBufferManager, DefaultResources, Instance,
+        Instance2D, InstanceBuffer, InstanceIndices, Mesh2D, Renderer, WorldCamera3D,
+    },
+    prelude::Scene,
+    system::SystemManager,
+};
 
 pub struct RenderContext<'a> {
     entities: &'a EntityManager,
@@ -59,7 +68,7 @@ impl<'a> RenderContext<'a> {
         self.entities.group_ref::<ET>()
     }
 
-    pub fn render_all<I: Instance>(
+    pub fn render<I: Instance>(
         &self,
         renderer: &mut Renderer<'a>,
         name: &'static str,

@@ -306,6 +306,12 @@ impl From<Range<u32>> for InstanceIndices {
     }
 }
 
+impl<I: Instance> From<&InstanceBuffer<I>> for InstanceIndices {
+    fn from(value: &InstanceBuffer<I>) -> Self {
+        value.instances()
+    }
+}
+
 #[derive(Debug, Copy, Clone)]
 pub struct InstanceIndices {
     pub start: u32,

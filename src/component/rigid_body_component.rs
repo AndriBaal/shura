@@ -94,6 +94,13 @@ impl RigidBodyComponent {
         }
     }
 
+    pub fn handle(&self) -> Option<RigidBodyHandle> {
+        match &self.status {
+            RigidBodyComponentStatus::Initialized { rigid_body_handle } => Some(*rigid_body_handle),
+            RigidBodyComponentStatus::Uninitialized { .. } => None,
+        }
+    }
+
     pub fn get<'a>(&'a self, world: &'a World) -> &'a RigidBody {
         self.status.get(world)
     }
@@ -164,6 +171,10 @@ impl RigidBodyComponent {
 
     pub const fn index(&self) -> &SpriteSheetIndex {
         &self.index
+    }
+
+    pub fn set_active(&mut self, active: bool) {
+        self.active = active;
     }
 }
 

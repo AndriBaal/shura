@@ -15,16 +15,30 @@ use rayon::prelude::*;
 pub struct BufferConfig {
     pub call: BufferCall,
     pub init: bool,
-    pub mapped: bool,
+    // pub mapped: bool,
     pub buffer_on_group_change: bool,
+}
+
+impl BufferConfig {
+    pub const MANUAL: BufferConfig = BufferConfig {
+        call: BufferCall::Manual,
+        init: true,
+        buffer_on_group_change: false,
+    };
+
+    pub const EVERY_FRAME: BufferConfig = BufferConfig {
+        call: BufferCall::EveryFrame,
+        init: true,
+        buffer_on_group_change: true,
+    };
 }
 
 impl Default for BufferConfig {
     fn default() -> Self {
         Self {
             call: BufferCall::EveryFrame,
-            mapped: false,
-            buffer_on_group_change: true,
+            // mapped: false,
+            buffer_on_group_change: false,
             init: true,
         }
     }
@@ -66,34 +80,6 @@ impl<I: Instance> ComponentBuffer<I> {
             config,
         }
     }
-
-    // pub fn push_from_entities<E: Entity, ET: EntityType<Entity = E>, C: Component<Instance = I>>(
-    //     &mut self,
-    //     world: &World,
-    //     entites: &ET,
-    //     each: impl Fn(&E) -> &C,
-    // ) {
-    //     // entites.for_each(|entity| {
-    //     //     let component = (each)(entity);
-    //     //     if component.active() {
-    //     //         self.data.push(component.instance(world));
-    //     //     }
-    //     // });
-    // }
-
-    // pub fn push_from_entities_mut<E: Entity, C: Component<Instance = I>>(
-    //     &mut self,
-    //     world: &World,
-    //     entites: &mut EntitySetMut<'_, E>,
-    //     each: impl Fn(&E) -> &C,
-    // ) {
-    //     entites.for_each_mut(|entity| {
-    //         let component = (each)(entity);
-    //         if component.active() {
-    //             self.data.push(component.instance(world));
-    //         }
-    //     });
-    // }
 
     pub fn push(&mut self, instance: I) {
         self.data.push(instance);

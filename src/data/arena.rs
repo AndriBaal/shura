@@ -38,6 +38,10 @@ impl ArenaIndex {
     pub fn index(&self) -> usize {
         self.index
     }
+
+    pub fn generation(&self) -> u32 {
+        self.generation
+    }
 }
 
 pub(crate) const DEFAULT_CAPACITY: usize = 4;
@@ -602,10 +606,7 @@ impl<'a, T> Iterator for ArenaIterWithIndex<'a, T> {
                     },
                 )) => {
                     self.len -= 1;
-                    let idx = ArenaIndex {
-                        index,
-                        generation,
-                    };
+                    let idx = ArenaIndex { index, generation };
                     return Some((idx, data));
                 }
                 Some((_, _)) => continue,
@@ -634,10 +635,7 @@ impl<'a, T> DoubleEndedIterator for ArenaIterWithIndex<'a, T> {
                     },
                 )) => {
                     self.len -= 1;
-                    let idx = ArenaIndex {
-                        index,
-                        generation,
-                    };
+                    let idx = ArenaIndex { index, generation };
                     return Some((idx, data));
                 }
                 Some((_, _)) => continue,
@@ -677,10 +675,7 @@ impl<'a, T> Iterator for ArenaIterWithIndexMut<'a, T> {
                     },
                 )) => {
                     self.len -= 1;
-                    let idx = ArenaIndex {
-                        index,
-                        generation,
-                    };
+                    let idx = ArenaIndex { index, generation };
                     return Some((idx, data));
                 }
                 Some((_, _)) => continue,
@@ -709,10 +704,7 @@ impl<'a, T> DoubleEndedIterator for ArenaIterWithIndexMut<'a, T> {
                     },
                 )) => {
                     self.len -= 1;
-                    let idx = ArenaIndex {
-                        index,
-                        generation,
-                    };
+                    let idx = ArenaIndex { index, generation };
                     return Some((idx, data));
                 }
                 Some((_, _)) => continue,

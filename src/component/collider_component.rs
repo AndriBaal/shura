@@ -56,6 +56,13 @@ impl ColliderComponent {
         }
     }
 
+    pub fn handle(&self) -> Option<ColliderHandle> {
+        match &self.status {
+            ColliderComponentStatus::Initialized { collider_handle } => Some(*collider_handle),
+            ColliderComponentStatus::Uninitialized { .. } => None,
+        }
+    }
+
     pub fn get<'a>(&'a self, world: &'a World) -> &'a Collider {
         self.status.get(world)
     }
@@ -110,6 +117,10 @@ impl ColliderComponent {
 
     pub const fn index(&self) -> &SpriteSheetIndex {
         &self.index
+    }
+
+    pub fn set_active(&mut self, active: bool) {
+        self.active = active;
     }
 }
 

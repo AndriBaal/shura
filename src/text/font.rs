@@ -6,7 +6,7 @@ use rustc_hash::FxHashMap;
 use crate::{
     graphics::{Gpu, SpriteSheet, SpriteSheetBuilder, SpriteSheetIndex},
     math::Vector2,
-    resource::load_res_bytes,
+    resource::{load_res_bytes, load_res_bytes_async},
 };
 
 pub enum FontBuilder {
@@ -23,8 +23,14 @@ impl<'a> FontBuilder {
         Self::Owned(bytes)
     }
 
-    pub async fn file(path: &str) -> Self {
-        let bytes = load_res_bytes(path).await.unwrap();
+    pub async fn file_async(path: &str) -> Self {
+        let bytes = load_res_bytes_async(path).await.unwrap();
+        Self::Owned(bytes)
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn file(path: &str) -> Self {
+        let bytes = load_res_bytes(path).unwrap();
         Self::Owned(bytes)
     }
 }

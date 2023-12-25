@@ -78,8 +78,12 @@ impl SceneManager {
     // }
 
     pub(crate) fn get_active_scene(&mut self) -> Rc<RefCell<Scene>> {
-        self.try_get_active_scene().unwrap_or_else(|| panic!("Cannot find the currently active scene {}!",
-            self.active_scene_id))
+        self.try_get_active_scene().unwrap_or_else(|| {
+            panic!(
+                "Cannot find the currently active scene {}!",
+                self.active_scene_id
+            )
+        })
     }
 
     pub(crate) fn try_get_active_scene(&mut self) -> Option<Rc<RefCell<Scene>>> {

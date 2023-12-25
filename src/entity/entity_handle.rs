@@ -6,11 +6,11 @@ use core::hash::Hash;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub(crate) struct EntityIndex(pub(crate) ArenaIndex);
+pub struct EntityIndex(pub ArenaIndex);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct GroupHandle(pub(crate) ArenaIndex);
+pub struct GroupHandle(pub ArenaIndex);
 
 impl GroupHandle {
     pub const INVALID: Self = GroupHandle(ArenaIndex::INVALID);
@@ -33,9 +33,9 @@ impl Default for GroupHandle {
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct EntityHandle {
-    entity_index: EntityIndex,
-    group_handle: GroupHandle,
-    type_id: EntityTypeId,
+    pub entity_index: EntityIndex,
+    pub group_handle: GroupHandle,
+    pub type_id: EntityTypeId,
 }
 
 impl EntityHandle {
@@ -75,10 +75,6 @@ impl EntityHandle {
 
     pub fn type_of<E: EntityIdentifier>(&self) -> bool {
         self.type_id == E::IDENTIFIER
-    }
-
-    pub(crate) fn entity_index(&self) -> EntityIndex {
-        self.entity_index
     }
 
     pub fn index(&self) -> usize {

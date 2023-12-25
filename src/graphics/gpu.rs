@@ -15,7 +15,10 @@ use crate::{
     },
     math::{Isometry2, Vector2},
 };
-use std::{ops::Deref, sync::{Mutex, OnceLock, Arc}};
+use std::{
+    ops::Deref,
+    sync::{Arc, Mutex, OnceLock},
+};
 
 pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 0.5;
 

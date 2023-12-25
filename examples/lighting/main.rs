@@ -190,7 +190,7 @@ impl ComponentController for Light {
 
     fn render<'a>(components: &mut ComponentRenderer<'a>) {
         let res = components.single::<LightResources>();
-        components.render_all::<Self>(|renderer, buffer, instances| {
+        components.render::<Self>(|renderer, buffer, instances| {
             renderer.use_instances(buffer);
             renderer.use_camera(renderer.world_camera);
             renderer.use_shader(&res.light_shader);

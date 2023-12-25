@@ -46,6 +46,7 @@ fn shura_main(config: AppConfig) {
                 .system(System::Render(render))
                 .system(System::Setup(setup))
                 .system(System::Update(update))
+                .system(System::End(end))
         });
     };
 }
@@ -173,7 +174,7 @@ fn update(ctx: &mut Context) {
 fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
     let resources = ctx.single::<Resources>().get().unwrap();
     encoder.render2d(Some(Color::BLACK), |renderer| {
-        ctx.render_all(renderer, "player", |renderer, buffer, instances| {
+        ctx.render(renderer, "player", |renderer, buffer, instances| {
             renderer.render_sprite(
                 instances,
                 buffer,
@@ -183,11 +184,11 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
             )
         });
 
-        ctx.render_all(renderer, "floor", |renderer, buffer, instances| {
+        ctx.render(renderer, "floor", |renderer, buffer, instances| {
             renderer.render_color(instances, buffer, ctx.world_camera2d, &resources.floor_mesh)
         });
 
-        ctx.render_all(renderer, "box", |renderer, buffer, instance| {
+        ctx.render(renderer, "box", |renderer, buffer, instance| {
             renderer.render_color(instance, buffer, ctx.world_camera2d, &resources.box_mesh);
         });
     })

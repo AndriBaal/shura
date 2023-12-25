@@ -1,5 +1,4 @@
 use rustc_hash::FxHashMap;
-#[allow(private_interfaces)]
 use std::sync::Arc;
 
 use crate::{

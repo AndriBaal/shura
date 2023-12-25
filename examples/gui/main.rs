@@ -1,10 +1,10 @@
-use shura::*;
+use shura::prelude::*;
 
 #[shura::main]
 fn shura_main(config: AppConfig) {
     App::run(config, || {
         NewScene::new(1)
-            .entity_single::<Demo>(Default::default())
+            .single_entity::<Demo>(Default::default())
             .system(System::Update(update))
             .system(System::Setup(setup))
     });
@@ -16,7 +16,9 @@ struct Demo {
 }
 
 fn setup(ctx: &mut Context) {
-    ctx.entities.single::<Demo>().set(ctx.world, Demo::default());
+    ctx.entities
+        .single::<Demo>()
+        .set(ctx.world, Demo::default());
 }
 
 fn update(ctx: &mut Context) {

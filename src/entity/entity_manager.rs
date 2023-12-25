@@ -2,8 +2,8 @@ use rustc_hash::FxHashMap;
 
 use crate::{
     entity::{
-        Entities, EntityIdentifier, EntityType, EntityTypeId, GroupManager,
-        GroupedEntities, SingleEntity,
+        Entities, EntityIdentifier, EntityType, EntityTypeId, GroupManager, GroupedEntities,
+        SingleEntity,
     },
     graphics::ComponentBufferManager,
     physics::World,
@@ -163,37 +163,15 @@ impl EntityManager {
     pub(crate) fn deserialize_group<ET: EntityType + Default>(
         &mut self,
         group: GroupHandle,
-        mut storage: ET,
+        storage: ET,
         world: &mut World,
     ) {
-        // let mut groups = self.group::<ET>();
-        // let group = groups.get_group_mut(group).unwrap();
-        // for entity in group.iter_dyn_mut_handle() {
-        // }
-
-        // use crate::EntityIndex;
-
-        // let mut ty = type_ref_mut!(self, E);
-        // match &mut ty.storage {
-        //     EntityTypeStorage::MultipleGroups(groups) => {
-        //         let index = groups.insert_with(|group_index| {
-        //             for (entity_index, entity) in storage.entities.iter_mut_with_index() {
-        //                 entity.init(
-        //                     EntityHandle::new(
-        //                         EntityIndex(entity_index),
-        //                         E::IDENTIFIER,
-        //                         GroupHandle(group_index),
-        //                     ),
-        //                     world,
-        //                 )
-        //             }
-
-        //             storage
-        //         });
-        //         GroupHandle(index)
-        //     }
-        //     _ => panic!("Entity does not have EntityStorage::Groups"),
-        // }
+        let mut groups = self.group::<ET>();
+        let group = groups.get_group_mut(group).unwrap();
+        *group = storage;
+        for (handle, entity) in group.iter_dyn() {
+            entity.init(handle, world);
+        }
     }
 
     #[cfg(feature = "serde")]

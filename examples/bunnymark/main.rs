@@ -17,7 +17,7 @@ fn setup(ctx: &mut Context) {
     ctx.world_camera2d.set_scaling(WorldCameraScaling::Min(3.0));
     ctx.entities
         .multiple::<Bunny>()
-        .add_with(ctx.world, |handle| Bunny::new(vector2(0.0, 0.0), handle));
+        .add_with(ctx.world, |handle| Bunny::new(vector!(0.0, 0.0), handle));
     ctx.entities
         .single::<Resources>()
         .set(ctx.world, Resources::new(ctx));
@@ -102,7 +102,7 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
     encoder.render2d(
         Some(RgbaColor::new(220, 220, 220, 255).into()),
         |renderer| {
-            ctx.render_all(renderer, "bunny", |renderer, buffer, instances| {
+            ctx.render(renderer, "bunny", |renderer, buffer, instances| {
                 renderer.render_sprite(
                     instances,
                     buffer,
@@ -165,8 +165,8 @@ impl Bunny {
         let position = PositionComponent2D::new()
             .with_translation(translation)
             .with_rotation(gen_range(-1.0..1.0))
-            .with_scaling(scaling * vector2(0.12, 0.18));
-        let linvel = vector2(gen_range(-2.5..2.5), gen_range(-7.5..7.5));
+            .with_scaling(scaling * vector!(0.12, 0.18));
+        let linvel = vector!(gen_range(-2.5..2.5), gen_range(-7.5..7.5));
         Bunny {
             position,
             linvel,

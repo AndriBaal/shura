@@ -1,10 +1,11 @@
-use std::ops::Deref;
-use wgpu::ImageCopyTexture;
-
 use crate::{
     graphics::{Gpu, RgbaColor},
     math::Vector2,
+    resource::{load_res_bytes, load_res_bytes_async},
 };
+use std::ops::Deref;
+use std::path::Path;
+use wgpu::ImageCopyTexture;
 
 pub type SpriteSheetIndex = u32;
 pub type SpriteSheetIndex2D = Vector2<u32>;
@@ -19,6 +20,17 @@ pub struct SpriteSheetBuilder<'a, D: Deref<Target = [u8]>> {
 }
 
 impl<'a> SpriteSheetBuilder<'a, image::RgbaImage> {
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn file(path: impl AsRef<Path>, sprite_size: Vector2<u32>) -> Self {
+        let bytes = load_res_bytes(path).unwrap();
+        Self::bytes(&bytes, sprite_size)
+    }
+
+    pub async fn file_async(path: impl AsRef<Path>, sprite_size: Vector2<u32>) -> Self {
+        let bytes = load_res_bytes_async(path).await.unwrap();
+        Self::bytes(&bytes, sprite_size)
+    }
+
     pub fn bytes(bytes: &[u8], sprite_size: Vector2<u32>) -> Self {
         let img = image::load_from_memory(bytes).unwrap();
         Self::image(img, sprite_size)

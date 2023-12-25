@@ -34,7 +34,7 @@ pub use bytemuck;
 pub use image;
 pub use instant;
 pub use mint;
-pub use nalgebra as na;
+pub use nalgebra;
 #[cfg(feature = "rayon")]
 pub use rayon;
 pub use rustc_hash;
@@ -84,7 +84,6 @@ pub mod prelude {
     pub use crate::log::*;
     pub use crate::macros::*;
     pub use crate::math::*;
-    #[cfg(feature = "physics")]
     pub use crate::physics;
     pub use crate::rand::*;
     pub use crate::resource::*;
@@ -101,7 +100,8 @@ pub mod prelude {
     pub use image;
     pub use instant;
     pub use mint;
-    pub use nalgebra as na;
+    pub use nalgebra;
+    #[cfg(feature = "rayon")]
     pub use rayon;
     pub use rustc_hash;
     pub use shura_proc as macros;
@@ -119,42 +119,6 @@ pub mod prelude {
 
     #[cfg(target_arch = "wasm32")]
     pub use wasm_bindgen_futures;
+
+    pub use crate::physics::World;
 }
-
-// pub(crate) use data::arena::*;
-
-// #[cfg(not(feature = "physics"))]
-// pub use physics::world_no_rapier::World;
-
-// #[cfg(feature = "physics")]
-// pub use physics::world::World;
-
-// #[cfg(feature = "physics")]
-// /// Access to the to [rapier2d](https://github.com/dimforge/rapier)
-// pub mod physics {
-//     pub use crate::physics::{
-//         collider_component::*,
-//         rigid_body_component::*,
-//         // character_controller_component::*,
-//         world::*,
-//     };
-//     pub use rapier2d::control::{
-//         CharacterAutostep, CharacterCollision, CharacterLength, EffectiveCharacterMovement,
-//         KinematicCharacterController,
-//     };
-//     pub use rapier2d::geometry::*;
-//     pub use rapier2d::parry;
-//     pub use rapier2d::prelude::{
-//         ActiveCollisionTypes, ActiveEvents, ActiveHooks, CoefficientCombineRule, Collider,
-//         ColliderBroadPhaseData, ColliderBuilder, ColliderChanges, ColliderFlags, ColliderHandle,
-//         ColliderMaterial, ColliderParent, ColliderSet, ColliderShape, ColliderType, FixedJoint,
-//         FixedJointBuilder, GenericJoint, GenericJointBuilder, Group, ImpulseJoint,
-//         ImpulseJointHandle, InteractionGroups, LockedAxes, MassProperties, MotorModel,
-//         PrismaticJoint, QueryFilter, QueryFilterFlags, Ray, RayIntersection, RevoluteJoint,
-//         RevoluteJointBuilder, RigidBody, RigidBodyActivation, RigidBodyBuilder, RigidBodyHandle,
-//         RigidBodySet, RigidBodyType, Shape, ShapeType, SharedShape, SpacialVector, TypedShape, TOI,
-//     };
-//     pub mod rapier {
-//         pub use rapier2d::*;
-//     }
-// }

@@ -1,5 +1,5 @@
 use crate::{
-    component::Component,
+    component::ComponentCollection,
     entity::{EntityHandle, RenderEntityIterator},
     graphics::ComponentBufferManager,
     physics::World,
@@ -45,14 +45,8 @@ pub trait Entity: 'static + Downcast {
         world: &World,
     ) where
         Self: Sized;
-    // fn components(&self) -> impl Iterator<Item = &dyn Component>
-    // where
-    //     Self: Sized;
-    // fn components_mut(&mut self) -> impl Iterator<Item = &mut dyn Component>
-    // where
-    //     Self: Sized;
     fn init(&mut self, handle: EntityHandle, world: &mut World);
     fn finish(&mut self, world: &mut World);
-    fn components_dyn<'a>(&'a self) -> Box<dyn Iterator<Item = &dyn Component> + 'a>;
+    fn components_dyn<'a>(&'a self) -> Box<dyn Iterator<Item = &dyn ComponentCollection> + 'a>;
 }
 impl_downcast!(Entity);

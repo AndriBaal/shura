@@ -1,5 +1,5 @@
-mod text;
 mod font;
+mod text;
 
-pub use text::*;
 pub use font::*;
+pub use text::*;

@@ -28,7 +28,7 @@ macro_rules! include_wgsl_res {
     };
 }
 
-pub async fn load_res_bytes(path: impl AsRef<Path>) -> Result<Vec<u8>> {
+pub async fn load_res_bytes_async(path: impl AsRef<Path>) -> Result<Vec<u8>> {
     #[cfg(target_arch = "wasm32")]
     {
         let url = resource_url(path)?;
@@ -42,7 +42,7 @@ pub async fn load_res_bytes(path: impl AsRef<Path>) -> Result<Vec<u8>> {
     }
 }
 
-pub async fn load_res_string(path: impl AsRef<Path>) -> Result<String> {
+pub async fn load_res_string_async(path: impl AsRef<Path>) -> Result<String> {
     #[cfg(target_arch = "wasm32")]
     {
         let url = resource_url(path)?;
@@ -56,6 +56,20 @@ pub async fn load_res_string(path: impl AsRef<Path>) -> Result<String> {
         let data = std::fs::read_to_string(path)?;
         Ok(data)
     }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn load_res_bytes(path: impl AsRef<Path>) -> Result<Vec<u8>> {
+    let path = resource_path(path)?;
+    let data = std::fs::read(path)?;
+    Ok(data)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn load_res_string(path: impl AsRef<Path>) -> Result<String> {
+    let path = resource_path(path)?;
+    let data = std::fs::read_to_string(path)?;
+    Ok(data)
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -80,7 +94,7 @@ pub fn save_data(path: impl AsRef<Path>, data: impl AsRef<[u8]>) -> Result<()> {
         std::fs::create_dir_all(prefix)?;
     }
     let r = std::fs::write(path, data)?;
-    return Ok(r);
+    Ok(r)
 }
 
 #[cfg(not(target_arch = "wasm32"))]

@@ -1,14 +1,12 @@
-use shura::*;
+use shura::prelude::*;
 
 #[shura::main]
 fn shura_main(config: AppConfig) {
     App::run(config, || {
         NewScene::new(1)
-            .component::<Instance3D>("cube", BufferConfig::EveryFrame)
-            .entity::<Cube>(EntityConfig {
-                ..EntityConfig::DEFAULT
-            })
-            .entity::<Resources>(EntityConfig::RESOURCE)
+            .component::<Instance3D>("cube", BufferConfig::EVERY_FRAME)
+            .entities::<Cube>(Default::default())
+            .single_entity::<Resources>(Default::default())
             .system(System::Update(update))
             .system(System::Setup(setup))
             .system(System::Render(render))
@@ -18,8 +16,9 @@ fn shura_main(config: AppConfig) {
 fn setup(ctx: &mut Context) {
     const NUM_INSTANCES_PER_ROW: u32 = 10;
     const SPACE_BETWEEN: f32 = 3.0;
-    let cubes = (0..NUM_INSTANCES_PER_ROW)
-        .flat_map(|z| {
+    ctx.entities.multiple().add_many(
+        ctx.world,
+        (0..NUM_INSTANCES_PER_ROW).flat_map(|z| {
             (0..NUM_INSTANCES_PER_ROW).map(move |x| {
                 let x = SPACE_BETWEEN * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
                 let z = SPACE_BETWEEN * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
@@ -27,25 +26,23 @@ fn setup(ctx: &mut Context) {
 
                 Cube::new(position)
             })
-        })
-        .collect::<Vec<_>>();
-    ctx.entities.add_many(ctx.world, cubes);
+        }),
+    );
 
     let gpu = ctx.gpu.clone();
     ctx.tasks.spawn(
         move || Resources::new(&gpu),
         |ctx, res| {
-            ctx.entities.add(ctx.world, res);
+            ctx.entities.single().set(ctx.world, res);
         },
     );
 }
 
 fn update(ctx: &mut Context) {
     const SPEED: f32 = 7.0;
-    if ctx.entities.set::<Resources>().len() < 1 {
+    if ctx.entities.single::<Resources>().is_none() {
         return;
     }
-
     let speed = SPEED * ctx.frame.frame_time();
     let camera = ctx.world_camera3d.perspective_mut().unwrap();
 
@@ -72,7 +69,7 @@ fn update(ctx: &mut Context) {
         camera.eye = camera.target - (forward - right * speed).normalize() * forward_mag;
     }
 
-    ctx.entities.set::<Cube>().for_each_mut(|cube| {
+    for cube in ctx.entities.multiple::<Cube>().iter_mut() {
         let mut rot = cube.position.rotation();
         rot *= Rotation3::new(Vector3::new(
             1.0 * ctx.frame.frame_time(),
@@ -80,15 +77,15 @@ fn update(ctx: &mut Context) {
             1.0 * ctx.frame.frame_time(),
         ));
         cube.position.set_rotation(rot);
-    });
+    }
 }
 
 fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
-    if let Some(resources) = ctx.try_single::<Resources>() {
+    if let Some(resources) = ctx.single::<Resources>().get() {
         encoder.render3d(
             Some(RgbaColor::new(220, 220, 220, 255).into()),
             |renderer| {
-                ctx.render_all(renderer, "cube", |renderer, buffer, instances| {
+                ctx.render(renderer, "cube", |renderer, buffer, instances| {
                     renderer.render_model(instances, buffer, ctx.world_camera3d, &resources.model);
                 });
             },

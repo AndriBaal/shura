@@ -1,5 +1,4 @@
-use shura::physics::*;
-use shura::*;
+use shura::{physics::*, prelude::*};
 
 #[shura::main]
 fn shura_main(config: AppConfig) {
@@ -14,10 +13,10 @@ fn shura_main(config: AppConfig) {
                     ..Default::default()
                 },
             )
-            .entity_single::<Floor>(Default::default())
-            .entity_single::<Player>(Default::default())
-            .entity_multiple::<PhysicsBox>(Default::default())
-            .entity_single::<Resources>(Default::default())
+            .single_entity::<Floor>(Default::default())
+            .single_entity::<Player>(Default::default())
+            .entities::<PhysicsBox>(Default::default())
+            .single_entity::<Resources>(Default::default())
             .system(System::Render(render))
             .system(System::Setup(setup))
             .system(System::Update(update))
@@ -74,8 +73,9 @@ fn update(ctx: &mut Context) {
         let b = PhysicsBox::new(ctx.cursor.coords);
         boxes.add(ctx.world, b);
     }
+
     let delta = ctx.frame.frame_time();
-    let cursor_world: Point2<f32> = (ctx.cursor).into();
+    let cursor_world: Point2<f32> = ctx.cursor;
     let remove = ctx.input.is_held(MouseButton::Left) || ctx.input.is_pressed(ScreenTouch);
     for physics_box in boxes.iter_mut() {
         if *physics_box.body.color() == Color::RED {
@@ -84,8 +84,8 @@ fn update(ctx: &mut Context) {
     }
     let mut entity: Option<EntityHandle> = None;
     ctx.world
-        .intersections_with_point(&cursor_world, Default::default(), |component_handle, _| {
-            entity = Some(component_handle);
+        .intersections_with_point(&cursor_world, Default::default(), |entity_handle, _| {
+            entity = Some(entity_handle);
             false
         });
     if let Some(handle) = entity {
@@ -136,7 +136,7 @@ fn update(ctx: &mut Context) {
 fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
     let resources = ctx.single::<Resources>().get().unwrap();
     encoder.render2d(Some(Color::BLACK), |renderer| {
-        ctx.render_all(renderer, "player", |renderer, buffer, instances| {
+        ctx.render(renderer, "player", |renderer, buffer, instances| {
             renderer.render_sprite(
                 instances,
                 buffer,
@@ -146,11 +146,11 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
             )
         });
 
-        ctx.render_all(renderer, "floor", |renderer, buffer, instances| {
+        ctx.render(renderer, "floor", |renderer, buffer, instances| {
             renderer.render_color(instances, buffer, ctx.world_camera2d, &resources.floor_mesh)
         });
 
-        ctx.render_all(renderer, "box", |renderer, buffer, instance| {
+        ctx.render(renderer, "box", |renderer, buffer, instance| {
             renderer.render_color(instance, buffer, ctx.world_camera2d, &resources.box_mesh);
         });
     })

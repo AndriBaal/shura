@@ -34,6 +34,7 @@ pub enum UpdateOperation {
     UpdaterAfter(Instant, Duration),
 }
 
+#[derive(Default)]
 pub struct SystemManager {
     pub setup_systems: Vec<SetupSystem>,
     pub resize_systems: Vec<ResizeSystem>,
@@ -44,13 +45,7 @@ pub struct SystemManager {
 
 impl SystemManager {
     pub fn new() -> Self {
-        Self {
-            resize_systems: Default::default(),
-            update_systems: Default::default(),
-            end_systems: Default::default(),
-            render_systems: Default::default(),
-            setup_systems: Default::default(),
-        }
+        Self::default()
     }
 
     pub fn register_system(&mut self, system: System) {
@@ -68,7 +63,7 @@ impl SystemManager {
             System::Render(render) => self.render_systems.push(render),
             System::End(end) => self.end_systems.push(end),
             System::Resize(resize) => self.resize_systems.push(resize),
-            System::Setup(setup) => self.setup_systems.push(setup)
+            System::Setup(setup) => self.setup_systems.push(setup),
         }
     }
 }

@@ -116,8 +116,10 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
         .map(|(field_name, component_name, component_type)| {
             if let Some(component_name) = component_name {
                 quote! {
-                    let buffer = buffers.get_mut::<<#component_type as shura::component::Component> ::Instance>(#component_name).unwrap();
-                    buffer.extend(entities.clone().map(|e| e.#field_name.instance(world)));
+                    let buffer = buffers.get_mut::<<<#component_type as shura::component::ComponentCollection>::Component as shura::component::Component>::Instance>(#component_name).unwrap();
+                    for e in entities.clone() {
+                        e.#field_name.buffer_all(world, buffer);
+                    }
                 }
             } else {
                 quote!()
@@ -140,19 +142,22 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
                 buffers: &mut ::shura::graphics::ComponentBufferManager,
                 world: &::shura::physics::World,
             ) {
+                use shura::component::ComponentCollection;
                 #( #buffer )*
             }
 
-            fn components_dyn<'a>(&'a self) -> Box<dyn Iterator<Item=&dyn ::shura::component::Component> + 'a> {
-                Box::new([ #( &self.#names_components as &dyn ::shura::component::Component, )* ].into_iter())
+            fn components_dyn<'a>(&'a self) -> Box<dyn Iterator<Item=&dyn ::shura::component::ComponentCollection> + 'a> {
+                Box::new([ #( &self.#names_components as _, )* ].into_iter())
             }
 
             fn init(&mut self, handle: ::shura::entity::EntityHandle, world: &mut ::shura::physics::World) {
-                #( self.#names_init.init(handle, world); )*
+                use shura::component::ComponentCollection;
+                #( self.#names_init.init_all(handle, world); )*
             }
 
             fn finish(&mut self, world: &mut ::shura::physics::World) {
-                #( self.#names_finish.finish(world); )*
+                use shura::component::ComponentCollection;
+                #( self.#names_finish.finish_all(world); )*
             }
         }
     )

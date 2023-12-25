@@ -1,10 +1,7 @@
 use crate::{
-    graphics::{
-        Color, Gpu, Index, Mesh, MeshBuilder2D, SpriteSheet,
-        Vertex,
-    },
+    graphics::{Color, Gpu, Index, Mesh, MeshBuilder2D, SpriteSheet, Vertex},
+    math::{Isometry2, Vector2},
     text::Font,
-    math::{Vector2, Isometry2},
 };
 use wgpu::vertex_attr_array;
 

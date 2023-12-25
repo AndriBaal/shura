@@ -147,7 +147,7 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
                     &ground.sprite,
                 )
             });
-            res.render_all::<Pipe>(renderer, |renderer, buffer, instances| {
+            res.render::<Pipe>(renderer, |renderer, buffer, instances| {
                 renderer.render_sprite(
                     instances,
                     buffer,
