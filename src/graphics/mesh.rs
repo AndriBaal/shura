@@ -245,17 +245,20 @@ impl MeshBuilder2D {
             ..Default::default()
         }
     }
-    pub fn segment(a: Vector2<f32>, b: Vector2<f32>, half_thickness: f32) -> Self {
-        let d = b - a;
-        let l = (d.x.powi(2) + d.y.powi(2)).sqrt();
-        let r = half_thickness / l;
-        let da = d * r;
+
+    pub fn segment(start: Vector2<f32>, end: Vector2<f32>, half_thickness: f32) -> Self {
+
+        let direction = end - start;
+        let normal = Vector2::new(-direction[1], direction[0]).normalize();
+    
+        let offset1 = normal * half_thickness;
+        let offset2 = -normal * half_thickness;
 
         let vertices = vec![
-            Vector2::new(a.x - da.x, a.y + da.y),
-            Vector2::new(a.x + da.x, a.y - da.y),
-            Vector2::new(b.x + da.x, b.y - da.y),
-            Vector2::new(b.x - da.x, b.y + da.y),
+            Vector2::new(start[0] + offset1[0], start[1] + offset1[1]),
+            Vector2::new(end[0] + offset1[0], end[1] + offset1[1]),
+            Vector2::new(end[0] + offset2[0], end[1] + offset2[1]),
+            Vector2::new(start[0] + offset2[0], start[1] + offset2[1]),
         ];
         let vertices = Self::create_tex(vertices);
         let indices = Self::triangulate(&vertices);
