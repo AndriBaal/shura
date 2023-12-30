@@ -1,7 +1,12 @@
-use std::sync::Arc;
+use std::{cell::RefCell, sync::Arc};
 
+#[cfg(feature = "serde")]
 use crate::{
-    entity::{EntityManager, GroupManager},
+    entity::{EntityGroupHandle, EntityTypeId},
+    serde::{EntityGroupDeserializer, EntityGroupSerializer, SceneSerializer},
+};
+use crate::{
+    entity::{EntityGroupManager, EntityManager, GlobalEntities},
     graphics::{
         ComponentBufferManager, DefaultResources, Gpu, ScreenConfig, WorldCamera2D, WorldCamera3D,
     },
@@ -9,13 +14,8 @@ use crate::{
     math::{Point2, Vector2},
     physics::World,
     prelude::{App, FrameManager, Scene, SceneManager},
-    system::SystemManager,
+    system::{EndReason, SystemManager},
     tasks::TaskManager,
-};
-#[cfg(feature = "serde")]
-use crate::{
-    entity::{EntityTypeId, GroupHandle},
-    serde::{GroupDeserializer, GroupSerializer, SceneSerializer},
 };
 
 #[cfg(feature = "serde")]
@@ -35,7 +35,7 @@ pub struct Context<'a> {
     pub world_camera2d: &'a mut WorldCamera2D,
     pub world_camera3d: &'a mut WorldCamera3D,
     pub entities: &'a mut EntityManager,
-    pub groups: &'a mut GroupManager,
+    pub groups: &'a mut EntityGroupManager,
     pub world: &'a mut World,
     pub tasks: &'a mut TaskManager,
     pub component_buffers: &'a mut ComponentBufferManager,
@@ -52,6 +52,7 @@ pub struct Context<'a> {
     pub end: &'a mut bool,
     pub scenes: &'a mut SceneManager,
     pub window: &'a mut winit::window::Window,
+    pub globals: &'a GlobalEntities,
 
     // Misc
     pub scene_id: &'a u32,
@@ -95,6 +96,7 @@ impl<'a> Context<'a> {
                 end: &mut app.end,
                 scenes: &mut app.scenes,
                 window: &mut app.window,
+                globals: &app.globals,
 
                 // Misc
                 scene_id,
@@ -152,7 +154,7 @@ impl<'a> Context<'a> {
             screen_config: &'a ScreenConfig,
             world_camera2d: &'a WorldCamera2D,
             world_camera3d: &'a WorldCamera3D,
-            groups: &'a GroupManager,
+            groups: &'a EntityGroupManager,
             world: &'a World,
         }
 
@@ -202,13 +204,81 @@ impl<'a> Context<'a> {
         }
     }
 
+    pub fn with_scene(
+        &mut self,
+        scene_id: u32,
+        action: impl FnOnce(&mut SystemManager, &mut Context),
+    ) {
+        if let Some(scene_rc) = self.scenes.get(scene_id) {
+            let scene_cell: &RefCell<_> = &scene_rc;
+            let mut scene_ref = scene_cell.borrow_mut();
+            let scene = &mut *scene_ref;
+
+            let mint: mint::Vector2<u32> = self.window.inner_size().into();
+            let window_size = mint.into();
+            let cursor = self.input.cursor(&scene.world_camera2d);
+            let mut ctx = Context {
+                // Scene
+                render_entities: &mut scene.render_entities,
+                screen_config: &mut scene.screen_config,
+                world_camera2d: &mut scene.world_camera2d,
+                world_camera3d: &mut scene.world_camera3d,
+                entities: &mut scene.entities,
+                groups: &mut scene.groups,
+                world: &mut scene.world,
+                tasks: &mut scene.tasks,
+                component_buffers: &mut scene.component_buffers,
+
+                // Misc
+                scene_id: &scene_id,
+                window_size,
+                cursor,
+                resized: false,
+
+                frame: self.frame,
+                defaults: self.defaults,
+                input: self.input,
+                gpu: self.gpu.clone(),
+                gui: self.gui,
+                audio: self.audio,
+                end: self.end,
+                scenes: self.scenes,
+                window: self.window,
+                globals: self.globals
+            };
+            (action)(&mut scene.systems, &mut ctx);
+        }
+    }
+
+    pub fn add_scene(&mut self, scene_id: u32, scene: Scene) {
+        self.scenes.add(scene_id, scene, self.globals);
+        self.with_scene(scene_id, |systems, ctx| {
+            for setup in systems.setup_systems.drain(..) {
+                (setup)(ctx);
+            }
+        })
+    }
+
+    #[must_use]
+    pub fn remove_scene(&mut self, scene_id: u32) -> Option<Scene> {
+        self.with_scene(scene_id, |systems, ctx| {
+            for setup in &systems.end_systems {
+                (setup)(ctx, EndReason::Removed);
+            }
+        });
+
+        return self.scenes.remove(scene_id);
+    }
+
     #[cfg(feature = "serde")]
     pub fn serialize_group(
         &mut self,
-        group: GroupHandle,
-        serialize: impl FnOnce(&mut GroupSerializer),
+        group: EntityGroupHandle,
+        serialize: impl FnOnce(&mut EntityGroupSerializer),
     ) -> Option<Result<Vec<u8>, Box<bincode::ErrorKind>>> {
-        if let Some(mut ser) = GroupSerializer::new(self.world, self.groups, self.entities, group) {
+        if let Some(mut ser) =
+            EntityGroupSerializer::new(self.world, self.groups, self.entities, group)
+        {
             serialize(&mut ser);
             return Some(ser.finish());
         }
@@ -216,7 +286,7 @@ impl<'a> Context<'a> {
     }
 
     #[cfg(feature = "serde")]
-    pub fn deserialize_group(&mut self, deserialize: GroupDeserializer) -> GroupHandle {
+    pub fn deserialize_group(&mut self, deserialize: EntityGroupDeserializer) -> EntityGroupHandle {
         deserialize.finish(self)
     }
 }

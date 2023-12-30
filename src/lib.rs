@@ -84,7 +84,7 @@ pub mod prelude {
     pub use crate::log::*;
     pub use crate::macros::*;
     pub use crate::math::*;
-    pub use crate::physics;
+    pub use crate::physics::*;
     pub use crate::rand::*;
     pub use crate::resource::*;
     pub use crate::scene::*;

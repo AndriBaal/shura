@@ -6,8 +6,9 @@ use crate::{
         Entities, EntityIdentifier, EntityManager, EntityScope, EntityType, EntityTypeId,
         GroupedEntities, SingleEntity,
     },
-    graphics::{Gpu, GLOBAL_GPU},
-    scene::{Scene, SceneCreator},
+    graphics::{BufferConfig, Gpu, Instance, Instance2D, GLOBAL_GPU},
+    scene::Scene,
+    system::System,
 };
 
 pub fn gpu() -> Arc<Gpu> {
@@ -101,23 +102,63 @@ impl SerializedScene {
     ) -> Self {
         self.deserialize_entity::<GroupedEntities<Entities<E>>>(scope)
     }
-}
 
-#[allow(private_interfaces)]
-impl SceneCreator for SerializedScene {
-    fn new_id(&self) -> u32 {
-        self.id
-    }
-
-    fn scene(&mut self) -> &mut Scene {
-        &mut self.scene
-    }
-
-    fn create(self: Box<Self>) -> Scene {
+    pub fn finish(self) -> Scene {
         assert!(
             self.ser_entities.is_empty(),
             "All components that were serialized should also be deserialized!"
         );
         self.scene
+    }
+
+    pub fn component<I: Instance>(mut self, name: &'static str, config: BufferConfig) -> Self
+    where
+        Self: Sized,
+    {
+        self.scene = self.scene.component::<I>(name, config);
+        self
+    }
+    pub fn component2d(self, name: &'static str, config: BufferConfig) -> Self
+    where
+        Self: Sized,
+    {
+        self.component::<Instance2D>(name, config)
+    }
+
+    pub fn single_entity<E: EntityIdentifier>(self, scope: EntityScope) -> Self
+    where
+        Self: Sized,
+    {
+        self.entity(SingleEntity::<E>::default(), scope)
+    }
+
+    pub fn entities<E: EntityIdentifier>(self, scope: EntityScope) -> Self
+    where
+        Self: Sized,
+    {
+        self.entity(Entities::<E>::default(), scope)
+    }
+
+    pub fn grouped_entity<E: EntityIdentifier>(self, scope: EntityScope) -> Self
+    where
+        Self: Sized,
+    {
+        self.entity(GroupedEntities::<Entities<E>>::default(), scope)
+    }
+
+    pub fn entity<ET: EntityType>(mut self, ty: ET, scope: EntityScope) -> Self
+    where
+        Self: Sized,
+    {
+        self.scene = self.scene.entity(ty, scope);
+        self
+    }
+
+    pub fn system(mut self, system: System) -> Self
+    where
+        Self: Sized,
+    {
+        self.scene = self.scene.system(system);
+        self
     }
 }

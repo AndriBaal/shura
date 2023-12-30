@@ -36,6 +36,7 @@ impl CollectedEvents {
 pub trait WorldEvent: Sized {
     type Event;
     fn is<E1: EntityIdentifier, E2: EntityIdentifier>(&self, world: &World) -> Option<Self::Event>;
+    fn has<E: EntityIdentifier>(&self, world: &World) -> Option<Self::Event>;
 }
 
 impl WorldEvent for RapierCollisionEvent {
@@ -77,6 +78,40 @@ impl WorldEvent for RapierCollisionEvent {
 
         None
     }
+
+    fn has<E: EntityIdentifier>(&self, world: &World) -> Option<Self::Event> {
+        let collider1 = self.collider1();
+        let collider2 = self.collider2();
+        let entity1 = world.entity_from_collider(&collider1)?;
+        let entity2 = world.entity_from_collider(&collider2)?;
+        if entity1.entity_type_id() == E::IDENTIFIER {
+            return Some(EntityCollisionEvent {
+                collider1,
+                collider2,
+                entity1: *entity1,
+                entity2: *entity2,
+                collision_type: if self.started() {
+                    CollisionType::Started
+                } else {
+                    CollisionType::Stopped
+                },
+            });
+        } else if entity2.entity_type_id() == E::IDENTIFIER {
+            return Some(EntityCollisionEvent {
+                collider1: collider2,
+                collider2: collider1,
+                entity1: *entity2,
+                entity2: *entity1,
+                collision_type: if self.started() {
+                    CollisionType::Started
+                } else {
+                    CollisionType::Stopped
+                },
+            });
+        }
+
+        None
+    }
 }
 
 impl WorldEvent for RapierContactForceEvent {
@@ -102,6 +137,38 @@ impl WorldEvent for RapierContactForceEvent {
         } else if entity2.entity_type_id() == E1::IDENTIFIER
             && entity1.entity_type_id() == E2::IDENTIFIER
         {
+            return Some(EntityContactForceEvent {
+                collider1: collider2,
+                collider2: collider1,
+                entity1: *entity2,
+                entity2: *entity1,
+                total_force: self.total_force,
+                total_force_magnitude: self.total_force_magnitude,
+                max_force_direction: self.max_force_direction,
+                max_force_magnitude: self.max_force_magnitude,
+            });
+        }
+
+        None
+    }
+
+    fn has<E: EntityIdentifier>(&self, world: &World) -> Option<Self::Event> {
+        let collider1 = self.collider1;
+        let collider2 = self.collider2;
+        let entity1 = world.entity_from_collider(&collider1)?;
+        let entity2 = world.entity_from_collider(&collider2)?;
+        if entity1.entity_type_id() == E::IDENTIFIER {
+            return Some(EntityContactForceEvent {
+                collider1,
+                collider2,
+                entity1: *entity1,
+                entity2: *entity2,
+                total_force: self.total_force,
+                total_force_magnitude: self.total_force_magnitude,
+                max_force_direction: self.max_force_direction,
+                max_force_magnitude: self.max_force_magnitude,
+            });
+        } else if entity2.entity_type_id() == E::IDENTIFIER {
             return Some(EntityContactForceEvent {
                 collider1: collider2,
                 collider2: collider1,
@@ -330,7 +397,7 @@ impl World {
     pub fn step(&mut self, frame: &FrameManager) -> CollectedEvents {
         while let Ok(_event) = self.collector.collision.try_recv() {}
         while let Ok(_event) = self.collector.contact_force.try_recv() {}
-        self.integration_parameters.dt = frame.frame_time() * self.time_scale;
+        self.integration_parameters.dt = frame.delta_time() * self.time_scale;
         self.physics_pipeline.step(
             &self.gravity,
             &self.integration_parameters,
@@ -346,7 +413,6 @@ impl World {
             &(),
             &self.collector.collector,
         );
-        self.query_pipeline.update(&self.bodies, &self.colliders);
         self.events()
     }
 
@@ -637,6 +703,10 @@ impl World {
 
     pub fn integration_parameters(&self) -> &IntegrationParameters {
         &self.integration_parameters
+    }
+
+    pub fn narrow_phase(&self) -> &NarrowPhase {
+        &self.narrow_phase
     }
 
     pub fn joint(&self, joint: ImpulseJointHandle) -> Option<&ImpulseJoint> {

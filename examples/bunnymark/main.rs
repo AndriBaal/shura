@@ -3,8 +3,8 @@ use shura::prelude::*;
 #[shura::main]
 fn shura_main(config: AppConfig) {
     App::run(config, || {
-        NewScene::new(1)
-            .component::<Instance2D>("bunny", BufferConfig::default())
+        Scene::new()
+            .component2d("bunny", BufferConfig::default())
             .entities::<Bunny>(EntityScope::Global)
             .single_entity::<Resources>(EntityScope::Scene)
             .system(System::Update(update))
@@ -69,7 +69,7 @@ fn update(ctx: &mut Context) {
         resources.screenshot = Some(ctx.gpu.create_render_target(ctx.window_size));
     }
 
-    let frame = ctx.frame.frame_time();
+    let frame = ctx.frame.delta_time();
     let fov = ctx.world_camera2d.fov();
     for bunny in bunnies.iter_mut() {
         let mut linvel = bunny.linvel;

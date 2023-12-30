@@ -9,7 +9,47 @@ use syn::{
 };
 
 const IDENT_NAME: &'static str = "shura";
-const ALLOWED_ATTRIBUTES: &'static [&'static str] = &["component"];
+const ALLOWED_ATTRIBUTES: &'static [&'static str] = &["component", "inner"];
+
+fn inner_component(data_struct: &DataStruct, attr_name: &str) -> Option<(Ident, TypePath)> {
+    let mut inner = None;
+    match &data_struct.fields {
+        Fields::Named(fields_named) => {
+            for field in fields_named.named.iter() {
+                for attr in &field.attrs {
+                    if attr.path().is_ident(IDENT_NAME) {
+                        attr.parse_nested_meta(|meta| {
+                            ALLOWED_ATTRIBUTES
+                                .iter()
+                                .find(|a| meta.path.is_ident(a))
+                                .expect("Unexpected attribute!");
+                            if meta.path.is_ident(attr_name) {
+                                match &field.ty {
+                                    Type::Path(type_name) => {
+                                        let field_name = field
+                                            .ident
+                                            .as_ref()
+                                            .expect("Inner field must be named!");
+
+                                        if inner.is_some() {
+                                            panic!("Inner already defined!");
+                                        }
+                                        inner = Some((field_name.clone(), type_name.clone()));
+                                    }
+                                    _ => panic!("Cannot extract the inner component!"),
+                                };
+                            }
+                            Ok(())
+                        })
+                        .expect("Cannot extract the inner component!");
+                    }
+                }
+            }
+        }
+        _ => (),
+    };
+    return inner;
+}
 
 fn components(data_struct: &DataStruct, attr_name: &str) -> Vec<(Ident, Option<LitStr>, TypePath)> {
     let mut components = Vec::new();
@@ -41,7 +81,7 @@ fn components(data_struct: &DataStruct, attr_name: &str) -> Vec<(Ident, Option<L
                                             type_name.clone(),
                                         ));
                                     }
-                                    _ => panic!("Cannot extract the type of the entity."),
+                                    _ => panic!("Cannot extract the type of the entity!"),
                                 };
                             }
                             Ok(())
@@ -116,9 +156,10 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
         .map(|(field_name, component_name, component_type)| {
             if let Some(component_name) = component_name {
                 quote! {
-                    let buffer = buffers.get_mut::<<<#component_type as shura::component::ComponentCollection>::Component as shura::component::Component>::Instance>(#component_name).unwrap();
-                    for e in entities.clone() {
-                        e.#field_name.buffer_all(world, buffer);
+                    if let Some(buffer) = buffers.get_mut::<<<#component_type as shura::component::ComponentCollection>::Component as shura::component::Component>::Instance>(#component_name) {
+                        for e in entities.clone() {
+                            e.#field_name.buffer_all(world, buffer);
+                        }
                     }
                 }
             } else {
@@ -158,6 +199,33 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
             fn finish(&mut self, world: &mut ::shura::physics::World) {
                 use shura::component::ComponentCollection;
                 #( self.#names_finish.finish_all(world); )*
+            }
+        }
+    )
+    .into();
+}
+
+#[proc_macro_derive(Component, attributes(shura))]
+pub fn derive_component(input: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(input as DeriveInput);
+    let data_struct = match ast.data {
+        Data::Struct(ref data_struct) => data_struct,
+        _ => panic!("Must be a struct!"),
+    };
+
+    let struct_name = ast.ident.clone();
+    let (inner_field, inner_type) = inner_component(&data_struct, "inner").expect("Cannot find inner component. Define it with #[shura(inner)]");
+    let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
+    return quote!(
+        impl #impl_generics ::shura::component::Component for #struct_name #ty_generics #where_clause {
+            type Instance = <#inner_type as ::shura::component::Component>::Instance;
+        
+            fn instance(&self, world: &shura::physics::World) -> Self::Instance {
+                self.#inner_field.instance(world)
+            }
+        
+            fn active(&self) -> bool {
+                self.#inner_field.active()
             }
         }
     )

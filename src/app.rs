@@ -1,4 +1,4 @@
-use std::{cell::RefCell, ops::DerefMut, rc::Rc, sync::Arc};
+use std::sync::Arc;
 
 #[cfg(feature = "gui")]
 use crate::gui::Gui;
@@ -7,9 +7,9 @@ use crate::{
     graphics::{DefaultResources, Gpu, GpuConfig, RenderEncoder, GLOBAL_GPU},
     input::Input,
     math::Vector2,
-    scene::{Scene, SceneCreator, SceneManager},
+    scene::{Scene, SceneManager},
     system::{EndReason, UpdateOperation},
-    time::FrameManager,
+    time::FrameManager, entity::GlobalEntities,
 };
 #[cfg(feature = "log")]
 use crate::{
@@ -26,6 +26,7 @@ pub struct AppConfig {
     pub window: winit::window::WindowBuilder,
     pub winit_event: Option<Box<dyn Fn(&winit::event::Event<()>)>>,
     pub gpu: GpuConfig,
+    pub scene_id: u32,
     #[cfg(target_os = "android")]
     pub android: AndroidApp,
     #[cfg(feature = "log")]
@@ -43,6 +44,7 @@ impl Default for AppConfig {
 }
 
 impl AppConfig {
+    pub const FIRST_SCENE_ID: u32 = 0;
     pub fn new(#[cfg(target_os = "android")] android: AndroidApp) -> Self {
         AppConfig {
             window: winit::window::WindowBuilder::new()
@@ -68,6 +70,7 @@ impl AppConfig {
                 );
                 map
             },
+            scene_id: Self::FIRST_SCENE_ID,
         }
     }
 
@@ -118,6 +121,7 @@ pub struct App {
     pub frame: FrameManager,
     pub scenes: SceneManager,
     pub window: winit::window::Window,
+    pub globals: GlobalEntities,
     pub input: Input,
     pub defaults: DefaultResources,
     pub gpu: Arc<Gpu>,
@@ -130,7 +134,7 @@ pub struct App {
 }
 
 impl App {
-    pub fn run<S: SceneCreator + 'static>(config: AppConfig, init: impl FnOnce() -> S + 'static) {
+    pub fn run(config: AppConfig, init: impl FnOnce() -> Scene) {
         #[cfg(target_os = "android")]
         use winit::platform::android::EventLoopBuilderExtAndroid;
 
@@ -177,6 +181,7 @@ impl App {
                 window.take().unwrap(),
                 &events,
                 config.gpu.clone(),
+                config.scene_id,
                 init.take().unwrap(),
                 #[cfg(target_arch = "wasm32")]
                 config.auto_scale_canvas,
@@ -268,6 +273,7 @@ impl App {
                             window.take().unwrap(),
                             &_target,
                             config.gpu.clone(),
+                            config.scene_id,
                             init.take().unwrap(),
                             #[cfg(target_arch = "wasm32")]
                             config.auto_scale_canvas,
@@ -279,11 +285,12 @@ impl App {
         });
     }
 
-    fn new<S: SceneCreator + 'static>(
+    fn new(
         window: winit::window::Window,
         _event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
         gpu: GpuConfig,
-        creator: impl FnOnce() -> S,
+        scene_id: u32,
+        scene: impl FnOnce() -> Scene,
         #[cfg(target_arch = "wasm32")] auto_scale_canvas: bool,
     ) -> Self {
         let gpu = pollster::block_on(Gpu::new(&window, gpu));
@@ -291,11 +298,12 @@ impl App {
         let window_size: Vector2<u32> = mint.into();
         let defaults = DefaultResources::new(&gpu, window_size);
         let gpu = Arc::new(gpu);
+        let globals = GlobalEntities::default();
 
         GLOBAL_GPU.set(gpu.clone()).ok().unwrap();
-        let scene = (creator)();
+        let scene = (scene)();
         Self {
-            scenes: SceneManager::new(scene.new_id(), scene),
+            scenes: SceneManager::new(scene_id, scene, &globals),
             frame: FrameManager::new(),
             input: Input::new(window_size),
             #[cfg(feature = "audio")]
@@ -303,12 +311,13 @@ impl App {
             end: false,
             #[cfg(feature = "gui")]
             gui: Gui::new(&window, _event_loop, &gpu),
-            window,
-            gpu,
-            defaults,
             #[cfg(target_arch = "wasm32")]
             auto_scale_canvas,
             resized: false,
+            globals: globals,
+            window,
+            gpu,
+            defaults,
         }
     }
 
@@ -334,32 +343,10 @@ impl App {
     }
 
     fn process_frame(&mut self) -> Result<(), wgpu::SurfaceError> {
-        while let Some(remove) = self.scenes.remove.pop() {
-            if let Some(removed) = self.scenes.scenes.remove(&remove) {
-                let mut removed = removed.borrow_mut();
-                let (systems, mut ctx) = Context::new(&remove, self, &mut removed);
-                for end in &systems.end_systems {
-                    (end)(&mut ctx, EndReason::Removed)
-                }
-            }
-        }
-
-        while let Some(add) = self.scenes.add.pop() {
-            let id = add.new_id();
-            let scene = add.create();
-            if let Some(old) = self.scenes.scenes.insert(id, Rc::new(RefCell::new(scene))) {
-                let mut removed = old.borrow_mut();
-                let (systems, mut ctx) = Context::new(&id, self, &mut removed);
-                for end in &systems.end_systems {
-                    (end)(&mut ctx, EndReason::Replaced)
-                }
-            }
-        }
-
         let scene_id = self.scenes.active_scene_id();
         let scene = self.scenes.get_active_scene();
         let mut scene = scene.borrow_mut();
-        let scene = scene.deref_mut();
+        let scene = &mut scene;
         if let Some(max_frame_time) = scene.screen_config.max_frame_time() {
             let now = self.frame.now();
             let update_time = self.frame.update_time();
@@ -506,7 +493,7 @@ impl App {
 
         self.defaults.times.write(
             &self.gpu,
-            [self.frame.total_time(), self.frame.frame_time()],
+            [self.frame.total_time(), self.frame.delta_time()],
         );
 
         let (systems, res) = RenderContext::new(&self.defaults, scene);
@@ -531,7 +518,7 @@ impl App {
             let mut scene = scene.borrow_mut();
             let (systems, mut ctx) = Context::new(&id, self, &mut scene);
             for end in &systems.end_systems {
-                (end)(&mut ctx, EndReason::End)
+                (end)(&mut ctx, EndReason::Close)
             }
         }
     }

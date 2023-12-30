@@ -26,7 +26,7 @@ A good way to learn shura is through the provided examples or through reading th
 
 - Easy to use component system with a group system to ensure fast manageable 2D games in massive levels
 
-- Group system that acts like a chunk system to organize components and manage big worlds
+- EntityGroup system that acts like a chunk system to organize components and manage big worlds
 
 - Support for postprocessing of your renders
 

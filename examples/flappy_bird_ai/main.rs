@@ -49,8 +49,8 @@ fn update(ctx: &mut Context) {
     let mut simulation = ctx.entities.single::<BirdSimulation>().get().unwrap();
     let mut birds = ctx.entities.multiple::<Bird>();
     let fps = ctx.frame.fps();
-    let delta = ctx.frame.frame_time() * simulation.time_scale;
-    let step = ctx.frame.frame_time() * simulation.time_scale * Pipe::VELOCITY;
+    let delta = ctx.frame.delta_time() * simulation.time_scale;
+    let step = ctx.frame.delta_time() * simulation.time_scale * Pipe::VELOCITY;
     pipes.retain(ctx.world, |pipe, _| {
         let new_pos = pipe.pos.translation() + step;
         pipe.pos.set_translation(new_pos);

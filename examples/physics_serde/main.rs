@@ -2,9 +2,9 @@ use shura::{physics::*, prelude::*};
 
 fn deserialized_scene(data: Vec<u8>) -> SerializedScene {
     SerializedScene::new(1, &data)
-        .component::<Instance2D>("player", BufferConfig::default())
-        .component::<Instance2D>("box", BufferConfig::default())
-        .component::<Instance2D>(
+        .component2d("player", BufferConfig::default())
+        .component2d("box", BufferConfig::default())
+        .component2d(
             "floor",
             BufferConfig {
                 call: BufferCall::Manual,
@@ -30,9 +30,9 @@ fn shura_main(config: AppConfig) {
     } else {
         App::run(config, || {
             NewScene::new(1)
-                .component::<Instance2D>("player", BufferConfig::default())
-                .component::<Instance2D>("box", BufferConfig::default())
-                .component::<Instance2D>(
+                .component2d("player", BufferConfig::default())
+                .component2d("box", BufferConfig::default())
+                .component2d(
                     "floor",
                     BufferConfig {
                         call: BufferCall::Manual,
@@ -112,7 +112,7 @@ fn update(ctx: &mut Context) {
         boxes.add(ctx.world, b);
     }
 
-    let delta = ctx.frame.frame_time();
+    let delta = ctx.frame.delta_time();
     let cursor_world: Point2<f32> = ctx.cursor;
     let remove = ctx.input.is_held(MouseButton::Left) || ctx.input.is_pressed(ScreenTouch);
     for physics_box in boxes.iter_mut() {

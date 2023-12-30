@@ -36,7 +36,7 @@ fn setup(ctx: &mut Context) {
 
 fn update(ctx: &mut Context) {
     let fps = ctx.frame.fps();
-    let delta = ctx.frame.frame_time();
+    let delta = ctx.frame.delta_time();
 
     let mut manager = ctx.components.single::<FlappyManager>();
     let mut bird = ctx.components.single::<Bird>();

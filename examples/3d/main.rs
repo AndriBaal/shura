@@ -43,7 +43,7 @@ fn update(ctx: &mut Context) {
     if ctx.entities.single::<Resources>().is_none() {
         return;
     }
-    let speed = SPEED * ctx.frame.frame_time();
+    let speed = SPEED * ctx.frame.delta_time();
     let camera = ctx.world_camera3d.perspective_mut().unwrap();
 
     let forward = camera.target - camera.eye;
@@ -72,9 +72,9 @@ fn update(ctx: &mut Context) {
     for cube in ctx.entities.multiple::<Cube>().iter_mut() {
         let mut rot = cube.position.rotation();
         rot *= Rotation3::new(Vector3::new(
-            1.0 * ctx.frame.frame_time(),
-            1.0 * ctx.frame.frame_time(),
-            1.0 * ctx.frame.frame_time(),
+            1.0 * ctx.frame.delta_time(),
+            1.0 * ctx.frame.delta_time(),
+            1.0 * ctx.frame.delta_time(),
         ));
         cube.position.set_rotation(rot);
     }

@@ -48,5 +48,6 @@ pub trait Entity: 'static + Downcast {
     fn init(&mut self, handle: EntityHandle, world: &mut World);
     fn finish(&mut self, world: &mut World);
     fn components_dyn<'a>(&'a self) -> Box<dyn Iterator<Item = &dyn ComponentCollection> + 'a>;
+    // fn component(&self) -> 
 }
 impl_downcast!(Entity);

@@ -3,24 +3,24 @@ use rustc_hash::FxHashMap;
 use crate::{
     context::Context,
     entity::{
-        Entities, EntityIdentifier, EntityManager, EntityType, EntityTypeId, Group, GroupHandle,
-        GroupManager, GroupedEntities, SingleEntity,
+        Entities, EntityIdentifier, EntityManager, EntityType, EntityTypeId, EntityGroup, EntityGroupHandle,
+        EntityGroupManager, GroupedEntities, SingleEntity,
     },
     physics::World,
 };
 
-pub struct GroupSerializer {
+pub struct EntityGroupSerializer {
     entities: FxHashMap<EntityTypeId, Box<dyn EntityType>>,
     ser_entities: FxHashMap<EntityTypeId, Vec<u8>>,
-    group: Group,
+    group: EntityGroup,
 }
 
-impl GroupSerializer {
+impl EntityGroupSerializer {
     pub fn new(
         world: &mut World,
-        groups: &mut GroupManager,
+        groups: &mut EntityGroupManager,
         entities: &mut EntityManager,
-        group: GroupHandle,
+        group: EntityGroupHandle,
     ) -> Option<Self> {
         if let Some((group, entities)) = groups.remove_serialize(entities, world, group) {
             return Some(Self {
@@ -57,15 +57,15 @@ impl GroupSerializer {
     }
 }
 
-pub struct GroupDeserializer {
-    group: Group,
+pub struct EntityGroupDeserializer {
+    group: EntityGroup,
     ser_entities: FxHashMap<EntityTypeId, Vec<u8>>,
-    pub(crate) init_callbacks: Vec<Box<dyn FnOnce(GroupHandle, &mut Context)>>,
+    pub(crate) init_callbacks: Vec<Box<dyn FnOnce(EntityGroupHandle, &mut Context)>>,
 }
 
-impl GroupDeserializer {
+impl EntityGroupDeserializer {
     pub fn new(data: &[u8]) -> Self {
-        let (group, ser_entities): (Group, FxHashMap<EntityTypeId, Vec<u8>>) =
+        let (group, ser_entities): (EntityGroup, FxHashMap<EntityTypeId, Vec<u8>>) =
             bincode::deserialize(data).unwrap();
         Self {
             group,
@@ -90,7 +90,7 @@ impl GroupDeserializer {
         }
     }
 
-    pub(crate) fn finish(mut self, ctx: &mut Context) -> GroupHandle {
+    pub(crate) fn finish(mut self, ctx: &mut Context) -> EntityGroupHandle {
         let handle = ctx.groups.add(ctx.entities, self.group.clone());
         for call in self.init_callbacks.drain(..) {
             call(handle, ctx);

@@ -7,8 +7,8 @@ use crate::{data::ArenaEntry, rayon::prelude::*};
 use crate::{
     data::{Arena, ArenaIndex, ArenaIter, ArenaIterMut},
     entity::{
-        Entity, EntityHandle, EntityIdentifier, EntityIndex, EntityTypeId, GroupHandle,
-        GroupManager,
+        Entity, EntityHandle, EntityIdentifier, EntityIndex, EntityTypeId, EntityGroupHandle,
+        EntityGroupManager,
     },
     graphics::ComponentBufferManager,
     physics::World,
@@ -19,12 +19,12 @@ pub trait EntityType: Downcast {
     type Entity: EntityIdentifier
     where
         Self: Sized;
-    fn buffer(&self, buffers: &mut ComponentBufferManager, groups: &GroupManager, world: &World);
+    fn buffer(&self, buffers: &mut ComponentBufferManager, groups: &EntityGroupManager, world: &World);
     fn entity_type_id(&self) -> EntityTypeId;
     fn remove_group(
         &mut self,
         world: &mut World,
-        group_handle: GroupHandle,
+        group_handle: EntityGroupHandle,
     ) -> Option<Box<dyn EntityType>> {
         None
     }
@@ -35,7 +35,7 @@ pub trait EntityType: Downcast {
 
     fn iter_render<'a>(
         &'a self,
-        groups: &GroupManager,
+        groups: &EntityGroupManager,
     ) -> impl Iterator<Item = &Self::Entity> + Clone + 'a
     where
         Self: Sized;
@@ -100,7 +100,7 @@ impl<E: EntityIdentifier> SingleEntity<E> {
                     generation: self.generation,
                 }),
                 E::IDENTIFIER,
-                GroupHandle::INVALID,
+                EntityGroupHandle::INVALID,
             ));
         }
         return None;
@@ -139,7 +139,7 @@ impl<E: EntityIdentifier> SingleEntity<E> {
                 generation: self.generation,
             }),
             E::IDENTIFIER,
-            GroupHandle::INVALID,
+            EntityGroupHandle::INVALID,
         );
         new.init(handle, world);
         if let Some(mut old) = self.entity.replace(new) {
@@ -160,7 +160,7 @@ impl<E: EntityIdentifier> SingleEntity<E> {
                 generation: self.generation,
             }),
             E::IDENTIFIER,
-            GroupHandle::INVALID,
+            EntityGroupHandle::INVALID,
         );
         let mut new = create(handle);
         new.init(handle, world);
@@ -173,7 +173,7 @@ impl<E: EntityIdentifier> SingleEntity<E> {
 
 impl<E: EntityIdentifier> EntityType for SingleEntity<E> {
     type Entity = E;
-    fn buffer(&self, buffers: &mut ComponentBufferManager, groups: &GroupManager, world: &World) {
+    fn buffer(&self, buffers: &mut ComponentBufferManager, groups: &EntityGroupManager, world: &World) {
         E::buffer(self.iter_render(groups), buffers, world);
     }
 
@@ -182,7 +182,7 @@ impl<E: EntityIdentifier> EntityType for SingleEntity<E> {
     }
     fn iter_render<'a>(
         &'a self,
-        _groups: &GroupManager,
+        _groups: &EntityGroupManager,
     ) -> impl Iterator<Item = &Self::Entity> + Clone + 'a
     where
         Self: Sized,
@@ -201,7 +201,7 @@ impl<E: EntityIdentifier> EntityType for SingleEntity<E> {
                         generation: self.generation,
                     }),
                     E::IDENTIFIER,
-                    GroupHandle::INVALID,
+                    EntityGroupHandle::INVALID,
                 ),
                 e as &mut dyn Entity,
             )
@@ -296,7 +296,7 @@ impl<E: EntityIdentifier> Entities<E> {
     pub fn add(&mut self, world: &mut World, mut new: E) -> EntityHandle {
         let mut handle = Default::default();
         self.entities.insert_with(|idx| {
-            handle = EntityHandle::new(EntityIndex(idx), E::IDENTIFIER, GroupHandle::INVALID);
+            handle = EntityHandle::new(EntityIndex(idx), E::IDENTIFIER, EntityGroupHandle::INVALID);
             new.init(handle, world);
             new
         });
@@ -310,7 +310,7 @@ impl<E: EntityIdentifier> Entities<E> {
     ) -> EntityHandle {
         let mut handle = Default::default();
         self.entities.insert_with(|idx| {
-            handle = EntityHandle::new(EntityIndex(idx), E::IDENTIFIER, GroupHandle::INVALID);
+            handle = EntityHandle::new(EntityIndex(idx), E::IDENTIFIER, EntityGroupHandle::INVALID);
             let mut new = create(handle);
             new.init(handle, world);
             new
@@ -328,7 +328,7 @@ impl<E: EntityIdentifier> Entities<E> {
         for mut entity in entities {
             self.entities.insert_with(|idx| {
                 let handle =
-                    EntityHandle::new(EntityIndex(idx), E::IDENTIFIER, GroupHandle::INVALID);
+                    EntityHandle::new(EntityIndex(idx), E::IDENTIFIER, EntityGroupHandle::INVALID);
                 entity.init(handle, world);
                 handles.push(handle);
                 entity
@@ -352,7 +352,7 @@ impl<E: EntityIdentifier> Entities<E> {
     pub fn iter_with_handles<'a>(&'a self) -> impl ExactSizeIterator<Item = (EntityHandle, &'a E)> {
         self.entities.iter_with_index().map(|(idx, c)| {
             (
-                EntityHandle::new(EntityIndex(idx), E::IDENTIFIER, GroupHandle::INVALID),
+                EntityHandle::new(EntityIndex(idx), E::IDENTIFIER, EntityGroupHandle::INVALID),
                 c,
             )
         })
@@ -367,7 +367,7 @@ impl<E: EntityIdentifier> Entities<E> {
     ) -> impl ExactSizeIterator<Item = (EntityHandle, &'a mut E)> {
         self.entities.iter_mut_with_index().map(|(idx, c)| {
             (
-                EntityHandle::new(EntityIndex(idx), E::IDENTIFIER, GroupHandle::INVALID),
+                EntityHandle::new(EntityIndex(idx), E::IDENTIFIER, EntityGroupHandle::INVALID),
                 c,
             )
         })
@@ -393,7 +393,7 @@ impl<'a, E: EntityIdentifier> IntoIterator for &'a mut Entities<E> {
 impl<E: EntityIdentifier> EntityType for Entities<E> {
     type Entity = E;
 
-    fn buffer(&self, buffers: &mut ComponentBufferManager, groups: &GroupManager, world: &World) {
+    fn buffer(&self, buffers: &mut ComponentBufferManager, groups: &EntityGroupManager, world: &World) {
         E::buffer(self.iter_render(groups), buffers, world);
     }
 
@@ -403,7 +403,7 @@ impl<E: EntityIdentifier> EntityType for Entities<E> {
 
     fn iter_render<'a>(
         &'a self,
-        _groups: &GroupManager,
+        _groups: &EntityGroupManager,
     ) -> impl Iterator<Item = &Self::Entity> + Clone + 'a
     where
         Self: Sized,
@@ -453,11 +453,11 @@ impl<ET: EntityType> Default for GroupedEntities<ET> {
 }
 
 impl<ET: EntityType> GroupedEntities<ET> {
-    pub fn get_group(&self, group: GroupHandle) -> Option<&ET> {
+    pub fn get_group(&self, group: EntityGroupHandle) -> Option<&ET> {
         return self.groups.get(group.0);
     }
 
-    pub fn get_group_mut(&mut self, group: GroupHandle) -> Option<&mut ET> {
+    pub fn get_group_mut(&mut self, group: EntityGroupHandle) -> Option<&mut ET> {
         return self.groups.get_mut(group.0);
     }
 }
@@ -466,7 +466,7 @@ impl<E: EntityIdentifier> GroupedEntities<Entities<E>> {
     pub fn retain(
         &mut self,
         world: &mut World,
-        group_handles: &[GroupHandle],
+        group_handles: &[EntityGroupHandle],
         mut keep: impl FnMut(&mut E, &mut World) -> bool,
     ) {
         for group in group_handles {
@@ -484,14 +484,14 @@ impl<E: EntityIdentifier> GroupedEntities<Entities<E>> {
         }
     }
 
-    pub fn index(&self, group: GroupHandle, index: usize) -> Option<&E> {
+    pub fn index(&self, group: EntityGroupHandle, index: usize) -> Option<&E> {
         if let Some(group) = self.groups.get(group.0) {
             return group.entities.get_unknown_gen(index);
         }
         None
     }
 
-    pub fn index_mut(&mut self, group: GroupHandle, index: usize) -> Option<&mut E> {
+    pub fn index_mut(&mut self, group: EntityGroupHandle, index: usize) -> Option<&mut E> {
         if let Some(group) = self.groups.get_mut(group.0) {
             return group.entities.get_unknown_gen_mut(index);
         }
@@ -550,7 +550,7 @@ impl<E: EntityIdentifier> GroupedEntities<Entities<E>> {
         None
     }
 
-    pub fn remove_all(&mut self, world: &mut World, group_handles: &[GroupHandle]) -> Vec<E> {
+    pub fn remove_all(&mut self, world: &mut World, group_handles: &[EntityGroupHandle]) -> Vec<E> {
         let mut result = Vec::new();
         for group_handle in group_handles {
             if let Some(group) = self.groups.get_mut(group_handle.0) {
@@ -567,7 +567,7 @@ impl<E: EntityIdentifier> GroupedEntities<Entities<E>> {
     pub fn add(
         &mut self,
         world: &mut World,
-        group_handle: GroupHandle,
+        group_handle: EntityGroupHandle,
         mut new: E,
     ) -> EntityHandle {
         let group = &mut self.groups[group_handle.0];
@@ -583,7 +583,7 @@ impl<E: EntityIdentifier> GroupedEntities<Entities<E>> {
     pub fn add_with(
         &mut self,
         world: &mut World,
-        group_handle: GroupHandle,
+        group_handle: EntityGroupHandle,
         create: impl FnOnce(EntityHandle) -> E,
     ) -> EntityHandle {
         let group = &mut self.groups[group_handle.0];
@@ -600,7 +600,7 @@ impl<E: EntityIdentifier> GroupedEntities<Entities<E>> {
     pub fn add_many(
         &mut self,
         world: &mut World,
-        group_handle: GroupHandle,
+        group_handle: EntityGroupHandle,
         entities: impl IntoIterator<Item = E>,
     ) -> Vec<EntityHandle> {
         let entities = entities.into_iter();
@@ -618,7 +618,7 @@ impl<E: EntityIdentifier> GroupedEntities<Entities<E>> {
         handles
     }
 
-    pub fn len(&self, group_handles: &[GroupHandle]) -> usize {
+    pub fn len(&self, group_handles: &[EntityGroupHandle]) -> usize {
         let mut len = 0;
         for group in group_handles {
             if let Some(group) = self.groups.get(group.0) {
@@ -628,7 +628,7 @@ impl<E: EntityIdentifier> GroupedEntities<Entities<E>> {
         len
     }
 
-    pub fn is_empty(&self, group_handles: &[GroupHandle]) -> bool {
+    pub fn is_empty(&self, group_handles: &[EntityGroupHandle]) -> bool {
         for group in group_handles {
             if let Some(group) = self.groups.get(group.0) {
                 if !group.entities.is_empty() {
@@ -642,7 +642,7 @@ impl<E: EntityIdentifier> GroupedEntities<Entities<E>> {
     pub fn change_group(
         &mut self,
         entity: EntityHandle,
-        new_group_handle: GroupHandle,
+        new_group_handle: EntityGroupHandle,
     ) -> Option<EntityHandle> {
         assert!(entity.entity_type_id() == E::IDENTIFIER);
         let (old_group, new_group) = self
@@ -664,7 +664,7 @@ impl<E: EntityIdentifier> GroupedEntities<Entities<E>> {
 impl<ET: EntityType + Default> EntityType for GroupedEntities<ET> {
     type Entity = ET::Entity;
 
-    fn buffer(&self, buffers: &mut ComponentBufferManager, groups: &GroupManager, world: &World) {
+    fn buffer(&self, buffers: &mut ComponentBufferManager, groups: &EntityGroupManager, world: &World) {
         ET::Entity::buffer(self.iter_render(groups), buffers, world);
     }
 
@@ -675,7 +675,7 @@ impl<ET: EntityType + Default> EntityType for GroupedEntities<ET> {
     fn remove_group(
         &mut self,
         world: &mut World,
-        handle: GroupHandle,
+        handle: EntityGroupHandle,
     ) -> Option<Box<dyn EntityType>> {
         if let Some(mut group) = self.groups.remove(handle.0) {
             for (_, entity) in group.iter_dyn() {
@@ -692,7 +692,7 @@ impl<ET: EntityType + Default> EntityType for GroupedEntities<ET> {
 
     fn iter_render<'a>(
         &'a self,
-        groups: &GroupManager,
+        groups: &EntityGroupManager,
     ) -> impl Iterator<Item = &Self::Entity> + Clone + 'a
     where
         Self: Sized,

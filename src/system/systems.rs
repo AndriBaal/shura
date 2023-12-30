@@ -13,9 +13,8 @@ pub type EndSystem = fn(&mut Context, reason: EndReason);
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum EndReason {
-    End,
+    Close,
     Removed,
-    Replaced,
 }
 
 pub enum System {

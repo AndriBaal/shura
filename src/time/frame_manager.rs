@@ -3,7 +3,7 @@ pub use crate::time::{Duration, Instant};
 use log::info;
 
 pub struct FrameManager {
-    frame_time: Duration,
+    delta_time: Duration,
     total_time: Duration,
     last_time: Duration,
     fps_time: Duration,
@@ -20,7 +20,7 @@ impl FrameManager {
         let now = Instant::now();
         let elapsed = now.elapsed();
         Self {
-            frame_time: elapsed,
+            delta_time: elapsed,
             last_time: elapsed,
             total_time: elapsed,
             start_time: now,
@@ -41,9 +41,9 @@ impl FrameManager {
         let new_frame_time = self.total_time - self.last_time;
 
         if new_frame_time > Self::MAX_FRAME_TIME {
-            self.frame_time = Self::MAX_FRAME_TIME;
+            self.delta_time = Self::MAX_FRAME_TIME;
         } else {
-            self.frame_time = new_frame_time;
+            self.delta_time = new_frame_time;
         }
 
         if self.total_time > self.fps_time + Duration::from_secs(1) {
@@ -52,7 +52,7 @@ impl FrameManager {
             self.fps_counter = 0;
             #[cfg(feature = "log")]
             {
-                info!("fps: {}\tdelta: {}", self.fps, self.frame_time());
+                info!("fps: {}\tdelta: {}", self.fps, self.delta_time());
                 #[cfg(feature = "rayon")]
                 info!("threads: {}", rayon::current_num_threads());
             }
@@ -73,8 +73,8 @@ impl FrameManager {
         Instant::now()
     }
 
-    pub fn frame_time(&self) -> f32 {
-        self.frame_time.as_secs_f32()
+    pub fn delta_time(&self) -> f32 {
+        self.delta_time.as_secs_f32()
     }
 
     pub fn total_time(&self) -> f32 {
@@ -82,7 +82,7 @@ impl FrameManager {
     }
 
     pub const fn frame_time_duration(&self) -> Duration {
-        self.frame_time
+        self.delta_time
     }
 
     pub const fn frames_since_last_seconds(&self) -> u32 {

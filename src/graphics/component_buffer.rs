@@ -1,7 +1,7 @@
 use std::collections::hash_map::{Iter, IterMut};
 
 use crate::{
-    entity::GroupManager,
+    entity::EntityGroupManager,
     graphics::{Gpu, Instance, InstanceBuffer, GLOBAL_GPU},
 };
 use downcast_rs::{impl_downcast, Downcast};
@@ -52,7 +52,7 @@ pub enum BufferCall {
 }
 
 pub trait ComponentBufferImpl: Downcast {
-    fn apply(&mut self, groups: &GroupManager, gpu: &Gpu);
+    fn apply(&mut self, groups: &EntityGroupManager, gpu: &Gpu);
     fn deinit(&mut self);
     fn update_buffer(&self) -> bool;
     fn set_update_buffer(&mut self, update_buffer: bool);
@@ -102,7 +102,7 @@ impl<I: Instance + Send + Sync> ComponentBuffer<I> {
 }
 
 impl<I: Instance> ComponentBufferImpl for ComponentBuffer<I> {
-    fn apply(&mut self, groups: &GroupManager, gpu: &Gpu) {
+    fn apply(&mut self, groups: &EntityGroupManager, gpu: &Gpu) {
         if self.update_buffer
             || (groups.render_groups_changed() && self.config.buffer_on_group_change)
         {
@@ -156,7 +156,7 @@ impl ComponentBufferManager {
         );
     }
 
-    pub(crate) fn apply_buffers(&mut self, groups: &GroupManager, gpu: &Gpu) {
+    pub(crate) fn apply_buffers(&mut self, groups: &EntityGroupManager, gpu: &Gpu) {
         for buffer in self.buffers.values_mut() {
             buffer.apply(groups, gpu);
         }

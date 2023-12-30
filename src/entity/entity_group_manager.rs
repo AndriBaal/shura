@@ -6,7 +6,7 @@ use crate::{
 
 use crate::{
     data::Arena,
-    entity::{EntityManager, GroupHandle},
+    entity::{EntityManager, EntityGroupHandle},
     graphics::{Camera2D, WorldCamera2D},
     math::{Vector2, AABB},
     physics::World,
@@ -16,33 +16,33 @@ use std::fmt;
 use std::mem::swap;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct GroupManager {
-    pub(super) groups: Arena<Group>,
+pub struct EntityGroupManager {
+    pub(super) groups: Arena<EntityGroup>,
     pub active_size: Vector2<f32>,
-    all_groups: Vec<GroupHandle>,
+    all_groups: Vec<EntityGroupHandle>,
     active_groups_changed: bool,
     render_groups_changed: bool,
 
-    active_groups: Vec<GroupHandle>,
-    render_groups: Vec<GroupHandle>,
+    active_groups: Vec<EntityGroupHandle>,
+    render_groups: Vec<EntityGroupHandle>,
 
-    last_active_groups: Vec<GroupHandle>,
-    last_render_groups: Vec<GroupHandle>,
+    last_active_groups: Vec<EntityGroupHandle>,
+    last_render_groups: Vec<EntityGroupHandle>,
 }
 
-impl GroupManager {
-    pub const DEFAULT_GROUP_NAME: &'static str = "Default Group";
-    pub const DEFAULT_GROUP: GroupHandle = GroupHandle::DEFAULT_GROUP;
+impl EntityGroupManager {
+    pub const DEFAULT_GROUP_NAME: &'static str = "Default EntityGroup";
+    pub const DEFAULT_GROUP: EntityGroupHandle = EntityGroupHandle::DEFAULT_GROUP;
     pub(crate) fn new() -> Self {
         let default_entity_group =
-            Group::new(GroupActivation::Always, 0, Some(Self::DEFAULT_GROUP_NAME));
+            EntityGroup::new(GroupActivation::Always, 0, Some(Self::DEFAULT_GROUP_NAME));
         let mut groups = Arena::default();
         groups.insert(default_entity_group);
         Self {
             groups,
-            all_groups: Vec::from_iter([GroupHandle::DEFAULT_GROUP]),
-            active_groups: Vec::from_iter([GroupHandle::DEFAULT_GROUP]),
-            render_groups: Vec::from_iter([GroupHandle::DEFAULT_GROUP]),
+            all_groups: Vec::from_iter([EntityGroupHandle::DEFAULT_GROUP]),
+            active_groups: Vec::from_iter([EntityGroupHandle::DEFAULT_GROUP]),
+            render_groups: Vec::from_iter([EntityGroupHandle::DEFAULT_GROUP]),
             active_size: Vector2::new(
                 WorldCamera2D::DEFAULT_VERTICAL_CAMERA_FOV,
                 WorldCamera2D::DEFAULT_VERTICAL_CAMERA_FOV,
@@ -54,34 +54,34 @@ impl GroupManager {
         }
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (GroupHandle, &Group)> + Clone {
+    pub fn iter(&self) -> impl Iterator<Item = (EntityGroupHandle, &EntityGroup)> + Clone {
         return self
             .groups
             .iter_with_index()
-            .map(|(index, group)| (GroupHandle(index), group));
+            .map(|(index, group)| (EntityGroupHandle(index), group));
     }
 
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = (GroupHandle, &mut Group)> {
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (EntityGroupHandle, &mut EntityGroup)> {
         return self
             .groups
             .iter_mut_with_index()
-            .map(|(index, group)| (GroupHandle(index), group));
+            .map(|(index, group)| (EntityGroupHandle(index), group));
     }
 
-    pub fn contains(&self, handle: GroupHandle) -> bool {
+    pub fn contains(&self, handle: EntityGroupHandle) -> bool {
         self.groups.contains(handle.0)
     }
 
-    pub fn get(&self, handle: GroupHandle) -> Option<&Group> {
+    pub fn get(&self, handle: EntityGroupHandle) -> Option<&EntityGroup> {
         return self.groups.get(handle.0);
     }
 
-    pub fn get_mut(&mut self, handle: GroupHandle) -> Option<&mut Group> {
+    pub fn get_mut(&mut self, handle: EntityGroupHandle) -> Option<&mut EntityGroup> {
         return self.groups.get_mut(handle.0);
     }
 
-    pub fn add(&mut self, entities: &mut EntityManager, group: Group) -> GroupHandle {
-        let handle = GroupHandle(self.groups.insert(group));
+    pub fn add(&mut self, entities: &mut EntityManager, group: EntityGroup) -> EntityGroupHandle {
+        let handle = EntityGroupHandle(self.groups.insert(group));
         for mut ty in entities.types_mut() {
             ty.add_group();
         }
@@ -93,9 +93,9 @@ impl GroupManager {
         &mut self,
         entities: &mut EntityManager,
         world: &mut World,
-        handle: GroupHandle,
-    ) -> Option<Group> {
-        if handle == GroupHandle::DEFAULT_GROUP {
+        handle: EntityGroupHandle,
+    ) -> Option<EntityGroup> {
+        if handle == EntityGroupHandle::DEFAULT_GROUP {
             panic!("Cannot remove default group!");
         }
         let group = self.groups.remove(handle.0);
@@ -115,9 +115,9 @@ impl GroupManager {
         &mut self,
         entities: &mut EntityManager,
         world: &mut World,
-        handle: GroupHandle,
-    ) -> Option<(Group, FxHashMap<EntityTypeId, Box<dyn EntityType>>)> {
-        if handle == GroupHandle::DEFAULT_GROUP {
+        handle: EntityGroupHandle,
+    ) -> Option<(EntityGroup, FxHashMap<EntityTypeId, Box<dyn EntityType>>)> {
+        if handle == EntityGroupHandle::DEFAULT_GROUP {
             panic!("Cannot remove default group!");
         }
         let group = self.groups.remove(handle.0);
@@ -150,7 +150,7 @@ impl GroupManager {
         self.render_groups_changed = false;
         for (index, group) in self.groups.iter_mut_with_index() {
             if group.intersects_aabb(render_aabb) {
-                self.render_groups.push(GroupHandle(index));
+                self.render_groups.push(EntityGroupHandle(index));
                 let i = self.render_groups.len() - 1;
                 if self.render_groups[i]
                     != self.last_render_groups.get(i).cloned().unwrap_or_default()
@@ -161,7 +161,7 @@ impl GroupManager {
 
             if group.intersects_aabb(active_aabb) {
                 group.set_active(true, now);
-                self.active_groups.push(GroupHandle(index));
+                self.active_groups.push(EntityGroupHandle(index));
                 let i = self.active_groups.len() - 1;
                 if self.active_groups[i]
                     != self.last_active_groups.get(i).cloned().unwrap_or_default()
@@ -183,11 +183,11 @@ impl GroupManager {
         }
     }
 
-    pub fn render_groups(&self) -> &[GroupHandle] {
+    pub fn render_groups(&self) -> &[EntityGroupHandle] {
         &self.render_groups
     }
 
-    pub fn active_groups(&self) -> &[GroupHandle] {
+    pub fn active_groups(&self) -> &[EntityGroupHandle] {
         &self.active_groups
     }
 
@@ -199,7 +199,7 @@ impl GroupManager {
         self.active_groups_changed
     }
 
-    pub fn all_groups(&self) -> &[GroupHandle] {
+    pub fn all_groups(&self) -> &[EntityGroupHandle] {
         &self.all_groups
     }
 }
@@ -223,7 +223,7 @@ impl fmt::Display for GroupActivation {
 }
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone)]
-pub struct Group {
+pub struct EntityGroup {
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
     active: bool,
@@ -235,10 +235,10 @@ pub struct Group {
     pub user_data: u64,
 }
 
-impl Group {
-    pub fn new(activation: GroupActivation, user_data: u64, name: Option<&str>) -> Group {
-        Group {
-            name: name.unwrap_or("Group").into(),
+impl EntityGroup {
+    pub fn new(activation: GroupActivation, user_data: u64, name: Option<&str>) -> EntityGroup {
+        EntityGroup {
+            name: name.unwrap_or("EntityGroup").into(),
             activation,
             user_data,
             active: false,

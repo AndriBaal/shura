@@ -147,6 +147,7 @@ pub struct Input {
     cursor_raw: Point2<u32>,
     touches: FxHashMap<u64, Point2<u32>>,
     events: FxHashMap<InputTrigger, InputEvent>,
+    last_keys: Vec<Key>,
     modifiers: Modifier,
     wheel_delta: f32,
     window_size: Vector2<f32>,
@@ -168,6 +169,7 @@ impl Input {
             touches: Default::default(),
             events: Default::default(),
             modifiers: Default::default(),
+            last_keys: Default::default(),
             wheel_delta: 0.0,
             window_size: window_size.cast(),
             #[cfg(feature = "gamepad")]
@@ -223,6 +225,7 @@ impl Input {
                     let trigger = key.into();
                     match input.state {
                         ElementState::Pressed => {
+                            self.last_keys.push(key);
                             self.events
                                 .entry(trigger)
                                 .or_insert_with(|| InputEvent::new(trigger, 1.0));
@@ -266,12 +269,16 @@ impl Input {
 
     pub(crate) fn update(&mut self) {
         self.wheel_delta = 0.0;
-
+        self.last_keys.clear();
         self.events
             .retain(|_, event| event.state != InputEventState::JustReleased);
         for trigger in self.events.values_mut() {
             trigger.update();
         }
+    }
+
+    pub fn last_keys(&self) -> &Vec<Key> {
+        &self.last_keys
     }
 
     pub fn are_pressed(&self, trigger: &[impl Into<InputTrigger> + Copy]) -> bool {

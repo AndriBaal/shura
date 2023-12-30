@@ -1,24 +1,21 @@
-use crate::scene::{Scene, SceneCreator};
+use crate::{scene::Scene, entity::GlobalEntities};
 use rustc_hash::FxHashMap;
 use std::{cell::RefCell, rc::Rc};
 
 pub struct SceneManager {
     pub(crate) scenes: FxHashMap<u32, Rc<RefCell<Scene>>>,
-    pub(crate) remove: Vec<u32>,
-    pub(crate) add: Vec<Box<dyn SceneCreator>>,
+    next_active_scene_id: u32,
     active_scene_id: u32,
-    last_active: Option<u32>,
     scene_switched: bool,
 }
 
 impl SceneManager {
-    pub(crate) fn new(active_scene_id: u32, creator: impl SceneCreator + 'static) -> Self {
+    pub(crate) fn new(active_scene_id: u32, mut scene: Scene, globals: &GlobalEntities) -> Self {
+        scene.entities.apply_registered(globals);
         Self {
-            scenes: Default::default(),
-            remove: Default::default(),
-            add: vec![Box::new(creator)],
+            scenes: FxHashMap::from_iter([(active_scene_id, Rc::new(RefCell::new(scene)))]),
             active_scene_id,
-            last_active: None,
+            next_active_scene_id: active_scene_id,
             scene_switched: false,
         }
     }
@@ -34,8 +31,9 @@ impl SceneManager {
         }
     }
 
-    pub fn set_active_scene(&mut self, active_scene_id: u32) {
-        self.active_scene_id = active_scene_id;
+    pub fn set_next_active_scene(&mut self, next_active_scene_id: u32) {
+        assert!(self.scenes.contains_key(&next_active_scene_id));
+        self.next_active_scene_id = next_active_scene_id;
     }
 
     pub fn scene_ids(&self) -> impl Iterator<Item = &u32> {
@@ -46,6 +44,10 @@ impl SceneManager {
         self.active_scene_id
     }
 
+    pub const fn next_active_scene_id(&self) -> u32 {
+        self.next_active_scene_id
+    }
+
     pub fn exists(&self, id: u32) -> bool {
         self.scenes.contains_key(&id)
     }
@@ -54,28 +56,24 @@ impl SceneManager {
         self.scene_switched
     }
 
-    pub fn remove(&mut self, scene_id: u32) {
-        self.remove.push(scene_id)
+    pub(crate) fn remove(&mut self, scene_id: u32) -> Option<Scene> {
+        assert!(!scene_id != self.active_scene_id);
+        assert!(!scene_id != self.next_active_scene_id);
+        return self
+            .scenes
+            .remove(&scene_id)
+            .and_then(|a| Some(Rc::try_unwrap(a).ok().unwrap().into_inner()));
     }
 
-    pub fn add(&mut self, scene: impl SceneCreator + 'static) {
-        self.add.push(Box::new(scene))
+    pub(crate) fn get(&self, id: u32) -> Option<Rc<RefCell<Scene>>> {
+        return self.scenes.get(&id).cloned();
     }
 
-    // pub fn remove(&mut self, scene_id: u32) -> Option<Scene> {
-    //     assert!(
-    //         scene_id != self.active_scene_id,
-    //         "Cannot remove active scene!"
-    //     );
-    //     self.scenes.remove(&scene_id).and_then(|s| {
-    //         Some(
-    //             Rc::try_unwrap(s)
-    //                 .ok()
-    //                 .expect("Scene already in use!")
-    //                 .into_inner(),
-    //         )
-    //     })
-    // }
+    pub(crate) fn add(&mut self, id: u32, mut scene: Scene, globals: &GlobalEntities) {
+        scene.entities.apply_registered(globals);
+        assert!(!self.scenes.contains_key(&id));
+        self.scenes.insert(id, Rc::new(RefCell::new(scene)));
+    }
 
     pub(crate) fn get_active_scene(&mut self) -> Rc<RefCell<Scene>> {
         self.try_get_active_scene().unwrap_or_else(|| {
@@ -87,13 +85,9 @@ impl SceneManager {
     }
 
     pub(crate) fn try_get_active_scene(&mut self) -> Option<Rc<RefCell<Scene>>> {
-        if let Some(scene) = self.scenes.get(&self.active_scene_id) {
-            if let Some(last) = self.last_active {
-                self.scene_switched = last != self.active_scene_id;
-            } else {
-                self.scene_switched = true;
-            }
-            self.last_active = Some(self.active_scene_id);
+        if let Some(scene) = self.scenes.get(&self.next_active_scene_id) {
+            self.scene_switched = self.active_scene_id != self.next_active_scene_id;
+            self.active_scene_id = self.next_active_scene_id;
             Some(scene.clone())
         } else {
             None
