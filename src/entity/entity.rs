@@ -1,10 +1,11 @@
 use crate::{
-    component::ComponentCollection,
+    component::{ComponentCollection, Component},
     entity::{EntityHandle, RenderEntityIterator},
     graphics::ComponentBufferManager,
     physics::World,
 };
 use downcast_rs::{impl_downcast, Downcast};
+use egui_demo_lib::easy_mark::easy_mark_parser::Item;
 use std::fmt::{Display, Formatter, Result};
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
@@ -47,7 +48,7 @@ pub trait Entity: 'static + Downcast {
         Self: Sized;
     fn init(&mut self, handle: EntityHandle, world: &mut World);
     fn finish(&mut self, world: &mut World);
-    fn components_dyn<'a>(&'a self) -> Box<dyn Iterator<Item = &dyn ComponentCollection> + 'a>;
-    // fn component(&self) -> 
+    fn components_dyn<'a>(&'a self) -> Box<dyn Iterator<Item = (&'static str, &dyn ComponentCollection)> + 'a>;
+    fn components_dyn_mut<'a>(&'a self) -> Box<dyn Iterator<Item = (&'static str, &dyn ComponentCollection)> + 'a>;
 }
 impl_downcast!(Entity);

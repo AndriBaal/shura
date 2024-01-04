@@ -165,8 +165,8 @@ impl<'a> Context<'a> {
             for mut ty in self.entities.types_mut() {
                 if !ser_entities.contains_key(&ty.entity_type_id()) {
                     for (_, entity) in ty.iter_dyn() {
-                        for collection in entity.components_dyn() {
-                            for component in collection.iter_dyn() {
+                        for (_, collection) in entity.components_dyn() {
+                            for component in collection.iter_components_dyn() {
                                 world_cpy.remove_no_maintain(component);
                             }
                         }

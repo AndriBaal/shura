@@ -17,8 +17,8 @@ pub trait ComponentCollection: Downcast {
         Self: Sized;
     fn init_all(&mut self, handle: EntityHandle, world: &mut World);
     fn finish_all(&mut self, world: &mut World);
-    // fn iter(&self) -> impl Iterator<Item=&dyn Component> where Self: Sized;
-    fn iter_dyn<'a>(&'a self) -> Box<dyn Iterator<Item = &dyn Component> + 'a>;
+    fn iter_components_dyn<'a>(&'a self) -> Box<dyn Iterator<Item = &dyn Component> + 'a>;
+    // fn iter_components<'a>(&'a self) -> impl Iterator<Item = &Self::Component> + 'a where Self: Sized;
 }
 impl_downcast!(ComponentCollection);
 
@@ -57,8 +57,12 @@ impl<C: Component> ComponentCollection for C {
         self.finish(world)
     }
 
-    fn iter_dyn<'a>(&'a self) -> Box<dyn Iterator<Item = &dyn Component> + 'a> {
+    fn iter_components_dyn<'a>(&'a self) -> Box<dyn Iterator<Item = &dyn Component> + 'a> {
         Box::new(std::iter::once(self as _))
+    }
+
+    fn iter_components<'a>(&'a self) -> impl Iterator<Item = &Self::Component> + 'a where Self: Sized {
+        std::iter::once(self)
     }
 }
 
@@ -89,8 +93,12 @@ macro_rules! impl_collection {
                 }
             }
 
-            fn iter_dyn<'a>(&'a self) -> Box<dyn Iterator<Item = &dyn Component> + 'a> {
+            fn iter_components_dyn<'a>(&'a self) -> Box<dyn Iterator<Item = &dyn Component> + 'a> {
                 Box::new(self.iter().map(|c| c as _))
+            }
+
+            fn iter_components<'a>(&'a self) -> impl Iterator<Item = &Self::Component> + 'a where Self: Sized {
+                self.iter()
             }
         }
     };
@@ -123,8 +131,12 @@ macro_rules! impl_collection_map {
                 }
             }
 
-            fn iter_dyn<'a>(&'a self) -> Box<dyn Iterator<Item = &dyn Component> + 'a> {
+            fn iter_components_dyn<'a>(&'a self) -> Box<dyn Iterator<Item = &dyn Component> + 'a> {
                 Box::new(self.values().map(|c| c as _))
+            }
+
+            fn iter_components<'a>(&'a self) -> impl Iterator<Item = &Self::Component> + 'a where Self: Sized {
+                self.values()
             }
         }
     };
