@@ -1,11 +1,10 @@
 use crate::{
-    component::{ComponentCollection, Component},
+    component::ComponentCollection,
     entity::{EntityHandle, RenderEntityIterator},
     graphics::ComponentBufferManager,
     physics::World,
 };
 use downcast_rs::{impl_downcast, Downcast};
-use egui_demo_lib::easy_mark::easy_mark_parser::Item;
 use std::fmt::{Display, Formatter, Result};
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
@@ -56,14 +55,22 @@ pub trait Entity: 'static + Downcast {
             component_collection.finish_all(world);
         }
     }
-    fn named_components() -> &'static [&'static str] where Self: Sized;
+    fn named_components() -> &'static [&'static str]
+    where
+        Self: Sized;
     fn component_collections<'a>(
         &'a self,
     ) -> Box<dyn Iterator<Item = (Option<&'static str>, &dyn ComponentCollection)> + 'a>;
     fn component_collections_mut<'a>(
         &'a mut self,
     ) -> Box<dyn Iterator<Item = (Option<&'static str>, &mut dyn ComponentCollection)> + 'a>;
-    fn component_collection<'a>(&'a self, name: &'static str) -> Option<&'a dyn ComponentCollection>;
-    fn component_collection_mut<'a>(&'a mut self, name: &'static str) -> Option<&'a mut dyn ComponentCollection>;
+    fn component_collection<'a>(
+        &'a self,
+        name: &'static str,
+    ) -> Option<&'a dyn ComponentCollection>;
+    fn component_collection_mut<'a>(
+        &'a mut self,
+        name: &'static str,
+    ) -> Option<&'a mut dyn ComponentCollection>;
 }
 impl_downcast!(Entity);
