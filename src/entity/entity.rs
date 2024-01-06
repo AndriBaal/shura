@@ -1,10 +1,11 @@
 use crate::{
-    component::ComponentCollection,
+    component::{ComponentCollection, Component},
     entity::{EntityHandle, RenderEntityIterator},
     graphics::ComponentBufferManager,
     physics::World,
 };
 use downcast_rs::{impl_downcast, Downcast};
+use egui_demo_lib::easy_mark::easy_mark_parser::Item;
 use std::fmt::{Display, Formatter, Result};
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
