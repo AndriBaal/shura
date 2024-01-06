@@ -147,9 +147,52 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
     drop(hashes); // Free the mutex lock
 
     let components = components(&data_struct, "component");
-    let names_init = components.iter().map(|&(ref first, ..)| first);
-    let names_components = names_init.clone();
-    let names_finish = names_init.clone();
+    let component_names = components
+        .iter()
+        .filter_map(|&(_, ref name, ..)| name.clone());
+
+    let component_collections = components.iter().map(|(field_name, component_name, ..)| {
+        if let Some(component_name) = component_name {
+            quote! {
+                (Some(#component_name), &self.#field_name as _)
+            }
+        } else {
+            quote! {
+                (None, &self.#field_name as _)
+            }
+        }
+    });
+
+    let component_collections_mut = components.iter().map(|(field_name, component_name, ..)| {
+        if let Some(component_name) = component_name {
+            quote! {
+                (Some(#component_name), &mut self.#field_name as _)
+            }
+        } else {
+            quote! {
+                (None, &mut self.#field_name as _)
+            }
+        }
+    });
+
+    let component_collection = components.iter().filter_map(|(field_name, component_name, ..)| {
+        if let Some(component_name) = component_name {
+            return Some(quote! {
+                #component_name => Some(&self.#field_name as _)
+            })
+        }
+        return None;
+    });
+
+
+    let component_collection_mut = components.iter().filter_map(|(field_name, component_name, ..)| {
+        if let Some(component_name) = component_name {
+            return Some(quote! {
+                #component_name => Some(&mut self.#field_name as _)
+            })
+        }
+        return None;
+    });
 
     let buffer = components
         .iter()
@@ -187,18 +230,34 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
                 #( #buffer )*
             }
 
-            fn components_dyn<'a>(&'a self) -> Box<dyn Iterator<Item=&dyn ::shura::component::ComponentCollection> + 'a> {
-                Box::new([ #( &self.#names_components as _, )* ].into_iter())
+            fn named_components() -> &'static [&'static str] where Self: Sized{
+                return &[ #( #component_names)*];
             }
 
-            fn init(&mut self, handle: ::shura::entity::EntityHandle, world: &mut ::shura::physics::World) {
-                use shura::component::ComponentCollection;
-                #( self.#names_init.init_all(handle, world); )*
+            fn component_collections<'a>(
+                &'a self,
+            ) -> Box<dyn Iterator<Item = (Option<&'static str>, &dyn shura::component::ComponentCollection)> + 'a>{
+                Box::new([ #( #component_collections, )* ].into_iter())
             }
 
-            fn finish(&mut self, world: &mut ::shura::physics::World) {
-                use shura::component::ComponentCollection;
-                #( self.#names_finish.finish_all(world); )*
+            fn component_collections_mut<'a>(
+                &'a mut self,
+            ) -> Box<dyn Iterator<Item = (Option<&'static str>, &mut dyn shura::component::ComponentCollection)> + 'a>{
+                Box::new([ #( #component_collections_mut, )* ].into_iter())
+            }
+
+            fn component_collection<'a>(&'a self, name: &'static str) -> Option<&'a dyn shura::component::ComponentCollection>{
+                match name {
+                    #( #component_collection, )*
+                    _ => None
+                }
+            }
+
+            fn component_collection_mut<'a>(&'a mut self, name: &'static str) -> Option<&'a mut dyn shura::component::ComponentCollection> {
+                match name {
+                    #( #component_collection_mut, )*
+                    _ => None
+                }
             }
         }
     )
@@ -214,7 +273,8 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     };
 
     let struct_name = ast.ident.clone();
-    let (inner_field, inner_type) = inner_component(&data_struct, "inner").expect("Cannot find inner component. Define it with #[shura(inner)]");
+    let (inner_field, inner_type) = inner_component(&data_struct, "inner")
+        .expect("Cannot find inner component. Define it with #[shura(inner)]");
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
     return quote!(
         impl #impl_generics ::shura::component::Component for #struct_name #ty_generics #where_clause {

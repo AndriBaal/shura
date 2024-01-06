@@ -45,9 +45,24 @@ pub trait Entity: 'static + Downcast {
         world: &World,
     ) where
         Self: Sized;
-    fn init(&mut self, handle: EntityHandle, world: &mut World);
-    fn finish(&mut self, world: &mut World);
-    fn components_dyn<'a>(&'a self) -> Box<dyn Iterator<Item = &dyn ComponentCollection> + 'a>;
-    // fn component(&self) -> 
+    fn init(&mut self, handle: EntityHandle, world: &mut World) {
+        for (_, component_collection) in self.component_collections_mut() {
+            component_collection.init_all(handle, world);
+        }
+    }
+    fn finish(&mut self, world: &mut World) {
+        for (_, component_collection) in self.component_collections_mut() {
+            component_collection.finish_all(world);
+        }
+    }
+    fn named_components() -> &'static [&'static str] where Self: Sized;
+    fn component_collections<'a>(
+        &'a self,
+    ) -> Box<dyn Iterator<Item = (Option<&'static str>, &dyn ComponentCollection)> + 'a>;
+    fn component_collections_mut<'a>(
+        &'a mut self,
+    ) -> Box<dyn Iterator<Item = (Option<&'static str>, &mut dyn ComponentCollection)> + 'a>;
+    fn component_collection<'a>(&'a self, name: &'static str) -> Option<&'a dyn ComponentCollection>;
+    fn component_collection_mut<'a>(&'a mut self, name: &'static str) -> Option<&'a mut dyn ComponentCollection>;
 }
 impl_downcast!(Entity);

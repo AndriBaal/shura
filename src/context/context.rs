@@ -162,11 +162,11 @@ impl<'a> Context<'a> {
         {
             let ser_entities = serializer.finish();
             let mut world_cpy = self.world.clone();
-            for mut ty in self.entities.types_mut() {
+            for ty in self.entities.types() {
                 if !ser_entities.contains_key(&ty.entity_type_id()) {
-                    for (_, entity) in ty.iter_dyn() {
-                        for collection in entity.components_dyn() {
-                            for component in collection.iter_dyn() {
+                    for (_, entity) in ty.entities() {
+                        for (_, collection) in entity.component_collections() {
+                            for component in collection.components() {
                                 world_cpy.remove_no_maintain(component);
                             }
                         }

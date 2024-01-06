@@ -2,7 +2,7 @@ use std::cell::Ref;
 
 use crate::{
     entity::{
-        Entities, EntityIdentifier, EntityManager, EntityType, GroupedEntities, SingleEntity,
+        Entities, EntityIdentifier, EntityManager, EntityType, GroupedEntities, SingleEntity, EntityTypeId,
     },
     graphics::{
         CameraBuffer, CameraBuffer2D, ComponentBufferManager, DefaultResources, Instance,
@@ -52,8 +52,8 @@ impl<'a> RenderContext<'a> {
         )
     }
 
-    pub fn type_raw<E: EntityIdentifier>(&self) -> Ref<dyn EntityType> {
-        self.entities.type_raw_ref::<E>()
+    pub fn type_raw(&self, type_id: EntityTypeId) -> Ref<dyn EntityType> {
+        self.entities.type_raw_ref(type_id)
     }
 
     pub fn single<E: EntityIdentifier>(&self) -> Ref<SingleEntity<E>> {
