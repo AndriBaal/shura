@@ -231,7 +231,7 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
             }
 
             fn named_components() -> &'static [&'static str] where Self: Sized{
-                return &[ #( #component_names)*];
+                return &[ #( #component_names, )*];
             }
 
             fn component_collections<'a>(

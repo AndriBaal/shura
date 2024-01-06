@@ -4,12 +4,13 @@ use std::sync::Arc;
 use crate::gui::Gui;
 use crate::{
     context::{Context, RenderContext},
+    entity::GlobalEntities,
     graphics::{DefaultResources, Gpu, GpuConfig, RenderEncoder, GLOBAL_GPU},
     input::Input,
     math::Vector2,
     scene::{Scene, SceneManager},
     system::{EndReason, UpdateOperation},
-    time::FrameManager, entity::GlobalEntities,
+    time::FrameManager,
 };
 #[cfg(feature = "log")]
 use crate::{
@@ -378,19 +379,20 @@ impl App {
         if self.resized {
             #[cfg(feature = "framebuffer")]
             let scale = scene.screen_config.render_scale();
-            #[cfg(feature = "framebuffer")]
-            let render_size = {
-                let render_size = self.gpu.render_size();
-                Vector2::new(
-                    (render_size.x as f32 * scale) as u32,
-                    (render_size.y as f32 * scale) as u32,
-                )
-            };
 
             #[cfg(feature = "log")]
             {
                 #[cfg(not(feature = "framebuffer"))]
                 let render_size = self.gpu.render_size();
+
+                #[cfg(feature = "framebuffer")]
+                let render_size = {
+                    let render_size = self.gpu.render_size();
+                    Vector2::new(
+                        (render_size.x as f32 * scale) as u32,
+                        (render_size.y as f32 * scale) as u32,
+                    )
+                };
 
                 if self.scenes.switched() {
                     info!("Switched to scene {}!", scene_id);
