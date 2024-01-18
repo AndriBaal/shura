@@ -4,7 +4,7 @@ use shura::prelude::*;
 fn shura_main(config: AppConfig) {
     App::run(config, || {
         NewScene::new(1)
-            .component2d("bunny", BufferConfig::default())
+            .component2d("bunny", RenderGroupConfig::default())
             .entities::<Bunny>(EntityScope::Global)
             .single_entity::<Resources>(EntityScope::Scene)
             .system(System::Update(update))
@@ -72,7 +72,7 @@ fn update(ctx: &mut Context) {
 
     let frame = ctx.frame.delta_time();
     let fov = ctx.world_camera2d.fov();
-    let buffer = ctx.component_buffers.get_mut("bunny").unwrap();
+    let buffer = ctx.render_groups.get_mut("bunny").unwrap();
     buffer.set_update_buffer(true);
     buffer.par_extend(bunnies.par_iter_mut().map(|bunny| {
         let mut linvel = bunny.linvel;

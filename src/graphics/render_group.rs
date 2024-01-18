@@ -12,28 +12,28 @@ use rayon::prelude::*;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct BufferConfig {
+pub struct RenderGroupConfig {
     pub call: BufferCall,
     pub init: bool,
     // pub mapped: bool,
     pub buffer_on_group_change: bool,
 }
 
-impl BufferConfig {
-    pub const MANUAL: BufferConfig = BufferConfig {
+impl RenderGroupConfig {
+    pub const MANUAL: RenderGroupConfig = RenderGroupConfig {
         call: BufferCall::Manual,
         init: true,
         buffer_on_group_change: false,
     };
 
-    pub const EVERY_FRAME: BufferConfig = BufferConfig {
+    pub const EVERY_FRAME: RenderGroupConfig = RenderGroupConfig {
         call: BufferCall::EveryFrame,
         init: true,
         buffer_on_group_change: true,
     };
 }
 
-impl Default for BufferConfig {
+impl Default for RenderGroupConfig {
     fn default() -> Self {
         Self {
             call: BufferCall::EveryFrame,
@@ -51,24 +51,24 @@ pub enum BufferCall {
     EveryFrame,
 }
 
-pub trait ComponentBufferImpl: Downcast {
+pub trait RenderGroupImpl: Downcast {
     fn apply(&mut self, groups: &EntityGroupManager, gpu: &Gpu);
     fn deinit(&mut self);
     fn update_buffer(&self) -> bool;
     fn set_update_buffer(&mut self, update_buffer: bool);
 }
-impl_downcast!(ComponentBufferImpl);
+impl_downcast!(RenderGroupImpl);
 
-pub struct ComponentBuffer<I: Instance> {
+pub struct RenderGroup<I: Instance> {
     buffer: Option<InstanceBuffer<I>>,
-    config: BufferConfig,
+    config: RenderGroupConfig,
     data: Vec<I>,
     update_buffer: bool,
 }
 
-impl<I: Instance> ComponentBuffer<I> {
+impl<I: Instance> RenderGroup<I> {
     const ALLOC: u64 = 16;
-    pub(crate) fn new(gpu: &Gpu, config: BufferConfig) -> Self {
+    pub(crate) fn new(gpu: &Gpu, config: RenderGroupConfig) -> Self {
         Self {
             buffer: if config.init {
                 Some(InstanceBuffer::<I>::empty(gpu, Self::ALLOC))
@@ -95,13 +95,13 @@ impl<I: Instance> ComponentBuffer<I> {
 }
 
 #[cfg(feature = "rayon")]
-impl<I: Instance + Send + Sync> ComponentBuffer<I> {
+impl<I: Instance + Send + Sync> RenderGroup<I> {
     pub fn par_extend(&mut self, instances: impl ParallelIterator<Item = I>) {
         self.data.par_extend(instances);
     }
 }
 
-impl<I: Instance> ComponentBufferImpl for ComponentBuffer<I> {
+impl<I: Instance> RenderGroupImpl for RenderGroup<I> {
     fn apply(&mut self, groups: &EntityGroupManager, gpu: &Gpu) {
         if self.update_buffer
             || (groups.render_groups_changed() && self.config.buffer_on_group_change)
@@ -130,11 +130,11 @@ impl<I: Instance> ComponentBufferImpl for ComponentBuffer<I> {
     }
 }
 
-pub struct ComponentBufferManager {
-    buffers: FxHashMap<&'static str, Box<dyn ComponentBufferImpl>>,
+pub struct RenderGroupManager {
+    buffers: FxHashMap<&'static str, Box<dyn RenderGroupImpl>>,
 }
 
-impl ComponentBufferManager {
+impl RenderGroupManager {
     pub(crate) fn new() -> Self {
         Self {
             buffers: Default::default(),
@@ -144,7 +144,7 @@ impl ComponentBufferManager {
     pub(crate) fn register_component<I: Instance>(
         &mut self,
         name: &'static str,
-        config: BufferConfig,
+        config: RenderGroupConfig,
     ) {
         if self.buffers.contains_key(name) {
             panic!("Component {} already defined!", name);
@@ -152,7 +152,7 @@ impl ComponentBufferManager {
 
         self.buffers.insert(
             name,
-            Box::new(ComponentBuffer::<I>::new(GLOBAL_GPU.get().unwrap(), config)),
+            Box::new(RenderGroup::<I>::new(GLOBAL_GPU.get().unwrap(), config)),
         );
     }
 
@@ -162,23 +162,23 @@ impl ComponentBufferManager {
         }
     }
 
-    pub fn get<I: Instance>(&self, name: &'static str) -> Option<&ComponentBuffer<I>> {
+    pub fn get<I: Instance>(&self, name: &'static str) -> Option<&RenderGroup<I>> {
         self.buffers
             .get(name)
-            .and_then(|b| b.downcast_ref::<ComponentBuffer<I>>())
+            .and_then(|b| b.downcast_ref::<RenderGroup<I>>())
     }
 
-    pub fn get_mut<I: Instance>(&mut self, name: &'static str) -> Option<&mut ComponentBuffer<I>> {
+    pub fn get_mut<I: Instance>(&mut self, name: &'static str) -> Option<&mut RenderGroup<I>> {
         self.buffers
             .get_mut(name)
-            .and_then(|b| b.downcast_mut::<ComponentBuffer<I>>())
+            .and_then(|b| b.downcast_mut::<RenderGroup<I>>())
     }
 
-    pub fn iter(&self) -> Iter<'_, &str, Box<dyn ComponentBufferImpl>> {
+    pub fn iter(&self) -> Iter<'_, &str, Box<dyn RenderGroupImpl>> {
         return self.buffers.iter();
     }
 
-    pub fn iter_mut(&mut self) -> IterMut<'_, &str, Box<dyn ComponentBufferImpl>> {
+    pub fn iter_mut(&mut self) -> IterMut<'_, &str, Box<dyn RenderGroupImpl>> {
         return self.buffers.iter_mut();
     }
 }

@@ -11,10 +11,10 @@ const AMOUNT_BIRDS: u32 = 1000;
 fn shura_main(config: AppConfig) {
     App::run(config, || {
         NewScene::new(1)
-            .component2d("ground", BufferConfig::MANUAL)
-            .component2d("background", BufferConfig::MANUAL)
-            .component2d("pipe", BufferConfig::EVERY_FRAME)
-            .component2d("bird", BufferConfig::EVERY_FRAME)
+            .component2d("ground", RenderGroupConfig::MANUAL)
+            .component2d("background", RenderGroupConfig::MANUAL)
+            .component2d("pipe", RenderGroupConfig::EVERY_FRAME)
+            .component2d("bird", RenderGroupConfig::EVERY_FRAME)
             .single_entity::<Background>(Default::default())
             .single_entity::<Ground>(Default::default())
             .single_entity::<BirdSimulation>(Default::default())

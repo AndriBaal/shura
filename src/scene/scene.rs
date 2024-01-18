@@ -4,8 +4,8 @@ use crate::{
         GroupedEntities, SingleEntity,
     },
     graphics::{
-        BufferConfig, CameraViewSelection, ComponentBufferManager, Instance, Instance2D,
-        PerspectiveCamera3D, ScreenConfig, WorldCamera2D, WorldCamera3D, WorldCameraScaling,
+        CameraViewSelection, Instance, Instance2D, PerspectiveCamera3D, RenderGroupConfig,
+        RenderGroupManager, ScreenConfig, WorldCamera2D, WorldCamera3D, WorldCameraScaling,
     },
     math::Vector2,
     physics::World,
@@ -28,8 +28,8 @@ pub struct Scene {
     #[cfg_attr(feature = "serde", serde(default = "SystemManager::new"))]
     pub(crate) systems: SystemManager,
     #[cfg_attr(feature = "serde", serde(skip))]
-    #[cfg_attr(feature = "serde", serde(default = "ComponentBufferManager::new"))]
-    pub(crate) component_buffers: ComponentBufferManager,
+    #[cfg_attr(feature = "serde", serde(default = "RenderGroupManager::new"))]
+    pub(crate) render_groups: RenderGroupManager,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default = "TaskManager::new"))]
     pub(crate) tasks: TaskManager,
@@ -48,7 +48,7 @@ impl Scene {
             render_entities: true,
             world: World::new(),
             tasks: TaskManager::new(),
-            component_buffers: ComponentBufferManager::new(),
+            render_groups: RenderGroupManager::new(),
             world_camera3d: WorldCamera3D::new(
                 window_size,
                 CameraViewSelection::PerspectiveCamera3D(PerspectiveCamera3D::default()),
@@ -62,18 +62,22 @@ impl Scene {
         }
     }
 
-    pub fn component<I: Instance>(mut self, name: &'static str, config: BufferConfig) -> Self
+    pub fn render_group<I: Instance>(
+        mut self,
+        name: &'static str,
+        config: RenderGroupConfig,
+    ) -> Self
     where
         Self: Sized,
     {
-        self.component_buffers.register_component::<I>(name, config);
+        self.render_groups.register_component::<I>(name, config);
         self
     }
-    pub fn component2d(self, name: &'static str, config: BufferConfig) -> Self
+    pub fn render_group2d(self, name: &'static str, config: RenderGroupConfig) -> Self
     where
         Self: Sized,
     {
-        self.component::<Instance2D>(name, config)
+        self.render_group::<Instance2D>(name, config)
     }
 
     pub fn single_entity<E: EntityIdentifier>(self, scope: EntityScope) -> Self

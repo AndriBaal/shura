@@ -4,7 +4,7 @@ use shura::prelude::*;
 fn shura_main(config: AppConfig) {
     App::run(config, || {
         Scene::new()
-            .component2d("bunny", BufferConfig::default())
+            .render_group2d("bunny", RenderGroupConfig::default())
             .entities::<Bunny>(EntityScope::Global)
             .single_entity::<Resources>(EntityScope::Scene)
             .system(System::Update(update))
@@ -124,6 +124,7 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
     if let Some(screenshot) = &resources.screenshot {
         encoder.copy_target(encoder.defaults.default_target(), screenshot)
     }
+
 }
 
 #[derive(Entity)]

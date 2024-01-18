@@ -2,11 +2,12 @@ use std::cell::Ref;
 
 use crate::{
     entity::{
-        Entities, EntityIdentifier, EntityManager, EntityType, GroupedEntities, SingleEntity, EntityTypeId,
+        Entities, EntityIdentifier, EntityManager, EntityType, EntityTypeId, GroupedEntities,
+        SingleEntity,
     },
     graphics::{
-        CameraBuffer, CameraBuffer2D, ComponentBufferManager, DefaultResources, Instance,
-        Instance2D, InstanceBuffer, InstanceIndices, Mesh2D, Renderer, WorldCamera3D,
+        CameraBuffer, CameraBuffer2D, DefaultResources, Instance, Instance2D, InstanceBuffer,
+        InstanceIndices, Mesh2D, RenderGroupManager, Renderer, WorldCamera3D,
     },
     prelude::Scene,
     system::SystemManager,
@@ -14,7 +15,7 @@ use crate::{
 
 pub struct RenderContext<'a> {
     entities: &'a EntityManager,
-    pub component_buffers: &'a ComponentBufferManager,
+    pub render_groups: &'a RenderGroupManager,
 
     pub world_camera2d: &'a CameraBuffer2D,
     pub world_camera3d: &'a CameraBuffer<WorldCamera3D>,
@@ -37,7 +38,7 @@ impl<'a> RenderContext<'a> {
             &scene.systems,
             Self {
                 entities: &scene.entities,
-                component_buffers: &scene.component_buffers,
+                render_groups: &scene.render_groups,
                 relative_camera: &defaults.relative_camera.0,
                 relative_bottom_left_camera: &defaults.relative_bottom_left_camera.0,
                 relative_bottom_right_camera: &defaults.relative_bottom_right_camera.0,
@@ -75,7 +76,7 @@ impl<'a> RenderContext<'a> {
         all: impl Fn(&mut Renderer<'a>, &'a InstanceBuffer<I>, InstanceIndices),
     ) {
         let buffer = self
-            .component_buffers
+            .render_groups
             .get::<I>(name)
             .unwrap_or_else(|| panic!("Component {name} is not registered!"))
             .buffer();

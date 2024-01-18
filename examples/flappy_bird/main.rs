@@ -7,7 +7,7 @@ fn shura_main(config: AppConfig) {
     App::run(config, || {
         NewScene::new(1)
             .component::<Background>(ComponentConfig {
-                buffer: BufferConfig::Manual,
+                buffer: RenderGroupConfig::Manual,
                 storage: ComponentStorage::Single,
                 ..ComponentConfig::DEFAULT
             })

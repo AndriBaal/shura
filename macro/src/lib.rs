@@ -1,6 +1,7 @@
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, TokenStream as TokenStream2};
 use quote::{quote, ToTokens};
+use std::collections::HashMap;
 use std::sync::Mutex;
 use std::{collections::HashSet, sync::OnceLock};
 use syn::{
@@ -9,9 +10,8 @@ use syn::{
 };
 
 const IDENT_NAME: &'static str = "shura";
-const ALLOWED_ATTRIBUTES: &'static [&'static str] = &["component", "inner"];
 
-fn inner_component(data_struct: &DataStruct, attr_name: &str) -> Option<(Ident, TypePath)> {
+fn inner_component(data_struct: &DataStruct) -> Option<(Ident, TypePath)> {
     let mut inner = None;
     match &data_struct.fields {
         Fields::Named(fields_named) => {
@@ -19,11 +19,7 @@ fn inner_component(data_struct: &DataStruct, attr_name: &str) -> Option<(Ident, 
                 for attr in &field.attrs {
                     if attr.path().is_ident(IDENT_NAME) {
                         attr.parse_nested_meta(|meta| {
-                            ALLOWED_ATTRIBUTES
-                                .iter()
-                                .find(|a| meta.path.is_ident(a))
-                                .expect("Unexpected attribute!");
-                            if meta.path.is_ident(attr_name) {
+                            if meta.path.is_ident("inner") {
                                 match &field.ty {
                                     Type::Path(type_name) => {
                                         let field_name = field
@@ -51,39 +47,51 @@ fn inner_component(data_struct: &DataStruct, attr_name: &str) -> Option<(Ident, 
     return inner;
 }
 
-fn components(data_struct: &DataStruct, attr_name: &str) -> Vec<(Ident, Option<LitStr>, TypePath)> {
-    let mut components = Vec::new();
+type RenderGroups = HashMap<String, (LitStr, TypePath, Vec<Ident>)>;
+type AllComponents = HashSet<Ident>;
+type NamedComponents = HashMap<String, (LitStr, Vec<Ident>)>;
+
+fn component_data(data_struct: &DataStruct) -> (RenderGroups, AllComponents, NamedComponents) {
+    let mut all_components: AllComponents = Default::default();
+    let mut named_components: NamedComponents = Default::default();
+    let mut render_groups: RenderGroups = Default::default();
     match &data_struct.fields {
         Fields::Named(fields_named) => {
             for field in fields_named.named.iter() {
                 for attr in &field.attrs {
                     if attr.path().is_ident(IDENT_NAME) {
                         attr.parse_nested_meta(|meta| {
-                            ALLOWED_ATTRIBUTES
-                                .iter()
-                                .find(|a| meta.path.is_ident(a))
-                                .expect("Unexpected attribute!");
-                            if meta.path.is_ident(attr_name) {
-                                match &field.ty {
-                                    Type::Path(type_name) => {
-                                        let field_name = field
-                                            .ident
-                                            .as_ref()
-                                            .expect("Entity fields must be named!");
-                                        let component_name = if let Ok(value) = meta.value() {
-                                            value.parse().ok()
-                                        } else {
-                                            None
-                                        };
-                                        components.push((
-                                            field_name.clone(),
-                                            component_name,
-                                            type_name.clone(),
-                                        ));
+                            let field_name =
+                                field.ident.as_ref().expect("Struct fields must be named!");
+                            match &field.ty {
+                                Type::Path(type_name) => {
+                                    if meta.path.is_ident("component") {
+                                        all_components.insert(field_name.clone());
+                                        if let Ok(value) = meta.value() {
+                                            if let Some(name) = value.parse::<LitStr>().ok() {
+                                                render_groups
+                                                    .entry(name.value())
+                                                    .or_insert_with(|| {
+                                                        (name, type_name.clone(), Vec::default())
+                                                    })
+                                                    .2
+                                                    .push(field_name.clone());
+                                            }
+                                        }
+                                    } else if meta.path.is_ident("tag") {
+                                        if let Ok(value) = meta.value() {
+                                            if let Some(name) = value.parse::<LitStr>().ok() {
+                                                named_components
+                                                    .entry(name.value())
+                                                    .or_insert_with(|| (name, Vec::default()))
+                                                    .1
+                                                    .push(field_name.clone());
+                                            }
+                                        }
                                     }
-                                    _ => panic!("Cannot extract the type of the entity!"),
-                                };
-                            }
+                                }
+                                _ => panic!("Cannot extract the type of the entity!"),
+                            };
                             Ok(())
                         })
                         .expect(
@@ -95,10 +103,10 @@ fn components(data_struct: &DataStruct, attr_name: &str) -> Vec<(Ident, Option<L
         }
         _ => (),
     };
-    return components;
+    return (render_groups, all_components, named_components);
 }
 
-fn struct_attribute_name_value(ast: &DeriveInput, attr_name: &str) -> Option<Expr> {
+fn entity_name(ast: &DeriveInput, attr_name: &str) -> Option<Expr> {
     let mut result: Option<Expr> = None;
     for attr in &ast.attrs {
         if attr.path().is_ident(IDENT_NAME) {
@@ -131,8 +139,7 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
 
     let struct_name = ast.ident.clone();
     let struct_name_str = struct_name.to_string();
-    let struct_identifier =
-        struct_attribute_name_value(&ast, "name").unwrap_or(parse_quote!(#struct_name_str));
+    let struct_identifier = entity_name(&ast, "name").unwrap_or(parse_quote!(#struct_name_str));
     let struct_identifier_str = struct_identifier.to_token_stream().to_string();
     let mut hashes = USED_COMPONENT_HASHES
         .get_or_init(|| Mutex::new(HashSet::new()))
@@ -146,69 +153,35 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
     hashes.insert(hash);
     drop(hashes); // Free the mutex lock
 
-    let components = components(&data_struct, "component");
-    let component_names = components
+    let (render_groups, components, named_components) = component_data(&data_struct);
+    let names = named_components.iter().map(|(_, (name, _))| name);
+
+    let component_collection = named_components.iter().map(|(_, (name_lit, field_name))| {
+        return quote! {
+            #name_lit => Some( Box::new([#( &self.#field_name as _), *].into_iter()) )
+        };
+    });
+
+    let component_collection_mut = named_components.iter().map(|(_, (name_lit, field_name))| {
+        return quote! {
+            #name_lit => Some( Box::new([#( &mut self.#field_name as _), *].into_iter()) )
+        };
+    });
+
+    let buffer = render_groups
         .iter()
-        .filter_map(|&(_, ref name, ..)| name.clone());
-
-    let component_collections = components.iter().map(|(field_name, component_name, ..)| {
-        if let Some(component_name) = component_name {
+        .map(|(_, (group_name, type_name, field_names))| {
             quote! {
-                (Some(#component_name), &self.#field_name as _)
-            }
-        } else {
-            quote! {
-                (None, &self.#field_name as _)
-            }
-        }
-    });
-
-    let component_collections_mut = components.iter().map(|(field_name, component_name, ..)| {
-        if let Some(component_name) = component_name {
-            quote! {
-                (Some(#component_name), &mut self.#field_name as _)
-            }
-        } else {
-            quote! {
-                (None, &mut self.#field_name as _)
-            }
-        }
-    });
-
-    let component_collection = components.iter().filter_map(|(field_name, component_name, ..)| {
-        if let Some(component_name) = component_name {
-            return Some(quote! {
-                #component_name => Some(&self.#field_name as _)
-            })
-        }
-        return None;
-    });
-
-
-    let component_collection_mut = components.iter().filter_map(|(field_name, component_name, ..)| {
-        if let Some(component_name) = component_name {
-            return Some(quote! {
-                #component_name => Some(&mut self.#field_name as _)
-            })
-        }
-        return None;
-    });
-
-    let buffer = components
-        .iter()
-        .map(|(field_name, component_name, component_type)| {
-            if let Some(component_name) = component_name {
-                quote! {
-                    if let Some(buffer) = buffers.get_mut::<<<#component_type as shura::component::ComponentCollection>::Component as shura::component::Component>::Instance>(#component_name) {
-                        for e in entities.clone() {
-                            e.#field_name.buffer_all(world, buffer);
-                        }
-                    }
+                let buffer = buffers.get_mut::<<<#type_name as shura::component::ComponentCollection>::Component as shura::component::Component>::Instance>(#group_name).expect("Cannot find RenderGroup #group_name!");
+                for e in entities.clone() {
+                    #( e.#field_names.buffer_all(world, buffer); ) *
                 }
-            } else {
-                quote!()
             }
+                
         });
+
+    let components_iter = components.iter();
+    let components_iter2 = components.iter();
 
     return quote!(
         impl #impl_generics ::shura::entity::EntityIdentifier for #struct_name #ty_generics #where_clause {
@@ -223,7 +196,7 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
         impl #impl_generics ::shura::entity::Entity for #struct_name #ty_generics #where_clause {
             fn buffer<'a>(
                 entities: impl ::shura::entity::RenderEntityIterator<'a, Self>,
-                buffers: &mut ::shura::graphics::ComponentBufferManager,
+                buffers: &mut ::shura::graphics::RenderGroupManager,
                 world: &::shura::physics::World,
             ) {
                 use shura::component::ComponentCollection;
@@ -231,29 +204,29 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
             }
 
             fn named_components() -> &'static [&'static str] where Self: Sized{
-                return &[ #( #component_names, )*];
+                return &[ #( #names, )*];
             }
 
             fn component_collections<'a>(
                 &'a self,
-            ) -> Box<dyn Iterator<Item = (Option<&'static str>, &dyn shura::component::ComponentCollection)> + 'a>{
-                Box::new([ #( #component_collections, )* ].into_iter())
+            ) -> Box<dyn DoubleEndedIterator<Item = &dyn shura::component::ComponentCollection> + 'a>{
+                Box::new([ #( &self.#components_iter as _, )* ].into_iter())
             }
 
             fn component_collections_mut<'a>(
                 &'a mut self,
-            ) -> Box<dyn Iterator<Item = (Option<&'static str>, &mut dyn shura::component::ComponentCollection)> + 'a>{
-                Box::new([ #( #component_collections_mut, )* ].into_iter())
+            ) -> Box<dyn DoubleEndedIterator<Item = &mut dyn shura::component::ComponentCollection> + 'a>{
+                Box::new([ #( &mut self.#components_iter2 as _, )* ].into_iter())
             }
 
-            fn component_collection<'a>(&'a self, name: &'static str) -> Option<&'a dyn shura::component::ComponentCollection>{
+            fn component_collection<'a>(&'a self, name: &'static str) -> Option<Box<dyn DoubleEndedIterator<Item = &dyn shura::component::ComponentCollection> + 'a>> {
                 match name {
                     #( #component_collection, )*
                     _ => None
                 }
             }
 
-            fn component_collection_mut<'a>(&'a mut self, name: &'static str) -> Option<&'a mut dyn shura::component::ComponentCollection> {
+            fn component_collection_mut<'a>(&'a mut self, name: &'static str) -> Option<Box<dyn DoubleEndedIterator<Item = &mut dyn shura::component::ComponentCollection> + 'a>> {
                 match name {
                     #( #component_collection_mut, )*
                     _ => None
@@ -273,7 +246,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     };
 
     let struct_name = ast.ident.clone();
-    let (inner_field, inner_type) = inner_component(&data_struct, "inner")
+    let (inner_field, inner_type) = inner_component(&data_struct)
         .expect("Cannot find inner component. Define it with #[shura(inner)]");
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
     return quote!(

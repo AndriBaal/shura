@@ -4,11 +4,11 @@ use shura::{physics::*, prelude::*};
 fn shura_main(config: AppConfig) {
     App::run(config, || {
         NewScene::new(1)
-            .component2d("player", BufferConfig::default())
-            .component2d("box", BufferConfig::default())
+            .component2d("player", RenderGroupConfig::default())
+            .component2d("box", RenderGroupConfig::default())
             .component2d(
                 "floor",
-                BufferConfig {
+                RenderGroupConfig {
                     call: BufferCall::Manual,
                     ..Default::default()
                 },

@@ -5,7 +5,7 @@ use crate::{
         Entities, Entity, EntityGroupManager, EntityIdentifier, EntityType, EntityTypeId,
         GroupedEntities, SingleEntity,
     },
-    graphics::ComponentBufferManager,
+    graphics::RenderGroupManager,
     physics::World,
     prelude::Component,
 };
@@ -57,31 +57,35 @@ impl EntityTypeScope {
 
     fn _ref<ET: EntityType>(&self) -> Ref<ET> {
         match &self {
-            EntityTypeScope::Scene(scene) => {
-                Ref::map(scene.try_borrow().expect(&format!("Type {} already borrowed", ET::Entity::TYPE_NAME)), |ty| {
-                    ty.downcast_ref::<ET>().expect(WRONG_TYPE)
-                })
-            }
-            EntityTypeScope::Global(global) => {
-                Ref::map(global.try_borrow().expect(&format!("Type {} already borrowed", ET::Entity::TYPE_NAME)), |ty| {
-                    ty.downcast_ref::<ET>().expect(WRONG_TYPE)
-                })
-            }
+            EntityTypeScope::Scene(scene) => Ref::map(
+                scene
+                    .try_borrow()
+                    .expect(&format!("Type {} already borrowed", ET::Entity::TYPE_NAME)),
+                |ty| ty.downcast_ref::<ET>().expect(WRONG_TYPE),
+            ),
+            EntityTypeScope::Global(global) => Ref::map(
+                global
+                    .try_borrow()
+                    .expect(&format!("Type {} already borrowed", ET::Entity::TYPE_NAME)),
+                |ty| ty.downcast_ref::<ET>().expect(WRONG_TYPE),
+            ),
         }
     }
 
     fn ref_mut<ET: EntityType>(&self) -> RefMut<ET> {
         match &self {
-            EntityTypeScope::Scene(scene) => {
-                RefMut::map(scene.try_borrow_mut().expect(&format!("Type {} already borrowed", ET::Entity::TYPE_NAME)), |ty| {
-                    ty.downcast_mut::<ET>().expect(WRONG_TYPE)
-                })
-            }
-            EntityTypeScope::Global(global) => {
-                RefMut::map(global.try_borrow_mut().expect(&format!("Type {} already borrowed", ET::Entity::TYPE_NAME)), |ty| {
-                    ty.downcast_mut::<ET>().expect(WRONG_TYPE)
-                })
-            }
+            EntityTypeScope::Scene(scene) => RefMut::map(
+                scene
+                    .try_borrow_mut()
+                    .expect(&format!("Type {} already borrowed", ET::Entity::TYPE_NAME)),
+                |ty| ty.downcast_mut::<ET>().expect(WRONG_TYPE),
+            ),
+            EntityTypeScope::Global(global) => RefMut::map(
+                global
+                    .try_borrow_mut()
+                    .expect(&format!("Type {} already borrowed", ET::Entity::TYPE_NAME)),
+                |ty| ty.downcast_mut::<ET>().expect(WRONG_TYPE),
+            ),
         }
     }
 }
@@ -124,8 +128,10 @@ impl EntityManager {
                 let ty = ty.ref_dyn();
                 for (handle, entity) in ty.entities() {
                     let component_collection = entity.component_collection(name).unwrap();
-                    for component in component_collection.components() {
-                        each(handle, entity, component);
+                    for collection in component_collection {
+                        for component in collection.components() {
+                            each(handle, entity, component);
+                        }
                     }
                 }
             }
@@ -143,8 +149,10 @@ impl EntityManager {
                 let mut ty = ty.ref_mut_dyn();
                 for (handle, entity) in ty.entities_mut() {
                     let component_collection = entity.component_collection_mut(name).unwrap();
-                    for component in component_collection.components_mut() {
-                        each(handle, component);
+                    for collection in component_collection {
+                        for component in collection.components_mut() {
+                            each(handle, component);
+                        }
                     }
                 }
             }
@@ -212,7 +220,7 @@ impl EntityManager {
 
     pub fn buffer(
         &mut self,
-        buffers: &mut ComponentBufferManager,
+        buffers: &mut RenderGroupManager,
         groups: &EntityGroupManager,
         world: &World,
     ) {

@@ -4,7 +4,7 @@ use shura::prelude::*;
 fn shura_main(config: AppConfig) {
     App::run(config, || {
         NewScene::new(1)
-            .component::<Instance3D>("cube", BufferConfig::EVERY_FRAME)
+            .component::<Instance3D>("cube", RenderGroupConfig::EVERY_FRAME)
             .entities::<Cube>(Default::default())
             .single_entity::<Resources>(Default::default())
             .system(System::Update(update))

@@ -5,7 +5,7 @@ fn shura_main(config: AppConfig) {
     App::run(config, || {
         NewScene::new(1)
             .component::<MeshTest>(ComponentConfig {
-                buffer: BufferConfig::Manual,
+                buffer: RenderGroupConfig::Manual,
                 ..ComponentConfig::DEFAULT
             })
             .system(System::Render(render))

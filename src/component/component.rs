@@ -1,6 +1,6 @@
 use crate::graphics::Instance;
 use crate::physics::World;
-use crate::{entity::EntityHandle, graphics::ComponentBuffer};
+use crate::{entity::EntityHandle, graphics::RenderGroup};
 use downcast_rs::{impl_downcast, Downcast};
 use std::collections::{BTreeMap, HashMap, LinkedList, VecDeque};
 
@@ -12,7 +12,7 @@ pub trait ComponentCollection: Downcast {
     fn buffer_all(
         &self,
         world: &World,
-        buffer: &mut ComponentBuffer<<Self::Component as Component>::Instance>,
+        buffer: &mut RenderGroup<<Self::Component as Component>::Instance>,
     ) where
         Self: Sized;
     fn init_all(&mut self, handle: EntityHandle, world: &mut World);
@@ -43,7 +43,7 @@ impl<C: Component> ComponentCollection for C {
     fn buffer_all(
         &self,
         world: &World,
-        buffer: &mut ComponentBuffer<<Self::Component as Component>::Instance>,
+        buffer: &mut RenderGroup<<Self::Component as Component>::Instance>,
     ) {
         if self.active() {
             buffer.push(self.instance(world))
@@ -79,7 +79,7 @@ macro_rules! impl_collection {
             fn buffer_all(
                 &self,
                 world: &World,
-                buffer: &mut ComponentBuffer<<Self::Component as Component>::Instance>,
+                buffer: &mut RenderGroup<<Self::Component as Component>::Instance>,
             ) {
                 for component in self.iter() {
                     component.buffer_all(world, buffer);
@@ -102,7 +102,9 @@ macro_rules! impl_collection {
                 Box::new(self.iter().map(|c| c as _))
             }
 
-            fn components_mut<'a>(&'a mut self) -> Box<dyn Iterator<Item = &mut dyn Component> + 'a> {
+            fn components_mut<'a>(
+                &'a mut self,
+            ) -> Box<dyn Iterator<Item = &mut dyn Component> + 'a> {
                 Box::new(self.iter_mut().map(|c| c as _))
             }
         }
@@ -117,7 +119,7 @@ macro_rules! impl_collection_map {
             fn buffer_all(
                 &self,
                 world: &World,
-                buffer: &mut ComponentBuffer<<Self::Component as Component>::Instance>,
+                buffer: &mut RenderGroup<<Self::Component as Component>::Instance>,
             ) {
                 for component in self.values() {
                     component.buffer_all(world, buffer);
@@ -140,8 +142,9 @@ macro_rules! impl_collection_map {
                 Box::new(self.values().map(|c| c as _))
             }
 
-            
-            fn components_mut<'a>(&'a mut self) -> Box<dyn Iterator<Item = &mut dyn Component> + 'a> {
+            fn components_mut<'a>(
+                &'a mut self,
+            ) -> Box<dyn Iterator<Item = &mut dyn Component> + 'a> {
                 Box::new(self.values_mut().map(|c| c as _))
             }
             // fn iter<'a>(&'a self) -> impl Iterator<Item = &Self::Component> + 'a where Self: Sized {

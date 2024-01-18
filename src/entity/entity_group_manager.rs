@@ -6,7 +6,7 @@ use crate::{
 
 use crate::{
     data::Arena,
-    entity::{EntityManager, EntityGroupHandle},
+    entity::{EntityGroupHandle, EntityManager},
     graphics::{Camera2D, WorldCamera2D},
     math::{Vector2, AABB},
     physics::World,

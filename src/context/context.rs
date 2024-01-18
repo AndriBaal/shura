@@ -8,7 +8,7 @@ use crate::{
 use crate::{
     entity::{EntityGroupManager, EntityManager, GlobalEntities},
     graphics::{
-        ComponentBufferManager, DefaultResources, Gpu, ScreenConfig, WorldCamera2D, WorldCamera3D,
+        DefaultResources, Gpu, RenderGroupManager, ScreenConfig, WorldCamera2D, WorldCamera3D,
     },
     input::Input,
     math::{Point2, Vector2},
@@ -38,7 +38,7 @@ pub struct Context<'a> {
     pub groups: &'a mut EntityGroupManager,
     pub world: &'a mut World,
     pub tasks: &'a mut TaskManager,
-    pub component_buffers: &'a mut ComponentBufferManager,
+    pub render_groups: &'a mut RenderGroupManager,
 
     // App
     pub frame: &'a FrameManager,
@@ -82,7 +82,7 @@ impl<'a> Context<'a> {
                 groups: &mut scene.groups,
                 world: &mut scene.world,
                 tasks: &mut scene.tasks,
-                component_buffers: &mut scene.component_buffers,
+                render_groups: &mut scene.render_groups,
 
                 // App
                 frame: &app.frame,
@@ -127,7 +127,7 @@ impl<'a> Context<'a> {
     //             groups: &mut scene.groups,
     //             world: &mut scene.world,
     //             tasks: &mut scene.tasks,
-    //             component_buffers: &mut scene.component_buffers,
+    //             render_groups: &mut scene.render_groups,
 
     //             // Misc
     //             scene_id,
@@ -165,7 +165,7 @@ impl<'a> Context<'a> {
             for ty in self.entities.types() {
                 if !ser_entities.contains_key(&ty.entity_type_id()) {
                     for (_, entity) in ty.entities() {
-                        for (_, collection) in entity.component_collections() {
+                        for collection in entity.component_collections() {
                             for component in collection.components() {
                                 world_cpy.remove_no_maintain(component);
                             }
@@ -227,7 +227,7 @@ impl<'a> Context<'a> {
                 groups: &mut scene.groups,
                 world: &mut scene.world,
                 tasks: &mut scene.tasks,
-                component_buffers: &mut scene.component_buffers,
+                render_groups: &mut scene.render_groups,
 
                 // Misc
                 scene_id: &scene_id,
@@ -244,7 +244,7 @@ impl<'a> Context<'a> {
                 end: self.end,
                 scenes: self.scenes,
                 window: self.window,
-                globals: self.globals
+                globals: self.globals,
             };
             (action)(&mut scene.systems, &mut ctx);
         }

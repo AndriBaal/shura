@@ -247,10 +247,9 @@ impl MeshBuilder2D {
     }
 
     pub fn segment(start: Vector2<f32>, end: Vector2<f32>, half_thickness: f32) -> Self {
-
         let direction = end - start;
         let normal = Vector2::new(-direction[1], direction[0]).normalize();
-    
+
         let offset1 = normal * half_thickness;
         let offset2 = -normal * half_thickness;
 

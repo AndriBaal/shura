@@ -10,7 +10,7 @@ use crate::{
         Entity, EntityGroupHandle, EntityGroupManager, EntityHandle, EntityIdentifier, EntityIndex,
         EntityTypeId,
     },
-    graphics::ComponentBufferManager,
+    graphics::RenderGroupManager,
     physics::World,
 };
 
@@ -19,12 +19,7 @@ pub trait EntityType: Downcast {
     type Entity: EntityIdentifier
     where
         Self: Sized;
-    fn buffer(
-        &self,
-        buffers: &mut ComponentBufferManager,
-        groups: &EntityGroupManager,
-        world: &World,
-    );
+    fn buffer(&self, buffers: &mut RenderGroupManager, groups: &EntityGroupManager, world: &World);
     fn entity_type_id(&self) -> EntityTypeId;
     fn remove_group(
         &mut self,
@@ -181,12 +176,7 @@ impl<E: EntityIdentifier> SingleEntity<E> {
 
 impl<E: EntityIdentifier> EntityType for SingleEntity<E> {
     type Entity = E;
-    fn buffer(
-        &self,
-        buffers: &mut ComponentBufferManager,
-        groups: &EntityGroupManager,
-        world: &World,
-    ) {
+    fn buffer(&self, buffers: &mut RenderGroupManager, groups: &EntityGroupManager, world: &World) {
         E::buffer(self.entities_render(groups), buffers, world);
     }
 
@@ -422,12 +412,7 @@ impl<'a, E: EntityIdentifier> IntoIterator for &'a mut Entities<E> {
 impl<E: EntityIdentifier> EntityType for Entities<E> {
     type Entity = E;
 
-    fn buffer(
-        &self,
-        buffers: &mut ComponentBufferManager,
-        groups: &EntityGroupManager,
-        world: &World,
-    ) {
+    fn buffer(&self, buffers: &mut RenderGroupManager, groups: &EntityGroupManager, world: &World) {
         E::buffer(self.entities_render(groups), buffers, world);
     }
 
@@ -702,12 +687,7 @@ impl<E: EntityIdentifier> GroupedEntities<Entities<E>> {
 impl<ET: EntityType + Default> EntityType for GroupedEntities<ET> {
     type Entity = ET::Entity;
 
-    fn buffer(
-        &self,
-        buffers: &mut ComponentBufferManager,
-        groups: &EntityGroupManager,
-        world: &World,
-    ) {
+    fn buffer(&self, buffers: &mut RenderGroupManager, groups: &EntityGroupManager, world: &World) {
         ET::Entity::buffer(self.entities_render(groups), buffers, world);
     }
 

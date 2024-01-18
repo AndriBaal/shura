@@ -6,7 +6,7 @@ use crate::{
         Entities, EntityIdentifier, EntityManager, EntityScope, EntityType, EntityTypeId,
         GroupedEntities, SingleEntity,
     },
-    graphics::{BufferConfig, Gpu, Instance, Instance2D, GLOBAL_GPU},
+    graphics::{Gpu, Instance, Instance2D, RenderGroupConfig, GLOBAL_GPU},
     scene::Scene,
     system::System,
 };
@@ -111,18 +111,22 @@ impl SerializedScene {
         self.scene
     }
 
-    pub fn component<I: Instance>(mut self, name: &'static str, config: BufferConfig) -> Self
+    pub fn render_group<I: Instance>(
+        mut self,
+        name: &'static str,
+        config: RenderGroupConfig,
+    ) -> Self
     where
         Self: Sized,
     {
-        self.scene = self.scene.component::<I>(name, config);
+        self.scene = self.scene.render_group::<I>(name, config);
         self
     }
-    pub fn component2d(self, name: &'static str, config: BufferConfig) -> Self
+    pub fn render_group2d(self, name: &'static str, config: RenderGroupConfig) -> Self
     where
         Self: Sized,
     {
-        self.component::<Instance2D>(name, config)
+        self.render_group::<Instance2D>(name, config)
     }
 
     pub fn single_entity<E: EntityIdentifier>(self, scope: EntityScope) -> Self
