@@ -10,7 +10,10 @@ use instant::{Duration, Instant};
 use rustc_hash::FxHashMap;
 use winit::event::*;
 
-pub use winit::event::{ModifiersState as Modifier, MouseButton, VirtualKeyCode as Key};
+pub use winit::{
+    event::{Modifiers, MouseButton},
+    keyboard::KeyCode as Key,
+};
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -148,7 +151,7 @@ pub struct Input {
     touches: FxHashMap<u64, Point2<u32>>,
     events: FxHashMap<InputTrigger, InputEvent>,
     last_keys: Vec<Key>,
-    modifiers: Modifier,
+    modifiers: Modifiers,
     wheel_delta: f32,
     window_size: Vector2<f32>,
     #[cfg(feature = "gamepad")]
@@ -220,10 +223,10 @@ impl Input {
                     }
                 }
             }
-            WindowEvent::KeyboardInput { input, .. } => match input.virtual_keycode {
-                Some(key) => {
+            WindowEvent::KeyboardInput { event, .. } => match event.physical_key {
+                winit::keyboard::PhysicalKey::Code(key) => {
                     let trigger = key.into();
-                    match input.state {
+                    match event.state {
                         ElementState::Pressed => {
                             self.last_keys.push(key);
                             self.events
@@ -237,7 +240,7 @@ impl Input {
                         }
                     }
                 }
-                None => {}
+                winit::keyboard::PhysicalKey::Unidentified(_) => {}
             },
             WindowEvent::MouseInput { state, button, .. } => {
                 let trigger = (*button).into();
@@ -493,7 +496,7 @@ impl Input {
         return self.game_pad_manager.connected_gamepad(gamepad_id);
     }
 
-    pub const fn modifiers(&self) -> Modifier {
+    pub const fn modifiers(&self) -> Modifiers {
         self.modifiers
     }
 

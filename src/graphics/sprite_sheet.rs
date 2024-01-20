@@ -189,7 +189,7 @@ impl SpriteSheet {
                 bytes,
                 wgpu::ImageDataLayout {
                     offset: 0,
-                    bytes_per_row: Some(desc.format.block_size(None).unwrap() * desc.sprite_size.x),
+                    bytes_per_row: Some(desc.format.block_copy_size(None).unwrap() * desc.sprite_size.x),
                     rows_per_image: Some(desc.sprite_size.y),
                 },
                 wgpu::Extent3d {
@@ -247,7 +247,7 @@ impl SpriteSheet {
             bytes,
             wgpu::ImageDataLayout {
                 offset: 0,
-                bytes_per_row: Some(self.texture.format().block_size(None).unwrap() * size.x),
+                bytes_per_row: Some(self.texture.format().block_copy_size(None).unwrap() * size.x),
                 rows_per_image: Some(size.y),
             },
             wgpu::Extent3d {

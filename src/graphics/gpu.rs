@@ -52,37 +52,25 @@ pub struct Gpu {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub adapter: wgpu::Adapter,
-    pub(crate) surface: Mutex<wgpu::Surface>,
-    pub(crate) config: Mutex<wgpu::SurfaceConfiguration>,
-    pub(crate) format: wgpu::TextureFormat,
+    format: wgpu::TextureFormat,
     pub(crate) base: WgpuDefaultResources,
     pub command_buffers: Mutex<Vec<wgpu::CommandBuffer>>,
 }
 
 impl Gpu {
-    pub(crate) async fn new(window: &winit::window::Window, config: GpuConfig) -> Self {
-        let window_size = window.inner_size();
-        let window_size = Vector2::new(window_size.width, window_size.height);
+    pub(crate) async fn new(surface_target: &SurfaceRenderTarget, config: GpuConfig) -> Self {
+        // let window_size = window.inner_size();
+        // let window_size = Vector2::new(window_size.width, window_size.height);
         let max_multisample = config.max_multisample;
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: config.backends,
             dx12_shader_compiler: wgpu::Dx12Compiler::Fxc,
             ..Default::default()
         });
-        // let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-        //     backends: config.backends,
-        //     #[cfg(debug_assertions)]
-        //     flags: wgpu::InstanceFlags::default(),
-        //     #[cfg(not(debug_assertions))]
-        //     flags: wgpu::InstanceFlags::debugging(),
-        //     dx12_shader_compiler: wgpu::Dx12Compiler::default(),
-        //     gles_minor_version: wgpu::Gles3MinorVersion::default(),
-        // });
-        let surface = unsafe { instance.create_surface(window).unwrap() };
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::HighPerformance,
-                compatible_surface: Some(&surface),
+                compatible_surface: surface_target.surface(),
                 force_fallback_adapter: false,
             })
             .await
@@ -92,25 +80,14 @@ impl Gpu {
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: None,
-                    features: config.device_features,
-                    limits: config.device_limits,
+                    required_features: config.device_features,
+                    required_limits: config.device_limits,
                 },
                 None,
             )
             .await
             .unwrap();
 
-        let config = if cfg!(target_arch = "wasm32") {
-            surface
-                .get_default_config(&adapter, window_size.x, window_size.y)
-                .expect("Surface unsupported by adapter")
-        } else {
-            let mut config = surface
-                .get_default_config(&adapter, window_size.x, window_size.y)
-                .expect("Surface unsupported by adapter");
-            config.usage |= wgpu::TextureUsages::COPY_SRC;
-            config
-        };
 
         let sample_flags = adapter.get_texture_format_features(config.format).flags;
         let sample_count = {
@@ -156,55 +133,25 @@ impl Gpu {
             adapter,
             base,
             format: config.format,
-            surface: Mutex::new(surface),
-            config: Mutex::new(config),
             command_buffers: Mutex::new(Default::default()),
         }
     }
 
     #[cfg(target_os = "android")]
-    pub(crate) fn resume(&self, window: &winit::window::Window) {
+    pub(crate) fn resume(&self, window: Arc<winit::window::Window>) {
         let config = self.config.lock().unwrap();
         let mut surface = self.surface.lock().unwrap();
-        *surface = unsafe { self.instance.create_surface(window).unwrap() };
+        *surface = unsafe { selfinstance.create_surface_unsafe(wgpu::SurfaceTargetUnsafe::from_window(window).unwrap()).unwrap() };
         surface.configure(&self.device, &config);
     }
 
-    pub(crate) fn resize(&self, window_size: Vector2<u32>) {
-        let mut config = self.config.lock().unwrap();
-        let surface = self.surface.lock().unwrap();
-        config.width = window_size.x;
-        config.height = window_size.y;
-        surface.configure(&self.device, &config);
-    }
-
-    pub(crate) fn apply_vsync(&self, vsync: bool) {
-        let mut config = self.config.lock().unwrap();
-        let surface = self.surface.lock().unwrap();
-        let new_mode = if vsync {
-            wgpu::PresentMode::AutoVsync
-        } else {
-            wgpu::PresentMode::AutoNoVsync
-        };
-        config.present_mode = new_mode;
-        surface.configure(&self.device, &config);
-    }
 
     pub fn base(&self) -> &WgpuDefaultResources {
         &self.base
     }
 
-    pub fn format(&self) -> wgpu::TextureFormat {
-        self.format
-    }
-
     pub fn sample_count(&self) -> u32 {
         self.base.sample_count
-    }
-
-    pub fn render_size(&self) -> Vector2<u32> {
-        let config = self.config.lock().unwrap();
-        Vector2::new(config.width, config.height)
     }
 
     pub fn block(&self, handle: wgpu::SubmissionIndex) {

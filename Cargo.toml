@@ -24,7 +24,7 @@ gamepad = ["dep:gilrs"]
 text = ["dep:rusttype", "dep:owned_ttf_parser"]
 audio = ["dep:rodio"]
 physics = ["dep:rapier2d"]
-gui = ["dep:egui", "dep:egui-wgpu", "dep:egui-winit"]
+# gui = ["dep:egui", "dep:egui-wgpu", "dep:egui-winit"]
 log = ["dep:log", "dep:env_logger"]
 rayon = ["dep:rayon", "shura_proc/rayon"]
 serde = [
@@ -35,7 +35,7 @@ serde = [
     "wgpu/replay",
     "winit/serde",
     "gilrs?/serde-serialize",
-    "egui?/serde",
+    # "egui?/serde",
     "nalgebra/serde-serialize",
     "rapier2d?/serde-serialize",
 ]
@@ -46,7 +46,7 @@ default = [
     "audio",
     "physics",
     "serde",
-    "gui",
+    # "gui",
     "log",
     "rayon",
     "framebuffer",
@@ -56,11 +56,11 @@ default = [
 crate-type = ["lib", "cdylib"]
 
 [dev-dependencies]
-egui_demo_lib = "0.24"
+egui_demo_lib = "0.25"
 
 [dependencies]
-winit = { version = "0.28", features = ["mint"] }
-wgpu = { version = "0.18", features = ["glsl", "spirv", "webgl"] }
+winit = { version = "0.29", features = ["mint"] }
+wgpu = { version = "0.19", features = ["glsl", "spirv", "webgl"] }
 anyhow = "1.0"
 env_logger = { version = "0.10", optional = true }
 tobj = { version = "4.0", features = ["async"] }
@@ -71,12 +71,12 @@ nalgebra = { version = "0.32", features = ["convert-bytemuck", "mint"] }
 rusttype = { version = "0.9", optional = true }
 owned_ttf_parser = { version = "0.15", optional = true }
 gilrs = { version = "0.10", optional = true }
-egui-wgpu = { version = "0.24", features = ["winit"], optional = true }
-egui = { version = "0.24", default-features = false, optional = true, features = [
-    "bytemuck",
-    "default_fonts",
-    "mint",
-] }
+# egui-wgpu = { version = "0.25", features = ["winit"], optional = true }
+# egui = { version = "0.25", default-features = false, optional = true, features = [
+#     "bytemuck",
+#     "default_fonts",
+#     "mint",
+# ] }
 rapier2d = { version = "0.17", optional = true }
 log = { version = "0.4", optional = true, features = ["std"] }
 downcast-rs = "1.2.0"
@@ -96,9 +96,9 @@ rand = "0.8.5"
 rodio = { version = "0.17", default-features = false, optional = true, features = [
     "symphonia-all",
 ] }
-egui-winit = { version = "0.24", features = [
-    "links",
-], default-features = false, optional = true }
+# egui-winit = { version = "0.25", features = [
+#     "links",
+# ], default-features = false, optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 reqwest = "0.11"
@@ -117,17 +117,17 @@ web-sys = { version = "0.3", features = [
 
 [target.'cfg(target_arch = "wasm32")'.dependencies.wgpu]
 features = ["fragile-send-sync-non-atomic-wasm"]
-version = "0.18"
+version = "0.19"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies.rodio]
 features = ["symphonia-all", "wasm-bindgen"]
 version = "0.17"
 
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies.egui-winit]
-features = ["arboard", "webbrowser"]
-default-features = true
-version = "0.24"
+# [target.'cfg(not(target_arch = "wasm32"))'.dependencies.egui-winit]
+# features = ["arboard", "webbrowser"]
+# default-features = true
+# version = "0.25"
 
 [target.'cfg(target_os = "android")'.dependencies.winit]
 features = ["android-native-activity"]
-version = "0.28"
+version = "0.29"

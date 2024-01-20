@@ -51,7 +51,7 @@ pub struct Context<'a> {
     pub audio: &'a AudioManager,
     pub end: &'a mut bool,
     pub scenes: &'a mut SceneManager,
-    pub window: &'a mut winit::window::Window,
+    pub window: Arc<winit::window::Window>,
     pub globals: &'a GlobalEntities,
 
     // Misc
@@ -95,7 +95,7 @@ impl<'a> Context<'a> {
                 audio: &app.audio,
                 end: &mut app.end,
                 scenes: &mut app.scenes,
-                window: &mut app.window,
+                window: app.window.clone(),
                 globals: &app.globals,
 
                 // Misc
@@ -106,39 +106,6 @@ impl<'a> Context<'a> {
             },
         )
     }
-
-    // pub(crate) fn new_from_ctx(
-    //     scene_id: &'a u32,
-    //     ctx: Context<'a>,
-    //     scene: &'a mut Scene,
-    // ) -> (&'a mut SystemManager, Context<'a>) {
-    //     let mint: mint::Vector2<u32> = ctx.window.inner_size().into();
-    //     let window_size = mint.into();
-    //     let cursor = ctx.input.cursor(&scene.world_camera2d);
-    //     (
-    //         &mut scene.systems,
-    //         Self {
-    //             // Scene
-    //             render_entities: &mut scene.render_entities,
-    //             screen_config: &mut scene.screen_config,
-    //             world_camera2d: &mut scene.world_camera2d,
-    //             world_camera3d: &mut scene.world_camera3d,
-    //             entities: &mut scene.entities,
-    //             groups: &mut scene.groups,
-    //             world: &mut scene.world,
-    //             tasks: &mut scene.tasks,
-    //             render_groups: &mut scene.render_groups,
-
-    //             // Misc
-    //             scene_id,
-    //             window_size,
-    //             cursor,
-    //             resized: false,
-
-    //             ..ctx
-    //         },
-    //     )
-    // }
 
     #[cfg(feature = "serde")]
     pub fn serialize_scene(
@@ -239,11 +206,12 @@ impl<'a> Context<'a> {
                 defaults: self.defaults,
                 input: self.input,
                 gpu: self.gpu.clone(),
+                #[cfg(feature = "gui")]
                 gui: self.gui,
                 audio: self.audio,
                 end: self.end,
                 scenes: self.scenes,
-                window: self.window,
+                window: self.window.clone(),
                 globals: self.globals,
             };
             (action)(&mut scene.systems, &mut ctx);

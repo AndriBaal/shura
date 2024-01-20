@@ -114,7 +114,7 @@ impl Shader {
                     },
                     entry_point: "fs_main",
                     targets: &[Some(wgpu::ColorTargetState {
-                        format: gpu.format,
+                        format: gpu.format(),
                         blend: Some(config.blend),
                         write_mask: config.write_mask,
                     })],

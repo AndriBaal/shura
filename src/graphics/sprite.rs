@@ -196,6 +196,7 @@ impl Sprite {
                         | wgpu::TextureUsages::RENDER_ATTACHMENT,
                     view_formats: &[],
                 },
+                Default::default(),
                 data,
             )
         }
@@ -236,7 +237,7 @@ impl Sprite {
             data,
             wgpu::ImageDataLayout {
                 offset: 0,
-                bytes_per_row: Some(self.format.block_size(None).unwrap() * size.x),
+                bytes_per_row: Some(self.format.block_copy_size(None).unwrap() * size.x),
                 rows_per_image: Some(size.y),
             },
             wgpu::Extent3d {
@@ -259,7 +260,7 @@ impl Sprite {
         let o_texture_width = self.size.x;
         let texture_width = (o_texture_width as f64 / 64.0).ceil() as u32 * 64;
         let texture_height = self.size.y;
-        let output_buffer_size = (self.format.block_size(None).unwrap()
+        let output_buffer_size = (self.format.block_copy_size(None).unwrap()
             * texture_width
             * texture_height) as wgpu::BufferAddress;
         let output_buffer_desc = wgpu::BufferDescriptor {
@@ -286,7 +287,7 @@ impl Sprite {
                 buffer: &output_buffer,
                 layout: wgpu::ImageDataLayout {
                     offset: 0,
-                    bytes_per_row: Some(self.format.block_size(None).unwrap() * texture_width),
+                    bytes_per_row: Some(self.format.block_copy_size(None).unwrap() * texture_width),
                     rows_per_image: Some(texture_height),
                 },
             },

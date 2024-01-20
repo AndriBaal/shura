@@ -65,6 +65,7 @@ pub mod physics {
 }
 
 pub mod prelude {
+    pub use crate::winit::window::Window;
     pub use crate::macros::main;
 
     #[cfg(feature = "animation")]
