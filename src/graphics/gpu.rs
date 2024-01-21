@@ -52,9 +52,10 @@ pub struct Gpu {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub adapter: wgpu::Adapter,
-    format: wgpu::TextureFormat,
-    pub(crate) base: WgpuDefaultResources,
     pub command_buffers: Mutex<Vec<wgpu::CommandBuffer>>,
+    format: OnceLock<wgpu::TextureFormat>,
+    samples: OnceLock<u32>,
+    base: OnceLock<WgpuDefaultResources>,
 }
 
 impl Gpu {
@@ -81,7 +82,7 @@ impl Gpu {
                 &wgpu::DeviceDescriptor {
                     label: None,
                     required_features: config.device_features,
-                    required_limits: config.device_limits,
+                    required_limits: config.device_limits.using_resolution(adapter.limits()),
                 },
                 None,
             )
@@ -89,32 +90,9 @@ impl Gpu {
             .unwrap();
 
 
-        let sample_flags = adapter.get_texture_format_features(config.format).flags;
-        let sample_count = {
-            if max_multisample >= 16
-                && sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X16)
-            {
-                16
-            } else if max_multisample >= 8
-                && sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X8)
-            {
-                8
-            } else if max_multisample >= 4
-                && sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X4)
-            {
-                4
-            } else if max_multisample >= 2
-                && sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X2)
-            {
-                2
-            } else {
-                1
-            }
-        };
 
         let base = WgpuDefaultResources::new(&device, config.format, sample_count);
 
-        surface.configure(&device, &config);
 
         #[cfg(feature = "log")]
         {
@@ -132,7 +110,6 @@ impl Gpu {
             device,
             adapter,
             base,
-            format: config.format,
             command_buffers: Mutex::new(Default::default()),
         }
     }
@@ -143,15 +120,6 @@ impl Gpu {
         let mut surface = self.surface.lock().unwrap();
         *surface = unsafe { selfinstance.create_surface_unsafe(wgpu::SurfaceTargetUnsafe::from_window(window).unwrap()).unwrap() };
         surface.configure(&self.device, &config);
-    }
-
-
-    pub fn base(&self) -> &WgpuDefaultResources {
-        &self.base
-    }
-
-    pub fn sample_count(&self) -> u32 {
-        self.base.sample_count
     }
 
     pub fn block(&self, handle: wgpu::SubmissionIndex) {
@@ -233,10 +201,22 @@ impl Gpu {
     ) -> SpriteRenderTarget {
         SpriteRenderTarget::computed(self, defaults, sprite, compute)
     }
+    
+    pub fn samples(&self) -> u32 {
+        return self.samples.get()
+    }
+
+    pub fn format(&self) -> wgpu::TextureFormat {
+        return self.format.unwrap()
+    }
+
+    pub fn base(&self) -> &WgpuDefaultResources {
+        &self.base
+    }
+
 }
 
 pub struct WgpuDefaultResources {
-    pub sample_count: u32,
     pub vertex_shader_module: ShaderModule,
     pub multisample: wgpu::MultisampleState,
     pub sprite_sheet_layout: wgpu::BindGroupLayout,

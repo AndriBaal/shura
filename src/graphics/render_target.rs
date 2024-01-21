@@ -1,7 +1,6 @@
 use std::{ops::Deref, sync::Arc};
 
 use downcast_rs::{impl_downcast, Downcast};
-use wgpu::SurfaceTexture;
 use winit::{
     event::{Event, StartCause},
     window::Window,
@@ -15,8 +14,12 @@ use crate::{
 pub trait RenderTarget: Downcast {
     fn msaa(&self) -> Option<&wgpu::TextureView>;
     fn view(&self) -> &wgpu::TextureView;
-    fn size(&self) -> Vector2<u32>;
     fn texture(&self) -> &wgpu::Texture;
+    fn size(&self) -> Vector2<u32> {
+        Vector2::new(
+            self.texture().width(), 
+            self.texture().height())
+    }
     fn attachment(&self, clear: Option<Color>) -> wgpu::RenderPassColorAttachment {
         wgpu::RenderPassColorAttachment {
             view: if let Some(msaa) = self.msaa() {
@@ -39,33 +42,44 @@ pub trait RenderTarget: Downcast {
             },
         }
     }
+
     fn as_copy(&self) -> wgpu::ImageCopyTexture {
         self.texture().as_image_copy()
     }
 }
 impl_downcast!(RenderTarget);
 
-pub struct SurfaceRenderTarget {
-    surface_texture: Option<SurfaceTexture>,
-    target_view: Option<wgpu::TextureView>,
-    target_msaa: Option<wgpu::TextureView>,
-
+pub struct Surface {
+    target_msaa: Option<wgpu::Texture>,
     surface: Option<wgpu::Surface<'static>>,
-    config: Option<wgpu::SurfaceConfiguration>,
+    config: Option<wgpu::SurfaceConfiguration>
 }
 
-impl SurfaceRenderTarget {
-    pub(crate) fn new(gpu: &Gpu, window: Arc<Window>) -> Self {
-        let mut surface = None;
-        if cfg!(target_arch = "wasm32") {
-            surface = Some(gpu.instance.create_surface(window).unwrap());
-        }
+impl Surface {
+    // pub(crate) fn new(gpu: &Gpu, window: Arc<Window>, max_samples: u32) -> Self {
+    //     if cfg!(target_arch = "wasm32") {
+    //         Self::init(gpu, window, max_samples)
+    //     } else {
+    //         Self::uninit(gpu, window, max_samples)
+    //     }
+    // }
+
+    pub(crate) fn new() -> Self {
         Self {
-            surface_texture: None,
-            target_view: None,
             target_msaa: None,
-            surface,
+            surface: None,
             config: None,
+        }
+    }
+
+    fn init(&mut self, gpu: &Gpu, window: Arc<Window>) {
+        self.surface = Some(gpu.instance.create_surface(window).unwrap());
+    }
+    
+
+    fn update_msaa(&mut self, gpu: &Gpu, size: Vector2<u32>) {
+        if gpu.samples() != 1 && (size != self.size() || self.target_msaa.is_none()) {
+            self.target_msaa = Some(SpriteRenderTarget::create_msaa(gpu, size));
         }
     }
 
@@ -80,44 +94,60 @@ impl SurfaceRenderTarget {
         }
     }
 
-    pub(crate) fn resume(&mut self, gpu: &Gpu, window: Arc<Window>) {
+    pub(crate) fn resume(&mut self, gpu: &Gpu, window: Arc<Window>) -> (u32, wgpu::TextureFormat) {
+        // We didn't create the surface in pre_adapter, so we need to do so now.
+        if !cfg!(target_arch = "wasm32") {
+            self.init(gpu, window);
+        }
+
+        // From here on, self.surface should be Some.
+        let surface = self.surface.as_ref().unwrap();
+        
         // Window size is only actually valid after we enter the event loop.
         let window_size = window.inner_size();
         let width = window_size.width.max(1);
         let height = window_size.height.max(1);
-
-        log::info!("Surface resume {window_size:?}");
-
-        // We didn't create the surface in pre_adapter, so we need to do so now.
-        if !cfg!(target_arch = "wasm32") {
-            self.surface = Some(gpu.instance.create_surface(window).unwrap());
-        }
-
-        // From here on, self.surface should be Some.
-
-        let surface = self.surface.as_ref().unwrap();
-
-        // Get the default configuration,
         let mut config = surface
             .get_default_config(&gpu.adapter, width, height)
             .expect("Surface isn't supported by the adapter.");
-
         if !cfg!(target_arch = "wasm32") {
             config.usage |= wgpu::TextureUsages::COPY_SRC;
-
         }
 
-
         surface.configure(&gpu.device, &config);
+        
+        let format = config.format;
+        let max_samples = gpu.max_samples();
+        let sample_flags = gpu.adapter.get_texture_format_features(config.format).flags;
+        let samples: u32 = {
+            if max_samples >= 16
+                && sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X16)
+            {
+                16
+            } else if max_samples >= 8
+                && sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X8)
+            {
+                8
+            } else if max_samples >= 4
+                && sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X4)
+            {
+                4
+            } else if max_samples >= 2
+                && sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X2)
+            {
+                2
+            } else {
+                1
+            }
+        };
         self.config = Some(config);
+        return (max_samples, format);
     }
 
     /// Resize the surface, making sure to not resize to zero.
     pub(crate) fn resize(&mut self, gpu: &Gpu, size: Vector2<u32>) {
         log::info!("Surface resize {size:?}");
-        if gpu.sample_count() != 1 && size != self.size() {
-            self.target_msaa = Some(SpriteRenderTarget::create_msaa(gpu, size));
-        }
+        self.update_msaa(gpu, size);
 
         let config = self.config.as_mut().unwrap();
         config.width = size.x.max(1);
@@ -127,7 +157,7 @@ impl SurfaceRenderTarget {
     }
 
     /// Acquire the next surface texture.
-    pub(crate) fn start_frame(&mut self, gpu: &Gpu) {
+    pub(crate) fn start_frame(&mut self, gpu: &Gpu) -> SurfaceRenderTarget {
         let surface = self.surface.as_ref().unwrap();
 
         let surface_texture = match surface.get_current_texture() {
@@ -150,14 +180,11 @@ impl SurfaceRenderTarget {
             }
         };
 
-        self.target_view = Some(surface_texture.texture.create_view(&Default::default()));
-        self.surface_texture = Some(surface_texture);
-    }
-
-    pub(crate) fn finish_frame(&mut self) {
-        self.target_view.take();
-        let surface_texture = self.surface_texture.take().unwrap();
-        surface_texture.present();
+        return SurfaceRenderTarget {
+            surface_texture,
+            target_view: surface_texture.texture.create_view(&Default::default()),
+            msaa_view: self.target_msaa.map(|msaa| msaa.create_view(&Default::default())),
+        }
     }
 
     /// On suspend on android, we drop the surface, as it's no longer valid.
@@ -181,6 +208,12 @@ impl SurfaceRenderTarget {
         surface.configure(&gpu.device, &config);
     }
 
+
+    pub fn size(&self) -> Vector2<u32> {
+        let config = self.config().unwrap();
+        Vector2::new(config.width, config.height)
+    }
+
     pub fn surface(&self) -> Option<&wgpu::Surface> {
         self.surface.as_ref()
     }
@@ -190,28 +223,30 @@ impl SurfaceRenderTarget {
     }
 }
 
+pub(crate) struct SurfaceRenderTarget {
+    surface_texture: wgpu::SurfaceTexture,
+    target_view: wgpu::TextureView,
+    msaa_view: Option<wgpu::TextureView>
+}
+
+impl SurfaceRenderTarget {    
+    pub(crate) fn finish(&mut self) {
+        self.surface_texture.present();
+    }
+}
+
 impl RenderTarget for SurfaceRenderTarget {
     fn view(&self) -> &wgpu::TextureView {
-        self.target_view
-            .as_ref()
-            .expect("Surface texture only available while rendering!")
+        &self.target_view
     }
 
     fn texture(&self) -> &wgpu::Texture {
         &self
-            .surface_texture
-            .as_ref()
-            .expect("Surface texture only available while rendering!")
-            .texture
+            .surface_texture.texture
     }
 
     fn msaa(&self) -> Option<&wgpu::TextureView> {
-        self.target_msaa.as_ref()
-    }
-
-    fn size(&self) -> Vector2<u32> {
-        let config = self.config().unwrap();
-        Vector2::new(config.width, config.height)
+        self.msaa_view.as_ref()
     }
 }
 
@@ -224,10 +259,6 @@ impl RenderTarget for SpriteRenderTarget {
 
     fn msaa(&self) -> Option<&wgpu::TextureView> {
         self.target_msaa.as_ref()
-    }
-
-    fn size(&self) -> Vector2<u32> {
-        self.target.size()
     }
 
     fn texture(&self) -> &wgpu::Texture {
@@ -255,7 +286,7 @@ impl SpriteRenderTarget {
         let target_msaa = if gpu.sample_count() == 1 {
             None
         } else {
-            Some(SpriteRenderTarget::create_msaa(gpu, size))
+            Some(SpriteRenderTarget::create_msaa(gpu, size).create_view(&Default::default()))
         };
 
         Self {
@@ -276,7 +307,7 @@ impl SpriteRenderTarget {
         target
     }
 
-    pub fn create_msaa(gpu: &Gpu, size: Vector2<u32>) -> wgpu::TextureView {
+    pub fn create_msaa(gpu: &Gpu, size: Vector2<u32>) -> wgpu::Texture {
         let multisampled_frame_descriptor = &wgpu::TextureDescriptor {
             size: wgpu::Extent3d {
                 width: size.x,
@@ -294,7 +325,6 @@ impl SpriteRenderTarget {
 
         gpu.device
             .create_texture(multisampled_frame_descriptor)
-            .create_view(&wgpu::TextureViewDescriptor::default())
     }
 
     pub fn resize(&mut self, gpu: &Gpu, size: Vector2<u32>) {

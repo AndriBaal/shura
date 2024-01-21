@@ -17,6 +17,7 @@ use crate::{
     log::{error, info, LoggerBuilder},
     VERSION,
 };
+use wgpu::Surface;
 #[cfg(target_os = "android")]
 use winit::platform::android::activity::AndroidApp;
 use winit::{event_loop::EventLoopWindowTarget, window::Window};
@@ -123,6 +124,7 @@ pub struct App {
     pub frame: FrameManager,
     pub scenes: SceneManager,
     pub window: Arc<Window>,
+    pub surface: Surface,
     pub globals: GlobalEntities,
     pub input: Input,
     pub defaults: DefaultResources,
