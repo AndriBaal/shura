@@ -4,18 +4,23 @@ use crate::graphics::{
 
 pub struct RenderEncoder<'a> {
     pub inner: wgpu::CommandEncoder,
-    pub defaults: &'a DefaultResources,
+    pub default_resources: &'a DefaultResources,
     pub gpu: &'a Gpu,
+    pub default_target: &'a dyn RenderTarget,
 }
 
 impl<'a> Clone for RenderEncoder<'a> {
     fn clone(&self) -> Self {
-        Self::new(self.gpu, self.defaults)
+        Self::new(self.gpu, self.default_target, self.default_resources)
     }
 }
 
 impl<'a> RenderEncoder<'a> {
-    pub fn new(gpu: &'a Gpu, defaults: &'a DefaultResources) -> Self {
+    pub fn new(
+        gpu: &'a Gpu,
+        default_target: &'a dyn RenderTarget,
+        default_resources: &'a DefaultResources,
+    ) -> Self {
         let encoder = gpu
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -24,7 +29,8 @@ impl<'a> RenderEncoder<'a> {
 
         Self {
             inner: encoder,
-            defaults,
+            default_resources,
+            default_target,
             gpu,
         }
     }
@@ -36,9 +42,9 @@ impl<'a> RenderEncoder<'a> {
     ) {
         let mut renderer = Renderer::new(
             &mut self.inner,
-            self.defaults,
+            self.default_resources,
             self.gpu,
-            self.defaults.default_target(),
+            self.default_target,
             clear,
             None,
         );
@@ -52,11 +58,11 @@ impl<'a> RenderEncoder<'a> {
     ) {
         let mut renderer = Renderer::new(
             &mut self.inner,
-            self.defaults,
+            self.default_resources,
             self.gpu,
-            self.defaults.default_target(),
+            self.default_target,
             clear,
-            Some(&self.defaults.depth_buffer),
+            Some(&self.default_resources.depth_buffer),
         );
         (render)(&mut renderer);
     }
@@ -69,7 +75,7 @@ impl<'a> RenderEncoder<'a> {
     ) -> Renderer<'b> {
         Renderer::new(
             &mut self.inner,
-            self.defaults,
+            self.default_resources,
             self.gpu,
             target,
             clear,
@@ -101,9 +107,9 @@ impl<'a> RenderEncoder<'a> {
             let mut renderer = self.renderer(target, None, None);
             renderer.render_sprite(
                 0..1,
-                &renderer.defaults.centered_instance,
-                &renderer.defaults.unit_camera.0,
-                renderer.defaults.unit_mesh(),
+                &renderer.default_resources.centered_instance,
+                &renderer.default_resources.unit_camera.0,
+                renderer.default_resources.unit_mesh(),
                 src.sprite(),
             );
         }

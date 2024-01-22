@@ -6,14 +6,12 @@ use crate::{
     serde::{EntityGroupDeserializer, EntityGroupSerializer, SceneSerializer},
 };
 use crate::{
-    entity::{EntityGroupManager, EntityManager, GlobalEntities},
-    graphics::{
-        DefaultResources, Gpu, RenderGroupManager, ScreenConfig, WorldCamera2D, WorldCamera3D,
-    },
+    entity::{EntityGroupManager, EntityManager},
+    graphics::{Gpu, RenderGroupManager, ScreenConfig, WorldCamera2D, WorldCamera3D},
     input::Input,
     math::{Point2, Vector2},
     physics::World,
-    prelude::{App, FrameManager, Scene, SceneManager},
+    prelude::{App, Scene, SceneManager, TimeManager},
     system::{EndReason, SystemManager},
     tasks::TaskManager,
 };
@@ -41,8 +39,7 @@ pub struct Context<'a> {
     pub render_groups: &'a mut RenderGroupManager,
 
     // App
-    pub frame: &'a FrameManager,
-    pub defaults: &'a DefaultResources,
+    pub time: &'a TimeManager,
     pub input: &'a Input,
     pub gpu: Arc<Gpu>,
     #[cfg(feature = "gui")]
@@ -52,7 +49,6 @@ pub struct Context<'a> {
     pub end: &'a mut bool,
     pub scenes: &'a mut SceneManager,
     pub window: Arc<winit::window::Window>,
-    pub globals: &'a GlobalEntities,
 
     // Misc
     pub scene_id: &'a u32,
@@ -85,8 +81,7 @@ impl<'a> Context<'a> {
                 render_groups: &mut scene.render_groups,
 
                 // App
-                frame: &app.frame,
-                defaults: &app.defaults,
+                time: &app.time,
                 input: &app.input,
                 gpu: app.gpu.clone(),
                 #[cfg(feature = "gui")]
@@ -96,7 +91,6 @@ impl<'a> Context<'a> {
                 end: &mut app.end,
                 scenes: &mut app.scenes,
                 window: app.window.clone(),
-                globals: &app.globals,
 
                 // Misc
                 scene_id,
@@ -202,8 +196,7 @@ impl<'a> Context<'a> {
                 cursor,
                 resized: false,
 
-                frame: self.frame,
-                defaults: self.defaults,
+                time: self.time,
                 input: self.input,
                 gpu: self.gpu.clone(),
                 #[cfg(feature = "gui")]
@@ -212,15 +205,14 @@ impl<'a> Context<'a> {
                 end: self.end,
                 scenes: self.scenes,
                 window: self.window.clone(),
-                globals: self.globals,
             };
             (action)(&mut scene.systems, &mut ctx);
         }
     }
 
     pub fn add_scene(&mut self, scene_id: u32, scene: Scene) {
-        self.scenes.add(scene_id, scene, self.globals);
-        self.with_scene(scene_id, |systems, ctx| {
+        self.scenes.add(scene_id, scene);
+        self.with_scene(scene_id, |systems: &mut SystemManager, ctx| {
             for setup in systems.setup_systems.drain(..) {
                 (setup)(ctx);
             }

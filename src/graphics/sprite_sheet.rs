@@ -1,7 +1,9 @@
+#[cfg(not(target_arch = "wasm32"))]
+use crate::resource::load_res_bytes;
 use crate::{
     graphics::{Gpu, RgbaColor},
     math::Vector2,
-    resource::{load_res_bytes, load_res_bytes_async},
+    resource::load_res_bytes_async,
 };
 use std::ops::Deref;
 use std::path::Path;
@@ -152,6 +154,7 @@ pub struct SpriteSheet {
 impl SpriteSheet {
     pub fn new<D: Deref<Target = [u8]>>(gpu: &Gpu, desc: SpriteSheetBuilder<D>) -> Self {
         let amount = desc.sprite_amount.x * desc.sprite_amount.y;
+        let shared_resources = gpu.shared_resources();
 
         let texture_descriptor = wgpu::TextureDescriptor {
             label: desc.label,
@@ -189,7 +192,9 @@ impl SpriteSheet {
                 bytes,
                 wgpu::ImageDataLayout {
                     offset: 0,
-                    bytes_per_row: Some(desc.format.block_copy_size(None).unwrap() * desc.sprite_size.x),
+                    bytes_per_row: Some(
+                        desc.format.block_copy_size(None).unwrap() * desc.sprite_size.x,
+                    ),
                     rows_per_image: Some(desc.sprite_size.y),
                 },
                 wgpu::Extent3d {
@@ -212,7 +217,7 @@ impl SpriteSheet {
                     resource: wgpu::BindingResource::Sampler(&sampler),
                 },
             ],
-            layout: &gpu.base.sprite_sheet_layout,
+            layout: &shared_resources.sprite_sheet_layout,
             label: Some("sprite_sheet_bind_group"),
         });
 

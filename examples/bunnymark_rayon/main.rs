@@ -3,8 +3,8 @@ use shura::prelude::*;
 #[shura::main]
 fn shura_main(config: AppConfig) {
     App::run(config, || {
-        NewScene::new(1)
-            .component2d("bunny", RenderGroupConfig::default())
+        Scene::new()
+            .render_group2d("bunny", RenderGroupConfig::default())
             .entities::<Bunny>(EntityScope::Global)
             .single_entity::<Resources>(EntityScope::Scene)
             .system(System::Update(update))
@@ -54,7 +54,7 @@ fn update(ctx: &mut Context) {
         &ctx.gpu,
         &[TextSection {
             color: Color::RED,
-            text: format!("FPS: {}\nBunnies: {}", ctx.frame.fps(), bunnies.len()),
+            text: format!("FPS: {}\nBunnies: {}", ctx.time.fps(), bunnies.len()),
             size: 0.05,
             horizontal_alignment: TextAlignment::End,
             vertical_alignment: TextAlignment::End,
@@ -70,7 +70,7 @@ fn update(ctx: &mut Context) {
         resources.screenshot = Some(ctx.gpu.create_render_target(ctx.window_size));
     }
 
-    let frame = ctx.frame.delta_time();
+    let frame = ctx.time.delta_time();
     let fov = ctx.world_camera2d.fov();
     let buffer = ctx.render_groups.get_mut("bunny").unwrap();
     buffer.set_update_buffer(true);
@@ -126,7 +126,7 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
     );
 
     if let Some(screenshot) = &resources.screenshot {
-        encoder.copy_target(encoder.defaults.default_target(), screenshot)
+        encoder.copy_target(encoder.default_resources.default_target(), screenshot)
     }
 }
 

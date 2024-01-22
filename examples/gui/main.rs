@@ -3,7 +3,7 @@ use shura::prelude::*;
 #[shura::main]
 fn shura_main(config: AppConfig) {
     App::run(config, || {
-        NewScene::new(1)
+        Scene::new()
             .single_entity::<Demo>(Default::default())
             .system(System::Update(update))
             .system(System::Setup(setup))

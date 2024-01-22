@@ -6,8 +6,11 @@ use rustc_hash::FxHashMap;
 use crate::{
     graphics::{Gpu, SpriteSheet, SpriteSheetBuilder, SpriteSheetIndex},
     math::Vector2,
-    resource::{load_res_bytes, load_res_bytes_async},
+    resource::load_res_bytes_async
 };
+
+#[cfg(not(target_arch = "wasm32"))]
+use crate::resource::load_res_bytes;
 
 pub enum FontBuilder {
     Ref(&'static [u8]),

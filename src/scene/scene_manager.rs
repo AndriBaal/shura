@@ -7,16 +7,17 @@ pub struct SceneManager {
     next_active_scene_id: u32,
     active_scene_id: u32,
     scene_switched: bool,
+    global_entities: GlobalEntities,
 }
 
 impl SceneManager {
-    pub(crate) fn new(active_scene_id: u32, mut scene: Scene, globals: &GlobalEntities) -> Self {
-        scene.entities.apply_registered(globals);
+    pub(crate) fn new(active_scene_id: u32) -> Self {
         Self {
-            scenes: FxHashMap::from_iter([(active_scene_id, Rc::new(RefCell::new(scene)))]),
+            scenes: Default::default(),
             active_scene_id,
             next_active_scene_id: active_scene_id,
             scene_switched: false,
+            global_entities: GlobalEntities::default(),
         }
     }
 
@@ -69,8 +70,8 @@ impl SceneManager {
         return self.scenes.get(&id).cloned();
     }
 
-    pub(crate) fn add(&mut self, id: u32, mut scene: Scene, globals: &GlobalEntities) {
-        scene.entities.apply_registered(globals);
+    pub(crate) fn add(&mut self, id: u32, mut scene: Scene) {
+        scene.entities.apply_registered(&self.global_entities);
         assert!(!self.scenes.contains_key(&id));
         self.scenes.insert(id, Rc::new(RefCell::new(scene)));
     }

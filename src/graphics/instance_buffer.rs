@@ -174,6 +174,7 @@ impl Default for Instance3D {
     }
 }
 
+#[derive(Debug)]
 pub struct InstanceBuffer<I: Instance> {
     buffer: wgpu::Buffer,
     buffer_size: wgpu::BufferAddress,

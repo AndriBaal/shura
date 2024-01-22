@@ -3,8 +3,8 @@ use shura::prelude::*;
 #[shura::main]
 fn shura_main(config: AppConfig) {
     App::run(config, || {
-        NewScene::new(1)
-            .component::<Instance3D>("cube", RenderGroupConfig::EVERY_FRAME)
+        Scene::new()
+            .render_group3d("cube", RenderGroupConfig::EVERY_FRAME)
             .entities::<Cube>(Default::default())
             .single_entity::<Resources>(Default::default())
             .system(System::Update(update))
@@ -43,17 +43,17 @@ fn update(ctx: &mut Context) {
     if ctx.entities.single::<Resources>().is_none() {
         return;
     }
-    let speed = SPEED * ctx.frame.delta_time();
+    let speed = SPEED * ctx.time.delta();
     let camera = ctx.world_camera3d.perspective_mut().unwrap();
 
     let forward = camera.target - camera.eye;
     let forward_norm = forward.normalize();
     let forward_mag = forward.magnitude();
 
-    if ctx.input.is_held(Key::Up) && forward_mag > speed {
+    if ctx.input.is_held(Key::KeyW) && forward_mag > speed {
         camera.eye += forward_norm * speed;
     }
-    if ctx.input.is_held(Key::Down) {
+    if ctx.input.is_held(Key::KeyS) {
         camera.eye -= forward_norm * speed;
     }
 
@@ -61,20 +61,20 @@ fn update(ctx: &mut Context) {
     let forward = camera.target - camera.eye;
     let forward_mag = forward.magnitude();
 
-    if ctx.input.is_held(Key::Right) {
+    if ctx.input.is_held(Key::KeyD) {
         camera.eye = camera.target - (forward + right * speed).normalize() * forward_mag;
     }
 
-    if ctx.input.is_held(Key::Left) {
+    if ctx.input.is_held(Key::KeyA) {
         camera.eye = camera.target - (forward - right * speed).normalize() * forward_mag;
     }
 
     for cube in ctx.entities.multiple::<Cube>().iter_mut() {
         let mut rot = cube.position.rotation();
         rot *= Rotation3::new(Vector3::new(
-            1.0 * ctx.frame.delta_time(),
-            1.0 * ctx.frame.delta_time(),
-            1.0 * ctx.frame.delta_time(),
+            1.0 * ctx.time.delta(),
+            1.0 * ctx.time.delta(),
+            1.0 * ctx.time.delta(),
         ));
         cube.position.set_rotation(rot);
     }

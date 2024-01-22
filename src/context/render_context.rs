@@ -7,7 +7,8 @@ use crate::{
     },
     graphics::{
         CameraBuffer, CameraBuffer2D, DefaultResources, Instance, Instance2D, InstanceBuffer,
-        InstanceIndices, Mesh2D, RenderGroupManager, Renderer, WorldCamera3D,
+        InstanceIndices, Mesh2D, RenderGroupManager, RenderTarget, Renderer, SurfaceRenderTarget,
+        WorldCamera3D,
     },
     prelude::Scene,
     system::SystemManager,
@@ -15,6 +16,8 @@ use crate::{
 
 pub struct RenderContext<'a> {
     entities: &'a EntityManager,
+    surface_target: &'a SurfaceRenderTarget,
+    pub default_resources: &'a DefaultResources,
     pub render_groups: &'a RenderGroupManager,
 
     pub world_camera2d: &'a CameraBuffer2D,
@@ -31,7 +34,8 @@ pub struct RenderContext<'a> {
 
 impl<'a> RenderContext<'a> {
     pub(crate) fn new(
-        defaults: &'a DefaultResources,
+        surface_target: &'a SurfaceRenderTarget,
+        default_resources: &'a DefaultResources,
         scene: &'a Scene,
     ) -> (&'a SystemManager, Self) {
         (
@@ -39,16 +43,18 @@ impl<'a> RenderContext<'a> {
             Self {
                 entities: &scene.entities,
                 render_groups: &scene.render_groups,
-                relative_camera: &defaults.relative_camera.0,
-                relative_bottom_left_camera: &defaults.relative_bottom_left_camera.0,
-                relative_bottom_right_camera: &defaults.relative_bottom_right_camera.0,
-                relative_top_left_camera: &defaults.relative_top_left_camera.0,
-                relative_top_right_camera: &defaults.relative_top_right_camera.0,
-                unit_camera: &defaults.unit_camera.0,
-                centered_instance: &defaults.centered_instance,
-                unit_mesh: &defaults.unit_mesh,
-                world_camera2d: &defaults.world_camera2d,
-                world_camera3d: &defaults.world_camera3d,
+                relative_camera: &default_resources.relative_camera.0,
+                relative_bottom_left_camera: &default_resources.relative_bottom_left_camera.0,
+                relative_bottom_right_camera: &default_resources.relative_bottom_right_camera.0,
+                relative_top_left_camera: &default_resources.relative_top_left_camera.0,
+                relative_top_right_camera: &default_resources.relative_top_right_camera.0,
+                unit_camera: &default_resources.unit_camera.0,
+                centered_instance: &default_resources.centered_instance,
+                unit_mesh: &default_resources.unit_mesh,
+                world_camera2d: &default_resources.world_camera2d,
+                world_camera3d: &default_resources.world_camera3d,
+                default_resources,
+                surface_target,
             },
         )
     }
@@ -67,6 +73,10 @@ impl<'a> RenderContext<'a> {
 
     pub fn group<ET: EntityType + Default>(&self) -> Ref<GroupedEntities<ET>> {
         self.entities.group_ref::<ET>()
+    }
+
+    pub fn surface_target(&self) -> &dyn RenderTarget {
+        return self.surface_target;
     }
 
     pub fn render<I: Instance>(

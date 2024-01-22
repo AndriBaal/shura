@@ -3,10 +3,10 @@ use shura::{physics::*, prelude::*};
 #[shura::main]
 fn shura_main(config: AppConfig) {
     App::run(config, || {
-        NewScene::new(1)
-            .component2d("player", RenderGroupConfig::default())
-            .component2d("box", RenderGroupConfig::default())
-            .component2d(
+        Scene::new()
+            .render_group2d("player", RenderGroupConfig::default())
+            .render_group2d("box", RenderGroupConfig::default())
+            .render_group2d(
                 "floor",
                 RenderGroupConfig {
                     call: BufferCall::Manual,
@@ -15,8 +15,8 @@ fn shura_main(config: AppConfig) {
             )
             .single_entity::<Floor>(Default::default())
             .single_entity::<Player>(Default::default())
-            .entities::<PhysicsBox>(Default::default())
             .single_entity::<Resources>(Default::default())
+            .entities::<PhysicsBox>(Default::default())
             .system(System::Render(render))
             .system(System::Setup(setup))
             .system(System::Update(update))
@@ -74,7 +74,7 @@ fn update(ctx: &mut Context) {
         boxes.add(ctx.world, b);
     }
 
-    let delta = ctx.frame.delta_time();
+    let delta = ctx.time.delta();
     let cursor_world: Point2<f32> = ctx.cursor;
     let remove = ctx.input.is_held(MouseButton::Left) || ctx.input.is_pressed(ScreenTouch);
     for physics_box in boxes.iter_mut() {
@@ -118,7 +118,7 @@ fn update(ctx: &mut Context) {
 
     body.set_linvel(linvel, true);
 
-    ctx.world.step(ctx.frame).collisions(|event| {
+    ctx.world.step(ctx.time).collisions(|event| {
         if let Some(event) = event.is::<Player, PhysicsBox>(ctx.world) {
             if let Some(b) = boxes.get_mut(event.entity2) {
                 b.body.set_color(match event.collision_type {

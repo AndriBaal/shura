@@ -166,7 +166,7 @@ impl Input {
     #[cfg(feature = "gamepad")]
     pub const DEFAULT_DEAD_ZONE: f32 = 0.1;
 
-    pub(crate) fn new(window_size: Vector2<u32>) -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             cursor_raw: Point2::new(0, 0),
             touches: Default::default(),
@@ -174,7 +174,7 @@ impl Input {
             modifiers: Default::default(),
             last_keys: Default::default(),
             wheel_delta: 0.0,
-            window_size: window_size.cast(),
+            window_size: Default::default(),
             #[cfg(feature = "gamepad")]
             game_pad_manager: match Gilrs::new() {
                 Ok(ok) => ok,

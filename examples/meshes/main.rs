@@ -3,7 +3,7 @@ use shura::*;
 #[shura::main]
 fn shura_main(config: AppConfig) {
     App::run(config, || {
-        NewScene::new(1)
+        Scene::new()
             .component::<MeshTest>(ComponentConfig {
                 buffer: RenderGroupConfig::Manual,
                 ..ComponentConfig::DEFAULT

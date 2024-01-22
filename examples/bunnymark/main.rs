@@ -53,7 +53,7 @@ fn update(ctx: &mut Context) {
         &ctx.gpu,
         &[TextSection {
             color: Color::RED,
-            text: format!("FPS: {}\nBunnies: {}", ctx.frame.fps(), bunnies.len()),
+            text: format!("FPS: {}\nBunnies: {}", ctx.time.fps(), bunnies.len()),
             size: 0.05,
             horizontal_alignment: TextAlignment::End,
             vertical_alignment: TextAlignment::End,
@@ -69,7 +69,7 @@ fn update(ctx: &mut Context) {
         resources.screenshot = Some(ctx.gpu.create_render_target(ctx.window_size));
     }
 
-    let frame = ctx.frame.delta_time();
+    let frame = ctx.time.delta();
     let fov = ctx.world_camera2d.fov();
     for bunny in bunnies.iter_mut() {
         let mut linvel = bunny.linvel;
@@ -122,9 +122,8 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
     );
 
     if let Some(screenshot) = &resources.screenshot {
-        encoder.copy_target(encoder.defaults.default_target(), screenshot)
+        encoder.copy_target(ctx.surface_target(), screenshot)
     }
-
 }
 
 #[derive(Entity)]

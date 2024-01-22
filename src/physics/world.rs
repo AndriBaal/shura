@@ -2,7 +2,7 @@ use crate::{
     entity::{EntityHandle, EntityIdentifier},
     math::{Isometry2, Point2, Vector2},
     physics::{RapierCollisionEvent, RapierContactForceEvent},
-    time::FrameManager,
+    time::TimeManager,
 };
 use rapier2d::{crossbeam, prelude::*};
 use rustc_hash::FxHashMap;
@@ -394,10 +394,10 @@ impl World {
             .remove(collider_handle, &mut self.islands, &mut self.bodies, true)
     }
 
-    pub fn step(&mut self, frame: &FrameManager) -> CollectedEvents {
+    pub fn step(&mut self, time: &TimeManager) -> CollectedEvents {
         while let Ok(_event) = self.collector.collision.try_recv() {}
         while let Ok(_event) = self.collector.contact_force.try_recv() {}
-        self.integration_parameters.dt = frame.delta_time() * self.time_scale;
+        self.integration_parameters.dt = time.delta() * self.time_scale;
         self.physics_pipeline.step(
             &self.gravity,
             &self.integration_parameters,
@@ -465,7 +465,7 @@ impl World {
     // pub(crate) fn move_shape(
     //     &self,
     //     controller: &mut CharacterControllerEntity,
-    //     frame: &FrameManager,
+    //     time: &TimeManager,
     //     bodies: &RigidBodySet,
     //     colliders: &ColliderSet,
     //     queries: &QueryPipeline,

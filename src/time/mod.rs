@@ -1,4 +1,4 @@
-mod frame_manager;
+mod time_manager;
 
-pub use frame_manager::*;
 pub use instant::*;
+pub use time_manager::*;

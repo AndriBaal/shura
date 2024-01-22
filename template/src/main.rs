@@ -16,9 +16,8 @@ fn shura_main(config: AppConfig) {
 fn setup(ctx: &mut Context) {
     const NUM_INSTANCES_PER_ROW: u32 = 10;
     const SPACE_BETWEEN: f32 = 3.0;
-    ctx.entities.multiple().add_many(
-        ctx.world,
-        (0..NUM_INSTANCES_PER_ROW).flat_map(|z| {
+    let cubes = (0..NUM_INSTANCES_PER_ROW)
+        .flat_map(|z| {
             (0..NUM_INSTANCES_PER_ROW).map(move |x| {
                 let x = SPACE_BETWEEN * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
                 let z = SPACE_BETWEEN * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
@@ -26,16 +25,16 @@ fn setup(ctx: &mut Context) {
 
                 Cube::new(position)
             })
-        }),
-    );
+        })
+        .collect::<Vec<_>>();
+    ctx.entities.multiple().add_many(ctx.world, cubes);
+    // ctx.entities.add(ctx.world, Resources::new(ctx));
 
     let gpu = ctx.gpu.clone();
-    ctx.tasks.spawn(
-        move || Resources::new(&gpu),
-        |ctx, res| {
+    ctx.tasks
+        .spawn_async(async move { Resources::new(&gpu).await }, |ctx, res| {
             ctx.entities.single().set(ctx.world, res);
-        },
-    );
+        });
 }
 
 fn update(ctx: &mut Context) {
@@ -43,6 +42,7 @@ fn update(ctx: &mut Context) {
     if ctx.entities.single::<Resources>().is_none() {
         return;
     }
+
     let speed = SPEED * ctx.time.delta();
     let camera = ctx.world_camera3d.perspective_mut().unwrap();
 
@@ -86,7 +86,7 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
             Some(RgbaColor::new(220, 220, 220, 255).into()),
             |renderer| {
                 ctx.render(renderer, "cube", |renderer, buffer, instances| {
-                    renderer.render_model(instances, buffer, ctx.world_camera3d, &resources.model);
+                    renderer.render_model(instances, buffer, &ctx.world_camera3d, &resources.model);
                 });
             },
         );
@@ -99,16 +99,9 @@ struct Resources {
 }
 
 impl Resources {
-    pub fn new(gpu: &Gpu) -> Self {
+    pub async fn new(gpu: &Gpu) -> Self {
         Self {
-            model: gpu.create_model(ModelBuilder::bytes(
-                include_str_res!("3d/cube/cube.obj"),
-                &[("cube.mtl", include_str_res!("3d/cube/cube.mtl"))],
-                &[(
-                    "cobble-diffuse.png",
-                    include_bytes_res!("3d/cube/cobble-diffuse.png"),
-                )],
-            )),
+            model: gpu.create_model(ModelBuilder::file_async("3d/cube/cube.obj").await),
         }
     }
 }

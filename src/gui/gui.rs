@@ -13,7 +13,7 @@ use winit::window::Window;
 pub struct Gui {
     state: State,
     context: GuiContext,
-    renderer: Renderer,
+    renderer: OnceLock<Renderer>,
     screen_descriptor: ScreenDescriptor,
 }
 
@@ -66,7 +66,7 @@ impl Gui {
     pub(crate) fn render(
         &mut self,
         gpu: &Gpu,
-        defaults: &DefaultResources,
+        default_resources: &DefaultResources,
         encoder: &mut RenderEncoder,
     ) {
         let output = self.context.end_frame();

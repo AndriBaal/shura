@@ -4,26 +4,30 @@ use std::sync::Arc;
 use crate::gui::Gui;
 use crate::{
     context::{Context, RenderContext},
-    entity::GlobalEntities,
-    graphics::{DefaultResources, Gpu, GpuConfig, RenderEncoder, GLOBAL_GPU},
+    graphics::{Gpu, GpuConfig, RenderEncoder, Surface, GLOBAL_GPU},
     input::Input,
     math::Vector2,
     scene::{Scene, SceneManager},
     system::{EndReason, UpdateOperation},
-    time::FrameManager,
+    time::TimeManager,
 };
 #[cfg(feature = "log")]
 use crate::{
-    log::{error, info, LoggerBuilder},
+    log::{info, LoggerBuilder},
     VERSION,
 };
-use wgpu::Surface;
 #[cfg(target_os = "android")]
 use winit::platform::android::activity::AndroidApp;
-use winit::{event_loop::EventLoopWindowTarget, window::Window};
+use winit::{
+    event_loop::{EventLoop, EventLoopWindowTarget},
+    window::Window,
+};
 
 #[cfg(feature = "audio")]
 use crate::audio::AudioManager;
+
+#[cfg(target_arch = "wasm32")]
+use rustc_hash::FxHashMap;
 
 pub struct AppConfig {
     pub window: winit::window::WindowBuilder,
@@ -38,12 +42,6 @@ pub struct AppConfig {
     pub canvas_attrs: FxHashMap<String, String>,
     #[cfg(target_arch = "wasm32")]
     pub auto_scale_canvas: bool,
-}
-
-impl Default for AppConfig {
-    fn default() -> Self {
-        Self::new()
-    }
 }
 
 impl AppConfig {
@@ -121,13 +119,11 @@ impl AppConfig {
 pub struct App {
     pub end: bool,
     pub resized: bool,
-    pub frame: FrameManager,
+    pub time: TimeManager,
     pub scenes: SceneManager,
     pub window: Arc<Window>,
     pub surface: Surface,
-    pub globals: GlobalEntities,
     pub input: Input,
-    pub defaults: DefaultResources,
     pub gpu: Arc<Gpu>,
     #[cfg(feature = "gui")]
     pub gui: Gui,
@@ -138,96 +134,42 @@ pub struct App {
 }
 
 impl App {
-    pub fn run(config: AppConfig, init: impl FnOnce() -> Scene) {
-        #[cfg(target_os = "android")]
-        use winit::platform::android::EventLoopBuilderExtAndroid;
-
-        #[cfg(feature = "log")]
-        if let Some(logger) = config.logger {
-            logger.init().ok();
-        }
-
-        #[cfg(feature = "log")]
-        info!("Using shura version: {}", VERSION);
-
-        #[cfg(target_os = "android")]
-        let events = winit::event_loop::EventLoopBuilder::new()
-            .with_android_app(config.android)
-            .build();
-        #[cfg(not(target_os = "android"))]
-        let events = winit::event_loop::EventLoop::new().unwrap();
-        let window = config.window.build(&events).unwrap();
-        let shura_window_id = window.id();
-
-        #[cfg(target_arch = "wasm32")]
-        {
-            use console_error_panic_hook::hook;
-            use winit::platform::web::WindowExtWebSys;
-
-            std::panic::set_hook(Box::new(hook));
-            let canvas = &web_sys::Element::from(window.canvas());
-            for (attr, value) in config.canvas_attrs {
-                canvas.set_attribute(attr, value).unwrap();
-            }
-
-            let browser_window = web_sys::window().unwrap();
-            let document = browser_window.document().unwrap();
-            let body = document.body().unwrap();
-            body.append_child(canvas).ok();
-        }
-
-        let mut app = App::new(
-            Arc::new(window),
-            &events,
-            config.gpu.clone(),
-            config.scene_id,
-            init,
-            #[cfg(target_arch = "wasm32")]
-            config.auto_scale_canvas,
-        );
-
+    pub fn run(mut config: AppConfig, init: impl FnOnce() -> Scene) {
+        let winit_event = config.winit_event.take();
+        let first_scene_id = config.scene_id;
+        let (events, mut app) = App::new(config);
+        let shura_window_id = app.window.id();
+        let mut init = Some(init);
         events
             .run(move |event, event_loop| {
                 use winit::event::{Event, WindowEvent};
-                if let Some(callback) = &config.winit_event {
+                if let Some(callback) = &winit_event {
                     callback(&event);
                 }
                 if !app.end {
                     match event {
+                        ref e if Surface::start_condition(e) => {
+                            app.surface.resume(&app.gpu, app.window.clone());
+
+                            if init.is_some() {
+                                let size = app.surface.size();
+                                app.gpu.initialize(&app.surface);
+                                app.surface.update_msaa(&app.gpu, size);
+                                app.input.resize(size);
+                                let scene = (init.take().unwrap())();
+                                app.scenes.add(first_scene_id, scene);
+                            }
+                        }
                         Event::WindowEvent {
                             ref event,
                             window_id,
                         } => {
                             #[cfg(feature = "gui")]
                             app.gui.handle_event(event);
-                            if window_id == shura_window_id {
+                            if window_id == shura_window_id && init.is_none() {
                                 match event {
                                     WindowEvent::RedrawRequested => {
-                                        let frame_result = app.process_frame();
-                                        match frame_result {
-                                            Ok(_) => {}
-                                            Err(
-                                                wgpu::SurfaceError::Lost
-                                                | wgpu::SurfaceError::Outdated,
-                                            ) => {
-                                                #[cfg(feature = "log")]
-                                                error!("Lost surface!");
-                                                let mint: mint::Vector2<u32> =
-                                                    app.window.inner_size().into();
-                                                let window_size: Vector2<u32> = mint.into();
-                                                app.resize(window_size);
-                                            }
-                                            Err(wgpu::SurfaceError::OutOfMemory) => {
-                                                #[cfg(feature = "log")]
-                                                error!("Not enough memory!");
-                                                app.end(event_loop);
-                                            }
-                                            Err(_e) => {
-                                                #[cfg(feature = "log")]
-                                                error!("Render error: {:?}", _e)
-                                            }
-                                        }
-
+                                        app.process_frame();
                                         if app.end {
                                             app.end(event_loop);
                                         } else {
@@ -246,12 +188,11 @@ impl App {
                                 }
                             }
                         }
+                        Event::Suspended => {
+                            app.surface.suspend();
+                        }
                         Event::LoopExiting => {
                             app.end(event_loop);
-                        }
-                        #[cfg(target_os = "android")]
-                        Event::Resumed => {
-                            app.gpu.resume(&app.window);
                         }
                         _ => {}
                     }
@@ -260,73 +201,107 @@ impl App {
             .unwrap();
     }
 
-    fn new(
-        window: Arc<Window>,
-        _event_loop: &EventLoopWindowTarget<()>,
-        gpu: GpuConfig,
-        scene_id: u32,
-        scene: impl FnOnce() -> Scene,
-        #[cfg(target_arch = "wasm32")] auto_scale_canvas: bool,
-    ) -> Self {
-        let gpu = pollster::block_on(Gpu::new(window.clone(), gpu));
-        let mint: mint::Vector2<u32> = (window.inner_size()).into();
-        let window_size: Vector2<u32> = mint.into();
-        let defaults = DefaultResources::new(&gpu, window_size);
+    fn new(config: AppConfig) -> (EventLoop<()>, Self) {
+        #[cfg(target_os = "android")]
+        use winit::platform::android::EventLoopBuilderExtAndroid;
+
+        #[cfg(feature = "log")]
+        if let Some(logger) = config.logger {
+            logger.init().ok();
+        }
+
+        #[cfg(feature = "log")]
+        info!("Using shura version: {}", VERSION);
+
+        #[cfg(target_os = "android")]
+        let events = winit::event_loop::EventLoopBuilder::new()
+            .with_android_app(config.android)
+            .build()
+            .unwrap();
+        #[cfg(not(target_os = "android"))]
+        let events = winit::event_loop::EventLoop::new().unwrap();
+        let window = config.window.build(&events).unwrap();
+        let window = Arc::new(window);
+
+        #[cfg(target_arch = "wasm32")]
+        {
+            use console_error_panic_hook::hook;
+            use winit::platform::web::WindowExtWebSys;
+
+            std::panic::set_hook(Box::new(hook));
+            let canvas = &web_sys::Element::from(window.canvas().unwrap());
+            for (attr, value) in config.canvas_attrs {
+                canvas.set_attribute(&attr, &value).unwrap();
+            }
+
+            let browser_window = web_sys::window().unwrap();
+            let document = browser_window.document().unwrap();
+            let body = document.body().unwrap();
+            body.append_child(canvas).ok();
+        }
+
+        let mut surface = Surface::new();
+        let gpu = pollster::block_on(Gpu::new(&mut surface, window.clone(), config.gpu));
         let gpu = Arc::new(gpu);
-        let globals = GlobalEntities::default();
 
         GLOBAL_GPU.set(gpu.clone()).ok().unwrap();
-        let scene = (scene)();
-        Self {
-            scenes: SceneManager::new(scene_id, scene, &globals),
-            frame: FrameManager::new(),
-            input: Input::new(window_size),
+
+        let shura = Self {
+            scenes: SceneManager::new(config.scene_id),
+            time: TimeManager::new(),
+            input: Input::new(),
             #[cfg(feature = "audio")]
             audio: AudioManager::new(),
             end: false,
             #[cfg(feature = "gui")]
             gui: Gui::new(&window, _event_loop, &gpu),
             #[cfg(target_arch = "wasm32")]
-            auto_scale_canvas,
+            auto_scale_canvas: config.auto_scale_canvas,
             resized: false,
-            globals: globals,
             window,
             gpu,
-            defaults,
-        }
+            surface,
+        };
+
+        return (events, shura);
     }
 
     fn resize(&mut self, new_size: Vector2<u32>) {
         if new_size.x > 0 && new_size.y > 0 {
             #[cfg(feature = "log")]
             info!("Resizing window to: {} x {}", new_size.x, new_size.y,);
+            let mut default_resources = self.gpu.default_resources_mut();
             self.scenes.resize();
             self.input.resize(new_size);
-            self.gpu.resize(new_size);
-            self.defaults.resize(&self.gpu, new_size);
+            self.surface.resize(&self.gpu, new_size);
+            default_resources.resize(&self.gpu, new_size);
 
             #[cfg(feature = "framebuffer")]
             {
                 if let Some(scene) = self.scenes.try_get_active_scene() {
                     let scene = scene.borrow();
 
-                    self.defaults
-                        .apply_render_scale(&self.gpu, scene.screen_config.render_scale());
+                    default_resources.apply_render_scale(
+                        &self.surface,
+                        &self.gpu,
+                        scene.screen_config.render_scale(),
+                    );
                 }
             }
         }
     }
 
-    fn process_frame(&mut self) -> Result<(), wgpu::SurfaceError> {
+    fn process_frame(&mut self) {
         let scene_id = self.scenes.active_scene_id();
         let scene = self.scenes.get_active_scene();
         let mut scene = scene.borrow_mut();
         let scene = &mut scene;
+        self.time.tick();
         if let Some(max_frame_time) = scene.screen_config.max_frame_time() {
-            let now = self.frame.now();
-            let update_time = self.frame.update_time();
+            let now = self.time.now();
+            let update_time = self.time.update();
             if now < update_time + max_frame_time {
-                return Ok(());
+                return;
             }
         }
 
@@ -340,11 +315,11 @@ impl App {
                 let height: u32 = browser_window.inner_height().unwrap().as_f64().unwrap() as u32;
                 let size = winit::dpi::PhysicalSize::new(width, height);
                 if size != self.window.inner_size().into() {
-                    self.window.set_inner_size(size);
-                    #[cfg(feature = "log")]
-                    {
-                        info!("Adjusting canvas to browser window!");
-                    }
+                    self.window.set_min_inner_size(Some(size));
+                    // #[cfg(feature = "log")]
+                    // {
+                    //     info!("Adjusting canvas to browser window!");
+                    // }
                 }
             }
         }
@@ -356,12 +331,10 @@ impl App {
 
             #[cfg(feature = "log")]
             {
-                #[cfg(not(feature = "framebuffer"))]
-                let render_size = self.gpu.render_size();
+                let render_size = self.surface.size();
 
                 #[cfg(feature = "framebuffer")]
                 let render_size = {
-                    let render_size = self.gpu.render_size();
                     Vector2::new(
                         (render_size.x as f32 * scale) as u32,
                         (render_size.y as f32 * scale) as u32,
@@ -376,7 +349,7 @@ impl App {
                     "Resizing render target to: {} x {} using present mode: {:?} (VSYNC: {})",
                     render_size.x,
                     render_size.y,
-                    self.gpu.config.lock().unwrap().present_mode,
+                    self.surface.config().present_mode,
                     scene.screen_config.vsync()
                 );
 
@@ -387,21 +360,22 @@ impl App {
             scene.world_camera2d.resize(window_size);
             scene.world_camera3d.resize(window_size);
 
-            self.gpu.apply_vsync(scene.screen_config.vsync());
+            self.surface
+                .apply_vsync(&self.gpu, scene.screen_config.vsync());
             #[cfg(feature = "framebuffer")]
-            self.defaults.apply_render_scale(&self.gpu, scale);
+            {
+                let mut default_resources = self.gpu.default_resources_mut();
+                default_resources.apply_render_scale(&mut self.surface, &self.gpu, scale);
+            }
             #[cfg(feature = "gui")]
             self.gui.resize(self.gpu.render_size());
+            // self.time.tick();
         }
 
         self.update(scene_id, scene);
         if scene.render_entities {
-            self.defaults.surface.start_frame(&self.gpu)?;
-            self.render(scene_id, scene);
-            self.defaults.surface.finish_frame();
+            self.render(scene);
         }
-        self.frame.update();
-        Ok(())
     }
 
     fn update(&mut self, scene_id: u32, scene: &mut Scene) {
@@ -410,9 +384,9 @@ impl App {
         self.input.sync_gamepad();
         #[cfg(feature = "gui")]
         self.gui
-            .begin(&self.frame.total_time_duration(), &self.window);
+            .begin(&self.time.total_time_duration(), &self.window);
         let (systems, mut ctx) = Context::new(&scene_id, self, scene);
-        let now = ctx.frame.update_time();
+        let now = ctx.time.update();
 
         for setup in systems.setup_systems.drain(..) {
             (setup)(&mut ctx)
@@ -433,7 +407,7 @@ impl App {
             match update_operation {
                 UpdateOperation::EveryFrame => (),
                 UpdateOperation::EveryNFrame(frames) => {
-                    if ctx.frame.total_frames() % *frames != 0 {
+                    if ctx.time.total_frames() % *frames != 0 {
                         continue;
                     }
                 }
@@ -452,39 +426,52 @@ impl App {
         scene.groups.update(&scene.world_camera2d);
     }
 
-    fn render(&mut self, _scene_id: u32, scene: &mut Scene) {
+    fn buffer(&mut self, scene: &mut Scene) {
+        let mut default_resources = self.gpu.default_resources_mut();
         scene
             .entities
             .buffer(&mut scene.render_groups, &scene.groups, &scene.world);
         scene.render_groups.apply_buffers(&scene.groups, &self.gpu);
-        self.defaults
+        default_resources
             .world_camera2d
             .write(&self.gpu, &scene.world_camera2d);
 
-        self.defaults
+        default_resources
             .world_camera3d
             .write(&self.gpu, &scene.world_camera3d);
 
-        self.defaults.times.write(
-            &self.gpu,
-            [self.frame.total_time(), self.frame.delta_time()],
-        );
+        default_resources
+            .times
+            .write(&self.gpu, [self.time.total(), self.time.delta()]);
+    }
 
-        let (systems, res) = RenderContext::new(&self.defaults, scene);
-        let mut encoder = RenderEncoder::new(&self.gpu, &self.defaults);
+    fn render(&mut self, scene: &mut Scene) {
+        self.buffer(scene);
+
+        let surface_target = self.surface.start_frame(&self.gpu);
+        let default_resources = self.gpu.default_resources();
+
+        #[cfg(feature = "framebuffer")]
+        let default_target = &default_resources.framebuffer;
+        #[cfg(not(feature = "framebuffer"))]
+        let default_target = &surface_target;
+
+        let (systems, res) = RenderContext::new(&surface_target, &default_resources, scene);
+        let mut encoder = RenderEncoder::new(&self.gpu, default_target, &default_resources);
 
         for render in &systems.render_systems {
             (render)(&res, &mut encoder);
         }
 
         #[cfg(feature = "framebuffer")]
-        encoder.copy_target(&self.defaults.framebuffer, &self.defaults.surface);
+        encoder.copy_target(&default_resources.framebuffer, &surface_target);
 
         #[cfg(feature = "gui")]
-        self.gui.render(&self.gpu, &self.defaults, &mut encoder);
+        self.gui.render(&self.gpu, &default_resources, &mut encoder);
 
         encoder.finish();
         self.gpu.submit();
+        surface_target.finish()
     }
 
     fn end(&mut self, event_loop: &EventLoopWindowTarget<()>) {

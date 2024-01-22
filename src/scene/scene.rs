@@ -4,8 +4,7 @@ use crate::{
         GroupedEntities, SingleEntity,
     },
     graphics::{
-        CameraViewSelection, Instance, Instance2D, PerspectiveCamera3D, RenderGroupConfig,
-        RenderGroupManager, ScreenConfig, WorldCamera2D, WorldCamera3D, WorldCameraScaling,
+        CameraViewSelection, Instance, Instance2D, Instance3D, PerspectiveCamera3D, RenderGroupConfig, RenderGroupManager, ScreenConfig, WorldCamera2D, WorldCamera3D, WorldCameraScaling
     },
     math::Vector2,
     physics::World,
@@ -78,6 +77,13 @@ impl Scene {
         Self: Sized,
     {
         self.render_group::<Instance2D>(name, config)
+    }
+
+    pub fn render_group3d(self, name: &'static str, config: RenderGroupConfig) -> Self
+    where
+        Self: Sized,
+    {
+        self.render_group::<Instance3D>(name, config)
     }
 
     pub fn single_entity<E: EntityIdentifier>(self, scope: EntityScope) -> Self

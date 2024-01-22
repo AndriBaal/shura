@@ -1,4 +1,5 @@
 use wgpu::include_wgsl;
+use winit::window::Window;
 
 #[cfg(feature = "log")]
 use crate::log::info;
@@ -10,14 +11,14 @@ use crate::{
         Instance3D, InstanceBuffer, InstanceBuffer2D, Mesh, Mesh2D, MeshBuilder, MeshBuilder2D,
         Model, ModelBuilder, RenderEncoder, RenderTarget, Shader, ShaderConfig, ShaderModule,
         ShaderModuleDescriptor, ShaderModuleSoure, Sprite, SpriteBuilder, SpriteRenderTarget,
-        SpriteSheet, SpriteSheetBuilder, SurfaceRenderTarget, Uniform, UniformField, Vertex,
-        Vertex3D, WorldCamera3D,
+        SpriteSheet, SpriteSheetBuilder, Surface, Uniform, UniformField, Vertex, Vertex3D,
+        WorldCamera3D,
     },
     math::{Isometry2, Vector2},
 };
 use std::{
-    ops::Deref,
-    sync::{Arc, Mutex, OnceLock},
+    ops::{Deref, DerefMut},
+    sync::{Arc, Mutex, OnceLock, RwLock},
 };
 
 pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 0.5;
@@ -29,7 +30,7 @@ pub struct GpuConfig {
     pub backends: wgpu::Backends,
     pub device_features: wgpu::Features,
     pub device_limits: wgpu::Limits,
-    pub max_multisample: u8,
+    pub max_samples: u8,
 }
 
 impl Default for GpuConfig {
@@ -42,7 +43,7 @@ impl Default for GpuConfig {
             } else {
                 wgpu::Limits::default()
             },
-            max_multisample: 4,
+            max_samples: 4,
         }
     }
 }
@@ -54,24 +55,27 @@ pub struct Gpu {
     pub adapter: wgpu::Adapter,
     pub command_buffers: Mutex<Vec<wgpu::CommandBuffer>>,
     format: OnceLock<wgpu::TextureFormat>,
+    shared_resources: OnceLock<SharedResources>,
+    default_resources: OnceLock<RwLock<DefaultResources>>,
+
     samples: OnceLock<u32>,
-    base: OnceLock<WgpuDefaultResources>,
+    max_samples: u32,
+    sample_state: OnceLock<wgpu::MultisampleState>,
 }
 
 impl Gpu {
-    pub(crate) async fn new(surface_target: &SurfaceRenderTarget, config: GpuConfig) -> Self {
-        // let window_size = window.inner_size();
-        // let window_size = Vector2::new(window_size.width, window_size.height);
-        let max_multisample = config.max_multisample;
+    pub(crate) async fn new(surface: &mut Surface, window: Arc<Window>, config: GpuConfig) -> Self {
+        let max_samples = config.max_samples as u32;
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: config.backends,
             dx12_shader_compiler: wgpu::Dx12Compiler::Fxc,
             ..Default::default()
         });
+        surface.pre_adapter(&instance, window);
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::HighPerformance,
-                compatible_surface: surface_target.surface(),
+                compatible_surface: surface.surface(),
                 force_fallback_adapter: false,
             })
             .await
@@ -89,19 +93,11 @@ impl Gpu {
             .await
             .unwrap();
 
-
-
-        let base = WgpuDefaultResources::new(&device, config.format, sample_count);
-
-
         #[cfg(feature = "log")]
         {
             let adapter_info = adapter.get_info();
             info!("Using GPU: {}", adapter_info.name);
             info!("Using WGPU backend: {:?}", adapter_info.backend);
-            info!("Using multisample X{sample_count}");
-            info!("Using texture format: {:?}", config.format);
-            info!("Using Present mode: {:?}", config.present_mode);
         }
 
         Self {
@@ -109,17 +105,14 @@ impl Gpu {
             queue,
             device,
             adapter,
-            base,
+            max_samples,
             command_buffers: Mutex::new(Default::default()),
+            format: OnceLock::new(),
+            samples: OnceLock::new(),
+            sample_state: OnceLock::new(),
+            shared_resources: OnceLock::new(),
+            default_resources: OnceLock::new(),
         }
-    }
-
-    #[cfg(target_os = "android")]
-    pub(crate) fn resume(&self, window: Arc<winit::window::Window>) {
-        let config = self.config.lock().unwrap();
-        let mut surface = self.surface.lock().unwrap();
-        *surface = unsafe { selfinstance.create_surface_unsafe(wgpu::SurfaceTargetUnsafe::from_window(window).unwrap()).unwrap() };
-        surface.configure(&self.device, &config);
     }
 
     pub fn block(&self, handle: wgpu::SubmissionIndex) {
@@ -195,38 +188,105 @@ impl Gpu {
 
     pub fn create_computed_target<'caller, D: Deref<Target = [u8]>>(
         &self,
-        defaults: &DefaultResources,
         sprite: SpriteBuilder<D>,
         compute: impl FnMut(&mut RenderEncoder),
     ) -> SpriteRenderTarget {
-        SpriteRenderTarget::computed(self, defaults, sprite, compute)
+        SpriteRenderTarget::computed(self, sprite, compute)
     }
-    
+
     pub fn samples(&self) -> u32 {
-        return self.samples.get()
+        return *self.samples.get().unwrap();
     }
 
     pub fn format(&self) -> wgpu::TextureFormat {
-        return self.format.unwrap()
+        return *self.format.get().unwrap();
     }
 
-    pub fn base(&self) -> &WgpuDefaultResources {
-        &self.base
+    pub fn sample_state(&self) -> wgpu::MultisampleState {
+        return *self.sample_state.get().unwrap();
     }
 
+    pub fn shared_resources(&self) -> &SharedResources {
+        return self.shared_resources.get().unwrap();
+    }
+
+    pub fn default_resources(&self) -> impl Deref<Target = DefaultResources> + '_ {
+        return self.default_resources.get().unwrap().read().unwrap();
+    }
+
+    pub fn default_resources_mut(&self) -> impl DerefMut<Target = DefaultResources> + '_ {
+        return self.default_resources.get().unwrap().write().unwrap();
+    }
+
+    pub fn is_initialized(&self) -> bool {
+        return self.format.get().is_some();
+    }
+
+    pub(crate) fn initialize(&self, surface: &Surface) {
+        let config = surface.config();
+        let format = config.format;
+        let max_samples = self.max_samples;
+        let sample_flags = self
+            .adapter
+            .get_texture_format_features(config.format)
+            .flags;
+        let samples: u32 = {
+            if max_samples >= 16
+                && sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X16)
+            {
+                16
+            } else if max_samples >= 8
+                && sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X8)
+            {
+                8
+            } else if max_samples >= 4
+                && sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X4)
+            {
+                4
+            } else if max_samples >= 2
+                && sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X2)
+            {
+                2
+            } else {
+                1
+            }
+        };
+        let sample_state = wgpu::MultisampleState {
+            count: samples,
+            mask: !0,
+            alpha_to_coverage_enabled: false,
+        };
+
+        self.samples.set(samples).unwrap();
+        self.format.set(format).unwrap();
+        self.sample_state.set(sample_state).unwrap();
+        self.shared_resources
+            .set(SharedResources::new(self))
+            .unwrap();
+        self.default_resources
+            .set(RwLock::new(DefaultResources::new(self, surface)))
+            .unwrap();
+        #[cfg(feature = "log")]
+        {
+            info!("Using multisample X{samples}");
+            info!("Using texture format: {:?}", config.format);
+            info!("Using Present mode: {:?}", config.present_mode);
+        }
+    }
 }
 
-pub struct WgpuDefaultResources {
+#[derive(Debug)]
+pub struct SharedResources {
     pub vertex_shader_module: ShaderModule,
-    pub multisample: wgpu::MultisampleState,
     pub sprite_sheet_layout: wgpu::BindGroupLayout,
     pub sprite_layout: wgpu::BindGroupLayout,
     pub camera_layout: wgpu::BindGroupLayout,
     pub single_uniform_layout: wgpu::BindGroupLayout,
 }
 
-impl WgpuDefaultResources {
-    pub fn new(device: &wgpu::Device, _format: wgpu::TextureFormat, sample_count: u32) -> Self {
+impl SharedResources {
+    pub fn new(gpu: &Gpu) -> Self {
+        let device = &gpu.device;
         let sprite_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[
                 wgpu::BindGroupLayoutEntry {
@@ -301,19 +361,11 @@ impl WgpuDefaultResources {
                 ],
             });
 
-        let multisample = wgpu::MultisampleState {
-            count: sample_count,
-            mask: !0,
-            alpha_to_coverage_enabled: false,
-        };
-
         let vertex_shader_module =
             device.create_shader_module(include_wgsl!("../../static/shader/2d/vertex.wgsl"));
 
         Self {
             vertex_shader_module,
-            sample_count,
-            multisample,
             sprite_sheet_layout,
             sprite_layout,
             camera_layout,
@@ -322,6 +374,7 @@ impl WgpuDefaultResources {
     }
 }
 
+#[derive(Debug)]
 pub struct DefaultResources {
     // 2D
     pub sprite: Shader,
@@ -351,17 +404,17 @@ pub struct DefaultResources {
     pub unit_camera: (CameraBuffer2D, Camera2D),
     pub centered_instance: InstanceBuffer2D,
 
-    pub surface: SurfaceRenderTarget,
     #[cfg(feature = "framebuffer")]
     pub framebuffer: SpriteRenderTarget,
 }
 
 impl DefaultResources {
-    pub(crate) fn new(gpu: &Gpu, window_size: Vector2<u32>) -> Self {
+    pub(crate) fn new(gpu: &Gpu, surface: &Surface) -> Self {
+        let shared_resources = gpu.shared_resources();
         let sprite_sheet = gpu.create_shader(ShaderConfig {
             name: Some("sprite_sheet"),
             source: ShaderModuleSoure::Seperate {
-                vertex: &gpu.base.vertex_shader_module,
+                vertex: &shared_resources.vertex_shader_module,
                 fragment: &gpu.create_shader_module(include_wgsl!(
                     "../../static/shader/2d/sprite_sheet.wgsl"
                 )),
@@ -410,7 +463,7 @@ impl DefaultResources {
         let color = gpu.create_shader(ShaderConfig {
             name: Some("color"),
             source: ShaderModuleSoure::Seperate {
-                vertex: &gpu.base.vertex_shader_module,
+                vertex: &shared_resources.vertex_shader_module,
                 fragment: &gpu
                     .create_shader_module(include_wgsl!("../../static/shader/2d/color.wgsl")),
             },
@@ -421,7 +474,7 @@ impl DefaultResources {
         let sprite = gpu.create_shader(ShaderConfig {
             name: Some("sprite"),
             source: ShaderModuleSoure::Seperate {
-                vertex: &gpu.base.vertex_shader_module,
+                vertex: &shared_resources.vertex_shader_module,
                 fragment: &gpu
                     .create_shader_module(include_wgsl!("../../static/shader/2d/sprite.wgsl")),
             },
@@ -432,7 +485,7 @@ impl DefaultResources {
         let rainbow = gpu.create_shader(ShaderConfig {
             name: Some("rainbow"),
             source: ShaderModuleSoure::Seperate {
-                vertex: &gpu.base.vertex_shader_module,
+                vertex: &shared_resources.vertex_shader_module,
                 fragment: &gpu
                     .create_shader_module(include_wgsl!("../../static/shader/2d/rainbow.wgsl")),
             },
@@ -443,7 +496,7 @@ impl DefaultResources {
         let grey = gpu.create_shader(ShaderConfig {
             name: Some("grey"),
             source: ShaderModuleSoure::Seperate {
-                vertex: &gpu.base.vertex_shader_module,
+                vertex: &shared_resources.vertex_shader_module,
                 fragment: &gpu
                     .create_shader_module(include_wgsl!("../../static/shader/2d/grey.wgsl")),
             },
@@ -454,7 +507,7 @@ impl DefaultResources {
         let blurr = gpu.create_shader(ShaderConfig {
             name: Some("blurr"),
             source: ShaderModuleSoure::Seperate {
-                vertex: &gpu.base.vertex_shader_module,
+                vertex: &shared_resources.vertex_shader_module,
                 fragment: &gpu
                     .create_shader_module(include_wgsl!("../../static/shader/2d/blurr.wgsl")),
             },
@@ -462,11 +515,11 @@ impl DefaultResources {
             ..Default::default()
         });
 
-        let size = gpu.render_size();
+        let size = surface.size();
         let times = Uniform::new(gpu, [0.0, 0.0]);
         let centered_instance = gpu.create_instance_buffer(&[Instance2D::default()]);
 
-        let fov = Self::relative_fov(window_size);
+        let fov = Self::relative_fov(size);
 
         let relative_bottom_left_camera =
             CameraBuffer2D::new_camera(gpu, Camera2D::new(Isometry2::new(fov, 0.0), fov));
@@ -490,8 +543,6 @@ impl DefaultResources {
         let world_camera3d = CameraBuffer::empty(gpu);
 
         let unit_mesh = gpu.create_mesh(&MeshBuilder2D::cuboid(Vector2::new(0.5, 0.5)));
-
-        let surface = SurfaceRenderTarget::new(gpu, size);
 
         #[cfg(feature = "framebuffer")]
         let framebuffer = SpriteRenderTarget::new(gpu, size);
@@ -535,15 +586,14 @@ impl DefaultResources {
             world_camera2d,
             world_camera3d,
 
-            surface,
             #[cfg(feature = "framebuffer")]
             framebuffer,
         }
     }
 
     #[cfg(feature = "framebuffer")]
-    pub(crate) fn apply_render_scale(&mut self, gpu: &Gpu, scale: f32) {
-        let size = gpu.render_size().cast::<f32>() * scale;
+    pub(crate) fn apply_render_scale(&mut self, surface: &Surface, gpu: &Gpu, scale: f32) {
+        let size = surface.size().cast::<f32>() * scale;
         let size = Vector2::new(size.x as u32, size.y as u32);
         if self.framebuffer.size() != size {
             self.framebuffer = gpu.create_render_target(size);
@@ -551,8 +601,6 @@ impl DefaultResources {
     }
 
     pub(crate) fn resize(&mut self, gpu: &Gpu, window_size: Vector2<u32>) {
-        self.surface.resize(gpu, window_size);
-
         #[cfg(feature = "framebuffer")]
         self.framebuffer.resize(gpu, window_size);
 
@@ -584,13 +632,6 @@ impl DefaultResources {
 
     pub fn unit_mesh(&self) -> &Mesh2D {
         &self.unit_mesh
-    }
-
-    pub fn default_target(&self) -> &dyn RenderTarget {
-        #[cfg(feature = "framebuffer")]
-        return &self.framebuffer;
-        #[cfg(not(feature = "framebuffer"))]
-        return &self.surface;
     }
 
     fn relative_fov(window_size: Vector2<u32>) -> Vector2<f32> {

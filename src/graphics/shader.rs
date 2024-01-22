@@ -49,6 +49,7 @@ pub enum UniformField {
     Custom(wgpu::BindGroupLayout),
 }
 
+#[derive(Debug)]
 pub struct Shader {
     pipeline: wgpu::RenderPipeline,
     instance_size: wgpu::BufferAddress,
@@ -58,12 +59,13 @@ pub struct Shader {
 impl Shader {
     pub fn new(gpu: &Gpu, config: ShaderConfig) -> Self {
         let mut layouts: Vec<&wgpu::BindGroupLayout> = Vec::with_capacity(config.uniforms.len());
+        let shared_resources = gpu.shared_resources();
         for link in config.uniforms.iter() {
             let layout = match link {
-                UniformField::SingleUniform => &gpu.base.single_uniform_layout,
-                UniformField::Sprite => &gpu.base.sprite_layout,
-                UniformField::SpriteSheet => &gpu.base.sprite_sheet_layout,
-                UniformField::Camera => &gpu.base.camera_layout,
+                UniformField::SingleUniform => &shared_resources.single_uniform_layout,
+                UniformField::Sprite => &shared_resources.sprite_layout,
+                UniformField::SpriteSheet => &shared_resources.sprite_sheet_layout,
+                UniformField::Camera => &shared_resources.camera_layout,
                 UniformField::Custom(c) => c,
             };
             layouts.push(layout);
@@ -129,7 +131,7 @@ impl Shader {
                     conservative: false,
                 },
                 depth_stencil: config.depth_stencil,
-                multisample: gpu.base.multisample,
+                multisample: gpu.sample_state(),
                 multiview: None,
             });
 

@@ -10,11 +10,13 @@ pub struct Uniform<T: bytemuck::Pod> {
 
 impl<T: bytemuck::Pod> Uniform<T> {
     pub fn new(gpu: &Gpu, data: T) -> Self {
-        Self::custom_layout(gpu, &gpu.base.single_uniform_layout, data)
+        let shared_resources = gpu.shared_resources();
+        Self::custom_layout(gpu, &shared_resources.single_uniform_layout, data)
     }
 
     pub fn camera(gpu: &Gpu, data: T) -> Self {
-        Self::custom_layout(gpu, &gpu.base.camera_layout, data)
+        let shared_resources = gpu.shared_resources();
+        Self::custom_layout(gpu, &shared_resources.camera_layout, data)
     }
 
     pub fn custom(gpu: &Gpu, desc: &wgpu::BindGroupLayoutDescriptor, data: T) -> Uniform<T> {

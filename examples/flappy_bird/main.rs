@@ -5,7 +5,7 @@ const GAME_SIZE: Vector2<f32> = Vector2::new(11.25, 5.0);
 #[shura::main]
 fn shura_main(config: AppConfig) {
     App::run(config, || {
-        NewScene::new(1)
+        Scene::new()
             .component::<Background>(ComponentConfig {
                 buffer: RenderGroupConfig::Manual,
                 storage: ComponentStorage::Single,
@@ -35,8 +35,8 @@ fn setup(ctx: &mut Context) {
 }
 
 fn update(ctx: &mut Context) {
-    let fps = ctx.frame.fps();
-    let delta = ctx.frame.delta_time();
+    let fps = ctx.time.fps();
+    let delta = ctx.time.delta_time();
 
     let mut manager = ctx.components.single::<FlappyManager>();
     let mut bird = ctx.components.single::<Bird>();
@@ -88,7 +88,7 @@ fn update(ctx: &mut Context) {
         });
 
     bird.body
-        .set_index((ctx.frame.total_time() * 7.0 % 3.0) as u32);
+        .set_index((ctx.time.total_time() * 7.0 % 3.0) as u32);
     if ctx.input.is_pressed(Key::Space)
         || ctx.input.is_pressed(MouseButton::Left)
         || ctx.input.is_pressed(ScreenTouch)
@@ -100,7 +100,7 @@ fn update(ctx: &mut Context) {
             .set_linvel(Vector2::new(0.0, 5.0), true);
     }
 
-    ctx.world.step(ctx.frame).collisions(|event| {
+    ctx.world.step(ctx.time).collisions(|event| {
         if event.is::<Pipe, Bird>(ctx.world).is_some()
             || event.is::<Ground, Bird>(ctx.world).is_some()
         {

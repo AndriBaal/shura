@@ -10,11 +10,11 @@ const AMOUNT_BIRDS: u32 = 1000;
 #[shura::main]
 fn shura_main(config: AppConfig) {
     App::run(config, || {
-        NewScene::new(1)
-            .component2d("ground", RenderGroupConfig::MANUAL)
-            .component2d("background", RenderGroupConfig::MANUAL)
-            .component2d("pipe", RenderGroupConfig::EVERY_FRAME)
-            .component2d("bird", RenderGroupConfig::EVERY_FRAME)
+        Scene::new()
+            .render_group2d("ground", RenderGroupConfig::MANUAL)
+            .render_group2d("background", RenderGroupConfig::MANUAL)
+            .render_group2d("pipe", RenderGroupConfig::EVERY_FRAME)
+            .render_group2d("bird", RenderGroupConfig::EVERY_FRAME)
             .single_entity::<Background>(Default::default())
             .single_entity::<Ground>(Default::default())
             .single_entity::<BirdSimulation>(Default::default())
@@ -48,9 +48,9 @@ fn update(ctx: &mut Context) {
     let mut pipes = ctx.entities.multiple::<Pipe>();
     let mut simulation = ctx.entities.single::<BirdSimulation>().get().unwrap();
     let mut birds = ctx.entities.multiple::<Bird>();
-    let fps = ctx.frame.fps();
-    let delta = ctx.frame.delta_time() * simulation.time_scale;
-    let step = ctx.frame.delta_time() * simulation.time_scale * Pipe::VELOCITY;
+    let fps = ctx.time.fps();
+    let delta = ctx.time.delta_time() * simulation.time_scale;
+    let step = ctx.time.delta_time() * simulation.time_scale * Pipe::VELOCITY;
     pipes.retain(ctx.world, |pipe, _| {
         let new_pos = pipe.pos.translation() + step;
         pipe.pos.set_translation(new_pos);

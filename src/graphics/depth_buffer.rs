@@ -1,5 +1,6 @@
 use crate::{graphics::Gpu, math::Vector2};
 
+#[derive(Debug)]
 pub struct DepthBuffer {
     view: wgpu::TextureView,
     size: Vector2<u32>,
@@ -27,7 +28,7 @@ impl DepthBuffer {
             label: Some("depth_texture"),
             size: extend,
             mip_level_count: 1,
-            sample_count: gpu.sample_count(),
+            sample_count: gpu.samples(),
             dimension: wgpu::TextureDimension::D2,
             format: Self::DEPTH_FORMAT,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,

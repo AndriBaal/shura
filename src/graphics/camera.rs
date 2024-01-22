@@ -11,6 +11,8 @@ use crate::{
 const MINIMAL_FOV: f32 = 0.0001;
 
 pub type CameraBuffer2D = CameraBuffer<Camera2D>;
+
+#[derive(Debug)]
 pub struct CameraBuffer<C: Camera> {
     uniform: Uniform<Matrix4<f32>>,
     marker: PhantomData<C>,
@@ -30,7 +32,7 @@ impl<C: Camera> CameraBuffer<C> {
 
     pub fn empty(gpu: &Gpu) -> Self {
         Self {
-            uniform: Uniform::empty(gpu, &gpu.base.camera_layout),
+            uniform: Uniform::empty(gpu, &gpu.shared_resources().camera_layout),
             marker: PhantomData,
         }
     }
