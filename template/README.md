@@ -12,7 +12,7 @@ When compiling for android make sure the "desktop" configuration is commented ou
 
 Make sure that [cargo-apk](https://github.com/rust-mobile/cargo-apk) is installed.
 ```
-cargo apk run --release
+cargo apk run --lib --release
 ```
 
 ### WASM:

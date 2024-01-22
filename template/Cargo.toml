@@ -1,13 +1,13 @@
 [package]
-name = "shura_examples"
+name = "shura_template"
 version = "0.4.0"
 edition = "2021"
 
 # Android
 # Important: key.keystore is only for demo. Replace key.keystore for your own private key when deploying
-# [lib]
-# path = "./src/main.rs"
-# crate_type=["cdylib"]
+[lib]
+path = "./src/main.rs"
+crate_type=["cdylib"]
 
 [dependencies]
 shura = { path = "../" }
@@ -16,7 +16,7 @@ shura = { path = "../" }
 fs_extra = "1.2"
 
 [package.metadata.android]
-package = "com.shura.examples"
+package = "com.shura.template"
 apk_name = "Shura Example"
 
 [package.metadata.android.application]

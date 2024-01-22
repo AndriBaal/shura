@@ -3,8 +3,8 @@ use shura::prelude::*;
 #[shura::main]
 fn shura_main(config: AppConfig) {
     App::run(config, || {
-        NewScene::new(1)
-            .component::<Instance3D>("cube", RenderGroupConfig::EVERY_FRAME)
+        Scene::new()
+            .render_group3d("cube", RenderGroupConfig::EVERY_FRAME)
             .entities::<Cube>(Default::default())
             .single_entity::<Resources>(Default::default())
             .system(System::Update(update))
@@ -16,8 +16,9 @@ fn shura_main(config: AppConfig) {
 fn setup(ctx: &mut Context) {
     const NUM_INSTANCES_PER_ROW: u32 = 10;
     const SPACE_BETWEEN: f32 = 3.0;
-    let cubes = (0..NUM_INSTANCES_PER_ROW)
-        .flat_map(|z| {
+    ctx.entities.multiple().add_many(
+        ctx.world,
+        (0..NUM_INSTANCES_PER_ROW).flat_map(|z| {
             (0..NUM_INSTANCES_PER_ROW).map(move |x| {
                 let x = SPACE_BETWEEN * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
                 let z = SPACE_BETWEEN * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
@@ -25,16 +26,16 @@ fn setup(ctx: &mut Context) {
 
                 Cube::new(position)
             })
-        })
-        .collect::<Vec<_>>();
-    ctx.entities.multiple().add_many(ctx.world, cubes);
-    // ctx.entities.add(ctx.world, Resources::new(ctx));
+        }),
+    );
 
     let gpu = ctx.gpu.clone();
-    ctx.tasks
-        .spawn_async(async move { Resources::new(&gpu).await }, |ctx, res| {
+    ctx.tasks.spawn(
+        move || Resources::new(&gpu),
+        |ctx, res| {
             ctx.entities.single().set(ctx.world, res);
-        });
+        },
+    );
 }
 
 fn update(ctx: &mut Context) {
@@ -42,18 +43,17 @@ fn update(ctx: &mut Context) {
     if ctx.entities.single::<Resources>().is_none() {
         return;
     }
-
-    let speed = SPEED * ctx.frame.frame_time();
+    let speed = SPEED * ctx.time.delta();
     let camera = ctx.world_camera3d.perspective_mut().unwrap();
 
     let forward = camera.target - camera.eye;
     let forward_norm = forward.normalize();
     let forward_mag = forward.magnitude();
 
-    if ctx.input.is_held(Key::Up) && forward_mag > speed {
+    if ctx.input.is_held(Key::KeyW) && forward_mag > speed {
         camera.eye += forward_norm * speed;
     }
-    if ctx.input.is_held(Key::Down) {
+    if ctx.input.is_held(Key::KeyS) {
         camera.eye -= forward_norm * speed;
     }
 
@@ -61,20 +61,20 @@ fn update(ctx: &mut Context) {
     let forward = camera.target - camera.eye;
     let forward_mag = forward.magnitude();
 
-    if ctx.input.is_held(Key::Right) {
+    if ctx.input.is_held(Key::KeyD) {
         camera.eye = camera.target - (forward + right * speed).normalize() * forward_mag;
     }
 
-    if ctx.input.is_held(Key::Left) {
+    if ctx.input.is_held(Key::KeyA) {
         camera.eye = camera.target - (forward - right * speed).normalize() * forward_mag;
     }
 
     for cube in ctx.entities.multiple::<Cube>().iter_mut() {
         let mut rot = cube.position.rotation();
         rot *= Rotation3::new(Vector3::new(
-            1.0 * ctx.frame.frame_time(),
-            1.0 * ctx.frame.frame_time(),
-            1.0 * ctx.frame.frame_time(),
+            1.0 * ctx.time.delta(),
+            1.0 * ctx.time.delta(),
+            1.0 * ctx.time.delta(),
         ));
         cube.position.set_rotation(rot);
     }
@@ -85,8 +85,8 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
         encoder.render3d(
             Some(RgbaColor::new(220, 220, 220, 255).into()),
             |renderer| {
-                ctx.render_all(renderer, "cube", |renderer, buffer, instances| {
-                    renderer.render_model(instances, buffer, &ctx.world_camera3d, &resources.model);
+                ctx.render(renderer, "cube", |renderer, buffer, instances| {
+                    renderer.render_model(instances, buffer, ctx.world_camera3d, &resources.model);
                 });
             },
         );
@@ -99,9 +99,16 @@ struct Resources {
 }
 
 impl Resources {
-    pub async fn new(gpu: &Gpu) -> Self {
+    pub fn new(gpu: &Gpu) -> Self {
         Self {
-            model: gpu.create_model(ModelBuilder::file_async("3d/cube/cube.obj").await),
+            model: gpu.create_model(ModelBuilder::bytes(
+                include_str_res!("3d/cube/cube.obj"),
+                &[("cube.mtl", include_str_res!("3d/cube/cube.mtl"))],
+                &[(
+                    "cobble-diffuse.png",
+                    include_bytes_res!("3d/cube/cobble-diffuse.png"),
+                )],
+            )),
         }
     }
 }
