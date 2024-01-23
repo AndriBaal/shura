@@ -376,10 +376,10 @@ impl App {
         if scene.render_entities {
             self.render(scene);
         }
+        self.input.update();
     }
 
     fn update(&mut self, scene_id: u32, scene: &mut Scene) {
-        self.input.update();
         #[cfg(feature = "gamepad")]
         self.input.sync_gamepad();
         #[cfg(feature = "gui")]
@@ -477,7 +477,12 @@ impl App {
     fn end(&mut self, event_loop: &EventLoopWindowTarget<()>) {
         self.end = true;
         event_loop.exit();
-        for (id, scene) in self.scenes.end_scenes() {
+        let scenes = self.scenes.end_scenes();
+        #[cfg(feature = "log")]
+        if scenes.len() != 0 {
+            info!("Goodbye!");
+        }
+        for (id, scene) in scenes {
             let mut scene = scene.borrow_mut();
             let (systems, mut ctx) = Context::new(&id, self, &mut scene);
             for end in &systems.end_systems {

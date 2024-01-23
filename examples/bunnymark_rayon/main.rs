@@ -70,7 +70,7 @@ fn update(ctx: &mut Context) {
         resources.screenshot = Some(ctx.gpu.create_render_target(ctx.window_size));
     }
 
-    let frame = ctx.time.delta_time();
+    let frame = ctx.time.delta();
     let fov = ctx.world_camera2d.fov();
     let buffer = ctx.render_groups.get_mut("bunny").unwrap();
     buffer.set_update_buffer(true);
