@@ -31,7 +31,7 @@ impl ModelBuilder {
                 ..Default::default()
             },
             |p| async move {
-                let mat_text = load_res_string_async(path_buf.join(p)).await.unwrap();
+                let mat_text = load_res_string_async(path_buf.join(p).to_str().unwrap()).await.unwrap();
                 tobj::load_mtl_buf(&mut BufReader::new(Cursor::new(mat_text)))
             },
         )
@@ -41,7 +41,7 @@ impl ModelBuilder {
         let mut sprites = Vec::new();
         for m in obj_materials.unwrap() {
             sprites.push(
-                load_res_bytes_async(path_buf.join(m.diffuse_texture.unwrap()))
+                load_res_bytes_async(path_buf.join(m.diffuse_texture.unwrap()).to_str().unwrap())
                     .await
                     .unwrap(),
             );
@@ -70,7 +70,7 @@ impl ModelBuilder {
                 ..Default::default()
             },
             |p| {
-                let mat_text = load_res_string(path_buf.join(p)).unwrap();
+                let mat_text = load_res_string(path_buf.join(p).to_str().unwrap()).unwrap();
                 tobj::load_mtl_buf(&mut BufReader::new(Cursor::new(mat_text)))
             },
         )
@@ -78,7 +78,7 @@ impl ModelBuilder {
 
         let mut sprites = Vec::new();
         for m in obj_materials.unwrap() {
-            sprites.push(load_res_bytes(path_buf.join(m.diffuse_texture.unwrap())).unwrap());
+            sprites.push(load_res_bytes(path_buf.join(m.diffuse_texture.unwrap()).to_str().unwrap()).unwrap());
         }
 
         Self {

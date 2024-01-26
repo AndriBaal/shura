@@ -170,9 +170,9 @@ impl Surface {
     ///
     /// A suspend event is always followed by at least one resume event.
     pub(crate) fn suspend(&mut self) {
-        if cfg!(target_os = "android") {
-            self.surface = None;
-        }
+        // if cfg!(target_os = "android") {
+        //     self.surface = None;
+        // }
     }
 
     pub(crate) fn apply_vsync(&mut self, gpu: &Gpu, vsync: bool) {

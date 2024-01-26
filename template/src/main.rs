@@ -28,7 +28,9 @@ fn setup(ctx: &mut Context) {
         })
         .collect::<Vec<_>>();
     ctx.entities.multiple().add_many(ctx.world, cubes);
-    // ctx.entities.add(ctx.world, Resources::new(ctx));
+
+    let sound = ctx.audio.create_sound(include_bytes_res!("3d/point.wav"));
+    ctx.audio.play_once(&sound);
 
     let gpu = ctx.gpu.clone();
     ctx.tasks
@@ -86,7 +88,7 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
             Some(RgbaColor::new(220, 220, 220, 255).into()),
             |renderer| {
                 ctx.render(renderer, "cube", |renderer, buffer, instances| {
-                    renderer.render_model(instances, buffer, &ctx.world_camera3d, &resources.model);
+                    renderer.render_model(instances, buffer, ctx.world_camera3d, &resources.model);
                 });
             },
         );

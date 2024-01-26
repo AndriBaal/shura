@@ -214,6 +214,18 @@ impl App {
         info!("Using shura version: {}", VERSION);
 
         #[cfg(target_os = "android")]
+        {
+            #[cfg(feature = "log")]
+            info!("Android SDK version: {}", AndroidApp::sdk_version());
+            crate::resource::ANDROID_ASSETS
+                .set(config.android.asset_manager())
+                .unwrap();
+            crate::resource::ANDROID_DATA
+                .set(config.android.internal_data_path().unwrap())
+                .unwrap();
+        }
+
+        #[cfg(target_os = "android")]
         let events = winit::event_loop::EventLoopBuilder::new()
             .with_android_app(config.android)
             .build()

@@ -8,7 +8,7 @@ use crate::{
     resource::load_res_bytes_async,
 };
 use image::ImageOutputFormat;
-use std::{ops::Deref, path::Path};
+use std::ops::Deref;
 
 pub struct SpriteBuilder<'a, D: Deref<Target = [u8]>> {
     pub label: Option<&'a str>,
@@ -20,15 +20,13 @@ pub struct SpriteBuilder<'a, D: Deref<Target = [u8]>> {
 
 impl<'a> SpriteBuilder<'a, image::RgbaImage> {
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn file(
-        path: impl AsRef<Path>,
-    ) -> SpriteBuilder<'a, image::ImageBuffer<image::Rgba<u8>, Vec<u8>>> {
+    pub fn file(path: &str) -> SpriteBuilder<'a, image::ImageBuffer<image::Rgba<u8>, Vec<u8>>> {
         let bytes = load_res_bytes(path).unwrap();
         Self::bytes(&bytes)
     }
 
     pub async fn file_async(
-        path: impl AsRef<Path>,
+        path: &str,
     ) -> SpriteBuilder<'a, image::ImageBuffer<image::Rgba<u8>, Vec<u8>>> {
         let bytes = load_res_bytes_async(path).await.unwrap();
         Self::bytes(&bytes)

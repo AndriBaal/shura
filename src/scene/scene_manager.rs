@@ -21,7 +21,9 @@ impl SceneManager {
         }
     }
 
-    pub(crate) fn end_scenes(&mut self) -> impl ExactSizeIterator<Item = (u32, Rc<RefCell<Scene>>)> {
+    pub(crate) fn end_scenes(
+        &mut self,
+    ) -> impl ExactSizeIterator<Item = (u32, Rc<RefCell<Scene>>)> {
         std::mem::take(&mut self.scenes).into_iter()
     }
 

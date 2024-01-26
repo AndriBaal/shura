@@ -77,7 +77,7 @@ gilrs = { version = "0.10", optional = true }
 #     "default_fonts",
 #     "mint",
 # ] }
-rapier2d = { version = "0.17", optional = true }
+rapier2d = { version = "0.18", optional = true }
 log = { version = "0.4", optional = true, features = ["std"] }
 downcast-rs = "1.2.0"
 rustc-hash = "1.1"
@@ -114,6 +114,8 @@ web-sys = { version = "0.3", features = [
     "Location",
 ] }
 
+[target.'cfg(target_os = "android")'.dependencies]
+ndk = "0.8"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies.wgpu]
 features = ["fragile-send-sync-non-atomic-wasm"]

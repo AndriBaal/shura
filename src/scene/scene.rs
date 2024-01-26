@@ -4,7 +4,9 @@ use crate::{
         GroupedEntities, SingleEntity,
     },
     graphics::{
-        CameraViewSelection, Instance, Instance2D, Instance3D, PerspectiveCamera3D, RenderGroupConfig, RenderGroupManager, ScreenConfig, WorldCamera2D, WorldCamera3D, WorldCameraScaling
+        CameraViewSelection, Instance, Instance2D, Instance3D, PerspectiveCamera3D,
+        RenderGroupConfig, RenderGroupManager, ScreenConfig, WorldCamera2D, WorldCamera3D,
+        WorldCameraScaling,
     },
     math::Vector2,
     physics::World,

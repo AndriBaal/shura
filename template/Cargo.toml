@@ -3,11 +3,12 @@ name = "shura_template"
 version = "0.4.0"
 edition = "2021"
 
-# Android
-# Important: key.keystore is only for demo. Replace key.keystore for your own private key when deploying
+# Android run configuration (remove for faster compile time)
 [lib]
 path = "./src/main.rs"
 crate_type=["cdylib"]
+
+[target.'cfg(target_os = "android")']
 
 [dependencies]
 shura = { path = "../" }
@@ -18,14 +19,20 @@ fs_extra = "1.2"
 [package.metadata.android]
 package = "com.shura.template"
 apk_name = "Shura Example"
+assets = "./res"
+resources = "./android/resources"
 
 [package.metadata.android.application]
 label = "Shura Example"
-theme = "@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen"
+theme = "@style/AppTheme"
 
 [package.metadata.android.application.activity]
 orientation = "landscape"
 
 [package.metadata.android.signing.release]
-path = "./key.keystore"
+path = "./android/key.keystore"
 keystore_password = "android"
+
+[[package.metadata.android.uses_permission]]
+name = "android.permission.WRITE_INTERNAL_STORAGE"
+max_sdk_version = 18

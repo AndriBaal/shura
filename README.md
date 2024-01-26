@@ -15,7 +15,7 @@ OR:
 Add the following to your `Cargo.toml`:
 ```
 [dependencies]
-shura = "0.3.0"
+shura = "0.7.0"
 ```
 
 A good way to learn shura is through the provided examples or through reading the code [documentation](https://docs.rs/shura).

@@ -6,7 +6,7 @@ use rustc_hash::FxHashMap;
 use crate::{
     graphics::{Gpu, SpriteSheet, SpriteSheetBuilder, SpriteSheetIndex},
     math::Vector2,
-    resource::load_res_bytes_async
+    resource::load_res_bytes_async,
 };
 
 #[cfg(not(target_arch = "wasm32"))]

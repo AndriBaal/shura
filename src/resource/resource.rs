@@ -1,11 +1,19 @@
 use anyhow::Result;
-use std::path::Path;
 
 #[cfg(not(target_arch = "wasm32"))]
 use std::{env, fs, path::PathBuf};
 
 #[cfg(feature = "log")]
 use crate::log::info;
+
+#[cfg(target_os = "android")]
+use std::{sync::OnceLock, ffi::CString, io::Read};
+
+#[cfg(target_os = "android")]
+pub(crate) static ANDROID_ASSETS: OnceLock<ndk::asset::AssetManager> = OnceLock::new();
+
+#[cfg(target_os = "android")]
+pub(crate) static ANDROID_DATA: OnceLock<PathBuf> = OnceLock::new();
 
 #[macro_export]
 macro_rules! include_bytes_res {
@@ -28,7 +36,7 @@ macro_rules! include_wgsl_res {
     };
 }
 
-pub async fn load_res_bytes_async(path: impl AsRef<Path>) -> Result<Vec<u8>> {
+pub async fn load_res_bytes_async(path: &str) -> Result<Vec<u8>> {
     #[cfg(target_arch = "wasm32")]
     {
         let url = resource_url(path)?;
@@ -36,13 +44,11 @@ pub async fn load_res_bytes_async(path: impl AsRef<Path>) -> Result<Vec<u8>> {
     }
     #[cfg(not(target_arch = "wasm32"))]
     {
-        let path = resource_path(path)?;
-        let data = std::fs::read(path)?;
-        Ok(data)
+        load_res_bytes(path)
     }
 }
 
-pub async fn load_res_string_async(path: impl AsRef<Path>) -> Result<String> {
+pub async fn load_res_string_async(path: &str) -> Result<String> {
     #[cfg(target_arch = "wasm32")]
     {
         let url = resource_url(path)?;
@@ -52,6 +58,42 @@ pub async fn load_res_string_async(path: impl AsRef<Path>) -> Result<String> {
     }
     #[cfg(not(target_arch = "wasm32"))]
     {
+        load_res_string(path)
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn load_res_bytes(path: &str) -> Result<Vec<u8>> {
+    #[cfg(target_os = "android")] {
+        #[cfg(feature = "log")]
+        info!("Loading: {}", path);
+        let manager = ANDROID_ASSETS.get().unwrap();
+        let path = CString::new(path).unwrap();
+        let mut asset = manager.open(&path).unwrap();
+        let mut data = vec![];
+        asset.read_to_end(&mut data).unwrap();
+        return Ok(data);
+    }
+    #[cfg(not(target_os = "android"))] {
+        let path = resource_path(path)?;
+        let data = std::fs::read(path)?;
+        Ok(data)
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn load_res_string(path: &str) -> Result<String> {
+    #[cfg(target_os = "android")] {
+        #[cfg(feature = "log")]
+        info!("Loading: {}", path);
+        let manager = ANDROID_ASSETS.get().unwrap();
+        let path = CString::new(path).unwrap();
+        let mut asset = manager.open(&path).unwrap();
+        let mut data = String::new();
+        asset.read_to_string(&mut data).unwrap();
+        return Ok(data);
+    }
+    #[cfg(not(target_os = "android"))] {
         let path = resource_path(path)?;
         let data = std::fs::read_to_string(path)?;
         Ok(data)
@@ -59,46 +101,47 @@ pub async fn load_res_string_async(path: impl AsRef<Path>) -> Result<String> {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn load_res_bytes(path: impl AsRef<Path>) -> Result<Vec<u8>> {
-    let path = resource_path(path)?;
-    let data = std::fs::read(path)?;
-    Ok(data)
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-pub fn load_res_string(path: impl AsRef<Path>) -> Result<String> {
-    let path = resource_path(path)?;
-    let data = std::fs::read_to_string(path)?;
-    Ok(data)
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-pub fn load_data_bytes(path: impl AsRef<Path>) -> Result<Vec<u8>> {
-    let path = data_path(path)?;
-    let data = std::fs::read(path)?;
-    Ok(data)
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-pub fn load_data_string(path: impl AsRef<Path>) -> Result<String> {
-    let path = data_path(path)?;
-    let data = std::fs::read_to_string(path)?;
-    Ok(data)
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-pub fn save_data(path: impl AsRef<Path>, data: impl AsRef<[u8]>) -> Result<()> {
-    let path = data_path(path)?;
-    let prefix = path.parent().unwrap();
-    if !prefix.exists() {
-        std::fs::create_dir_all(prefix)?;
+pub fn load_data_bytes(path: &str) -> Result<Vec<u8>> {
+    #[cfg(target_os = "android")] {
+        todo!()
     }
-    let r = std::fs::write(path, data)?;
-    Ok(r)
+    #[cfg(not(target_os = "android"))] {
+        let path = data_path(path)?;
+        let data = std::fs::read(path)?;
+        Ok(data)
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn data_path(path: impl AsRef<Path>) -> Result<PathBuf> {
+pub fn load_data_string(path: &str) -> Result<String> {
+    #[cfg(target_os = "android")] {
+        todo!()
+    }
+    #[cfg(not(target_os = "android"))] {
+        let path = data_path(path)?;
+        let data = std::fs::read_to_string(path)?;
+        Ok(data)
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn save_data(path: &str, data: impl AsRef<[u8]>) -> Result<()> {
+    #[cfg(target_os = "android")] {
+        todo!()
+    }
+    #[cfg(not(target_os = "android"))] {
+        let path = data_path(path)?;
+        let prefix = path.parent().unwrap();
+        if !prefix.exists() {
+            std::fs::create_dir_all(prefix)?;
+        }
+        let r = std::fs::write(path, data)?;
+        Ok(r)
+    }
+}
+
+#[cfg(all(not(target_arch = "wasm32"), not(target_os="android")))]
+pub fn data_path(path: &str) -> Result<PathBuf> {
     let exe = env::current_exe()?;
     let mut dir = fs::canonicalize(exe)?;
     dir.pop();
@@ -108,8 +151,8 @@ pub fn data_path(path: impl AsRef<Path>) -> Result<PathBuf> {
     Ok(path)
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-pub fn resource_path(path: impl AsRef<Path>) -> Result<PathBuf> {
+#[cfg(all(not(target_arch = "wasm32"), not(target_os="android")))]
+pub fn resource_path(path: &str) -> Result<PathBuf> {
     let exe = env::current_exe()?;
     let mut dir = fs::canonicalize(exe)?;
     dir.pop();
@@ -120,13 +163,12 @@ pub fn resource_path(path: impl AsRef<Path>) -> Result<PathBuf> {
 }
 
 #[cfg(target_arch = "wasm32")]
-pub fn resource_url(path: impl AsRef<Path>) -> Result<reqwest::Url> {
+pub fn resource_url(path: &str) -> Result<reqwest::Url> {
     let window = web_sys::window().unwrap();
     let location = window.location();
     let origin = location.origin().unwrap();
     let base = reqwest::Url::parse(&origin)?;
-    let path_str = path.as_ref().to_str().unwrap();
-    let url = base.join("res/")?.join(path_str)?;
+    let url = base.join("res/")?.join(path)?;
     #[cfg(feature = "log")]
     info!("Loading: {}", url);
     return Ok(url);

@@ -9,7 +9,7 @@ use syn::{
     TypePath,
 };
 
-const IDENT_NAME: &'static str = "shura";
+const IDENT_NAME: &str = "shura";
 
 fn inner_component(data_struct: &DataStruct) -> Option<(Ident, TypePath)> {
     let mut inner = None;
@@ -44,7 +44,7 @@ fn inner_component(data_struct: &DataStruct) -> Option<(Ident, TypePath)> {
         }
         _ => (),
     };
-    return inner;
+    inner
 }
 
 type RenderGroups = HashMap<String, (LitStr, TypePath, Vec<Ident>)>;
@@ -68,7 +68,7 @@ fn component_data(data_struct: &DataStruct) -> (RenderGroups, AllComponents, Nam
                                     if meta.path.is_ident("component") {
                                         all_components.insert(field_name.clone());
                                         if let Ok(value) = meta.value() {
-                                            if let Some(name) = value.parse::<LitStr>().ok() {
+                                            if let Ok(name) = value.parse::<LitStr>() {
                                                 render_groups
                                                     .entry(name.value())
                                                     .or_insert_with(|| {
@@ -80,7 +80,7 @@ fn component_data(data_struct: &DataStruct) -> (RenderGroups, AllComponents, Nam
                                         }
                                     } else if meta.path.is_ident("tag") {
                                         if let Ok(value) = meta.value() {
-                                            if let Some(name) = value.parse::<LitStr>().ok() {
+                                            if let Ok(name) = value.parse::<LitStr>() {
                                                 named_components
                                                     .entry(name.value())
                                                     .or_insert_with(|| (name, Vec::default()))
@@ -103,7 +103,7 @@ fn component_data(data_struct: &DataStruct) -> (RenderGroups, AllComponents, Nam
         }
         _ => (),
     };
-    return (render_groups, all_components, named_components);
+    (render_groups, all_components, named_components)
 }
 
 fn entity_name(ast: &DeriveInput, attr_name: &str) -> Option<Expr> {
@@ -124,7 +124,7 @@ fn entity_name(ast: &DeriveInput, attr_name: &str) -> Option<Expr> {
             .unwrap();
         }
     }
-    return result;
+    result
 }
 
 static USED_COMPONENT_HASHES: OnceLock<Mutex<HashSet<u32>>> = OnceLock::new();
@@ -153,19 +153,19 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
     hashes.insert(hash);
     drop(hashes); // Free the mutex lock
 
-    let (render_groups, components, named_components) = component_data(&data_struct);
+    let (render_groups, components, named_components) = component_data(data_struct);
     let names = named_components.iter().map(|(_, (name, _))| name);
 
     let component_collection = named_components.iter().map(|(_, (name_lit, field_name))| {
-        return quote! {
+        quote! {
             #name_lit => Some( Box::new([#( &self.#field_name as _), *].into_iter()) )
-        };
+        }
     });
 
     let component_collection_mut = named_components.iter().map(|(_, (name_lit, field_name))| {
-        return quote! {
+        quote! {
             #name_lit => Some( Box::new([#( &mut self.#field_name as _), *].into_iter()) )
-        };
+        }
     });
 
     let buffer = render_groups
@@ -183,7 +183,7 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
     let components_iter = components.iter();
     let components_iter2 = components.iter();
 
-    return quote!(
+    quote!(
         impl #impl_generics ::shura::entity::EntityIdentifier for #struct_name #ty_generics #where_clause {
             const TYPE_NAME: &'static str = #struct_identifier;
             const IDENTIFIER: ::shura::entity::EntityTypeId = ::shura::entity::EntityTypeId::new(#hash);
@@ -234,7 +234,7 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
             }
         }
     )
-    .into();
+    .into()
 }
 
 #[proc_macro_derive(Component, attributes(shura))]
@@ -246,10 +246,10 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     };
 
     let struct_name = ast.ident.clone();
-    let (inner_field, inner_type) = inner_component(&data_struct)
+    let (inner_field, inner_type) = inner_component(data_struct)
         .expect("Cannot find inner component. Define it with #[shura(inner)]");
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
-    return quote!(
+    quote!(
         impl #impl_generics ::shura::component::Component for #struct_name #ty_generics #where_clause {
             type Instance = <#inner_type as ::shura::component::Component>::Instance;
         
@@ -262,7 +262,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             }
         }
     )
-    .into();
+    .into()
 }
 
 #[proc_macro_attribute]

@@ -1,5 +1,5 @@
 #! /bin/bash
-# Script for setting up the android environment on arch linux
+# Script for setting up the android environment on ubuntu
 
 cargo install cargo-apk
 rustup target add aarch64-linux-android
@@ -10,6 +10,6 @@ sudo usermod -aG plugdev $LOGNAME
 
 export ANDROID_HOME=/opt/android-sdk && export ANDROID_SDK_ROOT=/opt/android-sdk && export ANDROID_NDK_ROOT=/opt/android-sdk/ndk/23.1.7779620
 
-echo "You might need to log out for the changes to take effect"
+echo "You might need to restart for the changes to take effect"
 echo "When using zsh maybe use: setopt +o nomatch"
 echo "See Log with: adb logcat RustStdoutStderr:D *:S"
