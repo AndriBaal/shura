@@ -394,10 +394,10 @@ impl World {
             .remove(collider_handle, &mut self.islands, &mut self.bodies, true)
     }
 
-    pub fn step(&mut self, time: &TimeManager) -> CollectedEvents {
+    pub fn step(&mut self, delta: f32) -> CollectedEvents {
         while let Ok(_event) = self.collector.collision.try_recv() {}
         while let Ok(_event) = self.collector.contact_force.try_recv() {}
-        self.integration_parameters.dt = time.delta() * self.time_scale;
+        self.integration_parameters.dt = delta * self.time_scale;
         self.physics_pipeline.step(
             &self.gravity,
             &self.integration_parameters,

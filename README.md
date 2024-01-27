@@ -40,7 +40,7 @@ A good way to learn shura is through the provided examples or through reading th
 
 - Input handling for touch, mouse and keyboard and controller with [gilrs](https://gitlab.com/gilrs-project/gilrs) (feature flag 'gamepad')
 
-- Text rendering inspired by [wgpu_text](https://github.com/Blatko1/wgpu-text) (feature flag 'text')
+- Text rendering (feature flag 'text')
 
 - Audio playback with [rodio](https://github.com/RustAudio/rodio) (feature flag 'audio')
 
@@ -55,8 +55,6 @@ A good way to learn shura is through the provided examples or through reading th
 ## Cross-platform
 
 shura is currently only tested on Windows 10 / 11, Linux, Android and on the web with WASM. macOS and iOS are currently untested, but are likely to work.
-
-The [template](https://github.com/AndriBaal/shura_template) uses [run-wasm](https://github.com/rukai/cargo-run-wasm) to run on the web and [cargo-apk](https://github.com/rust-mobile/cargo-apk) to run on android.
 
 ### Android
 

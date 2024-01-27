@@ -66,7 +66,7 @@ fn update(ctx: &mut Context) {
         log::info!("Saving Screenshot!");
         let bytes = screenshot.sprite().to_bytes(&ctx.gpu);
         save_data("screenshot.png", bytes).unwrap();
-    } else if ctx.input.is_pressed(Key::S) {
+    } else if ctx.input.is_pressed(Key::KeyS) {
         resources.screenshot = Some(ctx.gpu.create_render_target(ctx.window_size));
     }
 
@@ -126,7 +126,7 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
     );
 
     if let Some(screenshot) = &resources.screenshot {
-        encoder.copy_target(encoder.default_resources.default_target(), screenshot)
+        encoder.copy_target(ctx.surface_target(), screenshot)
     }
 }
 
