@@ -186,7 +186,7 @@ impl Gpu {
         Text::new(self, font, sections)
     }
 
-    pub fn create_computed_target<'caller, D: Deref<Target = [u8]>>(
+    pub fn create_computed_target<D: Deref<Target = [u8]>>(
         &self,
         sprite: SpriteBuilder<D>,
         compute: impl FnMut(&mut RenderEncoder),

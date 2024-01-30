@@ -184,7 +184,7 @@ impl Surface {
             wgpu::PresentMode::AutoNoVsync
         };
         config.present_mode = new_mode;
-        surface.configure(&gpu.device, &config);
+        surface.configure(&gpu.device, config);
     }
 
     pub fn size(&self) -> Vector2<u32> {

@@ -2,7 +2,6 @@ use crate::{
     entity::{EntityHandle, EntityIdentifier},
     math::{Isometry2, Point2, Vector2},
     physics::{RapierCollisionEvent, RapierContactForceEvent},
-    time::TimeManager,
 };
 use rapier2d::{crossbeam, prelude::*};
 use rustc_hash::FxHashMap;

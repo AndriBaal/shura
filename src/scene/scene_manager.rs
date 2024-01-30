@@ -62,10 +62,9 @@ impl SceneManager {
     pub(crate) fn remove(&mut self, scene_id: u32) -> Option<Scene> {
         assert!(!scene_id != self.active_scene_id);
         assert!(!scene_id != self.next_active_scene_id);
-        return self
+        self
             .scenes
-            .remove(&scene_id)
-            .and_then(|a| Some(Rc::try_unwrap(a).ok().unwrap().into_inner()));
+            .remove(&scene_id).map(|a| Rc::try_unwrap(a).ok().unwrap().into_inner())
     }
 
     pub(crate) fn get(&self, id: u32) -> Option<Rc<RefCell<Scene>>> {

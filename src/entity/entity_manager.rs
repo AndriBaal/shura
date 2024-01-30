@@ -60,13 +60,13 @@ impl EntityTypeScope {
             EntityTypeScope::Scene(scene) => Ref::map(
                 scene
                     .try_borrow()
-                    .expect(&format!("Type {} already borrowed", ET::Entity::TYPE_NAME)),
+                    .unwrap_or_else(|_| panic!("Type {} already borrowed", ET::Entity::TYPE_NAME)),
                 |ty| ty.downcast_ref::<ET>().expect(WRONG_TYPE),
             ),
             EntityTypeScope::Global(global) => Ref::map(
                 global
                     .try_borrow()
-                    .expect(&format!("Type {} already borrowed", ET::Entity::TYPE_NAME)),
+                    .unwrap_or_else(|_| panic!("Type {} already borrowed", ET::Entity::TYPE_NAME)),
                 |ty| ty.downcast_ref::<ET>().expect(WRONG_TYPE),
             ),
         }
@@ -77,13 +77,13 @@ impl EntityTypeScope {
             EntityTypeScope::Scene(scene) => RefMut::map(
                 scene
                     .try_borrow_mut()
-                    .expect(&format!("Type {} already borrowed", ET::Entity::TYPE_NAME)),
+                    .unwrap_or_else(|_| panic!("Type {} already borrowed", ET::Entity::TYPE_NAME)),
                 |ty| ty.downcast_mut::<ET>().expect(WRONG_TYPE),
             ),
             EntityTypeScope::Global(global) => RefMut::map(
                 global
                     .try_borrow_mut()
-                    .expect(&format!("Type {} already borrowed", ET::Entity::TYPE_NAME)),
+                    .unwrap_or_else(|_| panic!("Type {} already borrowed", ET::Entity::TYPE_NAME)),
                 |ty| ty.downcast_mut::<ET>().expect(WRONG_TYPE),
             ),
         }
@@ -160,7 +160,7 @@ impl EntityManager {
     }
 
     pub fn component_mapping(&self) -> &FxHashMap<&'static str, Vec<EntityTypeId>> {
-        return &self.components;
+        &self.components
     }
 
     pub fn entities_with_component(&self, name: &'static str) -> Option<&Vec<EntityTypeId>> {
@@ -256,8 +256,7 @@ impl EntityManager {
     #[cfg(feature = "serde")]
     pub fn serialize<ET: EntityType + serde::Serialize>(&self) -> Vec<u8> {
         bincode::serialize(
-            &*self
-                .type_raw(ET::Entity::IDENTIFIER)
+            self.type_raw(ET::Entity::IDENTIFIER)
                 .downcast_ref::<ET>()
                 .unwrap(),
         )

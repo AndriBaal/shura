@@ -227,7 +227,7 @@ impl<'a> Context<'a> {
             }
         });
 
-        return self.scenes.remove(scene_id);
+        self.scenes.remove(scene_id)
     }
 
     #[cfg(feature = "serde")]

@@ -76,7 +76,7 @@ impl<'a> RenderContext<'a> {
     }
 
     pub fn surface_target(&self) -> &dyn RenderTarget {
-        return self.surface_target;
+        self.surface_target
     }
 
     pub fn render<I: Instance>(

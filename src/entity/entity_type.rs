@@ -106,7 +106,7 @@ impl<E: EntityIdentifier> SingleEntity<E> {
                 EntityGroupHandle::INVALID,
             ));
         }
-        return None;
+        None
     }
 
     pub fn get_by_handle(&self, handle: EntityHandle) -> Option<&E> {
@@ -115,7 +115,7 @@ impl<E: EntityIdentifier> SingleEntity<E> {
                 return Some(entity);
             }
         }
-        return None;
+        None
     }
 
     pub fn get_by_handle_mut(&mut self, handle: EntityHandle) -> Option<&mut E> {
@@ -124,14 +124,14 @@ impl<E: EntityIdentifier> SingleEntity<E> {
                 return Some(entity);
             }
         }
-        return None;
+        None
     }
 
     pub fn remove(&mut self, world: &mut World) -> Option<E> {
         if let Some(entity) = &mut self.entity {
             entity.finish(world);
         }
-        return self.entity.take();
+        self.entity.take()
     }
 
     pub fn set(&mut self, world: &mut World, mut new: E) -> EntityHandle {
@@ -364,11 +364,11 @@ impl<E: EntityIdentifier> Entities<E> {
         self.len() > 0
     }
 
-    pub fn iter<'a>(&'a self) -> ArenaIter<'a, E> {
+    pub fn iter(&self) -> ArenaIter<'_, E> {
         self.entities.iter()
     }
 
-    pub fn iter_with_handles<'a>(&'a self) -> impl ExactSizeIterator<Item = (EntityHandle, &'a E)> {
+    pub fn iter_with_handles(&self) -> impl ExactSizeIterator<Item = (EntityHandle, &'_ E)> {
         self.entities.iter_with_index().map(|(idx, c)| {
             (
                 EntityHandle::new(EntityIndex(idx), E::IDENTIFIER, EntityGroupHandle::INVALID),
@@ -377,13 +377,13 @@ impl<E: EntityIdentifier> Entities<E> {
         })
     }
 
-    pub fn iter_mut<'a>(&'a mut self) -> ArenaIterMut<'a, E> {
+    pub fn iter_mut(&mut self) -> ArenaIterMut<'_, E> {
         self.entities.iter_mut()
     }
 
-    pub fn iter_mut_with_handles<'a>(
-        &'a mut self,
-    ) -> impl ExactSizeIterator<Item = (EntityHandle, &'a mut E)> {
+    pub fn iter_mut_with_handles(
+        &mut self,
+    ) -> impl ExactSizeIterator<Item = (EntityHandle, &'_ mut E)> {
         self.entities.iter_mut_with_index().map(|(idx, c)| {
             (
                 EntityHandle::new(EntityIndex(idx), E::IDENTIFIER, EntityGroupHandle::INVALID),
@@ -495,7 +495,6 @@ impl<E: EntityIdentifier> GroupedEntities<Entities<E>> {
         for group in group_handles {
             if let Some(group) = self.groups.get_mut(group.0) {
                 group.entities.retain(|_, entity| {
-                    let entity = entity;
                     if keep(entity, world) {
                         true
                     } else {
@@ -706,7 +705,7 @@ impl<ET: EntityType + Default> EntityType for GroupedEntities<ET> {
             }
             return Some(Box::new(group));
         }
-        return None;
+        None
     }
 
     fn entity_type_id(&self) -> EntityTypeId {
@@ -730,13 +729,13 @@ impl<ET: EntityType + Default> EntityType for GroupedEntities<ET> {
     }
 
     fn entities<'a>(&'a self) -> Box<dyn Iterator<Item = (EntityHandle, &dyn Entity)> + 'a> {
-        Box::new(self.groups.iter().map(|g| g.entities()).flatten())
+        Box::new(self.groups.iter().flat_map(|g| g.entities()))
     }
 
     fn entities_mut<'a>(
         &'a mut self,
     ) -> Box<dyn Iterator<Item = (EntityHandle, &mut dyn Entity)> + 'a> {
-        Box::new(self.groups.iter_mut().map(|g| g.entities_mut()).flatten())
+        Box::new(self.groups.iter_mut().flat_map(|g| g.entities_mut()))
     }
 }
 

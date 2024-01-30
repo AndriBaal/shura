@@ -17,6 +17,24 @@ categories = [
 ]
 exclude = ["docs", "macro", "template"]
 
+# Basically everything supported by winit
+targets = [
+    # Windows
+    "i686-pc-windows-msvc",
+    "x86_64-pc-windows-msvc",
+    # macOS
+    "x86_64-apple-darwin",
+    # Unix (X11 & Wayland)
+    "i686-unknown-linux-gnu",
+    "x86_64-unknown-linux-gnu",
+    # iOS
+    "x86_64-apple-ios",
+    # Android
+    "aarch64-linux-android",
+    # Web
+    "wasm32-unknown-unknown",
+]
+
 [features]
 animation = []
 framebuffer = []

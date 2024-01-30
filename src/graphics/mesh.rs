@@ -529,7 +529,7 @@ impl MeshBuilder2D {
         }
     }
 
-    pub fn triangulate(vertices: &Vec<Vertex2D>) -> Vec<Index> {
+    pub fn triangulate(vertices: &[Vertex2D]) -> Vec<Index> {
         use delaunator::{triangulate, Point};
 
         let points: Vec<Point> = vertices
@@ -557,8 +557,7 @@ impl MeshBuilder2D {
         let mut max_x = vertices[0].x;
         let mut min_y = vertices[0].y;
         let mut max_y = vertices[0].y;
-        for i in 1..vertices.len() {
-            let v = vertices[i];
+        for v in vertices.iter().skip(1) {
             if v.x < min_x {
                 min_x = v.x;
             }
@@ -658,7 +657,7 @@ impl MeshBuilder2D {
     }
 
     pub fn compute_modifed_vertices(
-        vertices: &mut Vec<Vertex2D>,
+        vertices: &mut [Vertex2D],
         vertex_offset: Isometry2<f32>,
         tex_coord_offset: Isometry2<f32>,
         vertex_scale: Vector2<f32>,

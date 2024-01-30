@@ -270,6 +270,10 @@ impl SpriteSheet {
         self.sprite_amount.x * self.sprite_amount.y
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub fn len_2d(&self) -> &Vector2<u32> {
         &self.sprite_amount
     }

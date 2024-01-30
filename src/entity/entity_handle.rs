@@ -66,7 +66,7 @@ impl EntityHandle {
     }
 
     pub fn is<E: EntityIdentifier>(&self) -> bool {
-        return E::IDENTIFIER == self.entity_type_id();
+        E::IDENTIFIER == self.entity_type_id()
     }
 
     pub fn entity_type_id(&self) -> EntityTypeId {

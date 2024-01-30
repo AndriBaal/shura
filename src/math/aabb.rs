@@ -42,8 +42,7 @@ impl AABB {
         let mut max_x = vertices[0].pos.x;
         let mut min_y = vertices[0].pos.y;
         let mut max_y = vertices[0].pos.y;
-        for i in 1..vertices.len() {
-            let v = vertices[i];
+        for v in vertices.iter().skip(1) {
             if v.pos.x < min_x {
                 min_x = v.pos.x;
             }

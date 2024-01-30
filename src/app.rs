@@ -275,7 +275,7 @@ impl App {
             surface,
         };
 
-        return (events, shura);
+        (events, shura)
     }
 
     fn resize(&mut self, new_size: Vector2<u32>) {
@@ -377,7 +377,7 @@ impl App {
             #[cfg(feature = "framebuffer")]
             {
                 let mut default_resources = self.gpu.default_resources_mut();
-                default_resources.apply_render_scale(&mut self.surface, &self.gpu, scale);
+                default_resources.apply_render_scale(&self.surface, &self.gpu, scale);
             }
             #[cfg(feature = "gui")]
             self.gui.resize(self.gpu.render_size());

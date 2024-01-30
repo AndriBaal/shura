@@ -14,6 +14,7 @@ impl Sound {
 }
 
 #[no_mangle]
+#[allow(clippy::empty_loop)]
 pub extern "C" fn __cxa_pure_virtual() {
     loop {}
 }

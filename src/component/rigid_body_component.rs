@@ -13,7 +13,7 @@ pub enum RigidBodyComponentStatus {
         rigid_body_handle: RigidBodyHandle,
     },
     Uninitialized {
-        rigid_body: RigidBody,
+        rigid_body: Box<RigidBody>,
         colliders: Vec<Collider>,
     },
 }
@@ -83,7 +83,7 @@ impl RigidBodyComponent {
     ) -> Self {
         Self {
             status: RigidBodyComponentStatus::Uninitialized {
-                rigid_body: rigid_body.into(),
+                rigid_body: Box::new(rigid_body.into()),
                 colliders: colliders.into_iter().map(|c| c.into()).collect(),
             },
             scale: Vector2::new(1.0, 1.0),
@@ -214,6 +214,7 @@ impl Component for RigidBodyComponent {
                 ref rigid_body,
                 ref colliders,
             } => {
+                let rigid_body: &RigidBody = rigid_body;
                 let rigid_body_handle =
                     world.add_rigid_body(rigid_body.clone(), colliders.clone(), handle);
                 self.status = RigidBodyComponentStatus::Initialized { rigid_body_handle };
@@ -226,7 +227,7 @@ impl Component for RigidBodyComponent {
             RigidBodyComponentStatus::Initialized { rigid_body_handle } => {
                 if let Some((rigid_body, colliders)) = world.remove_rigid_body(rigid_body_handle) {
                     self.status = RigidBodyComponentStatus::Uninitialized {
-                        rigid_body,
+                        rigid_body: Box::new(rigid_body),
                         colliders,
                     }
                 }

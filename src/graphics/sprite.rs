@@ -254,7 +254,7 @@ impl Sprite {
         self.to_image(gpu)
             .write_to(&mut result, ImageOutputFormat::Png)
             .unwrap();
-        return result.into_inner();
+        result.into_inner()
     }
 
     pub fn to_image(&self, gpu: &Gpu) -> image::DynamicImage {

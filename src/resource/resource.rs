@@ -135,8 +135,8 @@ pub fn save_data(path: &str, data: impl AsRef<[u8]>) -> Result<()> {
         if !prefix.exists() {
             std::fs::create_dir_all(prefix)?;
         }
-        let r = std::fs::write(path, data)?;
-        Ok(r)
+        std::fs::write(path, data)?;
+        Ok(())
     }
 }
 

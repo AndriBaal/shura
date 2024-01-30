@@ -15,6 +15,7 @@ use crate::{
 };
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[non_exhaustive]
 pub struct Scene {
     pub(crate) render_entities: bool,
     pub(crate) screen_config: ScreenConfig,
@@ -38,7 +39,6 @@ pub struct Scene {
 
 impl Scene {
     pub fn new() -> Self {
-        // let mint: mint::Vector2<u32> = window.inner_size().into();
         let window_size: Vector2<u32> = Vector2::new(800, 800);
 
         Self {
