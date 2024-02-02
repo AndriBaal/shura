@@ -8,7 +8,7 @@ const GAME_SIZE: Vector2<f32> = Vector2::new(11.25, 5.0);
 const AMOUNT_BIRDS: u32 = 1000;
 
 #[shura::main]
-fn shura_main(config: AppConfig) {
+fn app(config: AppConfig) {
     App::run(config, || {
         Scene::new()
             .render_group2d("ground", RenderGroupConfig::MANUAL)

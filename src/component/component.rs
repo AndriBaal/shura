@@ -1,6 +1,8 @@
-use crate::graphics::Instance;
-use crate::physics::World;
-use crate::{entity::EntityHandle, graphics::RenderGroup};
+use crate::{
+    entity::EntityHandle,
+    graphics::{Instance, RenderGroup},
+    physics::World,
+};
 use downcast_rs::{impl_downcast, Downcast};
 use std::collections::{BTreeMap, HashMap, LinkedList, VecDeque};
 
@@ -19,7 +21,6 @@ pub trait ComponentCollection: Downcast {
     fn finish_all(&mut self, world: &mut World);
     fn components<'a>(&'a self) -> Box<dyn Iterator<Item = &dyn Component> + 'a>;
     fn components_mut<'a>(&'a mut self) -> Box<dyn Iterator<Item = &mut dyn Component> + 'a>;
-    // fn iter<'a>(&'a self) -> impl Iterator<Item = &Self::Component> + 'a where Self: Sized;
 }
 impl_downcast!(ComponentCollection);
 

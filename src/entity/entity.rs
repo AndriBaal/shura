@@ -55,7 +55,7 @@ pub trait Entity: 'static + Downcast {
             component_collection.finish_all(world);
         }
     }
-    fn named_components() -> &'static [&'static str]
+    fn tags() -> &'static [&'static str]
     where
         Self: Sized;
     fn component_collections<'a>(

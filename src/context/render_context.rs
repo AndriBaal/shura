@@ -7,16 +7,37 @@ use crate::{
     },
     graphics::{
         CameraBuffer, CameraBuffer2D, DefaultResources, Instance, Instance2D, InstanceBuffer,
-        InstanceIndices, Mesh2D, RenderGroupManager, RenderTarget, Renderer, SurfaceRenderTarget,
-        WorldCamera3D,
+        InstanceIndices, Mesh2D, RenderGroupManager, RenderTarget, Renderer, SpriteRenderTarget,
+        SurfaceRenderTarget, WorldCamera3D,
     },
     prelude::Scene,
     system::SystemManager,
 };
 
+pub struct RenderContextEntities<'a>(&'a EntityManager);
+
+impl<'a> RenderContextEntities<'a> {
+    pub fn type_raw(&self, type_id: EntityTypeId) -> Ref<dyn EntityType> {
+        self.0.type_raw_ref(type_id)
+    }
+
+    pub fn single<E: EntityIdentifier>(&self) -> Ref<SingleEntity<E>> {
+        self.0.single_ref::<E>()
+    }
+
+    pub fn multiple<E: EntityIdentifier>(&self) -> Ref<Entities<E>> {
+        self.0.multiple_ref::<E>()
+    }
+
+    pub fn group<ET: EntityType + Default>(&self) -> Ref<GroupedEntities<ET>> {
+        self.0.group_ref::<ET>()
+    }
+}
+
 pub struct RenderContext<'a> {
-    entities: &'a EntityManager,
-    surface_target: &'a SurfaceRenderTarget,
+    pub entities: RenderContextEntities<'a>,
+    pub framebuffer_target: &'a SpriteRenderTarget,
+    pub surface_target: &'a SurfaceRenderTarget,
     pub default_resources: &'a DefaultResources,
     pub render_groups: &'a RenderGroupManager,
 
@@ -41,7 +62,7 @@ impl<'a> RenderContext<'a> {
         (
             &scene.systems,
             Self {
-                entities: &scene.entities,
+                entities: RenderContextEntities(&scene.entities),
                 render_groups: &scene.render_groups,
                 relative_camera: &default_resources.relative_camera.0,
                 relative_bottom_left_camera: &default_resources.relative_bottom_left_camera.0,
@@ -55,28 +76,17 @@ impl<'a> RenderContext<'a> {
                 world_camera3d: &default_resources.world_camera3d,
                 default_resources,
                 surface_target,
+                framebuffer_target: &default_resources.framebuffer,
             },
         )
     }
 
-    pub fn type_raw(&self, type_id: EntityTypeId) -> Ref<dyn EntityType> {
-        self.entities.type_raw_ref(type_id)
-    }
+    pub fn target(&self) -> &dyn RenderTarget {
+        #[cfg(feature = "framebuffer")]
+        return self.framebuffer_target;
 
-    pub fn single<E: EntityIdentifier>(&self) -> Ref<SingleEntity<E>> {
-        self.entities.single_ref::<E>()
-    }
-
-    pub fn multiple<E: EntityIdentifier>(&self) -> Ref<Entities<E>> {
-        self.entities.multiple_ref::<E>()
-    }
-
-    pub fn group<ET: EntityType + Default>(&self) -> Ref<GroupedEntities<ET>> {
-        self.entities.group_ref::<ET>()
-    }
-
-    pub fn surface_target(&self) -> &dyn RenderTarget {
-        self.surface_target
+        #[cfg(not(feature = "framebuffer"))]
+        return self.surface_target;
     }
 
     pub fn render<I: Instance>(

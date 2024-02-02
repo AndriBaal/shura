@@ -256,6 +256,12 @@ impl Gpu {
             mask: !0,
             alpha_to_coverage_enabled: false,
         };
+        #[cfg(feature = "log")]
+        {
+            info!("Using multisample X{samples}");
+            info!("Using texture format: {:?}", config.format);
+            info!("Using Present mode: {:?}", config.present_mode);
+        }
 
         self.samples.set(samples).unwrap();
         self.format.set(format).unwrap();
@@ -266,12 +272,6 @@ impl Gpu {
         self.default_resources
             .set(RwLock::new(DefaultResources::new(self, surface)))
             .unwrap();
-        #[cfg(feature = "log")]
-        {
-            info!("Using multisample X{samples}");
-            info!("Using texture format: {:?}", config.format);
-            info!("Using Present mode: {:?}", config.present_mode);
-        }
     }
 }
 

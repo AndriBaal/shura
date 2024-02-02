@@ -11,9 +11,6 @@ description = "Derive macros for the shura component system"
 [lib]
 proc-macro = true
 
-[features]
-rayon = []
-
 [dependencies]
 proc-macro2 = "1.0"
 syn = "2.0"

@@ -1,7 +1,7 @@
 use shura::*;
 
 #[shura::main]
-fn shura_main(config: AppConfig) {
+fn app(config: AppConfig) {
     App::run(config, || {
         Scene::new()
             .component::<MeshTest>(ComponentConfig {

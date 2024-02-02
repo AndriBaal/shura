@@ -38,7 +38,7 @@ pub trait EntityType: Downcast {
 
     fn entities_render<'a>(
         &'a self,
-        groups: &EntityGroupManager,
+        groups: &'a EntityGroupManager,
     ) -> impl Iterator<Item = &Self::Entity> + Clone + 'a
     where
         Self: Sized;
@@ -185,7 +185,7 @@ impl<E: EntityIdentifier> EntityType for SingleEntity<E> {
     }
     fn entities_render<'a>(
         &'a self,
-        _groups: &EntityGroupManager,
+        _groups: &'a EntityGroupManager,
     ) -> impl Iterator<Item = &Self::Entity> + Clone + 'a
     where
         Self: Sized,
@@ -422,7 +422,7 @@ impl<E: EntityIdentifier> EntityType for Entities<E> {
 
     fn entities_render<'a>(
         &'a self,
-        _groups: &EntityGroupManager,
+        _groups: &'a EntityGroupManager,
     ) -> impl Iterator<Item = &Self::Entity> + Clone + 'a
     where
         Self: Sized,
@@ -714,7 +714,7 @@ impl<ET: EntityType + Default> EntityType for GroupedEntities<ET> {
 
     fn entities_render<'a>(
         &'a self,
-        groups: &EntityGroupManager,
+        groups: &'a EntityGroupManager,
     ) -> impl Iterator<Item = &Self::Entity> + Clone + 'a
     where
         Self: Sized,
@@ -722,10 +722,7 @@ impl<ET: EntityType + Default> EntityType for GroupedEntities<ET> {
         groups
             .render_groups()
             .iter()
-            .map(|g| self.get_group(*g).unwrap().entities_render(groups))
-            .collect::<Vec<_>>()
-            .into_iter()
-            .flatten()
+            .flat_map(|g| self.get_group(*g).unwrap().entities_render(groups))
     }
 
     fn entities<'a>(&'a self) -> Box<dyn Iterator<Item = (EntityHandle, &dyn Entity)> + 'a> {

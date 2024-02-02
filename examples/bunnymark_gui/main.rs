@@ -1,7 +1,7 @@
 use shura::prelude::*;
 
 #[shura::main]
-fn shura_main(config: AppConfig) {
+fn app(config: AppConfig) {
     App::run(config, || {
         Scene::new()
             .render_group2d("bunny", RenderGroupConfig::default())

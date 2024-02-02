@@ -17,6 +17,8 @@ categories = [
 ]
 exclude = ["docs", "macro", "template"]
 
+[package.metadata.docs.rs]
+default-target = "x86_64-unknown-linux-gnu"
 # Basically everything supported by winit
 targets = [
     # Windows
@@ -42,9 +44,10 @@ gamepad = ["dep:gilrs"]
 text = ["dep:rusttype", "dep:owned_ttf_parser"]
 audio = ["dep:rodio"]
 physics = ["dep:rapier2d"]
+deterministic_physics = ["rapier2d/enhanced-determinism"]
 # gui = ["dep:egui", "dep:egui-wgpu", "dep:egui-winit"]
 log = ["dep:log", "dep:env_logger"]
-rayon = ["dep:rayon", "shura_proc/rayon"]
+rayon = ["dep:rayon"]
 serde = [
     "dep:serde",
     "dep:bincode",

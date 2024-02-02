@@ -6,9 +6,8 @@ use crate::{
         Entities, EntityIdentifier, EntityManager, EntityScope, EntityType, EntityTypeId,
         GroupedEntities, SingleEntity,
     },
-    graphics::{Gpu, Instance, Instance2D, Instance3D, RenderGroupConfig, GLOBAL_GPU},
-    scene::Scene,
-    system::System,
+    graphics::{Gpu, GLOBAL_GPU},
+    scene::{Scene, SceneCreator},
 };
 
 pub fn gpu() -> Arc<Gpu> {
@@ -110,66 +109,16 @@ impl SerializedScene {
         );
         self.scene
     }
+}
 
-    pub fn render_group<I: Instance>(
-        mut self,
-        name: &'static str,
-        config: RenderGroupConfig,
-    ) -> Self
-    where
-        Self: Sized,
-    {
-        self.scene = self.scene.render_group::<I>(name, config);
-        self
+impl Into<Scene> for SerializedScene {
+    fn into(self) -> Scene {
+        self.scene
     }
-    pub fn render_group2d(self, name: &'static str, config: RenderGroupConfig) -> Self
-    where
-        Self: Sized,
-    {
-        self.render_group::<Instance2D>(name, config)
-    }
+}
 
-    pub fn render_group3d(self, name: &'static str, config: RenderGroupConfig) -> Self
-    where
-        Self: Sized,
-    {
-        self.render_group::<Instance3D>(name, config)
-    }
-
-    pub fn single_entity<E: EntityIdentifier>(self, scope: EntityScope) -> Self
-    where
-        Self: Sized,
-    {
-        self.entity(SingleEntity::<E>::default(), scope)
-    }
-
-    pub fn entities<E: EntityIdentifier>(self, scope: EntityScope) -> Self
-    where
-        Self: Sized,
-    {
-        self.entity(Entities::<E>::default(), scope)
-    }
-
-    pub fn grouped_entity<E: EntityIdentifier>(self, scope: EntityScope) -> Self
-    where
-        Self: Sized,
-    {
-        self.entity(GroupedEntities::<Entities<E>>::default(), scope)
-    }
-
-    pub fn entity<ET: EntityType>(mut self, ty: ET, scope: EntityScope) -> Self
-    where
-        Self: Sized,
-    {
-        self.scene = self.scene.entity(ty, scope);
-        self
-    }
-
-    pub fn system(mut self, system: System) -> Self
-    where
-        Self: Sized,
-    {
-        self.scene = self.scene.system(system);
-        self
+impl SceneCreator for SerializedScene {
+    fn scene(&mut self) -> &mut Scene {
+        return &mut self.scene
     }
 }

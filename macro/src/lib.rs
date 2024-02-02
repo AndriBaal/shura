@@ -22,10 +22,7 @@ fn inner_component(data_struct: &DataStruct) -> Option<(Ident, TypePath)> {
                             if meta.path.is_ident("inner") {
                                 match &field.ty {
                                     Type::Path(type_name) => {
-                                        let field_name = field
-                                            .ident
-                                            .as_ref()
-                                            .expect("Inner field must be named!");
+                                        let field_name = field.ident.as_ref().unwrap();
 
                                         if inner.is_some() {
                                             panic!("Inner already defined!");
@@ -42,19 +39,21 @@ fn inner_component(data_struct: &DataStruct) -> Option<(Ident, TypePath)> {
                 }
             }
         }
-        _ => (),
+        _ => panic!("Fields must be named!"),
     };
     inner
 }
 
 type RenderGroups = HashMap<String, (LitStr, TypePath, Vec<Ident>)>;
 type AllComponents = HashSet<Ident>;
-type NamedComponents = HashMap<String, (LitStr, Vec<Ident>)>;
+type TaggedComponents = HashMap<String, (LitStr, Vec<Ident>)>;
+type Handlefields = Vec<Ident>;
 
-fn component_data(data_struct: &DataStruct) -> (RenderGroups, AllComponents, NamedComponents) {
+fn component_data(data_struct: &DataStruct) -> (Handlefields, RenderGroups, AllComponents, TaggedComponents) {
     let mut all_components: AllComponents = Default::default();
-    let mut named_components: NamedComponents = Default::default();
+    let mut tagged_components: TaggedComponents = Default::default();
     let mut render_groups: RenderGroups = Default::default();
+    let mut handle_fields: Handlefields = Default::default();
     match &data_struct.fields {
         Fields::Named(fields_named) => {
             for field in fields_named.named.iter() {
@@ -62,10 +61,14 @@ fn component_data(data_struct: &DataStruct) -> (RenderGroups, AllComponents, Nam
                     if attr.path().is_ident(IDENT_NAME) {
                         attr.parse_nested_meta(|meta| {
                             let field_name =
-                                field.ident.as_ref().expect("Struct fields must be named!");
+                                field.ident.as_ref().unwrap();
                             match &field.ty {
                                 Type::Path(type_name) => {
-                                    if meta.path.is_ident("component") {
+                                    if meta.path.is_ident("handle") {
+                                        let field_name =
+                                            field.ident.as_ref().unwrap();
+                                        handle_fields.push(field_name.clone());
+                                    } else if meta.path.is_ident("component") {
                                         all_components.insert(field_name.clone());
                                         if let Ok(value) = meta.value() {
                                             if let Ok(name) = value.parse::<LitStr>() {
@@ -81,7 +84,7 @@ fn component_data(data_struct: &DataStruct) -> (RenderGroups, AllComponents, Nam
                                     } else if meta.path.is_ident("tag") {
                                         if let Ok(value) = meta.value() {
                                             if let Ok(name) = value.parse::<LitStr>() {
-                                                named_components
+                                                tagged_components
                                                     .entry(name.value())
                                                     .or_insert_with(|| (name, Vec::default()))
                                                     .1
@@ -90,23 +93,24 @@ fn component_data(data_struct: &DataStruct) -> (RenderGroups, AllComponents, Nam
                                         }
                                     }
                                 }
-                                _ => panic!("Cannot extract the type of the entity!"),
+                                _ => panic!("Cannot extract the type of the component!"),
                             };
                             Ok(())
                         })
                         .expect(
-                            "Define your component like the this: #[shura(component = \"name\")]",
+                            "Define your component like the this: #[shura(component = \"<render_group>\")] or #[shura(component)]",
                         );
                     }
                 }
             }
         }
-        _ => (),
+        _ => panic!("Fields must be named!"),
     };
-    (render_groups, all_components, named_components)
+    (handle_fields, render_groups, all_components, tagged_components)
 }
 
-fn entity_name(ast: &DeriveInput, attr_name: &str) -> Option<Expr> {
+fn entity_name(ast: &DeriveInput) -> Option<Expr> {
+    let attr_name = "name";
     let mut result: Option<Expr> = None;
     for attr in &ast.attrs {
         if attr.path().is_ident(IDENT_NAME) {
@@ -139,30 +143,29 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
 
     let struct_name = ast.ident.clone();
     let struct_name_str = struct_name.to_string();
-    let struct_identifier = entity_name(&ast, "name").unwrap_or(parse_quote!(#struct_name_str));
+    let struct_identifier = entity_name(&ast).unwrap_or(parse_quote!(#struct_name_str));
     let struct_identifier_str = struct_identifier.to_token_stream().to_string();
     let mut hashes = USED_COMPONENT_HASHES
         .get_or_init(|| Mutex::new(HashSet::new()))
         .lock()
         .unwrap();
-    let mut hash = const_fnv1a_hash::fnv1a_hash_str_32(&struct_identifier_str);
-    let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
-    while hashes.contains(&hash) {
-        hash += 1;
+    let hash = const_fnv1a_hash::fnv1a_hash_str_32(&struct_identifier_str);
+    if hashes.contains(&hash) {
+        panic!("Entity with this identifier already exists! Consider giving a custom identifier with #[shura(name=\"<unique_identifier>\")");
     }
     hashes.insert(hash);
     drop(hashes); // Free the mutex lock
 
-    let (render_groups, components, named_components) = component_data(data_struct);
-    let names = named_components.iter().map(|(_, (name, _))| name);
+    let (handles, render_groups, components, tagged_components) = component_data(data_struct);
+    let names = tagged_components.iter().map(|(_, (name, _))| name);
 
-    let component_collection = named_components.iter().map(|(_, (name_lit, field_name))| {
+    let component_collection = tagged_components.iter().map(|(_, (name_lit, field_name))| {
         quote! {
             #name_lit => Some( Box::new([#( &self.#field_name as _), *].into_iter()) )
         }
     });
 
-    let component_collection_mut = named_components.iter().map(|(_, (name_lit, field_name))| {
+    let component_collection_mut = tagged_components.iter().map(|(_, (name_lit, field_name))| {
         quote! {
             #name_lit => Some( Box::new([#( &mut self.#field_name as _), *].into_iter()) )
         }
@@ -173,16 +176,22 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
         .map(|(_, (group_name, type_name, field_names))| {
             quote! {
                 let buffer = buffers.get_mut::<<<#type_name as shura::component::ComponentCollection>::Component as shura::component::Component>::Instance>(#group_name).expect("Cannot find RenderGroup #group_name!");
-                for e in entities.clone() {
-                    #( e.#field_names.buffer_all(world, buffer); ) *
+                if buffer.needs_update() {
+                    for e in entities.clone() {
+                        #( e.#field_names.buffer_all(world, buffer); ) *
+                    }
                 }
             }
-                
         });
 
-    let components_iter = components.iter();
+    let handles_iter1 = handles.iter();
+    let handles_iter2 = handles.iter();
+    let components_iter1 = components.iter();
     let components_iter2 = components.iter();
+    let components_iter3 = components.iter();
+    let components_iter4 = components.iter();
 
+    let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
     quote!(
         impl #impl_generics ::shura::entity::EntityIdentifier for #struct_name #ty_generics #where_clause {
             const TYPE_NAME: &'static str = #struct_identifier;
@@ -194,29 +203,40 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
         }
 
         impl #impl_generics ::shura::entity::Entity for #struct_name #ty_generics #where_clause {
+            fn init(&mut self, handle: ::shura::entity::EntityHandle, world: &mut ::shura::physics::World) {
+                use ::shura::component::Component;
+                #( self.#components_iter2.init(handle, world); )*
+                #( self.#handles_iter1 = handle; )*
+            }
+
+            fn finish(&mut self, world: &mut ::shura::physics::World) {
+                use ::shura::component::Component;
+                #( self.#components_iter1.finish(world); )*
+                #( self.#handles_iter2 = Default::default(); )*
+            }
+
             fn buffer<'a>(
                 entities: impl ::shura::entity::RenderEntityIterator<'a, Self>,
                 buffers: &mut ::shura::graphics::RenderGroupManager,
                 world: &::shura::physics::World,
             ) {
-                use shura::component::ComponentCollection;
                 #( #buffer )*
             }
 
-            fn named_components() -> &'static [&'static str] where Self: Sized{
+            fn tags() -> &'static [&'static str] where Self: Sized{
                 return &[ #( #names, )*];
             }
 
             fn component_collections<'a>(
                 &'a self,
             ) -> Box<dyn DoubleEndedIterator<Item = &dyn shura::component::ComponentCollection> + 'a>{
-                Box::new([ #( &self.#components_iter as _, )* ].into_iter())
+                Box::new([ #( &self.#components_iter4 as _, )* ].into_iter())
             }
 
             fn component_collections_mut<'a>(
                 &'a mut self,
             ) -> Box<dyn DoubleEndedIterator<Item = &mut dyn shura::component::ComponentCollection> + 'a>{
-                Box::new([ #( &mut self.#components_iter2 as _, )* ].into_iter())
+                Box::new([ #( &mut self.#components_iter3 as _, )* ].into_iter())
             }
 
             fn component_collection<'a>(&'a self, name: &'static str) -> Option<Box<dyn DoubleEndedIterator<Item = &dyn shura::component::ComponentCollection> + 'a>> {
@@ -252,11 +272,11 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     quote!(
         impl #impl_generics ::shura::component::Component for #struct_name #ty_generics #where_clause {
             type Instance = <#inner_type as ::shura::component::Component>::Instance;
-        
-            fn instance(&self, world: &shura::physics::World) -> Self::Instance {
+
+            fn instance(&self, world: &::shura::physics::World) -> Self::Instance {
                 self.#inner_field.instance(world)
             }
-        
+
             fn active(&self) -> bool {
                 self.#inner_field.active()
             }
@@ -275,13 +295,13 @@ pub fn main(_args: TokenStream, item: TokenStream) -> TokenStream {
         #[cfg(target_os = "android")]
         #[no_mangle]
         fn android_main(app: ::shura::winit::platform::android::activity::AndroidApp) {
-            shura_main(::shura::app::AppConfig::new(app));
+            app(::shura::app::AppConfig::new(app));
         }
 
         #[cfg(not(target_os = "android"))]
         #[allow(dead_code)]
         fn main() {
-            shura_main(::shura::app::AppConfig::new());
+            app(::shura::app::AppConfig::new());
         }
     )
     .into()

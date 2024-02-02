@@ -210,13 +210,8 @@ impl<'a> Context<'a> {
         }
     }
 
-    pub fn add_scene(&mut self, scene_id: u32, scene: Scene) {
+    pub fn add_scene(&mut self, scene_id: u32, scene: impl Into<Scene>) {
         self.scenes.add(scene_id, scene);
-        self.with_scene(scene_id, |systems: &mut SystemManager, ctx| {
-            for setup in systems.setup_systems.drain(..) {
-                (setup)(ctx);
-            }
-        })
     }
 
     #[must_use]

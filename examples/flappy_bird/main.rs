@@ -1,9 +1,9 @@
-use shura::{audio::*, log::info, physics::*, rand::gen_range, *};
+use shura::prelude::*;
 
 const GAME_SIZE: Vector2<f32> = Vector2::new(11.25, 5.0);
 
 #[shura::main]
-fn shura_main(config: AppConfig) {
+fn app(config: AppConfig) {
     App::run(config, || {
         Scene::new()
             .component::<Background>(ComponentConfig {
@@ -22,12 +22,11 @@ fn shura_main(config: AppConfig) {
 }
 
 fn setup(ctx: &mut Context) {
-    ctx.components
+    ctx.entities
         .add(ctx.world, FlappyManager::new(&ctx.gpu, ctx.audio));
-    ctx.components.add(ctx.world, Background::new(ctx));
-    ctx.components.add(ctx.world, Ground::new(&ctx.gpu));
-    ctx.components
-        .add(ctx.world, Bird::new(&ctx.gpu, ctx.audio));
+    ctx.entities.add(ctx.world, Background::new(ctx));
+    ctx.entities.add(ctx.world, Ground::new(&ctx.gpu));
+    ctx.entities.add(ctx.world, Bird::new(&ctx.gpu, ctx.audio));
 
     ctx.world.set_gravity(Vector2::new(0.0, -15.0));
     ctx.world_camera2d
@@ -38,9 +37,9 @@ fn update(ctx: &mut Context) {
     let fps = ctx.time.fps();
     let delta = ctx.time.delta_time();
 
-    let mut manager = ctx.components.single::<FlappyManager>();
-    let mut bird = ctx.components.single::<Bird>();
-    let mut pipes = ctx.components.set::<Pipe>();
+    let mut manager = ctx.entities.single::<FlappyManager>();
+    let mut bird = ctx.entities.single::<Bird>();
+    let mut pipes = ctx.entities.set::<Pipe>();
     pipes.retain(ctx.world, |pipe, world| {
         let x = pipe.body.get(world).translation().x;
         if !pipe.point_awarded && x < 0.0 {
@@ -124,51 +123,51 @@ fn update(ctx: &mut Context) {
 }
 
 fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
-    let manager = res.single::<FlappyManager>();
+    let manager = ctx.entities.single::<FlappyManager>();
     encoder.render2d(
         Some(RgbaColor::new(220, 220, 220, 255).into()),
         |renderer| {
-            res.render_single::<Background>(renderer, |renderer, background, buffer, instance| {
+            ctx.render_single::<Background>(renderer, |renderer, background, buffer, instance| {
                 renderer.render_sprite(
                     instance,
                     buffer,
-                    res.world_camera2d,
+                    ctx.world_camera2d,
                     &background.mesh,
                     &background.sprite,
                 )
             });
 
-            res.render_single::<Ground>(renderer, |renderer, ground, buffer, instance| {
+            ctx.render_single::<Ground>(renderer, |renderer, ground, buffer, instance| {
                 renderer.render_sprite(
                     instance,
                     buffer,
-                    res.world_camera2d,
+                    ctx.world_camera2d,
                     &ground.mesh,
                     &ground.sprite,
                 )
             });
-            res.render::<Pipe>(renderer, |renderer, buffer, instances| {
+            ctx.render::<Pipe>(renderer, |renderer, buffer, instances| {
                 renderer.render_sprite(
                     instances,
                     buffer,
-                    res.world_camera2d,
+                    ctx.world_camera2d,
                     &manager.top_pipe_mesh,
                     &manager.pipe_sprite,
                 );
                 renderer.render_sprite(
                     instances,
                     buffer,
-                    res.world_camera2d,
+                    ctx.world_camera2d,
                     &manager.bottom_pipe_mesh,
                     &manager.pipe_sprite,
                 );
             });
 
-            res.render_single::<Bird>(renderer, |renderer, bird, buffer, instance| {
+            ctx.render_single::<Bird>(renderer, |renderer, bird, buffer, instance| {
                 renderer.render_sprite_sheet(
                     instance,
                     buffer,
-                    res.world_camera2d,
+                    ctx.world_camera2d,
                     &bird.mesh,
                     &bird.sprite_sheet,
                 )

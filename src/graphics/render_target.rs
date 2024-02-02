@@ -201,7 +201,7 @@ impl Surface {
     }
 }
 
-pub(crate) struct SurfaceRenderTarget {
+pub struct SurfaceRenderTarget {
     surface_texture: wgpu::SurfaceTexture,
     target_view: wgpu::TextureView,
     msaa_view: Option<wgpu::TextureView>,

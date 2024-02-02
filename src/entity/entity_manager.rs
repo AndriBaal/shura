@@ -109,7 +109,7 @@ impl EntityManager {
     pub(crate) fn add_type<ET: EntityType>(&mut self, scope: EntityTypeScope) {
         let previous = self.types.insert(ET::Entity::IDENTIFIER, scope);
         assert!(previous.is_none(), "Entity already defined!");
-        for name in ET::Entity::named_components() {
+        for name in ET::Entity::tags() {
             self.components
                 .entry(name)
                 .or_default()
@@ -226,7 +226,7 @@ impl EntityManager {
     ) {
         for ty in &self.types {
             let ty = ty.1.ref_dyn();
-            Ref::clone(&ty).buffer(buffers, groups, world);
+            ty.buffer(buffers, groups, world);
         }
     }
 

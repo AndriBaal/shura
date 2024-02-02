@@ -7,7 +7,7 @@ use std::{env, fs, path::PathBuf};
 use crate::log::info;
 
 #[cfg(target_os = "android")]
-use std::{sync::OnceLock, ffi::CString, io::Read};
+use std::{ffi::CString, io::Read, sync::OnceLock};
 
 #[cfg(target_os = "android")]
 pub(crate) static ANDROID_ASSETS: OnceLock<ndk::asset::AssetManager> = OnceLock::new();
@@ -64,7 +64,8 @@ pub async fn load_res_string_async(path: &str) -> Result<String> {
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn load_res_bytes(path: &str) -> Result<Vec<u8>> {
-    #[cfg(target_os = "android")] {
+    #[cfg(target_os = "android")]
+    {
         #[cfg(feature = "log")]
         info!("Loading: {}", path);
         let manager = ANDROID_ASSETS.get().unwrap();
@@ -74,7 +75,8 @@ pub fn load_res_bytes(path: &str) -> Result<Vec<u8>> {
         asset.read_to_end(&mut data).unwrap();
         return Ok(data);
     }
-    #[cfg(not(target_os = "android"))] {
+    #[cfg(not(target_os = "android"))]
+    {
         let path = resource_path(path)?;
         let data = std::fs::read(path)?;
         Ok(data)
@@ -83,7 +85,8 @@ pub fn load_res_bytes(path: &str) -> Result<Vec<u8>> {
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn load_res_string(path: &str) -> Result<String> {
-    #[cfg(target_os = "android")] {
+    #[cfg(target_os = "android")]
+    {
         #[cfg(feature = "log")]
         info!("Loading: {}", path);
         let manager = ANDROID_ASSETS.get().unwrap();
@@ -93,7 +96,8 @@ pub fn load_res_string(path: &str) -> Result<String> {
         asset.read_to_string(&mut data).unwrap();
         return Ok(data);
     }
-    #[cfg(not(target_os = "android"))] {
+    #[cfg(not(target_os = "android"))]
+    {
         let path = resource_path(path)?;
         let data = std::fs::read_to_string(path)?;
         Ok(data)
@@ -102,10 +106,12 @@ pub fn load_res_string(path: &str) -> Result<String> {
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn load_data_bytes(path: &str) -> Result<Vec<u8>> {
-    #[cfg(target_os = "android")] {
+    #[cfg(target_os = "android")]
+    {
         todo!()
     }
-    #[cfg(not(target_os = "android"))] {
+    #[cfg(not(target_os = "android"))]
+    {
         let path = data_path(path)?;
         let data = std::fs::read(path)?;
         Ok(data)
@@ -114,10 +120,12 @@ pub fn load_data_bytes(path: &str) -> Result<Vec<u8>> {
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn load_data_string(path: &str) -> Result<String> {
-    #[cfg(target_os = "android")] {
+    #[cfg(target_os = "android")]
+    {
         todo!()
     }
-    #[cfg(not(target_os = "android"))] {
+    #[cfg(not(target_os = "android"))]
+    {
         let path = data_path(path)?;
         let data = std::fs::read_to_string(path)?;
         Ok(data)
@@ -126,10 +134,12 @@ pub fn load_data_string(path: &str) -> Result<String> {
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn save_data(path: &str, data: impl AsRef<[u8]>) -> Result<()> {
-    #[cfg(target_os = "android")] {
+    #[cfg(target_os = "android")]
+    {
         todo!()
     }
-    #[cfg(not(target_os = "android"))] {
+    #[cfg(not(target_os = "android"))]
+    {
         let path = data_path(path)?;
         let prefix = path.parent().unwrap();
         if !prefix.exists() {
@@ -140,7 +150,7 @@ pub fn save_data(path: &str, data: impl AsRef<[u8]>) -> Result<()> {
     }
 }
 
-#[cfg(all(not(target_arch = "wasm32"), not(target_os="android")))]
+#[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
 pub fn data_path(path: &str) -> Result<PathBuf> {
     let exe = env::current_exe()?;
     let mut dir = fs::canonicalize(exe)?;
@@ -151,7 +161,7 @@ pub fn data_path(path: &str) -> Result<PathBuf> {
     Ok(path)
 }
 
-#[cfg(all(not(target_arch = "wasm32"), not(target_os="android")))]
+#[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
 pub fn resource_path(path: &str) -> Result<PathBuf> {
     let exe = env::current_exe()?;
     let mut dir = fs::canonicalize(exe)?;

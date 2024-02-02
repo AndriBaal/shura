@@ -137,7 +137,7 @@ impl EntityGroupManager {
         }
     }
 
-    pub fn update(&mut self, camera: &Camera2D) {
+    pub(crate) fn update(&mut self, camera: &Camera2D) {
         self.last_render_groups.clear();
         self.last_active_groups.clear();
         swap(&mut self.active_groups, &mut self.last_active_groups);

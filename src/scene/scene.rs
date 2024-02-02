@@ -14,6 +14,73 @@ use crate::{
     tasks::TaskManager,
 };
 
+pub trait SceneCreator {
+    fn scene(&mut self) -> &mut Scene;
+
+    fn render_group<I: Instance>(
+        mut self,
+        name: &'static str,
+        config: RenderGroupConfig,
+    ) -> Self
+    where
+        Self: Sized,
+    {
+        self.scene().render_groups.register_component::<I>(name, config);
+        self
+    }
+    fn entity<ET: EntityType>(mut self, ty: ET, scope: EntityScope) -> Self
+    where
+        Self: Sized,
+    {
+        self.scene().entities.register_entity::<ET>(scope, ty);
+        self
+    }
+
+    fn system(mut self, system: System) -> Self
+    where
+        Self: Sized,
+    {
+        self.scene().systems.register_system(system);
+        self
+    }
+
+
+    fn render_group2d(self, name: &'static str, config: RenderGroupConfig) -> Self
+    where
+        Self: Sized,
+    {
+        self.render_group::<Instance2D>(name, config)
+    }
+
+    fn render_group3d(self, name: &'static str, config: RenderGroupConfig) -> Self
+    where
+        Self: Sized,
+    {
+        self.render_group::<Instance3D>(name, config)
+    }
+
+    fn single_entity<E: EntityIdentifier>(self, scope: EntityScope) -> Self
+    where
+        Self: Sized,
+    {
+        self.entity(SingleEntity::<E>::default(), scope)
+    }
+
+    fn entities<E: EntityIdentifier>(self, scope: EntityScope) -> Self
+    where
+        Self: Sized,
+    {
+        self.entity(Entities::<E>::default(), scope)
+    }
+
+    fn grouped_entity<E: EntityIdentifier>(self, scope: EntityScope) -> Self
+    where
+        Self: Sized,
+    {
+        self.entity(GroupedEntities::<Entities<E>>::default(), scope)
+    }
+}
+
 #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 #[non_exhaustive]
 pub struct Scene {
@@ -62,66 +129,10 @@ impl Scene {
             ),
         }
     }
+}
 
-    pub fn render_group<I: Instance>(
-        mut self,
-        name: &'static str,
-        config: RenderGroupConfig,
-    ) -> Self
-    where
-        Self: Sized,
-    {
-        self.render_groups.register_component::<I>(name, config);
-        self
-    }
-    pub fn render_group2d(self, name: &'static str, config: RenderGroupConfig) -> Self
-    where
-        Self: Sized,
-    {
-        self.render_group::<Instance2D>(name, config)
-    }
-
-    pub fn render_group3d(self, name: &'static str, config: RenderGroupConfig) -> Self
-    where
-        Self: Sized,
-    {
-        self.render_group::<Instance3D>(name, config)
-    }
-
-    pub fn single_entity<E: EntityIdentifier>(self, scope: EntityScope) -> Self
-    where
-        Self: Sized,
-    {
-        self.entity(SingleEntity::<E>::default(), scope)
-    }
-
-    pub fn entities<E: EntityIdentifier>(self, scope: EntityScope) -> Self
-    where
-        Self: Sized,
-    {
-        self.entity(Entities::<E>::default(), scope)
-    }
-
-    pub fn grouped_entity<E: EntityIdentifier>(self, scope: EntityScope) -> Self
-    where
-        Self: Sized,
-    {
-        self.entity(GroupedEntities::<Entities<E>>::default(), scope)
-    }
-
-    pub fn entity<ET: EntityType>(mut self, ty: ET, scope: EntityScope) -> Self
-    where
-        Self: Sized,
-    {
-        self.entities.register_entity::<ET>(scope, ty);
-        self
-    }
-
-    pub fn system(mut self, system: System) -> Self
-    where
-        Self: Sized,
-    {
-        self.systems.register_system(system);
+impl SceneCreator for Scene {
+    fn scene(&mut self) -> &mut Scene {
         self
     }
 }

@@ -3,7 +3,7 @@ use shura::*;
 const SIZE: Vector<u32> = vector(800, 800);
 
 #[shura::main]
-fn shura_main(config: ShuraConfig) {
+fn app(config: ShuraConfig) {
     config.init(|| {
         NewScene::new(1, |ctx| {
             register!(ctx, [Background, Light, LightResources]);

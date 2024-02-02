@@ -1,7 +1,7 @@
 use shura::prelude::*;
 
 #[shura::main]
-fn shura_main(config: AppConfig) {
+fn app(config: AppConfig) {
     App::run(config, || {
         Scene::new()
             .render_group2d("bunny", RenderGroupConfig::default())
@@ -17,7 +17,7 @@ fn setup(ctx: &mut Context) {
     ctx.world_camera2d.set_scaling(WorldCameraScaling::Min(3.0));
     ctx.entities
         .multiple::<Bunny>()
-        .add_with(ctx.world, |handle| Bunny::new(vector!(0.0, 0.0), handle));
+        .add(ctx.world, Bunny::new(Default::default()));
     ctx.entities
         .single::<Resources>()
         .set(ctx.world, Resources::new(ctx));
@@ -33,7 +33,7 @@ fn update(ctx: &mut Context) {
     if ctx.input.is_held(MouseButton::Left) || ctx.input.is_held(ScreenTouch) {
         let cursor: Vector2<f32> = ctx.cursor.coords;
         for _ in 0..MODIFY_STEP {
-            bunnies.add_with(ctx.world, |handle| Bunny::new(cursor, handle));
+            bunnies.add(ctx.world, Bunny::new(cursor));
         }
     }
     if ctx.input.is_held(MouseButton::Right) {
@@ -98,7 +98,7 @@ fn update(ctx: &mut Context) {
 }
 
 fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
-    let resources = ctx.single::<Resources>().get().unwrap();
+    let resources = ctx.entities.single::<Resources>().get().unwrap();
     encoder.render2d(
         Some(RgbaColor::new(220, 220, 220, 255).into()),
         |renderer| {
@@ -122,7 +122,7 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
     );
 
     if let Some(screenshot) = &resources.screenshot {
-        encoder.copy_target(ctx.surface_target(), screenshot)
+        encoder.copy_target(ctx.target(), screenshot)
     }
 }
 
@@ -153,14 +153,15 @@ impl Resources {
 
 #[derive(Entity)]
 struct Bunny {
+    #[shura(handle)]
+    handle: EntityHandle,
     #[shura(component = "bunny")]
     position: PositionComponent2D,
     linvel: Vector2<f32>,
-    handle: EntityHandle,
 }
 
 impl Bunny {
-    pub fn new(translation: Vector2<f32>, handle: EntityHandle) -> Bunny {
+    pub fn new(translation: Vector2<f32>) -> Bunny {
         let scaling = gen_range(0.75_f32..2.0);
         let position = PositionComponent2D::new()
             .with_translation(translation)
@@ -170,7 +171,7 @@ impl Bunny {
         Bunny {
             position,
             linvel,
-            handle,
+            handle: Default::default()
         }
     }
 }

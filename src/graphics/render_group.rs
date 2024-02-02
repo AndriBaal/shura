@@ -2,7 +2,7 @@ use std::collections::hash_map::{Iter, IterMut};
 
 use crate::{
     entity::EntityGroupManager,
-    graphics::{Gpu, Instance, InstanceBuffer, GLOBAL_GPU},
+    graphics::{Gpu, Instance, InstanceBuffer},
 };
 use downcast_rs::{impl_downcast, Downcast};
 use rustc_hash::FxHashMap;
@@ -14,21 +14,17 @@ use rayon::prelude::*;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RenderGroupConfig {
     pub call: BufferCall,
-    pub init: bool,
-    // pub mapped: bool,
     pub buffer_on_group_change: bool,
 }
 
 impl RenderGroupConfig {
     pub const MANUAL: RenderGroupConfig = RenderGroupConfig {
         call: BufferCall::Manual,
-        init: true,
         buffer_on_group_change: false,
     };
 
     pub const EVERY_FRAME: RenderGroupConfig = RenderGroupConfig {
         call: BufferCall::EveryFrame,
-        init: true,
         buffer_on_group_change: true,
     };
 }
@@ -37,9 +33,7 @@ impl Default for RenderGroupConfig {
     fn default() -> Self {
         Self {
             call: BufferCall::EveryFrame,
-            // mapped: false,
             buffer_on_group_change: false,
-            init: true,
         }
     }
 }
@@ -51,33 +45,39 @@ pub enum BufferCall {
     EveryFrame,
 }
 
-pub trait RenderGroupImpl: Downcast {
-    fn apply(&mut self, groups: &EntityGroupManager, gpu: &Gpu);
+pub trait RenderGroupCommon: Downcast {
+    fn prepare(&mut self, groups: &EntityGroupManager);
+    fn apply(&mut self, gpu: &Gpu);
     fn deinit(&mut self);
-    fn update_buffer(&self) -> bool;
-    fn set_update_buffer(&mut self, update_buffer: bool);
+    fn needs_update(&self) -> bool;
+    fn manual_buffer(&self) -> bool;
+    fn set_manual_buffer(&mut self, manual_buffer: bool);
 }
-impl_downcast!(RenderGroupImpl);
+impl_downcast!(RenderGroupCommon);
 
 pub struct RenderGroup<I: Instance> {
     buffer: Option<InstanceBuffer<I>>,
     config: RenderGroupConfig,
     data: Vec<I>,
-    update_buffer: bool,
+    manual_buffer: bool,
+    needs_update: bool,
 }
+
+// pub struct MappedRenderGroup<I: Instance> {
+//     group: RenderGroup<I>,
+//     mapping: FxHashMap<EntityHandle, wgpu::BufferAddress>,
+//     staging_belt: wgpu::util::StagingBelt,
+// }
 
 impl<I: Instance> RenderGroup<I> {
     const ALLOC: u64 = 16;
-    pub(crate) fn new(gpu: &Gpu, config: RenderGroupConfig) -> Self {
+    pub(crate) fn new(config: RenderGroupConfig) -> Self {
         Self {
-            buffer: if config.init {
-                Some(InstanceBuffer::<I>::empty(gpu, Self::ALLOC))
-            } else {
-                None
-            },
-            update_buffer: true,
+            buffer: None,
+            manual_buffer: true,
             data: Vec::with_capacity(Self::ALLOC as usize),
             config,
+            needs_update: false,
         }
     }
 
@@ -101,37 +101,46 @@ impl<I: Instance + Send + Sync> RenderGroup<I> {
     }
 }
 
-impl<I: Instance> RenderGroupImpl for RenderGroup<I> {
-    fn apply(&mut self, groups: &EntityGroupManager, gpu: &Gpu) {
-        if self.update_buffer
-            || (groups.render_groups_changed() && self.config.buffer_on_group_change)
-        {
+impl<I: Instance> RenderGroupCommon for RenderGroup<I> {
+    fn apply(&mut self, gpu: &Gpu) {
+        if self.needs_update {
             self.buffer
-                .get_or_insert_with(|| InstanceBuffer::<I>::empty(gpu, Self::ALLOC))
+                .get_or_insert_with(|| InstanceBuffer::<I>::empty(gpu, self.data.len() as u64))
                 .write(gpu, &self.data);
             self.data.clear();
-            self.update_buffer = match self.config.call {
+            self.needs_update = false;
+            self.manual_buffer = match self.config.call {
                 BufferCall::Manual => false,
                 BufferCall::EveryFrame => true,
             }
         }
     }
 
-    fn update_buffer(&self) -> bool {
-        self.update_buffer
+    fn manual_buffer(&self) -> bool {
+        self.manual_buffer
     }
 
-    fn set_update_buffer(&mut self, update_buffer: bool) {
-        self.update_buffer = update_buffer;
+    fn set_manual_buffer(&mut self, manual_buffer: bool) {
+        self.manual_buffer = manual_buffer;
     }
 
     fn deinit(&mut self) {
         self.buffer = None;
     }
+
+    fn prepare(&mut self, groups: &EntityGroupManager) {
+        self.needs_update = self.config.call == BufferCall::EveryFrame
+            || self.manual_buffer
+            || (groups.render_groups_changed() && self.config.buffer_on_group_change)
+    }
+
+    fn needs_update(&self) -> bool {
+        self.needs_update
+    }
 }
 
 pub struct RenderGroupManager {
-    buffers: FxHashMap<&'static str, Box<dyn RenderGroupImpl>>,
+    buffers: FxHashMap<&'static str, Box<dyn RenderGroupCommon>>,
 }
 
 impl RenderGroupManager {
@@ -150,15 +159,19 @@ impl RenderGroupManager {
             panic!("Component {} already defined!", name);
         }
 
-        self.buffers.insert(
-            name,
-            Box::new(RenderGroup::<I>::new(GLOBAL_GPU.get().unwrap(), config)),
-        );
+        self.buffers
+            .insert(name, Box::new(RenderGroup::<I>::new(config)));
     }
 
-    pub(crate) fn apply_buffers(&mut self, groups: &EntityGroupManager, gpu: &Gpu) {
+    pub(crate) fn apply_buffers(&mut self, gpu: &Gpu) {
         for buffer in self.buffers.values_mut() {
-            buffer.apply(groups, gpu);
+            buffer.apply(gpu);
+        }
+    }
+
+    pub(crate) fn prepare_buffers(&mut self, groups: &EntityGroupManager) {
+        for buffer in self.buffers.values_mut() {
+            buffer.prepare(groups)
         }
     }
 
@@ -174,11 +187,11 @@ impl RenderGroupManager {
             .and_then(|b| b.downcast_mut::<RenderGroup<I>>())
     }
 
-    pub fn iter(&self) -> Iter<'_, &str, Box<dyn RenderGroupImpl>> {
+    pub fn iter(&self) -> Iter<'_, &str, Box<dyn RenderGroupCommon>> {
         return self.buffers.iter();
     }
 
-    pub fn iter_mut(&mut self) -> IterMut<'_, &str, Box<dyn RenderGroupImpl>> {
+    pub fn iter_mut(&mut self) -> IterMut<'_, &str, Box<dyn RenderGroupCommon>> {
         return self.buffers.iter_mut();
     }
 }

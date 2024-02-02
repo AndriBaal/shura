@@ -62,16 +62,17 @@ impl SceneManager {
     pub(crate) fn remove(&mut self, scene_id: u32) -> Option<Scene> {
         assert!(!scene_id != self.active_scene_id);
         assert!(!scene_id != self.next_active_scene_id);
-        self
-            .scenes
-            .remove(&scene_id).map(|a| Rc::try_unwrap(a).ok().unwrap().into_inner())
+        self.scenes
+            .remove(&scene_id)
+            .map(|a| Rc::try_unwrap(a).ok().unwrap().into_inner())
     }
 
     pub(crate) fn get(&self, id: u32) -> Option<Rc<RefCell<Scene>>> {
         return self.scenes.get(&id).cloned();
     }
 
-    pub(crate) fn add(&mut self, id: u32, mut scene: Scene) {
+    pub(crate) fn add(&mut self, id: u32, scene: impl Into<Scene>) {
+        let mut scene = scene.into();
         scene.entities.apply_registered(&self.global_entities);
         assert!(!self.scenes.contains_key(&id));
         self.scenes.insert(id, Rc::new(RefCell::new(scene)));

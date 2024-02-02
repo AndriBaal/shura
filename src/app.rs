@@ -31,9 +31,12 @@ use rustc_hash::FxHashMap;
 
 pub struct AppConfig {
     pub window: winit::window::WindowBuilder,
-    pub winit_event: Option<Box<dyn Fn(&winit::event::Event<()>)>>,
+    pub winit_events:
+        Vec<Box<dyn Fn(&winit::event::Event<()>, &winit::event_loop::EventLoopWindowTarget<()>)>>,
     pub gpu: GpuConfig,
     pub scene_id: u32,
+    #[cfg(feature = "framebuffer")]
+    pub apply_frame_buffer: bool,
     #[cfg(target_os = "android")]
     pub android: AndroidApp,
     #[cfg(feature = "log")]
@@ -51,7 +54,7 @@ impl AppConfig {
             window: winit::window::WindowBuilder::new()
                 .with_inner_size(winit::dpi::PhysicalSize::new(800, 600))
                 .with_title("App Game"),
-            winit_event: None,
+            winit_events: vec![],
             gpu: GpuConfig::default(),
             #[cfg(target_os = "android")]
             android,
@@ -72,6 +75,8 @@ impl AppConfig {
                 map
             },
             scene_id: Self::FIRST_SCENE_ID,
+            #[cfg(feature = "framebuffer")]
+            apply_frame_buffer: true,
         }
     }
 
@@ -93,13 +98,12 @@ impl AppConfig {
 
     pub fn winit_event(
         mut self,
-        event: Option<impl for<'a> Fn(&'a winit::event::Event<()>) + 'static>,
+        event: impl for<'a, 'b> Fn(
+                &'a winit::event::Event<()>,
+                &'b winit::event_loop::EventLoopWindowTarget<()>,
+            ) + 'static,
     ) -> Self {
-        if let Some(event) = event {
-            self.winit_event = Some(Box::new(event));
-        } else {
-            self.winit_event = None;
-        }
+        self.winit_events.push(Box::new(event));
         self
     }
 
@@ -131,20 +135,22 @@ pub struct App {
     pub audio: AudioManager,
     #[cfg(target_arch = "wasm32")]
     pub auto_scale_canvas: bool,
+    #[cfg(feature = "framebuffer")]
+    pub apply_framebuffer: bool,
 }
 
 impl App {
-    pub fn run(mut config: AppConfig, init: impl FnOnce() -> Scene) {
-        let winit_event = config.winit_event.take();
+    pub fn run<S: Into<Scene>>(mut config: AppConfig, init: impl FnOnce() -> S) {
         let first_scene_id = config.scene_id;
+        let winit_events = std::mem::take(&mut config.winit_events);
         let (events, mut app) = App::new(config);
         let shura_window_id = app.window.id();
         let mut init = Some(init);
         events
             .run(move |event, event_loop| {
                 use winit::event::{Event, WindowEvent};
-                if let Some(callback) = &winit_event {
-                    callback(&event);
+                for callback in &winit_events {
+                    callback(&event, event_loop);
                 }
                 if !app.end {
                     match event {
@@ -269,6 +275,8 @@ impl App {
             gui: Gui::new(&window, _event_loop, &gpu),
             #[cfg(target_arch = "wasm32")]
             auto_scale_canvas: config.auto_scale_canvas,
+            #[cfg(feature = "framebuffer")]
+            apply_framebuffer: config.apply_frame_buffer,
             resized: false,
             window,
             gpu,
@@ -439,11 +447,13 @@ impl App {
     }
 
     fn buffer(&mut self, scene: &mut Scene) {
-        let mut default_resources = self.gpu.default_resources_mut();
+        scene.render_groups.prepare_buffers(&scene.groups);
         scene
             .entities
             .buffer(&mut scene.render_groups, &scene.groups, &scene.world);
-        scene.render_groups.apply_buffers(&scene.groups, &self.gpu);
+        scene.render_groups.apply_buffers(&self.gpu);
+
+        let mut default_resources = self.gpu.default_resources_mut();
         default_resources
             .world_camera2d
             .write(&self.gpu, &scene.world_camera2d);
@@ -463,20 +473,19 @@ impl App {
         let surface_target = self.surface.start_frame(&self.gpu);
         let default_resources = self.gpu.default_resources();
 
-        #[cfg(feature = "framebuffer")]
-        let default_target = &default_resources.framebuffer;
-        #[cfg(not(feature = "framebuffer"))]
-        let default_target = &surface_target;
-
-        let (systems, res) = RenderContext::new(&surface_target, &default_resources, scene);
-        let mut encoder = RenderEncoder::new(&self.gpu, default_target, &default_resources);
+        let (systems, ctx) = RenderContext::new(&surface_target, &default_resources, scene);
+        let mut encoder = RenderEncoder::new(&self.gpu, ctx.target(), &default_resources);
 
         for render in &systems.render_systems {
-            (render)(&res, &mut encoder);
+            (render)(&ctx, &mut encoder);
         }
 
         #[cfg(feature = "framebuffer")]
-        encoder.copy_target(&default_resources.framebuffer, &surface_target);
+        {
+            if self.apply_framebuffer {
+                encoder.copy_target(&default_resources.framebuffer, &surface_target);
+            }
+        }
 
         #[cfg(feature = "gui")]
         self.gui.render(&self.gpu, &default_resources, &mut encoder);

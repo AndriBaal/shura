@@ -24,7 +24,7 @@ fn deserialized_scene(data: Vec<u8>) -> SerializedScene {
 }
 
 #[shura::main]
-fn shura_main(config: AppConfig) {
+fn app(config: AppConfig) {
     if let Ok(save_game) = load_data_bytes("data.binc") {
         App::run(config, move || deserialized_scene(save_game))
     } else {
@@ -75,13 +75,19 @@ fn setup(ctx: &mut Context) {
 }
 
 fn update(ctx: &mut Context) {
-    if ctx.input.is_pressed(Key::Z) {
+    if ctx.input.is_pressed(Key::KeyZ) {
         serialize_scene(ctx);
     }
 
-    if ctx.input.is_pressed(Key::R) {
+    if ctx.input.is_pressed(Key::KeyR) {
         if let Ok(save_game) = load_data_bytes("data.binc") {
-            ctx.scenes.add(deserialized_scene(save_game));
+            let active_scene_id = ctx.scenes.active_scene_id();
+            ctx.add_scene(
+                active_scene_id + 1,
+                deserialized_scene(save_game).system(System::Setup(move |ctx| {
+                    ctx.remove_scene(active_scene_id).unwrap();
+                })),
+            );
         }
     }
 
@@ -112,7 +118,7 @@ fn update(ctx: &mut Context) {
         boxes.add(ctx.world, b);
     }
 
-    let delta = ctx.time.delta_time();
+    let delta = ctx.time.delta();
     let cursor_world: Point2<f32> = ctx.cursor;
     let remove = ctx.input.is_held(MouseButton::Left) || ctx.input.is_pressed(ScreenTouch);
     for physics_box in boxes.iter_mut() {
@@ -138,25 +144,25 @@ fn update(ctx: &mut Context) {
     let body = player.body.get_mut(ctx.world);
     let mut linvel = *body.linvel();
 
-    if ctx.input.is_held(Key::D) {
+    if ctx.input.is_held(Key::KeyD) {
         linvel.x += 15.0 * delta;
     }
 
-    if ctx.input.is_held(Key::A) {
+    if ctx.input.is_held(Key::KeyA) {
         linvel.x += -15.0 * delta;
     }
 
-    if ctx.input.is_pressed(Key::W) {
+    if ctx.input.is_pressed(Key::KeyW) {
         linvel.y += 15.0;
     }
 
-    if ctx.input.is_pressed(Key::S) {
+    if ctx.input.is_pressed(Key::KeyS) {
         linvel.y = -17.0;
     }
 
     body.set_linvel(linvel, true);
 
-    ctx.world.step(ctx.time).collisions(|event| {
+    ctx.world.step(ctx.time.delta()).collisions(|event| {
         if let Some(event) = event.is::<Player, PhysicsBox>(ctx.world) {
             if let Some(b) = boxes.get_mut(event.entity2) {
                 b.body.set_color(match event.collision_type {
@@ -172,7 +178,7 @@ fn update(ctx: &mut Context) {
 }
 
 fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
-    let resources = ctx.single::<Resources>().get().unwrap();
+    let resources = ctx.entities.single::<Resources>().get().unwrap();
     encoder.render2d(Some(Color::BLACK), |renderer| {
         ctx.render(renderer, "player", |renderer, buffer, instances| {
             renderer.render_sprite(
@@ -196,8 +202,8 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
 
 fn end(ctx: &mut Context, reason: EndReason) {
     match reason {
-        EndReason::End | EndReason::Removed => serialize_scene(ctx),
-        EndReason::Replaced => (),
+        EndReason::Close => serialize_scene(ctx),
+        _ => (),
     }
 }
 

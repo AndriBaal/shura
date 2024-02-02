@@ -1,7 +1,7 @@
 use shura::prelude::*;
 
 #[shura::main]
-fn shura_main(config: AppConfig) {
+fn app(config: AppConfig) {
     App::run(config, || {
         Scene::new()
             .render_group2d("bunny", RenderGroupConfig::default())
@@ -102,7 +102,7 @@ fn update(ctx: &mut Context) {
 }
 
 fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
-    let resources = ctx.single::<Resources>().get().unwrap();
+    let resources = ctx.entities.single::<Resources>().get().unwrap();
     encoder.render2d(
         Some(RgbaColor::new(220, 220, 220, 255).into()),
         |renderer| {
@@ -126,7 +126,7 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
     );
 
     if let Some(screenshot) = &resources.screenshot {
-        encoder.copy_target(ctx.surface_target(), screenshot)
+        encoder.copy_target(encoder.default_target, screenshot)
     }
 }
 
