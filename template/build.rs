@@ -1,6 +1,36 @@
-use fs_extra::{copy_items, dir::CopyOptions};
 use std::env;
+use std::fs;
+use std::io;
 use std::path::Path;
+
+fn copy_directory(src: &Path, dest: &Path) -> io::Result<()> {
+    const EXCLUDE_EXTENSIONS: &'static [&'static str] = &["blend", "blend1", "aseprite", "ase"];
+    // Create destination directory if it doesn't exist
+    fs::create_dir_all(dest)?;
+
+    // Iterate over entries in the source directory
+    for entry in fs::read_dir(src)? {
+        let entry = entry?;
+        let entry_path = entry.path();
+        let dest_path = dest.join(entry_path.file_name().unwrap());
+
+        if entry_path.is_dir() {
+            // Recursively copy subdirectories
+            copy_directory(&entry_path, &dest_path)?;
+        } else {
+            // Check if the file has an excluded extension
+            if !EXCLUDE_EXTENSIONS
+                .iter()
+                .any(|ext| entry_path.extension().map_or(false, |e| e == *ext))
+            {
+                // Copy the file to the destination
+                fs::copy(&entry_path, &dest_path)?;
+            }
+        }
+    }
+
+    Ok(())
+}
 
 fn main() {
     let target_os = env::var("CARGO_CFG_TARGET_OS");
@@ -13,8 +43,6 @@ fn main() {
             let root = Path::new(&cargo_dir);
             let res = root.join("res");
             if res.exists() {
-                let mut copy_options = CopyOptions::new();
-                copy_options.overwrite = true;
                 let target_dir = env::var("CARGO_TARGET_DIR")
                     .map(|dir| Path::new(&dir).to_path_buf())
                     .unwrap_or(root.join("target"));
@@ -23,10 +51,10 @@ fn main() {
                 let dest = target_dir.join(build_type);
 
                 if dest.exists() {
-                    copy_items(&[res.clone()], dest.clone(), &copy_options).unwrap();
+                    copy_directory(&res, &dest.join("res")).unwrap();
                     let examples = dest.join("examples");
                     if examples.exists() {
-                        copy_items(&[res], examples, &copy_options).unwrap();
+                        copy_directory(&res, &examples.join("res")).unwrap();
                     }
                 }
             }

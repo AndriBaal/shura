@@ -1,6 +1,6 @@
 use std::cell::Ref;
 #[cfg(feature = "framebuffer")]
-use crate::SpriteRenderTarget;
+use crate::graphics::SpriteRenderTarget;
 
 use crate::{
     entity::{

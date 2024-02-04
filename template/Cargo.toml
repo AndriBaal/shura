@@ -13,9 +13,6 @@ crate_type=["cdylib"]
 [dependencies]
 shura = { path = "../" }
 
-[build-dependencies]
-fs_extra = "1.2"
-
 [package.metadata.android]
 package = "com.shura.template"
 apk_name = "Shura Example"
