@@ -11,6 +11,11 @@ use wgpu::ImageCopyTexture;
 pub type SpriteSheetIndex = u32;
 pub type SpriteSheetIndex2D = Vector2<u32>;
 
+pub enum TileSize {
+    Amount(Vector2<u32>),
+    Size(Vector2<u32>)
+}
+
 pub struct SpriteSheetBuilder<'a, D: Deref<Target = [u8]>> {
     pub label: Option<&'a str>,
     pub sprite_size: Vector2<u32>,
@@ -22,24 +27,31 @@ pub struct SpriteSheetBuilder<'a, D: Deref<Target = [u8]>> {
 
 impl<'a> SpriteSheetBuilder<'a, image::RgbaImage> {
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn file(path: &str, sprite_size: Vector2<u32>) -> Self {
+    pub fn file(path: &str, size: TileSize) -> Self {
         let bytes = load_res_bytes(path).unwrap();
-        Self::bytes(&bytes, sprite_size)
+        Self::bytes(&bytes, size)
     }
 
-    pub async fn file_async(path: &str, sprite_size: Vector2<u32>) -> Self {
+    pub async fn file_async(path: &str, size: TileSize) -> Self {
         let bytes = load_res_bytes_async(path).await.unwrap();
-        Self::bytes(&bytes, sprite_size)
+        Self::bytes(&bytes, size)
     }
 
-    pub fn bytes(bytes: &[u8], sprite_size: Vector2<u32>) -> Self {
+    pub fn bytes(bytes: &[u8], size: TileSize) -> Self {
         let img = image::load_from_memory(bytes).unwrap();
-        Self::image(img, sprite_size)
+        Self::image(img, size)
     }
 
-    pub fn image(mut image: image::DynamicImage, sprite_size: Vector2<u32>) -> Self {
-        let size = Vector2::new(image.width(), image.height());
-        let sprite_amount = size.component_div(&sprite_size);
+    pub fn image(mut image: image::DynamicImage, size: TileSize) -> Self {
+        let sheet_size = Vector2::new(image.width(), image.height());
+        let (sprite_size, sprite_amount) = match size {
+            TileSize::Amount(sprite_amount) => {
+                (sheet_size.component_div(&sprite_amount), sprite_amount)
+            },
+            TileSize::Size(sprite_size) => {
+                (sprite_size, sheet_size.component_div(&sprite_size))
+            },
+        };
         let mut data = vec![];
         for i in 0..sprite_amount.y {
             for j in 0..sprite_amount.x {

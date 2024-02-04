@@ -9,7 +9,7 @@ use crate::{
     graphics::{
         Camera, Camera2D, CameraBuffer, CameraBuffer2D, DepthBuffer, Instance, Instance2D,
         Instance3D, InstanceBuffer, InstanceBuffer2D, Mesh, Mesh2D, MeshBuilder, MeshBuilder2D,
-        Model, ModelBuilder, RenderEncoder, RenderTarget, Shader, ShaderConfig, ShaderModule,
+        Model, ModelBuilder, RenderEncoder, Shader, ShaderConfig, ShaderModule,
         ShaderModuleDescriptor, ShaderModuleSoure, Sprite, SpriteBuilder, SpriteRenderTarget,
         SpriteSheet, SpriteSheetBuilder, Surface, Uniform, UniformField, Vertex, Vertex3D,
         WorldCamera3D,
@@ -593,6 +593,7 @@ impl DefaultResources {
 
     #[cfg(feature = "framebuffer")]
     pub(crate) fn apply_render_scale(&mut self, surface: &Surface, gpu: &Gpu, scale: f32) {
+        use crate::graphics::RenderTarget;
         let size = surface.size().cast::<f32>() * scale;
         let size = Vector2::new(size.x as u32, size.y as u32);
         if self.framebuffer.size() != size {

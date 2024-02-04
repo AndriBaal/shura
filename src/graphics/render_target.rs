@@ -122,6 +122,7 @@ impl Surface {
 
     /// Resize the surface, making sure to not resize to zero.
     pub(crate) fn resize(&mut self, gpu: &Gpu, size: Vector2<u32>) {
+        #[cfg(feature = "log")]
         log::info!("Surface resize {size:?}");
         self.update_msaa(gpu, size);
 

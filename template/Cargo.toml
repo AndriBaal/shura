@@ -1,6 +1,6 @@
 [package]
 name = "shura_template"
-version = "0.4.0"
+version = "0.1.0"
 edition = "2021"
 
 # Android run configuration (remove for faster compile time)

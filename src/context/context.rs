@@ -201,6 +201,7 @@ impl<'a> Context<'a> {
                 gpu: self.gpu.clone(),
                 #[cfg(feature = "gui")]
                 gui: self.gui,
+                #[cfg(feature = "audio")]
                 audio: self.audio,
                 end: self.end,
                 scenes: self.scenes,

@@ -83,7 +83,7 @@ fn update(ctx: &mut Context) {
 }
 
 fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
-    if let Some(resources) = ctx.single::<Resources>().get() {
+    if let Some(resources) = ctx.entities.single::<Resources>().get() {
         encoder.render3d(
             Some(RgbaColor::new(220, 220, 220, 255).into()),
             |renderer| {

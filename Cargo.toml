@@ -76,8 +76,8 @@ default = [
 [lib]
 crate-type = ["lib", "cdylib"]
 
-[dev-dependencies]
-egui_demo_lib = "0.25"
+# [dev-dependencies]
+# egui_demo_lib = "0.25"
 
 [dependencies]
 winit = { version = "0.29", features = ["mint"] }
