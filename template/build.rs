@@ -37,12 +37,12 @@ fn main() {
     match target_os.as_ref().map(|x| &**x) {
         Ok("android") => (),
         Ok(_) => {
-            println!("cargo:rerun-if-changed=res/*");
+            println!("cargo:rerun-if-changed=assets/*");
 
             let cargo_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
             let root = Path::new(&cargo_dir);
-            let res = root.join("res");
-            if res.exists() {
+            let assets = root.join("assets");
+            if assets.exists() {
                 let target_dir = env::var("CARGO_TARGET_DIR")
                     .map(|dir| Path::new(&dir).to_path_buf())
                     .unwrap_or(root.join("target"));
@@ -51,10 +51,10 @@ fn main() {
                 let dest = target_dir.join(build_type);
 
                 if dest.exists() {
-                    copy_directory(&res, &dest.join("res")).unwrap();
+                    copy_directory(&assets, &dest.join("assets")).unwrap();
                     let examples = dest.join("examples");
                     if examples.exists() {
-                        copy_directory(&res, &examples.join("res")).unwrap();
+                        copy_directory(&assets, &examples.join("assets")).unwrap();
                     }
                 }
             }

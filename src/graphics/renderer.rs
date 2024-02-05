@@ -2,7 +2,7 @@
 use crate::text::Text;
 
 use crate::graphics::{
-    Camera, CameraBuffer, CameraBuffer2D, Color, DefaultResources, DepthBuffer, Gpu, Instance,
+    Camera, CameraBuffer, CameraBuffer2D, Color, DefaultAssets, DepthBuffer, Gpu, Instance,
     InstanceBuffer, InstanceBuffer2D, InstanceBuffer3D, InstanceIndices, Mesh, Mesh2D, Model,
     RenderTarget, Shader, Sprite, SpriteSheet, Uniform, Vertex,
 };
@@ -28,7 +28,7 @@ impl Default for RenderCache {
 pub struct Renderer<'a> {
     pub(crate) target: &'a dyn RenderTarget,
     pub gpu: &'a Gpu,
-    pub default_resources: &'a DefaultResources,
+    pub default_resources: &'a DefaultAssets,
     indices: u32,
     render_pass: wgpu::RenderPass<'a>,
     cache: RenderCache,
@@ -40,7 +40,7 @@ impl<'a> Renderer<'a> {
     pub const CAMERA_SLOT: u32 = 0;
     pub fn new(
         render_encoder: &'a mut wgpu::CommandEncoder,
-        default_resources: &'a DefaultResources,
+        default_resources: &'a DefaultAssets,
         gpu: &'a Gpu,
         target: &'a dyn RenderTarget,
         clear: Option<Color>,

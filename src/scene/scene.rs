@@ -1,7 +1,7 @@
 use crate::{
     entity::{
-        Entities, EntityGroupManager, EntityIdentifier, EntityManager, EntityScope, EntityType,
-        GroupedEntities, SingleEntity,
+        Entities, EntityGroupManager, EntityIdentifier, EntityManager, EntityScope, EntityStorage,
+        EntityType, GroupedEntities, SingleEntity,
     },
     graphics::{
         CameraViewSelection, Instance, Instance2D, Instance3D, PerspectiveCamera3D,
@@ -17,18 +17,28 @@ use crate::{
 pub trait SceneCreator {
     fn scene(&mut self) -> &mut Scene;
 
-    fn render_group<I: Instance>(
-        mut self,
-        name: &'static str,
-        config: RenderGroupConfig,
-    ) -> Self
+    fn render_group<I: Instance>(mut self, name: &'static str, config: RenderGroupConfig) -> Self
     where
         Self: Sized,
     {
-        self.scene().render_groups.register_component::<I>(name, config);
+        self.scene()
+            .render_groups
+            .register_component::<I>(name, config);
         self
     }
-    fn entity<ET: EntityType>(mut self, ty: ET, scope: EntityScope) -> Self
+    fn entity<E: EntityIdentifier>(self, storage: EntityStorage, scope: EntityScope) -> Self
+    where
+        Self: Sized,
+    {
+        match storage {
+            EntityStorage::Single => self.custom_entity(SingleEntity::<E>::default(), scope),
+            EntityStorage::Multiple => self.custom_entity(Entities::<E>::default(), scope),
+            EntityStorage::Groups => {
+                self.custom_entity(GroupedEntities::<Entities<E>>::default(), scope)
+            }
+        }
+    }
+    fn custom_entity<ET: EntityType>(mut self, ty: ET, scope: EntityScope) -> Self
     where
         Self: Sized,
     {
@@ -44,7 +54,6 @@ pub trait SceneCreator {
         self
     }
 
-
     fn render_group2d(self, name: &'static str, config: RenderGroupConfig) -> Self
     where
         Self: Sized,
@@ -57,27 +66,6 @@ pub trait SceneCreator {
         Self: Sized,
     {
         self.render_group::<Instance3D>(name, config)
-    }
-
-    fn single_entity<E: EntityIdentifier>(self, scope: EntityScope) -> Self
-    where
-        Self: Sized,
-    {
-        self.entity(SingleEntity::<E>::default(), scope)
-    }
-
-    fn entities<E: EntityIdentifier>(self, scope: EntityScope) -> Self
-    where
-        Self: Sized,
-    {
-        self.entity(Entities::<E>::default(), scope)
-    }
-
-    fn grouped_entity<E: EntityIdentifier>(self, scope: EntityScope) -> Self
-    where
-        Self: Sized,
-    {
-        self.entity(GroupedEntities::<Entities<E>>::default(), scope)
     }
 }
 

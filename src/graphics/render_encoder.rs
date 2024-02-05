@@ -1,10 +1,10 @@
 use crate::graphics::{
-    Color, DefaultResources, DepthBuffer, Gpu, RenderTarget, Renderer, SpriteRenderTarget,
+    Color, DefaultAssets, DepthBuffer, Gpu, RenderTarget, Renderer, SpriteRenderTarget,
 };
 
 pub struct RenderEncoder<'a> {
     pub inner: wgpu::CommandEncoder,
-    pub default_resources: &'a DefaultResources,
+    pub default_resources: &'a DefaultAssets,
     pub gpu: &'a Gpu,
     pub default_target: &'a dyn RenderTarget,
 }
@@ -19,7 +19,7 @@ impl<'a> RenderEncoder<'a> {
     pub fn new(
         gpu: &'a Gpu,
         default_target: &'a dyn RenderTarget,
-        default_resources: &'a DefaultResources,
+        default_resources: &'a DefaultAssets,
     ) -> Self {
         let encoder = gpu
             .device

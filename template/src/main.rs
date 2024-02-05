@@ -6,7 +6,7 @@ fn app(config: AppConfig) {
         Scene::new()
             .render_group3d("cube", RenderGroupConfig::EVERY_FRAME)
             .entities::<Cube>(Default::default())
-            .single_entity::<Resources>(Default::default())
+            .single_entity::<Assets>(Default::default())
             .system(System::Update(update))
             .system(System::Setup(setup))
             .system(System::Render(render))
@@ -29,19 +29,19 @@ fn setup(ctx: &mut Context) {
         .collect::<Vec<_>>();
     ctx.entities.multiple().add_many(ctx.world, cubes);
 
-    let sound = ctx.audio.create_sound(include_bytes_res!("3d/point.wav"));
+    let sound = ctx.audio.create_sound(include_asset_bytes!("3d/point.wav"));
     ctx.audio.play_once(&sound);
 
     let gpu = ctx.gpu.clone();
     ctx.tasks
-        .spawn_async(async move { Resources::new(&gpu).await }, |ctx, res| {
+        .spawn_async(async move { Assets::new(&gpu).await }, |ctx, res| {
             ctx.entities.single().set(ctx.world, res);
         });
 }
 
 fn update(ctx: &mut Context) {
     const SPEED: f32 = 7.0;
-    if ctx.entities.single::<Resources>().is_none() {
+    if ctx.entities.single::<Assets>().is_none() {
         return;
     }
 
@@ -83,12 +83,12 @@ fn update(ctx: &mut Context) {
 }
 
 fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
-    if let Some(resources) = ctx.entities.single::<Resources>().get() {
+    if let Some(assets) = ctx.entities.single::<Assets>().get() {
         encoder.render3d(
             Some(RgbaColor::new(220, 220, 220, 255).into()),
             |renderer| {
                 ctx.render(renderer, "cube", |renderer, buffer, instances| {
-                    renderer.render_model(instances, buffer, ctx.world_camera3d, &resources.model);
+                    renderer.render_model(instances, buffer, ctx.world_camera3d, &assets.model);
                 });
             },
         );
@@ -96,11 +96,11 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
 }
 
 #[derive(Entity)]
-struct Resources {
+struct Assets {
     model: Model,
 }
 
-impl Resources {
+impl Assets {
     pub async fn new(gpu: &Gpu) -> Self {
         Self {
             model: gpu.create_model(ModelBuilder::file_async("3d/cube/cube.obj").await),

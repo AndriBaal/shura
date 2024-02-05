@@ -16,54 +16,54 @@ pub(crate) static ANDROID_ASSETS: OnceLock<ndk::asset::AssetManager> = OnceLock:
 pub(crate) static ANDROID_DATA: OnceLock<PathBuf> = OnceLock::new();
 
 #[macro_export]
-macro_rules! include_bytes_res {
+macro_rules! include_asset_bytes {
     ($file:expr $(,)?) => {
-        include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/res/", $file))
+        include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/", $file))
     };
 }
 
 #[macro_export]
-macro_rules! include_str_res {
+macro_rules! include_asset_str {
     ($file:expr $(,)?) => {
-        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/res/", $file))
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/", $file))
     };
 }
 
 #[macro_export]
-macro_rules! include_wgsl_res {
+macro_rules! include_asset_wgsl {
     ($file:expr $(,)?) => {
-        ::shura::include_wgsl!(concat!(env!("CARGO_MANIFEST_DIR"), "/res/", $file))
+        ::shura::include_wgsl!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/", $file))
     };
 }
 
-pub async fn load_res_bytes_async(path: &str) -> Result<Vec<u8>> {
+pub async fn load_asset_bytes_async(path: &str) -> Result<Vec<u8>> {
     #[cfg(target_arch = "wasm32")]
     {
-        let url = resource_url(path)?;
+        let url = asset_url(path)?;
         return Ok(reqwest::get(url).await?.bytes().await?.to_vec());
     }
     #[cfg(not(target_arch = "wasm32"))]
     {
-        load_res_bytes(path)
+        load_asset_bytes(path)
     }
 }
 
-pub async fn load_res_string_async(path: &str) -> Result<String> {
+pub async fn load_asset_string_async(path: &str) -> Result<String> {
     #[cfg(target_arch = "wasm32")]
     {
-        let url = resource_url(path)?;
+        let url = asset_url(path)?;
         let test = reqwest::get(url).await?;
         let text = test.text().await?;
         return Ok(text);
     }
     #[cfg(not(target_arch = "wasm32"))]
     {
-        load_res_string(path)
+        load_asset_string(path)
     }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn load_res_bytes(path: &str) -> Result<Vec<u8>> {
+pub fn load_asset_bytes(path: &str) -> Result<Vec<u8>> {
     #[cfg(target_os = "android")]
     {
         #[cfg(feature = "log")]
@@ -77,14 +77,14 @@ pub fn load_res_bytes(path: &str) -> Result<Vec<u8>> {
     }
     #[cfg(not(target_os = "android"))]
     {
-        let path = resource_path(path)?;
+        let path = asset_path(path)?;
         let data = std::fs::read(path)?;
         Ok(data)
     }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn load_res_string(path: &str) -> Result<String> {
+pub fn load_asset_string(path: &str) -> Result<String> {
     #[cfg(target_os = "android")]
     {
         #[cfg(feature = "log")]
@@ -98,7 +98,7 @@ pub fn load_res_string(path: &str) -> Result<String> {
     }
     #[cfg(not(target_os = "android"))]
     {
-        let path = resource_path(path)?;
+        let path = asset_path(path)?;
         let data = std::fs::read_to_string(path)?;
         Ok(data)
     }
@@ -162,23 +162,23 @@ pub fn data_path(path: &str) -> Result<PathBuf> {
 }
 
 #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
-pub fn resource_path(path: &str) -> Result<PathBuf> {
+pub fn asset_path(path: &str) -> Result<PathBuf> {
     let exe = env::current_exe()?;
     let mut dir = fs::canonicalize(exe)?;
     dir.pop();
-    let path = dir.join("res").join(path);
+    let path = dir.join("asset").join(path);
     #[cfg(feature = "log")]
     info!("Loading: {}", path.display());
     Ok(path)
 }
 
 #[cfg(target_arch = "wasm32")]
-pub fn resource_url(path: &str) -> Result<reqwest::Url> {
+pub fn asset_url(path: &str) -> Result<reqwest::Url> {
     let window = web_sys::window().unwrap();
     let location = window.location();
     let origin = location.origin().unwrap();
     let base = reqwest::Url::parse(&origin)?;
-    let url = base.join("res/")?.join(path)?;
+    let url = base.join("asset/")?.join(path)?;
     #[cfg(feature = "log")]
     info!("Loading: {}", url);
     return Ok(url);

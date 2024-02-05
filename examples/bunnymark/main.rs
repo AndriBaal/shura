@@ -5,11 +5,11 @@ fn app(config: AppConfig) {
     App::run(config, || {
         Scene::new()
             .render_group2d("bunny", RenderGroupConfig::default())
-            .entities::<Bunny>(EntityScope::Global)
-            .single_entity::<Resources>(EntityScope::Scene)
-            .system(System::Update(update))
-            .system(System::Setup(setup))
-            .system(System::Render(render))
+            .entity::<Bunny>(EntityStorage::Multiple, EntityScope::Global)
+            .entity::<Assets>(EntityStorage::Single, EntityScope::Scene)
+            .system(System::update(update))
+            .system(System::setup(setup))
+            .system(System::render(render))
     });
 }
 
@@ -19,8 +19,8 @@ fn setup(ctx: &mut Context) {
         .multiple::<Bunny>()
         .add(ctx.world, Bunny::new(Default::default()));
     ctx.entities
-        .single::<Resources>()
-        .set(ctx.world, Resources::new(ctx));
+        .single::<Assets>()
+        .set(ctx.world, Assets::new(ctx));
 }
 
 fn update(ctx: &mut Context) {
@@ -28,7 +28,7 @@ fn update(ctx: &mut Context) {
     const GRAVITY: f32 = -2.5;
 
     let mut bunnies = ctx.entities.multiple::<Bunny>();
-    let mut resources = ctx.entities.single::<Resources>().get_mut().unwrap();
+    let mut assets = ctx.entities.single::<Assets>().get_mut().unwrap();
 
     if ctx.input.is_held(MouseButton::Left) || ctx.input.is_held(ScreenTouch) {
         let cursor: Vector2<f32> = ctx.cursor.coords;
@@ -49,7 +49,7 @@ fn update(ctx: &mut Context) {
         }
     }
 
-    resources.text.write(
+    assets.text.write(
         &ctx.gpu,
         &[TextSection {
             color: Color::RED,
@@ -61,12 +61,12 @@ fn update(ctx: &mut Context) {
         }],
     );
 
-    if let Some(screenshot) = resources.screenshot.take() {
+    if let Some(screenshot) = assets.screenshot.take() {
         log::info!("Saving Screenshot!");
         let bytes = screenshot.sprite().to_bytes(&ctx.gpu);
         save_data("screenshot.png", bytes).unwrap();
     } else if ctx.input.is_pressed(Key::KeyS) {
-        resources.screenshot = Some(ctx.gpu.create_render_target(ctx.window_size));
+        assets.screenshot = Some(ctx.gpu.create_render_target(ctx.window_size));
     }
 
     let frame = ctx.time.delta();
@@ -98,7 +98,7 @@ fn update(ctx: &mut Context) {
 }
 
 fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
-    let resources = ctx.entities.single::<Resources>().get().unwrap();
+    let assets = ctx.entities.single::<Assets>().get().unwrap();
     encoder.render2d(
         Some(RgbaColor::new(220, 220, 220, 255).into()),
         |renderer| {
@@ -108,7 +108,7 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
                     buffer,
                     ctx.world_camera2d,
                     ctx.unit_mesh,
-                    &resources.bunny_sprite,
+                    &assets.bunny_sprite,
                 );
             });
 
@@ -116,34 +116,34 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
                 0..1,
                 ctx.centered_instance,
                 ctx.relative_top_right_camera,
-                &resources.text,
+                &assets.text,
             );
         },
     );
 
-    if let Some(screenshot) = &resources.screenshot {
+    if let Some(screenshot) = &assets.screenshot {
         encoder.copy_target(ctx.target(), screenshot)
     }
 }
 
 #[derive(Entity)]
-struct Resources {
+struct Assets {
     screenshot: Option<SpriteRenderTarget>,
     bunny_sprite: Sprite,
     text: Text,
 }
 
-impl Resources {
+impl Assets {
     pub fn new(ctx: &Context) -> Self {
         let bunny_sprite = ctx
             .gpu
-            .create_sprite(SpriteBuilder::bytes(include_bytes_res!(
+            .create_sprite(SpriteBuilder::bytes(include_asset_bytes!(
                 "bunnymark/wabbit.png"
             )));
-        let font = ctx.gpu.create_font(FontBuilder::bytes(include_bytes_res!(
+        let font = ctx.gpu.create_font(FontBuilder::bytes(include_asset_bytes!(
             "bunnymark/novem.ttf"
         )));
-        Resources {
+        Assets {
             screenshot: None,
             bunny_sprite,
             text: ctx.gpu.create_text::<&str>(&font, &[]),
@@ -171,7 +171,7 @@ impl Bunny {
         Bunny {
             position,
             linvel,
-            handle: Default::default()
+            handle: Default::default(),
         }
     }
 }

@@ -1,6 +1,6 @@
-use std::cell::Ref;
 #[cfg(feature = "framebuffer")]
 use crate::graphics::SpriteRenderTarget;
+use std::cell::Ref;
 
 use crate::{
     entity::{
@@ -8,9 +8,9 @@ use crate::{
         SingleEntity,
     },
     graphics::{
-        CameraBuffer, CameraBuffer2D, DefaultResources, Instance, Instance2D, InstanceBuffer,
-        InstanceIndices, Mesh2D, RenderGroupManager, RenderTarget, Renderer,
-        SurfaceRenderTarget, WorldCamera3D,
+        CameraBuffer, CameraBuffer2D, DefaultAssets, Instance, Instance2D, InstanceBuffer,
+        InstanceIndices, Mesh2D, RenderGroupManager, RenderTarget, Renderer, SurfaceRenderTarget,
+        WorldCamera3D,
     },
     prelude::Scene,
     system::SystemManager,
@@ -41,7 +41,7 @@ pub struct RenderContext<'a> {
     #[cfg(feature = "framebuffer")]
     pub framebuffer_target: &'a SpriteRenderTarget,
     pub surface_target: &'a SurfaceRenderTarget,
-    pub default_resources: &'a DefaultResources,
+    pub default_resources: &'a DefaultAssets,
     pub render_groups: &'a RenderGroupManager,
 
     pub world_camera2d: &'a CameraBuffer2D,
@@ -59,7 +59,7 @@ pub struct RenderContext<'a> {
 impl<'a> RenderContext<'a> {
     pub(crate) fn new(
         surface_target: &'a SurfaceRenderTarget,
-        default_resources: &'a DefaultResources,
+        default_resources: &'a DefaultAssets,
         scene: &'a Scene,
     ) -> (&'a SystemManager, Self) {
         (

@@ -55,8 +55,8 @@ pub struct Gpu {
     pub adapter: wgpu::Adapter,
     pub command_buffers: Mutex<Vec<wgpu::CommandBuffer>>,
     format: OnceLock<wgpu::TextureFormat>,
-    shared_resources: OnceLock<SharedResources>,
-    default_resources: OnceLock<RwLock<DefaultResources>>,
+    shared_resources: OnceLock<SharedAssets>,
+    default_resources: OnceLock<RwLock<DefaultAssets>>,
 
     samples: OnceLock<u32>,
     max_samples: u32,
@@ -206,15 +206,15 @@ impl Gpu {
         return *self.sample_state.get().unwrap();
     }
 
-    pub fn shared_resources(&self) -> &SharedResources {
+    pub fn shared_resources(&self) -> &SharedAssets {
         return self.shared_resources.get().unwrap();
     }
 
-    pub fn default_resources(&self) -> impl Deref<Target = DefaultResources> + '_ {
+    pub fn default_resources(&self) -> impl Deref<Target = DefaultAssets> + '_ {
         return self.default_resources.get().unwrap().read().unwrap();
     }
 
-    pub fn default_resources_mut(&self) -> impl DerefMut<Target = DefaultResources> + '_ {
+    pub fn default_resources_mut(&self) -> impl DerefMut<Target = DefaultAssets> + '_ {
         return self.default_resources.get().unwrap().write().unwrap();
     }
 
@@ -267,16 +267,16 @@ impl Gpu {
         self.format.set(format).unwrap();
         self.sample_state.set(sample_state).unwrap();
         self.shared_resources
-            .set(SharedResources::new(self))
+            .set(SharedAssets::new(self))
             .unwrap();
         self.default_resources
-            .set(RwLock::new(DefaultResources::new(self, surface)))
+            .set(RwLock::new(DefaultAssets::new(self, surface)))
             .unwrap();
     }
 }
 
 #[derive(Debug)]
-pub struct SharedResources {
+pub struct SharedAssets {
     pub vertex_shader_module: ShaderModule,
     pub sprite_sheet_layout: wgpu::BindGroupLayout,
     pub sprite_layout: wgpu::BindGroupLayout,
@@ -284,7 +284,7 @@ pub struct SharedResources {
     pub single_uniform_layout: wgpu::BindGroupLayout,
 }
 
-impl SharedResources {
+impl SharedAssets {
     pub fn new(gpu: &Gpu) -> Self {
         let device = &gpu.device;
         let sprite_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -375,7 +375,7 @@ impl SharedResources {
 }
 
 #[derive(Debug)]
-pub struct DefaultResources {
+pub struct DefaultAssets {
     // 2D
     pub sprite: Shader,
     pub sprite_sheet: Shader,
@@ -408,7 +408,7 @@ pub struct DefaultResources {
     pub framebuffer: SpriteRenderTarget,
 }
 
-impl DefaultResources {
+impl DefaultAssets {
     pub(crate) fn new(gpu: &Gpu, surface: &Surface) -> Self {
         let shared_resources = gpu.shared_resources();
         let sprite_sheet = gpu.create_shader(ShaderConfig {

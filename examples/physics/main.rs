@@ -13,13 +13,13 @@ fn app(config: AppConfig) {
                     ..Default::default()
                 },
             )
-            .single_entity::<Floor>(Default::default())
-            .single_entity::<Player>(Default::default())
-            .single_entity::<Resources>(Default::default())
-            .entities::<PhysicsBox>(Default::default())
-            .system(System::Render(render))
-            .system(System::Setup(setup))
-            .system(System::Update(update))
+            .entity::<Floor>(EntityStorage::Single, Default::default())
+            .entity::<Player>(EntityStorage::Single, Default::default())
+            .entity::<Assets>(EntityStorage::Single, Default::default())
+            .entity::<PhysicsBox>(EntityStorage::Multiple, Default::default())
+            .system(System::render(render))
+            .system(System::setup(setup))
+            .system(System::update(update))
     });
 }
 
@@ -28,7 +28,7 @@ fn setup(ctx: &mut Context) {
     const MINIMAL_SPACING: f32 = 0.1;
     ctx.world_camera2d.set_scaling(WorldCameraScaling::Max(5.0));
     ctx.world.set_gravity(Vector2::new(0.00, -9.81));
-    ctx.entities.single().set(ctx.world, Resources::new(ctx));
+    ctx.entities.single().set(ctx.world, Assets::new(ctx));
 
     for x in -PYRAMID_ELEMENTS..PYRAMID_ELEMENTS {
         for y in 0..(PYRAMID_ELEMENTS - x.abs()) {
@@ -134,42 +134,42 @@ fn update(ctx: &mut Context) {
 }
 
 fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
-    let resources = ctx.entities.single::<Resources>().get().unwrap();
+    let assets = ctx.entities.single::<Assets>().get().unwrap();
     encoder.render2d(Some(Color::BLACK), |renderer| {
         ctx.render(renderer, "player", |renderer, buffer, instances| {
             renderer.render_sprite(
                 instances,
                 buffer,
                 ctx.world_camera2d,
-                &resources.player_mesh,
-                &resources.player_sprite,
+                &assets.player_mesh,
+                &assets.player_sprite,
             )
         });
 
         ctx.render(renderer, "floor", |renderer, buffer, instances| {
-            renderer.render_color(instances, buffer, ctx.world_camera2d, &resources.floor_mesh)
+            renderer.render_color(instances, buffer, ctx.world_camera2d, &assets.floor_mesh)
         });
 
         ctx.render(renderer, "box", |renderer, buffer, instance| {
-            renderer.render_color(instance, buffer, ctx.world_camera2d, &resources.box_mesh);
+            renderer.render_color(instance, buffer, ctx.world_camera2d, &assets.box_mesh);
         });
     })
 }
 
 #[derive(Entity)]
-struct Resources {
+struct Assets {
     floor_mesh: Mesh2D,
     box_mesh: Mesh2D,
     player_mesh: Mesh2D,
     player_sprite: Sprite,
 }
 
-impl Resources {
+impl Assets {
     pub fn new(ctx: &Context) -> Self {
         Self {
             player_sprite: ctx
                 .gpu
-                .create_sprite(SpriteBuilder::bytes(include_bytes_res!(
+                .create_sprite(SpriteBuilder::bytes(include_asset_bytes!(
                     "physics/burger.png"
                 ))),
             player_mesh: ctx.gpu.create_mesh(&MeshBuilder2D::from_collider_shape(

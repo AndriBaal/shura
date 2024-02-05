@@ -1,7 +1,7 @@
 use std::ops::{Deref, DerefMut};
 
 use crate::{
-    graphics::{DefaultResources, Gpu, RenderEncoder, RenderTarget},
+    graphics::{DefaultAssets, Gpu, RenderEncoder, RenderTarget},
     gui::GuiContext,
     math::Vector2,
 };
@@ -66,7 +66,7 @@ impl Gui {
     pub(crate) fn render(
         &mut self,
         gpu: &Gpu,
-        default_resources: &DefaultResources,
+        default_resources: &DefaultAssets,
         encoder: &mut RenderEncoder,
     ) {
         let output = self.context.end_frame();

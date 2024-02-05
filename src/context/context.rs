@@ -102,6 +102,7 @@ impl<'a> Context<'a> {
     }
 
     #[cfg(feature = "serde")]
+    #[must_use]
     pub fn serialize_scene(
         &mut self,
         serialize: impl FnOnce(SceneSerializer) -> SceneSerializer,

@@ -1,9 +1,9 @@
 #[cfg(not(target_arch = "wasm32"))]
-use crate::resource::load_res_bytes;
+use crate::assets::load_asset_bytes;
 use crate::{
     graphics::{Gpu, RgbaColor},
     math::Vector2,
-    resource::load_res_bytes_async,
+    assets::load_asset_bytes_async,
 };
 use std::ops::Deref;
 use wgpu::ImageCopyTexture;
@@ -13,7 +13,7 @@ pub type SpriteSheetIndex2D = Vector2<u32>;
 
 pub enum TileSize {
     Amount(Vector2<u32>),
-    Size(Vector2<u32>)
+    Size(Vector2<u32>),
 }
 
 pub struct SpriteSheetBuilder<'a, D: Deref<Target = [u8]>> {
@@ -27,13 +27,13 @@ pub struct SpriteSheetBuilder<'a, D: Deref<Target = [u8]>> {
 
 impl<'a> SpriteSheetBuilder<'a, image::RgbaImage> {
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn file(path: &str, size: TileSize) -> Self {
-        let bytes = load_res_bytes(path).unwrap();
+    pub fn asset(path: &str, size: TileSize) -> Self {
+        let bytes = load_asset_bytes(path).unwrap();
         Self::bytes(&bytes, size)
     }
 
-    pub async fn file_async(path: &str, size: TileSize) -> Self {
-        let bytes = load_res_bytes_async(path).await.unwrap();
+    pub async fn asset_async(path: &str, size: TileSize) -> Self {
+        let bytes = load_asset_bytes_async(path).await.unwrap();
         Self::bytes(&bytes, size)
     }
 
@@ -47,10 +47,8 @@ impl<'a> SpriteSheetBuilder<'a, image::RgbaImage> {
         let (sprite_size, sprite_amount) = match size {
             TileSize::Amount(sprite_amount) => {
                 (sheet_size.component_div(&sprite_amount), sprite_amount)
-            },
-            TileSize::Size(sprite_size) => {
-                (sprite_size, sheet_size.component_div(&sprite_size))
-            },
+            }
+            TileSize::Size(sprite_size) => (sprite_size, sheet_size.component_div(&sprite_size)),
         };
         let mut data = vec![];
         for i in 0..sprite_amount.y {

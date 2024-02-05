@@ -1,11 +1,11 @@
 use wgpu::util::DeviceExt;
 
 #[cfg(not(target_arch = "wasm32"))]
-use crate::resource::load_res_bytes;
+use crate::assets::load_asset_bytes;
 use crate::{
     graphics::{Gpu, RgbaColor},
     math::Vector2,
-    resource::load_res_bytes_async,
+    assets::load_asset_bytes_async,
 };
 use image::ImageOutputFormat;
 use std::ops::Deref;
@@ -20,15 +20,15 @@ pub struct SpriteBuilder<'a, D: Deref<Target = [u8]>> {
 
 impl<'a> SpriteBuilder<'a, image::RgbaImage> {
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn file(path: &str) -> SpriteBuilder<'a, image::ImageBuffer<image::Rgba<u8>, Vec<u8>>> {
-        let bytes = load_res_bytes(path).unwrap();
+    pub fn asset(path: &str) -> SpriteBuilder<'a, image::ImageBuffer<image::Rgba<u8>, Vec<u8>>> {
+        let bytes = load_asset_bytes(path).unwrap();
         Self::bytes(&bytes)
     }
 
-    pub async fn file_async(
+    pub async fn asset_async(
         path: &str,
     ) -> SpriteBuilder<'a, image::ImageBuffer<image::Rgba<u8>, Vec<u8>>> {
-        let bytes = load_res_bytes_async(path).await.unwrap();
+        let bytes = load_asset_bytes_async(path).await.unwrap();
         Self::bytes(&bytes)
     }
 

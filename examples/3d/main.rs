@@ -5,11 +5,11 @@ fn app(config: AppConfig) {
     App::run(config, || {
         Scene::new()
             .render_group3d("cube", RenderGroupConfig::EVERY_FRAME)
-            .entities::<Cube>(Default::default())
-            .single_entity::<Resources>(Default::default())
-            .system(System::Update(update))
-            .system(System::Setup(setup))
-            .system(System::Render(render))
+            .entity::<Cube>(EntityStorage::Multiple, Default::default())
+            .entity::<Assets>(EntityStorage::Single, Default::default())
+            .system(System::update(update))
+            .system(System::setup(setup))
+            .system(System::render(render))
     });
 }
 
@@ -31,7 +31,7 @@ fn setup(ctx: &mut Context) {
 
     let gpu = ctx.gpu.clone();
     ctx.tasks.spawn(
-        move || Resources::new(&gpu),
+        move || Assets::new(&gpu),
         |ctx, res| {
             ctx.entities.single().set(ctx.world, res);
         },
@@ -40,7 +40,7 @@ fn setup(ctx: &mut Context) {
 
 fn update(ctx: &mut Context) {
     const SPEED: f32 = 7.0;
-    if ctx.entities.single::<Resources>().is_none() {
+    if ctx.entities.single::<Assets>().is_none() {
         return;
     }
     let speed = SPEED * ctx.time.delta();
@@ -81,12 +81,12 @@ fn update(ctx: &mut Context) {
 }
 
 fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
-    if let Some(resources) = ctx.entities.single::<Resources>().get() {
+    if let Some(assets) = ctx.entities.single::<Assets>().get() {
         encoder.render3d(
             Some(RgbaColor::new(220, 220, 220, 255).into()),
             |renderer| {
                 ctx.render(renderer, "cube", |renderer, buffer, instances| {
-                    renderer.render_model(instances, buffer, ctx.world_camera3d, &resources.model);
+                    renderer.render_model(instances, buffer, ctx.world_camera3d, &assets.model);
                 });
             },
         );
@@ -94,19 +94,19 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
 }
 
 #[derive(Entity)]
-struct Resources {
+struct Assets {
     model: Model,
 }
 
-impl Resources {
+impl Assets {
     pub fn new(gpu: &Gpu) -> Self {
         Self {
             model: gpu.create_model(ModelBuilder::bytes(
-                include_str_res!("3d/cube/cube.obj"),
-                &[("cube.mtl", include_str_res!("3d/cube/cube.mtl"))],
+                include_asset_str!("3d/cube/cube.obj"),
+                &[("cube.mtl", include_asset_str!("3d/cube/cube.mtl"))],
                 &[(
                     "cobble-diffuse.png",
-                    include_bytes_res!("3d/cube/cobble-diffuse.png"),
+                    include_asset_bytes!("3d/cube/cobble-diffuse.png"),
                 )],
             )),
         }

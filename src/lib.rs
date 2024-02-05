@@ -20,7 +20,7 @@ pub mod math;
 #[cfg(feature = "physics")]
 pub mod physics;
 pub mod rand;
-pub mod resource;
+pub mod assets;
 pub mod scene;
 #[cfg(feature = "serde")]
 pub mod serde;
@@ -88,7 +88,7 @@ pub mod prelude {
     #[cfg(feature = "physics")]
     pub use crate::physics::*;
     pub use crate::rand::*;
-    pub use crate::resource::*;
+    pub use crate::assets::*;
     pub use crate::scene::*;
     #[cfg(feature = "serde")]
     pub use crate::serde::*;

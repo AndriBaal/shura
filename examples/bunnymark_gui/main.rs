@@ -6,7 +6,7 @@ fn app(config: AppConfig) {
         Scene::new()
             .render_group2d("bunny", RenderGroupConfig::default())
             .entities::<Bunny>(EntityScope::Global)
-            .single_entity::<Resources>(EntityScope::Scene)
+            .single_entity::<Assets>(EntityScope::Scene)
             .system(System::Update(update))
             .system(System::Setup(setup))
             .system(System::Render(render))
@@ -19,8 +19,8 @@ fn setup(ctx: &mut Context) {
         .multiple::<Bunny>()
         .add_with(ctx.world, |handle| Bunny::new(vector!(0.0, 0.0), handle));
     ctx.entities
-        .single::<Resources>()
-        .set(ctx.world, Resources::new(ctx));
+        .single::<Assets>()
+        .set(ctx.world, Assets::new(ctx));
 }
 
 fn update(ctx: &mut Context) {
@@ -28,8 +28,8 @@ fn update(ctx: &mut Context) {
     const GRAVITY: f32 = -2.5;
 
     let mut bunnies = ctx.entities.multiple::<Bunny>();
-    let mut resources: std::cell::RefMut<'_, Resources> =
-        ctx.entities.single::<Resources>().get_mut().unwrap();
+    let mut assets: std::cell::RefMut<'_, Assets> =
+        ctx.entities.single::<Assets>().get_mut().unwrap();
 
     if ctx.input.is_held(MouseButton::Left) || ctx.input.is_held(ScreenTouch) {
         let cursor: Vector2<f32> = ctx.cursor.coords;
@@ -62,12 +62,12 @@ fn update(ctx: &mut Context) {
             }
         });
 
-    if let Some(screenshot) = resources.screenshot.take() {
+    if let Some(screenshot) = assets.screenshot.take() {
         log::info!("Saving Screenshot!");
         let bytes = screenshot.sprite().to_bytes(&ctx.gpu);
         save_data("screenshot.png", bytes).unwrap();
     } else if ctx.input.is_pressed(Key::S) {
-        resources.screenshot = Some(ctx.gpu.create_render_target(ctx.window_size));
+        assets.screenshot = Some(ctx.gpu.create_render_target(ctx.window_size));
     }
 
     let frame = ctx.time.delta_time();
@@ -99,7 +99,7 @@ fn update(ctx: &mut Context) {
 }
 
 fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
-    let resources = ctx.single::<Resources>().get().unwrap();
+    let assets = ctx.single::<Assets>().get().unwrap();
     encoder.render2d(
         Some(RgbaColor::new(220, 220, 220, 255).into()),
         |renderer| {
@@ -109,31 +109,31 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
                     buffer,
                     ctx.world_camera2d,
                     ctx.unit_mesh,
-                    &resources.bunny_sprite,
+                    &assets.bunny_sprite,
                 );
             });
         },
     );
 
-    if let Some(screenshot) = &resources.screenshot {
+    if let Some(screenshot) = &assets.screenshot {
         encoder.copy_target(encoder.default_resources.default_target(), screenshot)
     }
 }
 
 #[derive(Entity)]
-struct Resources {
+struct Assets {
     screenshot: Option<SpriteRenderTarget>,
     bunny_sprite: Sprite,
 }
 
-impl Resources {
+impl Assets {
     pub fn new(ctx: &Context) -> Self {
         let bunny_sprite = ctx
             .gpu
-            .create_sprite(SpriteBuilder::bytes(include_bytes_res!(
+            .create_sprite(SpriteBuilder::bytes(include_asset_bytes!(
                 "bunnymark/wabbit.png"
             )));
-        Resources {
+        Assets {
             screenshot: None,
             bunny_sprite,
         }

@@ -223,10 +223,10 @@ impl App {
         {
             #[cfg(feature = "log")]
             info!("Android SDK version: {}", AndroidApp::sdk_version());
-            crate::resource::ANDROID_ASSETS
+            crate::asset::ANDROID_ASSETS
                 .set(config.android.asset_manager())
                 .unwrap();
-            crate::resource::ANDROID_DATA
+            crate::asset::ANDROID_DATA
                 .set(config.android.internal_data_path().unwrap())
                 .unwrap();
         }
@@ -296,18 +296,18 @@ impl App {
             self.surface.resize(&self.gpu, new_size);
             default_resources.resize(&self.gpu, new_size);
 
-            #[cfg(feature = "framebuffer")]
-            {
-                if let Some(scene) = self.scenes.try_get_active_scene() {
-                    let scene = scene.borrow();
+            // #[cfg(feature = "framebuffer")]
+            // {
+            //     if let Some(scene) = self.scenes.try_get_active_scene() {
+            //         let scene = scene.borrow();
 
-                    default_resources.apply_render_scale(
-                        &self.surface,
-                        &self.gpu,
-                        scene.screen_config.render_scale(),
-                    );
-                }
-            }
+            //         default_resources.apply_render_scale(
+            //             &self.surface,
+            //             &self.gpu,
+            //             scene.screen_config.render_scale(),
+            //         );
+            //     }
+            // }
         }
     }
 

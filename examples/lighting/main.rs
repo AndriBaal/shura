@@ -6,14 +6,14 @@ const SIZE: Vector<u32> = vector(800, 800);
 fn app(config: ShuraConfig) {
     config.init(|| {
         NewScene::new(1, |ctx| {
-            register!(ctx, [Background, Light, LightResources]);
+            register!(ctx, [Background, Light, LightAssets]);
             ctx.world_camera.set_scaling(WorldCameraScaling::Min(10.0));
             ctx.window
                 .set_inner_size(winit::dpi::PhysicalSize::new(SIZE.x, SIZE.y));
             ctx.window.set_resizable(false);
             ctx.window
                 .set_enabled_buttons(winit::window::WindowButtons::CLOSE);
-            ctx.components.add(ctx.world, LightResources::new(ctx));
+            ctx.components.add(ctx.world, LightAssets::new(ctx));
             ctx.components.add(ctx.world, Background::new(ctx));
 
             ctx.components.add(
@@ -71,14 +71,14 @@ impl ComponentController for Background {
 }
 
 #[derive(Component)]
-pub struct LightResources {
+pub struct LightAssets {
     light_mesh: Mesh,
     light_map: SpriteRenderTarget,
     light_shader: Shader,
     present_shader: Shader,
 }
 
-impl ComponentController for LightResources {
+impl ComponentController for LightAssets {
     const CONFIG: ComponentConfig = ComponentConfig {
         update: UpdateOperation::Never,
         buffer: RenderGroupConfig::Never,
@@ -94,7 +94,7 @@ impl ComponentController for LightResources {
     }
 
     fn render<'a>(components: &mut ComponentRenderer<'a>) {
-        let res = components.single::<LightResources>();
+        let res = components.single::<LightAssets>();
         let renderer = &mut components.renderer;
         renderer.use_mesh(renderer.unit_mesh);
         renderer.use_camera(&renderer.unit_camera);
@@ -105,7 +105,7 @@ impl ComponentController for LightResources {
     }
 }
 
-impl LightResources {
+impl LightAssets {
     pub fn new(ctx: &Context) -> Self {
         Self {
             present_shader: ctx.gpu.create_shader(ShaderConfig {
@@ -170,7 +170,7 @@ impl ComponentController for Light {
 
     fn update(ctx: &mut Context) {
         if ctx.resized {
-            let mut res = ctx.components.single_mut::<LightResources>();
+            let mut res = ctx.components.single_mut::<LightAssets>();
             res.light_map.resize(&ctx.gpu, ctx.window_size);
         }
 
@@ -184,12 +184,12 @@ impl ComponentController for Light {
     fn render_target<'a>(
         components: &mut ComponentRenderer<'a>,
     ) -> Option<(Option<Color>, &'a dyn RenderTarget)> {
-        let res = components.single::<LightResources>();
+        let res = components.single::<LightAssets>();
         return Some((Some(Color::new(0.06, 0.08, 0.13, 1.0)), &res.light_map));
     }
 
     fn render<'a>(components: &mut ComponentRenderer<'a>) {
-        let res = components.single::<LightResources>();
+        let res = components.single::<LightAssets>();
         components.render::<Self>(|renderer, buffer, instances| {
             renderer.use_instances(buffer);
             renderer.use_camera(renderer.world_camera);

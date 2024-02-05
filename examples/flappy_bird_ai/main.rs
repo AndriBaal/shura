@@ -254,17 +254,17 @@ impl BirdSimulation {
                 .create_mesh(&MeshBuilder2D::cuboid(Bird::HALF_EXTENTS)),
             bird_sprite: ctx
                 .gpu
-                .create_sprite(SpriteBuilder::bytes(include_bytes_res!(
+                .create_sprite(SpriteBuilder::bytes(include_asset_bytes!(
                     "flappy_bird/sprites/yellowbird-downflap.png"
                 ))),
             ground_sprite: ctx
                 .gpu
-                .create_sprite(SpriteBuilder::bytes(include_bytes_res!(
+                .create_sprite(SpriteBuilder::bytes(include_asset_bytes!(
                     "flappy_bird/sprites/base.png"
                 ))),
             background_sprite: ctx
                 .gpu
-                .create_sprite(SpriteBuilder::bytes(include_bytes_res!(
+                .create_sprite(SpriteBuilder::bytes(include_asset_bytes!(
                     "flappy_bird/sprites/background-night.png"
                 ))),
             top_pipe_mesh: ctx.gpu.create_mesh(
@@ -286,7 +286,7 @@ impl BirdSimulation {
             ),
             pipe_sprite: ctx
                 .gpu
-                .create_sprite(SpriteBuilder::bytes(include_bytes_res!(
+                .create_sprite(SpriteBuilder::bytes(include_asset_bytes!(
                     "flappy_bird/sprites/pipe-green.png",
                 ))),
             spawn_timer: Pipe::SPAWN_TIME,

@@ -4,11 +4,11 @@ use crate::{
     time::{Duration, Instant},
 };
 
-pub type SetupSystem = fn(ctx: &mut Context);
-pub type ResizeSystem = fn(ctx: &mut Context);
-pub type UpdateSystem = fn(ctx: &mut Context);
-pub type RenderSystem = fn(ctx: &RenderContext, encoder: &mut RenderEncoder);
-pub type EndSystem = fn(&mut Context, reason: EndReason);
+pub type SetupSystem = Box<dyn Fn(&mut Context)>;
+pub type ResizeSystem = Box<dyn Fn(&mut Context)>;
+pub type UpdateSystem = Box<dyn Fn(&mut Context)>;
+pub type RenderSystem = Box<dyn Fn(&RenderContext, &mut RenderEncoder)>;
+pub type EndSystem = Box<dyn Fn(&mut Context, EndReason)>;
 
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -17,7 +17,7 @@ pub enum EndReason {
     Removed,
 }
 
-pub enum System {
+enum SystemType {
     Setup(SetupSystem),
     Update(UpdateSystem),
     Resize(ResizeSystem),
@@ -25,6 +25,32 @@ pub enum System {
     UpdateAfter(Duration, UpdateSystem),
     Render(RenderSystem),
     End(EndSystem),
+}
+
+pub struct System(SystemType);
+
+impl System {
+    pub fn setup(system: impl Fn(&mut Context) + 'static) -> Self {
+        Self(SystemType::Setup(Box::new(system)))
+    }
+    pub fn update(system: impl Fn(&mut Context) + 'static) -> Self {
+        Self(SystemType::Update(Box::new(system)))
+    }
+    pub fn resize(system: impl Fn(&mut Context) + 'static) -> Self {
+        Self(SystemType::Resize(Box::new(system)))
+    }
+    pub fn update_nframe(frame: u64, system: impl Fn(&mut Context) + 'static) -> Self {
+        Self(SystemType::UpdateNFrame(frame, Box::new(system)))
+    }
+    pub fn update_after(duration: Duration, system: impl Fn(&mut Context) + 'static) -> Self {
+        Self(SystemType::UpdateAfter(duration, Box::new(system)))
+    }
+    pub fn render(system: impl Fn(&RenderContext, &mut RenderEncoder) + 'static) -> Self {
+        Self(SystemType::Render(Box::new(system)))
+    }
+    pub fn end(system: impl Fn(&mut Context, EndReason) + 'static) -> Self {
+        Self(SystemType::End(Box::new(system)))
+    }
 }
 
 pub enum UpdateOperation {
@@ -48,21 +74,21 @@ impl SystemManager {
     }
 
     pub fn register_system(&mut self, system: System) {
-        match system {
-            System::Update(update) => self
+        match system.0 {
+            SystemType::Update(update) => self
                 .update_systems
                 .push((UpdateOperation::EveryFrame, update)),
-            System::UpdateNFrame(frame, update) => self
+            SystemType::UpdateNFrame(frame, update) => self
                 .update_systems
                 .push((UpdateOperation::EveryNFrame(frame), update)),
-            System::UpdateAfter(duration, update) => self.update_systems.push((
+            SystemType::UpdateAfter(duration, update) => self.update_systems.push((
                 UpdateOperation::UpdaterAfter(Instant::now(), duration),
                 update,
             )),
-            System::Render(render) => self.render_systems.push(render),
-            System::End(end) => self.end_systems.push(end),
-            System::Resize(resize) => self.resize_systems.push(resize),
-            System::Setup(setup) => self.setup_systems.push(setup),
+            SystemType::Render(render) => self.render_systems.push(render),
+            SystemType::End(end) => self.end_systems.push(end),
+            SystemType::Resize(resize) => self.resize_systems.push(resize),
+            SystemType::Setup(setup) => self.setup_systems.push(setup),
         }
     }
 }
