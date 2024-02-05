@@ -5,8 +5,8 @@ fn app(config: AppConfig) {
     App::run(config, || {
         Scene::new()
             .render_group3d("cube", RenderGroupConfig::EVERY_FRAME)
-            .entity::<Cube>(EntityStorage::Multiple, Default::default())
-            .entity::<Assets>(EntityStorage::Single, Default::default())
+            .entity::<Cube>(EntityType::Multiple, Default::default())
+            .entity::<Assets>(EntityType::Single, Default::default())
             .system(System::update(update))
             .system(System::setup(setup))
             .system(System::render(render))

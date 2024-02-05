@@ -8,24 +8,24 @@ use crate::{
     data::{Arena, ArenaIndex, ArenaIter, ArenaIterMut},
     entity::{
         Entity, EntityGroupHandle, EntityGroupManager, EntityHandle, EntityIdentifier, EntityIndex,
-        EntityTypeId,
+        EntityId,
     },
     graphics::RenderGroupManager,
     physics::World,
 };
 
 #[allow(unused_variables)]
-pub trait EntityType: Downcast {
+pub trait EntityStorage: Downcast {
     type Entity: EntityIdentifier
     where
         Self: Sized;
     fn buffer(&self, buffers: &mut RenderGroupManager, groups: &EntityGroupManager, world: &World);
-    fn entity_type_id(&self) -> EntityTypeId;
+    fn entity_type_id(&self) -> EntityId;
     fn remove_group(
         &mut self,
         world: &mut World,
         group_handle: EntityGroupHandle,
-    ) -> Option<Box<dyn EntityType>> {
+    ) -> Option<Box<dyn EntityStorage>> {
         None
     }
     fn add_group(&mut self) {}
@@ -43,10 +43,10 @@ pub trait EntityType: Downcast {
     where
         Self: Sized;
 }
-impl_downcast!(EntityType);
+impl_downcast!(EntityStorage);
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
-pub enum EntityStorage {
+pub enum EntityType {
     Single,
     Multiple,
     Groups
@@ -181,13 +181,13 @@ impl<E: EntityIdentifier> SingleEntity<E> {
     }
 }
 
-impl<E: EntityIdentifier> EntityType for SingleEntity<E> {
+impl<E: EntityIdentifier> EntityStorage for SingleEntity<E> {
     type Entity = E;
     fn buffer(&self, buffers: &mut RenderGroupManager, groups: &EntityGroupManager, world: &World) {
         E::buffer(self.entities_render(groups), buffers, world);
     }
 
-    fn entity_type_id(&self) -> EntityTypeId {
+    fn entity_type_id(&self) -> EntityId {
         E::IDENTIFIER
     }
     fn entities_render<'a>(
@@ -416,14 +416,14 @@ impl<'a, E: EntityIdentifier> IntoIterator for &'a mut Entities<E> {
     }
 }
 
-impl<E: EntityIdentifier> EntityType for Entities<E> {
+impl<E: EntityIdentifier> EntityStorage for Entities<E> {
     type Entity = E;
 
     fn buffer(&self, buffers: &mut RenderGroupManager, groups: &EntityGroupManager, world: &World) {
         E::buffer(self.entities_render(groups), buffers, world);
     }
 
-    fn entity_type_id(&self) -> EntityTypeId {
+    fn entity_type_id(&self) -> EntityId {
         E::IDENTIFIER
     }
 
@@ -470,11 +470,11 @@ impl<E: Entity + Send + Sync> Entities<E> {
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone)]
-pub struct GroupedEntities<ET: EntityType> {
+pub struct GroupedEntities<ET: EntityStorage> {
     groups: Arena<ET>,
 }
 
-impl<ET: EntityType> Default for GroupedEntities<ET> {
+impl<ET: EntityStorage> Default for GroupedEntities<ET> {
     fn default() -> Self {
         Self {
             groups: Arena::new(),
@@ -482,7 +482,7 @@ impl<ET: EntityType> Default for GroupedEntities<ET> {
     }
 }
 
-impl<ET: EntityType> GroupedEntities<ET> {
+impl<ET: EntityStorage> GroupedEntities<ET> {
     pub fn get_group(&self, group: EntityGroupHandle) -> Option<&ET> {
         return self.groups.get(group.0);
     }
@@ -690,7 +690,7 @@ impl<E: EntityIdentifier> GroupedEntities<Entities<E>> {
     }
 }
 
-impl<ET: EntityType + Default> EntityType for GroupedEntities<ET> {
+impl<ET: EntityStorage + Default> EntityStorage for GroupedEntities<ET> {
     type Entity = ET::Entity;
 
     fn buffer(&self, buffers: &mut RenderGroupManager, groups: &EntityGroupManager, world: &World) {
@@ -705,7 +705,7 @@ impl<ET: EntityType + Default> EntityType for GroupedEntities<ET> {
         &mut self,
         world: &mut World,
         handle: EntityGroupHandle,
-    ) -> Option<Box<dyn EntityType>> {
+    ) -> Option<Box<dyn EntityStorage>> {
         if let Some(mut group) = self.groups.remove(handle.0) {
             for (_, entity) in group.entities_mut() {
                 entity.finish(world)
@@ -715,7 +715,7 @@ impl<ET: EntityType + Default> EntityType for GroupedEntities<ET> {
         None
     }
 
-    fn entity_type_id(&self) -> EntityTypeId {
+    fn entity_type_id(&self) -> EntityId {
         ET::Entity::IDENTIFIER
     }
 

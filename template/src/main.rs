@@ -5,11 +5,11 @@ fn app(config: AppConfig) {
     App::run(config, || {
         Scene::new()
             .render_group3d("cube", RenderGroupConfig::EVERY_FRAME)
-            .entities::<Cube>(Default::default())
-            .single_entity::<Assets>(Default::default())
-            .system(System::Update(update))
-            .system(System::Setup(setup))
-            .system(System::Render(render))
+            .entity::<Cube>(EntityType::Multiple, Default::default())
+            .entity::<Assets>(EntityType::Single, Default::default())
+            .system(System::update(update))
+            .system(System::setup(setup))
+            .system(System::render(render))
     });
 }
 
@@ -103,7 +103,7 @@ struct Assets {
 impl Assets {
     pub async fn new(gpu: &Gpu) -> Self {
         Self {
-            model: gpu.create_model(ModelBuilder::file_async("3d/cube/cube.obj").await),
+            model: gpu.create_model(ModelBuilder::asset_async("3d/cube/cube.obj").await),
         }
     }
 }

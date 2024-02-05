@@ -4,7 +4,7 @@ use std::sync::Arc;
 use crate::{
     entity::{
         Entities, EntityIdentifier, EntityManager, EntityScope, EntityStorage, EntityType,
-        EntityTypeId, GroupedEntities, SingleEntity,
+        EntityId, GroupedEntities, SingleEntity,
     },
     graphics::{Gpu, GLOBAL_GPU},
     scene::{Scene, SceneCreator},
@@ -16,7 +16,7 @@ pub fn gpu() -> Arc<Gpu> {
 
 pub struct SceneSerializer<'a> {
     entities: &'a EntityManager,
-    ser_entities: FxHashMap<EntityTypeId, Vec<u8>>,
+    ser_entities: FxHashMap<EntityId, Vec<u8>>,
 }
 
 impl<'a> SceneSerializer<'a> {
@@ -27,11 +27,11 @@ impl<'a> SceneSerializer<'a> {
         }
     }
 
-    pub(crate) fn finish(self) -> FxHashMap<EntityTypeId, Vec<u8>> {
+    pub(crate) fn finish(self) -> FxHashMap<EntityId, Vec<u8>> {
         self.ser_entities
     }
 
-    pub fn serialize_custom_entity<ET: EntityType + serde::Serialize>(mut self) -> Self {
+    pub fn serialize_custom_entity<ET: EntityStorage + serde::Serialize>(mut self) -> Self {
         let ser = self.entities.serialize::<ET>();
         self.ser_entities.insert(ET::Entity::IDENTIFIER, ser);
         self
@@ -39,15 +39,15 @@ impl<'a> SceneSerializer<'a> {
 
     pub fn serialize_entity<E: EntityIdentifier + serde::Serialize>(
         self,
-        storage: EntityStorage,
+        storage: EntityType,
     ) -> Self
     where
         Self: Sized,
     {
         match storage {
-            EntityStorage::Single => self.serialize_custom_entity::<SingleEntity<E>>(),
-            EntityStorage::Multiple => self.serialize_custom_entity::<Entities<E>>(),
-            EntityStorage::Groups => self.serialize_custom_entity::<GroupedEntities<Entities<E>>>(),
+            EntityType::Single => self.serialize_custom_entity::<SingleEntity<E>>(),
+            EntityType::Multiple => self.serialize_custom_entity::<Entities<E>>(),
+            EntityType::Groups => self.serialize_custom_entity::<GroupedEntities<Entities<E>>>(),
         }
     }
 }
@@ -56,12 +56,12 @@ impl<'a> SceneSerializer<'a> {
 pub struct SerializedScene {
     pub id: u32,
     pub scene: Scene,
-    ser_entities: FxHashMap<EntityTypeId, Vec<u8>>,
+    ser_entities: FxHashMap<EntityId, Vec<u8>>,
 }
 
 impl SerializedScene {
     pub fn new(id: u32, scene: &[u8]) -> SerializedScene {
-        let (scene, ser_entities): (Scene, FxHashMap<EntityTypeId, Vec<u8>>) =
+        let (scene, ser_entities): (Scene, FxHashMap<EntityId, Vec<u8>>) =
             bincode::deserialize(scene).unwrap();
         Self {
             id,
@@ -70,7 +70,7 @@ impl SerializedScene {
         }
     }
 
-    pub fn deserialize_custom_entity<ET: EntityType + serde::de::DeserializeOwned>(
+    pub fn deserialize_custom_entity<ET: EntityStorage + serde::de::DeserializeOwned>(
         mut self,
         scope: EntityScope,
     ) -> Self {
@@ -85,16 +85,16 @@ impl SerializedScene {
 
     pub fn deserialize_entity<E: EntityIdentifier + serde::de::DeserializeOwned>(
         self,
-        storage: EntityStorage,
+        storage: EntityType,
         scope: EntityScope,
     ) -> Self
     where
         Self: Sized,
     {
         match storage {
-            EntityStorage::Single => self.deserialize_custom_entity::<SingleEntity<E>>(scope),
-            EntityStorage::Multiple => self.deserialize_custom_entity::<Entities<E>>(scope),
-            EntityStorage::Groups => {
+            EntityType::Single => self.deserialize_custom_entity::<SingleEntity<E>>(scope),
+            EntityType::Multiple => self.deserialize_custom_entity::<Entities<E>>(scope),
+            EntityType::Groups => {
                 self.deserialize_custom_entity::<GroupedEntities<Entities<E>>>(scope)
             }
         }
@@ -109,14 +109,14 @@ impl SerializedScene {
     }
 }
 
-impl Into<Scene> for SerializedScene {
-    fn into(self) -> Scene {
-        self.scene
+impl From<SerializedScene> for Scene {
+    fn from(ser: SerializedScene) -> Self {
+        ser.scene
     }
 }
 
 impl SceneCreator for SerializedScene {
     fn scene(&mut self) -> &mut Scene {
-        return &mut self.scene;
+        &mut self.scene
     }
 }

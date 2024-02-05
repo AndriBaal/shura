@@ -9,18 +9,18 @@ use std::fmt::{Display, Formatter, Result};
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct EntityTypeId {
+pub struct EntityId {
     id: u32,
 }
 
-impl EntityTypeId {
+impl EntityId {
     pub const INVALID: Self = Self { id: 0 };
     pub const fn new(id: u32) -> Self {
         Self { id }
     }
 }
 
-impl Display for EntityTypeId {
+impl Display for EntityId {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "{}", self.id)
     }
@@ -28,11 +28,11 @@ impl Display for EntityTypeId {
 
 pub trait EntityIdentifier: Entity {
     const TYPE_NAME: &'static str;
-    const IDENTIFIER: EntityTypeId;
-    fn entity_type_id(&self) -> EntityTypeId;
+    const IDENTIFIER: EntityId;
+    fn entity_type_id(&self) -> EntityId;
 }
 
-impl std::hash::Hash for EntityTypeId {
+impl std::hash::Hash for EntityId {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.id.hash(state)
     }

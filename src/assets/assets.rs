@@ -166,7 +166,7 @@ pub fn asset_path(path: &str) -> Result<PathBuf> {
     let exe = env::current_exe()?;
     let mut dir = fs::canonicalize(exe)?;
     dir.pop();
-    let path = dir.join("asset").join(path);
+    let path = dir.join("assets").join(path);
     #[cfg(feature = "log")]
     info!("Loading: {}", path.display());
     Ok(path)
@@ -178,7 +178,7 @@ pub fn asset_url(path: &str) -> Result<reqwest::Url> {
     let location = window.location();
     let origin = location.origin().unwrap();
     let base = reqwest::Url::parse(&origin)?;
-    let url = base.join("asset/")?.join(path)?;
+    let url = base.join("assets/")?.join(path)?;
     #[cfg(feature = "log")]
     info!("Loading: {}", url);
     return Ok(url);

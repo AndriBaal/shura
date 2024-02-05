@@ -11,10 +11,10 @@ fn deserialized_scene(data: Vec<u8>) -> SerializedScene {
                 ..Default::default()
             },
         )
-        .deserialize_entity::<Floor>(EntityStorage::Single, Default::default())
-        .deserialize_entity::<Player>(EntityStorage::Single, Default::default())
-        .deserialize_entity::<PhysicsBox>(EntityStorage::Multiple, Default::default())
-        .entity::<Assets>(EntityStorage::Single, Default::default())
+        .deserialize_entity::<Floor>(EntityType::Single, Default::default())
+        .deserialize_entity::<Player>(EntityType::Single, Default::default())
+        .deserialize_entity::<PhysicsBox>(EntityType::Multiple, Default::default())
+        .entity::<Assets>(EntityType::Single, Default::default())
         .system(System::render(render))
         .system(System::setup(|ctx| {
             ctx.entities.single().set(ctx.world, Assets::new(ctx));
@@ -39,10 +39,10 @@ fn app(config: AppConfig) {
                         ..Default::default()
                     },
                 )
-                .entity::<Floor>(EntityStorage::Single, Default::default())
-                .entity::<Player>(EntityStorage::Single, Default::default())
-                .entity::<Assets>(EntityStorage::Single, Default::default())
-                .entity::<PhysicsBox>(EntityStorage::Multiple, Default::default())
+                .entity::<Floor>(EntityType::Single, Default::default())
+                .entity::<Player>(EntityType::Single, Default::default())
+                .entity::<Assets>(EntityType::Single, Default::default())
+                .entity::<PhysicsBox>(EntityType::Multiple, Default::default())
                 .system(System::render(render))
                 .system(System::setup(setup))
                 .system(System::update(update))
@@ -201,10 +201,7 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
 }
 
 fn end(ctx: &mut Context, reason: EndReason) {
-    match reason {
-        EndReason::Close => serialize_scene(ctx),
-        _ => (),
-    }
+    if reason == EndReason::Close{serialize_scene(ctx) }
 }
 
 fn serialize_scene(ctx: &mut Context) {
@@ -212,9 +209,9 @@ fn serialize_scene(ctx: &mut Context) {
     let ser = ctx
         .serialize_scene(|serializer| {
             serializer
-                .serialize_entity::<Floor>(EntityStorage::Single)
-                .serialize_entity::<Player>(EntityStorage::Single)
-                .serialize_entity::<PhysicsBox>(EntityStorage::Multiple)
+                .serialize_entity::<Floor>(EntityType::Single)
+                .serialize_entity::<Player>(EntityType::Single)
+                .serialize_entity::<PhysicsBox>(EntityType::Multiple)
         })
         .unwrap();
     save_data("data.binc", ser).unwrap();

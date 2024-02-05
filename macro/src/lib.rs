@@ -195,9 +195,9 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
     quote!(
         impl #impl_generics ::shura::entity::EntityIdentifier for #struct_name #ty_generics #where_clause {
             const TYPE_NAME: &'static str = #struct_identifier;
-            const IDENTIFIER: ::shura::entity::EntityTypeId = ::shura::entity::EntityTypeId::new(#hash);
+            const IDENTIFIER: ::shura::entity::EntityId = ::shura::entity::EntityId::new(#hash);
 
-            fn entity_type_id(&self) -> ::shura::entity::EntityTypeId {
+            fn entity_type_id(&self) -> ::shura::entity::EntityId {
                 Self::IDENTIFIER
             }
         }

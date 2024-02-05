@@ -2,7 +2,7 @@ use std::{cell::RefCell, sync::Arc};
 
 #[cfg(feature = "serde")]
 use crate::{
-    entity::{EntityGroupHandle, EntityTypeId},
+    entity::{EntityGroupHandle, EntityId},
     serde::{EntityGroupDeserializer, EntityGroupSerializer, SceneSerializer},
 };
 use crate::{
@@ -144,7 +144,7 @@ impl<'a> Context<'a> {
                 groups: self.groups,
                 world: &world_cpy,
             };
-            let scene: (&Scene, FxHashMap<EntityTypeId, Vec<u8>>) = (&scene, ser_entities);
+            let scene: (&Scene, FxHashMap<EntityId, Vec<u8>>) = (&scene, ser_entities);
 
             bincode::serialize(&scene)
         }
@@ -160,7 +160,7 @@ impl<'a> Context<'a> {
                 groups: self.groups,
                 world: &self.world,
             };
-            let scene: (&Scene, FxHashMap<EntityTypeId, Vec<u8>>) = (&scene, ser_entities);
+            let scene: (&Scene, FxHashMap<EntityId, Vec<u8>>) = (&scene, ser_entities);
             let result = bincode::serialize(&scene);
             return result;
         }

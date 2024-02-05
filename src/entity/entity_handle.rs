@@ -1,6 +1,6 @@
 use crate::{
     data::ArenaIndex,
-    entity::{EntityIdentifier, EntityTypeId},
+    entity::{EntityIdentifier, EntityId},
 };
 use core::hash::Hash;
 
@@ -35,14 +35,14 @@ impl Default for EntityGroupHandle {
 pub struct EntityHandle {
     pub entity_index: EntityIndex,
     pub group_handle: EntityGroupHandle,
-    pub type_id: EntityTypeId,
+    pub type_id: EntityId,
 }
 
 impl EntityHandle {
     pub const INVALID: Self = EntityHandle {
         entity_index: EntityIndex::INVALID,
         group_handle: EntityGroupHandle::INVALID,
-        type_id: EntityTypeId::INVALID,
+        type_id: EntityId::INVALID,
     };
 }
 
@@ -55,7 +55,7 @@ impl Default for EntityHandle {
 impl EntityHandle {
     pub(crate) const fn new(
         entity_index: EntityIndex,
-        type_id: EntityTypeId,
+        type_id: EntityId,
         group_handle: EntityGroupHandle,
     ) -> Self {
         Self {
@@ -69,7 +69,7 @@ impl EntityHandle {
         E::IDENTIFIER == self.entity_type_id()
     }
 
-    pub fn entity_type_id(&self) -> EntityTypeId {
+    pub fn entity_type_id(&self) -> EntityId {
         self.type_id
     }
 

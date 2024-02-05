@@ -5,8 +5,8 @@ fn app(config: AppConfig) {
     App::run(config, || {
         Scene::new()
             .render_group2d("bunny", RenderGroupConfig::default())
-            .entity::<Bunny>(EntityStorage::Multiple, EntityScope::Global)
-            .entity::<Assets>(EntityStorage::Single, EntityScope::Scene)
+            .entity::<Bunny>(EntityType::Multiple, EntityScope::Global)
+            .entity::<Assets>(EntityType::Single, EntityScope::Scene)
             .system(System::update(update))
             .system(System::setup(setup))
             .system(System::render(render))

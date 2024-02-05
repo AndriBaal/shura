@@ -4,14 +4,14 @@ use crate::{
     context::Context,
     entity::{
         Entities, EntityGroup, EntityGroupHandle, EntityGroupManager, EntityIdentifier,
-        EntityManager, EntityType, EntityTypeId, GroupedEntities, SingleEntity,
+        EntityManager, EntityStorage, EntityId, GroupedEntities, SingleEntity,
     },
     physics::World,
 };
 
 pub struct EntityGroupSerializer {
-    entities: FxHashMap<EntityTypeId, Box<dyn EntityType>>,
-    ser_entities: FxHashMap<EntityTypeId, Vec<u8>>,
+    entities: FxHashMap<EntityId, Box<dyn EntityStorage>>,
+    ser_entities: FxHashMap<EntityId, Vec<u8>>,
     group: EntityGroup,
 }
 
@@ -32,7 +32,7 @@ impl EntityGroupSerializer {
         None
     }
 
-    pub fn serialize<ET: EntityType + serde::Serialize>(&mut self) {
+    pub fn serialize<ET: EntityStorage + serde::Serialize>(&mut self) {
         if let Some(data) = self.entities.remove(&ET::Entity::IDENTIFIER) {
             let entities = data.downcast_ref::<ET>().unwrap();
             let data = bincode::serialize(entities).unwrap();
@@ -59,13 +59,13 @@ impl EntityGroupSerializer {
 
 pub struct EntityGroupDeserializer {
     group: EntityGroup,
-    ser_entities: FxHashMap<EntityTypeId, Vec<u8>>,
+    ser_entities: FxHashMap<EntityId, Vec<u8>>,
     pub(crate) init_callbacks: Vec<Box<dyn FnOnce(EntityGroupHandle, &mut Context)>>,
 }
 
 impl EntityGroupDeserializer {
     pub fn new(data: &[u8]) -> Self {
-        let (group, ser_entities): (EntityGroup, FxHashMap<EntityTypeId, Vec<u8>>) =
+        let (group, ser_entities): (EntityGroup, FxHashMap<EntityId, Vec<u8>>) =
             bincode::deserialize(data).unwrap();
         Self {
             group,
@@ -75,7 +75,7 @@ impl EntityGroupDeserializer {
     }
 
     pub fn deserialize<
-        ET: EntityType<Entity = E> + serde::de::DeserializeOwned + Default,
+        ET: EntityStorage<Entity = E> + serde::de::DeserializeOwned + Default,
         E: serde::de::DeserializeOwned + EntityIdentifier,
     >(
         &mut self,

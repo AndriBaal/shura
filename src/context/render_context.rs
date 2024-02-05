@@ -4,7 +4,7 @@ use std::cell::Ref;
 
 use crate::{
     entity::{
-        Entities, EntityIdentifier, EntityManager, EntityType, EntityTypeId, GroupedEntities,
+        Entities, EntityIdentifier, EntityManager, EntityStorage, EntityId, GroupedEntities,
         SingleEntity,
     },
     graphics::{
@@ -19,7 +19,7 @@ use crate::{
 pub struct RenderContextEntities<'a>(&'a EntityManager);
 
 impl<'a> RenderContextEntities<'a> {
-    pub fn type_raw(&self, type_id: EntityTypeId) -> Ref<dyn EntityType> {
+    pub fn type_raw(&self, type_id: EntityId) -> Ref<dyn EntityStorage> {
         self.0.type_raw_ref(type_id)
     }
 
@@ -31,7 +31,7 @@ impl<'a> RenderContextEntities<'a> {
         self.0.multiple_ref::<E>()
     }
 
-    pub fn group<ET: EntityType + Default>(&self) -> Ref<GroupedEntities<ET>> {
+    pub fn group<ET: EntityStorage + Default>(&self) -> Ref<GroupedEntities<ET>> {
         self.0.group_ref::<ET>()
     }
 }

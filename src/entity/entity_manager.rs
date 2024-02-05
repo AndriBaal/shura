@@ -2,7 +2,7 @@ use rustc_hash::FxHashMap;
 
 use crate::{
     entity::{
-        Entities, Entity, EntityGroupManager, EntityIdentifier, EntityType, EntityTypeId,
+        Entities, Entity, EntityGroupManager, EntityIdentifier, EntityStorage, EntityId,
         GroupedEntities, SingleEntity,
     },
     graphics::RenderGroupManager,
@@ -36,26 +36,26 @@ pub enum EntityScope {
 }
 
 pub(crate) enum EntityTypeScope {
-    Scene(Box<RefCell<dyn EntityType>>),
-    Global(Rc<RefCell<dyn EntityType>>),
+    Scene(Box<RefCell<dyn EntityStorage>>),
+    Global(Rc<RefCell<dyn EntityStorage>>),
 }
 
 impl EntityTypeScope {
-    fn ref_mut_dyn(&self) -> RefMut<dyn EntityType> {
+    fn ref_mut_dyn(&self) -> RefMut<dyn EntityStorage> {
         match &self {
             EntityTypeScope::Scene(scene) => scene.try_borrow_mut().expect(ALREADY_BORROWED),
             EntityTypeScope::Global(global) => global.try_borrow_mut().expect(ALREADY_BORROWED),
         }
     }
 
-    fn ref_dyn(&self) -> Ref<dyn EntityType> {
+    fn ref_dyn(&self) -> Ref<dyn EntityStorage> {
         match &self {
             EntityTypeScope::Scene(scene) => scene.try_borrow().expect(ALREADY_BORROWED),
             EntityTypeScope::Global(global) => global.try_borrow().expect(ALREADY_BORROWED),
         }
     }
 
-    fn _ref<ET: EntityType>(&self) -> Ref<ET> {
+    fn _ref<ET: EntityStorage>(&self) -> Ref<ET> {
         match &self {
             EntityTypeScope::Scene(scene) => Ref::map(
                 scene
@@ -72,7 +72,7 @@ impl EntityTypeScope {
         }
     }
 
-    fn ref_mut<ET: EntityType>(&self) -> RefMut<ET> {
+    fn ref_mut<ET: EntityStorage>(&self) -> RefMut<ET> {
         match &self {
             EntityTypeScope::Scene(scene) => RefMut::map(
                 scene
@@ -90,11 +90,11 @@ impl EntityTypeScope {
     }
 }
 
-type TypeMap = FxHashMap<EntityTypeId, EntityTypeScope>;
+type TypeMap = FxHashMap<EntityId, EntityTypeScope>;
 pub struct EntityManager {
     pub(crate) types: TypeMap,
     pub(crate) new_types: Vec<Box<dyn FnOnce(&mut Self, &GlobalEntities)>>,
-    pub(crate) components: FxHashMap<&'static str, Vec<EntityTypeId>>,
+    pub(crate) components: FxHashMap<&'static str, Vec<EntityId>>,
 }
 
 impl EntityManager {
@@ -106,7 +106,7 @@ impl EntityManager {
         }
     }
 
-    pub(crate) fn add_type<ET: EntityType>(&mut self, scope: EntityTypeScope) {
+    pub(crate) fn add_type<ET: EntityStorage>(&mut self, scope: EntityTypeScope) {
         let previous = self.types.insert(ET::Entity::IDENTIFIER, scope);
         assert!(previous.is_none(), "Entity already defined!");
         for name in ET::Entity::tags() {
@@ -159,15 +159,15 @@ impl EntityManager {
         }
     }
 
-    pub fn component_mapping(&self) -> &FxHashMap<&'static str, Vec<EntityTypeId>> {
+    pub fn component_mapping(&self) -> &FxHashMap<&'static str, Vec<EntityId>> {
         &self.components
     }
 
-    pub fn entities_with_component(&self, name: &'static str) -> Option<&Vec<EntityTypeId>> {
+    pub fn entities_with_component(&self, name: &'static str) -> Option<&Vec<EntityId>> {
         return self.components.get(name);
     }
 
-    pub fn register_entity<ET: EntityType>(&mut self, scope: EntityScope, ty: ET) {
+    pub fn register_entity<ET: EntityStorage>(&mut self, scope: EntityScope, ty: ET) {
         let id = ET::Entity::IDENTIFIER;
         if self.types.contains_key(&id) {
             panic!("Entity {} already defined!", ET::Entity::TYPE_NAME);
@@ -230,16 +230,16 @@ impl EntityManager {
         }
     }
 
-    pub fn types(&mut self) -> impl Iterator<Item = Ref<'_, dyn EntityType>> {
+    pub fn types(&mut self) -> impl Iterator<Item = Ref<'_, dyn EntityStorage>> {
         self.types.values_mut().map(|r| r.ref_dyn())
     }
 
-    pub fn types_mut(&mut self) -> impl Iterator<Item = RefMut<'_, dyn EntityType>> {
+    pub fn types_mut(&mut self) -> impl Iterator<Item = RefMut<'_, dyn EntityStorage>> {
         self.types.values_mut().map(|r| r.ref_mut_dyn())
     }
 
     #[cfg(feature = "serde")]
-    pub(crate) fn deserialize_group<ET: EntityType + Default>(
+    pub(crate) fn deserialize_group<ET: EntityStorage + Default>(
         &mut self,
         group: EntityGroupHandle,
         storage: ET,
@@ -254,7 +254,7 @@ impl EntityManager {
     }
 
     #[cfg(feature = "serde")]
-    pub fn serialize<ET: EntityType + serde::Serialize>(&self) -> Vec<u8> {
+    pub fn serialize<ET: EntityStorage + serde::Serialize>(&self) -> Vec<u8> {
         bincode::serialize(
             self.type_raw(ET::Entity::IDENTIFIER)
                 .downcast_ref::<ET>()
@@ -263,14 +263,14 @@ impl EntityManager {
         .unwrap()
     }
 
-    pub fn type_raw(&self, type_id: EntityTypeId) -> RefMut<dyn EntityType> {
+    pub fn type_raw(&self, type_id: EntityId) -> RefMut<dyn EntityStorage> {
         self.types
             .get(&type_id)
             .expect("Cannot find type!")
             .ref_mut_dyn()
     }
 
-    pub fn type_raw_ref(&self, type_id: EntityTypeId) -> Ref<dyn EntityType> {
+    pub fn type_raw_ref(&self, type_id: EntityId) -> Ref<dyn EntityStorage> {
         self.types
             .get(&type_id)
             .expect("Cannot find type!")
@@ -305,14 +305,14 @@ impl EntityManager {
             ._ref()
     }
 
-    pub fn group<ET: EntityType + Default>(&self) -> RefMut<GroupedEntities<ET>> {
+    pub fn group<ET: EntityStorage + Default>(&self) -> RefMut<GroupedEntities<ET>> {
         self.types
             .get(&ET::Entity::IDENTIFIER)
             .expect(&no_type_error::<ET::Entity>())
             .ref_mut()
     }
 
-    pub fn group_ref<ET: EntityType + Default>(&self) -> Ref<GroupedEntities<ET>> {
+    pub fn group_ref<ET: EntityStorage + Default>(&self) -> Ref<GroupedEntities<ET>> {
         self.types
             .get(&ET::Entity::IDENTIFIER)
             .expect(&no_type_error::<ET::Entity>())
