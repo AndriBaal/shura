@@ -4,14 +4,14 @@ use crate::graphics::{
 
 pub struct RenderEncoder<'a> {
     pub inner: wgpu::CommandEncoder,
-    pub default_resources: &'a DefaultAssets,
+    pub default_assets: &'a DefaultAssets,
     pub gpu: &'a Gpu,
     pub default_target: &'a dyn RenderTarget,
 }
 
 impl<'a> Clone for RenderEncoder<'a> {
     fn clone(&self) -> Self {
-        Self::new(self.gpu, self.default_target, self.default_resources)
+        Self::new(self.gpu, self.default_target, self.default_assets)
     }
 }
 
@@ -19,7 +19,7 @@ impl<'a> RenderEncoder<'a> {
     pub fn new(
         gpu: &'a Gpu,
         default_target: &'a dyn RenderTarget,
-        default_resources: &'a DefaultAssets,
+        default_assets: &'a DefaultAssets,
     ) -> Self {
         let encoder = gpu
             .device
@@ -29,7 +29,7 @@ impl<'a> RenderEncoder<'a> {
 
         Self {
             inner: encoder,
-            default_resources,
+            default_assets,
             default_target,
             gpu,
         }
@@ -42,7 +42,7 @@ impl<'a> RenderEncoder<'a> {
     ) {
         let mut renderer = Renderer::new(
             &mut self.inner,
-            self.default_resources,
+            self.default_assets,
             self.gpu,
             self.default_target,
             clear,
@@ -58,11 +58,11 @@ impl<'a> RenderEncoder<'a> {
     ) {
         let mut renderer = Renderer::new(
             &mut self.inner,
-            self.default_resources,
+            self.default_assets,
             self.gpu,
             self.default_target,
             clear,
-            Some(&self.default_resources.depth_buffer),
+            Some(&self.default_assets.depth_buffer),
         );
         (render)(&mut renderer);
     }
@@ -75,7 +75,7 @@ impl<'a> RenderEncoder<'a> {
     ) -> Renderer<'b> {
         Renderer::new(
             &mut self.inner,
-            self.default_resources,
+            self.default_assets,
             self.gpu,
             target,
             clear,
@@ -107,9 +107,9 @@ impl<'a> RenderEncoder<'a> {
             let mut renderer = self.renderer(target, None, None);
             renderer.render_sprite(
                 0..1,
-                &renderer.default_resources.centered_instance,
-                &renderer.default_resources.unit_camera.0,
-                renderer.default_resources.unit_mesh(),
+                &renderer.default_assets.centered_instance,
+                &renderer.default_assets.unit_camera.0,
+                renderer.default_assets.unit_mesh(),
                 src.sprite(),
             );
         }

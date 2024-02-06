@@ -164,6 +164,8 @@ impl App {
                                 app.input.resize(size);
                                 let scene = (init.take().unwrap())();
                                 app.scenes.add(first_scene_id, scene);
+                                #[cfg(feature = "gui")]
+                                app.gui.initialize(&app.gpu);
                             }
                         }
                         Event::WindowEvent {
@@ -171,7 +173,7 @@ impl App {
                             window_id,
                         } => {
                             #[cfg(feature = "gui")]
-                            app.gui.handle_event(event);
+                            app.gui.handle_event(&app.window, event);
                             if window_id == shura_window_id && init.is_none() {
                                 match event {
                                     WindowEvent::RedrawRequested => {
@@ -272,7 +274,7 @@ impl App {
             audio: AudioManager::new(),
             end: false,
             #[cfg(feature = "gui")]
-            gui: Gui::new(&window, _event_loop, &gpu),
+            gui: Gui::new(&window, &gpu),
             #[cfg(target_arch = "wasm32")]
             auto_scale_canvas: config.auto_scale_canvas,
             #[cfg(feature = "framebuffer")]
@@ -290,18 +292,18 @@ impl App {
         if new_size.x > 0 && new_size.y > 0 {
             #[cfg(feature = "log")]
             info!("Resizing window to: {} x {}", new_size.x, new_size.y,);
-            let mut default_resources = self.gpu.default_resources_mut();
+            let mut default_assets = self.gpu.default_assets_mut();
             self.scenes.resize();
             self.input.resize(new_size);
             self.surface.resize(&self.gpu, new_size);
-            default_resources.resize(&self.gpu, new_size);
+            default_assets.resize(&self.gpu, new_size);
 
             // #[cfg(feature = "framebuffer")]
             // {
             //     if let Some(scene) = self.scenes.try_get_active_scene() {
             //         let scene = scene.borrow();
 
-            //         default_resources.apply_render_scale(
+            //         default_assets.apply_render_scale(
             //             &self.surface,
             //             &self.gpu,
             //             scene.screen_config.render_scale(),
@@ -384,11 +386,11 @@ impl App {
                 .apply_vsync(&self.gpu, scene.screen_config.vsync());
             #[cfg(feature = "framebuffer")]
             {
-                let mut default_resources = self.gpu.default_resources_mut();
-                default_resources.apply_render_scale(&self.surface, &self.gpu, scale);
+                let mut default_assets = self.gpu.default_assets_mut();
+                default_assets.apply_render_scale(&self.surface, &self.gpu, scale);
             }
             #[cfg(feature = "gui")]
-            self.gui.resize(self.gpu.render_size());
+            self.gui.resize(self.surface.size());
             // self.time.tick();
         }
 
@@ -453,16 +455,16 @@ impl App {
             .buffer(&mut scene.render_groups, &scene.groups, &scene.world);
         scene.render_groups.apply_buffers(&self.gpu);
 
-        let mut default_resources = self.gpu.default_resources_mut();
-        default_resources
+        let mut default_assets = self.gpu.default_assets_mut();
+        default_assets
             .world_camera2d
             .write(&self.gpu, &scene.world_camera2d);
 
-        default_resources
+        default_assets
             .world_camera3d
             .write(&self.gpu, &scene.world_camera3d);
 
-        default_resources
+        default_assets
             .times
             .write(&self.gpu, [self.time.total(), self.time.delta()]);
     }
@@ -471,10 +473,10 @@ impl App {
         self.buffer(scene);
 
         let surface_target = self.surface.start_frame(&self.gpu);
-        let default_resources = self.gpu.default_resources();
+        let default_assets = self.gpu.default_assets();
 
-        let (systems, ctx) = RenderContext::new(&surface_target, &default_resources, scene);
-        let mut encoder = RenderEncoder::new(&self.gpu, ctx.target(), &default_resources);
+        let (systems, ctx) = RenderContext::new(&surface_target, &default_assets, scene);
+        let mut encoder = RenderEncoder::new(&self.gpu, ctx.target(), &default_assets);
 
         for render in &systems.render_systems {
             (render)(&ctx, &mut encoder);
@@ -483,12 +485,12 @@ impl App {
         #[cfg(feature = "framebuffer")]
         {
             if self.apply_framebuffer {
-                encoder.copy_target(&default_resources.framebuffer, &surface_target);
+                encoder.copy_target(&default_assets.framebuffer, &surface_target);
             }
         }
 
         #[cfg(feature = "gui")]
-        self.gui.render(&self.gpu, &default_resources, &mut encoder);
+        self.gui.render(&surface_target, &self.gpu, &mut encoder);
 
         encoder.finish();
         self.gpu.submit();

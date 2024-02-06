@@ -1,6 +1,6 @@
 use crate::{
     data::ArenaIndex,
-    entity::{EntityIdentifier, EntityId},
+    entity::{EntityId, EntityIdentifier},
 };
 use core::hash::Hash;
 

@@ -201,7 +201,9 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
 }
 
 fn end(ctx: &mut Context, reason: EndReason) {
-    if reason == EndReason::Close{serialize_scene(ctx) }
+    if reason == EndReason::Close {
+        serialize_scene(ctx)
+    }
 }
 
 fn serialize_scene(ctx: &mut Context) {

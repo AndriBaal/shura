@@ -4,6 +4,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 #[cfg(feature = "animation")]
 pub mod animation;
 pub mod app;
+pub mod assets;
 #[cfg(feature = "audio")]
 pub mod audio;
 pub mod component;
@@ -20,7 +21,6 @@ pub mod math;
 #[cfg(feature = "physics")]
 pub mod physics;
 pub mod rand;
-pub mod assets;
 pub mod scene;
 #[cfg(feature = "serde")]
 pub mod serde;
@@ -71,6 +71,7 @@ pub mod prelude {
     #[cfg(feature = "animation")]
     pub use crate::animation::*;
     pub use crate::app::*;
+    pub use crate::assets::*;
     #[cfg(feature = "audio")]
     pub use crate::audio::*;
     pub use crate::component::*;
@@ -88,7 +89,6 @@ pub mod prelude {
     #[cfg(feature = "physics")]
     pub use crate::physics::*;
     pub use crate::rand::*;
-    pub use crate::assets::*;
     pub use crate::scene::*;
     #[cfg(feature = "serde")]
     pub use crate::serde::*;

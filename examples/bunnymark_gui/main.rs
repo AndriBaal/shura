@@ -5,11 +5,11 @@ fn app(config: AppConfig) {
     App::run(config, || {
         Scene::new()
             .render_group2d("bunny", RenderGroupConfig::default())
-            .entities::<Bunny>(EntityScope::Global)
-            .single_entity::<Assets>(EntityScope::Scene)
-            .system(System::Update(update))
-            .system(System::Setup(setup))
-            .system(System::Render(render))
+            .entity::<Bunny>(EntityType::Multiple, EntityScope::Global)
+            .entity::<Assets>(EntityType::Single, EntityScope::Scene)
+            .system(System::update(update))
+            .system(System::setup(setup))
+            .system(System::render(render))
     });
 }
 
@@ -66,11 +66,11 @@ fn update(ctx: &mut Context) {
         log::info!("Saving Screenshot!");
         let bytes = screenshot.sprite().to_bytes(&ctx.gpu);
         save_data("screenshot.png", bytes).unwrap();
-    } else if ctx.input.is_pressed(Key::S) {
+    } else if ctx.input.is_pressed(Key::KeyS) {
         assets.screenshot = Some(ctx.gpu.create_render_target(ctx.window_size));
     }
 
-    let frame = ctx.time.delta_time();
+    let frame = ctx.time.delta();
     let fov = ctx.world_camera2d.fov();
     for bunny in bunnies.iter_mut() {
         let mut linvel = bunny.linvel;
@@ -99,7 +99,7 @@ fn update(ctx: &mut Context) {
 }
 
 fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
-    let assets = ctx.single::<Assets>().get().unwrap();
+    let assets = ctx.entities.single::<Assets>().get().unwrap();
     encoder.render2d(
         Some(RgbaColor::new(220, 220, 220, 255).into()),
         |renderer| {
@@ -116,7 +116,7 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
     );
 
     if let Some(screenshot) = &assets.screenshot {
-        encoder.copy_target(encoder.default_resources.default_target(), screenshot)
+        encoder.copy_target(ctx.target(), screenshot)
     }
 }
 

@@ -315,8 +315,8 @@ impl SpriteRenderTarget {
     }
 
     pub fn draw(&self, gpu: &Gpu, compute: impl FnOnce(&mut RenderEncoder)) {
-        let default_resources = gpu.default_resources();
-        let mut encoder = RenderEncoder::new(gpu, self, &default_resources);
+        let default_assets = gpu.default_assets();
+        let mut encoder = RenderEncoder::new(gpu, self, &default_assets);
         compute(&mut encoder);
     }
 

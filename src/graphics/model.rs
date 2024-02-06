@@ -1,9 +1,9 @@
 use std::io::{BufReader, Cursor};
 
 use crate::{
+    assets::{load_asset_bytes_async, load_asset_string_async},
     graphics::{Gpu, Index, Mesh3D, MeshBuilder3D, Sprite, SpriteBuilder, Vertex3D},
     math::{Vector2, Vector3},
-    assets::{load_asset_bytes_async, load_asset_string_async},
 };
 
 #[cfg(not(target_arch = "wasm32"))]

@@ -55,8 +55,8 @@ pub struct Gpu {
     pub adapter: wgpu::Adapter,
     pub command_buffers: Mutex<Vec<wgpu::CommandBuffer>>,
     format: OnceLock<wgpu::TextureFormat>,
-    shared_resources: OnceLock<SharedAssets>,
-    default_resources: OnceLock<RwLock<DefaultAssets>>,
+    shared_assets: OnceLock<SharedAssets>,
+    default_assets: OnceLock<RwLock<DefaultAssets>>,
 
     samples: OnceLock<u32>,
     max_samples: u32,
@@ -110,8 +110,8 @@ impl Gpu {
             format: OnceLock::new(),
             samples: OnceLock::new(),
             sample_state: OnceLock::new(),
-            shared_resources: OnceLock::new(),
-            default_resources: OnceLock::new(),
+            shared_assets: OnceLock::new(),
+            default_assets: OnceLock::new(),
         }
     }
 
@@ -206,16 +206,16 @@ impl Gpu {
         return *self.sample_state.get().unwrap();
     }
 
-    pub fn shared_resources(&self) -> &SharedAssets {
-        return self.shared_resources.get().unwrap();
+    pub fn shared_assets(&self) -> &SharedAssets {
+        return self.shared_assets.get().unwrap();
     }
 
-    pub fn default_resources(&self) -> impl Deref<Target = DefaultAssets> + '_ {
-        return self.default_resources.get().unwrap().read().unwrap();
+    pub fn default_assets(&self) -> impl Deref<Target = DefaultAssets> + '_ {
+        return self.default_assets.get().unwrap().read().unwrap();
     }
 
-    pub fn default_resources_mut(&self) -> impl DerefMut<Target = DefaultAssets> + '_ {
-        return self.default_resources.get().unwrap().write().unwrap();
+    pub fn default_assets_mut(&self) -> impl DerefMut<Target = DefaultAssets> + '_ {
+        return self.default_assets.get().unwrap().write().unwrap();
     }
 
     pub fn is_initialized(&self) -> bool {
@@ -266,10 +266,8 @@ impl Gpu {
         self.samples.set(samples).unwrap();
         self.format.set(format).unwrap();
         self.sample_state.set(sample_state).unwrap();
-        self.shared_resources
-            .set(SharedAssets::new(self))
-            .unwrap();
-        self.default_resources
+        self.shared_assets.set(SharedAssets::new(self)).unwrap();
+        self.default_assets
             .set(RwLock::new(DefaultAssets::new(self, surface)))
             .unwrap();
     }
@@ -410,11 +408,11 @@ pub struct DefaultAssets {
 
 impl DefaultAssets {
     pub(crate) fn new(gpu: &Gpu, surface: &Surface) -> Self {
-        let shared_resources = gpu.shared_resources();
+        let shared_assets = gpu.shared_assets();
         let sprite_sheet = gpu.create_shader(ShaderConfig {
             name: Some("sprite_sheet"),
             source: ShaderModuleSoure::Seperate {
-                vertex: &shared_resources.vertex_shader_module,
+                vertex: &shared_assets.vertex_shader_module,
                 fragment: &gpu.create_shader_module(include_wgsl!(
                     "../../static/shader/2d/sprite_sheet.wgsl"
                 )),
@@ -463,7 +461,7 @@ impl DefaultAssets {
         let color = gpu.create_shader(ShaderConfig {
             name: Some("color"),
             source: ShaderModuleSoure::Seperate {
-                vertex: &shared_resources.vertex_shader_module,
+                vertex: &shared_assets.vertex_shader_module,
                 fragment: &gpu
                     .create_shader_module(include_wgsl!("../../static/shader/2d/color.wgsl")),
             },
@@ -474,7 +472,7 @@ impl DefaultAssets {
         let sprite = gpu.create_shader(ShaderConfig {
             name: Some("sprite"),
             source: ShaderModuleSoure::Seperate {
-                vertex: &shared_resources.vertex_shader_module,
+                vertex: &shared_assets.vertex_shader_module,
                 fragment: &gpu
                     .create_shader_module(include_wgsl!("../../static/shader/2d/sprite.wgsl")),
             },
@@ -485,7 +483,7 @@ impl DefaultAssets {
         let rainbow = gpu.create_shader(ShaderConfig {
             name: Some("rainbow"),
             source: ShaderModuleSoure::Seperate {
-                vertex: &shared_resources.vertex_shader_module,
+                vertex: &shared_assets.vertex_shader_module,
                 fragment: &gpu
                     .create_shader_module(include_wgsl!("../../static/shader/2d/rainbow.wgsl")),
             },
@@ -496,7 +494,7 @@ impl DefaultAssets {
         let grey = gpu.create_shader(ShaderConfig {
             name: Some("grey"),
             source: ShaderModuleSoure::Seperate {
-                vertex: &shared_resources.vertex_shader_module,
+                vertex: &shared_assets.vertex_shader_module,
                 fragment: &gpu
                     .create_shader_module(include_wgsl!("../../static/shader/2d/grey.wgsl")),
             },
@@ -507,7 +505,7 @@ impl DefaultAssets {
         let blurr = gpu.create_shader(ShaderConfig {
             name: Some("blurr"),
             source: ShaderModuleSoure::Seperate {
-                vertex: &shared_resources.vertex_shader_module,
+                vertex: &shared_assets.vertex_shader_module,
                 fragment: &gpu
                     .create_shader_module(include_wgsl!("../../static/shader/2d/blurr.wgsl")),
             },

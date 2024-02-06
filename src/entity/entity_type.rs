@@ -7,8 +7,8 @@ use crate::{data::ArenaEntry, rayon::prelude::*};
 use crate::{
     data::{Arena, ArenaIndex, ArenaIter, ArenaIterMut},
     entity::{
-        Entity, EntityGroupHandle, EntityGroupManager, EntityHandle, EntityIdentifier, EntityIndex,
-        EntityId,
+        Entity, EntityGroupHandle, EntityGroupManager, EntityHandle, EntityId, EntityIdentifier,
+        EntityIndex,
     },
     graphics::RenderGroupManager,
     physics::World,
@@ -49,7 +49,7 @@ impl_downcast!(EntityStorage);
 pub enum EntityType {
     Single,
     Multiple,
-    Groups
+    Groups,
 }
 
 pub trait SingleEntityRef<'a, E: Entity> {

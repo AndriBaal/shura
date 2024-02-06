@@ -28,7 +28,7 @@ impl Default for RenderCache {
 pub struct Renderer<'a> {
     pub(crate) target: &'a dyn RenderTarget,
     pub gpu: &'a Gpu,
-    pub default_resources: &'a DefaultAssets,
+    pub default_assets: &'a DefaultAssets,
     indices: u32,
     render_pass: wgpu::RenderPass<'a>,
     cache: RenderCache,
@@ -40,7 +40,7 @@ impl<'a> Renderer<'a> {
     pub const CAMERA_SLOT: u32 = 0;
     pub fn new(
         render_encoder: &'a mut wgpu::CommandEncoder,
-        default_resources: &'a DefaultAssets,
+        default_assets: &'a DefaultAssets,
         gpu: &'a Gpu,
         target: &'a dyn RenderTarget,
         clear: Option<Color>,
@@ -64,7 +64,7 @@ impl<'a> Renderer<'a> {
         Self {
             indices: 0,
             render_pass,
-            default_resources,
+            default_assets,
             target,
             gpu,
             cache: RenderCache::default(),
@@ -168,7 +168,7 @@ impl<'a> Renderer<'a> {
         sprite: &'a Sprite,
     ) {
         if buffer.buffer_size() != 0 {
-            self.use_shader_with_buffers(&self.default_resources.sprite, buffer, mesh);
+            self.use_shader_with_buffers(&self.default_assets.sprite, buffer, mesh);
             self.use_camera(camera);
             self.use_sprite(sprite, 1);
             self.draw(instances);
@@ -184,7 +184,7 @@ impl<'a> Renderer<'a> {
         sprite: &'a SpriteSheet,
     ) {
         if buffer.buffer_size() != 0 {
-            self.use_shader_with_buffers(&self.default_resources.sprite_sheet, buffer, mesh);
+            self.use_shader_with_buffers(&self.default_assets.sprite_sheet, buffer, mesh);
             self.use_camera(camera);
             self.use_sprite_sheet(sprite, 1);
             self.draw(instances);
@@ -199,7 +199,7 @@ impl<'a> Renderer<'a> {
         mesh: &'a Mesh2D,
     ) {
         if buffer.buffer_size() != 0 {
-            self.use_shader_with_buffers(&self.default_resources.color, buffer, mesh);
+            self.use_shader_with_buffers(&self.default_assets.color, buffer, mesh);
             self.use_camera(camera);
             self.draw(instances);
         }
@@ -214,7 +214,7 @@ impl<'a> Renderer<'a> {
         text: &'a Text,
     ) {
         if buffer.buffer_size() != 0 && text.mesh().vertex_buffer_size() != 0 {
-            self.use_shader_with_buffers(&self.default_resources.text, buffer, text.mesh());
+            self.use_shader_with_buffers(&self.default_assets.text, buffer, text.mesh());
             self.use_camera(camera);
             self.use_mesh(text.mesh());
             self.use_sprite_sheet(text.font(), 1);
@@ -231,7 +231,7 @@ impl<'a> Renderer<'a> {
         sprite: &'a Sprite,
     ) {
         if buffer.buffer_size() != 0 {
-            self.use_shader_with_buffers(&self.default_resources.grey, buffer, mesh);
+            self.use_shader_with_buffers(&self.default_assets.grey, buffer, mesh);
             self.use_camera(camera);
             self.use_sprite(sprite, 1);
             self.draw(instances);
@@ -247,7 +247,7 @@ impl<'a> Renderer<'a> {
         sprite: &'a Sprite,
     ) {
         if buffer.buffer_size() != 0 {
-            self.use_shader_with_buffers(&self.default_resources.blurr, buffer, mesh);
+            self.use_shader_with_buffers(&self.default_assets.blurr, buffer, mesh);
             self.use_camera(camera);
             self.use_sprite(sprite, 1);
             self.draw(instances);
@@ -262,9 +262,9 @@ impl<'a> Renderer<'a> {
         mesh: &'a Mesh2D,
     ) {
         if buffer.buffer_size() != 0 {
-            self.use_shader_with_buffers(&self.default_resources.rainbow, buffer, mesh);
+            self.use_shader_with_buffers(&self.default_assets.rainbow, buffer, mesh);
             self.use_camera(camera);
-            self.use_uniform(&self.default_resources.times, 1);
+            self.use_uniform(&self.default_assets.times, 1);
             self.draw(instances);
         }
     }
@@ -277,7 +277,7 @@ impl<'a> Renderer<'a> {
         model: &'a Model,
     ) {
         if buffer.buffer_size() != 0 {
-            self.use_shader(&self.default_resources.model);
+            self.use_shader(&self.default_assets.model);
             self.use_instances(buffer);
             self.use_camera(camera);
             let instances = instances.into();
@@ -285,7 +285,7 @@ impl<'a> Renderer<'a> {
                 let sprite = if let Some(index) = mesh.0 {
                     &model.sprites[index]
                 } else {
-                    &self.default_resources.missing
+                    &self.default_assets.missing
                 };
                 self.use_sprite(sprite, 1);
                 self.use_mesh(&mesh.1);

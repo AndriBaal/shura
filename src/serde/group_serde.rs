@@ -3,8 +3,8 @@ use rustc_hash::FxHashMap;
 use crate::{
     context::Context,
     entity::{
-        Entities, EntityGroup, EntityGroupHandle, EntityGroupManager, EntityIdentifier,
-        EntityManager, EntityStorage, EntityId, GroupedEntities, SingleEntity,
+        Entities, EntityGroup, EntityGroupHandle, EntityGroupManager, EntityId, EntityIdentifier,
+        EntityManager, EntityStorage, GroupedEntities, SingleEntity,
     },
     physics::World,
 };

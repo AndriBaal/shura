@@ -1,9 +1,9 @@
 #[cfg(not(target_arch = "wasm32"))]
 use crate::assets::load_asset_bytes;
 use crate::{
+    assets::load_asset_bytes_async,
     graphics::{Gpu, RgbaColor},
     math::Vector2,
-    assets::load_asset_bytes_async,
 };
 use std::ops::Deref;
 use wgpu::ImageCopyTexture;
@@ -32,14 +32,39 @@ impl<'a> SpriteSheetBuilder<'a, image::RgbaImage> {
         Self::bytes(&bytes, size)
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn assets(paths: &[&str]) -> Self {
+        let byte_array = paths
+            .iter()
+            .map(|path| load_asset_bytes(path).unwrap())
+            .collect::<Vec<_>>();
+        Self::byte_array(&byte_array)
+    }
+
     pub async fn asset_async(path: &str, size: TileSize) -> Self {
         let bytes = load_asset_bytes_async(path).await.unwrap();
         Self::bytes(&bytes, size)
     }
 
+    pub async fn assets_async(paths: &[&str]) -> Self {
+        let mut byte_array = vec![];
+        for path in paths {
+            byte_array.push(load_asset_bytes_async(path).await.unwrap());
+        }
+        Self::byte_array(&byte_array)
+    }
+
     pub fn bytes(bytes: &[u8], size: TileSize) -> Self {
         let img = image::load_from_memory(bytes).unwrap();
         Self::image(img, size)
+    }
+
+    pub fn byte_array(byte_array: &[Vec<u8>]) -> Self {
+        let images: Vec<_> = byte_array
+            .iter()
+            .map(|bytes| image::load_from_memory(bytes).unwrap())
+            .collect();
+        Self::images(&images)
     }
 
     pub fn image(mut image: image::DynamicImage, size: TileSize) -> Self {
@@ -62,6 +87,21 @@ impl<'a> SpriteSheetBuilder<'a, image::RgbaImage> {
                 data.push(sprite.to_rgba8());
             }
         }
+        Self {
+            label: None,
+            sprite_size,
+            sprite_amount,
+            sampler: Self::DEFAULT_SAMPLER,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            data,
+        }
+    }
+
+    pub fn images(images: &[image::DynamicImage]) -> Self {
+        assert!(images.len() > 1, "Images cannot be empty!");
+        let sprite_size = Vector2::new(images[0].width(), images[0].height());
+        let sprite_amount = Vector2::new(images.len() as u32, 1);
+        let data = images.iter().map(|image| image.to_rgba8()).collect();
         Self {
             label: None,
             sprite_size,
@@ -163,7 +203,7 @@ pub struct SpriteSheet {
 impl SpriteSheet {
     pub fn new<D: Deref<Target = [u8]>>(gpu: &Gpu, desc: SpriteSheetBuilder<D>) -> Self {
         let amount = desc.sprite_amount.x * desc.sprite_amount.y;
-        let shared_resources = gpu.shared_resources();
+        let shared_assets = gpu.shared_assets();
 
         let texture_descriptor = wgpu::TextureDescriptor {
             label: desc.label,
@@ -226,7 +266,7 @@ impl SpriteSheet {
                     resource: wgpu::BindingResource::Sampler(&sampler),
                 },
             ],
-            layout: &shared_resources.sprite_sheet_layout,
+            layout: &shared_assets.sprite_sheet_layout,
             label: Some("sprite_sheet_bind_group"),
         });
 

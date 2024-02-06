@@ -1,6 +1,6 @@
 #[cfg(feature = "serde")]
 use crate::{
-    entity::{EntityStorage, EntityId},
+    entity::{EntityId, EntityStorage},
     rustc_hash::FxHashMap,
 };
 

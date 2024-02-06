@@ -32,7 +32,7 @@ impl<C: Camera> CameraBuffer<C> {
 
     pub fn empty(gpu: &Gpu) -> Self {
         Self {
-            uniform: Uniform::empty(gpu, &gpu.shared_resources().camera_layout),
+            uniform: Uniform::empty(gpu, &gpu.shared_assets().camera_layout),
             marker: PhantomData,
         }
     }

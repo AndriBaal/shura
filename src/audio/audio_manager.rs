@@ -1,4 +1,4 @@
-use crate::audio::{AudioSink, Sound};
+use crate::audio::{AudioSink, Sound, SoundBuilder};
 
 // Thin wrapper around rodio
 pub struct AudioManager {
@@ -17,22 +17,20 @@ impl AudioManager {
 
     pub fn play_once(&self, sound: &Sound) {
         self.output_handle
-            .play_once(std::io::Cursor::new(sound.0))
+            .play_once(sound.cursor())
             .unwrap()
             .detach()
     }
 
     pub fn play_once_and(&self, sound: &Sound) -> AudioSink {
-        self.output_handle
-            .play_once(std::io::Cursor::new(sound.0))
-            .unwrap()
+        self.output_handle.play_once(sound.cursor()).unwrap()
     }
 
     pub fn create_sink(&self) -> AudioSink {
         AudioSink::try_new(&self.output_handle).unwrap()
     }
 
-    pub fn create_sound(&self, bytes: &'static [u8]) -> Sound {
-        Sound::new(bytes)
+    pub fn create_sound(&self, builder: SoundBuilder) -> Sound {
+        Sound::new(builder)
     }
 }

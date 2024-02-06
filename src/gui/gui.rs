@@ -1,11 +1,14 @@
-use std::ops::{Deref, DerefMut};
+use std::{
+    ops::{Deref, DerefMut},
+    sync::OnceLock,
+};
 
 use crate::{
-    graphics::{DefaultAssets, Gpu, RenderEncoder, RenderTarget},
+    graphics::{Gpu, RenderEncoder, RenderTarget, SurfaceRenderTarget},
     gui::GuiContext,
     math::Vector2,
 };
-use egui_wgpu::renderer::{Renderer, ScreenDescriptor};
+use egui_wgpu::{Renderer, ScreenDescriptor};
 use egui_winit::State;
 use instant::Duration;
 use winit::window::Window;
@@ -18,28 +21,23 @@ pub struct Gui {
 }
 
 impl Gui {
-    pub(crate) fn new(
-        window: &Window,
-        event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
-        gpu: &Gpu,
-    ) -> Self {
-        let device = &gpu.device;
-        let renderer = Renderer::new(device, gpu.format, None, gpu.base.sample_count);
+    pub(crate) fn new(window: &Window, gpu: &Gpu) -> Self {
+        let context = GuiContext::default();
         let state = State::new(
+            context.clone(),
             egui::ViewportId::ROOT,
-            event_loop,
+            window,
             Some(window.scale_factor() as f32),
             Some(gpu.device.limits().max_texture_dimension_2d as _),
         );
-        let context = GuiContext::default();
-        let size = gpu.render_size();
+        let size = window.inner_size();
 
         let screen_descriptor = ScreenDescriptor {
-            size_in_pixels: [size.x, size.y],
+            size_in_pixels: [size.width, size.height],
             pixels_per_point: 1.0,
         };
         Self {
-            renderer,
+            renderer: OnceLock::new(),
             state,
             context,
             screen_descriptor,
@@ -53,8 +51,8 @@ impl Gui {
         };
     }
 
-    pub(crate) fn handle_event(&mut self, event: &winit::event::WindowEvent) {
-        let _ = self.state.on_window_event(&self.context, event);
+    pub(crate) fn handle_event(&mut self, window: &Window, event: &winit::event::WindowEvent) {
+        let _ = self.state.on_window_event(window, event);
     }
 
     pub(crate) fn begin(&mut self, total_time: &Duration, window: &Window) {
@@ -63,21 +61,35 @@ impl Gui {
         self.context.begin_frame(egui_input);
     }
 
+    pub(crate) fn initialize(&mut self, gpu: &Gpu) {
+        if self.renderer.get().is_none() {
+            self.renderer
+                .set(Renderer::new(
+                    &gpu.device,
+                    gpu.format(),
+                    None,
+                    gpu.samples(),
+                ))
+                .ok()
+                .unwrap();
+        }
+    }
+
     pub(crate) fn render(
         &mut self,
+        surface_target: &SurfaceRenderTarget,
         gpu: &Gpu,
-        default_resources: &DefaultAssets,
         encoder: &mut RenderEncoder,
     ) {
         let output = self.context.end_frame();
         let paint_jobs = self.context.tessellate(output.shapes, 1.0);
+        let renderer = self.renderer.get_mut().unwrap();
 
         for add in &output.textures_delta.set {
-            self.renderer
-                .update_texture(&gpu.device, &gpu.queue, add.0, &add.1);
+            renderer.update_texture(&gpu.device, &gpu.queue, add.0, &add.1);
         }
 
-        self.renderer.update_buffers(
+        renderer.update_buffers(
             &gpu.device,
             &gpu.queue,
             &mut encoder.inner,
@@ -86,23 +98,21 @@ impl Gui {
         );
 
         {
-            let target = &defaults.surface;
             let mut rpass = encoder
                 .inner
                 .begin_render_pass(&wgpu::RenderPassDescriptor {
-                    color_attachments: &[Some(target.attachment(None))],
+                    color_attachments: &[Some(surface_target.attachment(None))],
                     depth_stencil_attachment: None,
                     label: Some("egui main render pass"),
                     timestamp_writes: None,
                     occlusion_query_set: None,
                 });
 
-            self.renderer
-                .render(&mut rpass, &paint_jobs, &self.screen_descriptor);
+            renderer.render(&mut rpass, &paint_jobs, &self.screen_descriptor);
         }
 
         for free in &output.textures_delta.free {
-            self.renderer.free_texture(free);
+            renderer.free_texture(free);
         }
     }
 }

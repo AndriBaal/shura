@@ -2,7 +2,7 @@ use rustc_hash::FxHashMap;
 
 use crate::{
     entity::{
-        Entities, Entity, EntityGroupManager, EntityIdentifier, EntityStorage, EntityId,
+        Entities, Entity, EntityGroupManager, EntityId, EntityIdentifier, EntityStorage,
         GroupedEntities, SingleEntity,
     },
     graphics::RenderGroupManager,

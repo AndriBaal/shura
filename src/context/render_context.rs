@@ -4,7 +4,7 @@ use std::cell::Ref;
 
 use crate::{
     entity::{
-        Entities, EntityIdentifier, EntityManager, EntityStorage, EntityId, GroupedEntities,
+        Entities, EntityId, EntityIdentifier, EntityManager, EntityStorage, GroupedEntities,
         SingleEntity,
     },
     graphics::{
@@ -41,7 +41,7 @@ pub struct RenderContext<'a> {
     #[cfg(feature = "framebuffer")]
     pub framebuffer_target: &'a SpriteRenderTarget,
     pub surface_target: &'a SurfaceRenderTarget,
-    pub default_resources: &'a DefaultAssets,
+    pub default_assets: &'a DefaultAssets,
     pub render_groups: &'a RenderGroupManager,
 
     pub world_camera2d: &'a CameraBuffer2D,
@@ -59,7 +59,7 @@ pub struct RenderContext<'a> {
 impl<'a> RenderContext<'a> {
     pub(crate) fn new(
         surface_target: &'a SurfaceRenderTarget,
-        default_resources: &'a DefaultAssets,
+        default_assets: &'a DefaultAssets,
         scene: &'a Scene,
     ) -> (&'a SystemManager, Self) {
         (
@@ -67,20 +67,20 @@ impl<'a> RenderContext<'a> {
             Self {
                 entities: RenderContextEntities(&scene.entities),
                 render_groups: &scene.render_groups,
-                relative_camera: &default_resources.relative_camera.0,
-                relative_bottom_left_camera: &default_resources.relative_bottom_left_camera.0,
-                relative_bottom_right_camera: &default_resources.relative_bottom_right_camera.0,
-                relative_top_left_camera: &default_resources.relative_top_left_camera.0,
-                relative_top_right_camera: &default_resources.relative_top_right_camera.0,
-                unit_camera: &default_resources.unit_camera.0,
-                centered_instance: &default_resources.centered_instance,
-                unit_mesh: &default_resources.unit_mesh,
-                world_camera2d: &default_resources.world_camera2d,
-                world_camera3d: &default_resources.world_camera3d,
-                default_resources,
+                relative_camera: &default_assets.relative_camera.0,
+                relative_bottom_left_camera: &default_assets.relative_bottom_left_camera.0,
+                relative_bottom_right_camera: &default_assets.relative_bottom_right_camera.0,
+                relative_top_left_camera: &default_assets.relative_top_left_camera.0,
+                relative_top_right_camera: &default_assets.relative_top_right_camera.0,
+                unit_camera: &default_assets.unit_camera.0,
+                centered_instance: &default_assets.centered_instance,
+                unit_mesh: &default_assets.unit_mesh,
+                world_camera2d: &default_assets.world_camera2d,
+                world_camera3d: &default_assets.world_camera3d,
+                default_assets,
                 surface_target,
                 #[cfg(feature = "framebuffer")]
-                framebuffer_target: &default_resources.framebuffer,
+                framebuffer_target: &default_assets.framebuffer,
             },
         )
     }

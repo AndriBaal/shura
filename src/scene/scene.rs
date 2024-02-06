@@ -1,7 +1,7 @@
 use crate::{
     entity::{
-        Entities, EntityGroupManager, EntityIdentifier, EntityManager, EntityScope, EntityType,
-        EntityStorage, GroupedEntities, SingleEntity,
+        Entities, EntityGroupManager, EntityIdentifier, EntityManager, EntityScope, EntityStorage,
+        EntityType, GroupedEntities, SingleEntity,
     },
     graphics::{
         CameraViewSelection, Instance, Instance2D, Instance3D, PerspectiveCamera3D,

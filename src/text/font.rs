@@ -4,9 +4,9 @@ use owned_ttf_parser::AsFaceRef;
 use rustc_hash::FxHashMap;
 
 use crate::{
+    assets::load_asset_bytes_async,
     graphics::{Gpu, SpriteSheet, SpriteSheetBuilder, SpriteSheetIndex},
     math::Vector2,
-    assets::load_asset_bytes_async,
 };
 
 #[cfg(not(target_arch = "wasm32"))]

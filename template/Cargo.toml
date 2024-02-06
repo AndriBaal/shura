@@ -8,15 +8,13 @@ edition = "2021"
 path = "./src/main.rs"
 crate_type=["cdylib"]
 
-[target.'cfg(target_os = "android")']
-
 [dependencies]
 shura = { path = "../" }
 
 [package.metadata.android]
 package = "com.shura.template"
 apk_name = "Shura Example"
-assets = "./res"
+assets = "./assets"
 resources = "./android/resources"
 
 [package.metadata.android.application]

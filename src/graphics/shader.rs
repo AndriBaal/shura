@@ -59,13 +59,13 @@ pub struct Shader {
 impl Shader {
     pub fn new(gpu: &Gpu, config: ShaderConfig) -> Self {
         let mut layouts: Vec<&wgpu::BindGroupLayout> = Vec::with_capacity(config.uniforms.len());
-        let shared_resources = gpu.shared_resources();
+        let shared_assets = gpu.shared_assets();
         for link in config.uniforms.iter() {
             let layout = match link {
-                UniformField::SingleUniform => &shared_resources.single_uniform_layout,
-                UniformField::Sprite => &shared_resources.sprite_layout,
-                UniformField::SpriteSheet => &shared_resources.sprite_sheet_layout,
-                UniformField::Camera => &shared_resources.camera_layout,
+                UniformField::SingleUniform => &shared_assets.single_uniform_layout,
+                UniformField::Sprite => &shared_assets.sprite_layout,
+                UniformField::SpriteSheet => &shared_assets.sprite_sheet_layout,
+                UniformField::Camera => &shared_assets.camera_layout,
                 UniformField::Custom(c) => c,
             };
             layouts.push(layout);

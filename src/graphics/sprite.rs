@@ -3,9 +3,9 @@ use wgpu::util::DeviceExt;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::assets::load_asset_bytes;
 use crate::{
+    assets::load_asset_bytes_async,
     graphics::{Gpu, RgbaColor},
     math::Vector2,
-    assets::load_asset_bytes_async,
 };
 use image::ImageOutputFormat;
 use std::ops::Deref;
@@ -207,11 +207,11 @@ impl Sprite {
         texture: &wgpu::Texture,
         sampler: &wgpu::SamplerDescriptor,
     ) -> (wgpu::TextureView, wgpu::BindGroup, wgpu::Sampler) {
-        let shared_resources = gpu.shared_resources();
+        let shared_assets = gpu.shared_assets();
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
         let sampler = gpu.device.create_sampler(sampler);
         let bind_group = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &shared_resources.sprite_layout,
+            layout: &shared_assets.sprite_layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
