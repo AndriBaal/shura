@@ -61,16 +61,16 @@ impl TimeManager {
         self.last_time = self.total_time;
     }
 
+    pub fn now(&self) -> Instant {
+        Instant::now()
+    }
+    
     pub const fn start(&self) -> Instant {
         self.start_time
     }
 
     pub const fn update(&self) -> Instant {
         self.update_time
-    }
-
-    pub fn now(&self) -> Instant {
-        Instant::now()
     }
 
     pub fn delta(&self) -> f32 {
@@ -81,15 +81,11 @@ impl TimeManager {
         self.total_time.as_secs_f32()
     }
 
-    pub const fn frame_time_duration(&self) -> Duration {
+    pub const fn delta_duration(&self) -> Duration {
         self.delta_time
     }
 
-    pub const fn frames_since_last_seconds(&self) -> u32 {
-        self.fps_counter
-    }
-
-    pub const fn total_time_duration(&self) -> Duration {
+    pub const fn total_duration(&self) -> Duration {
         self.total_time
     }
 
@@ -99,5 +95,10 @@ impl TimeManager {
 
     pub const fn fps(&self) -> u32 {
         self.fps
+    }
+
+
+    pub const fn frames_since_last_seconds(&self) -> u32 {
+        self.fps_counter
     }
 }

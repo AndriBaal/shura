@@ -2,6 +2,7 @@ use crate::prelude::load_asset_bytes_async;
 use rodio::Decoder;
 use std::sync::Arc;
 
+#[derive(Clone)]
 pub struct SoundBuilder {
     data: Vec<u8>,
 }
@@ -23,6 +24,12 @@ impl SoundBuilder {
     pub async fn asset_async(path: &str) -> Self {
         let bytes = load_asset_bytes_async(path).await.unwrap();
         Self::bytes(&bytes)
+    }
+}
+
+impl Into<Sound> for SoundBuilder {
+    fn into(self) -> Sound {
+        Sound::new(self)
     }
 }
 

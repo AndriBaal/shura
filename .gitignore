@@ -2,6 +2,8 @@
 **/Cargo.lock
 target
 Cargo.lock
-/.vscode
-.DS_Store
 .idea
+.vscode
+.DS_Store
+*.pdb
+**/*.rs.bk

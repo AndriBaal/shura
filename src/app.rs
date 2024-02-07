@@ -406,7 +406,7 @@ impl App {
         self.input.sync_gamepad();
         #[cfg(feature = "gui")]
         self.gui
-            .begin(&self.time.total_time_duration(), &self.window);
+            .begin(&self.time.total_duration(), &self.window);
         let (systems, mut ctx) = Context::new(&scene_id, self, scene);
         let now = ctx.time.update();
 

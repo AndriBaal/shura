@@ -29,7 +29,7 @@ fn setup(ctx: &mut Context) {
         .collect::<Vec<_>>();
     ctx.entities.multiple().add_many(ctx.world, cubes);
 
-    let sound = ctx.audio.create_sound(include_asset_bytes!("3d/point.wav"));
+    let sound = ctx.audio.create_sound(SoundBuilder::asset("3d/point.wav"));
     ctx.audio.play_once(&sound);
 
     let gpu = ctx.gpu.clone();

@@ -99,7 +99,10 @@ impl<'a> SpriteSheetBuilder<'a, image::RgbaImage> {
 
     pub fn images(images: &[image::DynamicImage]) -> Self {
         assert!(images.len() > 1, "Images cannot be empty!");
-        let sprite_size = Vector2::new(images[0].width(), images[0].height());
+        let sprite_size = Vector2::new(
+            images.iter().max_by_key(|i| i.width()).unwrap().width(),
+            images.iter().max_by_key(|i| i.height()).unwrap().height(),
+        );
         let sprite_amount = Vector2::new(images.len() as u32, 1);
         let data = images.iter().map(|image| image.to_rgba8()).collect();
         Self {
