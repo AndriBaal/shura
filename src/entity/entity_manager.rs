@@ -1,13 +1,13 @@
 use rustc_hash::FxHashMap;
 
 use crate::{
+    component::ComponentCollection,
     entity::{
-        Entities, Entity, EntityGroupManager, EntityId, EntityIdentifier, EntityStorage,
+        Entities, Entity, EntityGroupManager, EntityId, EntityIdentifier, EntityType,
         GroupedEntities, SingleEntity,
     },
     graphics::RenderGroupManager,
     physics::World,
-    prelude::Component,
 };
 
 #[cfg(feature = "serde")]
@@ -36,26 +36,26 @@ pub enum EntityScope {
 }
 
 pub(crate) enum EntityTypeScope {
-    Scene(Box<RefCell<dyn EntityStorage>>),
-    Global(Rc<RefCell<dyn EntityStorage>>),
+    Scene(Box<RefCell<dyn EntityType>>),
+    Global(Rc<RefCell<dyn EntityType>>),
 }
 
 impl EntityTypeScope {
-    fn ref_mut_dyn(&self) -> RefMut<dyn EntityStorage> {
+    fn ref_mut_dyn(&self) -> RefMut<dyn EntityType> {
         match &self {
             EntityTypeScope::Scene(scene) => scene.try_borrow_mut().expect(ALREADY_BORROWED),
             EntityTypeScope::Global(global) => global.try_borrow_mut().expect(ALREADY_BORROWED),
         }
     }
 
-    fn ref_dyn(&self) -> Ref<dyn EntityStorage> {
+    fn ref_dyn(&self) -> Ref<dyn EntityType> {
         match &self {
             EntityTypeScope::Scene(scene) => scene.try_borrow().expect(ALREADY_BORROWED),
             EntityTypeScope::Global(global) => global.try_borrow().expect(ALREADY_BORROWED),
         }
     }
 
-    fn _ref<ET: EntityStorage>(&self) -> Ref<ET> {
+    fn _ref<ET: EntityType>(&self) -> Ref<ET> {
         match &self {
             EntityTypeScope::Scene(scene) => Ref::map(
                 scene
@@ -72,7 +72,7 @@ impl EntityTypeScope {
         }
     }
 
-    fn ref_mut<ET: EntityStorage>(&self) -> RefMut<ET> {
+    fn ref_mut<ET: EntityType>(&self) -> RefMut<ET> {
         match &self {
             EntityTypeScope::Scene(scene) => RefMut::map(
                 scene
@@ -106,7 +106,7 @@ impl EntityManager {
         }
     }
 
-    pub(crate) fn add_type<ET: EntityStorage>(&mut self, scope: EntityTypeScope) {
+    pub(crate) fn add_type<ET: EntityType>(&mut self, scope: EntityTypeScope) {
         let previous = self.types.insert(ET::Entity::IDENTIFIER, scope);
         assert!(previous.is_none(), "Entity already defined!");
         for name in ET::Entity::tags() {
@@ -119,19 +119,16 @@ impl EntityManager {
 
     pub fn components_each(
         &self,
-        name: &'static str,
-        each: impl Fn(EntityHandle, &dyn Entity, &dyn Component),
+        tag: &'static str,
+        each: impl Fn(EntityHandle, &dyn ComponentCollection),
     ) {
-        if let Some(type_ids) = self.components.get(name) {
+        if let Some(type_ids) = self.components.get(tag) {
             for type_id in type_ids {
                 let ty = self.types.get(type_id).unwrap();
                 let ty = ty.ref_dyn();
-                for (handle, entity) in ty.entities() {
-                    let component_collection = entity.component_collection(name).unwrap();
-                    for collection in component_collection {
-                        for component in collection.components() {
-                            each(handle, entity, component);
-                        }
+                for (handle, entity) in ty.dyn_iter() {
+                    if let Some(collection) = entity.component_collection(tag) {
+                        each(handle, collection);
                     }
                 }
             }
@@ -140,25 +137,70 @@ impl EntityManager {
 
     pub fn components_each_mut(
         &self,
-        name: &'static str,
-        each: impl Fn(EntityHandle, &mut dyn Component),
+        tag: &'static str,
+        each: impl Fn(EntityHandle, &mut dyn ComponentCollection),
     ) {
-        if let Some(type_ids) = self.components.get(name) {
+        if let Some(type_ids) = self.components.get(tag) {
             for type_id in type_ids {
                 let ty = self.types.get(type_id).unwrap();
                 let mut ty = ty.ref_mut_dyn();
-                for (handle, entity) in ty.entities_mut() {
-                    let component_collection = entity.component_collection_mut(name).unwrap();
-                    for collection in component_collection {
-                        for component in collection.components_mut() {
-                            each(handle, component);
-                        }
+                for (handle, entity) in ty.dyn_iter_mut() {
+                    if let Some(collection) = entity.component_collection_mut(tag) {
+                        each(handle, collection);
                     }
                 }
             }
         }
     }
 
+    pub fn entities_for_component(
+        &self,
+        tag: &'static str,
+        each: impl Fn(EntityHandle, &dyn Entity),
+    ) {
+        if let Some(type_ids) = self.components.get(tag) {
+            for type_id in type_ids {
+                let ty = self.types.get(type_id).unwrap();
+                let ty = ty.ref_dyn();
+                for (handle, entity) in ty.dyn_iter() {
+                    each(handle, entity);
+                }
+            }
+        }
+    }
+
+    pub fn entities_for_component_mut(
+        &self,
+        tag: &'static str,
+        each: impl Fn(EntityHandle, &mut dyn Entity),
+    ) {
+        if let Some(type_ids) = self.components.get(tag) {
+            for type_id in type_ids {
+                let ty = self.types.get(type_id).unwrap();
+                let mut ty = ty.ref_mut_dyn();
+                for (handle, entity) in ty.dyn_iter_mut() {
+                    each(handle, entity);
+                }
+            }
+        }
+    }
+
+
+    pub fn retain_entities_for_component(
+        &self,
+        world: &mut World,
+        tag: &'static str,
+        keep: impl Fn(&mut dyn Entity, &mut World) -> bool,
+    ) {
+        if let Some(type_ids) = self.components.get(tag) {
+            for type_id in type_ids {
+                let ty = self.types.get(type_id).unwrap();
+                let mut ty = ty.ref_mut_dyn();
+                ty.dyn_retain(world, &keep);
+            }
+        }
+    }
+    
     pub fn component_mapping(&self) -> &FxHashMap<&'static str, Vec<EntityId>> {
         &self.components
     }
@@ -167,7 +209,7 @@ impl EntityManager {
         return self.components.get(name);
     }
 
-    pub fn register_entity<ET: EntityStorage>(&mut self, scope: EntityScope, ty: ET) {
+    pub fn register_entity<ET: EntityType>(&mut self, scope: EntityScope, ty: ET) {
         let id = ET::Entity::IDENTIFIER;
         if self.types.contains_key(&id) {
             panic!("Entity {} already defined!", ET::Entity::TYPE_NAME);
@@ -230,31 +272,31 @@ impl EntityManager {
         }
     }
 
-    pub fn types(&mut self) -> impl Iterator<Item = Ref<'_, dyn EntityStorage>> {
+    pub fn types(&mut self) -> impl Iterator<Item = Ref<'_, dyn EntityType>> {
         self.types.values_mut().map(|r| r.ref_dyn())
     }
 
-    pub fn types_mut(&mut self) -> impl Iterator<Item = RefMut<'_, dyn EntityStorage>> {
+    pub fn types_mut(&mut self) -> impl Iterator<Item = RefMut<'_, dyn EntityType>> {
         self.types.values_mut().map(|r| r.ref_mut_dyn())
     }
 
     #[cfg(feature = "serde")]
-    pub(crate) fn deserialize_group<ET: EntityStorage + Default>(
+    pub(crate) fn deserialize_group<ET: EntityType + Default>(
         &mut self,
         group: EntityGroupHandle,
-        storage: ET,
+        entity_type: ET,
         world: &mut World,
     ) {
         let mut groups = self.group::<ET>();
         let group = groups.get_group_mut(group).unwrap();
-        *group = storage;
-        for (handle, entity) in group.entities_mut() {
+        *group = entity_type;
+        for (handle, entity) in group.dyn_iter_mut() {
             entity.init(handle, world);
         }
     }
 
     #[cfg(feature = "serde")]
-    pub fn serialize<ET: EntityStorage + serde::Serialize>(&self) -> Vec<u8> {
+    pub fn serialize<ET: EntityType + serde::Serialize>(&self) -> Vec<u8> {
         bincode::serialize(
             self.type_raw(ET::Entity::IDENTIFIER)
                 .downcast_ref::<ET>()
@@ -263,14 +305,14 @@ impl EntityManager {
         .unwrap()
     }
 
-    pub fn type_raw(&self, type_id: EntityId) -> RefMut<dyn EntityStorage> {
+    pub fn type_raw(&self, type_id: EntityId) -> RefMut<dyn EntityType> {
         self.types
             .get(&type_id)
             .expect("Cannot find type!")
             .ref_mut_dyn()
     }
 
-    pub fn type_raw_ref(&self, type_id: EntityId) -> Ref<dyn EntityStorage> {
+    pub fn type_raw_ref(&self, type_id: EntityId) -> Ref<dyn EntityType> {
         self.types
             .get(&type_id)
             .expect("Cannot find type!")
@@ -305,14 +347,14 @@ impl EntityManager {
             ._ref()
     }
 
-    pub fn group<ET: EntityStorage + Default>(&self) -> RefMut<GroupedEntities<ET>> {
+    pub fn group<ET: EntityType + Default>(&self) -> RefMut<GroupedEntities<ET>> {
         self.types
             .get(&ET::Entity::IDENTIFIER)
             .expect(&no_type_error::<ET::Entity>())
             .ref_mut()
     }
 
-    pub fn group_ref<ET: EntityStorage + Default>(&self) -> Ref<GroupedEntities<ET>> {
+    pub fn group_ref<ET: EntityType + Default>(&self) -> Ref<GroupedEntities<ET>> {
         self.types
             .get(&ET::Entity::IDENTIFIER)
             .expect(&no_type_error::<ET::Entity>())

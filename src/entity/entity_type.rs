@@ -15,7 +15,7 @@ use crate::{
 };
 
 #[allow(unused_variables)]
-pub trait EntityStorage: Downcast {
+pub trait EntityType: Downcast {
     type Entity: EntityIdentifier
     where
         Self: Sized;
@@ -25,28 +25,31 @@ pub trait EntityStorage: Downcast {
         &mut self,
         world: &mut World,
         group_handle: EntityGroupHandle,
-    ) -> Option<Box<dyn EntityStorage>> {
+    ) -> Option<Box<dyn EntityType>> {
         None
     }
     fn add_group(&mut self) {}
 
-    fn entities<'a>(&'a self) -> Box<dyn Iterator<Item = (EntityHandle, &dyn Entity)> + 'a>;
+    fn dyn_get(&self, handle: EntityHandle) -> Option<&dyn Entity>;
+    fn dyn_get_mut(&mut self, handle: EntityHandle) -> Option<&mut dyn Entity>;
+    fn dyn_retain(&mut self, world: &mut World, keep: &dyn Fn(&mut dyn Entity, &mut World) -> bool);
+    fn dyn_remove(&mut self, world: &mut World, handle: EntityHandle) -> Option<Box<dyn Entity>>;
 
-    fn entities_mut<'a>(
+    fn dyn_iter<'a>(&'a self) -> Box<dyn Iterator<Item = (EntityHandle, &dyn Entity)> + 'a>;
+    fn dyn_iter_mut<'a>(
         &'a mut self,
     ) -> Box<dyn Iterator<Item = (EntityHandle, &mut dyn Entity)> + 'a>;
-
-    fn entities_render<'a>(
+    fn dyn_iter_render<'a>(
         &'a self,
         groups: &'a EntityGroupManager,
     ) -> impl Iterator<Item = &Self::Entity> + Clone + 'a
     where
         Self: Sized;
 }
-impl_downcast!(EntityStorage);
+impl_downcast!(EntityType);
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
-pub enum EntityType {
+pub enum EntityStorage {
     Single,
     Multiple,
     Groups,
@@ -181,16 +184,16 @@ impl<E: EntityIdentifier> SingleEntity<E> {
     }
 }
 
-impl<E: EntityIdentifier> EntityStorage for SingleEntity<E> {
+impl<E: EntityIdentifier> EntityType for SingleEntity<E> {
     type Entity = E;
     fn buffer(&self, buffers: &mut RenderGroupManager, groups: &EntityGroupManager, world: &World) {
-        E::buffer(self.entities_render(groups), buffers, world);
+        E::buffer(self.dyn_iter_render(groups), buffers, world);
     }
 
     fn entity_type_id(&self) -> EntityId {
         E::IDENTIFIER
     }
-    fn entities_render<'a>(
+    fn dyn_iter_render<'a>(
         &'a self,
         _groups: &'a EntityGroupManager,
     ) -> impl Iterator<Item = &Self::Entity> + Clone + 'a
@@ -200,7 +203,7 @@ impl<E: EntityIdentifier> EntityStorage for SingleEntity<E> {
         self.entity.iter()
     }
 
-    fn entities<'a>(&'a self) -> Box<dyn Iterator<Item = (EntityHandle, &dyn Entity)> + 'a> {
+    fn dyn_iter<'a>(&'a self) -> Box<dyn Iterator<Item = (EntityHandle, &dyn Entity)> + 'a> {
         Box::new(self.entity.iter().map(|e| {
             (
                 EntityHandle::new(
@@ -216,7 +219,7 @@ impl<E: EntityIdentifier> EntityStorage for SingleEntity<E> {
         }))
     }
 
-    fn entities_mut<'a>(
+    fn dyn_iter_mut<'a>(
         &'a mut self,
     ) -> Box<dyn Iterator<Item = (EntityHandle, &mut dyn Entity)> + 'a> {
         Box::new(self.entity.iter_mut().map(|e| {
@@ -232,6 +235,48 @@ impl<E: EntityIdentifier> EntityStorage for SingleEntity<E> {
                 e as &mut dyn Entity,
             )
         }))
+    }
+
+    fn dyn_get(&self, handle: EntityHandle) -> Option<&dyn Entity> {
+        if let Some(entity) = &self.entity {
+            if handle.entity_index.0.generation == self.generation {
+                return Some(entity);
+            }
+        }
+        None
+    }
+
+    fn dyn_get_mut(&mut self, handle: EntityHandle) -> Option<&mut dyn Entity> {
+        if let Some(entity) = &mut self.entity {
+            if handle.entity_index.0.generation == self.generation {
+                return Some(entity);
+            }
+        }
+        None
+    }
+
+    fn dyn_retain(
+        &mut self,
+        world: &mut World,
+        keep: &dyn Fn(&mut dyn Entity, &mut World) -> bool,
+    ) {
+        if let Some(entity) = &mut self.entity {
+            let result = keep(entity, world);
+            if !result {
+                entity.finish(world);
+                self.entity = None;
+            }
+        }
+    }
+
+    fn dyn_remove(&mut self, world: &mut World, handle: EntityHandle) -> Option<Box<dyn Entity>> {
+        if handle.entity_index.0.generation == self.generation {
+            if let Some(mut entity) = self.entity.take() {
+                entity.finish(world);
+                return Some(Box::new(entity));
+            }
+        }
+        None
     }
 }
 
@@ -250,7 +295,7 @@ impl<E: Entity> Default for Entities<E> {
 }
 
 impl<E: EntityIdentifier> Entities<E> {
-    pub fn retain(&mut self, world: &mut World, mut keep: impl FnMut(&mut E, &mut World) -> bool) {
+    pub fn retain(&mut self, world: &mut World, keep: impl Fn(&mut E, &mut World) -> bool) {
         self.entities.retain(|_, entity| {
             if keep(entity, world) {
                 true
@@ -416,18 +461,18 @@ impl<'a, E: EntityIdentifier> IntoIterator for &'a mut Entities<E> {
     }
 }
 
-impl<E: EntityIdentifier> EntityStorage for Entities<E> {
+impl<E: EntityIdentifier> EntityType for Entities<E> {
     type Entity = E;
 
     fn buffer(&self, buffers: &mut RenderGroupManager, groups: &EntityGroupManager, world: &World) {
-        E::buffer(self.entities_render(groups), buffers, world);
+        E::buffer(self.dyn_iter_render(groups), buffers, world);
     }
 
     fn entity_type_id(&self) -> EntityId {
         E::IDENTIFIER
     }
 
-    fn entities_render<'a>(
+    fn dyn_iter_render<'a>(
         &'a self,
         _groups: &'a EntityGroupManager,
     ) -> impl Iterator<Item = &Self::Entity> + Clone + 'a
@@ -437,17 +482,57 @@ impl<E: EntityIdentifier> EntityStorage for Entities<E> {
         self.entities.iter()
     }
 
-    fn entities<'a>(&'a self) -> Box<dyn Iterator<Item = (EntityHandle, &dyn Entity)> + 'a> {
+    fn dyn_iter<'a>(&'a self) -> Box<dyn Iterator<Item = (EntityHandle, &dyn Entity)> + 'a> {
         Box::new(self.iter_with_handles().map(|(h, e)| (h, e as &dyn Entity)))
     }
 
-    fn entities_mut<'a>(
+    fn dyn_iter_mut<'a>(
         &'a mut self,
     ) -> Box<dyn Iterator<Item = (EntityHandle, &mut dyn Entity)> + 'a> {
         Box::new(
             self.iter_mut_with_handles()
                 .map(|(h, e)| (h, e as &mut dyn Entity)),
         )
+    }
+
+    fn dyn_get(&self, handle: EntityHandle) -> Option<&dyn Entity> {
+        if let Some(entity) = self.get(handle) {
+            return Some(entity);
+        }
+        return None;
+    }
+
+    fn dyn_get_mut(&mut self, handle: EntityHandle) -> Option<&mut dyn Entity> {
+        if let Some(entity) = self.get_mut(handle) {
+            return Some(entity);
+        }
+        return None;
+    }
+
+    fn dyn_retain(
+        &mut self,
+        world: &mut World,
+        keep: &dyn Fn(&mut dyn Entity, &mut World) -> bool,
+    ) {
+        self.entities.retain(|_, entity| {
+            if keep(entity, world) {
+                true
+            } else {
+                entity.finish(world);
+                false
+            }
+        });
+    }
+
+    fn dyn_remove(&mut self, world: &mut World, handle: EntityHandle) -> Option<Box<dyn Entity>> {
+        if handle.type_id != E::IDENTIFIER {
+            return None;
+        }
+        if let Some(mut entity) = self.entities.remove(handle.entity_index.0) {
+            entity.finish(world);
+            return Some(Box::new(entity));
+        }
+        None
     }
 }
 
@@ -470,11 +555,11 @@ impl<E: Entity + Send + Sync> Entities<E> {
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone)]
-pub struct GroupedEntities<ET: EntityStorage> {
+pub struct GroupedEntities<ET: EntityType> {
     groups: Arena<ET>,
 }
 
-impl<ET: EntityStorage> Default for GroupedEntities<ET> {
+impl<ET: EntityType> Default for GroupedEntities<ET> {
     fn default() -> Self {
         Self {
             groups: Arena::new(),
@@ -482,7 +567,7 @@ impl<ET: EntityStorage> Default for GroupedEntities<ET> {
     }
 }
 
-impl<ET: EntityStorage> GroupedEntities<ET> {
+impl<ET: EntityType> GroupedEntities<ET> {
     pub fn get_group(&self, group: EntityGroupHandle) -> Option<&ET> {
         return self.groups.get(group.0);
     }
@@ -497,7 +582,7 @@ impl<E: EntityIdentifier> GroupedEntities<Entities<E>> {
         &mut self,
         world: &mut World,
         group_handles: &[EntityGroupHandle],
-        mut keep: impl FnMut(&mut E, &mut World) -> bool,
+        keep: impl Fn(&mut E, &mut World) -> bool,
     ) {
         for group in group_handles {
             if let Some(group) = self.groups.get_mut(group.0) {
@@ -690,11 +775,11 @@ impl<E: EntityIdentifier> GroupedEntities<Entities<E>> {
     }
 }
 
-impl<ET: EntityStorage + Default> EntityStorage for GroupedEntities<ET> {
+impl<ET: EntityType + Default> EntityType for GroupedEntities<ET> {
     type Entity = ET::Entity;
 
     fn buffer(&self, buffers: &mut RenderGroupManager, groups: &EntityGroupManager, world: &World) {
-        ET::Entity::buffer(self.entities_render(groups), buffers, world);
+        ET::Entity::buffer(self.dyn_iter_render(groups), buffers, world);
     }
 
     fn add_group(&mut self) {
@@ -705,9 +790,9 @@ impl<ET: EntityStorage + Default> EntityStorage for GroupedEntities<ET> {
         &mut self,
         world: &mut World,
         handle: EntityGroupHandle,
-    ) -> Option<Box<dyn EntityStorage>> {
+    ) -> Option<Box<dyn EntityType>> {
         if let Some(mut group) = self.groups.remove(handle.0) {
-            for (_, entity) in group.entities_mut() {
+            for (_, entity) in group.dyn_iter_mut() {
                 entity.finish(world)
             }
             return Some(Box::new(group));
@@ -719,7 +804,7 @@ impl<ET: EntityStorage + Default> EntityStorage for GroupedEntities<ET> {
         ET::Entity::IDENTIFIER
     }
 
-    fn entities_render<'a>(
+    fn dyn_iter_render<'a>(
         &'a self,
         groups: &'a EntityGroupManager,
     ) -> impl Iterator<Item = &Self::Entity> + Clone + 'a
@@ -729,17 +814,45 @@ impl<ET: EntityStorage + Default> EntityStorage for GroupedEntities<ET> {
         groups
             .render_groups()
             .iter()
-            .flat_map(|g| self.get_group(*g).unwrap().entities_render(groups))
+            .flat_map(|g| self.get_group(*g).unwrap().dyn_iter_render(groups))
     }
 
-    fn entities<'a>(&'a self) -> Box<dyn Iterator<Item = (EntityHandle, &dyn Entity)> + 'a> {
-        Box::new(self.groups.iter().flat_map(|g| g.entities()))
+    fn dyn_iter<'a>(&'a self) -> Box<dyn Iterator<Item = (EntityHandle, &dyn Entity)> + 'a> {
+        Box::new(self.groups.iter().flat_map(|g| g.dyn_iter()))
     }
 
-    fn entities_mut<'a>(
+    fn dyn_iter_mut<'a>(
         &'a mut self,
     ) -> Box<dyn Iterator<Item = (EntityHandle, &mut dyn Entity)> + 'a> {
-        Box::new(self.groups.iter_mut().flat_map(|g| g.entities_mut()))
+        Box::new(self.groups.iter_mut().flat_map(|g| g.dyn_iter_mut()))
+    }
+
+    fn dyn_get(&self, handle: EntityHandle) -> Option<&dyn Entity> {
+        self.groups
+            .get(handle.group_handle.0)
+            .and_then(|e| e.dyn_get(handle))
+    }
+
+    fn dyn_get_mut(&mut self, handle: EntityHandle) -> Option<&mut dyn Entity> {
+        self.groups
+            .get_mut(handle.group_handle.0)
+            .and_then(|e| e.dyn_get_mut(handle))
+    }
+
+    fn dyn_retain(
+        &mut self,
+        world: &mut World,
+        keep: &dyn Fn(&mut dyn Entity, &mut World) -> bool,
+    ) {
+        for group in &mut self.groups {
+            group.dyn_retain(world, keep);
+        }
+    }
+
+    fn dyn_remove(&mut self, world: &mut World, handle: EntityHandle) -> Option<Box<dyn Entity>> {
+        self.groups
+            .get_mut(handle.group_handle.0)
+            .and_then(|e| e.dyn_remove(world, handle))
     }
 }
 

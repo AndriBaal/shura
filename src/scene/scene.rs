@@ -1,7 +1,7 @@
 use crate::{
     entity::{
-        Entities, EntityGroupManager, EntityIdentifier, EntityManager, EntityScope, EntityStorage,
-        EntityType, GroupedEntities, SingleEntity,
+        Entities, EntityGroupManager, EntityIdentifier, EntityManager, EntityScope, EntityType,
+        EntityStorage, GroupedEntities, SingleEntity,
     },
     graphics::{
         CameraViewSelection, Instance, Instance2D, Instance3D, PerspectiveCamera3D,
@@ -26,19 +26,19 @@ pub trait SceneCreator {
             .register_component::<I>(name, config);
         self
     }
-    fn entity<E: EntityIdentifier>(self, storage: EntityType, scope: EntityScope) -> Self
+    fn entity<E: EntityIdentifier>(self, storage: EntityStorage, scope: EntityScope) -> Self
     where
         Self: Sized,
     {
         match storage {
-            EntityType::Single => self.custom_entity(SingleEntity::<E>::default(), scope),
-            EntityType::Multiple => self.custom_entity(Entities::<E>::default(), scope),
-            EntityType::Groups => {
+            EntityStorage::Single => self.custom_entity(SingleEntity::<E>::default(), scope),
+            EntityStorage::Multiple => self.custom_entity(Entities::<E>::default(), scope),
+            EntityStorage::Groups => {
                 self.custom_entity(GroupedEntities::<Entities<E>>::default(), scope)
             }
         }
     }
-    fn custom_entity<ET: EntityStorage>(mut self, ty: ET, scope: EntityScope) -> Self
+    fn custom_entity<ET: EntityType>(mut self, ty: ET, scope: EntityScope) -> Self
     where
         Self: Sized,
     {

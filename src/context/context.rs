@@ -126,7 +126,7 @@ impl<'a> Context<'a> {
             let mut world_cpy = self.world.clone();
             for ty in self.entities.types() {
                 if !ser_entities.contains_key(&ty.entity_type_id()) {
-                    for (_, entity) in ty.entities() {
+                    for (_, entity) in ty.dyn_iter() {
                         for collection in entity.component_collections() {
                             for component in collection.components() {
                                 world_cpy.remove_no_maintain(component);

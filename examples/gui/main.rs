@@ -4,9 +4,9 @@ use shura::prelude::*;
 fn app(config: AppConfig) {
     App::run(config, || {
         Scene::new()
-            .single_entity::<Demo>(Default::default())
-            .system(System::Update(update))
-            .system(System::Setup(setup))
+            .entity::<Demo>(EntityStorage::Single, Default::default())
+            .system(System::update(update))
+            .system(System::setup(setup))
     });
 }
 

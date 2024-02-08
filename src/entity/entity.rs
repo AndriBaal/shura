@@ -68,10 +68,10 @@ pub trait Entity: 'static + Downcast {
     fn component_collection<'a>(
         &'a self,
         name: &'static str,
-    ) -> Option<Box<dyn DoubleEndedIterator<Item = &dyn ComponentCollection> + 'a>>;
+    ) -> Option<&'a dyn ComponentCollection>;
     fn component_collection_mut<'a>(
         &'a mut self,
         name: &'static str,
-    ) -> Option<Box<dyn DoubleEndedIterator<Item = &mut dyn ComponentCollection> + 'a>>;
+    ) -> Option<&'a mut dyn ComponentCollection>;
 }
 impl_downcast!(Entity);

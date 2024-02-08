@@ -1,6 +1,6 @@
 #[cfg(feature = "serde")]
 use crate::{
-    entity::{EntityId, EntityStorage},
+    entity::{EntityId, EntityType},
     rustc_hash::FxHashMap,
 };
 
@@ -116,7 +116,7 @@ impl EntityGroupManager {
         entities: &mut EntityManager,
         world: &mut World,
         handle: EntityGroupHandle,
-    ) -> Option<(EntityGroup, FxHashMap<EntityId, Box<dyn EntityStorage>>)> {
+    ) -> Option<(EntityGroup, FxHashMap<EntityId, Box<dyn EntityType>>)> {
         if handle == EntityGroupHandle::DEFAULT_GROUP {
             panic!("Cannot remove default group!");
         }

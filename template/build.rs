@@ -4,7 +4,9 @@ use std::io;
 use std::path::Path;
 
 fn copy_directory(src: &Path, dest: &Path) -> io::Result<()> {
-    const EXCLUDE_EXTENSIONS: &'static [&'static str] = &["blend", "blend1", "aseprite", "ase", "aup3-shm", "aup3", "aup3-wal"];
+    const EXCLUDE_EXTENSIONS: &[&str] = &[
+        "blend", "blend1", "aseprite", "ase", "aup3-shm", "aup3", "aup3-wal",
+    ];
     // Create destination directory if it doesn't exist
     fs::create_dir_all(dest)?;
 

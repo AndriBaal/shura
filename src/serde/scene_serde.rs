@@ -3,8 +3,8 @@ use std::sync::Arc;
 
 use crate::{
     entity::{
-        Entities, EntityId, EntityIdentifier, EntityManager, EntityScope, EntityStorage,
-        EntityType, GroupedEntities, SingleEntity,
+        Entities, EntityId, EntityIdentifier, EntityManager, EntityScope, EntityType,
+        EntityStorage, GroupedEntities, SingleEntity,
     },
     graphics::{Gpu, GLOBAL_GPU},
     scene::{Scene, SceneCreator},
@@ -31,7 +31,7 @@ impl<'a> SceneSerializer<'a> {
         self.ser_entities
     }
 
-    pub fn serialize_custom_entity<ET: EntityStorage + serde::Serialize>(mut self) -> Self {
+    pub fn serialize_custom_entity<ET: EntityType + serde::Serialize>(mut self) -> Self {
         let ser = self.entities.serialize::<ET>();
         self.ser_entities.insert(ET::Entity::IDENTIFIER, ser);
         self
@@ -39,15 +39,15 @@ impl<'a> SceneSerializer<'a> {
 
     pub fn serialize_entity<E: EntityIdentifier + serde::Serialize>(
         self,
-        storage: EntityType,
+        storage: EntityStorage,
     ) -> Self
     where
         Self: Sized,
     {
         match storage {
-            EntityType::Single => self.serialize_custom_entity::<SingleEntity<E>>(),
-            EntityType::Multiple => self.serialize_custom_entity::<Entities<E>>(),
-            EntityType::Groups => self.serialize_custom_entity::<GroupedEntities<Entities<E>>>(),
+            EntityStorage::Single => self.serialize_custom_entity::<SingleEntity<E>>(),
+            EntityStorage::Multiple => self.serialize_custom_entity::<Entities<E>>(),
+            EntityStorage::Groups => self.serialize_custom_entity::<GroupedEntities<Entities<E>>>(),
         }
     }
 }
@@ -70,7 +70,7 @@ impl SerializedScene {
         }
     }
 
-    pub fn deserialize_custom_entity<ET: EntityStorage + serde::de::DeserializeOwned>(
+    pub fn deserialize_custom_entity<ET: EntityType + serde::de::DeserializeOwned>(
         mut self,
         scope: EntityScope,
     ) -> Self {
@@ -85,16 +85,16 @@ impl SerializedScene {
 
     pub fn deserialize_entity<E: EntityIdentifier + serde::de::DeserializeOwned>(
         self,
-        storage: EntityType,
+        storage: EntityStorage,
         scope: EntityScope,
     ) -> Self
     where
         Self: Sized,
     {
         match storage {
-            EntityType::Single => self.deserialize_custom_entity::<SingleEntity<E>>(scope),
-            EntityType::Multiple => self.deserialize_custom_entity::<Entities<E>>(scope),
-            EntityType::Groups => {
+            EntityStorage::Single => self.deserialize_custom_entity::<SingleEntity<E>>(scope),
+            EntityStorage::Multiple => self.deserialize_custom_entity::<Entities<E>>(scope),
+            EntityStorage::Groups => {
                 self.deserialize_custom_entity::<GroupedEntities<Entities<E>>>(scope)
             }
         }

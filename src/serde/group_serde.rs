@@ -4,13 +4,13 @@ use crate::{
     context::Context,
     entity::{
         Entities, EntityGroup, EntityGroupHandle, EntityGroupManager, EntityId, EntityIdentifier,
-        EntityManager, EntityStorage, GroupedEntities, SingleEntity,
+        EntityManager, EntityType, GroupedEntities, SingleEntity,
     },
     physics::World,
 };
 
 pub struct EntityGroupSerializer {
-    entities: FxHashMap<EntityId, Box<dyn EntityStorage>>,
+    entities: FxHashMap<EntityId, Box<dyn EntityType>>,
     ser_entities: FxHashMap<EntityId, Vec<u8>>,
     group: EntityGroup,
 }
@@ -32,7 +32,7 @@ impl EntityGroupSerializer {
         None
     }
 
-    pub fn serialize<ET: EntityStorage + serde::Serialize>(&mut self) {
+    pub fn serialize<ET: EntityType + serde::Serialize>(&mut self) {
         if let Some(data) = self.entities.remove(&ET::Entity::IDENTIFIER) {
             let entities = data.downcast_ref::<ET>().unwrap();
             let data = bincode::serialize(entities).unwrap();
@@ -75,7 +75,7 @@ impl EntityGroupDeserializer {
     }
 
     pub fn deserialize<
-        ET: EntityStorage<Entity = E> + serde::de::DeserializeOwned + Default,
+        ET: EntityType<Entity = E> + serde::de::DeserializeOwned + Default,
         E: serde::de::DeserializeOwned + EntityIdentifier,
     >(
         &mut self,

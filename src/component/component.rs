@@ -14,7 +14,7 @@ pub trait ComponentCollection: Downcast {
     fn buffer_all(
         &self,
         world: &World,
-        buffer: &mut RenderGroup<<Self::Component as Component>::Instance>,
+        render_group: &mut RenderGroup<<Self::Component as Component>::Instance>,
     ) where
         Self: Sized;
     fn init_all(&mut self, handle: EntityHandle, world: &mut World);
@@ -44,10 +44,10 @@ impl<C: Component> ComponentCollection for C {
     fn buffer_all(
         &self,
         world: &World,
-        buffer: &mut RenderGroup<<Self::Component as Component>::Instance>,
+        render_group: &mut RenderGroup<<Self::Component as Component>::Instance>,
     ) {
         if self.active() {
-            buffer.push(self.instance(world))
+            render_group.push(self.instance(world))
         }
     }
 
@@ -66,10 +66,6 @@ impl<C: Component> ComponentCollection for C {
     fn components_mut<'a>(&'a mut self) -> Box<dyn Iterator<Item = &mut dyn Component> + 'a> {
         Box::new(std::iter::once(self as _))
     }
-
-    // fn iter<'a>(&'a self) -> impl Iterator<Item = &Self::Component> + 'a where Self: Sized {
-    //     std::iter::once(self)
-    // }
 }
 
 macro_rules! impl_collection {
@@ -80,10 +76,10 @@ macro_rules! impl_collection {
             fn buffer_all(
                 &self,
                 world: &World,
-                buffer: &mut RenderGroup<<Self::Component as Component>::Instance>,
+                render_group: &mut RenderGroup<<Self::Component as Component>::Instance>,
             ) {
                 for component in self.iter() {
-                    component.buffer_all(world, buffer);
+                    component.buffer_all(world, render_group);
                 }
             }
 
@@ -120,10 +116,10 @@ macro_rules! impl_collection_map {
             fn buffer_all(
                 &self,
                 world: &World,
-                buffer: &mut RenderGroup<<Self::Component as Component>::Instance>,
+                render_group: &mut RenderGroup<<Self::Component as Component>::Instance>,
             ) {
                 for component in self.values() {
-                    component.buffer_all(world, buffer);
+                    component.buffer_all(world, render_group);
                 }
             }
 
