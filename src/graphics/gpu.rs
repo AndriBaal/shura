@@ -4,7 +4,7 @@ use winit::window::Window;
 #[cfg(feature = "log")]
 use crate::log::info;
 #[cfg(feature = "text")]
-use crate::text::{Font, FontBuilder, Text, TextSection};
+use crate::text::{Font, FontBuilder, TextMesh, TextSection};
 use crate::{
     graphics::{
         Camera, Camera2D, CameraBuffer, CameraBuffer2D, DepthBuffer, Instance, Instance2D,
@@ -182,8 +182,8 @@ impl Gpu {
     }
 
     #[cfg(feature = "text")]
-    pub fn create_text<S: AsRef<str>>(&self, font: &Font, sections: &[TextSection<S>]) -> Text {
-        Text::new(self, font, sections)
+    pub fn create_text_mesh<S: AsRef<str>>(&self, font: &Font, sections: &[TextSection<S>]) -> TextMesh {
+        TextMesh::new(self, font, sections)
     }
 
     pub fn create_computed_target<D: Deref<Target = [u8]>>(

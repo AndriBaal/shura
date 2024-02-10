@@ -1,3 +1,4 @@
+use nalgebra::{Isometry, Rotation};
 use shura::prelude::*;
 
 #[shura::main]
@@ -112,7 +113,7 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
                 );
             });
 
-            renderer.render_text(
+            renderer.render_text_mesh(
                 0..1,
                 ctx.centered_instance,
                 ctx.relative_top_right_camera,
@@ -130,7 +131,7 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
 struct Assets {
     screenshot: Option<SpriteRenderTarget>,
     bunny_sprite: Sprite,
-    text: Text,
+    text: TextMesh,
 }
 
 impl Assets {
@@ -146,7 +147,7 @@ impl Assets {
         Assets {
             screenshot: None,
             bunny_sprite,
-            text: ctx.gpu.create_text::<&str>(&font, &[]),
+            text: ctx.gpu.create_text_mesh::<&str>(&font, &[]),
         }
     }
 }
