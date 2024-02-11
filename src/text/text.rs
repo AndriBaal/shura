@@ -3,10 +3,11 @@ use crate::{
         Color, Gpu, Index, Instance, Instance2D, Mesh, MeshBuilder2D, SpriteAtlas, SpriteSheet,
         Vertex,
     },
-    math::{Isometry2, Matrix2, Vector2},
-    prelude::{ComponentInstance, PositionComponent2D},
+    math::{Isometry2, Vector2},
+    prelude::ComponentInstance,
     text::Font,
 };
+use shura_proc::Component;
 use wgpu::vertex_attr_array;
 
 #[repr(C)]
@@ -266,12 +267,15 @@ impl ComponentInstance for LetterComponent2D {
     }
 }
 
-pub struct TextComponent {
+use crate as shura;
+#[derive(Component)]
+pub struct TextComponent2D {
+    #[shura(component)]
     pub letters: Vec<LetterComponent2D>,
     pub font: Font,
 }
 
-impl TextComponent {
+impl TextComponent2D {
     pub fn new<S: AsRef<str>>(font: &Font, sections: &[TextSection<S>]) -> Self {
         let letters = Self::compute_instances(font, sections);
         Self {
@@ -280,7 +284,11 @@ impl TextComponent {
         }
     }
 
-    fn compute_instances<S: AsRef<str>>(
+    pub fn write<S: AsRef<str>>(&mut self, sections: &[TextSection<S>]) {
+        self.letters = Self::compute_instances(&self.font, sections);
+    } 
+
+    pub fn compute_instances<S: AsRef<str>>(
         font: &Font,
         sections: &[TextSection<S>],
     ) -> Vec<LetterComponent2D> {
@@ -292,13 +300,12 @@ impl TextComponent {
                 rot: letter.section.offset.rotation.into(),
                 atlas: SpriteAtlas::new(Vector2::default(), letter.scale),
                 sprite_sheet_index: letter.id,
-                // scale: letter.scale,
-                // sprite: letter.id
             })));
         });
         return instances;
     }
 }
+
 
 struct FormattedGlyph<'a, S: AsRef<str>> {
     size: Vector2<f32>,

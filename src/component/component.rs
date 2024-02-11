@@ -14,7 +14,7 @@ pub trait Component: Downcast {
     fn buffer_all(
         &self,
         world: &World,
-        render_group: &mut RenderGroup<<Self::ComponentInstance as ComponentInstance>::Instance>,
+        render_groups: &mut RenderGroup<<Self::ComponentInstance as ComponentInstance>::Instance>,
     ) where
         Self: Sized;
     fn init_all(&mut self, handle: EntityHandle, world: &mut World);
