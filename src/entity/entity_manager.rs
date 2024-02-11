@@ -1,7 +1,7 @@
 use rustc_hash::FxHashMap;
 
 use crate::{
-    component::ComponentCollection,
+    component::Component,
     entity::{
         Entities, Entity, EntityGroupManager, EntityId, EntityIdentifier, EntityType,
         GroupedEntities, SingleEntity,
@@ -120,14 +120,14 @@ impl EntityManager {
     pub fn components_each(
         &self,
         tag: &'static str,
-        each: impl Fn(EntityHandle, &dyn ComponentCollection),
+        each: impl Fn(EntityHandle, &dyn Component),
     ) {
         if let Some(type_ids) = self.components.get(tag) {
             for type_id in type_ids {
                 let ty = self.types.get(type_id).unwrap();
                 let ty = ty.ref_dyn();
                 for (handle, entity) in ty.dyn_iter() {
-                    if let Some(collection) = entity.component_collection(tag) {
+                    if let Some(collection) = entity.component(tag) {
                         each(handle, collection);
                     }
                 }
@@ -138,14 +138,14 @@ impl EntityManager {
     pub fn components_each_mut(
         &self,
         tag: &'static str,
-        each: impl Fn(EntityHandle, &mut dyn ComponentCollection),
+        each: impl Fn(EntityHandle, &mut dyn Component),
     ) {
         if let Some(type_ids) = self.components.get(tag) {
             for type_id in type_ids {
                 let ty = self.types.get(type_id).unwrap();
                 let mut ty = ty.ref_mut_dyn();
                 for (handle, entity) in ty.dyn_iter_mut() {
-                    if let Some(collection) = entity.component_collection_mut(tag) {
+                    if let Some(collection) = entity.component_mut(tag) {
                         each(handle, collection);
                     }
                 }

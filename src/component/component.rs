@@ -6,26 +6,26 @@ use crate::{
 use downcast_rs::{impl_downcast, Downcast};
 use std::collections::{BTreeMap, HashMap, LinkedList, VecDeque};
 
-pub trait ComponentCollection: Downcast {
-    type Component: Component
+pub trait Component: Downcast {
+    type ComponentInstance: ComponentInstance
     where
         Self: Sized;
 
     fn buffer_all(
         &self,
         world: &World,
-        render_group: &mut RenderGroup<<Self::Component as Component>::Instance>,
+        render_group: &mut RenderGroup<<Self::ComponentInstance as ComponentInstance>::Instance>,
     ) where
         Self: Sized;
     fn init_all(&mut self, handle: EntityHandle, world: &mut World);
     fn finish_all(&mut self, world: &mut World);
-    fn components<'a>(&'a self) -> Box<dyn Iterator<Item = &dyn Component> + 'a>;
-    fn components_mut<'a>(&'a mut self) -> Box<dyn Iterator<Item = &mut dyn Component> + 'a>;
+    fn instances<'a>(&'a self) -> Box<dyn Iterator<Item = &dyn ComponentInstance> + 'a>;
+    fn instances_mut<'a>(&'a mut self) -> Box<dyn Iterator<Item = &mut dyn ComponentInstance> + 'a>;
 }
-impl_downcast!(ComponentCollection);
+impl_downcast!(Component);
 
 #[allow(unused_variables)]
-pub trait Component: Downcast {
+pub trait ComponentInstance: Downcast {
     type Instance: Instance
     where
         Self: Sized;
@@ -36,15 +36,15 @@ pub trait Component: Downcast {
     fn init(&mut self, handle: EntityHandle, world: &mut World) {}
     fn finish(&mut self, world: &mut World) {}
 }
-impl_downcast!(Component);
+impl_downcast!(ComponentInstance);
 
-impl<C: Component> ComponentCollection for C {
-    type Component = C;
+impl<C: ComponentInstance> Component for C {
+    type ComponentInstance = C;
 
     fn buffer_all(
         &self,
         world: &World,
-        render_group: &mut RenderGroup<<Self::Component as Component>::Instance>,
+        render_group: &mut RenderGroup<<Self::ComponentInstance as ComponentInstance>::Instance>,
     ) {
         if self.active() {
             render_group.push(self.instance(world))
@@ -59,24 +59,24 @@ impl<C: Component> ComponentCollection for C {
         self.finish(world)
     }
 
-    fn components<'a>(&'a self) -> Box<dyn Iterator<Item = &dyn Component> + 'a> {
+    fn instances<'a>(&'a self) -> Box<dyn Iterator<Item = &dyn ComponentInstance> + 'a> {
         Box::new(std::iter::once(self as _))
     }
 
-    fn components_mut<'a>(&'a mut self) -> Box<dyn Iterator<Item = &mut dyn Component> + 'a> {
+    fn instances_mut<'a>(&'a mut self) -> Box<dyn Iterator<Item = &mut dyn ComponentInstance> + 'a> {
         Box::new(std::iter::once(self as _))
     }
 }
 
 macro_rules! impl_collection {
     ($collection: ty) => {
-        impl<C: Component> ComponentCollection for $collection {
-            type Component = C;
+        impl<C: ComponentInstance> Component for $collection {
+            type ComponentInstance = C;
 
             fn buffer_all(
                 &self,
                 world: &World,
-                render_group: &mut RenderGroup<<Self::Component as Component>::Instance>,
+                render_group: &mut RenderGroup<<Self::ComponentInstance as ComponentInstance>::Instance>,
             ) {
                 for component in self.iter() {
                     component.buffer_all(world, render_group);
@@ -95,13 +95,13 @@ macro_rules! impl_collection {
                 }
             }
 
-            fn components<'a>(&'a self) -> Box<dyn Iterator<Item = &dyn Component> + 'a> {
+            fn instances<'a>(&'a self) -> Box<dyn Iterator<Item = &dyn ComponentInstance> + 'a> {
                 Box::new(self.iter().map(|c| c as _))
             }
 
-            fn components_mut<'a>(
+            fn instances_mut<'a>(
                 &'a mut self,
-            ) -> Box<dyn Iterator<Item = &mut dyn Component> + 'a> {
+            ) -> Box<dyn Iterator<Item = &mut dyn ComponentInstance> + 'a> {
                 Box::new(self.iter_mut().map(|c| c as _))
             }
         }
@@ -110,13 +110,13 @@ macro_rules! impl_collection {
 
 macro_rules! impl_collection_map {
     ($collection: ty) => {
-        impl<K: 'static, C: Component> ComponentCollection for $collection {
-            type Component = C;
+        impl<K: 'static, C: ComponentInstance> Component for $collection {
+            type ComponentInstance = C;
 
             fn buffer_all(
                 &self,
                 world: &World,
-                render_group: &mut RenderGroup<<Self::Component as Component>::Instance>,
+                render_group: &mut RenderGroup<<Self::ComponentInstance as ComponentInstance>::Instance>,
             ) {
                 for component in self.values() {
                     component.buffer_all(world, render_group);
@@ -135,18 +135,15 @@ macro_rules! impl_collection_map {
                 }
             }
 
-            fn components<'a>(&'a self) -> Box<dyn Iterator<Item = &dyn Component> + 'a> {
+            fn instances<'a>(&'a self) -> Box<dyn Iterator<Item = &dyn ComponentInstance> + 'a> {
                 Box::new(self.values().map(|c| c as _))
             }
 
-            fn components_mut<'a>(
+            fn instances_mut<'a>(
                 &'a mut self,
-            ) -> Box<dyn Iterator<Item = &mut dyn Component> + 'a> {
+            ) -> Box<dyn Iterator<Item = &mut dyn ComponentInstance> + 'a> {
                 Box::new(self.values_mut().map(|c| c as _))
             }
-            // fn iter<'a>(&'a self) -> impl Iterator<Item = &Self::Component> + 'a where Self: Sized {
-            //     self.values()
-            // }
         }
     };
 }

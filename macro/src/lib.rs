@@ -11,23 +11,19 @@ use syn::{
 
 const IDENT_NAME: &str = "shura";
 
-fn inner_component(data_struct: &DataStruct) -> Option<(Ident, TypePath)> {
-    let mut inner = None;
+fn inner_components(data_struct: &DataStruct) -> Vec<(Ident, TypePath)> {
+    let mut inner = vec![];
     match &data_struct.fields {
         Fields::Named(fields_named) => {
             for field in fields_named.named.iter() {
                 for attr in &field.attrs {
                     if attr.path().is_ident(IDENT_NAME) {
                         attr.parse_nested_meta(|meta| {
-                            if meta.path.is_ident("inner") {
+                            if meta.path.is_ident("component") {
                                 match &field.ty {
                                     Type::Path(type_name) => {
                                         let field_name = field.ident.as_ref().unwrap();
-
-                                        if inner.is_some() {
-                                            panic!("Inner already defined!");
-                                        }
-                                        inner = Some((field_name.clone(), type_name.clone()));
+                                        inner.push((field_name.clone(), type_name.clone()));
                                     }
                                     _ => panic!("Cannot extract the inner component!"),
                                 };
@@ -44,6 +40,8 @@ fn inner_component(data_struct: &DataStruct) -> Option<(Ident, TypePath)> {
     inner
 }
 
+// type RenderGroups = HashSet<(Ident, LitStr, TypePath)>;
+// type RenderComponents = Vec<(Ident, Ident)>;
 type RenderGroups = HashMap<String, (LitStr, TypePath, Vec<Ident>)>;
 type AllComponents = HashSet<Ident>;
 type TaggedComponents = HashMap<String, Ident>;
@@ -162,13 +160,13 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
     let (handles, render_groups, components, tagged_components) = component_data(data_struct);
     let names = tagged_components.keys();
 
-    let component_collection = tagged_components.iter().map(|(name_lit, field_name)| {
+    let component = tagged_components.iter().map(|(name_lit, field_name)| {
         quote! {
             #name_lit => Some( &self.#field_name as _)
         }
     });
 
-    let component_collection_mut = tagged_components.iter().map(|(name_lit, field_name)| {
+    let component_mut = tagged_components.iter().map(|(name_lit, field_name)| {
         quote! {
             #name_lit => Some( &mut self.#field_name as _)
         }
@@ -178,7 +176,7 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
         .iter()
         .map(|(_, (group_name, type_name, field_names))| {
             quote! {
-                let buffer = buffers.get_mut::<<<#type_name as shura::component::ComponentCollection>::Component as shura::component::Component>::Instance>(#group_name).expect(&format!("Cannot find RenderGroup {}!", #group_name));
+                let buffer = buffers.get_mut::<<<#type_name as ::shura::component::Component>::ComponentInstance as ::shura::component::ComponentInstance>::Instance>(#group_name).expect(&format!("Cannot find RenderGroup {}!", #group_name));
                 if buffer.needs_update() {
                     for e in entities.clone() {
                         #( e.#field_names.buffer_all(world, buffer); ) *
@@ -187,13 +185,7 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
             }
         });
 
-    let handles_iter1 = handles.iter();
-    let handles_iter2 = handles.iter();
-    let components_iter1 = components.iter();
-    let components_iter2 = components.iter();
-    let components_iter3 = components.iter();
-    let components_iter4 = components.iter();
-
+    let components = components.iter().collect::<Vec<_>>();
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
     quote!(
         impl #impl_generics ::shura::entity::EntityIdentifier for #struct_name #ty_generics #where_clause {
@@ -208,14 +200,14 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
         impl #impl_generics ::shura::entity::Entity for #struct_name #ty_generics #where_clause {
             fn init(&mut self, handle: ::shura::entity::EntityHandle, world: &mut ::shura::physics::World) {
                 use ::shura::component::Component;
-                #( self.#components_iter2.init_all(handle, world); )*
-                #( self.#handles_iter1 = handle; )*
+                #( self.#components.init_all(handle, world); )*
+                #( self.#handles = handle; )*
             }
 
             fn finish(&mut self, world: &mut ::shura::physics::World) {
                 use ::shura::component::Component;
-                #( self.#components_iter1.finish_all(world); )*
-                #( self.#handles_iter2 = Default::default(); )*
+                #( self.#components.finish_all(world); )*
+                #( self.#handles = Default::default(); )*
             }
 
             fn buffer<'a>(
@@ -230,28 +222,28 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
                 return &[ #( #names, )*];
             }
 
-            fn component_collections<'a>(
+            fn components<'a>(
                 &'a self,
-            ) -> Box<dyn DoubleEndedIterator<Item = &dyn shura::component::ComponentCollection> + 'a>{
-                Box::new([ #( &self.#components_iter4 as _, )* ].into_iter())
+            ) -> Box<dyn DoubleEndedIterator<Item = &dyn ::shura::component::Component> + 'a>{
+                Box::new([ #( &self.#components as _, )* ].into_iter())
             }
 
-            fn component_collections_mut<'a>(
+            fn components_mut<'a>(
                 &'a mut self,
-            ) -> Box<dyn DoubleEndedIterator<Item = &mut dyn shura::component::ComponentCollection> + 'a>{
-                Box::new([ #( &mut self.#components_iter3 as _, )* ].into_iter())
+            ) -> Box<dyn DoubleEndedIterator<Item = &mut dyn ::shura::component::Component> + 'a>{
+                Box::new([ #( &mut self.#components as _, )* ].into_iter())
             }
 
-            fn component_collection(&self, name: &'static str) -> Option<&dyn shura::component::ComponentCollection> {
+            fn component(&self, name: &'static str) -> Option<&dyn ::shura::component::Component> {
                 match name {
-                    #( #component_collection, )*
+                    #( #component, )*
                     _ => None
                 }
             }
 
-            fn component_collection_mut(&mut self, name: &'static str) -> Option<&mut dyn shura::component::ComponentCollection> {
+            fn component_mut(&mut self, name: &'static str) -> Option<&mut dyn ::shura::component::Component> {
                 match name {
-                    #( #component_collection_mut, )*
+                    #( #component_mut, )*
                     _ => None
                 }
             }
@@ -269,21 +261,43 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     };
 
     let struct_name = ast.ident.clone();
-    let (inner_field, inner_type) = inner_component(data_struct)
-        .expect("Cannot find inner component. Define it with #[shura(inner)]");
+    let inner = inner_components(data_struct);
+    let field_names = inner.iter().map(|i| &i.0).collect::<Vec<_>>();
+    assert!(!inner.is_empty(), "At least one component has to be defined with: #[shura(component)]");
+    let ty = inner[0].1.clone();
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
     quote!(
-        impl #impl_generics ::shura::component::Component for #struct_name #ty_generics #where_clause {
-            type Instance = <#inner_type as ::shura::component::Component>::Instance;
 
-            fn instance(&self, world: &::shura::physics::World) -> Self::Instance {
-                self.#inner_field.instance(world)
+        impl #impl_generics ::shura::component::Component for #struct_name #ty_generics #where_clause {
+            type ComponentInstance = #ty;
+        
+            fn buffer_all(
+                &self,
+                world: &::shura::physics::World,
+                render_group: &mut ::shura::graphics::RenderGroup<<Self::ComponentInstance as ::shura::component::ComponentInstance>::Instance>,
+            ) where
+                Self: Sized,
+            {   
+                #( self.#field_names.buffer_all(world, render_group); )*
+            }
+        
+            fn init_all(&mut self, handle: shura::entity::EntityHandle, world: &mut ::shura::physics::World) {
+                #( self.#field_names.init_all(handle, world); )*
+            }
+        
+            fn finish_all(&mut self, world: &mut shura::physics::World) {
+                #( self.#field_names.finish_all(world); )*
             }
 
-            fn active(&self) -> bool {
-                self.#inner_field.active()
+            fn instances<'a>(&'a self) -> Box<dyn Iterator<Item = &dyn ::shura::component::ComponentInstance> + 'a> {
+                Box::new([#( self.#field_names.instances(), )*].into_iter().flatten())
+            }
+        
+            fn instances_mut<'a>(&'a mut self) -> Box<dyn Iterator<Item = &mut dyn ::shura::component::ComponentInstance> + 'a> {
+                Box::new([#( self.#field_names.instances_mut(), )*].into_iter().flatten())
             }
         }
+        
     )
     .into()
 }

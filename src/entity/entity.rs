@@ -1,5 +1,5 @@
 use crate::{
-    component::ComponentCollection,
+    component::Component,
     entity::{EntityHandle, RenderEntityIterator},
     graphics::RenderGroupManager,
     physics::World,
@@ -46,32 +46,32 @@ pub trait Entity: 'static + Downcast {
     ) where
         Self: Sized;
     fn init(&mut self, handle: EntityHandle, world: &mut World) {
-        for component_collection in self.component_collections_mut() {
-            component_collection.init_all(handle, world);
+        for component in self.components_mut() {
+            component.init_all(handle, world);
         }
     }
     fn finish(&mut self, world: &mut World) {
-        for component_collection in self.component_collections_mut() {
-            component_collection.finish_all(world);
+        for component in self.components_mut() {
+            component.finish_all(world);
         }
     }
     fn tags() -> &'static [&'static str]
     where
         Self: Sized;
-    fn component_collections<'a>(
+    fn components<'a>(
         &'a self,
-    ) -> Box<dyn DoubleEndedIterator<Item = &dyn ComponentCollection> + 'a>;
-    fn component_collections_mut<'a>(
+    ) -> Box<dyn DoubleEndedIterator<Item = &dyn Component> + 'a>;
+    fn components_mut<'a>(
         &'a mut self,
-    ) -> Box<dyn DoubleEndedIterator<Item = &mut dyn ComponentCollection> + 'a>;
+    ) -> Box<dyn DoubleEndedIterator<Item = &mut dyn Component> + 'a>;
 
-    fn component_collection<'a>(
+    fn component<'a>(
         &'a self,
         name: &'static str,
-    ) -> Option<&'a dyn ComponentCollection>;
-    fn component_collection_mut<'a>(
+    ) -> Option<&'a dyn Component>;
+    fn component_mut<'a>(
         &'a mut self,
         name: &'static str,
-    ) -> Option<&'a mut dyn ComponentCollection>;
+    ) -> Option<&'a mut dyn Component>;
 }
 impl_downcast!(Entity);

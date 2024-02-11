@@ -1,4 +1,3 @@
-use nalgebra::{Isometry, Rotation};
 use shura::prelude::*;
 
 #[shura::main]

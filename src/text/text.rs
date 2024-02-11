@@ -1,9 +1,10 @@
 use crate::{
     graphics::{
-        Color, Gpu, Index, Instance2D, Mesh, MeshBuilder2D, SpriteAtlas, SpriteSheet, Vertex,
+        Color, Gpu, Index, Instance, Instance2D, Mesh, MeshBuilder2D, SpriteAtlas, SpriteSheet,
+        Vertex,
     },
     math::{Isometry2, Matrix2, Vector2},
-    prelude::PositionComponent2D,
+    prelude::{ComponentInstance, PositionComponent2D},
     text::Font,
 };
 use wgpu::vertex_attr_array;
@@ -244,19 +245,48 @@ impl TextMesh {
     }
 }
 
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct LetterInstance2D(pub Instance2D);
+impl Instance for LetterInstance2D {
+    const ATTRIBUTES: &'static [wgpu::VertexAttribute] = Instance2D::ATTRIBUTES;
+}
+
+pub struct LetterComponent2D(pub LetterInstance2D);
+impl ComponentInstance for LetterComponent2D {
+    type Instance = LetterInstance2D;
+
+    fn instance(&self, _world: &crate::physics::World) -> Self::Instance {
+        self.0
+    }
+
+    fn active(&self) -> bool {
+        true
+    }
+}
+
 pub struct TextComponent {
-    pub letters: Vec<PositionComponent2D>,
-    pub font: Font
+    pub letters: Vec<LetterComponent2D>,
+    pub font: Font,
 }
 
 impl TextComponent {
+    pub fn new<S: AsRef<str>>(font: &Font, sections: &[TextSection<S>]) -> Self {
+        let letters = Self::compute_instances(font, sections);
+        Self {
+            letters,
+            font: font.clone(),
+        }
+    }
+
     fn compute_instances<S: AsRef<str>>(
         font: &Font,
         sections: &[TextSection<S>],
-    ) -> Vec<Instance2D> {
+    ) -> Vec<LetterComponent2D> {
         let mut instances = vec![];
         TextSection::compute_layout(font, sections, |letter| {
-            instances.push(Instance2D {
+            instances.push(LetterComponent2D(LetterInstance2D(Instance2D {
                 pos: letter.bottom_left + letter.size / 2.0,
                 color: letter.section.color,
                 rot: letter.section.offset.rotation.into(),
@@ -264,7 +294,7 @@ impl TextComponent {
                 sprite_sheet_index: letter.id,
                 // scale: letter.scale,
                 // sprite: letter.id
-            });
+            })));
         });
         return instances;
     }

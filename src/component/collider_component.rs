@@ -1,5 +1,5 @@
 use crate::{
-    component::Component,
+    component::ComponentInstance,
     entity::EntityHandle,
     graphics::{Color, Instance2D, SpriteAtlas, SpriteSheetIndex},
     math::Vector2,
@@ -124,7 +124,7 @@ impl ColliderComponent {
     }
 }
 
-impl Component for ColliderComponent {
+impl ComponentInstance for ColliderComponent {
     type Instance = Instance2D;
 
     fn instance(&self, world: &World) -> Self::Instance {

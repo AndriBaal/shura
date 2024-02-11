@@ -1,5 +1,5 @@
 use crate::{
-    component::Component,
+    component::ComponentInstance,
     entity::EntityHandle,
     graphics::{Color, Instance2D, SpriteAtlas, SpriteSheetIndex},
     math::Vector2,
@@ -178,7 +178,7 @@ impl RigidBodyComponent {
     }
 }
 
-impl Component for RigidBodyComponent {
+impl ComponentInstance for RigidBodyComponent {
     type Instance = Instance2D;
 
     fn instance(&self, world: &World) -> Self::Instance {
