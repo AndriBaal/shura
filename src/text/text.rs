@@ -1,9 +1,6 @@
 use crate::{
-    graphics::{
-        Color, Gpu, Index, Instance, Instance2D, Mesh, MeshBuilder2D, SpriteAtlas, SpriteSheet,
-        Vertex,
-    },
-    math::{Isometry2, Vector2},
+    graphics::{Color, Gpu, Index, Instance, Instance2D, Mesh, MeshBuilder2D, SpriteAtlas, Vertex},
+    math::{Isometry2, Vector2, Matrix2},
     prelude::ComponentInstance,
     text::Font,
 };
@@ -237,8 +234,8 @@ impl TextMesh {
         self.mesh.write(gpu, builder);
     }
 
-    pub fn font(&self) -> &SpriteSheet {
-        &self.font.inner.sprite_sheet
+    pub fn font(&self) -> &Font {
+        &self.font
     }
 
     pub fn mesh(&self) -> &Mesh<Vertex2DText> {
@@ -286,7 +283,7 @@ impl TextComponent2D {
 
     pub fn write<S: AsRef<str>>(&mut self, sections: &[TextSection<S>]) {
         self.letters = Self::compute_instances(&self.font, sections);
-    } 
+    }
 
     pub fn compute_instances<S: AsRef<str>>(
         font: &Font,
@@ -294,18 +291,23 @@ impl TextComponent2D {
     ) -> Vec<LetterComponent2D> {
         let mut instances = vec![];
         TextSection::compute_layout(font, sections, |letter| {
+            let rotation = letter.section.offset.rotation;
             instances.push(LetterComponent2D(LetterInstance2D(Instance2D {
                 pos: letter.bottom_left + letter.size / 2.0,
                 color: letter.section.color,
-                rot: letter.section.offset.rotation.into(),
-                atlas: SpriteAtlas::new(Vector2::default(), letter.scale),
+                rot: Matrix2::new(
+                    letter.size.x * rotation.cos_angle(),
+                    letter.size.x * rotation.sin_angle(),
+                    letter.size.y * -rotation.sin_angle(),
+                    letter.size.y * rotation.cos_angle(),
+                ),
+                atlas: SpriteAtlas::new(letter.scale, Vector2::default()),
                 sprite_sheet_index: letter.id,
             })));
         });
         return instances;
     }
 }
-
 
 struct FormattedGlyph<'a, S: AsRef<str>> {
     size: Vector2<f32>,

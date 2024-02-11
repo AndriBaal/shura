@@ -381,7 +381,9 @@ pub struct DefaultAssets {
     pub rainbow: Shader,
     pub grey: Shader,
     #[cfg(feature = "text")]
-    pub text: Shader,
+    pub text_mesh: Shader,
+    #[cfg(feature = "text")]
+    pub text_instance: Shader,
     pub blurr: Shader,
 
     pub missing: Sprite,
@@ -422,12 +424,16 @@ impl DefaultAssets {
         });
 
         #[cfg(feature = "text")]
-        let text = gpu.create_shader(ShaderConfig {
-            name: Some("text"),
+        let text_mesh_vertex = &gpu.create_shader_module(include_wgsl!("../../static/shader/2d/vertex_text_mesh.wgsl"));
+
+        #[cfg(feature = "text")]
+        let text_mesh = gpu.create_shader(ShaderConfig {
+            name: Some("text_vertex"),
             uniforms: &[UniformField::Camera, UniformField::SpriteSheet],
-            source: ShaderModuleSoure::Single(
-                &gpu.create_shader_module(include_wgsl!("../../static/shader/2d/text.wgsl")),
-            ),
+            source: ShaderModuleSoure::Seperate{
+                vertex: text_mesh_vertex,
+                fragment: &gpu.create_shader_module(include_wgsl!("../../static/shader/2d/text.wgsl")),
+            },
             buffers: &[
                 crate::text::Vertex2DText::DESC,
                 // Not Instance2D::DESC because of offset
@@ -443,6 +449,21 @@ impl DefaultAssets {
                         9 => Uint32,
                     ],
                 },
+            ],
+            ..Default::default()
+        });
+
+        #[cfg(feature = "text")]
+        let text_instance = gpu.create_shader(ShaderConfig {
+            name: Some("text_instance"),
+            uniforms: &[UniformField::Camera, UniformField::SpriteSheet],
+            source: ShaderModuleSoure::Seperate{
+                vertex: &shared_assets.vertex_shader_module,
+                fragment: &gpu.create_shader_module(include_wgsl!("../../static/shader/2d/text.wgsl")),
+            },
+            buffers: &[
+                crate::graphics::Vertex2D::DESC,
+                crate::text::LetterInstance2D::DESC
             ],
             ..Default::default()
         });
@@ -560,14 +581,15 @@ impl DefaultAssets {
         Self {
             sprite_sheet,
             #[cfg(feature = "text")]
-            text,
+            text_mesh,
+            #[cfg(feature = "text")]
+            text_instance,
             sprite,
             rainbow,
             grey,
             blurr,
             color,
 
-            // test,
             model,
             unit_mesh,
             depth_buffer,

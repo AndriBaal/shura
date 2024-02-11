@@ -50,6 +50,10 @@ impl Font {
             inner: Arc::new(inner),
         }
     }
+
+    pub fn sprite_sheet(&self) -> &SpriteSheet {
+        return &self.inner.sprite_sheet
+    }
 }
 
 pub(super) struct FontInner {

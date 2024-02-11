@@ -23,7 +23,7 @@ pub trait SceneCreator {
     {
         self.scene()
             .render_groups
-            .register_component::<I>(name, config);
+            .register::<I>(name, config);
         self
     }
     fn entity<E: EntityIdentifier>(self, storage: EntityStorage, scope: EntityScope) -> Self

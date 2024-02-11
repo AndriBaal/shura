@@ -150,13 +150,13 @@ impl RenderGroupManager {
         }
     }
 
-    pub(crate) fn register_component<I: Instance>(
+    pub(crate) fn register<I: Instance>(
         &mut self,
         name: &'static str,
         config: RenderGroupConfig,
     ) {
         if self.buffers.contains_key(name) {
-            panic!("Component {} already defined!", name);
+            panic!("Group \"{}\" already defined!", name);
         }
 
         self.buffers
