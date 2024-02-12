@@ -1,6 +1,6 @@
 use crate::{
     graphics::{Color, Gpu, Index, Instance, Instance2D, Mesh, MeshBuilder2D, SpriteAtlas, Vertex},
-    math::{Isometry2, Vector2, Matrix2},
+    math::{Isometry2, Matrix2, Vector2},
     prelude::ComponentInstance,
     text::Font,
 };
@@ -292,8 +292,14 @@ impl TextComponent2D {
         let mut instances = vec![];
         TextSection::compute_layout(font, sections, |letter| {
             let rotation = letter.section.offset.rotation;
+            let rotation_axis = letter.section.offset.translation.vector;
+            let mut pos = letter.bottom_left + letter.size / 2.0;
+
+            let delta = pos - rotation_axis;
+            pos = rotation_axis + rotation * delta;
+
             instances.push(LetterComponent2D(LetterInstance2D(Instance2D {
-                pos: letter.bottom_left + letter.size / 2.0,
+                pos,
                 color: letter.section.color,
                 rot: Matrix2::new(
                     letter.size.x * rotation.cos_angle(),

@@ -68,42 +68,49 @@ impl<C: ComponentInstance> Component for C {
     }
 }
 
+
+macro_rules! impl_collection_inner {
+    () => {
+        type ComponentInstance = C;
+
+        fn buffer_all(
+            &self,
+            world: &World,
+            render_group: &mut RenderGroup<<Self::ComponentInstance as ComponentInstance>::Instance>,
+        ) {
+            for component in self.iter() {
+                component.buffer_all(world, render_group);
+            }
+        }
+
+        fn init_all(&mut self, handle: EntityHandle, world: &mut World) {
+            for component in self.iter_mut() {
+                component.init_all(handle, world);
+            }
+        }
+
+        fn finish_all(&mut self, world: &mut World) {
+            for component in self.iter_mut() {
+                component.finish_all(world);
+            }
+        }
+
+        fn instances<'a>(&'a self) -> Box<dyn Iterator<Item = &dyn ComponentInstance> + 'a> {
+            Box::new(self.iter().map(|c| c as _))
+        }
+
+        fn instances_mut<'a>(
+            &'a mut self,
+        ) -> Box<dyn Iterator<Item = &mut dyn ComponentInstance> + 'a> {
+            Box::new(self.iter_mut().map(|c| c as _))
+        }
+    }
+}
+
 macro_rules! impl_collection {
     ($collection: ty) => {
         impl<C: ComponentInstance> Component for $collection {
-            type ComponentInstance = C;
-
-            fn buffer_all(
-                &self,
-                world: &World,
-                render_group: &mut RenderGroup<<Self::ComponentInstance as ComponentInstance>::Instance>,
-            ) {
-                for component in self.iter() {
-                    component.buffer_all(world, render_group);
-                }
-            }
-
-            fn init_all(&mut self, handle: EntityHandle, world: &mut World) {
-                for component in self.iter_mut() {
-                    component.init_all(handle, world);
-                }
-            }
-
-            fn finish_all(&mut self, world: &mut World) {
-                for component in self.iter_mut() {
-                    component.finish_all(world);
-                }
-            }
-
-            fn instances<'a>(&'a self) -> Box<dyn Iterator<Item = &dyn ComponentInstance> + 'a> {
-                Box::new(self.iter().map(|c| c as _))
-            }
-
-            fn instances_mut<'a>(
-                &'a mut self,
-            ) -> Box<dyn Iterator<Item = &mut dyn ComponentInstance> + 'a> {
-                Box::new(self.iter_mut().map(|c| c as _))
-            }
+            impl_collection_inner!();
         }
     };
 }
@@ -147,6 +154,11 @@ macro_rules! impl_collection_map {
         }
     };
 }
+
+impl<const U: usize, C: ComponentInstance> Component for [C; U] {
+    impl_collection_inner!();
+}
+
 
 impl_collection!(Vec<C>);
 impl_collection!(Option<C>);
