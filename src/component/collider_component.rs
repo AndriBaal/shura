@@ -1,7 +1,7 @@
 use crate::{
-    component::ComponentInstance,
+    component::Component,
     entity::EntityHandle,
-    graphics::{Color, Instance2D, SpriteAtlas, SpriteSheetIndex},
+    graphics::{Color, Instance2D, RenderGroup, SpriteAtlas, SpriteSheetIndex},
     math::Vector2,
     physics::{Collider, ColliderHandle, World},
 };
@@ -122,35 +122,49 @@ impl ColliderComponent {
     pub fn set_active(&mut self, active: bool) {
         self.active = active;
     }
-}
 
-impl ComponentInstance for ColliderComponent {
-    type Instance = Instance2D;
-
-    fn instance(&self, world: &World) -> Self::Instance {
-        match &self.status {
+    pub fn instance(&self, world: &World) -> Instance2D {
+        let instance = match &self.status {
             ColliderComponentStatus::Initialized { collider_handle } => {
                 if let Some(collider) = world.collider(*collider_handle) {
-                    return Instance2D::new(
+                    Instance2D::new(
                         *collider.position(),
                         self.scale,
                         self.atlas,
                         self.color,
                         self.index,
-                    );
+                    )
+                } else {
+                    Instance2D::default()
                 }
             }
             ColliderComponentStatus::Uninitialized { collider } => {
-                return Instance2D::new(
+                Instance2D::new(
                     *collider.position(),
                     self.scale,
                     self.atlas,
                     self.color,
                     self.index,
-                );
+                )
             }
+        };
+        return instance;
+    }
+}
+
+impl Component for ColliderComponent {
+    type Instance = Instance2D;
+
+    fn buffer(
+        &self,
+        world: &World,
+        render_group: &mut RenderGroup<Self::Instance>,
+    ) where
+        Self: Sized,
+    {
+        if self.active {
+            render_group.push(self.instance(world));
         }
-        Instance2D::default()
     }
 
     fn init(&mut self, handle: EntityHandle, world: &mut World) {
@@ -172,9 +186,5 @@ impl ComponentInstance for ColliderComponent {
             }
             ColliderComponentStatus::Uninitialized { .. } => (),
         }
-    }
-
-    fn active(&self) -> bool {
-        self.active
     }
 }

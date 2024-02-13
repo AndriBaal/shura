@@ -128,9 +128,9 @@ impl<'a> Context<'a> {
                 if !ser_entities.contains_key(&ty.entity_type_id()) {
                     for (_, entity) in ty.dyn_iter() {
                         for collection in entity.components() {
-                            for component in collection.instances() {
-                                world_cpy.remove_no_maintain(component);
-                            }
+                            // for component in collection.instances() {
+                            //     world_cpy.remove_no_maintain(component);
+                            // }
                         }
                     }
                 }

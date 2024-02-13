@@ -176,10 +176,10 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
         .iter()
         .map(|(_, (group_name, type_name, field_names))| {
             quote! {
-                let buffer = buffers.get_mut::<<<#type_name as shura::component::Component>::ComponentInstance as shura::component::ComponentInstance>::Instance>(#group_name).expect(&format!("Cannot find RenderGroup {}!", #group_name));
+                let buffer = buffers.get_mut::<<#type_name as ::shura::component::Component>::Instance>(#group_name).expect(&format!("Cannot find RenderGroup {}!", #group_name));
                 if buffer.needs_update() {
                     for e in entities.clone() {
-                        #( e.#field_names.buffer_all(world, buffer); ) *
+                        #( e.#field_names.buffer(world, buffer); ) *
                     }
                 }
             }
@@ -188,32 +188,32 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
     let components = components.iter().collect::<Vec<_>>();
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
     quote!(
-        impl #impl_generics shura::entity::EntityIdentifier for #struct_name #ty_generics #where_clause {
+        impl #impl_generics ::shura::entity::EntityIdentifier for #struct_name #ty_generics #where_clause {
             const TYPE_NAME: &'static str = #struct_identifier;
-            const IDENTIFIER: shura::entity::EntityId = shura::entity::EntityId::new(#hash);
+            const IDENTIFIER: ::shura::entity::EntityId = ::shura::entity::EntityId::new(#hash);
 
-            fn entity_type_id(&self) -> shura::entity::EntityId {
+            fn entity_type_id(&self) -> ::shura::entity::EntityId {
                 Self::IDENTIFIER
             }
         }
 
-        impl #impl_generics shura::entity::Entity for #struct_name #ty_generics #where_clause {
-            fn init(&mut self, handle: shura::entity::EntityHandle, world: &mut shura::physics::World) {
-                use shura::component::Component;
-                #( self.#components.init_all(handle, world); )*
+        impl #impl_generics ::shura::entity::Entity for #struct_name #ty_generics #where_clause {
+            fn init(&mut self, handle: ::shura::entity::EntityHandle, world: &mut ::shura::physics::World) {
+                use ::shura::component::Component;
+                #( self.#components.init(handle, world); )*
                 #( self.#handles = handle; )*
             }
 
-            fn finish(&mut self, world: &mut shura::physics::World) {
-                use shura::component::Component;
-                #( self.#components.finish_all(world); )*
+            fn finish(&mut self, world: &mut ::shura::physics::World) {
+                use ::shura::component::Component;
+                #( self.#components.finish(world); )*
                 #( self.#handles = Default::default(); )*
             }
 
             fn buffer<'a>(
-                entities: impl shura::entity::RenderEntityIterator<'a, Self>,
-                buffers: &mut shura::graphics::RenderGroupManager,
-                world: &shura::physics::World,
+                entities: impl ::shura::entity::RenderEntityIterator<'a, Self>,
+                buffers: &mut ::shura::graphics::RenderGroupManager,
+                world: &::shura::physics::World,
             ) {
                 #( #buffer )*
             }
@@ -224,24 +224,24 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
 
             fn components<'a>(
                 &'a self,
-            ) -> Box<dyn DoubleEndedIterator<Item = &dyn shura::component::Component> + 'a>{
+            ) -> Box<dyn DoubleEndedIterator<Item = &dyn ::shura::component::Component> + 'a>{
                 Box::new([ #( &self.#components as _, )* ].into_iter())
             }
 
             fn components_mut<'a>(
                 &'a mut self,
-            ) -> Box<dyn DoubleEndedIterator<Item = &mut dyn shura::component::Component> + 'a>{
+            ) -> Box<dyn DoubleEndedIterator<Item = &mut dyn ::shura::component::Component> + 'a>{
                 Box::new([ #( &mut self.#components as _, )* ].into_iter())
             }
 
-            fn component(&self, name: &'static str) -> Option<&dyn shura::component::Component> {
+            fn component(&self, name: &'static str) -> Option<&dyn ::shura::component::Component> {
                 match name {
                     #( #component, )*
                     _ => None
                 }
             }
 
-            fn component_mut(&mut self, name: &'static str) -> Option<&mut dyn shura::component::Component> {
+            fn component_mut(&mut self, name: &'static str) -> Option<&mut dyn ::shura::component::Component> {
                 match name {
                     #( #component_mut, )*
                     _ => None
@@ -268,34 +268,34 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
     quote!(
 
-        impl #impl_generics shura::component::Component for #struct_name #ty_generics #where_clause {
-            type ComponentInstance = <#ty as shura::component::Component>::ComponentInstance;
+        impl #impl_generics ::shura::component::Component for #struct_name #ty_generics #where_clause {
+            type Instance = #ty::Instance;
         
-            fn buffer_all(
+            fn buffer(
                 &self,
-                world: &shura::physics::World,
-                render_group: &mut shura::graphics::RenderGroup<<Self::ComponentInstance as shura::component::ComponentInstance>::Instance>,
+                world: &::shura::physics::World,
+                render_group: &mut ::shura::graphics::RenderGroup<Self::Instance>,
             ) where
                 Self: Sized,
             {   
-                #( self.#field_names.buffer_all(world, render_group); )*
+                #( self.#field_names.buffer(world, render_group); )*
             }
         
-            fn init_all(&mut self, handle: shura::entity::EntityHandle, world: &mut shura::physics::World) {
-                #( self.#field_names.init_all(handle, world); )*
+            fn init(&mut self, handle: ::shura::entity::EntityHandle, world: &mut ::shura::physics::World) {
+                #( self.#field_names.init(handle, world); )*
             }
         
-            fn finish_all(&mut self, world: &mut shura::physics::World) {
-                #( self.#field_names.finish_all(world); )*
+            fn finish(&mut self, world: &mut ::shura::physics::World) {
+                #( self.#field_names.finish(world); )*
             }
 
-            fn instances<'a>(&'a self) -> Box<dyn Iterator<Item = &dyn shura::component::ComponentInstance> + 'a> {
-                Box::new([#( self.#field_names.instances(), )*].into_iter().flatten())
-            }
+            // fn instances<'a>(&'a self) -> Box<dyn Iterator<Item = &dyn ::shura::component::Instance> + 'a> {
+            //     Box::new([#( self.#field_names.instances(), )*].into_iter().flatten())
+            // }
         
-            fn instances_mut<'a>(&'a mut self) -> Box<dyn Iterator<Item = &mut dyn shura::component::ComponentInstance> + 'a> {
-                Box::new([#( self.#field_names.instances_mut(), )*].into_iter().flatten())
-            }
+            // fn instances_mut<'a>(&'a mut self) -> Box<dyn Iterator<Item = &mut dyn ::shura::component::Instance> + 'a> {
+            //     Box::new([#( self.#field_names.instances_mut(), )*].into_iter().flatten())
+            // }
         }
         
     )
@@ -311,14 +311,14 @@ pub fn main(_args: TokenStream, item: TokenStream) -> TokenStream {
 
         #[cfg(target_os = "android")]
         #[no_mangle]
-        fn android_main(app: shura::winit::platform::android::activity::AndroidApp) {
-            app(shura::app::AppConfig::new(app));
+        fn android_main(app: ::shura::winit::platform::android::activity::AndroidApp) {
+            app(::shura::app::AppConfig::new(app));
         }
 
         #[cfg(not(target_os = "android"))]
         #[allow(dead_code)]
         fn main() {
-            app(shura::app::AppConfig::new());
+            app(::shura::app::AppConfig::new());
         }
     )
     .into()

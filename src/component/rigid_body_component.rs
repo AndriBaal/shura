@@ -1,10 +1,9 @@
 use crate::{
-    component::ComponentInstance,
+    component::Component,
     entity::EntityHandle,
-    graphics::{Color, Instance2D, SpriteAtlas, SpriteSheetIndex},
+    graphics::{Color, Instance2D, RenderGroup, SpriteAtlas, SpriteSheetIndex},
     math::Vector2,
-    physics::World,
-    physics::{Collider, ColliderHandle, RigidBody, RigidBodyHandle},
+    physics::{Collider, ColliderHandle, RigidBody, RigidBodyHandle, World},
 };
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -176,36 +175,36 @@ impl RigidBodyComponent {
     pub fn set_active(&mut self, active: bool) {
         self.active = active;
     }
-}
 
-impl ComponentInstance for RigidBodyComponent {
-    type Instance = Instance2D;
-
-    fn instance(&self, world: &World) -> Self::Instance {
-        match &self.status {
+    pub fn instance(&self, world: &World) -> Instance2D {
+        let instance = match &self.status {
             RigidBodyComponentStatus::Initialized { rigid_body_handle } => {
                 if let Some(rigid_body) = world.rigid_body(*rigid_body_handle) {
-                    return Instance2D::new(
+                    Instance2D::new(
                         *rigid_body.position(),
                         self.scale,
                         self.atlas,
                         self.color,
                         self.index,
-                    );
+                    )
+                } else {
+                    Instance2D::default()
                 }
             }
-            RigidBodyComponentStatus::Uninitialized { rigid_body, .. } => {
-                return Instance2D::new(
-                    *rigid_body.position(),
-                    self.scale,
-                    self.atlas,
-                    self.color,
-                    self.index,
-                );
-            }
-        }
-        Instance2D::default()
+            RigidBodyComponentStatus::Uninitialized { rigid_body, .. } => Instance2D::new(
+                *rigid_body.position(),
+                self.scale,
+                self.atlas,
+                self.color,
+                self.index,
+            ),
+        };
+        return instance;
     }
+}
+
+impl Component for RigidBodyComponent {
+    type Instance = Instance2D;
 
     fn init(&mut self, handle: EntityHandle, world: &mut World) {
         match self.status {
@@ -236,7 +235,12 @@ impl ComponentInstance for RigidBodyComponent {
         }
     }
 
-    fn active(&self) -> bool {
-        self.active
+    fn buffer(&self, world: &World, render_group: &mut RenderGroup<Self::Instance>)
+    where
+        Self: Sized,
+    {
+        if self.active {
+            render_group.push(self.instance(world));
+        }
     }
 }

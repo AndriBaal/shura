@@ -1,8 +1,5 @@
 use crate::{
-    component::ComponentInstance,
-    graphics::{Color, Instance2D, Instance3D, SpriteAtlas, SpriteSheetIndex},
-    math::{Isometry2, Isometry3, Rotation2, Rotation3, Vector2, Vector3},
-    physics::World,
+    component::Component, entity::EntityHandle, graphics::{Color, Instance2D, Instance3D, RenderGroup, SpriteAtlas, SpriteSheetIndex}, math::{Isometry2, Isometry3, Rotation2, Rotation3, Vector2, Vector3}, physics::World
 };
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -139,19 +136,35 @@ impl PositionComponent2D {
         self.set_index(index);
         self
     }
-}
 
-impl ComponentInstance for PositionComponent2D {
-    type Instance = Instance2D;
-
-    fn instance(&self, _world: &World) -> Self::Instance {
+    pub fn instance(&self) -> Instance2D {
         self.instance
     }
+}
 
-    fn active(&self) -> bool {
-        self.active
+impl Component for PositionComponent2D {
+    type Instance = Instance2D;
+
+    fn buffer(
+        &self,
+        _world: &World,
+        render_group: &mut RenderGroup<Self::Instance>,
+    ) where
+        Self: Sized {
+        if self.active {
+            render_group.push(self.instance())
+        }
+    }
+
+    fn init(&mut self, _handle: EntityHandle, _world: &mut World) {
+    }
+
+    fn finish(&mut self, _world: &mut World) {
     }
 }
+
+
+
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone)]
@@ -241,16 +254,30 @@ impl PositionComponent3D {
         self.set_scaling(scaling);
         self
     }
-}
 
-impl ComponentInstance for PositionComponent3D {
-    type Instance = Instance3D;
-
-    fn instance(&self, _world: &World) -> Self::Instance {
+    pub fn instance(&self) -> Instance3D {
         Instance3D::new(self.position, self.scaling)
     }
+}
 
-    fn active(&self) -> bool {
-        self.active
+impl Component for PositionComponent3D {
+    type Instance = Instance3D;
+
+    fn buffer(
+        &self,
+        _world: &World,
+        render_group: &mut RenderGroup<Self::Instance>,
+    ) where
+        Self: Sized {
+        if self.active {
+            render_group.push(self.instance())
+        }
+    }
+
+    fn init(&mut self, _handle: EntityHandle, _world: &mut World) {
+    }
+
+    fn finish(&mut self, _world: &mut World) {
     }
 }
+

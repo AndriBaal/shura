@@ -47,12 +47,12 @@ pub trait Entity: 'static + Downcast {
         Self: Sized;
     fn init(&mut self, handle: EntityHandle, world: &mut World) {
         for component in self.components_mut() {
-            component.init_all(handle, world);
+            component.init(handle, world);
         }
     }
     fn finish(&mut self, world: &mut World) {
         for component in self.components_mut() {
-            component.finish_all(world);
+            component.finish(world);
         }
     }
     fn tags() -> &'static [&'static str]
