@@ -1,10 +1,14 @@
 use crate::{
-    graphics::{Color, Gpu, Index, Instance, Instance2D, Mesh, MeshBuilder2D, SpriteAtlas, Vertex},
-    math::{Isometry2, Matrix2, Vector2},
     component::Component,
+    entity::EntityHandle,
+    graphics::{
+        Color, Gpu, Index, Instance, Instance2D, Mesh, MeshBuilder2D, RenderGroup, SpriteAtlas,
+        SpriteSheetIndex, Vertex,
+    },
+    math::{Isometry2, Matrix2, Vector2},
+    physics::World,
     text::Font,
 };
-use shura_proc::Component;
 use wgpu::vertex_attr_array;
 
 #[repr(C)]
@@ -251,74 +255,83 @@ impl Instance for LetterInstance2D {
     const ATTRIBUTES: &'static [wgpu::VertexAttribute] = Instance2D::ATTRIBUTES;
 }
 
-// pub struct LetterComponent2D {
-//     pub active: bool,
-//     pub color: Color,
-//     pub scale: Vector<f32>
-// }
-// pub struct LetterComponent2D(pub LetterInstance2D);
-// impl ComponentInstance for LetterComponent2D {
-//     type Instance = LetterInstance2D;
+pub struct Letter {
+    pub pos: Isometry2<f32>,
+    pub active: bool,
+    pub color: Color,
+    pub scale: Vector2<f32>,
+    pub atlas: SpriteAtlas,
+    pub index: SpriteSheetIndex,
+}
+pub struct TextComponent2D {
+    pub letters: Vec<Letter>,
+    pub font: Font,
+    pub offset: Isometry2<f32>,
+}
 
-//     fn instance(&self, _world: &crate::physics::World) -> Self::Instance {
-//         self.0
-//     }
+impl Component for TextComponent2D {
+    type Instance = LetterInstance2D;
+    fn buffer(&self, _world: &World, render_group: &mut RenderGroup<Self::Instance>) {
+        for letter in &self.letters {
+            let rotation = letter.pos.rotation * self.offset.rotation;
+            let instance = LetterInstance2D(Instance2D {
+                pos: letter.pos.translation.vector + self.offset.translation.vector,
+                color: letter.color,
+                rot: Matrix2::new(
+                    letter.scale.x * rotation.cos_angle(),
+                    letter.scale.x * rotation.sin_angle(),
+                    letter.scale.y * -rotation.sin_angle(),
+                    letter.scale.y * rotation.cos_angle(),
+                ),
+                atlas: SpriteAtlas::new(letter.scale, Vector2::default()),
+                sprite_sheet_index: letter.index,
+            });
+            render_group.push(instance)
+        }
+    }
+    fn init(&mut self, _handle: EntityHandle, _world: &mut World) {}
+    fn finish(&mut self, _world: &mut World) {}
+}
 
-//     fn active(&self) -> bool {
-//         true
-//     }
-// }
+impl TextComponent2D {
+    pub fn new<S: AsRef<str>>(font: &Font, sections: &[TextSection<S>]) -> Self {
+        let letters = Self::compute_instances(font, sections);
+        Self {
+            letters,
+            font: font.clone(),
+            offset: Isometry2::default(),
+        }
+    }
 
-// use crate as shura;
-// #[derive(Component)]
-// pub struct TextComponent2D {
-//     #[shura(component)]
-//     pub letters: Vec<LetterComponent2D>,
-//     pub font: Font,
-// }
+    pub fn write<S: AsRef<str>>(&mut self, sections: &[TextSection<S>]) {
+        self.letters = Self::compute_instances(&self.font, sections);
+    }
 
-// impl TextComponent2D {
-//     pub fn new<S: AsRef<str>>(font: &Font, sections: &[TextSection<S>]) -> Self {
-//         let letters = Self::compute_instances(font, sections);
-//         Self {
-//             letters,
-//             font: font.clone(),
-//         }
-//     }
+    pub fn compute_instances<S: AsRef<str>>(
+        font: &Font,
+        sections: &[TextSection<S>],
+    ) -> Vec<Letter> {
+        let mut instances = vec![];
+        TextSection::compute_layout(font, sections, |letter| {
+            let rotation = letter.section.offset.rotation;
+            let rotation_axis = letter.section.offset.translation.vector;
+            let mut pos = letter.bottom_left + letter.size / 2.0;
 
-//     pub fn write<S: AsRef<str>>(&mut self, sections: &[TextSection<S>]) {
-//         self.letters = Self::compute_instances(&self.font, sections);
-//     }
+            let delta = pos - rotation_axis;
+            pos = rotation_axis + rotation * delta;
 
-//     pub fn compute_instances<S: AsRef<str>>(
-//         font: &Font,
-//         sections: &[TextSection<S>],
-//     ) -> Vec<LetterComponent2D> {
-//         let mut instances = vec![];
-//         TextSection::compute_layout(font, sections, |letter| {
-//             let rotation = letter.section.offset.rotation;
-//             let rotation_axis = letter.section.offset.translation.vector;
-//             let mut pos = letter.bottom_left + letter.size / 2.0;
-
-//             let delta = pos - rotation_axis;
-//             pos = rotation_axis + rotation * delta;
-
-//             instances.push(LetterComponent2D(LetterInstance2D(Instance2D {
-//                 pos,
-//                 color: letter.section.color,
-//                 rot: Matrix2::new(
-//                     letter.size.x * rotation.cos_angle(),
-//                     letter.size.x * rotation.sin_angle(),
-//                     letter.size.y * -rotation.sin_angle(),
-//                     letter.size.y * rotation.cos_angle(),
-//                 ),
-//                 atlas: SpriteAtlas::new(letter.scale, Vector2::default()),
-//                 sprite_sheet_index: letter.id,
-//             })));
-//         });
-//         return instances;
-//     }
-// }
+            instances.push(Letter {
+                pos: Isometry2::new(pos, rotation.angle()),
+                active: true,
+                color: letter.section.color,
+                scale: letter.size,
+                atlas: SpriteAtlas::new(letter.scale, Vector2::default()),
+                index: letter.id,
+            });
+        });
+        return instances;
+    }
+}
 
 struct FormattedGlyph<'a, S: AsRef<str>> {
     size: Vector2<f32>,

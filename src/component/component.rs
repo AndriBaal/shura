@@ -16,6 +16,9 @@ pub trait Component: Downcast {
         Self: Sized;
     fn init(&mut self, handle: EntityHandle, world: &mut World);
     fn finish(&mut self, world: &mut World);
+
+    
+    // fn do_something(&self, world: &mut World) {}
     // fn children(&self) -> impl Iterator<Item = &Self> where Self: Sized;
     // fn children_mut(&mut self) -> impl Iterator<Item = &mut Self> where Self: Sized;
     // fn components<'a>(&'a self) -> Box<dyn Iterator<Item = &dyn Component> + 'a>;
@@ -66,16 +69,6 @@ macro_rules! impl_collection_inner {
                 component.finish(world);
             }
         }
-
-        // fn instances<'a>(&'a self) -> Box<dyn Iterator<Item = &dyn Component> + 'a> {
-        //     Box::new(self.iter().map(|c| c as _))
-        // }
-
-        // fn instances_mut<'a>(
-        //     &'a mut self,
-        // ) -> Box<dyn Iterator<Item = &mut dyn Component> + 'a> {
-        //     Box::new(self.iter_mut().map(|c| c as _))
-        // }
     }
 }
 
@@ -112,16 +105,6 @@ macro_rules! impl_collection_map {
                     component.finish(world);
                 }
             }
-
-            // fn instances<'a>(&'a self) -> Box<dyn Iterator<Item = &dyn Component> + 'a> {
-            //     Box::new(self.values().map(|c| c as _))
-            // }
-
-            // fn instances_mut<'a>(
-            //     &'a mut self,
-            // ) -> Box<dyn Iterator<Item = &mut dyn Component> + 'a> {
-            //     Box::new(self.values_mut().map(|c| c as _))
-            // }
         }
     };
 }
