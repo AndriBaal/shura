@@ -72,24 +72,24 @@ pub trait SceneCreator {
 #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 #[non_exhaustive]
 pub struct Scene {
-    pub(crate) render_entities: bool,
-    pub(crate) screen_config: ScreenConfig,
-    pub(crate) world_camera2d: WorldCamera2D,
-    pub(crate) world_camera3d: WorldCamera3D,
-    pub(crate) groups: EntityGroupManager,
-    pub(crate) world: World,
+    pub render_entities: bool,
+    pub screen_config: ScreenConfig,
+    pub world_camera2d: WorldCamera2D,
+    pub world_camera3d: WorldCamera3D,
+    pub groups: EntityGroupManager,
+    pub world: World,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default = "EntityManager::new"))]
-    pub(crate) entities: EntityManager,
+    pub entities: EntityManager,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default = "SystemManager::new"))]
-    pub(crate) systems: SystemManager,
+    pub systems: SystemManager,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default = "RenderGroupManager::new"))]
-    pub(crate) render_groups: RenderGroupManager,
+    pub render_groups: RenderGroupManager,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default = "TaskManager::new"))]
-    pub(crate) tasks: TaskManager,
+    pub tasks: TaskManager,
 }
 
 impl Scene {

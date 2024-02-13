@@ -71,7 +71,7 @@ impl SceneManager {
         return self.scenes.get(&id).cloned();
     }
 
-    pub(crate) fn add(&mut self, id: u32, scene: impl Into<Scene>) {
+    pub fn add(&mut self, id: u32, scene: impl Into<Scene>) {
         let mut scene = scene.into();
         scene.entities.apply_registered(&self.global_entities);
         assert!(!self.scenes.contains_key(&id));

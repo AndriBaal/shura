@@ -119,10 +119,8 @@ fn entity_name(ast: &DeriveInput) -> Option<Expr> {
                 if meta.path.is_ident(attr_name) {
                     let value = meta.value()?;
                     let s: LitStr = value.parse()?;
-                    if s.value() == attr_name {
-                        assert!(result.is_none(), "{attr_name} is already defined!");
-                        result = Some(syn::parse_str::<Expr>(&s.value()).unwrap())
-                    }
+                    assert!(result.is_none(), "{attr_name} is already defined!");
+                    result = Some(syn::parse_str::<Expr>(&s.value()).unwrap())
                 }
                 Ok(())
             })
