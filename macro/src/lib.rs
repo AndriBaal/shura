@@ -269,7 +269,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     quote!(
 
         impl #impl_generics ::shura::component::Component for #struct_name #ty_generics #where_clause {
-            type Instance = #ty::Instance;
+            type Instance = <#ty as ::shura::component::Component>::Instance;
         
             fn buffer(
                 &self,
