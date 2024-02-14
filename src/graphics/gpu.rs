@@ -182,7 +182,11 @@ impl Gpu {
     }
 
     #[cfg(feature = "text")]
-    pub fn create_text_mesh<S: AsRef<str>>(&self, font: &Font, sections: &[TextSection<S>]) -> TextMesh {
+    pub fn create_text_mesh<S: AsRef<str>>(
+        &self,
+        font: &Font,
+        sections: &[TextSection<S>],
+    ) -> TextMesh {
         TextMesh::new(self, font, sections)
     }
 
@@ -424,15 +428,18 @@ impl DefaultAssets {
         });
 
         #[cfg(feature = "text")]
-        let text_mesh_vertex = &gpu.create_shader_module(include_wgsl!("../../static/shader/2d/vertex_text_mesh.wgsl"));
+        let text_mesh_vertex = &gpu.create_shader_module(include_wgsl!(
+            "../../static/shader/2d/vertex_text_mesh.wgsl"
+        ));
 
         #[cfg(feature = "text")]
         let text_mesh = gpu.create_shader(ShaderConfig {
             name: Some("text_vertex"),
             uniforms: &[UniformField::Camera, UniformField::SpriteSheet],
-            source: ShaderModuleSoure::Seperate{
+            source: ShaderModuleSoure::Seperate {
                 vertex: text_mesh_vertex,
-                fragment: &gpu.create_shader_module(include_wgsl!("../../static/shader/2d/text.wgsl")),
+                fragment: &gpu
+                    .create_shader_module(include_wgsl!("../../static/shader/2d/text.wgsl")),
             },
             buffers: &[
                 crate::text::Vertex2DText::DESC,
@@ -457,13 +464,14 @@ impl DefaultAssets {
         let text_instance = gpu.create_shader(ShaderConfig {
             name: Some("text_instance"),
             uniforms: &[UniformField::Camera, UniformField::SpriteSheet],
-            source: ShaderModuleSoure::Seperate{
+            source: ShaderModuleSoure::Seperate {
                 vertex: &shared_assets.vertex_shader_module,
-                fragment: &gpu.create_shader_module(include_wgsl!("../../static/shader/2d/text.wgsl")),
+                fragment: &gpu
+                    .create_shader_module(include_wgsl!("../../static/shader/2d/text.wgsl")),
             },
             buffers: &[
                 crate::graphics::Vertex2D::DESC,
-                crate::text::LetterInstance2D::DESC
+                crate::text::LetterInstance2D::DESC,
             ],
             ..Default::default()
         });

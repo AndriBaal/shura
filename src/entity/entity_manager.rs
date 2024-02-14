@@ -117,11 +117,7 @@ impl EntityManager {
         }
     }
 
-    pub fn components_each(
-        &self,
-        tag: &'static str,
-        each: impl Fn(EntityHandle, &dyn Component),
-    ) {
+    pub fn components_each(&self, tag: &'static str, each: impl Fn(EntityHandle, &dyn Component)) {
         if let Some(type_ids) = self.components.get(tag) {
             for type_id in type_ids {
                 let ty = self.types.get(type_id).unwrap();
@@ -185,7 +181,6 @@ impl EntityManager {
         }
     }
 
-
     pub fn retain_entities_for_component(
         &self,
         world: &mut World,
@@ -200,7 +195,7 @@ impl EntityManager {
             }
         }
     }
-    
+
     pub fn component_mapping(&self) -> &FxHashMap<&'static str, Vec<EntityId>> {
         &self.components
     }

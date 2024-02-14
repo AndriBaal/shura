@@ -177,7 +177,11 @@ impl TextMesh {
         let mut vertices: Vec<Vertex2DText> = vec![];
         let mut indices: Vec<Index> = vec![];
 
-        fn compute_modifed_vertices(vertices: &mut [Vertex2DText], offset: Isometry2<f32>, rotation_axis: Vector2<f32>) {
+        fn compute_modifed_vertices(
+            vertices: &mut [Vertex2DText],
+            offset: Isometry2<f32>,
+            rotation_axis: Vector2<f32>,
+        ) {
             let angle = offset.rotation.angle();
             if angle != MeshBuilder2D::DEFAULT_ROTATION {
                 for v in vertices.iter_mut() {
@@ -226,7 +230,11 @@ impl TextMesh {
                 },
             ]);
             let offset = vertices.len() - 4;
-            compute_modifed_vertices(&mut vertices[offset..], letter.section.offset, letter.section.rotation_axis);
+            compute_modifed_vertices(
+                &mut vertices[offset..],
+                letter.section.offset,
+                letter.section.rotation_axis,
+            );
             indices.extend([
                 Index::new(base_index, base_index + 1, base_index + 2),
                 Index::new(base_index + 2, base_index + 3, base_index),
@@ -270,7 +278,7 @@ pub struct TextComponent2D {
     pub letters: Vec<Letter>,
     pub font: Font,
     pub offset: Isometry2<f32>,
-    pub scale: Vector2<f32>
+    pub scale: Vector2<f32>,
 }
 
 impl Component for TextComponent2D {

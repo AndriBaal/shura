@@ -7,6 +7,7 @@ use crate::{
 pub type SetupSystem = Box<dyn Fn(&mut Context)>;
 pub type ResizeSystem = Box<dyn Fn(&mut Context)>;
 pub type UpdateSystem = Box<dyn Fn(&mut Context)>;
+pub type SwitchSystem = Box<dyn Fn(&mut Context, u32)>;
 pub type RenderSystem = Box<dyn Fn(&RenderContext, &mut RenderEncoder)>;
 pub type EndSystem = Box<dyn Fn(&mut Context, EndReason)>;
 
@@ -21,6 +22,7 @@ enum SystemType {
     Setup(SetupSystem),
     Update(UpdateSystem),
     Resize(ResizeSystem),
+    Switch(SwitchSystem),
     UpdateNFrame(u64, UpdateSystem),
     UpdateAfter(Duration, UpdateSystem),
     Render(RenderSystem),
@@ -35,6 +37,9 @@ impl System {
     }
     pub fn update(system: impl Fn(&mut Context) + 'static) -> Self {
         Self(SystemType::Update(Box::new(system)))
+    }
+    pub fn switch(system: impl Fn(&mut Context, u32) + 'static) -> Self {
+        Self(SystemType::Switch(Box::new(system)))
     }
     pub fn resize(system: impl Fn(&mut Context) + 'static) -> Self {
         Self(SystemType::Resize(Box::new(system)))
@@ -62,6 +67,7 @@ pub enum UpdateOperation {
 #[derive(Default)]
 pub struct SystemManager {
     pub setup_systems: Vec<SetupSystem>,
+    pub switch_systems: Vec<SwitchSystem>,
     pub resize_systems: Vec<ResizeSystem>,
     pub update_systems: Vec<(UpdateOperation, UpdateSystem)>,
     pub end_systems: Vec<EndSystem>,
@@ -89,6 +95,7 @@ impl SystemManager {
             SystemType::End(end) => self.end_systems.push(end),
             SystemType::Resize(resize) => self.resize_systems.push(resize),
             SystemType::Setup(setup) => self.setup_systems.push(setup),
+            SystemType::Switch(switch) => self.switch_systems.push(switch),
         }
     }
 }

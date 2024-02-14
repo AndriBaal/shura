@@ -138,15 +138,13 @@ impl ColliderComponent {
                     Instance2D::default()
                 }
             }
-            ColliderComponentStatus::Uninitialized { collider } => {
-                Instance2D::new(
-                    *collider.position(),
-                    self.scale,
-                    self.atlas,
-                    self.color,
-                    self.index,
-                )
-            }
+            ColliderComponentStatus::Uninitialized { collider } => Instance2D::new(
+                *collider.position(),
+                self.scale,
+                self.atlas,
+                self.color,
+                self.index,
+            ),
         };
         return instance;
     }
@@ -155,11 +153,8 @@ impl ColliderComponent {
 impl Component for ColliderComponent {
     type Instance = Instance2D;
 
-    fn buffer(
-        &self,
-        world: &World,
-        render_group: &mut RenderGroup<Self::Instance>,
-    ) where
+    fn buffer(&self, world: &World, render_group: &mut RenderGroup<Self::Instance>)
+    where
         Self: Sized,
     {
         if self.active {
@@ -186,5 +181,9 @@ impl Component for ColliderComponent {
             }
             ColliderComponentStatus::Uninitialized { .. } => (),
         }
+    }
+
+    fn remove_from_world(&self, world: &mut World) {
+        world.remove_no_maintain_collider(self)
     }
 }

@@ -261,41 +261,38 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     let struct_name = ast.ident.clone();
     let inner = inner_components(data_struct);
     let field_names = inner.iter().map(|i| &i.0).collect::<Vec<_>>();
-    assert!(!inner.is_empty(), "At least one component has to be defined with: #[shura(component)]");
+    assert!(
+        !inner.is_empty(),
+        "At least one component has to be defined with: #[shura(component)]"
+    );
     let ty = inner[0].1.clone();
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
     quote!(
 
         impl #impl_generics ::shura::component::Component for #struct_name #ty_generics #where_clause {
             type Instance = <#ty as ::shura::component::Component>::Instance;
-        
             fn buffer(
                 &self,
                 world: &::shura::physics::World,
                 render_group: &mut ::shura::graphics::RenderGroup<Self::Instance>,
             ) where
                 Self: Sized,
-            {   
+            {
                 #( self.#field_names.buffer(world, render_group); )*
             }
-        
+
             fn init(&mut self, handle: ::shura::entity::EntityHandle, world: &mut ::shura::physics::World) {
                 #( self.#field_names.init(handle, world); )*
             }
-        
+
             fn finish(&mut self, world: &mut ::shura::physics::World) {
                 #( self.#field_names.finish(world); )*
             }
 
-            // fn instances<'a>(&'a self) -> Box<dyn Iterator<Item = &dyn ::shura::component::Instance> + 'a> {
-            //     Box::new([#( self.#field_names.instances(), )*].into_iter().flatten())
-            // }
-        
-            // fn instances_mut<'a>(&'a mut self) -> Box<dyn Iterator<Item = &mut dyn ::shura::component::Instance> + 'a> {
-            //     Box::new([#( self.#field_names.instances_mut(), )*].into_iter().flatten())
-            // }
+            fn remove_from_world(&self, world: &mut ::shura::physics::World) {
+                #( self.#field_names.remove_from_world(world); )*
+            }
         }
-        
     )
     .into()
 }

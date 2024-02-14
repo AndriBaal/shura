@@ -150,11 +150,7 @@ impl RenderGroupManager {
         }
     }
 
-    pub(crate) fn register<I: Instance>(
-        &mut self,
-        name: &'static str,
-        config: RenderGroupConfig,
-    ) {
+    pub(crate) fn register<I: Instance>(&mut self, name: &'static str, config: RenderGroupConfig) {
         if self.buffers.contains_key(name) {
             panic!("Group \"{}\" already defined!", name);
         }

@@ -122,7 +122,6 @@ impl AppConfig {
 
 pub struct App {
     pub end: bool,
-    pub resized: bool,
     pub time: TimeManager,
     pub scenes: SceneManager,
     pub window: Arc<Window>,
@@ -279,7 +278,6 @@ impl App {
             auto_scale_canvas: config.auto_scale_canvas,
             #[cfg(feature = "framebuffer")]
             apply_framebuffer: config.apply_frame_buffer,
-            resized: false,
             window,
             gpu,
             surface,
@@ -297,19 +295,6 @@ impl App {
             self.input.resize(new_size);
             self.surface.resize(&self.gpu, new_size);
             default_assets.resize(&self.gpu, new_size);
-
-            // #[cfg(feature = "framebuffer")]
-            // {
-            //     if let Some(scene) = self.scenes.try_get_active_scene() {
-            //         let scene = scene.borrow();
-
-            //         default_assets.apply_render_scale(
-            //             &self.surface,
-            //             &self.gpu,
-            //             scene.screen_config.render_scale(),
-            //         );
-            //     }
-            // }
         }
     }
 
@@ -338,16 +323,12 @@ impl App {
                 let size = winit::dpi::PhysicalSize::new(width, height);
                 if size != self.window.inner_size().into() {
                     self.window.set_min_inner_size(Some(size));
-                    // #[cfg(feature = "log")]
-                    // {
-                    //     info!("Adjusting canvas to browser window!");
-                    // }
                 }
             }
         }
 
-        self.resized = self.scenes.switched() || scene.screen_config.changed;
-        if self.resized {
+        let resized = self.scenes.switched().is_some() || scene.screen_config.changed;
+        if resized {
             #[cfg(feature = "framebuffer")]
             let scale = scene.screen_config.render_scale();
 
@@ -363,7 +344,7 @@ impl App {
                     )
                 };
 
-                if self.scenes.switched() {
+                if self.scenes.switched().is_some() {
                     info!("Switched to scene {}!", scene_id);
                 }
 
@@ -378,7 +359,6 @@ impl App {
                 #[cfg(feature = "framebuffer")]
                 info!("Using framebuffer scale: {}", scale);
             }
-            scene.screen_config.changed = false;
             scene.world_camera2d.resize(window_size);
             scene.world_camera3d.resize(window_size);
 
@@ -405,8 +385,7 @@ impl App {
         #[cfg(feature = "gamepad")]
         self.input.sync_gamepad();
         #[cfg(feature = "gui")]
-        self.gui
-            .begin(&self.time.total_duration(), &self.window);
+        self.gui.begin(&self.time.total_duration(), &self.window);
         let (systems, mut ctx) = Context::new(&scene_id, self, scene);
         let now = ctx.time.update();
 
@@ -414,15 +393,23 @@ impl App {
             (setup)(&mut ctx)
         }
 
-        let receiver = ctx.tasks.receiver();
-        while let Ok(callback) = receiver.try_recv() {
-            (callback)(&mut ctx);
+        if *ctx.started {
+            if let Some(last_id) = ctx.scenes.switched() {
+                for switch in &systems.switch_systems {
+                    (switch)(&mut ctx, last_id)
+                }
+            }
         }
 
-        if ctx.resized {
+        if ctx.screen_config.changed {
             for resize in &systems.resize_systems {
                 (resize)(&mut ctx);
             }
+        }
+
+        let receiver = ctx.tasks.receiver();
+        while let Ok(callback) = receiver.try_recv() {
+            (callback)(&mut ctx);
         }
 
         for (update_operation, update) in &mut systems.update_systems {
@@ -444,7 +431,8 @@ impl App {
 
             (update)(&mut ctx);
         }
-
+        scene.screen_config.changed = false;
+        scene.started = true;
         scene.groups.update(&scene.world_camera2d);
     }
 

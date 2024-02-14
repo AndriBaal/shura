@@ -58,20 +58,12 @@ pub trait Entity: 'static + Downcast {
     fn tags() -> &'static [&'static str]
     where
         Self: Sized;
-    fn components<'a>(
-        &'a self,
-    ) -> Box<dyn DoubleEndedIterator<Item = &dyn Component> + 'a>;
+    fn components<'a>(&'a self) -> Box<dyn DoubleEndedIterator<Item = &dyn Component> + 'a>;
     fn components_mut<'a>(
         &'a mut self,
     ) -> Box<dyn DoubleEndedIterator<Item = &mut dyn Component> + 'a>;
 
-    fn component<'a>(
-        &'a self,
-        name: &'static str,
-    ) -> Option<&'a dyn Component>;
-    fn component_mut<'a>(
-        &'a mut self,
-        name: &'static str,
-    ) -> Option<&'a mut dyn Component>;
+    fn component<'a>(&'a self, name: &'static str) -> Option<&'a dyn Component>;
+    fn component_mut<'a>(&'a mut self, name: &'static str) -> Option<&'a mut dyn Component>;
 }
 impl_downcast!(Entity);

@@ -235,6 +235,10 @@ impl Component for RigidBodyComponent {
         }
     }
 
+    fn remove_from_world(&self, world: &mut World) {
+        world.remove_no_maintain_rigid_body(self)
+    }
+
     fn buffer(&self, world: &World, render_group: &mut RenderGroup<Self::Instance>)
     where
         Self: Sized,

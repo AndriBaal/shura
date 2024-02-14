@@ -3,8 +3,8 @@ use std::sync::Arc;
 
 use crate::{
     entity::{
-        Entities, EntityId, EntityIdentifier, EntityManager, EntityScope, EntityType,
-        EntityStorage, GroupedEntities, SingleEntity,
+        Entities, EntityId, EntityIdentifier, EntityManager, EntityScope, EntityStorage,
+        EntityType, GroupedEntities, SingleEntity,
     },
     graphics::{Gpu, GLOBAL_GPU},
     scene::{Scene, SceneCreator},

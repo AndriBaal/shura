@@ -1,5 +1,5 @@
 #[cfg(feature = "text")]
-use crate::text::{TextMesh, LetterInstance2D, Font};
+use crate::text::{Font, LetterInstance2D, TextMesh};
 
 use crate::graphics::{
     Camera, CameraBuffer, CameraBuffer2D, Color, DefaultAssets, DepthBuffer, Gpu, Instance,
@@ -228,10 +228,14 @@ impl<'a> Renderer<'a> {
         instances: impl Into<InstanceIndices>,
         buffer: &'a InstanceBuffer<LetterInstance2D>,
         camera: &'a CameraBuffer2D,
-        font: &'a Font
+        font: &'a Font,
     ) {
         if buffer.buffer_size() != 0 {
-            self.use_shader_with_buffers(&self.default_assets.text_instance, buffer, self.default_assets.unit_mesh());
+            self.use_shader_with_buffers(
+                &self.default_assets.text_instance,
+                buffer,
+                self.default_assets.unit_mesh(),
+            );
             self.use_camera(camera);
             self.use_sprite_sheet(font.sprite_sheet(), 1);
             self.draw(instances);

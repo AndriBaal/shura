@@ -37,6 +37,7 @@ pub struct Context<'a> {
     pub world: &'a mut World,
     pub tasks: &'a mut TaskManager,
     pub render_groups: &'a mut RenderGroupManager,
+    pub started: &'a bool,
 
     // App
     pub time: &'a TimeManager,
@@ -54,7 +55,6 @@ pub struct Context<'a> {
     pub scene_id: &'a u32,
     pub window_size: Vector2<u32>,
     pub cursor: Point2<f32>,
-    pub resized: bool,
 }
 
 impl<'a> Context<'a> {
@@ -79,6 +79,7 @@ impl<'a> Context<'a> {
                 world: &mut scene.world,
                 tasks: &mut scene.tasks,
                 render_groups: &mut scene.render_groups,
+                started: &scene.started,
 
                 // App
                 time: &app.time,
@@ -96,7 +97,6 @@ impl<'a> Context<'a> {
                 scene_id,
                 window_size,
                 cursor,
-                resized: app.resized,
             },
         )
     }
@@ -128,9 +128,7 @@ impl<'a> Context<'a> {
                 if !ser_entities.contains_key(&ty.entity_type_id()) {
                     for (_, entity) in ty.dyn_iter() {
                         for component in entity.components() {
-                            // for component in collection.instances() {
-                                // world_cpy.remove_no_maintain(component);
-                            // }
+                            component.remove_from_world(&mut world_cpy);
                         }
                     }
                 }
@@ -190,12 +188,12 @@ impl<'a> Context<'a> {
                 world: &mut scene.world,
                 tasks: &mut scene.tasks,
                 render_groups: &mut scene.render_groups,
+                started: &scene.started,
 
                 // Misc
                 scene_id: &scene_id,
                 window_size,
                 cursor,
-                resized: false,
 
                 time: self.time,
                 input: self.input,

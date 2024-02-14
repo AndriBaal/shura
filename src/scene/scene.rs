@@ -1,7 +1,7 @@
 use crate::{
     entity::{
-        Entities, EntityGroupManager, EntityIdentifier, EntityManager, EntityScope, EntityType,
-        EntityStorage, GroupedEntities, SingleEntity,
+        Entities, EntityGroupManager, EntityIdentifier, EntityManager, EntityScope, EntityStorage,
+        EntityType, GroupedEntities, SingleEntity,
     },
     graphics::{
         CameraViewSelection, Instance, Instance2D, Instance3D, PerspectiveCamera3D,
@@ -21,9 +21,7 @@ pub trait SceneCreator {
     where
         Self: Sized,
     {
-        self.scene()
-            .render_groups
-            .register::<I>(name, config);
+        self.scene().render_groups.register::<I>(name, config);
         self
     }
     fn entity<E: EntityIdentifier>(self, storage: EntityStorage, scope: EntityScope) -> Self
@@ -90,6 +88,7 @@ pub struct Scene {
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default = "TaskManager::new"))]
     pub tasks: TaskManager,
+    pub started: bool,
 }
 
 impl Scene {
@@ -115,6 +114,7 @@ impl Scene {
                 Default::default(),
                 WorldCameraScaling::Min(WorldCamera2D::DEFAULT_VERTICAL_CAMERA_FOV),
             ),
+            started: false,
         }
     }
 }

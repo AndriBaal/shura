@@ -64,7 +64,7 @@ impl TimeManager {
     pub fn now(&self) -> Instant {
         Instant::now()
     }
-    
+
     pub const fn start(&self) -> Instant {
         self.start_time
     }
@@ -96,7 +96,6 @@ impl TimeManager {
     pub const fn fps(&self) -> u32 {
         self.fps
     }
-
 
     pub const fn frames_since_last_seconds(&self) -> u32 {
         self.fps_counter

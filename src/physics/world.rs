@@ -1,4 +1,7 @@
 use crate::{
+    component::{
+        ColliderComponent, ColliderComponentStatus, RigidBodyComponent, RigidBodyComponentStatus,
+    },
     entity::{EntityHandle, EntityIdentifier},
     math::{Isometry2, Point2, Vector2},
     physics::{RapierCollisionEvent, RapierContactForceEvent},
@@ -422,42 +425,34 @@ impl World {
         }
     }
 
-    #[cfg(all(feature = "serde", feature = "physics"))]
-    pub(crate) fn remove_no_maintain(&mut self, component: &dyn crate::component::Component) {
-        use crate::component::{
-            ColliderComponent, ColliderComponentStatus, RigidBodyComponentStatus,
-        };
-        if let Some(component) = component.downcast_ref::<crate::component::RigidBodyComponent>() {
-            match component.status {
-                RigidBodyComponentStatus::Initialized { rigid_body_handle } => {
-                    if let Some(rigid_body) = self.bodies.remove(
-                        rigid_body_handle,
-                        &mut self.islands,
-                        &mut self.colliders,
-                        &mut self.impulse_joints,
-                        &mut self.multibody_joints,
-                        true,
-                    ) {
-                        for collider_handle in rigid_body.colliders() {
-                            self.collider_mapping.remove(collider_handle);
-                        }
+    pub(crate) fn remove_no_maintain_rigid_body(&mut self, component: &RigidBodyComponent) {
+        match component.status {
+            RigidBodyComponentStatus::Initialized { rigid_body_handle } => {
+                if let Some(rigid_body) = self.bodies.remove(
+                    rigid_body_handle,
+                    &mut self.islands,
+                    &mut self.colliders,
+                    &mut self.impulse_joints,
+                    &mut self.multibody_joints,
+                    true,
+                ) {
+                    for collider_handle in rigid_body.colliders() {
+                        self.collider_mapping.remove(collider_handle);
                     }
                 }
-                RigidBodyComponentStatus::Uninitialized { .. } => (),
             }
-        } else if let Some(component) = component.downcast_ref::<ColliderComponent>() {
-            match component.status {
-                ColliderComponentStatus::Initialized { collider_handle } => {
-                    self.collider_mapping.remove(&collider_handle);
-                    self.colliders.remove(
-                        collider_handle,
-                        &mut self.islands,
-                        &mut self.bodies,
-                        false,
-                    );
-                }
-                ColliderComponentStatus::Uninitialized { .. } => return,
+            RigidBodyComponentStatus::Uninitialized { .. } => (),
+        }
+    }
+
+    pub(crate) fn remove_no_maintain_collider(&mut self, component: &ColliderComponent) {
+        match component.status {
+            ColliderComponentStatus::Initialized { collider_handle } => {
+                self.collider_mapping.remove(&collider_handle);
+                self.colliders
+                    .remove(collider_handle, &mut self.islands, &mut self.bodies, false);
             }
+            ColliderComponentStatus::Uninitialized { .. } => return,
         }
     }
 

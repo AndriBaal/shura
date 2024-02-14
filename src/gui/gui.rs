@@ -8,6 +8,7 @@ use crate::{
     gui::GuiContext,
     math::Vector2,
 };
+use egui::mutex::Mutex;
 use egui_wgpu::{Renderer, ScreenDescriptor};
 use egui_winit::State;
 use instant::Duration;
@@ -17,7 +18,7 @@ pub struct Gui {
     state: State,
     context: GuiContext,
     renderer: OnceLock<Renderer>,
-    screen_descriptor: ScreenDescriptor,
+    screen_descriptor: Mutex<ScreenDescriptor>,
 }
 
 impl Gui {
@@ -40,12 +41,12 @@ impl Gui {
             renderer: OnceLock::new(),
             state,
             context,
-            screen_descriptor,
+            screen_descriptor: Mutex::new(screen_descriptor),
         }
     }
 
     pub(crate) fn resize(&mut self, size: Vector2<u32>) {
-        self.screen_descriptor = ScreenDescriptor {
+        *self.screen_descriptor.lock() = ScreenDescriptor {
             size_in_pixels: [size.x, size.y],
             pixels_per_point: 1.0,
         };
@@ -89,12 +90,13 @@ impl Gui {
             renderer.update_texture(&gpu.device, &gpu.queue, add.0, &add.1);
         }
 
+        let screen_descriptor = self.screen_descriptor.lock();
         renderer.update_buffers(
             &gpu.device,
             &gpu.queue,
             &mut encoder.inner,
             &paint_jobs,
-            &self.screen_descriptor,
+            &screen_descriptor,
         );
 
         {
@@ -108,12 +110,20 @@ impl Gui {
                     occlusion_query_set: None,
                 });
 
-            renderer.render(&mut rpass, &paint_jobs, &self.screen_descriptor);
+            renderer.render(&mut rpass, &paint_jobs, &screen_descriptor);
         }
 
         for free in &output.textures_delta.free {
             renderer.free_texture(free);
         }
+    }
+
+    pub fn pixels_per_point(&self) -> f32 {
+        self.screen_descriptor.lock().pixels_per_point
+    }
+
+    pub fn set_pixels_per_point(&self, value: f32) {
+        self.screen_descriptor.lock().pixels_per_point = value
     }
 }
 

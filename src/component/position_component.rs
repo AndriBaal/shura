@@ -1,5 +1,9 @@
 use crate::{
-    component::Component, entity::EntityHandle, graphics::{Color, Instance2D, Instance3D, RenderGroup, SpriteAtlas, SpriteSheetIndex}, math::{Isometry2, Isometry3, Rotation2, Rotation3, Vector2, Vector3}, physics::World
+    component::Component,
+    entity::EntityHandle,
+    graphics::{Color, Instance2D, Instance3D, RenderGroup, SpriteAtlas, SpriteSheetIndex},
+    math::{Isometry2, Isometry3, Rotation2, Rotation3, Vector2, Vector3},
+    physics::World,
 };
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -145,26 +149,19 @@ impl PositionComponent2D {
 impl Component for PositionComponent2D {
     type Instance = Instance2D;
 
-    fn buffer(
-        &self,
-        _world: &World,
-        render_group: &mut RenderGroup<Self::Instance>,
-    ) where
-        Self: Sized {
+    fn buffer(&self, _world: &World, render_group: &mut RenderGroup<Self::Instance>)
+    where
+        Self: Sized,
+    {
         if self.active {
             render_group.push(self.instance())
         }
     }
 
-    fn init(&mut self, _handle: EntityHandle, _world: &mut World) {
-    }
+    fn init(&mut self, _handle: EntityHandle, _world: &mut World) {}
 
-    fn finish(&mut self, _world: &mut World) {
-    }
+    fn finish(&mut self, _world: &mut World) {}
 }
-
-
-
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone)]
@@ -263,21 +260,16 @@ impl PositionComponent3D {
 impl Component for PositionComponent3D {
     type Instance = Instance3D;
 
-    fn buffer(
-        &self,
-        _world: &World,
-        render_group: &mut RenderGroup<Self::Instance>,
-    ) where
-        Self: Sized {
+    fn buffer(&self, _world: &World, render_group: &mut RenderGroup<Self::Instance>)
+    where
+        Self: Sized,
+    {
         if self.active {
             render_group.push(self.instance())
         }
     }
 
-    fn init(&mut self, _handle: EntityHandle, _world: &mut World) {
-    }
+    fn init(&mut self, _handle: EntityHandle, _world: &mut World) {}
 
-    fn finish(&mut self, _world: &mut World) {
-    }
+    fn finish(&mut self, _world: &mut World) {}
 }
-

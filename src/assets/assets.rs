@@ -106,6 +106,10 @@ pub fn load_asset_string(path: &str) -> Result<String> {
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn load_data_bytes(path: &str) -> Result<Vec<u8>> {
+    #[cfg(target_arch = "wasm32")]
+    {
+        todo!()
+    }
     #[cfg(target_os = "android")]
     {
         todo!()
@@ -120,6 +124,10 @@ pub fn load_data_bytes(path: &str) -> Result<Vec<u8>> {
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn load_data_string(path: &str) -> Result<String> {
+    #[cfg(target_arch = "wasm32")]
+    {
+        todo!()
+    }
     #[cfg(target_os = "android")]
     {
         todo!()
@@ -129,6 +137,46 @@ pub fn load_data_string(path: &str) -> Result<String> {
         let path = data_path(path)?;
         let data = std::fs::read_to_string(path)?;
         Ok(data)
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn delete_data(path: &str) -> Result<()> {
+    #[cfg(target_arch = "wasm32")]
+    {
+        todo!()
+    }
+    #[cfg(target_os = "android")]
+    {
+        todo!()
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        let path = data_path(path)?;
+        if path.is_dir() {
+            std::fs::remove_dir_all(path)?;
+        } else {
+            std::fs::remove_file(path)?;
+        }
+        Ok(())
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn read_data_dir(path: &str) -> Result<std::fs::ReadDir> {
+    #[cfg(target_arch = "wasm32")]
+    {
+        todo!()
+    }
+    #[cfg(target_os = "android")]
+    {
+        todo!()
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        let path = data_path(path)?;
+        let data = std::fs::read_dir(path)?;
+        return Ok(data);
     }
 }
 
