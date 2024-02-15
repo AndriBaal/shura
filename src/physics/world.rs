@@ -239,12 +239,12 @@ pub struct World {
     pub gravity: Vector2<f32>,
     bodies: RigidBodySet,
     colliders: ColliderSet,
+    query_pipeline: QueryPipeline,
     impulse_joints: ImpulseJointSet,
     multibody_joints: MultibodyJointSet,
     collider_mapping: ColliderMapping,
     rigid_body_mapping: RigidBodyMapping,
 
-    query_pipeline: QueryPipeline,
     integration_parameters: IntegrationParameters,
     islands: IslandManager,
     broad_phase: BroadPhase,
@@ -681,6 +681,10 @@ impl World {
 
     pub fn collider_mut(&mut self, collider_handle: ColliderHandle) -> Option<&mut Collider> {
         self.colliders.get_mut(collider_handle)
+    }
+
+    pub fn query_pipeline(&self) -> &QueryPipeline {
+        &self.query_pipeline
     }
 
     pub fn rigid_bodies(&self) -> &RigidBodySet {

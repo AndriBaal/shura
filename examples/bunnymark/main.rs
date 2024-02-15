@@ -28,7 +28,7 @@ fn update(ctx: &mut Context) {
     const GRAVITY: f32 = -2.5;
 
     let mut bunnies = ctx.entities.multiple::<Bunny>();
-    let mut assets = ctx.entities.single::<Assets>().get_mut().unwrap();
+    let mut assets = ctx.entities.single::<Assets>().get().unwrap();
 
     if ctx.input.is_held(MouseButton::Left) || ctx.input.is_held(ScreenTouch) {
         let cursor: Vector2<f32> = ctx.cursor.coords;

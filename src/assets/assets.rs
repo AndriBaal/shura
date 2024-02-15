@@ -11,7 +11,6 @@ use std::{ffi::CString, io::Read, sync::OnceLock};
 
 #[cfg(target_os = "android")]
 pub(crate) static ANDROID_ASSETS: OnceLock<ndk::asset::AssetManager> = OnceLock::new();
-
 #[cfg(target_os = "android")]
 pub(crate) static ANDROID_DATA: OnceLock<PathBuf> = OnceLock::new();
 
