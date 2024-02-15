@@ -4,7 +4,7 @@ use crate::{
     time::{Duration, Instant},
 };
 
-pub type SetupSystem = Box<dyn Fn(&mut Context)>;
+pub type SetupSystem = Box<dyn FnOnce(&mut Context)>;
 pub type ResizeSystem = Box<dyn Fn(&mut Context)>;
 pub type UpdateSystem = Box<dyn Fn(&mut Context)>;
 pub type SwitchSystem = Box<dyn Fn(&mut Context, u32)>;
@@ -32,7 +32,7 @@ enum SystemType {
 pub struct System(SystemType);
 
 impl System {
-    pub fn setup(system: impl Fn(&mut Context) + 'static) -> Self {
+    pub fn setup(system: impl FnOnce(&mut Context) + 'static) -> Self {
         Self(SystemType::Setup(Box::new(system)))
     }
     pub fn update(system: impl Fn(&mut Context) + 'static) -> Self {

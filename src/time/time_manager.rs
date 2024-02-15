@@ -52,17 +52,18 @@ impl TimeManager {
             self.fps_counter = 0;
             #[cfg(feature = "log")]
             {
-                info!("fps: {}\tdelta: {}", self.fps, self.delta());
+                info!(
+                    "fps: {}\tdelta: {}\ttotal:{}",
+                    self.fps,
+                    self.delta(),
+                    self.total()
+                );
                 #[cfg(feature = "rayon")]
                 info!("threads: {}", rayon::current_num_threads());
             }
         }
 
         self.last_time = self.total_time;
-    }
-
-    pub fn now(&self) -> Instant {
-        Instant::now()
     }
 
     pub const fn start(&self) -> Instant {

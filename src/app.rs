@@ -303,11 +303,11 @@ impl App {
         let scene = self.scenes.get_active_scene();
         let mut scene = scene.borrow_mut();
         let scene = &mut scene;
+        let last_update = self.time.update();
         self.time.tick();
         if let Some(max_frame_time) = scene.screen_config.max_frame_time() {
-            let now = self.time.now();
-            let update_time = self.time.update();
-            if now < update_time + max_frame_time {
+            let now = self.time.update();
+            if now < last_update + max_frame_time {
                 return;
             }
         }

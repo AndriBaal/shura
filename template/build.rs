@@ -39,7 +39,7 @@ fn main() {
     match target_os.as_ref().map(|x| &**x) {
         Ok("android") => (),
         Ok(_) => {
-            println!("cargo:rerun-if-changed=assets/*");
+            println!("cargo:rerun-if-changed=assets");
 
             let cargo_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
             let root = Path::new(&cargo_dir);
