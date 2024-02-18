@@ -1,5 +1,4 @@
-use nalgebra::{Translation2, UnitVector2};
-use rapier2d::{geometry::ContactManifold, parry::query::DefaultQueryDispatcher, pipeline::QueryFilter};
+use rapier2d::pipeline::QueryFilter;
 
 use crate::{
     graphics::{Color, Instance2D, SpriteAtlas, SpriteSheetIndex},
@@ -10,6 +9,7 @@ use crate::{
 use super::Component;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone)]
 pub struct CharacterControllerComponent<S: Shape> {
     pub shape: S,
     scaling: Vector2<f32>,
@@ -177,180 +177,36 @@ impl<S: Shape> CharacterControllerComponent<S> {
     }
 
     pub fn step(&mut self, time: f32, world: &World, filter: QueryFilter) {
-    //     let mut result_translation = Vector2::<f32>::zeros();
-    //     // let dims = self.compute_dims(character_shape);
+        // let mut result_translation = Vector2::zeros();
+        let mut desired_translation = self.linvel * time;
 
-    //     // 1. Check and fix penetrations.
-    //     // self.check_and_fix_penetrations();
+        // if let Some(a) = world.query_pipeline().intersection_with_shape(world.rigid_bodies(), world.colliders(), &translation_remaining.into(), &self.shape, filter) {
+        //     println!("kjasdhgfkjhasgdfkjhasd");
+        // }
+        // self.set_translation(translation_remaining);
 
-    //     let mut translation_remaining = self.translation() + self.linvel * time;
-
-    //     // let grounded_at_starting_pos = self.detect_grounded_status_and_apply_friction(
-    //     //     dt,
-    //     //     bodies,
-    //     //     colliders,
-    //     //     queries,
-    //     //     character_shape,
-    //     //     character_pos,
-    //     //     &dims,
-    //     //     filter,
-    //     //     None,
-    //     //     None,
-    //     // );
-
-    //     let mut max_iters = 20;
-    //     let character_pos = &self.position;
-    //     let character_shape = &self.shape;
-    //     let offset = 0.0;
-    //     // let mut kinematic_friction_translation = Vector::zeros();
-    //     // let offset = self.offset.eval(dims.y);
-
-    //     while let Some((translation_dir, translation_dist)) =
-    //         UnitVector2::try_new_and_get(translation_remaining, 1.0e-5)
-    //     {
-    //         if max_iters == 0 {
-    //             break;
-    //         } else {
-    //             max_iters -= 1;
-    //         }
-
-    //         // 2. Cast towards the movement direction.
-    //         if let Some((handle, toi)) = world.query_pipeline().cast_shape(
-    //             world.rigid_bodies(),
-    //             world.colliders(),
-    //             &(Translation2::from(result_translation) * character_pos),
-    //             &translation_dir,
-    //             character_shape,
-    //             translation_dist + offset,
-    //             false,
-    //             filter,
-    //         ) {
-    //             // We hit something, compute the allowed self.
-    //             let allowed_dist =
-    //                 (toi.toi - (-toi.normal1.dot(&translation_dir)) * offset).max(0.0);
-    //             let allowed_translation = *translation_dir * allowed_dist;
-    //             result_translation += allowed_translation;
-    //             translation_remaining -= allowed_translation;
-
-    //             // events(CharacterCollision {
-    //             //     handle,
-    //             //     character_pos: Translation::from(result_translation) * character_pos,
-    //             //     translation_applied: result_translation,
-    //             //     translation_remaining,
-    //             //     toi,
-    //             // });
-
-    //             // Try to go up stairs.
-    //             if !self.handle_stairs(
-    //                 bodies,
-    //                 colliders,
-    //                 queries,
-    //                 character_shape,
-    //                 &(Translation::from(result_translation) * character_pos),
-    //                 &dims,
-    //                 filter,
-    //                 handle,
-    //                 &mut translation_remaining,
-    //                 &mut result,
-    //             ) {
-    //                 // No stairs, try to move along slopes.
-    //                 translation_remaining =
-    //                     self.handle_slopes(&toi, &translation_remaining, &mut result);
-    //             }
-    //         } else {
-    //             // No interference along the path.
-    //             result_translation += translation_remaining;
-    //             translation_remaining.fill(0.0);
-    //             break;
-    //         }
-
-    //         result.grounded = self.detect_grounded_status_and_apply_friction(
-    //             dt,
-    //             bodies,
-    //             colliders,
-    //             queries,
-    //             character_shape,
-    //             &(Translation::from(result_translation) * character_pos),
-    //             &dims,
-    //             filter,
-    //             Some(&mut kinematic_friction_translation),
-    //             Some(&mut translation_remaining),
-    //         );
-
-    //         if !self.slide {
-    //             break;
-    //         }
-    //     }
-    //     // If needed, and if we are not already grounded, snap to the ground.
-    //     if grounded_at_starting_pos {
-    //         self.snap_to_ground(
-    //             bodies,
-    //             colliders,
-    //             queries,
-    //             character_shape,
-    //             &(Translation::from(result_translation) * character_pos),
-    //             &dims,
-    //             filter,
-    //             &mut result,
-    //         );
-    //     }
-
-    //     // Return the result.
-    //     result
-
-
-
-
-        let mut result_translation = Vector2::zeros();
-        let mut translation_remaining = self.translation() + self.linvel * time;
-
-        let mut max_iters = 20;
-
-        while let Some((translation_dir, translation_dist)) =
-            UnitVector2::try_new_and_get(translation_remaining, 1.0e-5)
-        {
-            if max_iters == 0 {
-                break;
-            } else {
-                max_iters -= 1;
-            }
-
-            // 2. Cast towards the movement direction.
-            if let Some((_handle, toi)) = world.query_pipeline().cast_shape(
-                world.rigid_bodies(),
-                world.colliders(),
-                &(Translation2::from(result_translation) * &self.position),
-                &translation_dir,
-                &self.shape,
-                translation_dist,
-                false,
-                filter,
-            ) {
-                // We hit something, compute the allowed self.
-                let allowed_dist = (toi.toi - (-toi.normal1.dot(&translation_dir)) * 0.0).max(0.0);
-                let allowed_translation = *translation_dir * allowed_dist;
-                result_translation += allowed_translation;
-                translation_remaining -= allowed_translation;
-
-                // events(CharacterCollision {
-                //     handle,
-                //     character_pos: Translation::from(result_translation) * character_pos,
-                //     translation_applied: result_translation,
-                //     translation_remaining,
-                //     toi,
-                // });
-            } else {
-                // No interference along the path.
-                result_translation += translation_remaining;
-                translation_remaining.fill(0.0);
-                break;
-            }
+        let character_pos = &self.position;
+        let character_shape = &self.shape;
+        let bodies = world.rigid_bodies();
+        let colliders = world.colliders();
+        let queries = world.query_pipeline();
+        let translation_dir = desired_translation.normalize();
+        if let Some((_handle, toi)) = queries.cast_shape(
+            bodies,
+            colliders,
+            character_pos,
+            &desired_translation.normalize(),
+            character_shape,
+            desired_translation.norm(),
+            false,
+            filter,
+        ) {
+            let allowed_dist = toi.toi.max(0.0);
+            desired_translation = translation_dir * allowed_dist;
         }
 
-        // Return the result.
-        self.set_translation(result_translation)
+        self.set_translation(self.translation() + desired_translation);
     }
-
 }
 
 impl<S: Shape> Component for CharacterControllerComponent<S> {

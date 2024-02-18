@@ -22,7 +22,7 @@ use std::{
 use super::{EntityHandle, GlobalEntities};
 
 const ALREADY_BORROWED: &str = "This type is already borrowed!";
-const WRONG_TYPE: &str = "Wrong type";
+const WRONG_TYPE: &str = "Wrong entity storage";
 fn no_type_error<E: EntityIdentifier>() -> String {
     format!("The type '{}' is not registered!", E::TYPE_NAME)
 }

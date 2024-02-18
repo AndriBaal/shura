@@ -14,7 +14,12 @@ pub struct LoggerBuilder {
 
 impl Default for LoggerBuilder {
     fn default() -> Self {
-        Self::new(LevelFilter::Info)
+        #[cfg(debug_assertions)] {
+            Self::new(LevelFilter::Debug)
+        }
+        #[cfg(not(debug_assertions))] {
+            Self::new(LevelFilter::Info)
+        }
     }
 }
 
@@ -23,7 +28,7 @@ impl LoggerBuilder {
         let mut builder = EnvLoggerBuilder::new();
         builder
             .filter_level(level)
-            .filter_module("wgpu_hal", LevelFilter::Error)
+            .filter_module("wgpu_hal", LevelFilter::Off)
             .filter_module("wgpu", LevelFilter::Warn)
             .filter_module("winit", LevelFilter::Warn)
             .filter_module("symphonia_core", LevelFilter::Warn)
