@@ -145,11 +145,11 @@ struct Bunny {
     #[shura(component = "bunny")]
     position: PositionComponent2D,
     linvel: Vector2<f32>,
-    handle: EntityHandle,
+    handle: &EntityHandle,
 }
 
 impl Bunny {
-    pub fn new(translation: Vector2<f32>, handle: EntityHandle) -> Bunny {
+    pub fn new(translation: Vector2<f32>, handle: &EntityHandle) -> Bunny {
         let scaling = gen_range(0.75_f32..2.0);
         let position = PositionComponent2D::new()
             .with_translation(translation)

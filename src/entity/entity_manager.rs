@@ -278,7 +278,7 @@ impl EntityManager {
     #[cfg(feature = "serde")]
     pub(crate) fn deserialize_group<ET: EntityType + Default>(
         &mut self,
-        group: EntityGroupHandle,
+        group: &EntityGroupHandle,
         entity_type: ET,
         world: &mut World,
     ) {

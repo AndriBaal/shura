@@ -303,15 +303,6 @@ impl App {
         let scene = self.scenes.get_active_scene();
         let mut scene = scene.borrow_mut();
         let scene = &mut scene;
-        let last_update = self.time.update();
-        self.time.tick();
-        if let Some(max_frame_time) = scene.screen_config.max_frame_time() {
-            let now = self.time.update();
-            if now < last_update + max_frame_time {
-                return;
-            }
-        }
-
         let mint: mint::Vector2<u32> = self.window.inner_size().into();
         let window_size: Vector2<u32> = mint.into();
         #[cfg(target_arch = "wasm32")]
@@ -375,6 +366,7 @@ impl App {
         }
 
         self.update(scene_id, scene);
+        scene.screen_config.changed = false;
         if scene.render_entities {
             self.render(scene);
         }
@@ -382,6 +374,14 @@ impl App {
     }
 
     fn update(&mut self, scene_id: u32, scene: &mut Scene) {
+        if let Some(max_frame_time) = scene.screen_config.max_frame_time() {
+            let last_update = self.time.update();
+            if instant::Instant::now() < last_update + max_frame_time {
+                return;
+            }
+        }
+        self.time.tick();
+
         #[cfg(feature = "gamepad")]
         self.input.sync_gamepad();
         #[cfg(feature = "gui")]
@@ -431,7 +431,6 @@ impl App {
 
             (update)(&mut ctx);
         }
-        scene.screen_config.changed = false;
         scene.started = true;
         scene.groups.update(&scene.world_camera2d);
     }

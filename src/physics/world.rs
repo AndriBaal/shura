@@ -305,11 +305,12 @@ impl World {
 
     pub(crate) fn add_collider(
         &mut self,
-        entity_handle: EntityHandle,
+        entity_handle: &EntityHandle,
         collider: Collider,
     ) -> ColliderHandle {
         let collider_handle = self.colliders.insert(collider.clone());
-        self.collider_mapping.insert(collider_handle, entity_handle);
+        self.collider_mapping
+            .insert(collider_handle, *entity_handle);
         collider_handle
     }
 
@@ -317,18 +318,19 @@ impl World {
         &mut self,
         rigid_body: RigidBody,
         colliders: Vec<Collider>,
-        entity_handle: EntityHandle,
+        entity_handle: &EntityHandle,
     ) -> RigidBodyHandle {
         let rigid_body_handle = self.bodies.insert(rigid_body.clone());
         self.rigid_body_mapping
-            .insert(rigid_body_handle, entity_handle);
+            .insert(rigid_body_handle, *entity_handle);
         for collider in colliders {
             let collider_handle = self.colliders.insert_with_parent(
                 collider.clone(),
                 rigid_body_handle,
                 &mut self.bodies,
             );
-            self.collider_mapping.insert(collider_handle, entity_handle);
+            self.collider_mapping
+                .insert(collider_handle, *entity_handle);
         }
         rigid_body_handle
     }

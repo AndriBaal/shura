@@ -215,7 +215,7 @@ impl Component for RigidBodyComponent {
             } => {
                 let rigid_body: &RigidBody = rigid_body;
                 let rigid_body_handle =
-                    world.add_rigid_body(rigid_body.clone(), colliders.clone(), handle);
+                    world.add_rigid_body(rigid_body.clone(), colliders.clone(), &handle);
                 self.status = RigidBodyComponentStatus::Initialized { rigid_body_handle };
             }
         }

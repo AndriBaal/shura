@@ -228,7 +228,7 @@ impl<'a> Context<'a> {
     #[cfg(feature = "serde")]
     pub fn serialize_group(
         &mut self,
-        group: EntityGroupHandle,
+        group: &EntityGroupHandle,
         serialize: impl FnOnce(&mut EntityGroupSerializer),
     ) -> Option<Result<Vec<u8>, Box<bincode::ErrorKind>>> {
         if let Some(mut ser) =

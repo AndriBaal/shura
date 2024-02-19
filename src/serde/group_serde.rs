@@ -20,7 +20,7 @@ impl EntityGroupSerializer {
         world: &mut World,
         groups: &mut EntityGroupManager,
         entities: &mut EntityManager,
-        group: EntityGroupHandle,
+        group: &EntityGroupHandle,
     ) -> Option<Self> {
         if let Some((group, entities)) = groups.remove_serialize(entities, world, group) {
             return Some(Self {
@@ -85,7 +85,7 @@ impl EntityGroupDeserializer {
             let deserialized: ET = bincode::deserialize(&data).unwrap();
             self.init_callbacks.push(Box::new(|group, ctx| {
                 ctx.entities
-                    .deserialize_group(group, deserialized, ctx.world);
+                    .deserialize_group(&group, deserialized, ctx.world);
             }));
         }
     }

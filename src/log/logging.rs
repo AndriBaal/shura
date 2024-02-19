@@ -14,10 +14,12 @@ pub struct LoggerBuilder {
 
 impl Default for LoggerBuilder {
     fn default() -> Self {
-        #[cfg(debug_assertions)] {
+        #[cfg(debug_assertions)]
+        {
             Self::new(LevelFilter::Debug)
         }
-        #[cfg(not(debug_assertions))] {
+        #[cfg(not(debug_assertions))]
+        {
             Self::new(LevelFilter::Info)
         }
     }

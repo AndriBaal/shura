@@ -166,7 +166,7 @@ impl Component for ColliderComponent {
         match self.status {
             ColliderComponentStatus::Initialized { .. } => {}
             ColliderComponentStatus::Uninitialized { ref collider } => {
-                let collider_handle = world.add_collider(handle, collider.clone());
+                let collider_handle = world.add_collider(&handle, collider.clone());
                 self.status = ColliderComponentStatus::Initialized { collider_handle };
             }
         }

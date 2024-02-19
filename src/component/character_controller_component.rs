@@ -1,7 +1,8 @@
 use rapier2d::pipeline::QueryFilter;
 
 use crate::{
-    graphics::{Color, Instance2D, SpriteAtlas, SpriteSheetIndex},
+    entity::EntityHandle,
+    graphics::{Color, Instance2D, RenderGroup, SpriteAtlas, SpriteSheetIndex},
     math::{Isometry2, Rotation2, Vector2},
     physics::{Shape, World},
 };
@@ -201,7 +202,7 @@ impl<S: Shape> CharacterControllerComponent<S> {
             false,
             filter,
         ) {
-            let allowed_dist = toi.toi.max(0.0);
+            let allowed_dist = toi.toi;
             desired_translation = translation_dir * allowed_dist;
         }
 
@@ -212,16 +213,13 @@ impl<S: Shape> CharacterControllerComponent<S> {
 impl<S: Shape> Component for CharacterControllerComponent<S> {
     type Instance = Instance2D;
 
-    fn buffer(
-        &self,
-        _world: &World,
-        render_group: &mut crate::graphics::RenderGroup<Self::Instance>,
-    ) where
+    fn buffer(&self, _world: &World, render_group: &mut RenderGroup<Self::Instance>)
+    where
         Self: Sized,
     {
         render_group.push(self.instance);
     }
 
-    fn init(&mut self, _handle: crate::entity::EntityHandle, _world: &mut World) {}
+    fn init(&mut self, _handle: EntityHandle, _world: &mut World) {}
     fn finish(&mut self, _world: &mut World) {}
 }

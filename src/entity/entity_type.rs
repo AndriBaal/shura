@@ -24,16 +24,16 @@ pub trait EntityType: Downcast {
     fn remove_group(
         &mut self,
         world: &mut World,
-        group_handle: EntityGroupHandle,
+        group_handle: &EntityGroupHandle,
     ) -> Option<Box<dyn EntityType>> {
         None
     }
     fn add_group(&mut self) {}
 
-    fn dyn_get(&self, handle: EntityHandle) -> Option<&dyn Entity>;
-    fn dyn_get_mut(&mut self, handle: EntityHandle) -> Option<&mut dyn Entity>;
+    fn dyn_get(&self, handle: &EntityHandle) -> Option<&dyn Entity>;
+    fn dyn_get_mut(&mut self, handle: &EntityHandle) -> Option<&mut dyn Entity>;
     fn dyn_retain(&mut self, world: &mut World, keep: &dyn Fn(&mut dyn Entity, &mut World) -> bool);
-    fn dyn_remove(&mut self, world: &mut World, handle: EntityHandle) -> Option<Box<dyn Entity>>;
+    fn dyn_remove(&mut self, world: &mut World, handle: &EntityHandle) -> Option<Box<dyn Entity>>;
 
     fn dyn_iter<'a>(&'a self) -> Box<dyn Iterator<Item = (EntityHandle, &dyn Entity)> + 'a>;
     fn dyn_iter_mut<'a>(
@@ -122,7 +122,7 @@ impl<E: EntityIdentifier> SingleEntity<E> {
         None
     }
 
-    pub fn get_by_handle(&self, handle: EntityHandle) -> Option<&E> {
+    pub fn get_by_handle(&self, handle: &EntityHandle) -> Option<&E> {
         if let Some(entity) = &self.entity {
             if handle.entity_index.0.generation == self.generation {
                 return Some(entity);
@@ -131,7 +131,7 @@ impl<E: EntityIdentifier> SingleEntity<E> {
         None
     }
 
-    pub fn get_by_handle_mut(&mut self, handle: EntityHandle) -> Option<&mut E> {
+    pub fn get_by_handle_mut(&mut self, handle: &EntityHandle) -> Option<&mut E> {
         if let Some(entity) = &mut self.entity {
             if handle.entity_index.0.generation == self.generation {
                 return Some(entity);
@@ -240,7 +240,7 @@ impl<E: EntityIdentifier> EntityType for SingleEntity<E> {
         }))
     }
 
-    fn dyn_get(&self, handle: EntityHandle) -> Option<&dyn Entity> {
+    fn dyn_get(&self, handle: &EntityHandle) -> Option<&dyn Entity> {
         if let Some(entity) = &self.entity {
             if handle.entity_index.0.generation == self.generation {
                 return Some(entity);
@@ -249,7 +249,7 @@ impl<E: EntityIdentifier> EntityType for SingleEntity<E> {
         None
     }
 
-    fn dyn_get_mut(&mut self, handle: EntityHandle) -> Option<&mut dyn Entity> {
+    fn dyn_get_mut(&mut self, handle: &EntityHandle) -> Option<&mut dyn Entity> {
         if let Some(entity) = &mut self.entity {
             if handle.entity_index.0.generation == self.generation {
                 return Some(entity);
@@ -272,7 +272,7 @@ impl<E: EntityIdentifier> EntityType for SingleEntity<E> {
         }
     }
 
-    fn dyn_remove(&mut self, world: &mut World, handle: EntityHandle) -> Option<Box<dyn Entity>> {
+    fn dyn_remove(&mut self, world: &mut World, handle: &EntityHandle) -> Option<Box<dyn Entity>> {
         if handle.entity_index.0.generation == self.generation {
             if let Some(mut entity) = self.entity.take() {
                 entity.finish(world);
@@ -317,14 +317,14 @@ impl<E: EntityIdentifier> Entities<E> {
         self.entities.get_unknown_gen_mut(index)
     }
 
-    pub fn get(&self, handle: EntityHandle) -> Option<&E> {
+    pub fn get(&self, handle: &EntityHandle) -> Option<&E> {
         if handle.type_id != E::IDENTIFIER {
             return None;
         }
         self.entities.get(handle.entity_index.0)
     }
 
-    pub fn get_mut(&mut self, handle: EntityHandle) -> Option<&mut E> {
+    pub fn get_mut(&mut self, handle: &EntityHandle) -> Option<&mut E> {
         if handle.type_id != E::IDENTIFIER {
             return None;
         }
@@ -346,7 +346,7 @@ impl<E: EntityIdentifier> Entities<E> {
             .get2_mut(handle1.entity_index.0, handle2.entity_index.0)
     }
 
-    pub fn remove(&mut self, world: &mut World, handle: EntityHandle) -> Option<E> {
+    pub fn remove(&mut self, world: &mut World, handle: &EntityHandle) -> Option<E> {
         if handle.type_id != E::IDENTIFIER {
             return None;
         }
@@ -498,14 +498,14 @@ impl<E: EntityIdentifier> EntityType for Entities<E> {
         )
     }
 
-    fn dyn_get(&self, handle: EntityHandle) -> Option<&dyn Entity> {
+    fn dyn_get(&self, handle: &EntityHandle) -> Option<&dyn Entity> {
         if let Some(entity) = self.get(handle) {
             return Some(entity);
         }
         return None;
     }
 
-    fn dyn_get_mut(&mut self, handle: EntityHandle) -> Option<&mut dyn Entity> {
+    fn dyn_get_mut(&mut self, handle: &EntityHandle) -> Option<&mut dyn Entity> {
         if let Some(entity) = self.get_mut(handle) {
             return Some(entity);
         }
@@ -527,7 +527,7 @@ impl<E: EntityIdentifier> EntityType for Entities<E> {
         });
     }
 
-    fn dyn_remove(&mut self, world: &mut World, handle: EntityHandle) -> Option<Box<dyn Entity>> {
+    fn dyn_remove(&mut self, world: &mut World, handle: &EntityHandle) -> Option<Box<dyn Entity>> {
         if handle.type_id != E::IDENTIFIER {
             return None;
         }
@@ -571,11 +571,11 @@ impl<ET: EntityType> Default for GroupedEntities<ET> {
 }
 
 impl<ET: EntityType> GroupedEntities<ET> {
-    pub fn get_group(&self, group: EntityGroupHandle) -> Option<&ET> {
+    pub fn get_group(&self, group: &EntityGroupHandle) -> Option<&ET> {
         return self.groups.get(group.0);
     }
 
-    pub fn get_group_mut(&mut self, group: EntityGroupHandle) -> Option<&mut ET> {
+    pub fn get_group_mut(&mut self, group: &EntityGroupHandle) -> Option<&mut ET> {
         return self.groups.get_mut(group.0);
     }
 }
@@ -601,28 +601,28 @@ impl<E: EntityIdentifier> GroupedEntities<Entities<E>> {
         }
     }
 
-    pub fn index(&self, group: EntityGroupHandle, index: usize) -> Option<&E> {
+    pub fn index(&self, group: &EntityGroupHandle, index: usize) -> Option<&E> {
         if let Some(group) = self.groups.get(group.0) {
             return group.entities.get_unknown_gen(index);
         }
         None
     }
 
-    pub fn index_mut(&mut self, group: EntityGroupHandle, index: usize) -> Option<&mut E> {
+    pub fn index_mut(&mut self, group: &EntityGroupHandle, index: usize) -> Option<&mut E> {
         if let Some(group) = self.groups.get_mut(group.0) {
             return group.entities.get_unknown_gen_mut(index);
         }
         None
     }
 
-    pub fn get(&self, handle: EntityHandle) -> Option<&E> {
+    pub fn get(&self, handle: &EntityHandle) -> Option<&E> {
         if let Some(group) = self.groups.get(handle.group_handle().0) {
             return group.entities.get(handle.entity_index.0);
         }
         None
     }
 
-    pub fn get_mut(&mut self, handle: EntityHandle) -> Option<&mut E> {
+    pub fn get_mut(&mut self, handle: &EntityHandle) -> Option<&mut E> {
         if let Some(group) = self.groups.get_mut(handle.group_handle().0) {
             return group.entities.get_mut(handle.entity_index.0);
         }
@@ -631,8 +631,8 @@ impl<E: EntityIdentifier> GroupedEntities<Entities<E>> {
 
     pub fn get2_mut(
         &mut self,
-        handle1: EntityHandle,
-        handle2: EntityHandle,
+        handle1: &EntityHandle,
+        handle2: &EntityHandle,
     ) -> (Option<&mut E>, Option<&mut E>) {
         let mut e1 = None;
         let mut e2 = None;
@@ -657,7 +657,7 @@ impl<E: EntityIdentifier> GroupedEntities<Entities<E>> {
         (e1, e2)
     }
 
-    pub fn remove(&mut self, world: &mut World, handle: EntityHandle) -> Option<E> {
+    pub fn remove(&mut self, world: &mut World, handle: &EntityHandle) -> Option<E> {
         if let Some(group) = self.groups.get_mut(handle.group_handle().0) {
             if let Some(mut entity) = group.entities.remove(handle.entity_index.0) {
                 entity.finish(world);
@@ -684,13 +684,13 @@ impl<E: EntityIdentifier> GroupedEntities<Entities<E>> {
     pub fn add(
         &mut self,
         world: &mut World,
-        group_handle: EntityGroupHandle,
+        group_handle: &EntityGroupHandle,
         mut new: E,
     ) -> EntityHandle {
         let group = &mut self.groups[group_handle.0];
         let mut handle = Default::default();
         group.entities.insert_with(|idx| {
-            handle = EntityHandle::new(EntityIndex(idx), E::IDENTIFIER, group_handle);
+            handle = EntityHandle::new(EntityIndex(idx), E::IDENTIFIER, *group_handle);
             new.init(handle, world);
             new
         });
@@ -700,13 +700,13 @@ impl<E: EntityIdentifier> GroupedEntities<Entities<E>> {
     pub fn add_with(
         &mut self,
         world: &mut World,
-        group_handle: EntityGroupHandle,
+        group_handle: &EntityGroupHandle,
         create: impl FnOnce(EntityHandle) -> E,
     ) -> EntityHandle {
         let group = &mut self.groups[group_handle.0];
         let mut handle = Default::default();
         group.entities.insert_with(|idx| {
-            handle = EntityHandle::new(EntityIndex(idx), E::IDENTIFIER, group_handle);
+            handle = EntityHandle::new(EntityIndex(idx), E::IDENTIFIER, *group_handle);
             let mut new = create(handle);
             new.init(handle, world);
             new
@@ -717,7 +717,7 @@ impl<E: EntityIdentifier> GroupedEntities<Entities<E>> {
     pub fn add_many(
         &mut self,
         world: &mut World,
-        group_handle: EntityGroupHandle,
+        group_handle: &EntityGroupHandle,
         entities: impl IntoIterator<Item = E>,
     ) -> Vec<EntityHandle> {
         let entities = entities.into_iter();
@@ -725,7 +725,7 @@ impl<E: EntityIdentifier> GroupedEntities<Entities<E>> {
         if let Some(group) = self.groups.get_mut(group_handle.0) {
             for mut entity in entities {
                 group.entities.insert_with(|idx| {
-                    let handle = EntityHandle::new(EntityIndex(idx), E::IDENTIFIER, group_handle);
+                    let handle = EntityHandle::new(EntityIndex(idx), E::IDENTIFIER, *group_handle);
                     entity.init(handle, world);
                     handles.push(handle);
                     entity
@@ -758,8 +758,8 @@ impl<E: EntityIdentifier> GroupedEntities<Entities<E>> {
 
     pub fn change_group(
         &mut self,
-        entity: EntityHandle,
-        new_group_handle: EntityGroupHandle,
+        entity: &EntityHandle,
+        new_group_handle: &EntityGroupHandle,
     ) -> Option<EntityHandle> {
         assert!(entity.entity_type_id() == E::IDENTIFIER);
         let (old_group, new_group) = self
@@ -773,7 +773,7 @@ impl<E: EntityIdentifier> GroupedEntities<Entities<E>> {
         Some(EntityHandle::new(
             entity_index,
             E::IDENTIFIER,
-            new_group_handle,
+            *new_group_handle,
         ))
     }
 }
@@ -792,7 +792,7 @@ impl<ET: EntityType + Default> EntityType for GroupedEntities<ET> {
     fn remove_group(
         &mut self,
         world: &mut World,
-        handle: EntityGroupHandle,
+        handle: &EntityGroupHandle,
     ) -> Option<Box<dyn EntityType>> {
         if let Some(mut group) = self.groups.remove(handle.0) {
             for (_, entity) in group.dyn_iter_mut() {
@@ -817,7 +817,7 @@ impl<ET: EntityType + Default> EntityType for GroupedEntities<ET> {
         groups
             .render_groups()
             .iter()
-            .flat_map(|g| self.get_group(*g).unwrap().dyn_iter_render(groups))
+            .flat_map(|g| self.get_group(g).unwrap().dyn_iter_render(groups))
     }
 
     fn dyn_iter<'a>(&'a self) -> Box<dyn Iterator<Item = (EntityHandle, &dyn Entity)> + 'a> {
@@ -830,13 +830,13 @@ impl<ET: EntityType + Default> EntityType for GroupedEntities<ET> {
         Box::new(self.groups.iter_mut().flat_map(|g| g.dyn_iter_mut()))
     }
 
-    fn dyn_get(&self, handle: EntityHandle) -> Option<&dyn Entity> {
+    fn dyn_get(&self, handle: &EntityHandle) -> Option<&dyn Entity> {
         self.groups
             .get(handle.group_handle.0)
             .and_then(|e| e.dyn_get(handle))
     }
 
-    fn dyn_get_mut(&mut self, handle: EntityHandle) -> Option<&mut dyn Entity> {
+    fn dyn_get_mut(&mut self, handle: &EntityHandle) -> Option<&mut dyn Entity> {
         self.groups
             .get_mut(handle.group_handle.0)
             .and_then(|e| e.dyn_get_mut(handle))
@@ -852,7 +852,7 @@ impl<ET: EntityType + Default> EntityType for GroupedEntities<ET> {
         }
     }
 
-    fn dyn_remove(&mut self, world: &mut World, handle: EntityHandle) -> Option<Box<dyn Entity>> {
+    fn dyn_remove(&mut self, world: &mut World, handle: &EntityHandle) -> Option<Box<dyn Entity>> {
         self.groups
             .get_mut(handle.group_handle.0)
             .and_then(|e| e.dyn_remove(world, handle))

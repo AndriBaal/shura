@@ -68,15 +68,15 @@ impl EntityGroupManager {
             .map(|(index, group)| (EntityGroupHandle(index), group));
     }
 
-    pub fn contains(&self, handle: EntityGroupHandle) -> bool {
+    pub fn contains(&self, handle: &EntityGroupHandle) -> bool {
         self.groups.contains(handle.0)
     }
 
-    pub fn get(&self, handle: EntityGroupHandle) -> Option<&EntityGroup> {
+    pub fn get(&self, handle: &EntityGroupHandle) -> Option<&EntityGroup> {
         return self.groups.get(handle.0);
     }
 
-    pub fn get_mut(&mut self, handle: EntityGroupHandle) -> Option<&mut EntityGroup> {
+    pub fn get_mut(&mut self, handle: &EntityGroupHandle) -> Option<&mut EntityGroup> {
         return self.groups.get_mut(handle.0);
     }
 
@@ -93,19 +93,19 @@ impl EntityGroupManager {
         &mut self,
         entities: &mut EntityManager,
         world: &mut World,
-        handle: EntityGroupHandle,
+        handle: &EntityGroupHandle,
     ) -> Option<EntityGroup> {
-        if handle == EntityGroupHandle::DEFAULT_GROUP {
+        if *handle == EntityGroupHandle::DEFAULT_GROUP {
             panic!("Cannot remove default group!");
         }
         let group = self.groups.remove(handle.0);
         if group.is_some() {
-            self.active_groups.retain(|g| *g != handle);
-            self.all_groups.retain(|g| *g != handle);
+            self.active_groups.retain(|g| g != handle);
+            self.all_groups.retain(|g| g != handle);
             for mut ty in entities.types_mut() {
                 ty.remove_group(world, handle);
             }
-            self.all_groups.retain(|h| *h != handle);
+            self.all_groups.retain(|h| h != handle);
         }
         group
     }
@@ -115,22 +115,22 @@ impl EntityGroupManager {
         &mut self,
         entities: &mut EntityManager,
         world: &mut World,
-        handle: EntityGroupHandle,
+        handle: &EntityGroupHandle,
     ) -> Option<(EntityGroup, FxHashMap<EntityId, Box<dyn EntityType>>)> {
-        if handle == EntityGroupHandle::DEFAULT_GROUP {
+        if *handle == EntityGroupHandle::DEFAULT_GROUP {
             panic!("Cannot remove default group!");
         }
         let group = self.groups.remove(handle.0);
         if let Some(group) = group {
-            self.active_groups.retain(|g| *g != handle);
-            self.all_groups.retain(|g| *g != handle);
+            self.active_groups.retain(|g| g != handle);
+            self.all_groups.retain(|g| g != handle);
             let mut out = FxHashMap::default();
             for mut ty in entities.types_mut() {
                 if let Some(g) = ty.remove_group(world, handle) {
                     out.insert(ty.entity_type_id(), g);
                 }
             }
-            self.all_groups.retain(|h| *h != handle);
+            self.all_groups.retain(|h| h != handle);
             Some((group, out))
         } else {
             None
