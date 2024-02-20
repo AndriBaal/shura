@@ -4,7 +4,7 @@ use shura::prelude::*;
 fn app(config: AppConfig) {
     App::run(config, || {
         Scene::new()
-            .render_group2d("bunny", RenderGroupConfig::default())
+            .render_group2d("bunny", RenderGroupUpdate::default())
             .entity::<Bunny>(EntityStorage::Multiple, EntityScope::Global)
             .entity::<Assets>(EntityStorage::Single, EntityScope::Scene)
             .system(System::update(update))

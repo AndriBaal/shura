@@ -5,7 +5,7 @@ fn app(config: AppConfig) {
     App::run(config, || {
         Scene::new()
             .component::<MeshTest>(ComponentConfig {
-                buffer: RenderGroupConfig::Manual,
+                buffer: RenderGroupUpdate::Manual,
                 ..ComponentConfig::DEFAULT
             })
             .system(System::Render(render))

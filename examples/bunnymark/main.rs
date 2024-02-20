@@ -4,7 +4,7 @@ use shura::prelude::*;
 fn app(config: AppConfig) {
     App::run(config, || {
         Scene::new()
-            .render_group2d("bunny", RenderGroupConfig::default())
+            .render_group2d("bunny", RenderGroupUpdate::default())
             .entity::<Bunny>(EntityStorage::Multiple, EntityScope::Global)
             .entity::<Assets>(EntityStorage::Single, EntityScope::Scene)
             .system(System::update(update))
@@ -28,7 +28,7 @@ fn update(ctx: &mut Context) {
     const GRAVITY: f32 = -2.5;
 
     let mut bunnies = ctx.entities.multiple::<Bunny>();
-    let mut assets = ctx.entities.single::<Assets>().get().unwrap();
+    let mut assets = ctx.entities.single::<Assets>().get_ref().unwrap();
 
     if ctx.input.is_held(MouseButton::Left) || ctx.input.is_held(ScreenTouch) {
         let cursor: Vector2<f32> = ctx.cursor.coords;
@@ -45,7 +45,7 @@ fn update(ctx: &mut Context) {
             dead.push(bunny.handle);
         }
         for handle in dead {
-            bunnies.remove(ctx.world, handle);
+            bunnies.remove(ctx.world, &handle);
         }
     }
 
@@ -98,7 +98,7 @@ fn update(ctx: &mut Context) {
 }
 
 fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
-    let assets = ctx.entities.single::<Assets>().get().unwrap();
+    let assets = ctx.entities.single::<Assets>().get_ref().unwrap();
     encoder.render2d(
         Some(RgbaColor::new(220, 220, 220, 255).into()),
         |renderer| {
@@ -154,7 +154,7 @@ impl Assets {
 #[derive(Entity)]
 struct Bunny {
     #[shura(handle)]
-    handle: &EntityHandle,
+    handle: EntityHandle,
     #[shura(component = "bunny")]
     position: PositionComponent2D,
     linvel: Vector2<f32>,

@@ -1,5 +1,5 @@
 #[cfg(feature = "physics")]
-mod character_controller_component;
+mod simple_character_controller_component;
 #[cfg(feature = "physics")]
 mod collider_component;
 mod component;
@@ -8,7 +8,7 @@ mod position_component;
 mod rigid_body_component;
 
 #[cfg(feature = "physics")]
-pub use character_controller_component::*;
+pub use simple_character_controller_component::*;
 #[cfg(feature = "physics")]
 pub use collider_component::*;
 pub use component::*;

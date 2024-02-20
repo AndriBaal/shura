@@ -225,7 +225,8 @@ impl EntityManager {
                         if let Some(ty) = globals.get(&id) {
                             assert!(
                                 ty.is_none(),
-                                "This entity already exists as a global entity!"
+                                "The entity {} already exists as a global entity!",
+                                ET::Entity::TYPE_NAME
                             );
                         } else {
                             globals.insert(id, None);

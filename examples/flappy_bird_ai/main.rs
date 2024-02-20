@@ -11,10 +11,10 @@ const AMOUNT_BIRDS: u32 = 1000;
 fn app(config: AppConfig) {
     App::run(config, || {
         Scene::new()
-            .render_group2d("ground", RenderGroupConfig::MANUAL)
-            .render_group2d("background", RenderGroupConfig::MANUAL)
-            .render_group2d("pipe", RenderGroupConfig::EVERY_FRAME)
-            .render_group2d("bird", RenderGroupConfig::EVERY_FRAME)
+            .render_group2d("ground", RenderGroupUpdate::MANUAL)
+            .render_group2d("background", RenderGroupUpdate::MANUAL)
+            .render_group2d("pipe", RenderGroupUpdate::EVERY_FRAME)
+            .render_group2d("bird", RenderGroupUpdate::EVERY_FRAME)
             .single_entity::<Background>(Default::default())
             .single_entity::<Ground>(Default::default())
             .single_entity::<BirdSimulation>(Default::default())

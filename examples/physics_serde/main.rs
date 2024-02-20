@@ -2,11 +2,11 @@ use shura::{physics::*, prelude::*};
 
 fn deserialized_scene(data: Vec<u8>) -> SerializedScene {
     SerializedScene::new(1, &data)
-        .render_group2d("player", RenderGroupConfig::default())
-        .render_group2d("box", RenderGroupConfig::default())
+        .render_group2d("player", RenderGroupUpdate::default())
+        .render_group2d("box", RenderGroupUpdate::default())
         .render_group2d(
             "floor",
-            RenderGroupConfig {
+            RenderGroupUpdate {
                 call: BufferCall::Manual,
                 ..Default::default()
             },
@@ -30,11 +30,11 @@ fn app(config: AppConfig) {
     } else {
         App::run(config, || {
             Scene::new()
-                .render_group2d("player", RenderGroupConfig::default())
-                .render_group2d("box", RenderGroupConfig::default())
+                .render_group2d("player", RenderGroupUpdate::default())
+                .render_group2d("box", RenderGroupUpdate::default())
                 .render_group2d(
                     "floor",
-                    RenderGroupConfig {
+                    RenderGroupUpdate {
                         call: BufferCall::Manual,
                         ..Default::default()
                     },

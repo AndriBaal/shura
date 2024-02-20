@@ -11,7 +11,7 @@ use super::Component;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone)]
-pub struct CharacterControllerComponent<S: Shape> {
+pub struct SimpleCharacterControllerComponent<S: Shape> {
     pub shape: S,
     scaling: Vector2<f32>,
     position: Isometry2<f32>,
@@ -20,7 +20,7 @@ pub struct CharacterControllerComponent<S: Shape> {
     linvel: Vector2<f32>,
 }
 
-impl<S: Shape> CharacterControllerComponent<S> {
+impl<S: Shape> SimpleCharacterControllerComponent<S> {
     pub fn new(shape: S) -> Self {
         Self {
             shape,
@@ -210,7 +210,7 @@ impl<S: Shape> CharacterControllerComponent<S> {
     }
 }
 
-impl<S: Shape> Component for CharacterControllerComponent<S> {
+impl<S: Shape> Component for SimpleCharacterControllerComponent<S> {
     type Instance = Instance2D;
 
     fn buffer(&self, _world: &World, render_group: &mut RenderGroup<Self::Instance>)

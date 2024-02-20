@@ -4,11 +4,11 @@ use shura::{physics::*, prelude::*};
 fn app(config: AppConfig) {
     App::run(config, || {
         Scene::new()
-            .render_group2d("player", RenderGroupConfig::default())
-            .render_group2d("box", RenderGroupConfig::default())
+            .render_group2d("player", RenderGroupUpdate::default())
+            .render_group2d("box", RenderGroupUpdate::default())
             .render_group2d(
                 "floor",
-                RenderGroupConfig {
+                RenderGroupUpdate {
                     call: BufferCall::Manual,
                     ..Default::default()
                 },

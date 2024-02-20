@@ -12,24 +12,24 @@ use rayon::prelude::*;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct RenderGroupConfig {
+pub struct RenderGroupUpdate {
     pub call: BufferCall,
     pub buffer_on_group_change: bool,
 }
 
-impl RenderGroupConfig {
-    pub const MANUAL: RenderGroupConfig = RenderGroupConfig {
+impl RenderGroupUpdate {
+    pub const MANUAL: RenderGroupUpdate = RenderGroupUpdate {
         call: BufferCall::Manual,
         buffer_on_group_change: false,
     };
 
-    pub const EVERY_FRAME: RenderGroupConfig = RenderGroupConfig {
+    pub const EVERY_FRAME: RenderGroupUpdate = RenderGroupUpdate {
         call: BufferCall::EveryFrame,
         buffer_on_group_change: true,
     };
 }
 
-impl Default for RenderGroupConfig {
+impl Default for RenderGroupUpdate {
     fn default() -> Self {
         Self {
             call: BufferCall::EveryFrame,
@@ -57,7 +57,7 @@ impl_downcast!(RenderGroupCommon);
 
 pub struct RenderGroup<I: Instance> {
     buffer: Option<InstanceBuffer<I>>,
-    config: RenderGroupConfig,
+    config: RenderGroupUpdate,
     data: Vec<I>,
     manual_buffer: bool,
     needs_update: bool,
@@ -71,7 +71,7 @@ pub struct RenderGroup<I: Instance> {
 
 impl<I: Instance> RenderGroup<I> {
     const ALLOC: u64 = 16;
-    pub(crate) fn new(config: RenderGroupConfig) -> Self {
+    pub(crate) fn new(config: RenderGroupUpdate) -> Self {
         Self {
             buffer: None,
             manual_buffer: true,
@@ -150,7 +150,7 @@ impl RenderGroupManager {
         }
     }
 
-    pub(crate) fn register<I: Instance>(&mut self, name: &'static str, config: RenderGroupConfig) {
+    pub(crate) fn register<I: Instance>(&mut self, name: &'static str, config: RenderGroupUpdate) {
         if self.buffers.contains_key(name) {
             panic!("Group \"{}\" already defined!", name);
         }

@@ -1,8 +1,8 @@
-pub use rand::*;
-
+pub use rand;
+use rand::{thread_rng, Rng, distributions::uniform};
 pub fn gen_range<
-    T: distributions::uniform::SampleUniform,
-    R: distributions::uniform::SampleRange<T>,
+    T: uniform::SampleUniform,
+    R: uniform::SampleRange<T>,
 >(
     range: R,
 ) -> T {

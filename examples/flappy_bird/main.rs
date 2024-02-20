@@ -7,7 +7,7 @@ fn app(config: AppConfig) {
     App::run(config, || {
         Scene::new()
             .component::<Background>(ComponentConfig {
-                buffer: RenderGroupConfig::Manual,
+                buffer: RenderGroupUpdate::Manual,
                 storage: ComponentStorage::Single,
                 ..ComponentConfig::DEFAULT
             })

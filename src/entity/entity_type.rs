@@ -56,11 +56,11 @@ pub enum EntityStorage {
 }
 
 pub trait SingleEntityRef<'a, E: Entity> {
-    fn get(self) -> Option<Ref<'a, E>>;
+    fn get_ref(self) -> Option<Ref<'a, E>>;
 }
 
 pub trait SingleEntityRefMut<'a, E: Entity> {
-    fn get(self) -> Option<RefMut<'a, E>>;
+    fn get_ref(self) -> Option<RefMut<'a, E>>;
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -80,13 +80,13 @@ impl<E: Entity> Default for SingleEntity<E> {
 }
 
 impl<'a, E: Entity> SingleEntityRef<'a, E> for Ref<'a, SingleEntity<E>> {
-    fn get(self) -> Option<Ref<'a, E>> {
+    fn get_ref(self) -> Option<Ref<'a, E>> {
         Ref::filter_map(self, |ty| ty.entity.as_ref()).ok()
     }
 }
 
 impl<'a, E: Entity> SingleEntityRefMut<'a, E> for RefMut<'a, SingleEntity<E>> {
-    fn get(self) -> Option<RefMut<'a, E>> {
+    fn get_ref(self) -> Option<RefMut<'a, E>> {
         RefMut::filter_map(self, |ty| ty.entity.as_mut()).ok()
     }
 }
@@ -96,11 +96,11 @@ impl<E: EntityIdentifier> SingleEntity<E> {
         self.entity.is_some()
     }
 
-    pub fn get_ref(&self) -> Option<&E> {
+    pub fn get(&self) -> Option<&E> {
         self.entity.as_ref()
     }
 
-    pub fn get_ref_mut(&mut self) -> Option<&mut E> {
+    pub fn get_mut(&mut self) -> Option<&mut E> {
         self.entity.as_mut()
     }
 

@@ -5,7 +5,7 @@ use crate::{
     },
     graphics::{
         CameraViewSelection, Instance, Instance2D, Instance3D, PerspectiveCamera3D,
-        RenderGroupConfig, RenderGroupManager, ScreenConfig, WorldCamera2D, WorldCamera3D,
+        RenderGroupUpdate, RenderGroupManager, ScreenConfig, WorldCamera2D, WorldCamera3D,
         WorldCameraScaling,
     },
     math::Vector2,
@@ -17,7 +17,7 @@ use crate::{
 pub trait SceneCreator {
     fn scene(&mut self) -> &mut Scene;
 
-    fn render_group<I: Instance>(mut self, name: &'static str, config: RenderGroupConfig) -> Self
+    fn render_group<I: Instance>(mut self, name: &'static str, config: RenderGroupUpdate) -> Self
     where
         Self: Sized,
     {
@@ -52,14 +52,14 @@ pub trait SceneCreator {
         self
     }
 
-    fn render_group2d(self, name: &'static str, config: RenderGroupConfig) -> Self
+    fn render_group2d(self, name: &'static str, config: RenderGroupUpdate) -> Self
     where
         Self: Sized,
     {
         self.render_group::<Instance2D>(name, config)
     }
 
-    fn render_group3d(self, name: &'static str, config: RenderGroupConfig) -> Self
+    fn render_group3d(self, name: &'static str, config: RenderGroupUpdate) -> Self
     where
         Self: Sized,
     {
