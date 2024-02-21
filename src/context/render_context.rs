@@ -20,19 +20,19 @@ pub struct RenderContextEntities<'a>(&'a EntityManager);
 
 impl<'a> RenderContextEntities<'a> {
     pub fn type_raw(&self, type_id: EntityId) -> Ref<dyn EntityType> {
-        self.0.type_raw_ref(type_id)
+        self.0.type_raw(type_id)
     }
 
     pub fn single<E: EntityIdentifier>(&self) -> Ref<SingleEntity<E>> {
-        self.0.single_ref::<E>()
+        self.0.single::<E>()
     }
 
     pub fn multiple<E: EntityIdentifier>(&self) -> Ref<Entities<E>> {
-        self.0.multiple_ref::<E>()
+        self.0.multiple::<E>()
     }
 
     pub fn group<ET: EntityType + Default>(&self) -> Ref<GroupedEntities<ET>> {
-        self.0.group_ref::<ET>()
+        self.0.group::<ET>()
     }
 }
 

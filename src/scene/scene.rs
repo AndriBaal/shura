@@ -5,7 +5,7 @@ use crate::{
     },
     graphics::{
         CameraViewSelection, Instance, Instance2D, Instance3D, PerspectiveCamera3D,
-        RenderGroupUpdate, RenderGroupManager, ScreenConfig, WorldCamera2D, WorldCamera3D,
+        RenderGroupManager, RenderGroupUpdate, ScreenConfig, WorldCamera2D, WorldCamera3D,
         WorldCameraScaling,
     },
     math::Vector2,
