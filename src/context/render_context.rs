@@ -27,8 +27,8 @@ impl<'a> RenderContextEntities<'a> {
         self.0.single::<E>()
     }
 
-    pub fn multiple<E: EntityIdentifier>(&self) -> Ref<Entities<E>> {
-        self.0.multiple::<E>()
+    pub fn get<E: EntityIdentifier>(&self) -> Ref<Entities<E>> {
+        self.0.get::<E>()
     }
 
     pub fn group<ET: EntityType + Default>(&self) -> Ref<GroupedEntities<ET>> {

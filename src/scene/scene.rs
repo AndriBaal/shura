@@ -1,6 +1,6 @@
 use crate::{
     entity::{
-        Entities, EntityGroupManager, EntityIdentifier, EntityManager, EntityScope, EntityStorage,
+        Entities, EntityGroupManager, EntityIdentifier, EntityManager, EntityScope,
         EntityType, GroupedEntities, SingleEntity,
     },
     graphics::{
@@ -24,19 +24,37 @@ pub trait SceneCreator {
         self.scene().render_groups.register::<I>(name, config);
         self
     }
-    fn entity<E: EntityIdentifier>(self, storage: EntityStorage, scope: EntityScope) -> Self
+    fn entity_grouped<E: EntityIdentifier>(self) -> Self
     where
         Self: Sized,
     {
-        match storage {
-            EntityStorage::Single => self.custom_entity(SingleEntity::<E>::default(), scope),
-            EntityStorage::Multiple => self.custom_entity(Entities::<E>::default(), scope),
-            EntityStorage::Groups => {
-                self.custom_entity(GroupedEntities::<Entities<E>>::default(), scope)
-            }
-        }
+        self.entity_custom(GroupedEntities::<Entities<E>>::default(), EntityScope::Scene)
     }
-    fn custom_entity<ET: EntityType>(mut self, ty: ET, scope: EntityScope) -> Self
+    fn entity_single<E: EntityIdentifier>(self) -> Self
+        where
+            Self: Sized,
+    {
+        self.entity_custom(SingleEntity::<E>::default(), EntityScope::Scene)
+    }
+    fn entity<E: EntityIdentifier>(self) -> Self
+        where
+            Self: Sized,
+    {
+        self.entity_custom(Entities::<E>::default(), EntityScope::Scene)
+    }
+    fn entity_single_global<E: EntityIdentifier>(self) -> Self
+        where
+            Self: Sized,
+    {
+        self.entity_custom(SingleEntity::<E>::default(), EntityScope::Global)
+    }
+    fn entity_global<E: EntityIdentifier>(self) -> Self
+        where
+            Self: Sized,
+    {
+        self.entity_custom(Entities::<E>::default(), EntityScope::Global)
+    }
+    fn entity_custom<ET: EntityType>(mut self, ty: ET, scope: EntityScope) -> Self
     where
         Self: Sized,
     {

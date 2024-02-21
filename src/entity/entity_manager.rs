@@ -362,14 +362,14 @@ impl EntityManager {
             ._ref()
     }
 
-    pub fn multiple_mut<E: EntityIdentifier>(&self) -> RefMut<Entities<E>> {
+    pub fn get_mut<E: EntityIdentifier>(&self) -> RefMut<Entities<E>> {
         self.types
             .get(&E::IDENTIFIER)
             .expect(&no_type_error::<E>())
             .ref_mut()
     }
 
-    pub fn multiple<E: EntityIdentifier>(&self) -> Ref<Entities<E>> {
+    pub fn get<E: EntityIdentifier>(&self) -> Ref<Entities<E>> {
         self.types
             .get(&E::IDENTIFIER)
             .expect(&no_type_error::<E>())

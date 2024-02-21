@@ -48,13 +48,6 @@ pub trait EntityType: Downcast {
 }
 impl_downcast!(EntityType);
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
-pub enum EntityStorage {
-    Single,
-    Multiple,
-    Groups,
-}
-
 pub trait SingleEntityRef<'a, E: Entity> {
     fn get_ref(self) -> Option<Ref<'a, E>>;
 }

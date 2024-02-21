@@ -1,6 +1,9 @@
 use std::{cell::RefCell, sync::Arc};
 
 #[cfg(feature = "serde")]
+use rustc_hash::FxHashMap;
+
+#[cfg(feature = "serde")]
 use crate::{
     entity::{EntityGroupHandle, EntityId},
     serde::{EntityGroupDeserializer, EntityGroupSerializer, SceneSerializer},
@@ -15,13 +18,8 @@ use crate::{
     system::{EndReason, SystemManager},
     tasks::TaskManager,
 };
-
-#[cfg(feature = "serde")]
-use rustc_hash::FxHashMap;
-
 #[cfg(feature = "audio")]
 use crate::audio::AudioManager;
-
 #[cfg(feature = "gui")]
 use crate::gui::Gui;
 
@@ -216,11 +214,13 @@ impl<'a> Context<'a> {
 
     #[must_use]
     pub fn remove_scene(&mut self, scene_id: u32) -> Option<Scene> {
-        self.with_scene(scene_id, |systems, ctx| {
-            for setup in &systems.end_systems {
-                (setup)(ctx, EndReason::Removed);
-            }
-        });
+        if self.scenes.exists(scene_id) {
+            self.with_scene(scene_id, |systems, ctx| {
+                for setup in &systems.end_systems {
+                    (setup)(ctx, EndReason::Removed);
+                }
+            });
+        }
 
         self.scenes.remove(scene_id)
     }

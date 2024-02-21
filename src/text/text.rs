@@ -5,7 +5,7 @@ use crate::{
         Color, Gpu, Index, Instance, Instance2D, Mesh, MeshBuilder2D, RenderGroup, SpriteAtlas,
         SpriteSheetIndex, Vertex,
     },
-    math::{Isometry2, Matrix2, Vector2},
+    math::{Isometry2, Matrix2, Vector2, Rotation2},
     physics::World,
     text::Font,
 };
@@ -92,14 +92,14 @@ impl<S: AsRef<str>> TextSection<S> {
                 continue;
             }
 
-            let scale = rusttype::Scale::uniform(section.size);
-            let metrics = font.inner.font.v_metrics(scale);
+            let scaling = rusttype::Scale::uniform(section.size);
+            let metrics = font.inner.font.v_metrics(scaling);
             let mut off_y = 0.0;
             for line in text.lines() {
                 let glyphs = font
                     .inner
                     .font
-                    .layout(line, scale, rusttype::Point::default())
+                    .layout(line, scaling, rusttype::Point::default())
                     .collect::<Vec<rusttype::PositionedGlyph>>();
 
                 let horizontal = match section.horizontal_alignment {
@@ -133,7 +133,7 @@ impl<S: AsRef<str>> TextSection<S> {
 
                 for glyph in &glyphs {
                     if let Some(bb) = glyph.unpositioned().exact_bounding_box() {
-                        if let Some((id, scale)) = font.inner.index_map.get(&glyph.id()) {
+                        if let Some((id, scaling)) = font.inner.index_map.get(&glyph.id()) {
                             let size = Vector2::new(bb.width(), bb.height());
                             let offset = Vector2::new(-horizontal, -bb.max.y - vertical - off_y);
                             let bottom_left =
@@ -142,7 +142,7 @@ impl<S: AsRef<str>> TextSection<S> {
                                 size,
                                 bottom_left,
                                 section,
-                                tex_scale: *scale,
+                                tex_scaling: *scaling,
                                 id: *id,
                             })
                         }
@@ -212,19 +212,19 @@ impl TextMesh {
                 },
                 Vertex2DText {
                     pos: letter.bottom_left,
-                    tex: Vector2::new(0.0, letter.tex_scale.y),
+                    tex: Vector2::new(0.0, letter.tex_scaling.y),
                     color: letter.section.color,
                     sprite: letter.id,
                 },
                 Vertex2DText {
                     pos: bottom_right,
-                    tex: Vector2::new(letter.tex_scale.x, letter.tex_scale.y),
+                    tex: Vector2::new(letter.tex_scaling.x, letter.tex_scaling.y),
                     color: letter.section.color,
                     sprite: letter.id,
                 },
                 Vertex2DText {
                     pos: top_right,
-                    tex: Vector2::new(letter.tex_scale.x, 0.0),
+                    tex: Vector2::new(letter.tex_scaling.x, 0.0),
                     color: letter.section.color,
                     sprite: letter.id,
                 },
@@ -277,18 +277,18 @@ pub struct Letter {
 pub struct TextComponent2D {
     pub letters: Vec<Letter>,
     pub font: Font,
-    pub offset: Isometry2<f32>,
-    pub scale: Vector2<f32>,
+    pub position: Isometry2<f32>,
+    pub scaling: Vector2<f32>,
 }
 
 impl Component for TextComponent2D {
     type Instance = LetterInstance2D;
     fn buffer(&self, _world: &World, render_group: &mut RenderGroup<Self::Instance>) {
         for letter in &self.letters {
-            let rotation = letter.pos.rotation * self.offset.rotation;
-            let size = letter.size.component_mul(&self.scale);
+            let rotation = letter.pos.rotation * self.position.rotation;
+            let size = letter.size.component_mul(&self.scaling);
             let instance = LetterInstance2D(Instance2D {
-                pos: letter.pos.translation.vector + self.offset.translation.vector,
+                pos: letter.pos.translation.vector + self.position.translation.vector,
                 color: letter.color,
                 rot: Matrix2::new(
                     size.x * rotation.cos_angle(),
@@ -312,9 +312,29 @@ impl TextComponent2D {
         Self {
             letters,
             font: font.clone(),
-            offset: Isometry2::default(),
-            scale: Vector2::new(1.0, 1.0),
+            position: Isometry2::default(),
+            scaling: Vector2::new(1.0, 1.0),
         }
+    }
+
+    pub fn with_scaling(mut self, scaling: Vector2<f32>) -> Self {
+        self.scaling = scaling;
+        self
+    }
+
+    pub fn with_rotation(mut self, rotation: Rotation2<f32>) -> Self {
+        self.position.rotation = rotation;
+        self
+    }
+
+    pub fn with_translation(mut self, translation: Vector2<f32>) -> Self {
+        self.position.translation.vector = translation;
+        self
+    }
+
+    pub fn with_position(mut self, position: Isometry2<f32>) -> Self {
+        self.position = position;
+        self
     }
 
     pub fn write<S: AsRef<str>>(&mut self, sections: &[TextSection<S>]) {
@@ -341,7 +361,7 @@ impl TextComponent2D {
                 active: true,
                 color: letter.section.color,
                 size: letter.size,
-                atlas: SpriteAtlas::new(letter.tex_scale, Vector2::default()),
+                atlas: SpriteAtlas::new(letter.tex_scaling, Vector2::default()),
                 index: letter.id,
             });
         });
@@ -351,7 +371,7 @@ impl TextComponent2D {
 
 struct FormattedGlyph<'a, S: AsRef<str>> {
     size: Vector2<f32>,
-    tex_scale: Vector2<f32>,
+    tex_scaling: Vector2<f32>,
     bottom_left: Vector2<f32>,
     section: &'a TextSection<S>,
     id: u32,
