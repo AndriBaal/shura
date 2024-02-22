@@ -313,7 +313,7 @@ impl App {
                 let height: u32 = browser_window.inner_height().unwrap().as_f64().unwrap() as u32;
                 let size = winit::dpi::PhysicalSize::new(width, height);
                 if size != self.window.inner_size().into() {
-                    self.window.set_min_inner_size(Some(size));
+                    self.window.request_inner_size(size);
                 }
             }
         }
