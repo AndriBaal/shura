@@ -5,7 +5,7 @@ use crate::{
         Color, Gpu, Index, Instance, Instance2D, Mesh, MeshBuilder2D, RenderGroup, SpriteAtlas,
         SpriteSheetIndex, Vertex,
     },
-    math::{Isometry2, Matrix2, Vector2, Rotation2},
+    math::{Isometry2, Matrix2, Rotation2, Vector2},
     physics::World,
     text::Font,
 };

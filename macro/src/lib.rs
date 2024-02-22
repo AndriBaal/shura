@@ -261,16 +261,15 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     let struct_name = ast.ident.clone();
     let inner = inner_components(data_struct);
     let field_names = inner.iter().map(|i| &i.0).collect::<Vec<_>>();
-    assert!(
-        !inner.is_empty(),
-        "At least one component has to be defined with: #[shura(component)]"
-    );
-    let ty = inner[0].1.clone();
+    let instance = inner
+        .iter()
+        .next()
+        .map(|(_, ty)| quote!( <#ty as ::shura::component::Component>::Instance ))
+        .unwrap_or_else(|| quote!(()));
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
     quote!(
-
         impl #impl_generics ::shura::component::Component for #struct_name #ty_generics #where_clause {
-            type Instance = <#ty as ::shura::component::Component>::Instance;
+            type Instance = #instance;
             fn buffer(
                 &self,
                 world: &::shura::physics::World,

@@ -51,23 +51,19 @@ pub(crate) enum EntityTypeScope {
 impl EntityTypeScope {
     fn ref_mut_dyn(&self) -> RefMut<dyn EntityType> {
         match &self {
-            EntityTypeScope::Scene(scene) => scene
-                .try_borrow_mut()
-                .expect("Type already borrowed!"),
-            EntityTypeScope::Global(global) => global
-                .try_borrow_mut()
-                .expect("Type already borrowed!"),
+            EntityTypeScope::Scene(scene) => {
+                scene.try_borrow_mut().expect("Type already borrowed!")
+            }
+            EntityTypeScope::Global(global) => {
+                global.try_borrow_mut().expect("Type already borrowed!")
+            }
         }
     }
 
     fn ref_dyn(&self) -> Ref<dyn EntityType> {
         match &self {
-            EntityTypeScope::Scene(scene) => scene
-                .try_borrow()
-                .expect("Type already borrowed!"),
-            EntityTypeScope::Global(global) => global
-                .try_borrow()
-                .expect("Type already borrowed!"),
+            EntityTypeScope::Scene(scene) => scene.try_borrow().expect("Type already borrowed!"),
+            EntityTypeScope::Global(global) => global.try_borrow().expect("Type already borrowed!"),
         }
     }
 
@@ -146,7 +142,11 @@ impl EntityManager {
         }
     }
 
-    pub fn components_each(&self, tag: &'static str, each: impl Fn(EntityHandle, &dyn Component)) {
+    pub fn components_each(
+        &self,
+        tag: &'static str,
+        mut each: impl FnMut(EntityHandle, &dyn Component),
+    ) {
         if let Some(type_ids) = self.components.get(tag) {
             for type_id in type_ids {
                 let ty = self.types.get(type_id).unwrap();
@@ -163,7 +163,7 @@ impl EntityManager {
     pub fn components_each_mut(
         &self,
         tag: &'static str,
-        each: impl Fn(EntityHandle, &mut dyn Component),
+        mut each: impl FnMut(EntityHandle, &mut dyn Component),
     ) {
         if let Some(type_ids) = self.components.get(tag) {
             for type_id in type_ids {
@@ -181,7 +181,7 @@ impl EntityManager {
     pub fn entities_for_component(
         &self,
         tag: &'static str,
-        each: impl Fn(EntityHandle, &dyn Entity),
+        mut each: impl FnMut(EntityHandle, &dyn Entity),
     ) {
         if let Some(type_ids) = self.components.get(tag) {
             for type_id in type_ids {
@@ -197,7 +197,7 @@ impl EntityManager {
     pub fn entities_for_component_mut(
         &self,
         tag: &'static str,
-        each: impl Fn(EntityHandle, &mut dyn Entity),
+        mut each: impl FnMut(EntityHandle, &mut dyn Entity),
     ) {
         if let Some(type_ids) = self.components.get(tag) {
             for type_id in type_ids {
@@ -418,14 +418,14 @@ impl EntityManager {
         return None;
     }
 
-    pub fn try_multiple_mut<E: EntityIdentifier>(&self) -> Option<RefMut<Entities<E>>> {
+    pub fn try_get_mut<E: EntityIdentifier>(&self) -> Option<RefMut<Entities<E>>> {
         if let Some(ty) = self.types.get(&E::IDENTIFIER) {
             return Some(ty.ref_mut());
         }
         return None;
     }
 
-    pub fn try_multiple<E: EntityIdentifier>(&self) -> Option<Ref<Entities<E>>> {
+    pub fn try_get<E: EntityIdentifier>(&self) -> Option<Ref<Entities<E>>> {
         if let Some(ty) = self.types.get(&E::IDENTIFIER) {
             return Some(ty._ref());
         }

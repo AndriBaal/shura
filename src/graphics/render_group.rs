@@ -23,6 +23,11 @@ impl RenderGroupUpdate {
         buffer_on_group_change: false,
     };
 
+    pub const GROUP_CHANGED: RenderGroupUpdate = RenderGroupUpdate {
+        call: BufferCall::Manual,
+        buffer_on_group_change: true,
+    };
+
     pub const EVERY_FRAME: RenderGroupUpdate = RenderGroupUpdate {
         call: BufferCall::EveryFrame,
         buffer_on_group_change: true,
@@ -31,10 +36,7 @@ impl RenderGroupUpdate {
 
 impl Default for RenderGroupUpdate {
     fn default() -> Self {
-        Self {
-            call: BufferCall::EveryFrame,
-            buffer_on_group_change: false,
-        }
+        Self::EVERY_FRAME
     }
 }
 

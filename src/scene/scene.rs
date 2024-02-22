@@ -1,7 +1,7 @@
 use crate::{
     entity::{
-        Entities, EntityGroupManager, EntityIdentifier, EntityManager, EntityScope,
-        EntityType, GroupedEntities, SingleEntity,
+        Entities, EntityGroupManager, EntityIdentifier, EntityManager, EntityScope, EntityType,
+        GroupedEntities, SingleEntity,
     },
     graphics::{
         CameraViewSelection, Instance, Instance2D, Instance3D, PerspectiveCamera3D,
@@ -28,29 +28,41 @@ pub trait SceneCreator {
     where
         Self: Sized,
     {
-        self.entity_custom(GroupedEntities::<Entities<E>>::default(), EntityScope::Scene)
+        self.entity_custom(
+            GroupedEntities::<Entities<E>>::default(),
+            EntityScope::Scene,
+        )
+    }
+    fn entity_grouped_single<E: EntityIdentifier>(self) -> Self
+    where
+        Self: Sized,
+    {
+        self.entity_custom(
+            GroupedEntities::<SingleEntity<E>>::default(),
+            EntityScope::Scene,
+        )
     }
     fn entity_single<E: EntityIdentifier>(self) -> Self
-        where
-            Self: Sized,
+    where
+        Self: Sized,
     {
         self.entity_custom(SingleEntity::<E>::default(), EntityScope::Scene)
     }
     fn entity<E: EntityIdentifier>(self) -> Self
-        where
-            Self: Sized,
+    where
+        Self: Sized,
     {
         self.entity_custom(Entities::<E>::default(), EntityScope::Scene)
     }
     fn entity_single_global<E: EntityIdentifier>(self) -> Self
-        where
-            Self: Sized,
+    where
+        Self: Sized,
     {
         self.entity_custom(SingleEntity::<E>::default(), EntityScope::Global)
     }
     fn entity_global<E: EntityIdentifier>(self) -> Self
-        where
-            Self: Sized,
+    where
+        Self: Sized,
     {
         self.entity_custom(Entities::<E>::default(), EntityScope::Global)
     }

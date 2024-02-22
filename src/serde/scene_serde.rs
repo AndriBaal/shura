@@ -3,8 +3,8 @@ use std::sync::Arc;
 
 use crate::{
     entity::{
-        Entities, EntityId, EntityIdentifier, EntityManager, EntityScope,
-        EntityType, GroupedEntities, SingleEntity,
+        Entities, EntityId, EntityIdentifier, EntityManager, EntityScope, EntityType,
+        GroupedEntities, SingleEntity,
     },
     graphics::{Gpu, GLOBAL_GPU},
     scene::{Scene, SceneCreator},
@@ -37,31 +37,32 @@ impl<'a> SceneSerializer<'a> {
         self
     }
 
-    pub fn serialize_entity_single<E: EntityIdentifier + serde::Serialize>(
-        self,
-    ) -> Self
+    pub fn serialize_entity_single<E: EntityIdentifier + serde::Serialize>(self) -> Self
     where
         Self: Sized,
     {
         self.serialize_entity_custom::<SingleEntity<E>>()
     }
 
-    pub fn serialize_entity<E: EntityIdentifier + serde::Serialize>(
-        self,
-    ) -> Self
-        where
-            Self: Sized,
+    pub fn serialize_entity<E: EntityIdentifier + serde::Serialize>(self) -> Self
+    where
+        Self: Sized,
     {
         self.serialize_entity_custom::<Entities<E>>()
     }
 
-    pub fn serialize_entity_grouped<E: EntityIdentifier + serde::Serialize>(
-        self,
-    ) -> Self
-        where
-            Self: Sized,
+    pub fn serialize_entity_grouped<E: EntityIdentifier + serde::Serialize>(self) -> Self
+    where
+        Self: Sized,
     {
         self.serialize_entity_custom::<GroupedEntities<Entities<E>>>()
+    }
+
+    pub fn serialize_entity_grouped_single<E: EntityIdentifier + serde::Serialize>(self) -> Self
+    where
+        Self: Sized,
+    {
+        self.serialize_entity_custom::<GroupedEntities<SingleEntity<E>>>()
     }
 }
 
@@ -96,9 +97,7 @@ impl SerializedScene {
         self
     }
 
-    pub fn deserialize_entity<E: EntityIdentifier + serde::de::DeserializeOwned>(
-        self,
-    ) -> Self
+    pub fn deserialize_entity<E: EntityIdentifier + serde::de::DeserializeOwned>(self) -> Self
     where
         Self: Sized,
     {
@@ -108,8 +107,8 @@ impl SerializedScene {
     pub fn deserialize_entity_single<E: EntityIdentifier + serde::de::DeserializeOwned>(
         self,
     ) -> Self
-        where
-            Self: Sized,
+    where
+        Self: Sized,
     {
         self.deserialize_entity_custom::<SingleEntity<E>>(EntityScope::Scene)
     }
@@ -117,8 +116,8 @@ impl SerializedScene {
     pub fn deserialize_entity_global<E: EntityIdentifier + serde::de::DeserializeOwned>(
         self,
     ) -> Self
-        where
-            Self: Sized,
+    where
+        Self: Sized,
     {
         self.deserialize_entity_custom::<Entities<E>>(EntityScope::Global)
     }
@@ -126,8 +125,8 @@ impl SerializedScene {
     pub fn deserialize_entity_single_global<E: EntityIdentifier + serde::de::DeserializeOwned>(
         self,
     ) -> Self
-        where
-            Self: Sized,
+    where
+        Self: Sized,
     {
         self.deserialize_entity_custom::<SingleEntity<E>>(EntityScope::Global)
     }
@@ -136,10 +135,19 @@ impl SerializedScene {
         self,
         scope: EntityScope,
     ) -> Self
-        where
-            Self: Sized,
+    where
+        Self: Sized,
     {
         self.deserialize_entity_custom::<GroupedEntities<Entities<E>>>(scope)
+    }
+    pub fn deserialize_entity_grouped_single<E: EntityIdentifier + serde::de::DeserializeOwned>(
+        self,
+        scope: EntityScope,
+    ) -> Self
+    where
+        Self: Sized,
+    {
+        self.deserialize_entity_custom::<GroupedEntities<SingleEntity<E>>>(scope)
     }
 
     pub fn finish(self) -> Scene {

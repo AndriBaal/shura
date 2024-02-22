@@ -3,6 +3,10 @@ use std::{cell::RefCell, sync::Arc};
 #[cfg(feature = "serde")]
 use rustc_hash::FxHashMap;
 
+#[cfg(feature = "audio")]
+use crate::audio::AudioManager;
+#[cfg(feature = "gui")]
+use crate::gui::Gui;
 #[cfg(feature = "serde")]
 use crate::{
     entity::{EntityGroupHandle, EntityId},
@@ -18,10 +22,6 @@ use crate::{
     system::{EndReason, SystemManager},
     tasks::TaskManager,
 };
-#[cfg(feature = "audio")]
-use crate::audio::AudioManager;
-#[cfg(feature = "gui")]
-use crate::gui::Gui;
 
 #[non_exhaustive]
 pub struct Context<'a> {
