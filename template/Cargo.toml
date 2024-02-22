@@ -3,13 +3,13 @@ name = "shura_template"
 version = "0.1.0"
 edition = "2021"
 
-# Android run configuration (remove for faster compile time)
-[lib]
-path = "./src/main.rs"
-crate_type=["cdylib"]
+# Android run configuration
+#[lib]
+#path = "./src/main.rs"
+#crate_type=["cdylib"]
 
 [dependencies]
-shura = { path = "../" }
+shura = { path = "../", default-features = false }
 
 [package.metadata.android]
 package = "com.shura.template"

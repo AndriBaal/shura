@@ -1,5 +1,3 @@
-workspace = { members = ["macro"] }
-
 [package]
 name = "shura"
 version = "0.7.0"
