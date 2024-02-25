@@ -47,7 +47,7 @@ physics = ["dep:rapier2d"]
 deterministic_physics = ["rapier2d/enhanced-determinism"]
 gui = ["dep:egui", "dep:egui-wgpu", "dep:egui-winit"]
 log = ["dep:log", "dep:env_logger"]
-rayon = ["dep:rayon"]
+rayon = ["dep:rayon", "egui?/rayon"]
 serde = [
     "dep:serde",
     "dep:bincode",
