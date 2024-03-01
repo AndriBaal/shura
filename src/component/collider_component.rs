@@ -35,7 +35,7 @@ impl ColliderComponentStatus {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ColliderComponent {
     pub status: ColliderComponentStatus,
-    scale: Vector2<f32>,
+    scaling: Vector2<f32>,
     atlas: SpriteAtlas,
     color: Color,
     index: SpriteSheetIndex,
@@ -48,7 +48,7 @@ impl ColliderComponent {
             status: ColliderComponentStatus::Uninitialized {
                 collider: collider.into(),
             },
-            scale: Vector2::new(1.0, 1.0),
+            scaling: Vector2::new(1.0, 1.0),
             atlas: Default::default(),
             color: Color::WHITE,
             index: 0,
@@ -71,16 +71,16 @@ impl ColliderComponent {
         self.status.get_mut(world)
     }
 
-    pub fn with_scale(mut self, scale: Vector2<f32>) -> Self {
-        self.scale = scale;
+    pub fn with_scaling(mut self, scaling: Vector2<f32>) -> Self {
+        self.scaling = scaling;
         self
     }
-    pub fn set_scale(&mut self, scale: Vector2<f32>) {
-        self.scale = scale;
+    pub fn set_scaling(&mut self, scaling: Vector2<f32>) {
+        self.scaling = scaling;
     }
 
-    pub const fn scale(&self) -> &Vector2<f32> {
-        &self.scale
+    pub const fn scaling(&self) -> &Vector2<f32> {
+        &self.scaling
     }
 
     pub fn with_atlas(mut self, atlas: SpriteAtlas) -> Self {
@@ -129,7 +129,7 @@ impl ColliderComponent {
                 if let Some(collider) = world.collider(*collider_handle) {
                     Instance2D::new(
                         *collider.position(),
-                        self.scale,
+                        self.scaling,
                         self.atlas,
                         self.color,
                         self.index,
@@ -140,7 +140,7 @@ impl ColliderComponent {
             }
             ColliderComponentStatus::Uninitialized { collider } => Instance2D::new(
                 *collider.position(),
-                self.scale,
+                self.scaling,
                 self.atlas,
                 self.color,
                 self.index,

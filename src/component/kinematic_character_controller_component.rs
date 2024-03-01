@@ -10,7 +10,7 @@ use crate::{
 pub struct CharacterControllerComponent {
     pub controller: KinematicCharacterController,
     pub shape: SharedShape,
-    scale: Vector2<f32>,
+    scaling: Vector2<f32>,
     position: Isometry2<f32>,
     instance: Instance2D,
     disabled: bool,
@@ -49,8 +49,8 @@ impl CharacterControllerComponent {
         self.try_shape_mut().unwrap()
     }
 
-    pub fn with_scale(mut self, scale: Vector2<f32>) -> Self {
-        self.set_scale(scale);
+    pub fn with_scaling(mut self, scaling: Vector2<f32>) -> Self {
+        self.set_scaling(scaling);
         self
     }
 
@@ -86,11 +86,11 @@ impl CharacterControllerComponent {
 
     pub fn set_disabled(&mut self, disabled: bool) {
         self.disabled = disabled;
-        self.instance.set_scale_rotation(
+        self.instance.set_scaling_rotation(
             if disabled {
                 Vector2::default()
             } else {
-                self.scale
+                self.scaling
             },
             self.position.rotation,
         );
@@ -98,11 +98,11 @@ impl CharacterControllerComponent {
 
     pub fn set_rotation(&mut self, rotation: Rotation<f32>) {
         self.position.rotation = rotation;
-        self.instance.set_scale_rotation(
+        self.instance.set_scaling_rotation(
             if self.disabled {
                 Vector2::default()
             } else {
-                self.scale
+                self.scaling
             },
             rotation,
         );
@@ -120,18 +120,18 @@ impl CharacterControllerComponent {
             if self.disabled {
                 Vector2::default()
             } else {
-                self.scale
+                self.scaling
             },
         );
     }
 
-    pub fn set_scale(&mut self, scale: Vector2<f32>) {
-        self.scale = scale;
-        self.instance.set_scale_rotation(
+    pub fn set_scaling(&mut self, scaling: Vector2<f32>) {
+        self.scaling = scaling;
+        self.instance.set_scaling_rotation(
             if self.disabled {
                 Vector2::default()
             } else {
-                self.scale
+                self.scaling
             },
             self.position.rotation,
         );
@@ -153,8 +153,8 @@ impl CharacterControllerComponent {
         self.position
     }
 
-    pub const fn scale(&self) -> &Vector2<f32> {
-        &self.scale
+    pub const fn scaling(&self) -> &Vector2<f32> {
+        &self.scaling
     }
 
     // pub fn move_character(&mut self, world: &World) {}

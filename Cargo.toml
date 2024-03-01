@@ -47,7 +47,7 @@ physics = ["dep:rapier2d"]
 deterministic_physics = ["rapier2d/enhanced-determinism"]
 gui = ["dep:egui", "dep:egui-wgpu", "dep:egui-winit"]
 log = ["dep:log", "dep:env_logger"]
-rayon = ["dep:rayon", "egui?/rayon"]
+rayon = ["dep:rayon", "nalgebra/rayon", "egui?/rayon"]
 serde = [
     "dep:serde",
     "dep:bincode",
@@ -88,7 +88,7 @@ tobj = { version = "4.0", features = ["async"] }
 delaunator = "1"
 rayon = { version = "1.7", optional = true }
 mint = { version = "0.5" }
-nalgebra = { version = "0.32", features = ["convert-bytemuck", "mint"] }
+nalgebra = { version = "0.32", features = ["convert-bytemuck", "mint", "rand"] }
 rusttype = { version = "0.9", optional = true }
 owned_ttf_parser = { version = "0.15", optional = true }
 gilrs = { version = "0.10", optional = true }

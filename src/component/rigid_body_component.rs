@@ -68,7 +68,7 @@ impl RigidBodyComponentStatus {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RigidBodyComponent {
     pub status: RigidBodyComponentStatus,
-    scale: Vector2<f32>,
+    scaling: Vector2<f32>,
     atlas: SpriteAtlas,
     color: Color,
     index: SpriteSheetIndex,
@@ -85,7 +85,7 @@ impl RigidBodyComponent {
                 rigid_body: Box::new(rigid_body.into()),
                 colliders: colliders.into_iter().map(|c| c.into()).collect(),
             },
-            scale: Vector2::new(1.0, 1.0),
+            scaling: Vector2::new(1.0, 1.0),
             atlas: Default::default(),
             color: Color::WHITE,
             index: 0,
@@ -124,16 +124,16 @@ impl RigidBodyComponent {
         self.status.detach_collider(world, collider)
     }
 
-    pub fn with_scale(mut self, scale: Vector2<f32>) -> Self {
-        self.scale = scale;
+    pub fn with_scaling(mut self, scaling: Vector2<f32>) -> Self {
+        self.scaling = scaling;
         self
     }
-    pub fn set_scale(&mut self, scale: Vector2<f32>) {
-        self.scale = scale;
+    pub fn set_scaling(&mut self, scaling: Vector2<f32>) {
+        self.scaling = scaling;
     }
 
-    pub const fn scale(&self) -> &Vector2<f32> {
-        &self.scale
+    pub const fn scaling(&self) -> &Vector2<f32> {
+        &self.scaling
     }
 
     pub fn with_atlas(mut self, atlas: SpriteAtlas) -> Self {
@@ -182,7 +182,7 @@ impl RigidBodyComponent {
                 if let Some(rigid_body) = world.rigid_body(*rigid_body_handle) {
                     Instance2D::new(
                         *rigid_body.position(),
-                        self.scale,
+                        self.scaling,
                         self.atlas,
                         self.color,
                         self.index,
@@ -193,7 +193,7 @@ impl RigidBodyComponent {
             }
             RigidBodyComponentStatus::Uninitialized { rigid_body, .. } => Instance2D::new(
                 *rigid_body.position(),
-                self.scale,
+                self.scaling,
                 self.atlas,
                 self.color,
                 self.index,
