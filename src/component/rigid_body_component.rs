@@ -127,7 +127,8 @@ impl RigidBodyComponent {
     pub fn with_scaling(mut self, scaling: Vector2<f32>) -> Self {
         self.scaling = scaling;
         self
-    }
+    }   
+    
     pub fn set_scaling(&mut self, scaling: Vector2<f32>) {
         self.scaling = scaling;
     }

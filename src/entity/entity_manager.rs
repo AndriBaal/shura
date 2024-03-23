@@ -9,7 +9,7 @@ use rustc_hash::FxHashMap;
 #[cfg(feature = "serde")]
 use crate::entity::EntityGroupHandle;
 use crate::{
-    component::Component,
+    component::{ComponentBundle, ComponentType, ComponentTypeMut},
     entity::{
         Entities, Entity, EntityGroupManager, EntityId, EntityIdentifier, EntityType,
         GroupedEntities, SingleEntity,
@@ -145,7 +145,7 @@ impl EntityManager {
     pub fn components_each(
         &self,
         tag: &'static str,
-        mut each: impl FnMut(EntityHandle, &dyn Component),
+        mut each: impl FnMut(EntityHandle, ComponentType),
     ) {
         if let Some(type_ids) = self.components.get(tag) {
             for type_id in type_ids {
@@ -163,7 +163,7 @@ impl EntityManager {
     pub fn components_each_mut(
         &self,
         tag: &'static str,
-        mut each: impl FnMut(EntityHandle, &mut dyn Component),
+        mut each: impl FnMut(EntityHandle, ComponentTypeMut),
     ) {
         if let Some(type_ids) = self.components.get(tag) {
             for type_id in type_ids {

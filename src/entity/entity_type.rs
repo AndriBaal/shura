@@ -10,6 +10,7 @@ use crate::{
         Entity, EntityGroupHandle, EntityGroupManager, EntityHandle, EntityId, EntityIdentifier,
         EntityIndex,
     },
+    component::ComponentBundle,
     graphics::RenderGroupManager,
     physics::World,
 };
@@ -851,6 +852,3 @@ impl<ET: EntityType + Default> EntityType for GroupedEntities<ET> {
             .and_then(|e| e.dyn_remove(world, handle))
     }
 }
-
-pub trait RenderEntityIterator<'a, E: Entity>: Iterator<Item = &'a E> + Clone + 'a {}
-impl<'a, E: Entity, I: Iterator<Item = &'a E> + Clone + 'a> RenderEntityIterator<'a, E> for I {}

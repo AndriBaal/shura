@@ -5,8 +5,8 @@ fn app(config: AppConfig) {
     App::run(config, || {
         Scene::new()
             .render_group3d("cube", RenderGroupUpdate::EVERY_FRAME)
-            .entity::<Cube>(EntityStorage::Multiple, Default::default())
-            .entity::<Assets>(EntityStorage::Single, Default::default())
+            .entity::<Cube>()
+            .entity_single::<Assets>()
             .system(System::update(update))
             .system(System::setup(setup))
             .system(System::render(render))
@@ -16,7 +16,7 @@ fn app(config: AppConfig) {
 fn setup(ctx: &mut Context) {
     const NUM_INSTANCES_PER_ROW: u32 = 10;
     const SPACE_BETWEEN: f32 = 3.0;
-    ctx.entities.multiple().add_many(
+    ctx.entities.get_mut().add_many(
         ctx.world,
         (0..NUM_INSTANCES_PER_ROW).flat_map(|z| {
             (0..NUM_INSTANCES_PER_ROW).map(move |x| {
@@ -33,7 +33,7 @@ fn setup(ctx: &mut Context) {
     ctx.tasks.spawn(
         move || Assets::new(&gpu),
         |ctx, res| {
-            ctx.entities.single().set(ctx.world, res);
+            ctx.entities.single_mut().set(ctx.world, res);
         },
     );
 }
@@ -69,7 +69,7 @@ fn update(ctx: &mut Context) {
         camera.eye = camera.target - (forward - right * speed).normalize() * forward_mag;
     }
 
-    for cube in ctx.entities.multiple::<Cube>().iter_mut() {
+    for cube in ctx.entities.get_mut::<Cube>().iter_mut() {
         let mut rot = cube.position.rotation();
         rot *= Rotation3::new(Vector3::new(
             1.0 * ctx.time.delta(),

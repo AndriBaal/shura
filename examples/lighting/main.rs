@@ -1,6 +1,6 @@
-use shura::*;
+use shura::prelude::*;
 
-const SIZE: Vector<u32> = vector(800, 800);
+const SIZE: Vector2<u32> = vector!(800, 800);
 
 #[shura::main]
 fn app(config: ShuraConfig) {
@@ -18,12 +18,12 @@ fn app(config: ShuraConfig) {
 
             ctx.components.add(
                 ctx.world,
-                Light::new(vector(0.0, -2.0), Color::ORANGE, 6.0, false),
+                Light::new(vector!(0.0, -2.0), Color::ORANGE, 6.0, false),
             );
 
             ctx.components.add(
                 ctx.world,
-                Light::new(vector(0.0, 0.0), Color::WHITE, 5.0, true),
+                Light::new(vector!(0.0, 0.0), Color::WHITE, 5.0, true),
             );
         })
     })
@@ -31,7 +31,7 @@ fn app(config: ShuraConfig) {
 
 #[derive(Component)]
 struct Background {
-    mesh: Mesh,
+    mesh: Mesh2D,
     level: Sprite,
     #[position]
     position: PositionComponent,
@@ -42,7 +42,7 @@ impl Background {
         Self {
             mesh: ctx
                 .gpu
-                .create_mesh(&MeshBuilder::cuboid(vector(10.0, 10.0))),
+                .create_mesh(&MeshBuilder2D::cuboid(vector!(10.0, 10.0))),
             level: ctx.gpu.create_sprite(sprite_file!("./level.png")),
             position: Default::default(),
         }
@@ -136,7 +136,7 @@ impl LightAssets {
                 ..Default::default()
             }),
             light_map: ctx.gpu.create_render_target(ctx.window_size),
-            light_mesh: ctx.gpu.create_mesh(&MeshBuilder::cuboid(vector(1.0, 1.0))),
+            light_mesh: ctx.gpu.create_mesh(&MeshBuilder::cuboid(vector!(1.0, 1.0))),
         }
     }
 }
@@ -151,11 +151,11 @@ struct Light {
 }
 
 impl Light {
-    pub fn new(translation: Vector<f32>, color: Color, radius: f32, follow_player: bool) -> Self {
+    pub fn new(translation: Vector2<f32>, color: Color, radius: f32, follow_player: bool) -> Self {
         Self {
             pos: PositionComponent::new()
                 .with_translation(translation)
-                .with_scale(vector(radius, radius)),
+                .with_scale(vector!(radius, radius)),
             color,
             follow_player,
         }

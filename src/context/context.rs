@@ -125,9 +125,10 @@ impl<'a> Context<'a> {
             for ty in self.entities.types() {
                 if !ser_entities.contains_key(&ty.entity_type_id()) {
                     for (_, entity) in ty.dyn_iter() {
-                        for component in entity.components() {
-                            component.remove_from_world(&mut world_cpy);
-                        }
+                        entity.remove_from_world(&mut world_cpy);
+                        // for component in entity.components() {
+                        //     component.remove_from_world(&mut world_cpy);
+                        // }
                     }
                 }
             }
