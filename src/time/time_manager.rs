@@ -53,7 +53,7 @@ impl TimeManager {
             #[cfg(feature = "log")]
             {
                 info!(
-                    "fps: {}\tdelta: {}\ttotal:{}",
+                    "fps: {}\tdelta: {}\ttotal: {}",
                     self.fps,
                     self.delta(),
                     self.total()

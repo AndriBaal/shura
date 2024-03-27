@@ -1,13 +1,13 @@
-[package]
+[workspace.package]
 name = "shura"
 version = "0.7.0"
 edition = "2021"
+rust-version = "1.77"
 repository = "https://github.com/AndriBaal/shura"
-documentation = "https://docs.rs/shura"
+license = "MIT OR Apache-2.0"
 readme = "README.md"
-license = "Apache-2.0"
-description = "A fast cross-plattform 2D component-based game framework"
 keywords = ["graphics", "physics", "game", "android", "wasm"]
+authors = ["Andri Baal <andri.baal@bluewin.ch>"]
 categories = [
     "wasm",
     "rendering",
@@ -15,7 +15,27 @@ categories = [
     "game-engines",
     "game-development",
 ]
-exclude = ["docs", "macro", "template"]
+
+[workspace]
+resolver = "2"
+members = [
+    "shura_macros",
+]
+exclude = ["shura_template", "assets"]
+
+[package]
+name = "shura"
+description = "A fast cross-plattform 2D game framework"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+keywords.workspace = true
+license.workspace = true
+categories.workspace = true
+
+[workspace.dependencies.shura_macros]
+path = "./shura_macros"
 
 [package.metadata.docs.rs]
 default-target = "x86_64-unknown-linux-gnu"
@@ -69,15 +89,15 @@ default = [
     "serde",
     "gui",
     "log",
-    "rayon",
     "framebuffer",
+    # "rayon",
 ]
 
 [lib]
 crate-type = ["lib", "cdylib"]
 
 [dev-dependencies]
-egui_demo_lib = "0.26"
+egui_demo_lib = "0.27"
 
 [dependencies]
 winit = { version = "0.29", features = ["mint"] }
@@ -92,8 +112,8 @@ nalgebra = { version = "0.32", features = ["convert-bytemuck", "mint", "rand"] }
 rusttype = { version = "0.9", optional = true }
 owned_ttf_parser = { version = "0.15", optional = true }
 gilrs = { version = "0.10", optional = true }
-egui-wgpu = { version = "0.26", features = ["winit"], optional = true }
-egui = { version = "0.26", default-features = false, optional = true, features = [
+egui-wgpu = { version = "0.27", features = ["winit"], optional = true }
+egui = { version = "0.27", default-features = false, optional = true, features = [
     "bytemuck",
     "default_fonts",
     "mint",
@@ -106,8 +126,8 @@ futures-intrusive = "0.5.0"
 pollster = "0.3.0"
 bytemuck = { version = "1.14", features = ["derive"] }
 instant = "0.1.12"
-shura_proc = { path = "./macro" }
-image = { version = "0.24", default-features = false, features = [
+shura_macros = { workspace = true }
+image = { version = "0.25", default-features = false, features = [
     "png",
     "jpeg",
 ] }
@@ -117,12 +137,12 @@ rand = "0.8.5"
 rodio = { version = "0.17", default-features = false, optional = true, features = [
     "symphonia-all",
 ] }
-egui-winit = { version = "0.26", features = [
+egui-winit = { version = "0.27", features = [
     "links",
 ], default-features = false, optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-reqwest = "0.11"
+reqwest = "0.12"
 wasm-bindgen-futures = "0.4"
 getrandom = { version = "0.2", features = ["js"] }
 console_error_panic_hook = "0.1"
@@ -153,8 +173,9 @@ version = "0.1"
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies.egui-winit]
 features = ["arboard", "webbrowser"]
 default-features = true
-version = "0.26"
+version = "0.27"
 
 [target.'cfg(target_os = "android")'.dependencies.winit]
 features = ["android-native-activity"]
 version = "0.29"
+

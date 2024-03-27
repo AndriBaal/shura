@@ -7,7 +7,6 @@ use crate::{
     graphics::{Gpu, RgbaColor},
     math::Vector2,
 };
-use image::ImageOutputFormat;
 use std::ops::Deref;
 
 pub struct SpriteBuilder<'a, D: Deref<Target = [u8]>> {
@@ -252,7 +251,7 @@ impl Sprite {
     pub fn to_bytes(&self, gpu: &Gpu) -> Vec<u8> {
         let mut result = std::io::Cursor::new(Vec::new());
         self.to_image(gpu)
-            .write_to(&mut result, ImageOutputFormat::Png)
+            .write_to(&mut result, image::ImageFormat::Png)
             .unwrap();
         result.into_inner()
     }

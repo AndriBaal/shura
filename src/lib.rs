@@ -38,7 +38,7 @@ pub use nalgebra;
 #[cfg(feature = "rayon")]
 pub use rayon;
 pub use rustc_hash;
-pub use shura_proc as macros;
+pub use shura_macros as macros;
 pub use wgpu;
 pub use winit;
 
@@ -106,7 +106,7 @@ pub mod prelude {
     #[cfg(feature = "rayon")]
     pub use rayon;
     pub use rustc_hash;
-    pub use shura_proc as macros;
+    pub use shura_macros as macros;
     pub use wgpu;
     pub use winit;
 

@@ -9,7 +9,8 @@ edition = "2021"
 #crate_type=["cdylib"]
 
 [dependencies]
-shura = { path = "../", default-features = false }
+shura = { path = "../" }
+# shura = "0.7"
 
 [package.metadata.android]
 package = "com.shura.template"

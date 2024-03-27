@@ -1,0 +1,18 @@
+[package]
+name = "shura_macros"
+description = "Macros for shura"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+keywords.workspace = true
+license.workspace = true
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1.0"
+syn = "2.0"
+const-fnv1a-hash = "1.1"
+quote = "1.0"
