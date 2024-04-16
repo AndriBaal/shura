@@ -65,12 +65,6 @@ pub struct RenderGroup<I: Instance> {
     needs_update: bool,
 }
 
-// pub struct MappedRenderGroup<I: Instance> {
-//     group: RenderGroup<I>,
-//     mapping: FxHashMap<EntityHandle, wgpu::BufferAddress>,
-//     staging_belt: wgpu::util::StagingBelt,
-// }
-
 impl<I: Instance> RenderGroup<I> {
     const ALLOC: u64 = 16;
     pub(crate) fn new(config: RenderGroupUpdate) -> Self {

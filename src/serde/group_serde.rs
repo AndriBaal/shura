@@ -22,7 +22,7 @@ impl EntityGroupSerializer {
         entities: &mut EntityManager,
         group: &EntityGroupHandle,
     ) -> Option<Self> {
-        if let Some((group, entities)) = groups.remove_serialize(entities, world, group) {
+        if let Some((group, entities)) = groups.remove(entities, world, group) {
             return Some(Self {
                 group,
                 entities,

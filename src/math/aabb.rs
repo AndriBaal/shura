@@ -6,13 +6,28 @@ use crate::{
 #[derive(Debug, Copy, Clone, PartialEq, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct AABB {
-    pub min: Vector2<f32>,
-    pub max: Vector2<f32>,
+    min: Vector2<f32>,
+    max: Vector2<f32>,
 }
 
 impl AABB {
-    pub const fn new(min: Vector2<f32>, max: Vector2<f32>) -> Self {
+    pub fn new(p1: Vector2<f32>, p2: Vector2<f32>) -> Self {
+        let min = Vector2::new(p1.x.min(p2.x), p1.y.min(p2.y));
+        let max = Vector2::new(p1.x.max(p2.x), p1.y.max(p2.y));
         Self { min, max }
+    }
+
+    pub fn scale(&mut self, scale: f32) {
+        self.min *= scale;
+        self.max *= scale;
+    }
+
+    pub fn min(&self) -> &Vector2<f32> {
+        &self.min
+    }
+
+    pub fn max(&self) -> &Vector2<f32> {
+        &self.max
     }
 
     pub fn center(&self) -> Vector2<f32> {

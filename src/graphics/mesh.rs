@@ -213,10 +213,10 @@ impl MeshBuilder2D {
 
     pub fn from_aabb(aabb: AABB) -> Self {
         let vertices = vec![
-            Vertex2D::new(Vector2::new(aabb.min.x, aabb.max.y), Vector2::new(0.0, 0.0)),
-            Vertex2D::new(Vector2::new(aabb.min.x, aabb.min.y), Vector2::new(0.0, 1.0)),
-            Vertex2D::new(Vector2::new(aabb.max.x, aabb.min.y), Vector2::new(1.0, 1.0)),
-            Vertex2D::new(Vector2::new(aabb.max.x, aabb.max.y), Vector2::new(1.0, 0.0)),
+            Vertex2D::new(Vector2::new(aabb.min().x, aabb.max().y), Vector2::new(0.0, 0.0)),
+            Vertex2D::new(Vector2::new(aabb.min().x, aabb.min().y), Vector2::new(0.0, 1.0)),
+            Vertex2D::new(Vector2::new(aabb.max().x, aabb.min().y), Vector2::new(1.0, 1.0)),
+            Vertex2D::new(Vector2::new(aabb.max().x, aabb.max().y), Vector2::new(1.0, 0.0)),
         ];
         let indices = Vec::from(Self::CUBOID_INDICES);
         Self {

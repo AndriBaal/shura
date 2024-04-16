@@ -71,10 +71,11 @@ rayon = ["dep:rayon", "nalgebra/rayon", "egui?/rayon"]
 serde = [
     "dep:serde",
     "dep:bincode",
-    "wgpu/trace",
     "wgpu/serde",
-    "wgpu/replay",
+    # "wgpu/trace",
+    # "wgpu/replay",
     "winit/serde",
+    "rstar/serde",
     "gilrs?/serde-serialize",
     "egui?/serde",
     "nalgebra/serde-serialize",
@@ -105,6 +106,7 @@ wgpu = { version = "0.19", features = ["glsl", "spirv", "webgl"] }
 anyhow = "1.0"
 env_logger = { version = "0.11", optional = true }
 tobj = { version = "4.0", features = ["async"] }
+rstar = "0.12.0"
 delaunator = "1"
 rayon = { version = "1.7", optional = true }
 mint = { version = "0.5" }
