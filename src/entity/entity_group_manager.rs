@@ -203,8 +203,8 @@ impl EntityGroupManager {
             self.update_groups.insert(group.handle);
         }
 
-        self.update_groups_changed = old_update_groups == self.update_groups;
-        self.render_groups_changed = old_render_groups == self.render_groups;
+        self.update_groups_changed = old_update_groups != self.update_groups;
+        self.render_groups_changed = old_render_groups != self.render_groups;
 
 
         #[cfg(feature = "log")]
