@@ -79,7 +79,7 @@ fn bundle_data(data_struct: &DataStruct) -> ComponentBundleData {
                             Ok(())
                         })
                         .expect(
-                            "Define your component like the this: '#[shura(component = \"<render_group>\")]' or '#[shura(component)]'",
+                            "Define your components like the this: '#[shura(component = \"<render_group>\")]' or '#[shura(component)]'",
                         );
                     }
                 }
