@@ -5,8 +5,8 @@ fn app(config: AppConfig) {
     App::run(config, || {
         Scene::new()
             .render_group2d("bunny", RenderGroupUpdate::default())
-            .entity::<Bunny>(EntityStorage::Multiple, EntityScope::Global)
-            .entity::<Assets>(EntityStorage::Single, EntityScope::Scene)
+            .entity::<Bunny>()
+            .entity_single::<Assets>()
             .system(System::update(update))
             .system(System::setup(setup))
             .system(System::render(render))
@@ -16,10 +16,10 @@ fn app(config: AppConfig) {
 fn setup(ctx: &mut Context) {
     ctx.world_camera2d.set_scaling(WorldCameraScaling::Min(3.0));
     ctx.entities
-        .multiple::<Bunny>()
+        .get_mut::<Bunny>()
         .add(ctx.world, Bunny::new(Default::default()));
     ctx.entities
-        .single::<Assets>()
+        .single_mut::<Assets>()
         .set(ctx.world, Assets::new(ctx));
 }
 
@@ -27,8 +27,8 @@ fn update(ctx: &mut Context) {
     const MODIFY_STEP: usize = 1500;
     const GRAVITY: f32 = -2.5;
 
-    let mut bunnies = ctx.entities.multiple::<Bunny>();
-    let mut assets = ctx.entities.single::<Assets>().get_ref().unwrap();
+    let mut bunnies = ctx.entities.get_mut::<Bunny>();
+    let mut assets = ctx.entities.single_mut::<Assets>().get_ref().unwrap();
 
     if ctx.input.is_held(MouseButton::Left) || ctx.input.is_held(ScreenTouch) {
         let cursor: Vector2<f32> = ctx.cursor.coords;

@@ -1,13 +1,14 @@
 use proc_macro::TokenStream;
-use proc_macro2::{Ident, TokenStream as TokenStream2};
-use quote::{quote, ToTokens};
-use std::sync::Mutex;
 use std::{
     collections::{HashMap, HashSet},
     sync::OnceLock,
 };
+use std::sync::Mutex;
+
+use proc_macro2::{Ident, TokenStream as TokenStream2};
+use quote::{quote, ToTokens};
 use syn::{
-    parse_macro_input, parse_quote, Data, DataStruct, DeriveInput, Expr, Fields, LitStr, Type,
+    Data, DataStruct, DeriveInput, Expr, Fields, LitStr, parse_macro_input, parse_quote, Type,
 };
 
 type RenderGroups = HashMap<String, (LitStr, Type, Vec<Ident>)>;
@@ -164,7 +165,7 @@ fn component_bundle(ast: &DeriveInput) -> TokenStream2 {
         .iter()
         .map(|(_, (group_name, type_name, field_names))| {
             quote! {
-                let buffer = render_groups.get_mut::<<#type_name as ::shura::component::Component>::Instance>(#group_name).expect(&format!("Cannot find RenderGroup {}!", #group_name));
+                let buffer = render_groups.get_mut::<<#type_name as ::shura::component::Component>::Instance>(#group_name).expect(&format!("Cannot find render group \"{}\"! Try declaring it when setting up the scene.", #group_name));
                 if buffer.needs_update() {
                     for e in iter.clone() {
                         #( e.#field_names.buffer(world, buffer); ) *

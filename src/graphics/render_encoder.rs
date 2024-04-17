@@ -1,5 +1,5 @@
 use crate::graphics::{
-    Color, DefaultAssets, DepthBuffer, Gpu, RenderTarget, Renderer, SpriteRenderTarget,
+    Color, DefaultAssets, DepthBuffer, Gpu, Renderer, RenderTarget, SpriteRenderTarget,
 };
 
 pub struct RenderEncoder<'a> {
@@ -51,6 +51,23 @@ impl<'a> RenderEncoder<'a> {
         (render)(&mut renderer);
     }
 
+    pub fn render2d_to<'b>(
+        &'b mut self,
+        clear: Option<Color>,
+        target: &'b dyn RenderTarget,
+        render: impl FnOnce(&mut Renderer<'b>),
+    ) {
+        let mut renderer = Renderer::new(
+            &mut self.inner,
+            self.default_assets,
+            self.gpu,
+            target,
+            clear,
+            None,
+        );
+        (render)(&mut renderer);
+    }
+
     pub fn render3d<'b>(
         &'b mut self,
         clear: Option<Color>,
@@ -63,6 +80,24 @@ impl<'a> RenderEncoder<'a> {
             self.default_target,
             clear,
             Some(&self.default_assets.depth_buffer),
+        );
+        (render)(&mut renderer);
+    }
+
+    pub fn render3d_to<'b>(
+        &'b mut self,
+        target: &'b dyn RenderTarget,
+        clear: Option<Color>,
+        depth: Option<&'b DepthBuffer>,
+        render: impl FnOnce(&mut Renderer<'b>),
+    ) {
+        let mut renderer = Renderer::new(
+            &mut self.inner,
+            self.default_assets,
+            self.gpu,
+            target,
+            clear,
+            depth,
         );
         (render)(&mut renderer);
     }

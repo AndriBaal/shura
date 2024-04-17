@@ -31,7 +31,7 @@ macro_rules! include_asset_str {
 #[macro_export]
 macro_rules! include_asset_wgsl {
     ($file:expr $(,)?) => {
-        ::shura::include_wgsl!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/", $file))
+        ::shura::graphics::include_wgsl!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/", $file))
     };
 }
 

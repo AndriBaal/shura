@@ -8,9 +8,9 @@ pub use wgpu::{
 #[cfg(feature = "log")]
 use log::info;
 
-pub enum ShaderModuleSoure<'a> {
+pub enum ShaderModuleSource<'a> {
     Single(&'a ShaderModule),
-    Seperate {
+    Separate {
         vertex: &'a ShaderModule,
         fragment: &'a ShaderModule,
     },
@@ -19,11 +19,13 @@ pub enum ShaderModuleSoure<'a> {
 
 pub struct ShaderConfig<'a> {
     pub name: Option<&'a str>,
-    pub source: ShaderModuleSoure<'a>,
+    pub source: ShaderModuleSource<'a>,
     pub buffers: &'a [VertexBufferLayout<'a>],
     pub uniforms: &'a [UniformField],
     pub blend: BlendState,
     pub write_mask: ColorWrites,
+    pub vertex_entry: &'static str,
+    pub fragment_entry: &'static str,
     pub depth_stencil: Option<wgpu::DepthStencilState>,
 }
 
@@ -34,9 +36,11 @@ impl Default for ShaderConfig<'static> {
             uniforms: &[UniformField::Camera],
             blend: BlendState::ALPHA_BLENDING,
             write_mask: ColorWrites::ALL,
-            buffers: &[Vertex2D::DESC, Instance2D::DESC],
-            source: ShaderModuleSoure::_Dummy,
+            buffers: &[Vertex2D::LAYOUT, Instance2D::DESC],
+            source: ShaderModuleSource::_Dummy,
             depth_stencil: None,
+            fragment_entry: "fs_main",
+            vertex_entry: "vs_main",
         }
     }
 }
@@ -101,20 +105,20 @@ impl Shader {
                 layout: Some(&render_pipeline_layout),
                 vertex: wgpu::VertexState {
                     module: match config.source {
-                        ShaderModuleSoure::Single(s) => s,
-                        ShaderModuleSoure::Seperate { vertex, .. } => vertex,
-                        ShaderModuleSoure::_Dummy => panic!("Dummy not allowed!"),
+                        ShaderModuleSource::Single(s) => s,
+                        ShaderModuleSource::Separate { vertex, .. } => vertex,
+                        ShaderModuleSource::_Dummy => panic!("Dummy not allowed!"),
                     },
-                    entry_point: "vs_main",
+                    entry_point: config.vertex_entry,
                     buffers: config.buffers,
                 },
                 fragment: Some(wgpu::FragmentState {
                     module: match config.source {
-                        ShaderModuleSoure::Single(s) => s,
-                        ShaderModuleSoure::Seperate { fragment, .. } => fragment,
-                        ShaderModuleSoure::_Dummy => panic!("Dummy not allowed!"),
+                        ShaderModuleSource::Single(s) => s,
+                        ShaderModuleSource::Separate { fragment, .. } => fragment,
+                        ShaderModuleSource::_Dummy => panic!("Dummy not allowed!"),
                     },
-                    entry_point: "fs_main",
+                    entry_point: config.fragment_entry,
                     targets: &[Some(wgpu::ColorTargetState {
                         format: gpu.format(),
                         blend: Some(config.blend),

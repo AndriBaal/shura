@@ -20,7 +20,8 @@ fn app(config: AppConfig) {
 fn setup(ctx: &mut Context) {
     ctx.world_camera2d
         .set_scaling(WorldCameraScaling::Min(10.0));
-    let _ = ctx.window
+    let _ = ctx
+        .window
         .request_inner_size(winit::dpi::PhysicalSize::new(SIZE.x, SIZE.y));
     ctx.window.set_resizable(false);
     ctx.window
@@ -54,7 +55,7 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
         });
     });
 
-    encoder.render2d_to(Some(Color::new(0.06, 0.08, 0.13, 1.0)), &assets.light_map, |renderer| {
+    encoder.render2d_to(Some(Color::new(1.0, 1.0, 1.0, 1.0)), &assets.light_map, |renderer| {
         ctx.render::<Instance2D>(renderer, "light", |renderer, buffer, instances| {
             renderer.use_instances(buffer);
             renderer.use_camera(ctx.world_camera2d);
@@ -104,7 +105,8 @@ impl LightAssets {
             present_shader: ctx.gpu.create_shader(ShaderConfig {
                 source: ShaderModuleSource::Separate {
                     vertex: &ctx.gpu.shared_assets().vertex_shader_module,
-                    fragment: &ctx.gpu
+                    fragment: &ctx
+                        .gpu
                         .create_shader_module(include_wgsl!("../../static/shader/2d/sprite.wgsl")),
                 },
                 uniforms: &[UniformField::Camera, UniformField::Sprite],
@@ -125,7 +127,8 @@ impl LightAssets {
             light_shader: ctx.gpu.create_shader(ShaderConfig {
                 source: ShaderModuleSource::Separate {
                     vertex: &ctx.gpu.shared_assets().vertex_shader_module,
-                    fragment: &ctx.gpu
+                    fragment: &ctx
+                        .gpu
                         .create_shader_module(include_asset_wgsl!("lighting/light.wgsl")),
                 },
                 uniforms: &[UniformField::Camera],

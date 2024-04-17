@@ -10,7 +10,7 @@ use crate::{
         Camera, Camera2D, CameraBuffer, CameraBuffer2D, DepthBuffer, Instance, Instance2D,
         Instance3D, InstanceBuffer, InstanceBuffer2D, Mesh, Mesh2D, MeshBuilder, MeshBuilder2D,
         Model, ModelBuilder, RenderEncoder, Shader, ShaderConfig, ShaderModule,
-        ShaderModuleDescriptor, ShaderModuleSoure, Sprite, SpriteBuilder, SpriteRenderTarget,
+        ShaderModuleDescriptor, ShaderModuleSource, Sprite, SpriteBuilder, SpriteRenderTarget,
         SpriteSheet, SpriteSheetBuilder, Surface, Uniform, UniformField, Vertex, Vertex3D,
         WorldCamera3D,
     },
@@ -417,7 +417,7 @@ impl DefaultAssets {
         let shared_assets = gpu.shared_assets();
         let sprite_sheet = gpu.create_shader(ShaderConfig {
             name: Some("sprite_sheet"),
-            source: ShaderModuleSoure::Seperate {
+            source: ShaderModuleSource::Separate {
                 vertex: &shared_assets.vertex_shader_module,
                 fragment: &gpu.create_shader_module(include_wgsl!(
                     "../../static/shader/2d/sprite_sheet.wgsl"
@@ -436,13 +436,13 @@ impl DefaultAssets {
         let text_mesh = gpu.create_shader(ShaderConfig {
             name: Some("text_vertex"),
             uniforms: &[UniformField::Camera, UniformField::SpriteSheet],
-            source: ShaderModuleSoure::Seperate {
+            source: ShaderModuleSource::Separate {
                 vertex: text_mesh_vertex,
                 fragment: &gpu
                     .create_shader_module(include_wgsl!("../../static/shader/2d/text.wgsl")),
             },
             buffers: &[
-                crate::text::Vertex2DText::DESC,
+                crate::text::Vertex2DText::LAYOUT,
                 // Not Instance2D::DESC because of offset
                 wgpu::VertexBufferLayout {
                     array_stride: Instance2D::SIZE,
@@ -464,13 +464,13 @@ impl DefaultAssets {
         let text_instance = gpu.create_shader(ShaderConfig {
             name: Some("text_instance"),
             uniforms: &[UniformField::Camera, UniformField::SpriteSheet],
-            source: ShaderModuleSoure::Seperate {
+            source: ShaderModuleSource::Separate {
                 vertex: &shared_assets.vertex_shader_module,
                 fragment: &gpu
                     .create_shader_module(include_wgsl!("../../static/shader/2d/text.wgsl")),
             },
             buffers: &[
-                crate::graphics::Vertex2D::DESC,
+                crate::graphics::Vertex2D::LAYOUT,
                 crate::text::LetterInstance2D::DESC,
             ],
             ..Default::default()
@@ -479,17 +479,17 @@ impl DefaultAssets {
         let model = gpu.create_shader(ShaderConfig {
             name: Some("model"),
             uniforms: &[UniformField::Camera, UniformField::Sprite],
-            source: ShaderModuleSoure::Single(
+            source: ShaderModuleSource::Single(
                 &gpu.create_shader_module(include_wgsl!("../../static/shader/3d/model.wgsl")),
             ),
-            buffers: &[Vertex3D::DESC, Instance3D::DESC],
+            buffers: &[Vertex3D::LAYOUT, Instance3D::DESC],
             depth_stencil: Some(DepthBuffer::depth_state()),
             ..Default::default()
         });
 
         let color = gpu.create_shader(ShaderConfig {
             name: Some("color"),
-            source: ShaderModuleSoure::Seperate {
+            source: ShaderModuleSource::Separate {
                 vertex: &shared_assets.vertex_shader_module,
                 fragment: &gpu
                     .create_shader_module(include_wgsl!("../../static/shader/2d/color.wgsl")),
@@ -500,7 +500,7 @@ impl DefaultAssets {
 
         let sprite = gpu.create_shader(ShaderConfig {
             name: Some("sprite"),
-            source: ShaderModuleSoure::Seperate {
+            source: ShaderModuleSource::Separate {
                 vertex: &shared_assets.vertex_shader_module,
                 fragment: &gpu
                     .create_shader_module(include_wgsl!("../../static/shader/2d/sprite.wgsl")),
@@ -511,7 +511,7 @@ impl DefaultAssets {
 
         let rainbow = gpu.create_shader(ShaderConfig {
             name: Some("rainbow"),
-            source: ShaderModuleSoure::Seperate {
+            source: ShaderModuleSource::Separate {
                 vertex: &shared_assets.vertex_shader_module,
                 fragment: &gpu
                     .create_shader_module(include_wgsl!("../../static/shader/2d/rainbow.wgsl")),
@@ -522,7 +522,7 @@ impl DefaultAssets {
 
         let grey = gpu.create_shader(ShaderConfig {
             name: Some("grey"),
-            source: ShaderModuleSoure::Seperate {
+            source: ShaderModuleSource::Separate {
                 vertex: &shared_assets.vertex_shader_module,
                 fragment: &gpu
                     .create_shader_module(include_wgsl!("../../static/shader/2d/grey.wgsl")),
@@ -533,7 +533,7 @@ impl DefaultAssets {
 
         let blurr = gpu.create_shader(ShaderConfig {
             name: Some("blurr"),
-            source: ShaderModuleSoure::Seperate {
+            source: ShaderModuleSource::Separate {
                 vertex: &shared_assets.vertex_shader_module,
                 fragment: &gpu
                     .create_shader_module(include_wgsl!("../../static/shader/2d/blurr.wgsl")),

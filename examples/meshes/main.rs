@@ -1,25 +1,26 @@
-use shura::*;
+use shura::prelude::*;
 
 #[shura::main]
 fn app(config: AppConfig) {
     App::run(config, || {
         Scene::new()
-            .component::<MeshTest>(ComponentConfig {
-                buffer: RenderGroupUpdate::Manual,
-                ..ComponentConfig::DEFAULT
-            })
-            .system(System::Render(render))
-            .system(System::Setup(setup))
+            .entity::<MeshTest>()
+            .render_group2d("mesh", RenderGroupUpdate::MANUAL)
+            .system(System::render(render))
+            .system(System::setup(setup))
     });
 }
 
 fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
+    let meshes = ctx.entities.get::<MeshTest>();
     encoder.render2d(
         Some(RgbaColor::new(220, 220, 220, 255).into()),
         |renderer| {
-            res.render_each::<MeshTest>(renderer, |renderer, mesh, buffer, instances| {
-                renderer.render_color(instances, buffer, res.world_camera2d, &mesh.mesh)
-            });
+            ctx.render(renderer, "mesh", |renderer, buffer, instances| {
+                for (instance, mesh) in instances.range().zip(meshes.iter()) {
+                    renderer.render_color(instance, buffer, ctx.world_camera2d, &mesh.mesh);
+                }
+            })
         },
     );
 }
@@ -27,8 +28,8 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
 fn setup(ctx: &mut Context) {
     ctx.world_camera2d
         .set_scaling(WorldCameraScaling::Min(10.0));
-    let mut mesh_tests = ctx.components.set_mut::<MeshTest>();
-    mesh_tests.add(
+    let mut meshes = ctx.entities.get_mut::<MeshTest>();
+    meshes.add(
         ctx.world,
         MeshTest::new(
             Vector2::new(-3.0, 3.0),
@@ -38,7 +39,7 @@ fn setup(ctx: &mut Context) {
         ),
     );
 
-    mesh_tests.add(
+    meshes.add(
         ctx.world,
         MeshTest::new(
             Vector2::new(-1.0, 3.0),
@@ -52,7 +53,7 @@ fn setup(ctx: &mut Context) {
         ),
     );
 
-    mesh_tests.add(
+    meshes.add(
         ctx.world,
         MeshTest::new(
             Vector2::new(1.0, 3.0),
@@ -65,7 +66,7 @@ fn setup(ctx: &mut Context) {
         ),
     );
 
-    mesh_tests.add(
+    meshes.add(
         ctx.world,
         MeshTest::new(
             Vector2::new(3.0, 3.0),
@@ -83,7 +84,7 @@ fn setup(ctx: &mut Context) {
         ),
     );
 
-    mesh_tests.add(
+    meshes.add(
         ctx.world,
         MeshTest::new(
             Vector2::new(-3.0, 1.0),
@@ -93,7 +94,7 @@ fn setup(ctx: &mut Context) {
         ),
     );
 
-    mesh_tests.add(
+    meshes.add(
         ctx.world,
         MeshTest::new(
             Vector2::new(-1.0, 1.0),
@@ -107,7 +108,7 @@ fn setup(ctx: &mut Context) {
         ),
     );
 
-    mesh_tests.add(
+    meshes.add(
         ctx.world,
         MeshTest::new(
             Vector2::new(1.0, 1.0),
@@ -120,7 +121,7 @@ fn setup(ctx: &mut Context) {
         ),
     );
 
-    mesh_tests.add(
+    meshes.add(
         ctx.world,
         MeshTest::new(
             Vector2::new(3.0, 1.0),
@@ -134,7 +135,7 @@ fn setup(ctx: &mut Context) {
         ),
     );
 
-    mesh_tests.add(
+    meshes.add(
         ctx.world,
         MeshTest::new(
             Vector2::new(-3.0, -1.0),
@@ -151,7 +152,7 @@ fn setup(ctx: &mut Context) {
         ),
     );
 
-    mesh_tests.add(
+    meshes.add(
         ctx.world,
         MeshTest::new(
             Vector2::new(-1.0, -1.0),
@@ -161,18 +162,18 @@ fn setup(ctx: &mut Context) {
     );
 }
 
-#[derive(Component)]
+#[derive(Entity)]
 struct MeshTest {
     mesh: Mesh2D,
-    #[shura(instance)]
-    instance: PositionInstance2D,
+    #[shura(component = "mesh")]
+    instance: PositionComponent2D,
 }
 
 impl MeshTest {
     pub fn new(translation: Vector2<f32>, mesh: Mesh2D, color: Color) -> Self {
         Self {
             mesh,
-            instance: PositionInstance2D::new()
+            instance: PositionComponent2D::new()
                 .with_translation(translation)
                 .with_color(color),
         }

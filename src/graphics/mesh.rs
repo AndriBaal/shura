@@ -1,16 +1,18 @@
-#[cfg(feature = "physics")]
-use crate::physics::{Shape, TypedShape};
-use crate::{
-    graphics::Gpu,
-    math::{Isometry2, Matrix2, Rotation2, Vector2, Vector3, AABB},
-};
-use std::mem;
 use std::{
     f32::consts::{FRAC_PI_2, PI},
     marker::PhantomData,
 };
+use std::mem;
+
 use wgpu::util::DeviceExt;
 use wgpu::vertex_attr_array;
+
+use crate::{
+    graphics::Gpu,
+    math::{AABB, Isometry2, Matrix2, Rotation2, Vector2, Vector3},
+};
+#[cfg(feature = "physics")]
+use crate::physics::{Shape, TypedShape};
 
 pub type Mesh2D = Mesh<Vertex2D>;
 pub type Mesh3D = Mesh<Vertex3D>;
@@ -24,7 +26,7 @@ pub trait MeshBuilder {
 pub trait Vertex: bytemuck::Pod + bytemuck::Zeroable {
     const ATTRIBUTES: &'static [wgpu::VertexAttribute];
     const SIZE: u64 = std::mem::size_of::<Self>() as u64;
-    const DESC: wgpu::VertexBufferLayout<'static> = wgpu::VertexBufferLayout {
+    const LAYOUT: wgpu::VertexBufferLayout<'static> = wgpu::VertexBufferLayout {
         array_stride: Self::SIZE,
         step_mode: wgpu::VertexStepMode::Vertex,
         attributes: Self::ATTRIBUTES,
@@ -176,6 +178,41 @@ impl MeshBuilder2D {
         }
     }
 
+    // pub fn regular_polygon_section(
+    //     start: Vector2<f32>,
+    //     end: Vector2<f32>,
+    //     center: Vector2<f32>,
+    //     corners: u32,
+    // ) -> Self {
+    //     let mut vertices = vec![
+    //         Vertex2D::new(center, Vector2::new(0.5, 0.5)),
+    //         Vertex2D::new(start, ..),
+    //     ];
+    //     // for i in 0..corners {
+    //     //     let i = i as f32;
+    //     //
+    //     //     let pos = Vector2::new(
+    //     //         radius * (i / corners as f32 * 2.0 * PI).cos(),
+    //     //         radius * (i / corners as f32 * 2.0 * PI).sin(),
+    //     //     );
+    //     //
+    //     //     vertices.push(Vertex2D {
+    //     //         pos,
+    //     //         tex: Vector2::new(
+    //     //             (i / corners as f32 * 2.0 * PI).cos() / 2.0 + 0.5,
+    //     //             (i / corners as f32 * 2.0 * PI).sin() / -2.0 + 0.5,
+    //     //         ),
+    //     //     });
+    //     // }
+    //     vertices.push(Vertex2D::new(end, ..));
+    //     let indices = Self::triangulate(&vertices);
+    //     Self {
+    //         vertices,
+    //         indices,
+    //         ..Default::default()
+    //     }
+    // }
+
     pub fn square(half_length: f32) -> Self {
         Self::cuboid(Vector2::new(half_length, half_length))
     }
@@ -213,10 +250,22 @@ impl MeshBuilder2D {
 
     pub fn from_aabb(aabb: AABB) -> Self {
         let vertices = vec![
-            Vertex2D::new(Vector2::new(aabb.min().x, aabb.max().y), Vector2::new(0.0, 0.0)),
-            Vertex2D::new(Vector2::new(aabb.min().x, aabb.min().y), Vector2::new(0.0, 1.0)),
-            Vertex2D::new(Vector2::new(aabb.max().x, aabb.min().y), Vector2::new(1.0, 1.0)),
-            Vertex2D::new(Vector2::new(aabb.max().x, aabb.max().y), Vector2::new(1.0, 0.0)),
+            Vertex2D::new(
+                Vector2::new(aabb.min().x, aabb.max().y),
+                Vector2::new(0.0, 0.0),
+            ),
+            Vertex2D::new(
+                Vector2::new(aabb.min().x, aabb.min().y),
+                Vector2::new(0.0, 1.0),
+            ),
+            Vertex2D::new(
+                Vector2::new(aabb.max().x, aabb.min().y),
+                Vector2::new(1.0, 1.0),
+            ),
+            Vertex2D::new(
+                Vector2::new(aabb.max().x, aabb.max().y),
+                Vector2::new(1.0, 0.0),
+            ),
         ];
         let indices = Vec::from(Self::CUBOID_INDICES);
         Self {
@@ -530,7 +579,7 @@ impl MeshBuilder2D {
     }
 
     pub fn triangulate(vertices: &[Vertex2D]) -> Vec<Index> {
-        use delaunator::{triangulate, Point};
+        use delaunator::{Point, triangulate};
 
         let points: Vec<Point> = vertices
             .iter()

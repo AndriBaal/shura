@@ -210,6 +210,21 @@ impl EntityManager {
         }
     }
 
+    pub fn count_entities_with_component(
+        &self,
+        tag: &'static str
+    ) -> usize {
+        let mut count = 0;
+        if let Some(type_ids) = self.components.get(tag) {
+            for type_id in type_ids {
+                let ty = self.types.get(type_id).unwrap();
+                let ty = ty.ref_dyn();
+                count += ty.len();
+            }
+        }
+        return count;
+    }
+
     pub fn retain_entities_for_component(
         &self,
         world: &mut World,

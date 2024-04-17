@@ -46,6 +46,7 @@ pub trait EntityType: Downcast {
     ) -> impl Iterator<Item = &Self::Entity> + Clone + 'a
     where
         Self: Sized;
+    fn len(&self) -> usize;
 }
 impl_downcast!(EntityType);
 
@@ -274,6 +275,10 @@ impl<E: EntityIdentifier> EntityType for SingleEntity<E> {
             }
         }
         None
+    }
+
+    fn len(&self) -> usize {
+        self.entity.is_some() as _
     }
 }
 
@@ -530,6 +535,10 @@ impl<E: EntityIdentifier> EntityType for Entities<E> {
             return Some(Box::new(entity));
         }
         None
+    }
+
+    fn len(&self) -> usize {
+        return self.len()
     }
 }
 
@@ -850,5 +859,9 @@ impl<ET: EntityType + Default> EntityType for GroupedEntities<ET> {
         self.groups
             .get_mut(handle.group_handle.0)
             .and_then(|e| e.dyn_remove(world, handle))
+    }
+
+    fn len(&self) -> usize {
+        self.groups.iter().map(|g| g.len()).sum()
     }
 }
