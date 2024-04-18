@@ -3,7 +3,8 @@ use shura::prelude::*;
 const SIZE: Vector2<u32> = vector!(800, 800);
 
 #[shura::main]
-fn app(config: AppConfig) {
+fn app(mut config: AppConfig) {
+    config.gpu.max_samples = 1;
     App::run(config, || {
         Scene::new()
             .system(System::setup(setup))
@@ -12,6 +13,7 @@ fn app(config: AppConfig) {
             .system(System::render(render))
             .render_group2d("background", RenderGroupUpdate::MANUAL)
             .render_group2d("light", RenderGroupUpdate::EVERY_FRAME)
+            .render_group2d("test", RenderGroupUpdate::EVERY_FRAME)
             .entity_single::<LightAssets>()
             .entity::<Light>()
     })
@@ -32,13 +34,13 @@ fn setup(ctx: &mut Context) {
 
     ctx.entities.get_mut().add(
         ctx.world,
-        Light::new(vector!(0.0, -2.0), Color::ORANGE, 6.0, false),
+        Light::new(vector!(0.0, 0.0), Color::BLUE, 5.0, true),
     );
-
     ctx.entities.get_mut().add(
         ctx.world,
-        Light::new(vector!(0.0, 0.0), Color::GREEN, 5.0, true),
+        Light::new(vector!(0.0, -2.0), Color::RED, 6.0, false),
     );
+
 }
 
 fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
@@ -55,7 +57,7 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
         });
     });
 
-    encoder.render2d_to(Some(Color::new(1.0, 1.0, 1.0, 1.0)), &assets.light_map, |renderer| {
+    encoder.render2d_to(Some(Color::BLACK), &assets.light_map, |renderer| {
         ctx.render::<Instance2D>(renderer, "light", |renderer, buffer, instances| {
             renderer.use_instances(buffer);
             renderer.use_camera(ctx.world_camera2d);
@@ -72,6 +74,14 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
         renderer.use_shader(&assets.present_shader);
         renderer.use_sprite(assets.light_map.sprite(), 1);
         renderer.draw(0..1);
+
+        // ctx.render::<Instance2D>(renderer, "test", |renderer, buffer, instances| {
+        //     renderer.use_instances(buffer);
+        //     renderer.use_camera(ctx.world_camera2d);
+        //     renderer.use_shader(&assets.light_shader);
+        //     renderer.use_mesh(&assets.light_mesh);
+        //     renderer.draw(instances);
+        // });
     });
 }
 
@@ -84,8 +94,12 @@ fn update(ctx: &mut Context) {
     for light in ctx.entities.get_mut::<Light>().iter_mut() {
         if light.follow_player {
             light.pos.set_translation(ctx.cursor.coords);
+            light.pos2.set_translation(ctx.cursor.coords);
         }
     }
+    // let mut res = ctx.entities.single_mut::<LightAssets>().get_ref().unwrap();
+    // let bytes = res.light_map.sprite().to_bytes(&ctx.gpu);
+    // save_data("screenshot.png", bytes).unwrap();
 }
 #[derive(Entity)]
 pub struct LightAssets {
@@ -116,11 +130,7 @@ impl LightAssets {
                         dst_factor: BlendFactor::Zero,
                         operation: BlendOperation::Add,
                     },
-                    alpha: BlendComponent {
-                        src_factor: BlendFactor::One,
-                        dst_factor: BlendFactor::One,
-                        operation: BlendOperation::Add,
-                    },
+                    alpha: BlendComponent::REPLACE,
                 },
                 ..Default::default()
             }),
@@ -149,6 +159,8 @@ impl LightAssets {
 struct Light {
     #[shura(component = "light")]
     pos: PositionComponent2D,
+    #[shura(component = "test")]
+    pos2: PositionComponent2D,
     follow_player: bool,
 }
 
@@ -158,6 +170,10 @@ impl Light {
             pos: PositionComponent2D::new()
                 .with_translation(translation)
                 .with_scaling(vector!(radius, radius))
+                .with_color(color),
+            pos2: PositionComponent2D::new()
+                .with_translation(translation)
+                .with_scaling(vector!(radius, radius) / 6.0)
                 .with_color(color),
             follow_player,
         }
