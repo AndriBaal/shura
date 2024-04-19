@@ -109,12 +109,12 @@ impl Surface {
         let window_size = window.inner_size();
         let width = window_size.width.max(1);
         let height = window_size.height.max(1);
-        let mut config = surface
+        let config = surface
             .get_default_config(&gpu.adapter, width, height)
             .expect("Surface isn't supported by the adapter.");
-        if !cfg!(target_arch = "wasm32") {
-            config.usage |= wgpu::TextureUsages::COPY_SRC;
-        }
+        // if !cfg!(target_arch = "wasm32") {
+        //     config.usage |= wgpu::TextureUsages::COPY_SRC;
+        // }
 
         surface.configure(&gpu.device, &config);
         self.config = Some(config);

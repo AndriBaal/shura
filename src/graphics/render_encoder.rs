@@ -119,35 +119,34 @@ impl<'a> RenderEncoder<'a> {
     }
 
     pub fn copy_target(&mut self, src: &dyn RenderTarget, target: &dyn RenderTarget) {
-        if src
-            .texture()
-            .usage()
-            .contains(wgpu::TextureUsages::COPY_SRC)
-            && target
-                .texture()
-                .usage()
-                .contains(wgpu::TextureUsages::COPY_DST)
-        {
-            let size = wgpu::Extent3d {
-                width: src.size().x,
-                height: src.size().y,
-                depth_or_array_layers: 1,
-            };
-            self.inner
-                .copy_texture_to_texture(src.as_copy(), target.as_copy(), size);
-        } else {
-            let src = src
-                .downcast_ref::<SpriteRenderTarget>()
-                .expect("Cannot copy this texture!");
-            let mut renderer = self.renderer(target, None, None);
-            renderer.render_sprite(
-                0..1,
-                &renderer.default_assets.centered_instance,
-                &renderer.default_assets.unit_camera.0,
-                renderer.default_assets.unit_mesh(),
-                src.sprite(),
-            );
-        }
+        // if src
+        //     .texture()
+        //     .usage()
+        //     .contains(wgpu::TextureUsages::COPY_SRC)
+        //     && target
+        //         .texture()
+        //         .usage()
+        //         .contains(wgpu::TextureUsages::COPY_DST)
+        // {
+        //     let size = wgpu::Extent3d {
+        //         width: src.size().x,
+        //         height: src.size().y,
+        //         depth_or_array_layers: 1,
+        //     };
+        //     self.inner
+        //         .copy_texture_to_texture(src.as_copy(), target.as_copy(), size);
+        // } else {
+        let src = src
+            .downcast_ref::<SpriteRenderTarget>()
+            .expect("Cannot copy this texture!");
+        let mut renderer = self.renderer(target, None, None);
+        renderer.render_sprite(
+            0..1,
+            &renderer.default_assets.centered_instance,
+            &renderer.default_assets.unit_camera.0,
+            renderer.default_assets.unit_mesh(),
+            src.sprite(),
+        );
     }
 
     pub fn finish_get(self) -> wgpu::CommandBuffer {

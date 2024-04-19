@@ -1,5 +1,5 @@
 use crate::{
-    data::Arena,
+    arena::Arena,
     entity::{EntityGroupHandle, EntityId, EntityManager, EntityType},
     graphics::Camera2D,
     math::AABB,

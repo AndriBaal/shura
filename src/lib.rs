@@ -9,7 +9,7 @@ pub mod assets;
 pub mod audio;
 pub mod component;
 pub mod context;
-pub mod data;
+pub mod arena;
 pub mod entity;
 pub mod graphics;
 #[cfg(feature = "gui")]
@@ -76,7 +76,7 @@ pub mod prelude {
     pub use crate::audio::*;
     pub use crate::component::*;
     pub use crate::context::*;
-    pub use crate::data::*;
+    pub use crate::arena::*;
     pub use crate::entity::*;
     pub use crate::graphics::*;
     #[cfg(feature = "gui")]

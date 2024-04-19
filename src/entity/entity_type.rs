@@ -2,10 +2,10 @@ use downcast_rs::{impl_downcast, Downcast};
 use std::cell::{Ref, RefMut};
 
 #[cfg(feature = "rayon")]
-use crate::{data::ArenaEntry, rayon::prelude::*};
+use crate::{arena::ArenaEntry, rayon::prelude::*};
 
 use crate::{
-    data::{Arena, ArenaIndex, ArenaIter, ArenaIterMut},
+    arena::{Arena, ArenaIndex, ArenaIter, ArenaIterMut},
     entity::{
         Entity, EntityGroupHandle, EntityGroupManager, EntityHandle, EntityId, EntityIdentifier,
         EntityIndex,

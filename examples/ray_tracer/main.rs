@@ -13,7 +13,7 @@ fn app(mut config: AppConfig) {
             .system(System::render(render))
             .render_group2d("background", RenderGroupUpdate::MANUAL)
             .render_group2d("light", RenderGroupUpdate::EVERY_FRAME)
-            .render_group2d("test", RenderGroupUpdate::EVERY_FRAME)
+            .render_group2d("shadows", RenderGroupUpdate::EVERY_FRAME)
             .entity_single::<LightAssets>()
             .entity::<Light>()
     })
@@ -94,9 +94,15 @@ fn update(ctx: &mut Context) {
     for light in ctx.entities.get_mut::<Light>().iter_mut() {
         if light.follow_player {
             light.pos.set_translation(ctx.cursor.coords);
-            light.pos2.set_translation(ctx.cursor.coords);
+            // light.pos2.set_translation(ctx.cursor.coords);
         }
     }
+
+    // let dx = ctx.cursor.x - 0.0;
+    // let dy = ctx.cursor.y - 0.0;
+    // let test = dy.atan2(dx);
+    // println!("{test}");
+
     // let mut res = ctx.entities.single_mut::<LightAssets>().get_ref().unwrap();
     // let bytes = res.light_map.sprite().to_bytes(&ctx.gpu);
     // save_data("screenshot.png", bytes).unwrap();
@@ -159,8 +165,8 @@ impl LightAssets {
 struct Light {
     #[shura(component = "light")]
     pos: PositionComponent2D,
-    #[shura(component = "test")]
-    pos2: PositionComponent2D,
+    // #[shura(component = "test")]
+    // pos2: PositionComponent2D,
     follow_player: bool,
 }
 
@@ -171,10 +177,10 @@ impl Light {
                 .with_translation(translation)
                 .with_scaling(vector!(radius, radius))
                 .with_color(color),
-            pos2: PositionComponent2D::new()
-                .with_translation(translation)
-                .with_scaling(vector!(radius, radius) / 6.0)
-                .with_color(color),
+            // pos2: PositionComponent2D::new()
+            //     .with_translation(translation)
+            //     .with_scaling(vector!(radius, radius) / 6.0)
+            //     .with_color(color),
             follow_player,
         }
     }
