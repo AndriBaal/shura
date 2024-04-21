@@ -1,3 +1,5 @@
+use crate::gui::Rgba;
+
 #[repr(C)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Copy, Clone, Debug, PartialEq, Default)]
@@ -169,6 +171,30 @@ pub struct Color {
     pub g: f32,
     pub b: f32,
     pub a: f32,
+}
+
+#[cfg(feature = "gui")]
+impl Into<egui::Rgba> for Color {
+    fn into(self) -> Rgba {
+        egui::Rgba::from_rgba_premultiplied(
+            self.r,
+            self.g,
+            self.g,
+            self.a,
+        )
+    }
+}
+
+#[cfg(feature = "gui")]
+impl From<egui::Rgba> for Color {
+    fn from(value: Rgba) -> Self {
+        Self {
+            r: value.r(),
+            g: value.g(),
+            b: value.b(),
+            a: value.a(),
+        }
+    }
 }
 
 impl Color {

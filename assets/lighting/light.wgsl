@@ -11,13 +11,14 @@ struct VertexInput {
 }
 
 struct InstanceInput {
-    @location(2) i_position: vec2<f32>,
-    @location(3) i_rotation: vec4<f32>,
-    @location(4) color: vec4<f32>,
-    @location(5) circle_sector: vec2<f32>,
-    @location(6) inner_size: f32,
-    @location(7) inner_magnification: f32,
-    @location(8) outer_magnification: f32,
+    @location(2) translation: vec2<f32>,
+    @location(3) scale: f32,
+    @location(4) rotation: f32,
+    @location(5) color: vec4<f32>,
+    @location(6) circle_sector: vec2<f32>,
+    @location(7) inner_size: f32,
+    @location(8) inner_magnification: f32,
+    @location(9) outer_magnification: f32,
 }
 
 struct VertexOutput {
@@ -37,7 +38,15 @@ fn vs_main(
 ) -> VertexOutput {
     var out: VertexOutput;
 
-    let pos = model.v_position * mat2x2<f32>(instance.i_rotation.xy, instance.i_rotation.zw) + instance.i_position;
+    let cos = cos(instance.rotation);
+    let sin = sin(instance.rotation);
+    let scale_rotation = mat2x2<f32>(
+        instance.scale * cos,
+        instance.scale * sin,
+        instance.scale * -sin,
+        instance.scale * cos,
+    );
+    let pos = model.v_position * scale_rotation + instance.translation;
     out.clip_position = camera.view_proj * vec4<f32>(pos, 0.0, 1.0);
     out.tex = model.tex;
     out.color = instance.color;

@@ -1,12 +1,15 @@
+use std::f32::consts::PI;
+
 use egui::Widget;
 
+use shura::prelude::*;
 use shura::prelude::*;
 
 const SIZE: Vector2<u32> = vector!(800, 800);
 
 #[shura::main]
 fn app(mut config: AppConfig) {
-    // config.gpu.max_samples = 1;
+    config.gpu.max_samples = 1;
     App::run(config, || {
         Scene::new()
             .system(System::setup(setup))
@@ -37,26 +40,25 @@ fn setup(ctx: &mut Context) {
     ctx.entities.get_mut().add(
         ctx.world,
         Light::new(
-            vector!(0.0, 0.0),
-            Color::BLUE,
-            vector![-3.14, 3.14],
-            10.0,
-            5.0,
-            1.0,
-            1.0,
+            LightInstance {
+                outer_radius: 10.0,
+                inner_radius: 5.0,
+                color: Color::BLUE,
+                ..Default::default()
+            },
             false,
         ),
     );
     ctx.entities.get_mut().add(
         ctx.world,
         Light::new(
-            vector!(0.0, -2.0),
-            Color::RED,
-            vector![-3.14, 3.14],
-            12.0,
-            5.0,
-            1.0,
-            1.0,
+            LightInstance {
+                translation: vector!(0.0, -2.0),
+                outer_radius: 12.0,
+                inner_radius: 5.0,
+                color: Color::RED,
+                ..Default::default()
+            },
             true,
         ),
     );
@@ -112,18 +114,58 @@ fn resize(ctx: &mut Context) {
 fn update(ctx: &mut Context) {
     for light in ctx.entities.get_mut::<Light>().iter_mut() {
         if light.follow_player {
-            light.inner.pos = ctx.cursor.coords;
-        }
+            light.inner.translation = ctx.cursor.coords;
 
-        gui::Window::new("Light")
-            .resizable(false)
-            .show(ctx.gui, |ui| {
-                ui.horizontal(|ui| {
-                    ui.label("Test:");
-                    gui::widgets::Slider::new(&mut light.inner., 0.0..=100.0)
+            gui::Window::new("Light")
+                .resizable(false)
+                .show(ctx.gui, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.label("Outer Radius:");
+                        gui::widgets::Slider::new(&mut light.inner.outer_radius, 0.0..=50.0).ui(ui);
+                    });
+
+                    ui.horizontal(|ui| {
+                        ui.label("Inner Radius:");
+                        gui::widgets::Slider::new(
+                            &mut light.inner.inner_radius,
+                            0.0..=light.inner.outer_radius,
+                        )
                         .ui(ui);
+                    });
+
+                    let mut egui_color = light.inner.color.into();
+                    ui.horizontal(|ui| {
+                        ui.label("Color:");
+                        gui::widgets::color_picker::color_edit_button_rgba(
+                            ui,
+                            &mut egui_color,
+                            egui::widgets::color_picker::Alpha::OnlyBlend,
+                        )
+                    });
+                    light.inner.color = egui_color.into();
+
+                    //
+                    // ui.horizontal(|ui| {
+                    //     ui.label("Test:");
+                    //     gui::widgets::Slider::new(&mut light.inner.outer_radius, 0.0..=100.0).ui(ui);
+                    // });
+                    //
+                    // ui.horizontal(|ui| {
+                    //     ui.label("Test:");
+                    //     gui::widgets::Slider::new(&mut light.inner.outer_radius, 0.0..=100.0).ui(ui);
+                    // });
+                    //
+                    // ui.horizontal(|ui| {
+                    //     ui.label("Test:");
+                    //     gui::widgets::Slider::new(&mut light.inner.outer_radius, 0.0..=100.0).ui(ui);
+                    // });
+                    //
+                    // ui.horizontal(|ui| {
+                    //     ui.label("Test:");
+                    //     gui::widgets::Slider::new(&mut light.inner.outer_radius, 0.0..=100.0).ui(ui);
+                    // });
                 });
-            });
+        }
     }
 }
 
@@ -203,8 +245,9 @@ impl LightAssets {
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct LightInstance {
-    pos: Vector2<f32>,
-    rot: ScaleRotationMatrix,
+    translation: Vector2<f32>,
+    outer_radius: f32,
+    rotation: f32,
     color: Color,
     sector: Vector2<f32>,
     inner_radius: f32,
@@ -212,15 +255,31 @@ struct LightInstance {
     outer_magnification: f32,
 }
 
+impl Default for LightInstance {
+    fn default() -> Self {
+        Self {
+            translation: vector!(0.0, 0.0),
+            rotation: 0.0,
+            outer_radius: 10.0,
+            color: Color::WHITE,
+            sector: vector![-PI, PI],
+            inner_radius: 2.0,
+            inner_magnification: 1.0,
+            outer_magnification: 1.0,
+        }
+    }
+}
+
 impl Instance for LightInstance {
     const ATTRIBUTES: &'static [VertexAttribute] = &vertex_attr_array![
         2 => Float32x2,
-        3 => Float32x4,
-        4 => Float32x4,
-        5 => Float32x2,
-        6 => Float32,
+        3 => Float32,
+        4 => Float32,
+        5 => Float32x4,
+        6 => Float32x2,
         7 => Float32,
         8 => Float32,
+        9 => Float32,
     ];
 }
 
@@ -228,38 +287,18 @@ impl Instance for LightInstance {
 struct Light {
     #[shura(component = "light")]
     inner: LightInstance,
-    
+
     follow_player: bool,
 }
 
 impl Light {
-    pub fn new(
-        translation: Vector2<f32>,
-        color: Color,
-        sector: Vector2<f32>,
-        outer_radius: f32,
-        inner_radius: f32,
-        inner_magnification: f32,
-        outer_magnification: f32,
-        follow_player: bool,
-    ) -> Self {
-        if inner_radius > outer_radius {
+    pub fn new(instance: LightInstance, follow_player: bool) -> Self {
+        if instance.inner_radius > instance.outer_radius {
             panic!("Inner radius must be smaller than outer radius!");
         }
 
         Self {
-            inner: LightInstance {
-                pos: translation,
-                rot: ScaleRotationMatrix::new(
-                    vector![outer_radius, outer_radius],
-                    Rotation2::new(0.0),
-                ),
-                color,
-                sector,
-                inner_radius,
-                inner_magnification,
-                outer_magnification,
-            },
+            inner: instance,
             follow_player,
         }
     }

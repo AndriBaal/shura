@@ -8,7 +8,7 @@ struct VertexInput {
 }
 
 struct InstanceInput {
-    @location(4) i_position: vec2<f32>,
+    @location(4) i_translation: vec2<f32>,
     @location(5) i_scale: vec2<f32>,
     @location(6) i_rotation: f32,
     @location(7) a_position: vec2<f32>,
@@ -46,7 +46,7 @@ fn vs_main(
         instance.i_scale.y * -sin,
         instance.i_scale.y * cos,
     );
-    let pos = model.v_position * scale_rotation + instance.i_position;
+    let pos = model.v_position * scale_rotation + instance.i_translation;
     out.clip_position = camera.view_proj * vec4<f32>(pos, 0.0, 1.0);
     out.color = model.color;
     out.sprite = model.glyph;
