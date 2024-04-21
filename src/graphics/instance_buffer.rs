@@ -1,18 +1,19 @@
 use std::{marker::PhantomData, mem::size_of, ops::Range};
 
+use wgpu::{util::DeviceExt, vertex_attr_array};
+
 use crate::{
     graphics::{Color, Gpu, SpriteSheetIndex},
     math::{Isometry2, Isometry3, Matrix2, Matrix4, Rotation2, Vector2, Vector3},
 };
-use wgpu::{util::DeviceExt, vertex_attr_array};
 
 pub type InstanceBuffer2D = InstanceBuffer<Instance2D>;
 pub type InstanceBuffer3D = InstanceBuffer<Instance3D>;
 
 pub trait Instance: bytemuck::Pod + bytemuck::Zeroable {
     const ATTRIBUTES: &'static [wgpu::VertexAttribute];
-    const SIZE: u64 = std::mem::size_of::<Self>() as u64;
-    const DESC: wgpu::VertexBufferLayout<'static> = wgpu::VertexBufferLayout {
+    const SIZE: u64 = size_of::<Self>() as u64;
+    const LAYOUT: wgpu::VertexBufferLayout<'static> = wgpu::VertexBufferLayout {
         array_stride: Self::SIZE,
         step_mode: wgpu::VertexStepMode::Instance,
         attributes: Self::ATTRIBUTES,
@@ -21,6 +22,26 @@ pub trait Instance: bytemuck::Pod + bytemuck::Zeroable {
 
 impl Instance for () {
     const ATTRIBUTES: &'static [wgpu::VertexAttribute] = &[];
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct ScaleRotationMatrix {
+    matrix: Matrix2<f32>,
+}
+
+impl ScaleRotationMatrix {
+    pub fn new(scaling: Vector2<f32>, rotation: Rotation2<f32>) -> Self {
+        Self {
+            matrix: Matrix2::new(
+                scaling.x * rotation.cos_angle(),
+                scaling.x * rotation.sin_angle(),
+                scaling.y * -rotation.sin_angle(),
+                scaling.y * rotation.cos_angle(),
+            ),
+        }
+    }
 }
 
 #[repr(C)]
@@ -51,7 +72,7 @@ impl Default for SpriteAtlas {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Instance2D {
     pub pos: Vector2<f32>,
-    pub rot: Matrix2<f32>,
+    pub rot: ScaleRotationMatrix,
     pub atlas: SpriteAtlas,
     pub color: Color,
     pub sprite_sheet_index: SpriteSheetIndex,
@@ -77,12 +98,7 @@ impl Instance2D {
         sprite_sheet_index: SpriteSheetIndex,
     ) -> Self {
         Self {
-            rot: Matrix2::new(
-                scaling.x * pos.rotation.cos_angle(),
-                scaling.x * pos.rotation.sin_angle(),
-                scaling.y * -pos.rotation.sin_angle(),
-                scaling.y * pos.rotation.cos_angle(),
-            ),
+            rot: ScaleRotationMatrix::new(scaling, pos.rotation),
             pos: pos.translation.vector,
             atlas,
             color,
@@ -92,12 +108,7 @@ impl Instance2D {
 
     pub fn new_position(pos: Isometry2<f32>, scaling: Vector2<f32>) -> Self {
         Self {
-            rot: Matrix2::new(
-                scaling.x * pos.rotation.cos_angle(),
-                scaling.x * pos.rotation.sin_angle(),
-                scaling.y * -pos.rotation.sin_angle(),
-                scaling.y * pos.rotation.cos_angle(),
-            ),
+            rot: ScaleRotationMatrix::new(scaling, pos.rotation),
             pos: pos.translation.vector,
             ..Default::default()
         }
@@ -108,23 +119,12 @@ impl Instance2D {
     }
 
     pub fn set_position(&mut self, pos: Isometry2<f32>, scaling: Vector2<f32>) {
-        self.rot = Matrix2::new(
-            scaling.x * pos.rotation.cos_angle(),
-            scaling.x * pos.rotation.sin_angle(),
-            scaling.y * -pos.rotation.sin_angle(),
-            scaling.y * pos.rotation.cos_angle(),
-        );
+        self.rot = ScaleRotationMatrix::new(scaling, pos.rotation);
         self.pos = pos.translation.vector;
     }
 
     pub fn set_rotation_scaling(&mut self, scaling: Vector2<f32>, rotation: Rotation2<f32>) {
-        self.rot = Matrix2::new(scaling.x, 0.0, 0.0, scaling.y)
-            * Matrix2::new(
-                rotation.cos_angle(),
-                -rotation.sin_angle(),
-                rotation.sin_angle(),
-                rotation.cos_angle(),
-            )
+        self.rot = ScaleRotationMatrix::new(scaling, rotation);
     }
 
     pub fn translation(&self) -> Vector2<f32> {
@@ -328,4 +328,3 @@ impl InstanceIndices {
         self.start..self.end
     }
 }
-

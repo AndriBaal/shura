@@ -102,7 +102,7 @@ impl<'a> RenderContext<'a> {
         let buffer = self
             .render_groups
             .get::<I>(name)
-            .unwrap_or_else(|| panic!("Component {name} is not registered!"))
+            .unwrap_or_else(|| panic!("Render group {name} is not registered!"))
             .buffer();
 
         if buffer.instance_amount() != 0 {

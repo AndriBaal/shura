@@ -1,5 +1,5 @@
 use crate::graphics::{
-    Color, DefaultAssets, DepthBuffer, Gpu, Renderer, RenderTarget, SpriteRenderTarget,
+    Color, DefaultAssets, DepthBuffer, Gpu, RenderTarget, Renderer, SpriteRenderTarget,
 };
 
 pub struct RenderEncoder<'a> {

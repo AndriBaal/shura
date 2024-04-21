@@ -9,10 +9,10 @@ use std::collections::{BTreeMap, HashMap, LinkedList, VecDeque};
 #[derive(Clone, Copy)]
 pub enum ComponentType<'a> {
     Component(&'a dyn Component),
-    ComponentBundle(&'a dyn ComponentBundle)
+    ComponentBundle(&'a dyn ComponentBundle),
 }
 
-impl <'a> ComponentType<'a> {
+impl<'a> ComponentType<'a> {
     pub fn as_component(self) -> Option<&'a dyn Component> {
         match self {
             Self::Component(component) => Some(component),
@@ -44,10 +44,10 @@ impl <'a> ComponentType<'a> {
 
 pub enum ComponentTypeMut<'a> {
     Component(&'a mut dyn Component),
-    ComponentBundle(&'a mut dyn ComponentBundle)
+    ComponentBundle(&'a mut dyn ComponentBundle),
 }
 
-impl <'a> ComponentTypeMut<'a> {
+impl<'a> ComponentTypeMut<'a> {
     pub fn as_component(self) -> Option<&'a dyn Component> {
         match self {
             Self::Component(component) => Some(component),
@@ -76,7 +76,6 @@ impl <'a> ComponentTypeMut<'a> {
         }
     }
 
-
     pub fn cast_as_component<C: Component>(self) -> Option<&'a C> {
         match self {
             Self::Component(component) => component.downcast_ref(),
@@ -90,7 +89,6 @@ impl <'a> ComponentTypeMut<'a> {
             Self::ComponentBundle(bundle) => bundle.downcast_ref(),
         }
     }
-
 
     pub fn cast_as_component_mut<C: Component>(self) -> Option<&'a mut C> {
         match self {
@@ -106,7 +104,6 @@ impl <'a> ComponentTypeMut<'a> {
         }
     }
 }
-
 
 pub trait BufferComponentBundleIterator<'a, CB: ComponentBundle>:
     Iterator<Item = &'a CB> + Clone + 'a
@@ -135,6 +132,7 @@ pub trait ComponentBundle: 'static + Downcast {
 }
 impl_downcast!(ComponentBundle);
 
+#[allow(unused_variables)]
 pub trait Component: Downcast {
     type Instance: Instance
     where
@@ -142,8 +140,8 @@ pub trait Component: Downcast {
     fn buffer(&self, world: &World, render_group: &mut RenderGroup<Self::Instance>)
     where
         Self: Sized;
-    fn init(&mut self, handle: EntityHandle, world: &mut World);
-    fn finish(&mut self, world: &mut World);
+    fn init(&mut self, handle: EntityHandle, world: &mut World) {}
+    fn finish(&mut self, world: &mut World) {}
     fn remove_from_world(&self, _world: &mut World) {}
 }
 impl_downcast!(Component);

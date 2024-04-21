@@ -471,7 +471,7 @@ impl DefaultAssets {
             },
             buffers: &[
                 crate::graphics::Vertex2D::LAYOUT,
-                crate::text::LetterInstance2D::DESC,
+                crate::text::LetterInstance2D::LAYOUT,
             ],
             ..Default::default()
         });
@@ -482,7 +482,7 @@ impl DefaultAssets {
             source: ShaderModuleSource::Single(
                 &gpu.create_shader_module(include_wgsl!("../../static/shader/3d/model.wgsl")),
             ),
-            buffers: &[Vertex3D::LAYOUT, Instance3D::DESC],
+            buffers: &[Vertex3D::LAYOUT, Instance3D::LAYOUT],
             depth_stencil: Some(DepthBuffer::depth_state()),
             ..Default::default()
         });

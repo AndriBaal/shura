@@ -14,7 +14,8 @@ pub enum ShaderModuleSource<'a> {
         vertex: &'a ShaderModule,
         fragment: &'a ShaderModule,
     },
-    _Dummy,
+    #[doc(hidden)]
+    Dummy,
 }
 
 pub struct ShaderConfig<'a> {
@@ -36,8 +37,8 @@ impl Default for ShaderConfig<'static> {
             uniforms: &[UniformField::Camera],
             blend: BlendState::ALPHA_BLENDING,
             write_mask: ColorWrites::ALL,
-            buffers: &[Vertex2D::LAYOUT, Instance2D::DESC],
-            source: ShaderModuleSource::_Dummy,
+            buffers: &[Vertex2D::LAYOUT, Instance2D::LAYOUT],
+            source: ShaderModuleSource::Dummy,
             depth_stencil: None,
             fragment_entry: "fs_main",
             vertex_entry: "vs_main",
@@ -107,7 +108,7 @@ impl Shader {
                     module: match config.source {
                         ShaderModuleSource::Single(s) => s,
                         ShaderModuleSource::Separate { vertex, .. } => vertex,
-                        ShaderModuleSource::_Dummy => panic!("Dummy not allowed!"),
+                        ShaderModuleSource::Dummy => panic!("Dummy not allowed!"),
                     },
                     entry_point: config.vertex_entry,
                     buffers: config.buffers,
@@ -116,7 +117,7 @@ impl Shader {
                     module: match config.source {
                         ShaderModuleSource::Single(s) => s,
                         ShaderModuleSource::Separate { fragment, .. } => fragment,
-                        ShaderModuleSource::_Dummy => panic!("Dummy not allowed!"),
+                        ShaderModuleSource::Dummy => panic!("Dummy not allowed!"),
                     },
                     entry_point: config.fragment_entry,
                     targets: &[Some(wgpu::ColorTargetState {

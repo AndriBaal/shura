@@ -1,14 +1,14 @@
 use proc_macro::TokenStream;
+use std::sync::Mutex;
 use std::{
     collections::{HashMap, HashSet},
     sync::OnceLock,
 };
-use std::sync::Mutex;
 
 use proc_macro2::{Ident, TokenStream as TokenStream2};
 use quote::{quote, ToTokens};
 use syn::{
-    Data, DataStruct, DeriveInput, Expr, Fields, LitStr, parse_macro_input, parse_quote, Type,
+    parse_macro_input, parse_quote, Data, DataStruct, DeriveInput, Expr, Fields, LitStr, Type,
 };
 
 type RenderGroups = HashMap<String, (LitStr, Type, Vec<Ident>)>;

@@ -4,12 +4,12 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 #[cfg(feature = "animation")]
 pub mod animation;
 pub mod app;
+pub mod arena;
 pub mod assets;
 #[cfg(feature = "audio")]
 pub mod audio;
 pub mod component;
 pub mod context;
-pub mod arena;
 pub mod entity;
 pub mod graphics;
 #[cfg(feature = "gui")]
@@ -71,12 +71,12 @@ pub mod prelude {
     #[cfg(feature = "animation")]
     pub use crate::animation::*;
     pub use crate::app::*;
+    pub use crate::arena::*;
     pub use crate::assets::*;
     #[cfg(feature = "audio")]
     pub use crate::audio::*;
     pub use crate::component::*;
     pub use crate::context::*;
-    pub use crate::arena::*;
     pub use crate::entity::*;
     pub use crate::graphics::*;
     #[cfg(feature = "gui")]

@@ -210,10 +210,7 @@ impl EntityManager {
         }
     }
 
-    pub fn count_entities_with_component(
-        &self,
-        tag: &'static str
-    ) -> usize {
+    pub fn count_entities_with_component(&self, tag: &'static str) -> usize {
         let mut count = 0;
         if let Some(type_ids) = self.components.get(tag) {
             for type_id in type_ids {

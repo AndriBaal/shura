@@ -6,11 +6,11 @@ use crate::{arena::ArenaEntry, rayon::prelude::*};
 
 use crate::{
     arena::{Arena, ArenaIndex, ArenaIter, ArenaIterMut},
+    component::ComponentBundle,
     entity::{
         Entity, EntityGroupHandle, EntityGroupManager, EntityHandle, EntityId, EntityIdentifier,
         EntityIndex,
     },
-    component::ComponentBundle,
     graphics::RenderGroupManager,
     physics::World,
 };
@@ -538,7 +538,7 @@ impl<E: EntityIdentifier> EntityType for Entities<E> {
     }
 
     fn len(&self) -> usize {
-        return self.len()
+        return self.len();
     }
 }
 

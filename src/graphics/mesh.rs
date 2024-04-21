@@ -1,18 +1,18 @@
+use std::mem;
 use std::{
     f32::consts::{FRAC_PI_2, PI},
     marker::PhantomData,
 };
-use std::mem;
 
 use wgpu::util::DeviceExt;
 use wgpu::vertex_attr_array;
 
-use crate::{
-    graphics::Gpu,
-    math::{AABB, Isometry2, Matrix2, Rotation2, Vector2, Vector3},
-};
 #[cfg(feature = "physics")]
 use crate::physics::{Shape, TypedShape};
+use crate::{
+    graphics::Gpu,
+    math::{Isometry2, Matrix2, Rotation2, Vector2, Vector3, AABB},
+};
 
 pub type Mesh2D = Mesh<Vertex2D>;
 pub type Mesh3D = Mesh<Vertex3D>;
@@ -579,7 +579,7 @@ impl MeshBuilder2D {
     }
 
     pub fn triangulate(vertices: &[Vertex2D]) -> Vec<Index> {
-        use delaunator::{Point, triangulate};
+        use delaunator::{triangulate, Point};
 
         let points: Vec<Point> = vertices
             .iter()

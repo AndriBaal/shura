@@ -194,7 +194,6 @@ impl EntityGroupManager {
         let old_render_groups =
             mem::replace(&mut self.render_groups, self.always_active_groups.clone());
 
-      
         for group in self.render_tree.locate_in_envelope_intersecting(&aabb) {
             self.render_groups.insert(group.handle);
         }
@@ -205,7 +204,6 @@ impl EntityGroupManager {
 
         self.update_groups_changed = old_update_groups != self.update_groups;
         self.render_groups_changed = old_render_groups != self.render_groups;
-
 
         #[cfg(feature = "log")]
         {
