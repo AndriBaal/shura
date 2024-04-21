@@ -1,4 +1,3 @@
-use crate::graphics::ScaleRotationMatrix;
 use crate::{
     component::Component,
     entity::EntityHandle,
@@ -289,9 +288,10 @@ impl Component for TextComponent2D {
             let rotation = letter.pos.rotation * self.position.rotation;
             let size = letter.size.component_mul(&self.scaling);
             let instance = LetterInstance2D(Instance2D {
-                pos: letter.pos.translation.vector + self.position.translation.vector,
+                translation: letter.pos.translation.vector + self.position.translation.vector,
                 color: letter.color,
-                rot: ScaleRotationMatrix::new(size, rotation),
+                rotation: rotation.angle(),
+                scaling: size,
                 atlas: letter.atlas,
                 sprite_sheet_index: letter.index,
             });

@@ -1,3 +1,8 @@
+use std::{
+    ops::{Deref, DerefMut},
+    sync::{Arc, Mutex, OnceLock, RwLock},
+};
+
 use wgpu::include_wgsl;
 use winit::window::Window;
 
@@ -15,10 +20,6 @@ use crate::{
         WorldCamera3D,
     },
     math::{Isometry2, Vector2},
-};
-use std::{
-    ops::{Deref, DerefMut},
-    sync::{Arc, Mutex, OnceLock, RwLock},
 };
 
 pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 0.5;
@@ -428,32 +429,30 @@ impl DefaultAssets {
         });
 
         #[cfg(feature = "text")]
-        let text_mesh_vertex = &gpu.create_shader_module(include_wgsl!(
-            "../../static/shader/2d/vertex_text_mesh.wgsl"
-        ));
-
-        #[cfg(feature = "text")]
         let text_mesh = gpu.create_shader(ShaderConfig {
             name: Some("text_vertex"),
             uniforms: &[UniformField::Camera, UniformField::SpriteSheet],
             source: ShaderModuleSource::Separate {
-                vertex: text_mesh_vertex,
+                vertex: &gpu.create_shader_module(include_wgsl!(
+                    "../../static/shader/2d/vertex_text_mesh.wgsl"
+                )),
                 fragment: &gpu
                     .create_shader_module(include_wgsl!("../../static/shader/2d/text.wgsl")),
             },
             buffers: &[
                 crate::text::Vertex2DText::LAYOUT,
-                // Not Instance2D::DESC because of offset
+                // Not Instance2D::LAYOUT because of offset
                 wgpu::VertexBufferLayout {
                     array_stride: Instance2D::SIZE,
                     step_mode: wgpu::VertexStepMode::Instance,
                     attributes: &wgpu::vertex_attr_array![
                         4 => Float32x2,
-                        5 => Float32x4,
-                        6 => Float32x2,
+                        5 => Float32x2,
+                        6 => Float32,
                         7 => Float32x2,
-                        8 => Float32x4,
-                        9 => Uint32,
+                        8 => Float32x2,
+                        9 => Float32x4,
+                        10 => Uint32,
                     ],
                 },
             ],

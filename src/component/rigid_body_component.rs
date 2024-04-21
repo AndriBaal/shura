@@ -182,7 +182,8 @@ impl RigidBodyComponent {
             RigidBodyComponentStatus::Initialized { rigid_body_handle } => {
                 if let Some(rigid_body) = world.rigid_body(*rigid_body_handle) {
                     Instance2D::new(
-                        *rigid_body.position(),
+                        rigid_body.position().translation.vector,
+                        rigid_body.position().rotation.angle(),
                         self.scaling,
                         self.atlas,
                         self.color,
@@ -193,7 +194,8 @@ impl RigidBodyComponent {
                 }
             }
             RigidBodyComponentStatus::Uninitialized { rigid_body, .. } => Instance2D::new(
-                *rigid_body.position(),
+                rigid_body.position().translation.vector,
+                rigid_body.position().rotation.angle(),
                 self.scaling,
                 self.atlas,
                 self.color,
@@ -206,6 +208,15 @@ impl RigidBodyComponent {
 
 impl Component for RigidBodyComponent {
     type Instance = Instance2D;
+
+    fn buffer(&self, world: &World, render_group: &mut RenderGroup<Self::Instance>)
+    where
+        Self: Sized,
+    {
+        if self.active {
+            render_group.push(self.instance(world));
+        }
+    }
 
     fn init(&mut self, handle: EntityHandle, world: &mut World) {
         match self.status {
@@ -238,14 +249,5 @@ impl Component for RigidBodyComponent {
 
     fn remove_from_world(&self, world: &mut World) {
         world.remove_no_maintain_rigid_body(self)
-    }
-
-    fn buffer(&self, world: &World, render_group: &mut RenderGroup<Self::Instance>)
-    where
-        Self: Sized,
-    {
-        if self.active {
-            render_group.push(self.instance(world));
-        }
     }
 }

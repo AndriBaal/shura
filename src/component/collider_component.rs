@@ -128,7 +128,8 @@ impl ColliderComponent {
             ColliderComponentStatus::Initialized { collider_handle } => {
                 if let Some(collider) = world.collider(*collider_handle) {
                     Instance2D::new(
-                        *collider.position(),
+                        collider.position().translation.vector,
+                        collider.position().rotation.angle(),
                         self.scaling,
                         self.atlas,
                         self.color,
@@ -139,7 +140,8 @@ impl ColliderComponent {
                 }
             }
             ColliderComponentStatus::Uninitialized { collider } => Instance2D::new(
-                *collider.position(),
+                collider.position().translation.vector,
+                collider.position().rotation.angle(),
                 self.scaling,
                 self.atlas,
                 self.color,

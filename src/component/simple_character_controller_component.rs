@@ -3,7 +3,7 @@ use rapier2d::pipeline::QueryFilter;
 use crate::{
     entity::EntityHandle,
     graphics::{Color, Instance2D, RenderGroup, SpriteAtlas, SpriteSheetIndex},
-    math::{Isometry2, Rotation2, Vector2},
+    math::{Isometry2, Vector2},
     physics::{Shape, World},
 };
 
@@ -13,8 +13,6 @@ use super::Component;
 #[derive(Clone)]
 pub struct SimpleCharacterControllerComponent<S: Shape> {
     pub shape: S,
-    scaling: Vector2<f32>,
-    position: Isometry2<f32>,
     instance: Instance2D,
     active: bool,
     linvel: Vector2<f32>,
@@ -24,8 +22,6 @@ impl<S: Shape> SimpleCharacterControllerComponent<S> {
     pub fn new(shape: S) -> Self {
         Self {
             shape,
-            scaling: Vector2::new(1.0, 1.0),
-            position: Default::default(),
             instance: Instance2D::default(),
             active: true,
             linvel: Vector2::zeros(),
@@ -54,7 +50,7 @@ impl<S: Shape> SimpleCharacterControllerComponent<S> {
         self
     }
 
-    pub fn with_rotation(mut self, rotation: Rotation2<f32>) -> Self {
+    pub fn with_rotation(mut self, rotation: f32) -> Self {
         self.set_rotation(rotation);
         self
     }
@@ -81,29 +77,22 @@ impl<S: Shape> SimpleCharacterControllerComponent<S> {
 
     pub fn set_active(&mut self, active: bool) {
         self.active = active;
-        self.instance
-            .set_rotation_scaling(self.scaling, self.position.rotation);
     }
 
-    pub fn set_rotation(&mut self, rotation: Rotation2<f32>) {
-        self.position.rotation = rotation;
-        self.instance.set_rotation_scaling(self.scaling, rotation);
+    pub fn set_rotation(&mut self, rotation: f32) {
+        self.instance.rotation = rotation;
     }
 
     pub fn set_translation(&mut self, translation: Vector2<f32>) {
-        self.instance.set_translation(translation);
-        self.position.translation.vector = translation;
+        self.instance.translation = translation;
     }
 
     pub fn set_position(&mut self, position: Isometry2<f32>) {
-        self.position = position;
-        self.instance = Instance2D::new_position(position, self.scaling);
+        self.instance.set_position(position);
     }
 
     pub fn set_scaling(&mut self, scaling: Vector2<f32>) {
-        self.scaling = scaling;
-        self.instance
-            .set_rotation_scaling(self.scaling, self.position.rotation);
+        self.instance.scaling = scaling;
     }
 
     pub fn set_linvel(&mut self, linvel: Vector2<f32>) {
@@ -114,20 +103,20 @@ impl<S: Shape> SimpleCharacterControllerComponent<S> {
         self.active
     }
 
-    pub fn rotation(&self) -> Rotation2<f32> {
-        self.position.rotation
+    pub fn rotation(&self) -> f32 {
+        self.instance.rotation
     }
 
     pub fn translation(&self) -> Vector2<f32> {
-        self.position.translation.vector
+        self.instance.translation
     }
 
     pub fn position(&self) -> Isometry2<f32> {
-        self.position
+        self.instance.position()
     }
 
     pub const fn scaling(&self) -> &Vector2<f32> {
-        &self.scaling
+        &self.instance.scaling
     }
 
     pub const fn linvel(&self) -> &Vector2<f32> {
@@ -186,7 +175,7 @@ impl<S: Shape> SimpleCharacterControllerComponent<S> {
         // }
         // self.set_translation(translation_remaining);
 
-        let character_pos = &self.position;
+        let character_pos = self.instance.position();
         let character_shape = &self.shape;
         let bodies = world.rigid_bodies();
         let colliders = world.colliders();
@@ -195,7 +184,7 @@ impl<S: Shape> SimpleCharacterControllerComponent<S> {
         if let Some((_handle, toi)) = queries.cast_shape(
             bodies,
             colliders,
-            character_pos,
+            &character_pos,
             &desired_translation.normalize(),
             character_shape,
             desired_translation.norm(),

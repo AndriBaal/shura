@@ -1,10 +1,11 @@
+use nalgebra::Isometry2;
 use std::{marker::PhantomData, mem::size_of, ops::Range};
 
 use wgpu::{util::DeviceExt, vertex_attr_array};
 
 use crate::{
     graphics::{Color, Gpu, SpriteSheetIndex},
-    math::{Isometry2, Isometry3, Matrix2, Matrix4, Rotation2, Vector2, Vector3},
+    math::{Isometry3, Matrix4, Vector2, Vector3},
 };
 
 pub type InstanceBuffer2D = InstanceBuffer<Instance2D>;
@@ -22,26 +23,6 @@ pub trait Instance: bytemuck::Pod + bytemuck::Zeroable {
 
 impl Instance for () {
     const ATTRIBUTES: &'static [wgpu::VertexAttribute] = &[];
-}
-
-#[repr(C)]
-#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct ScaleRotationMatrix {
-    matrix: Matrix2<f32>,
-}
-
-impl ScaleRotationMatrix {
-    pub fn new(scaling: Vector2<f32>, rotation: Rotation2<f32>) -> Self {
-        Self {
-            matrix: Matrix2::new(
-                scaling.x * rotation.cos_angle(),
-                scaling.x * rotation.sin_angle(),
-                scaling.y * -rotation.sin_angle(),
-                scaling.y * rotation.cos_angle(),
-            ),
-        }
-    }
 }
 
 #[repr(C)]
@@ -71,8 +52,9 @@ impl Default for SpriteAtlas {
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Instance2D {
-    pub pos: Vector2<f32>,
-    pub rot: ScaleRotationMatrix,
+    pub translation: Vector2<f32>,
+    pub scaling: Vector2<f32>,
+    pub rotation: f32,
     pub atlas: SpriteAtlas,
     pub color: Color,
     pub sprite_sheet_index: SpriteSheetIndex,
@@ -81,61 +63,49 @@ pub struct Instance2D {
 impl Instance for Instance2D {
     const ATTRIBUTES: &'static [wgpu::VertexAttribute] = &vertex_attr_array![
         2 => Float32x2,
-        3 => Float32x4,
-        4 => Float32x2,
+        3 => Float32x2,
+        4 => Float32,
         5 => Float32x2,
-        6 => Float32x4,
-        7 => Uint32,
+        6 => Float32x2,
+        7 => Float32x4,
+        8 => Uint32,
     ];
 }
 
 impl Instance2D {
     pub fn new(
-        pos: Isometry2<f32>,
+        translation: Vector2<f32>,
+        rotation: f32,
         scaling: Vector2<f32>,
         atlas: SpriteAtlas,
         color: Color,
         sprite_sheet_index: SpriteSheetIndex,
     ) -> Self {
         Self {
-            rot: ScaleRotationMatrix::new(scaling, pos.rotation),
-            pos: pos.translation.vector,
+            rotation,
+            translation,
             atlas,
             color,
             sprite_sheet_index,
+            scaling,
         }
     }
 
-    pub fn new_position(pos: Isometry2<f32>, scaling: Vector2<f32>) -> Self {
-        Self {
-            rot: ScaleRotationMatrix::new(scaling, pos.rotation),
-            pos: pos.translation.vector,
-            ..Default::default()
-        }
+    pub fn set_position(&mut self, pos: Isometry2<f32>) {
+        self.rotation = pos.rotation.angle();
+        self.translation = pos.translation.vector;
     }
 
-    pub fn set_translation(&mut self, translation: Vector2<f32>) {
-        self.pos = translation;
-    }
-
-    pub fn set_position(&mut self, pos: Isometry2<f32>, scaling: Vector2<f32>) {
-        self.rot = ScaleRotationMatrix::new(scaling, pos.rotation);
-        self.pos = pos.translation.vector;
-    }
-
-    pub fn set_rotation_scaling(&mut self, scaling: Vector2<f32>, rotation: Rotation2<f32>) {
-        self.rot = ScaleRotationMatrix::new(scaling, rotation);
-    }
-
-    pub fn translation(&self) -> Vector2<f32> {
-        self.pos
+    pub fn position(&self) -> Isometry2<f32> {
+        Isometry2::new(self.translation, self.rotation)
     }
 }
 
 impl Default for Instance2D {
     fn default() -> Self {
         Self::new(
-            Isometry2::new(Vector2::default(), 0.0),
+            Vector2::default(),
+            0.0,
             Vector2::new(1.0, 1.0),
             Default::default(),
             Color::WHITE,
@@ -211,7 +181,7 @@ impl<I: Instance> InstanceBuffer<I> {
         let buffer = gpu.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("instance_buffer"),
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-            size: instance_size as u64 * amount,
+            size: instance_size * amount,
             mapped_at_creation: false,
         });
 

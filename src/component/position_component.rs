@@ -2,25 +2,21 @@ use crate::{
     component::Component,
     entity::EntityHandle,
     graphics::{Color, Instance2D, Instance3D, RenderGroup, SpriteAtlas, SpriteSheetIndex},
-    math::{Isometry2, Isometry3, Rotation2, Rotation3, Vector2, Vector3},
+    math::{Isometry2, Isometry3, Rotation3, Vector2, Vector3},
     physics::World,
 };
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone)]
 pub struct PositionComponent2D {
-    scaling: Vector2<f32>,
-    position: Isometry2<f32>,
-    active: bool,
-    instance: Instance2D,
+    pub active: bool,
+    pub instance: Instance2D,
 }
 
 impl Default for PositionComponent2D {
     fn default() -> Self {
         Self {
-            scaling: Vector2::new(1.0, 1.0),
             instance: Instance2D::default(),
-            position: Isometry2::default(),
             active: true,
         }
     }
@@ -33,7 +29,7 @@ impl PositionComponent2D {
     }
 
     pub fn with_rotation(mut self, rotation: f32) -> Self {
-        self.set_rotation(Rotation2::new(rotation));
+        self.set_rotation(rotation);
         self
     }
 
@@ -56,45 +52,40 @@ impl PositionComponent2D {
         self.active = active;
     }
 
-    pub fn set_rotation(&mut self, rotation: Rotation2<f32>) {
-        self.position.rotation = rotation;
-        self.instance.set_rotation_scaling(self.scaling, rotation);
+    pub fn set_rotation(&mut self, rotation: f32) {
+        self.instance.rotation = rotation;
     }
 
     pub fn set_translation(&mut self, translation: Vector2<f32>) {
-        self.instance.set_translation(translation);
-        self.position.translation.vector = translation;
+        self.instance.translation = translation;
     }
 
     pub fn set_position(&mut self, position: Isometry2<f32>) {
-        self.position = position;
-        self.instance = Instance2D::new_position(position, self.scaling);
+        self.instance.set_position(position)
     }
 
     pub fn active(&self) -> bool {
         self.active
     }
 
-    pub fn rotation(&self) -> Rotation2<f32> {
-        self.position.rotation
+    pub fn rotation(&self) -> f32 {
+        self.instance.rotation
     }
 
     pub fn translation(&self) -> Vector2<f32> {
-        self.position.translation.vector
+        self.instance.translation
     }
 
     pub fn position(&self) -> Isometry2<f32> {
-        self.position
+        self.instance.position()
     }
 
-    pub const fn scaling(&self) -> &Vector2<f32> {
-        &self.scaling
+    pub fn scaling(&self) -> Vector2<f32> {
+        self.instance.scaling
     }
 
     pub fn set_scaling(&mut self, scaling: Vector2<f32>) {
-        self.scaling = scaling;
-        self.instance
-            .set_rotation_scaling(self.scaling, self.position.rotation);
+        self.instance.scaling = scaling;
     }
 
     pub fn with_scaling(mut self, scaling: Vector2<f32>) -> Self {

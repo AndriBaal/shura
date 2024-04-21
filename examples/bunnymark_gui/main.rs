@@ -56,7 +56,7 @@ fn update(ctx: &mut Context) {
         .collapsible(false)
         .show(ctx.gui, |ui| {
             ui.label(format!("FPS: {}", ctx.time.fps()));
-            ui.label(format§!("Bunnies: {}", bunnies.len()));
+            ui.label(format!("Bunnies: {}", bunnies.len()));
             if ui.button("Clear Bunnies").clicked() {
                 bunnies.remove_all(ctx.world);
             }
