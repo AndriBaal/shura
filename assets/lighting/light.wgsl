@@ -19,6 +19,7 @@ struct InstanceInput {
     @location(7) inner_size: f32,
     @location(8) inner_magnification: f32,
     @location(9) outer_magnification: f32,
+    @location(10) side_falloff_magnification: f32,
 }
 
 struct VertexOutput {
@@ -29,6 +30,7 @@ struct VertexOutput {
     @location(3) inner_size: f32,
     @location(4) inner_magnification: f32,
     @location(5) outer_magnification: f32,
+    @location(6) side_falloff_magnification: f32,
 }
 
 @vertex
@@ -54,6 +56,7 @@ fn vs_main(
     out.inner_size = instance.inner_size;
     out.inner_magnification = instance.inner_magnification;
     out.outer_magnification = instance.outer_magnification;
+    out.side_falloff_magnification = instance.side_falloff_magnification;
     return out;
 }
 
@@ -67,28 +70,30 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let dy = in.tex.y - CENTER.y;
     let angle = atan2(dy, dx);
 
-//    let end = -0.785398;
-//    let start = -2.35619;
-
-//    f: y=((10^(x)-1)/(10-1))
+    var strength = (pow(in.outer_magnification, dist) - 1.0) / (in.outer_magnification - 1.0);
+    if dist < in.inner_size {
+        strength *= (pow(in.inner_magnification, dist / in.inner_size) - 1.0) / (in.inner_magnification - 1.0);
+    }
 
     let start = in.circle_sector.x;
     let end = in.circle_sector.y;
 
     if angle > start && angle < end {
-        return vec4<f32>(in.color.xyz, 1.0 - dist);
+        return vec4<f32>(in.color.xyz, 1.0 - strength);
     }
     
     let left_diff = start - angle;
     if angle < start && left_diff < SIDE_FALLOFF {
         let dist_to_left = left_diff / SIDE_FALLOFF;
-        return vec4<f32>(in.color.xyz, (1.0 - dist) * (1.0 - dist_to_left));
+        let left_strength = (pow(in.side_falloff_magnification, dist_to_left) - 1.0) / (in.side_falloff_magnification - 1.0);
+        return vec4<f32>(in.color.xyz, (1.0 - strength) * (1.0 - left_strength));
     }
     
     let right_diff = angle - end;
     if angle > end && right_diff < SIDE_FALLOFF {
         let dist_to_right = right_diff / SIDE_FALLOFF;
-        return vec4<f32>(in.color.xyz, (1.0 - dist) * (1.0 - dist_to_right));
+        let right_strength = (pow(in.side_falloff_magnification, dist_to_right) - 1.0) / (in.side_falloff_magnification - 1.0);
+        return vec4<f32>(in.color.xyz, (1.0 - strength) * (1.0 - right_strength));
     }
 
 

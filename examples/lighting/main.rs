@@ -1,8 +1,5 @@
-use std::f32::consts::PI;
-
+use std::f32::consts::{PI, TAU};
 use egui::Widget;
-
-use shura::prelude::*;
 use shura::prelude::*;
 
 const SIZE: Vector2<u32> = vector!(800, 800);
@@ -42,7 +39,7 @@ fn setup(ctx: &mut Context) {
         Light::new(
             LightInstance {
                 outer_radius: 10.0,
-                inner_radius: 5.0,
+                inner_radius: 0.2,
                 color: Color::BLUE,
                 ..Default::default()
             },
@@ -55,7 +52,7 @@ fn setup(ctx: &mut Context) {
             LightInstance {
                 translation: vector!(0.0, -2.0),
                 outer_radius: 12.0,
-                inner_radius: 5.0,
+                inner_radius: 0.2,
                 color: Color::RED,
                 ..Default::default()
             },
@@ -113,9 +110,7 @@ fn resize(ctx: &mut Context) {
 
 fn update(ctx: &mut Context) {
     for light in ctx.entities.get_mut::<Light>().iter_mut() {
-        if light.follow_player {
-            light.inner.translation = ctx.cursor.coords;
-
+        if light.display {
             gui::Window::new("Light")
                 .resizable(false)
                 .show(ctx.gui, |ui| {
@@ -128,7 +123,7 @@ fn update(ctx: &mut Context) {
                         ui.label("Inner Radius:");
                         gui::widgets::Slider::new(
                             &mut light.inner.inner_radius,
-                            0.0..=light.inner.outer_radius,
+                            0.0..=1.0,
                         )
                         .ui(ui);
                     });
@@ -144,27 +139,59 @@ fn update(ctx: &mut Context) {
                     });
                     light.inner.color = egui_color.into();
 
-                    //
-                    // ui.horizontal(|ui| {
-                    //     ui.label("Test:");
-                    //     gui::widgets::Slider::new(&mut light.inner.outer_radius, 0.0..=100.0).ui(ui);
-                    // });
-                    //
-                    // ui.horizontal(|ui| {
-                    //     ui.label("Test:");
-                    //     gui::widgets::Slider::new(&mut light.inner.outer_radius, 0.0..=100.0).ui(ui);
-                    // });
-                    //
-                    // ui.horizontal(|ui| {
-                    //     ui.label("Test:");
-                    //     gui::widgets::Slider::new(&mut light.inner.outer_radius, 0.0..=100.0).ui(ui);
-                    // });
-                    //
-                    // ui.horizontal(|ui| {
-                    //     ui.label("Test:");
-                    //     gui::widgets::Slider::new(&mut light.inner.outer_radius, 0.0..=100.0).ui(ui);
-                    // });
+                    ui.horizontal(|ui| {
+                        ui.label("Inner Magnification:");
+                        gui::widgets::Slider::new(
+                            &mut light.inner.inner_magnification,
+                            0.05..=10.0,
+                        )
+                        .ui(ui);
+                    });
+
+                    ui.horizontal(|ui| {
+                        ui.label("Outer Magnification:");
+                        gui::widgets::Slider::new(
+                            &mut light.inner.outer_magnification,
+                            0.05..=10.0,
+                        )
+                        .ui(ui);
+                    });
+
+                    ui.horizontal(|ui| {
+                        ui.label("Side Falloff Magnification:");
+                        gui::widgets::Slider::new(
+                            &mut light.inner.side_falloff_magnification,
+                            0.0..=10.0,
+                        )
+                            .ui(ui);
+                    });
+
+                    ui.horizontal(|ui| {
+                        ui.label("Rotation:");
+                        gui::widgets::Slider::new(&mut light.inner.rotation, -TAU..=TAU).ui(ui);
+                    });
+
+                    let end = light.inner.sector.y;
+                    ui.horizontal(|ui| {
+                        ui.label("Start:");
+                        gui::widgets::Slider::new(&mut light.inner.sector.x, -PI..=end).ui(ui);
+                    });
+
+                    let start = light.inner.sector.x;
+                    ui.horizontal(|ui| {
+                        ui.label("End:");
+                        gui::widgets::Slider::new(&mut light.inner.sector.y, start..=PI).ui(ui);
+                    });
                 });
+
+
+            if ctx.input.is_pressed(MouseButton::Left) && !ctx.gui.is_pointer_over_area() {
+                light.follow_player = !light.follow_player;
+            }
+            if light.follow_player {
+                light.inner.translation = ctx.cursor.coords;
+            }
+
         }
     }
 }
@@ -253,6 +280,7 @@ struct LightInstance {
     inner_radius: f32,
     inner_magnification: f32,
     outer_magnification: f32,
+    side_falloff_magnification: f32
 }
 
 impl Default for LightInstance {
@@ -263,9 +291,10 @@ impl Default for LightInstance {
             outer_radius: 10.0,
             color: Color::WHITE,
             sector: vector![-PI, PI],
-            inner_radius: 2.0,
-            inner_magnification: 1.0,
-            outer_magnification: 1.0,
+            inner_radius: 0.5,
+            inner_magnification: 1.1,
+            outer_magnification: 1.1,
+            side_falloff_magnification: 0.2
         }
     }
 }
@@ -280,6 +309,7 @@ impl Instance for LightInstance {
         7 => Float32,
         8 => Float32,
         9 => Float32,
+        10 => Float32,
     ];
 }
 
@@ -287,19 +317,19 @@ impl Instance for LightInstance {
 struct Light {
     #[shura(component = "light")]
     inner: LightInstance,
-
-    follow_player: bool,
+    display: bool,
+    follow_player: bool
 }
 
 impl Light {
     pub fn new(instance: LightInstance, follow_player: bool) -> Self {
-        if instance.inner_radius > instance.outer_radius {
-            panic!("Inner radius must be smaller than outer radius!");
-        }
-
+        assert!(instance.inner_radius <= 1.0 && instance.inner_radius >= 0.0);
+        // assert_ne!(instance.inner_magnification, 1.0);
+        // assert_ne!(instance.outer_magnification, 1.0);
         Self {
             inner: instance,
-            follow_player,
+            display: follow_player,
+            follow_player
         }
     }
 }
