@@ -2,14 +2,27 @@ use crate::{
     component::Component,
     entity::EntityHandle,
     graphics::{Color, Instance2D, Instance3D, RenderGroup, SpriteAtlas, SpriteSheetIndex},
-    math::{Isometry2, Isometry3, Rotation3, Vector2, Vector3},
+    math::{Isometry2, Isometry3, Rotation3, Vector2, Vector3, AABB},
     physics::World,
 };
+
+#[derive(Debug, PartialEq, PartialOrd, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum PositionComponent2DVisibility {
+    Static(bool),
+    Size(Vector2<f32>),
+}
+
+impl Default for PositionComponent2DVisibility {
+    fn default() -> Self {
+        Self::Static(true)
+    }
+}
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone)]
 pub struct PositionComponent2D {
-    pub active: bool,
+    pub visibility: PositionComponent2DVisibility,
     pub instance: Instance2D,
 }
 
@@ -17,7 +30,8 @@ impl Default for PositionComponent2D {
     fn default() -> Self {
         Self {
             instance: Instance2D::default(),
-            active: true,
+            visibility: PositionComponent2DVisibility::default(),
+            // size: None,
         }
     }
 }
@@ -43,13 +57,13 @@ impl PositionComponent2D {
         self
     }
 
-    pub fn with_active(mut self, active: bool) -> Self {
-        self.set_active(active);
+    pub fn with_visibility(mut self, visibility: PositionComponent2DVisibility) -> Self {
+        self.set_visibility(visibility);
         self
     }
 
-    pub fn set_active(&mut self, active: bool) {
-        self.active = active;
+    pub fn set_visibility(&mut self, visibility: PositionComponent2DVisibility) {
+        self.visibility = visibility;
     }
 
     pub fn set_rotation(&mut self, rotation: f32) {
@@ -64,8 +78,8 @@ impl PositionComponent2D {
         self.instance.set_position(position)
     }
 
-    pub fn active(&self) -> bool {
-        self.active
+    pub fn visibility(&self) -> PositionComponent2DVisibility {
+        self.visibility
     }
 
     pub fn rotation(&self) -> f32 {
@@ -140,12 +154,22 @@ impl PositionComponent2D {
 impl Component for PositionComponent2D {
     type Instance = Instance2D;
 
-    fn buffer(&self, _world: &World, render_group: &mut RenderGroup<Self::Instance>)
+    fn buffer(&self, _world: &World, cam2d: &AABB, render_group: &mut RenderGroup<Self::Instance>)
     where
         Self: Sized,
     {
-        if self.active {
-            render_group.push(self.instance())
+        match self.visibility {
+            PositionComponent2DVisibility::Static(s) => {
+                if s {
+                    render_group.push(self.instance())
+                }
+            }
+            PositionComponent2DVisibility::Size(size) => {
+                let aabb = AABB::from_center(self.translation(), size);
+                if aabb.intersects(cam2d) {
+                    render_group.push(self.instance())
+                }
+            }
         }
     }
 
@@ -251,10 +275,11 @@ impl PositionComponent3D {
 impl Component for PositionComponent3D {
     type Instance = Instance3D;
 
-    fn buffer(&self, _world: &World, render_group: &mut RenderGroup<Self::Instance>)
+    fn buffer(&self, _world: &World, _cam2d: &AABB, render_group: &mut RenderGroup<Self::Instance>)
     where
         Self: Sized,
     {
+        // TODO: Implement AABB check
         if self.active {
             render_group.push(self.instance())
         }

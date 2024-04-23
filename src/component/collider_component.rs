@@ -1,10 +1,11 @@
 use crate::{
-    component::Component,
+    component::{Component, PhysicsComponentVisibility},
     entity::EntityHandle,
     graphics::{Color, Instance2D, RenderGroup, SpriteAtlas, SpriteSheetIndex},
-    math::Vector2,
+    math::{Vector2, AABB},
     physics::{Collider, ColliderHandle, World},
 };
+
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ColliderComponentStatus {
@@ -35,11 +36,11 @@ impl ColliderComponentStatus {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ColliderComponent {
     pub status: ColliderComponentStatus,
-    scaling: Vector2<f32>,
-    atlas: SpriteAtlas,
-    color: Color,
-    index: SpriteSheetIndex,
-    active: bool,
+    pub scaling: Vector2<f32>,
+    pub atlas: SpriteAtlas,
+    pub color: Color,
+    pub index: SpriteSheetIndex,
+    pub visibility: PhysicsComponentVisibility,
 }
 
 impl ColliderComponent {
@@ -52,7 +53,7 @@ impl ColliderComponent {
             atlas: Default::default(),
             color: Color::WHITE,
             index: 0,
-            active: true,
+            visibility: PhysicsComponentVisibility::default(),
         }
     }
 
@@ -119,48 +120,84 @@ impl ColliderComponent {
         &self.index
     }
 
-    pub fn set_active(&mut self, active: bool) {
-        self.active = active;
+    pub fn set_visibility(&mut self, visibility: PhysicsComponentVisibility) {
+        self.visibility = visibility;
     }
 
     pub fn instance(&self, world: &World) -> Instance2D {
-        let instance = match &self.status {
+        let collider = match &self.status {
             ColliderComponentStatus::Initialized { collider_handle } => {
-                if let Some(collider) = world.collider(*collider_handle) {
-                    Instance2D::new(
-                        collider.position().translation.vector,
-                        collider.position().rotation.angle(),
-                        self.scaling,
-                        self.atlas,
-                        self.color,
-                        self.index,
-                    )
-                } else {
-                    Instance2D::default()
-                }
+                world.collider(*collider_handle).unwrap()
             }
-            ColliderComponentStatus::Uninitialized { collider } => Instance2D::new(
-                collider.position().translation.vector,
-                collider.position().rotation.angle(),
-                self.scaling,
-                self.atlas,
-                self.color,
-                self.index,
-            ),
+            ColliderComponentStatus::Uninitialized { collider } => collider,
         };
-        return instance;
+        Instance2D::new(
+            collider.position().translation.vector,
+            collider.position().rotation.angle(),
+            self.scaling,
+            self.atlas,
+            self.color,
+            self.index,
+        )
     }
 }
 
 impl Component for ColliderComponent {
     type Instance = Instance2D;
 
-    fn buffer(&self, world: &World, render_group: &mut RenderGroup<Self::Instance>)
+    fn buffer(&self, world: &World, cam2d: &AABB, render_group: &mut RenderGroup<Self::Instance>)
     where
         Self: Sized,
     {
-        if self.active {
-            render_group.push(self.instance(world));
+        match self.visibility {
+            PhysicsComponentVisibility::Static(s) => {
+                if s {
+                    render_group.push(self.instance(world))
+                }
+            }
+            PhysicsComponentVisibility::Size(size) => {
+                let collider = match &self.status {
+                    ColliderComponentStatus::Initialized { collider_handle } => {
+                        world.collider(*collider_handle).unwrap()
+                    }
+                    ColliderComponentStatus::Uninitialized { collider} => {
+                        &*collider
+                    }
+                };
+
+                let aabb = AABB::from_center(*collider.translation(), size);
+                if aabb.intersects(cam2d) {
+                    render_group.push(Instance2D::new(
+                        collider.position().translation.vector,
+                        collider.position().rotation.angle(),
+                        self.scaling,
+                        self.atlas,
+                        self.color,
+                        self.index,
+                    ))
+                }
+            }
+            PhysicsComponentVisibility::ColliderSize => {
+                let collider = match &self.status {
+                    ColliderComponentStatus::Initialized { collider_handle } => {
+                        world.collider(*collider_handle).unwrap()
+                    }
+                    ColliderComponentStatus::Uninitialized { collider } => {
+                        &*collider
+                    }
+                };
+                let aabb: AABB = collider.compute_aabb().into();
+                if aabb.intersects(cam2d) {
+                    render_group.push(Instance2D::new(
+                        collider.position().translation.vector,
+                        collider.position().rotation.angle(),
+                        self.scaling,
+                        self.atlas,
+                        self.color,
+                        self.index,
+                    ))
+                }
+            }
         }
     }
 

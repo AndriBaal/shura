@@ -9,7 +9,7 @@ use crate::{
     },
     graphics::{
         CameraBuffer, CameraBuffer2D, DefaultAssets, Instance, Instance2D, InstanceBuffer,
-        InstanceIndices, Mesh2D, RenderGroupManager, RenderTarget, Renderer, SurfaceRenderTarget,
+        Mesh2D, RenderGroupManager, RenderTarget, Renderer, SurfaceRenderTarget,
         WorldCamera3D,
     },
     prelude::Scene,
@@ -97,7 +97,7 @@ impl<'a> RenderContext<'a> {
         &self,
         renderer: &mut Renderer<'a>,
         name: &'static str,
-        all: impl Fn(&mut Renderer<'a>, &'a InstanceBuffer<I>, InstanceIndices),
+        all: impl Fn(&mut Renderer<'a>, &'a InstanceBuffer<I>),
     ) {
         let buffer = self
             .render_groups
@@ -106,7 +106,7 @@ impl<'a> RenderContext<'a> {
             .buffer();
 
         if buffer.instance_amount() != 0 {
-            (all)(renderer, buffer, buffer.instances());
+            (all)(renderer, buffer);
         }
     }
 }

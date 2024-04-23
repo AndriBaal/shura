@@ -64,9 +64,8 @@ fn setup(ctx: &mut Context) {
 fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
     let assets = ctx.entities.single::<LightAssets>().get_ref().unwrap();
     encoder.render2d(Some(Color::BLACK), |renderer| {
-        ctx.render(renderer, "background", |renderer, buffer, instances| {
+        ctx.render(renderer, "background", |renderer, buffer| {
             renderer.render_sprite(
-                instances,
                 buffer,
                 ctx.world_camera2d,
                 ctx.unit_mesh,
@@ -76,12 +75,12 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
     });
 
     encoder.render2d_to(Some(Color::BLACK), &assets.light_map, |renderer| {
-        ctx.render::<LightInstance>(renderer, "light", |renderer, buffer, instances| {
+        ctx.render::<LightInstance>(renderer, "light", |renderer, buffer| {
             renderer.use_instances(buffer);
             renderer.use_camera(ctx.world_camera2d);
             renderer.use_shader(&assets.light_shader);
             renderer.use_mesh(ctx.unit_mesh);
-            renderer.draw(instances);
+            renderer.draw();
         });
 
         // ctx.render::<LightInstance>(renderer, "shadow", |renderer, buffer, instances| {
@@ -99,7 +98,7 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
         renderer.use_instances(ctx.centered_instance);
         renderer.use_shader(&assets.present_shader);
         renderer.use_sprite(assets.light_map.sprite(), 1);
-        renderer.draw(0..1);
+        renderer.draw();
     });
 }
 
@@ -143,7 +142,7 @@ fn update(ctx: &mut Context) {
                         ui.label("Inner Magnification:");
                         gui::widgets::Slider::new(
                             &mut light.inner.inner_magnification,
-                            0.05..=10.0,
+                            0.01..=10.0,
                         )
                         .ui(ui);
                     });
@@ -152,7 +151,7 @@ fn update(ctx: &mut Context) {
                         ui.label("Outer Magnification:");
                         gui::widgets::Slider::new(
                             &mut light.inner.outer_magnification,
-                            0.05..=10.0,
+                            0.01..=10.0,
                         )
                         .ui(ui);
                     });
@@ -199,6 +198,7 @@ fn update(ctx: &mut Context) {
 #[derive(Entity)]
 pub struct LightAssets {
     light_map: SpriteRenderTarget,
+    shadow_stencil: DepthBuffer,
     light_shader: Shader,
     shadow_shader: Shader,
     present_shader: Shader,
@@ -256,15 +256,17 @@ impl LightAssets {
                 ),
                 uniforms: &[UniformField::Camera],
                 buffers: &[Vertex2D::LAYOUT, LightInstance::LAYOUT],
+                blend: BlendState::ALPHA_BLENDING,
                 ..Default::default()
             }),
-            light_map: ctx.gpu.create_render_target(ctx.window_size),
             background_sprite: ctx
                 .gpu
                 .create_sprite(SpriteBuilder::bytes(include_asset_bytes!(
                     "lighting/level.png"
                 ))),
             background: PositionComponent2D::new().with_scaling(Vector2::new(10.0, 10.0) * 2.0),
+            light_map: ctx.gpu.create_render_target(ctx.window_size),
+            shadow_stencil: ctx.gpu.create_depth_buffer(ctx.window_size, TextureFormat::Depth16Unorm),
         }
     }
 }
@@ -273,11 +275,11 @@ impl LightAssets {
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct LightInstance {
     translation: Vector2<f32>,
-    outer_radius: f32,
     rotation: f32,
     color: Color,
     sector: Vector2<f32>,
     inner_radius: f32,
+    outer_radius: f32,
     inner_magnification: f32,
     outer_magnification: f32,
     side_falloff_magnification: f32
@@ -303,9 +305,9 @@ impl Instance for LightInstance {
     const ATTRIBUTES: &'static [VertexAttribute] = &vertex_attr_array![
         2 => Float32x2,
         3 => Float32,
-        4 => Float32,
-        5 => Float32x4,
-        6 => Float32x2,
+        4 => Float32x4,
+        5 => Float32x2,
+        6 => Float32,
         7 => Float32,
         8 => Float32,
         9 => Float32,

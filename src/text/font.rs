@@ -52,7 +52,7 @@ impl Font {
     }
 
     pub fn sprite_sheet(&self) -> &SpriteSheet {
-        return &self.inner.sprite_sheet;
+        &self.inner.sprite_sheet
     }
 }
 

@@ -16,7 +16,7 @@ use crate::{
         Instance3D, InstanceBuffer, InstanceBuffer2D, Mesh, Mesh2D, MeshBuilder, MeshBuilder2D,
         Model, ModelBuilder, RenderEncoder, Shader, ShaderConfig, ShaderModule,
         ShaderModuleDescriptor, ShaderModuleSource, Sprite, SpriteBuilder, SpriteRenderTarget,
-        SpriteSheet, SpriteSheetBuilder, Surface, Uniform, UniformField, Vertex, Vertex3D,
+        SpriteSheet, SpriteSheetBuilder, Surface, UniformData, UniformField, Vertex, Vertex3D,
         WorldCamera3D,
     },
     math::{Isometry2, Vector2},
@@ -131,6 +131,14 @@ impl Gpu {
         SpriteRenderTarget::new(self, size)
     }
 
+    pub fn create_depth_buffer(
+        &self,
+        size: Vector2<u32>,
+        format: wgpu::TextureFormat,
+    ) -> DepthBuffer {
+        DepthBuffer::new(self, size, format)
+    }
+
     pub fn create_custom_render_target<D: Deref<Target = [u8]>>(
         &self,
         sprite: SpriteBuilder<D>,
@@ -165,8 +173,8 @@ impl Gpu {
         SpriteSheet::new(self, desc)
     }
 
-    pub fn create_uniform<T: bytemuck::Pod>(&self, data: T) -> Uniform<T> {
-        Uniform::new(self, data)
+    pub fn create_uniform_data<T: bytemuck::Pod>(&self, data: T) -> UniformData<T> {
+        UniformData::new(self, data)
     }
 
     pub fn create_shader(&self, config: ShaderConfig) -> Shader {
@@ -398,7 +406,7 @@ pub struct DefaultAssets {
     pub depth_buffer: DepthBuffer,
     pub unit_mesh: Mesh2D,
 
-    pub times: Uniform<[f32; 2]>,
+    pub times: UniformData<[f32; 2]>,
     pub world_camera2d: CameraBuffer2D,
     pub world_camera3d: CameraBuffer<WorldCamera3D>,
     pub relative_camera: (CameraBuffer2D, Camera2D),
@@ -482,7 +490,13 @@ impl DefaultAssets {
                 &gpu.create_shader_module(include_wgsl!("../../static/shader/3d/model.wgsl")),
             ),
             buffers: &[Vertex3D::LAYOUT, Instance3D::LAYOUT],
-            depth_stencil: Some(DepthBuffer::depth_state()),
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: DepthBuffer::DEPTH_FORMAT_3D,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::Less,
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
+            }),
             ..Default::default()
         });
 
@@ -542,7 +556,7 @@ impl DefaultAssets {
         });
 
         let size = surface.size();
-        let times = Uniform::new(gpu, [0.0, 0.0]);
+        let times = UniformData::new(gpu, [0.0, 0.0]);
         let centered_instance = gpu.create_instance_buffer(&[Instance2D::default()]);
 
         let fov = Self::relative_fov(size);
@@ -572,7 +586,7 @@ impl DefaultAssets {
 
         #[cfg(feature = "framebuffer")]
         let framebuffer = SpriteRenderTarget::new(gpu, size);
-        let depth_buffer = DepthBuffer::new(gpu, size);
+        let depth_buffer = DepthBuffer::new(gpu, size, DepthBuffer::DEPTH_FORMAT_3D);
 
         let missing = gpu.create_sprite(
             SpriteBuilder::bytes(include_bytes!("../../static/img/missing.png")).sampler(

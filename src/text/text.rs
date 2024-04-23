@@ -5,7 +5,7 @@ use crate::{
         Color, Gpu, Index, Instance, Instance2D, Mesh, MeshBuilder2D, RenderGroup, SpriteAtlas,
         SpriteSheetIndex, Vertex,
     },
-    math::{Isometry2, Rotation2, Vector2},
+    math::{Isometry2, Rotation2, Vector2, AABB},
     physics::World,
     text::Font,
 };
@@ -283,8 +283,9 @@ pub struct TextComponent2D {
 
 impl Component for TextComponent2D {
     type Instance = LetterInstance2D;
-    fn buffer(&self, _world: &World, render_group: &mut RenderGroup<Self::Instance>) {
+    fn buffer(&self, _world: &World, _cam2d: &AABB, render_group: &mut RenderGroup<Self::Instance>) {
         for letter in &self.letters {
+            // TODO: Implement AABB check
             let rotation = letter.pos.rotation * self.position.rotation;
             let size = letter.size.component_mul(&self.scaling);
             let instance = LetterInstance2D(Instance2D {
@@ -361,7 +362,7 @@ impl TextComponent2D {
                 index: letter.id,
             });
         });
-        return instances;
+        instances
     }
 }
 

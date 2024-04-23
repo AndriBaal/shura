@@ -79,7 +79,7 @@ impl AABB {
         }
     }
 
-    pub fn from_position(half_extents: Vector2<f32>, position: Isometry2<f32>) -> Self {
+    pub fn from_position(position: Isometry2<f32>, half_extents: Vector2<f32>,) -> Self {
         Self {
             min: -half_extents,
             max: half_extents,
@@ -128,5 +128,26 @@ impl AABB {
             && self.max.x >= other.min.x
             && self.min.y <= other.max.y
             && self.max.y >= other.min.y
+    }
+
+    pub fn combine(&mut self, other: AABB) {
+        self.min.x = self.min.x.min(other.min.x);
+        self.min.y = self.min.y.min(other.min.y);
+        self.max.x = self.max.x.max(other.max.x);
+        self.max.y = self.max.y.max(other.max.y);
+    }
+}
+
+#[cfg(feature="physics")]
+impl Into<rapier2d::prelude::Aabb> for AABB {
+    fn into(self) -> rapier2d::prelude::Aabb {
+        rapier2d::prelude::Aabb::new(self.min.into(), self.max.into())
+    }
+}
+
+#[cfg(feature="physics")]
+impl From<rapier2d::prelude::Aabb> for AABB {
+    fn from(value: rapier2d::prelude::Aabb) -> Self {
+        Self::new(value.mins.coords, value.maxs.coords)
     }
 }

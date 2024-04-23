@@ -2,7 +2,7 @@ use crate::{
     component::Component,
     entity::EntityHandle,
     graphics::{Color, Instance2D, RenderGroup, SpriteAtlas, SpriteSheetIndex},
-    math::Vector2,
+    math::{Vector2, AABB},
     physics::{Collider, ColliderHandle, RigidBody, RigidBodyHandle, World},
 };
 
@@ -65,14 +65,28 @@ impl RigidBodyComponentStatus {
     }
 }
 
+#[derive(Debug, PartialEq, PartialOrd, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum PhysicsComponentVisibility {
+    Static(bool),
+    Size(Vector2<f32>),
+    ColliderSize
+}
+
+impl Default for PhysicsComponentVisibility {
+    fn default() -> Self {
+        Self::Static(true)
+    }
+}
+
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RigidBodyComponent {
     pub status: RigidBodyComponentStatus,
-    scaling: Vector2<f32>,
-    atlas: SpriteAtlas,
-    color: Color,
-    index: SpriteSheetIndex,
-    active: bool,
+    pub scaling: Vector2<f32>,
+    pub atlas: SpriteAtlas,
+    pub color: Color,
+    pub index: SpriteSheetIndex,
+    pub visibility: PhysicsComponentVisibility,
 }
 
 impl RigidBodyComponent {
@@ -89,7 +103,7 @@ impl RigidBodyComponent {
             atlas: Default::default(),
             color: Color::WHITE,
             index: 0,
-            active: true,
+            visibility: PhysicsComponentVisibility::Static(true),
         }
     }
 
@@ -173,48 +187,93 @@ impl RigidBodyComponent {
         &self.index
     }
 
-    pub fn set_active(&mut self, active: bool) {
-        self.active = active;
+    pub fn set_visibility(&mut self, visibility: PhysicsComponentVisibility) {
+        self.visibility = visibility;
     }
 
     pub fn instance(&self, world: &World) -> Instance2D {
-        let instance = match &self.status {
+        let rigid_body = match &self.status {
             RigidBodyComponentStatus::Initialized { rigid_body_handle } => {
-                if let Some(rigid_body) = world.rigid_body(*rigid_body_handle) {
-                    Instance2D::new(
-                        rigid_body.position().translation.vector,
-                        rigid_body.position().rotation.angle(),
-                        self.scaling,
-                        self.atlas,
-                        self.color,
-                        self.index,
-                    )
-                } else {
-                    Instance2D::default()
-                }
+                world.rigid_body(*rigid_body_handle).unwrap()
             }
-            RigidBodyComponentStatus::Uninitialized { rigid_body, .. } => Instance2D::new(
-                rigid_body.position().translation.vector,
-                rigid_body.position().rotation.angle(),
-                self.scaling,
-                self.atlas,
-                self.color,
-                self.index,
-            ),
+            RigidBodyComponentStatus::Uninitialized { rigid_body, .. } => &**rigid_body,
         };
-        return instance;
+        Instance2D::new(
+            rigid_body.position().translation.vector,
+            rigid_body.position().rotation.angle(),
+            self.scaling,
+            self.atlas,
+            self.color,
+            self.index,
+        )
     }
 }
 
 impl Component for RigidBodyComponent {
     type Instance = Instance2D;
 
-    fn buffer(&self, world: &World, render_group: &mut RenderGroup<Self::Instance>)
+    fn buffer(&self, world: &World, cam2d: &AABB, render_group: &mut RenderGroup<Self::Instance>)
     where
         Self: Sized,
     {
-        if self.active {
-            render_group.push(self.instance(world));
+        match self.visibility {
+            PhysicsComponentVisibility::Static(s) => {
+                if s {
+                    render_group.push(self.instance(world))
+                }
+            }
+            PhysicsComponentVisibility::Size(size) => {
+                let rigid_body = match &self.status {
+                    RigidBodyComponentStatus::Initialized { rigid_body_handle } => {
+                        world.rigid_body(*rigid_body_handle).unwrap()
+                    }
+                    RigidBodyComponentStatus::Uninitialized { rigid_body, .. } => {
+                        &**rigid_body
+                    }
+                };
+
+                let aabb = AABB::from_center(*rigid_body.translation(), size);
+                if aabb.intersects(cam2d) {
+                    render_group.push(Instance2D::new(
+                        rigid_body.position().translation.vector,
+                        rigid_body.position().rotation.angle(),
+                        self.scaling,
+                        self.atlas,
+                        self.color,
+                        self.index,
+                    ))
+                }
+            }
+            PhysicsComponentVisibility::ColliderSize => {
+                let mut aabb = AABB::default();
+                let rigid_body = match &self.status {
+                    RigidBodyComponentStatus::Initialized { rigid_body_handle } => {
+                        let rigid_body = world.rigid_body(*rigid_body_handle).unwrap();
+                        for collider_handle in rigid_body.colliders() {
+                            let collider = world.collider(*collider_handle).unwrap();
+                            aabb.combine(collider.compute_aabb().into());
+                        }
+                        rigid_body
+                    }
+                    RigidBodyComponentStatus::Uninitialized { rigid_body, colliders } => {
+                        for collider in colliders {
+                            aabb.combine(collider.shape().compute_aabb(&(rigid_body.position() * collider.position())).into())
+                        }
+                        &**rigid_body
+                    }
+                };
+
+                if aabb.intersects(cam2d) {
+                    render_group.push(Instance2D::new(
+                        rigid_body.position().translation.vector,
+                        rigid_body.position().rotation.angle(),
+                        self.scaling,
+                        self.atlas,
+                        self.color,
+                        self.index,
+                    ))
+                }
+            }
         }
     }
 

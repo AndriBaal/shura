@@ -1,6 +1,7 @@
 use crate::{
     entity::EntityHandle,
     graphics::{Instance, RenderGroup, RenderGroupManager},
+    math::AABB,
     physics::World,
 };
 use downcast_rs::{impl_downcast, Downcast};
@@ -119,6 +120,7 @@ pub trait ComponentBundle: 'static + Downcast {
         entites: impl BufferComponentBundleIterator<'a, Self>,
         buffers: &mut RenderGroupManager,
         world: &World,
+        cam2d: &AABB,
     ) where
         Self: Sized;
     fn init(&mut self, handle: EntityHandle, world: &mut World);
@@ -137,7 +139,7 @@ pub trait Component: Downcast {
     type Instance: Instance
     where
         Self: Sized;
-    fn buffer(&self, world: &World, render_group: &mut RenderGroup<Self::Instance>)
+    fn buffer(&self, world: &World, cam2d: &AABB, render_group: &mut RenderGroup<Self::Instance>)
     where
         Self: Sized;
     fn init(&mut self, handle: EntityHandle, world: &mut World) {}
@@ -149,11 +151,11 @@ impl_downcast!(Component);
 impl<I: Instance + Clone> Component for I {
     type Instance = I where Self: Sized;
 
-    fn buffer(&self, _world: &World, render_group: &mut RenderGroup<Self::Instance>)
+    fn buffer(&self, _world: &World, _cam2d: &AABB, render_group: &mut RenderGroup<Self::Instance>)
     where
         Self: Sized,
     {
-        render_group.push(self.clone())
+        render_group.push(*self)
     }
     fn init(&mut self, _handle: EntityHandle, _world: &mut World) {}
     fn finish(&mut self, _world: &mut World) {}
@@ -162,9 +164,14 @@ impl<I: Instance + Clone> Component for I {
 macro_rules! impl_collection_inner {
     () => {
         type Instance = C::Instance;
-        fn buffer(&self, world: &World, render_group: &mut RenderGroup<Self::Instance>) {
+        fn buffer(
+            &self,
+            world: &World,
+            cam2d: &AABB,
+            render_group: &mut RenderGroup<Self::Instance>,
+        ) {
             for component in self.iter() {
-                component.buffer(world, render_group);
+                component.buffer(world, cam2d, render_group);
             }
         }
 
@@ -194,9 +201,14 @@ macro_rules! impl_collection_map {
     ($collection: ty) => {
         impl<K: 'static, C: Component> Component for $collection {
             type Instance = C::Instance;
-            fn buffer(&self, world: &World, render_group: &mut RenderGroup<Self::Instance>) {
+            fn buffer(
+                &self,
+                world: &World,
+                cam2d: &AABB,
+                render_group: &mut RenderGroup<Self::Instance>,
+            ) {
                 for component in self.values() {
-                    component.buffer(world, render_group);
+                    component.buffer(world, cam2d, render_group);
                 }
             }
 

@@ -174,13 +174,13 @@ pub struct Color {
 }
 
 #[cfg(feature = "gui")]
-impl Into<egui::Rgba> for Color {
-    fn into(self) -> Rgba {
+impl From<Color> for egui::Rgba {
+    fn from(val: Color) -> Self {
         egui::Rgba::from_rgba_premultiplied(
-            self.r,
-            self.g,
-            self.g,
-            self.a,
+            val.r,
+            val.g,
+            val.g,
+            val.a,
         )
     }
 }

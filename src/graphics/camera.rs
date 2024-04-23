@@ -4,9 +4,10 @@ use std::ops::*;
 
 use crate::{
     graphics::Gpu,
-    graphics::Uniform,
+    graphics::{UniformData, Uniform},
     math::{Isometry2, Isometry3, Matrix4, Point3, Rotation2, Vector2, Vector3, AABB},
 };
+
 
 const MINIMAL_FOV: f32 = 0.0001;
 
@@ -14,7 +15,7 @@ pub type CameraBuffer2D = CameraBuffer<Camera2D>;
 
 #[derive(Debug)]
 pub struct CameraBuffer<C: Camera> {
-    uniform: Uniform<Matrix4<f32>>,
+    uniform: UniformData<Matrix4<f32>>,
     marker: PhantomData<C>,
 }
 
@@ -25,14 +26,14 @@ impl<C: Camera> CameraBuffer<C> {
 
     pub fn new(gpu: &Gpu, camera: &C) -> Self {
         Self {
-            uniform: Uniform::camera(gpu, camera.matrix()),
+            uniform: UniformData::camera(gpu, camera.matrix()),
             marker: PhantomData,
         }
     }
 
     pub fn empty(gpu: &Gpu) -> Self {
         Self {
-            uniform: Uniform::empty(gpu, &gpu.shared_assets().camera_layout),
+            uniform: UniformData::empty(gpu, &gpu.shared_assets().camera_layout),
             marker: PhantomData,
         }
     }
@@ -41,8 +42,14 @@ impl<C: Camera> CameraBuffer<C> {
         self.uniform.write(gpu, camera.matrix());
     }
 
-    pub fn uniform(&self) -> &Uniform<Matrix4<f32>> {
+    pub fn uniform(&self) -> &UniformData<Matrix4<f32>> {
         &self.uniform
+    }
+}
+
+impl <C: Camera> Uniform for CameraBuffer<C> {
+    fn bind_group(&self) -> &wgpu::BindGroup {
+        self.uniform.bind_group()
     }
 }
 
@@ -79,7 +86,7 @@ impl Camera2D {
     }
 
     pub fn aabb(&self) -> AABB {
-        AABB::from_position(self.fov(), self.position)
+        AABB::from_position(self.position, self.fov())
     }
 
     pub const fn position(&self) -> &Isometry2<f32> {

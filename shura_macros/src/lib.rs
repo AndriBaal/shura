@@ -168,7 +168,7 @@ fn component_bundle(ast: &DeriveInput) -> TokenStream2 {
                 let buffer = render_groups.get_mut::<<#type_name as ::shura::component::Component>::Instance>(#group_name).expect(&format!("Cannot find render group \"{}\"! Try declaring it when setting up the scene.", #group_name));
                 if buffer.needs_update() {
                     for e in iter.clone() {
-                        #( e.#field_names.buffer(world, buffer); ) *
+                        #( e.#field_names.buffer(world, cam2d, buffer); ) *
                     }
                 }
             }
@@ -215,6 +215,7 @@ fn component_bundle(ast: &DeriveInput) -> TokenStream2 {
                 iter: impl ::shura::component::BufferComponentBundleIterator<'a, Self>,
                 render_groups: &mut ::shura::graphics::RenderGroupManager,
                 world: &::shura::physics::World,
+                cam2d: &::shura::math::AABB,
             ) {
                 use ::shura::graphics::RenderGroupCommon;
                 use ::shura::component::Component;
@@ -316,11 +317,12 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             fn buffer(
                 &self,
                 world: &::shura::physics::World,
+                cam2d: &::shura::math::AABB,
                 render_group: &mut ::shura::graphics::RenderGroup<Self::Instance>,
             ) where
                 Self: Sized,
             {
-                #( self.#field_names.buffer(world, render_group); )*
+                #( self.#field_names.buffer(world, cam2d, render_group); )*
             }
 
             fn init(&mut self, handle: ::shura::entity::EntityHandle, world: &mut ::shura::physics::World) {

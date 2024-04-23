@@ -121,6 +121,12 @@ pub struct Scene {
     pub(crate) started: bool,
 }
 
+impl Default for Scene {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Scene {
     pub fn new() -> Self {
         let window_size: Vector2<u32> = Vector2::new(800, 800);

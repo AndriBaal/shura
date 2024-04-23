@@ -454,7 +454,7 @@ impl World {
                 self.colliders
                     .remove(collider_handle, &mut self.islands, &mut self.bodies, false);
             }
-            ColliderComponentStatus::Uninitialized { .. } => return,
+            ColliderComponentStatus::Uninitialized { .. } => (),
         }
     }
 

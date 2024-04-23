@@ -2,7 +2,7 @@ use crate::graphics::{Gpu, Instance, Instance2D, Vertex, Vertex2D};
 pub use wgpu::{
     include_spirv, include_wgsl, vertex_attr_array, BlendComponent, BlendFactor, BlendOperation,
     BlendState, ColorWrites, ShaderModule, ShaderModuleDescriptor, ShaderSource, VertexAttribute,
-    VertexBufferLayout, VertexFormat,
+    VertexBufferLayout, VertexFormat, TextureFormat, Id as GpuId
 };
 
 #[cfg(feature = "log")]

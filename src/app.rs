@@ -47,6 +47,12 @@ pub struct AppConfig {
     pub auto_scale_canvas: bool,
 }
 
+impl Default for AppConfig {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AppConfig {
     pub const FIRST_SCENE_ID: u32 = 0;
     pub fn new(#[cfg(target_os = "android")] android: AndroidApp) -> Self {
@@ -436,10 +442,11 @@ impl App {
     }
 
     fn buffer(&mut self, scene: &mut Scene) {
+        let aabb = scene.world_camera2d.aabb();
         scene.render_groups.prepare_buffers(&scene.groups);
         scene
             .entities
-            .buffer(&mut scene.render_groups, &scene.groups, &scene.world);
+            .buffer(&mut scene.render_groups, &scene.groups, &scene.world, &aabb);
         scene.render_groups.apply_buffers(&self.gpu);
 
         let mut default_assets = self.gpu.default_assets_mut();

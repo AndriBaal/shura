@@ -4,7 +4,7 @@ use wgpu::util::DeviceExt;
 use crate::assets::load_asset_bytes;
 use crate::{
     assets::load_asset_bytes_async,
-    graphics::{Gpu, RgbaColor},
+    graphics::{Gpu, RgbaColor, Uniform},
     math::Vector2,
 };
 use std::ops::Deref;
@@ -333,10 +333,6 @@ impl Sprite {
         self.size
     }
 
-    pub const fn bind_group(&self) -> &wgpu::BindGroup {
-        &self.bind_group
-    }
-
     pub const fn format(&self) -> wgpu::TextureFormat {
         self.format
     }
@@ -349,3 +345,11 @@ impl Sprite {
         &self.view
     }
 }
+
+
+impl Uniform for Sprite {
+    fn bind_group(&self) -> &wgpu::BindGroup {
+        &self.bind_group
+    }
+}
+

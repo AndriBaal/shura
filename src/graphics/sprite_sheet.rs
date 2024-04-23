@@ -2,7 +2,7 @@
 use crate::assets::load_asset_bytes;
 use crate::{
     assets::load_asset_bytes_async,
-    graphics::{Gpu, RgbaColor},
+    graphics::{Gpu, RgbaColor, Uniform},
     math::Vector2,
 };
 use std::ops::Deref;
@@ -315,10 +315,6 @@ impl SpriteSheet {
         );
     }
 
-    pub const fn bind_group(&self) -> &wgpu::BindGroup {
-        &self.bind_group
-    }
-
     pub fn len(&self) -> u32 {
         self.sprite_amount.x * self.sprite_amount.y
     }
@@ -343,6 +339,13 @@ impl SpriteSheet {
         &self.sprite_size
     }
 }
+
+impl Uniform for SpriteSheet {
+    fn bind_group(&self) -> &wgpu::BindGroup {
+        &self.bind_group
+    }
+}
+
 
 // pub fn from_multiple(gpu: &Gpu, sheets: &[&[u8]], sprite_size: Vector2<u32>) -> Self {
 //     let sprite_amount = size.component_div(&sprite_size);

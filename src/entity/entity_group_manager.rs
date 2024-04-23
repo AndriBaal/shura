@@ -177,11 +177,11 @@ impl EntityGroupManager {
     }
 
     pub fn update_tree(&self) -> &RTree<EntityGroupAABB> {
-        return &self.update_tree;
+        &self.update_tree
     }
 
     pub fn render_tree(&self) -> &RTree<EntityGroupAABB> {
-        return &self.render_tree;
+        &self.render_tree
     }
 
     pub(crate) fn update(&mut self, camera: &Camera2D) {

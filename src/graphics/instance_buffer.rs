@@ -227,8 +227,8 @@ impl<I: Instance> InstanceBuffer<I> {
         self.buffer.size()
     }
 
-    pub fn instances(&self) -> InstanceIndices {
-        InstanceIndices::new(0, self.instance_amount() as u32)
+    pub fn instances(&self) -> Range<u32> {
+        0..self.instance_amount() as u32
     }
 
     pub fn buffer_size(&self) -> wgpu::BufferAddress {
@@ -248,53 +248,53 @@ impl<I: Instance> InstanceBuffer<I> {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
-pub struct InstanceIndex {
-    pub index: u32,
-}
+// #[derive(Debug, Copy, Clone)]
+// pub struct InstanceIndex {
+//     pub index: u32,
+// }
 
-impl InstanceIndex {
-    pub const fn new(index: u32) -> Self {
-        Self { index }
-    }
-}
+// impl InstanceIndex {
+//     pub const fn new(index: u32) -> Self {
+//         Self { index }
+//     }
+// }
 
-impl From<InstanceIndex> for InstanceIndices {
-    fn from(val: InstanceIndex) -> Self {
-        InstanceIndices::new(val.index, val.index + 1)
-    }
-}
+// impl From<InstanceIndex> for InstanceIndices {
+//     fn from(val: InstanceIndex) -> Self {
+//         InstanceIndices::new(val.index, val.index + 1)
+//     }
+// }
 
-impl From<u32> for InstanceIndices {
-    fn from(val: u32) -> Self {
-        InstanceIndices::new(val, val + 1)
-    }
-}
+// impl From<u32> for InstanceIndices {
+//     fn from(val: u32) -> Self {
+//         InstanceIndices::new(val, val + 1)
+//     }
+// }
 
-impl From<Range<u32>> for InstanceIndices {
-    fn from(val: Range<u32>) -> Self {
-        InstanceIndices::new(val.start, val.end)
-    }
-}
+// impl From<Range<u32>> for InstanceIndices {
+//     fn from(val: Range<u32>) -> Self {
+//         InstanceIndices::new(val.start, val.end)
+//     }
+// }
 
-impl<I: Instance> From<&InstanceBuffer<I>> for InstanceIndices {
-    fn from(value: &InstanceBuffer<I>) -> Self {
-        value.instances()
-    }
-}
+// impl<I: Instance> From<&InstanceBuffer<I>> for InstanceIndices {
+//     fn from(value: &InstanceBuffer<I>) -> Self {
+//         value.instances()
+//     }
+// }
 
-#[derive(Debug, Copy, Clone)]
-pub struct InstanceIndices {
-    pub start: u32,
-    pub end: u32,
-}
+// #[derive(Debug, Copy, Clone)]
+// pub struct InstanceIndices {
+//     pub start: u32,
+//     pub end: u32,
+// }
 
-impl InstanceIndices {
-    pub const fn new(start: u32, end: u32) -> Self {
-        Self { start, end }
-    }
+// impl InstanceIndices {
+//     pub const fn new(start: u32, end: u32) -> Self {
+//         Self { start, end }
+//     }
 
-    pub fn range(&self) -> Range<u32> {
-        self.start..self.end
-    }
-}
+//     pub fn range(&self) -> Range<u32> {
+//         self.start..self.end
+//     }
+// }

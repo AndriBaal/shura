@@ -12,6 +12,7 @@ use crate::{
         EntityIndex,
     },
     graphics::RenderGroupManager,
+    math::AABB,
     physics::World,
 };
 
@@ -20,7 +21,13 @@ pub trait EntityType: Downcast {
     type Entity: EntityIdentifier
     where
         Self: Sized;
-    fn buffer(&self, buffers: &mut RenderGroupManager, groups: &EntityGroupManager, world: &World);
+    fn buffer(
+        &self,
+        buffers: &mut RenderGroupManager,
+        groups: &EntityGroupManager,
+        world: &World,
+        cam2d: &AABB,
+    );
     fn entity_type_id(&self) -> EntityId;
     fn remove_group(
         &mut self,
@@ -184,8 +191,14 @@ impl<E: EntityIdentifier> SingleEntity<E> {
 
 impl<E: EntityIdentifier> EntityType for SingleEntity<E> {
     type Entity = E;
-    fn buffer(&self, buffers: &mut RenderGroupManager, groups: &EntityGroupManager, world: &World) {
-        E::buffer(self.dyn_iter_render(groups), buffers, world);
+    fn buffer(
+        &self,
+        buffers: &mut RenderGroupManager,
+        groups: &EntityGroupManager,
+        world: &World,
+        cam2d: &AABB,
+    ) {
+        E::buffer(self.dyn_iter_render(groups), buffers, world, cam2d);
     }
 
     fn entity_type_id(&self) -> EntityId {
@@ -466,8 +479,14 @@ impl<'a, E: EntityIdentifier> IntoIterator for &'a mut Entities<E> {
 impl<E: EntityIdentifier> EntityType for Entities<E> {
     type Entity = E;
 
-    fn buffer(&self, buffers: &mut RenderGroupManager, groups: &EntityGroupManager, world: &World) {
-        E::buffer(self.dyn_iter_render(groups), buffers, world);
+    fn buffer(
+        &self,
+        buffers: &mut RenderGroupManager,
+        groups: &EntityGroupManager,
+        world: &World,
+        cam2d: &AABB,
+    ) {
+        E::buffer(self.dyn_iter_render(groups), buffers, world, cam2d);
     }
 
     fn entity_type_id(&self) -> EntityId {
@@ -501,14 +520,14 @@ impl<E: EntityIdentifier> EntityType for Entities<E> {
         if let Some(entity) = self.get(handle) {
             return Some(entity);
         }
-        return None;
+        None
     }
 
     fn dyn_get_mut(&mut self, handle: &EntityHandle) -> Option<&mut dyn Entity> {
         if let Some(entity) = self.get_mut(handle) {
             return Some(entity);
         }
-        return None;
+        None
     }
 
     fn dyn_retain(
@@ -538,7 +557,7 @@ impl<E: EntityIdentifier> EntityType for Entities<E> {
     }
 
     fn len(&self) -> usize {
-        return self.len();
+        self.len()
     }
 }
 
@@ -784,8 +803,14 @@ impl<E: EntityIdentifier> GroupedEntities<Entities<E>> {
 impl<ET: EntityType + Default> EntityType for GroupedEntities<ET> {
     type Entity = ET::Entity;
 
-    fn buffer(&self, buffers: &mut RenderGroupManager, groups: &EntityGroupManager, world: &World) {
-        ET::Entity::buffer(self.dyn_iter_render(groups), buffers, world);
+    fn buffer(
+        &self,
+        buffers: &mut RenderGroupManager,
+        groups: &EntityGroupManager,
+        world: &World,
+        cam2d: &AABB,
+    ) {
+        ET::Entity::buffer(self.dyn_iter_render(groups), buffers, world, cam2d);
     }
 
     fn add_group(&mut self) {

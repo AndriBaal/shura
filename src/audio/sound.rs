@@ -27,9 +27,9 @@ impl SoundBuilder {
     }
 }
 
-impl Into<Sound> for SoundBuilder {
-    fn into(self) -> Sound {
-        Sound::new(self)
+impl From<SoundBuilder> for Sound {
+    fn from(val: SoundBuilder) -> Self {
+        Sound::new(val)
     }
 }
 

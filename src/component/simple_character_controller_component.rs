@@ -3,7 +3,7 @@ use rapier2d::pipeline::QueryFilter;
 use crate::{
     entity::EntityHandle,
     graphics::{Color, Instance2D, RenderGroup, SpriteAtlas, SpriteSheetIndex},
-    math::{Isometry2, Vector2},
+    math::{Isometry2, Vector2, AABB},
     physics::{Shape, World},
 };
 
@@ -29,7 +29,7 @@ impl<S: Shape> SimpleCharacterControllerComponent<S> {
     }
 
     pub fn set_shape(&mut self, shape: S) {
-        self.shape = shape.into()
+        self.shape = shape
     }
 
     pub fn shape(&self) -> &S {
@@ -202,10 +202,11 @@ impl<S: Shape> SimpleCharacterControllerComponent<S> {
 impl<S: Shape> Component for SimpleCharacterControllerComponent<S> {
     type Instance = Instance2D;
 
-    fn buffer(&self, _world: &World, render_group: &mut RenderGroup<Self::Instance>)
+    fn buffer(&self, _world: &World, _cam2d: &AABB, render_group: &mut RenderGroup<Self::Instance>)
     where
         Self: Sized,
     {
+        // TODO: Implement AABB check
         render_group.push(self.instance);
     }
 

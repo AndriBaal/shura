@@ -175,7 +175,7 @@ pub fn read_data_dir(path: &str) -> Result<std::fs::ReadDir> {
     {
         let path = data_path(path)?;
         let data = std::fs::read_dir(path)?;
-        return Ok(data);
+        Ok(data)
     }
 }
 

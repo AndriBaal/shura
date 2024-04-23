@@ -9,13 +9,10 @@ use rustc_hash::FxHashMap;
 #[cfg(feature = "serde")]
 use crate::entity::EntityGroupHandle;
 use crate::{
-    component::{ComponentBundle, ComponentType, ComponentTypeMut},
-    entity::{
+    component::{ComponentBundle, ComponentType, ComponentTypeMut}, entity::{
         Entities, Entity, EntityGroupManager, EntityId, EntityIdentifier, EntityType,
         GroupedEntities, SingleEntity,
-    },
-    graphics::RenderGroupManager,
-    physics::World,
+    }, graphics::RenderGroupManager, math::AABB, physics::World
 };
 
 use super::{EntityHandle, GlobalEntities};
@@ -219,7 +216,7 @@ impl EntityManager {
                 count += ty.len();
             }
         }
-        return count;
+        count
     }
 
     pub fn retain_entities_for_component(
@@ -302,10 +299,11 @@ impl EntityManager {
         buffers: &mut RenderGroupManager,
         groups: &EntityGroupManager,
         world: &World,
+        cam2d: &AABB
     ) {
         for ty in &self.types {
             let ty = ty.1.ref_dyn();
-            ty.buffer(buffers, groups, world);
+            ty.buffer(buffers, groups, world, cam2d);
         }
     }
 
@@ -333,7 +331,7 @@ impl EntityManager {
     }
 
     pub fn exists<E: EntityIdentifier>(&self) -> bool {
-        return self.types.contains_key(&E::IDENTIFIER);
+        self.types.contains_key(&E::IDENTIFIER)
     }
 
     #[cfg(feature = "serde")]
@@ -363,42 +361,42 @@ impl EntityManager {
     pub fn single_mut<E: EntityIdentifier>(&self) -> RefMut<SingleEntity<E>> {
         self.types
             .get(&E::IDENTIFIER)
-            .expect(&no_type_error::<E>())
+            .unwrap_or_else(|| { panic!("{}", no_type_error::<E>()) })
             .ref_mut()
     }
 
     pub fn single<E: EntityIdentifier>(&self) -> Ref<SingleEntity<E>> {
         self.types
             .get(&E::IDENTIFIER)
-            .expect(&no_type_error::<E>())
+            .unwrap_or_else(|| { panic!("{}", no_type_error::<E>()) })
             ._ref()
     }
 
     pub fn get_mut<E: EntityIdentifier>(&self) -> RefMut<Entities<E>> {
         self.types
             .get(&E::IDENTIFIER)
-            .expect(&no_type_error::<E>())
+            .unwrap_or_else(|| { panic!("{}", no_type_error::<E>()) })
             .ref_mut()
     }
 
     pub fn get<E: EntityIdentifier>(&self) -> Ref<Entities<E>> {
         self.types
             .get(&E::IDENTIFIER)
-            .expect(&no_type_error::<E>())
+            .unwrap_or_else(|| { panic!("{}", no_type_error::<E>()) })
             ._ref()
     }
 
     pub fn group_mut<ET: EntityType + Default>(&self) -> RefMut<GroupedEntities<ET>> {
         self.types
             .get(&ET::Entity::IDENTIFIER)
-            .expect(&no_type_error::<ET::Entity>())
+            .unwrap_or_else(|| { panic!("{}", no_type_error::<ET::Entity>()) })
             .ref_mut()
     }
 
     pub fn group<ET: EntityType + Default>(&self) -> Ref<GroupedEntities<ET>> {
         self.types
             .get(&ET::Entity::IDENTIFIER)
-            .expect(&no_type_error::<ET::Entity>())
+            .unwrap_or_else(|| { panic!("{}", no_type_error::<ET::Entity>()) })
             ._ref()
     }
 
@@ -406,55 +404,55 @@ impl EntityManager {
         if let Some(ty) = self.types.get(&type_id) {
             return Some(ty.ref_mut_dyn());
         }
-        return None;
+        None
     }
 
     pub fn try_type_raw(&self, type_id: EntityId) -> Option<Ref<dyn EntityType>> {
         if let Some(ty) = self.types.get(&type_id) {
             return Some(ty.ref_dyn());
         }
-        return None;
+        None
     }
 
     pub fn try_single_mut<E: EntityIdentifier>(&self) -> Option<RefMut<SingleEntity<E>>> {
         if let Some(ty) = self.types.get(&E::IDENTIFIER) {
             return Some(ty.ref_mut());
         }
-        return None;
+        None
     }
 
     pub fn try_single<E: EntityIdentifier>(&self) -> Option<Ref<SingleEntity<E>>> {
         if let Some(ty) = self.types.get(&E::IDENTIFIER) {
             return Some(ty._ref());
         }
-        return None;
+        None
     }
 
     pub fn try_get_mut<E: EntityIdentifier>(&self) -> Option<RefMut<Entities<E>>> {
         if let Some(ty) = self.types.get(&E::IDENTIFIER) {
             return Some(ty.ref_mut());
         }
-        return None;
+        None
     }
 
     pub fn try_get<E: EntityIdentifier>(&self) -> Option<Ref<Entities<E>>> {
         if let Some(ty) = self.types.get(&E::IDENTIFIER) {
             return Some(ty._ref());
         }
-        return None;
+        None
     }
 
     pub fn try_group_mut<ET: EntityType + Default>(&self) -> Option<RefMut<GroupedEntities<ET>>> {
         if let Some(ty) = self.types.get(&ET::Entity::IDENTIFIER) {
             return Some(ty.ref_mut());
         }
-        return None;
+        None
     }
 
     pub fn try_group<ET: EntityType + Default>(&self) -> Option<Ref<GroupedEntities<ET>>> {
         if let Some(ty) = self.types.get(&ET::Entity::IDENTIFIER) {
             return Some(ty._ref());
         }
-        return None;
+        None
     }
 }

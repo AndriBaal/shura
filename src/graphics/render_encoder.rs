@@ -141,7 +141,6 @@ impl<'a> RenderEncoder<'a> {
             .expect("Cannot copy this texture!");
         let mut renderer = self.renderer(target, None, None);
         renderer.render_sprite(
-            0..1,
             &renderer.default_assets.centered_instance,
             &renderer.default_assets.unit_camera.0,
             renderer.default_assets.unit_mesh(),
