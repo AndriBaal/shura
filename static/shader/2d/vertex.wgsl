@@ -39,8 +39,8 @@ fn vs_main(
     let sin = sin(instance.i_rotation);
     let scale_rotation = mat2x2<f32>(
         instance.i_scale.x * cos,
-        instance.i_scale.x * sin,
         instance.i_scale.y * -sin,
+        instance.i_scale.x * sin,
         instance.i_scale.y * cos,
     );
     let pos = model.v_position * scale_rotation + instance.i_translation;

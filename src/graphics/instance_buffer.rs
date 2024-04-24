@@ -1,6 +1,6 @@
-use nalgebra::Isometry2;
 use std::{marker::PhantomData, mem::size_of, ops::Range};
 
+use nalgebra::Isometry2;
 use wgpu::{util::DeviceExt, vertex_attr_array};
 
 use crate::{

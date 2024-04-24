@@ -186,7 +186,7 @@ fn component_bundle(ast: &DeriveInput) -> TokenStream2 {
     });
     let bundle_buffer = bundles.iter().map(|(field, ty)| {
         quote! {
-            #ty::buffer(iter.clone().map(|e| &e.#field), render_groups, world);
+            #ty::buffer(iter.clone().map(|e| &e.#field), render_groups, world, cam2d);
         }
     });
 
