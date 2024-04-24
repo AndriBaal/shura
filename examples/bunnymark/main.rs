@@ -102,9 +102,8 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
     encoder.render2d(
         Some(RgbaColor::new(220, 220, 220, 255).into()),
         |renderer| {
-            ctx.render(renderer, "bunny", |renderer, buffer, instances| {
+            ctx.group("bunny", |buffer| {
                 renderer.render_sprite(
-                    instances,
                     buffer,
                     ctx.world_camera2d,
                     ctx.unit_mesh,
@@ -113,8 +112,7 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
             });
 
             renderer.render_text_mesh(
-                0..1,
-                ctx.centered_instance,
+                ctx.single_instance,
                 ctx.relative_top_right_camera,
                 &assets.text,
             );

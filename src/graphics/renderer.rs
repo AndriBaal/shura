@@ -82,14 +82,14 @@ impl<'a> Renderer<'a> {
         &mut self.render_pass
     }
 
-    pub fn use_instances<I: Instance>(&mut self, buffer: &'a InstanceBuffer<I>) {
-        let buffer_id: GpuId<wgpu::Buffer> = buffer.buffer().global_id();
-        self.instances = buffer.instances();
+    pub fn use_instances<I: Instance>(&mut self, instances: &'a InstanceBuffer<I>) {
+        let buffer_id: GpuId<wgpu::Buffer> = instances.buffer().global_id();
+        self.instances = instances.instances();
         if self.cache.bound_buffers[Self::INSTANCE_SLOT as usize].map_or(true, |id| id != buffer_id)
         {
             self.cache.bound_buffers[Self::INSTANCE_SLOT as usize] = Some(buffer_id);
             self.render_pass
-                .set_vertex_buffer(Self::INSTANCE_SLOT, buffer.slice());
+                .set_vertex_buffer(Self::INSTANCE_SLOT, instances.slice());
         }
     }
 
@@ -167,72 +167,72 @@ impl<'a> Renderer<'a> {
             .draw_indexed(indices, base_vertex, instances)
     }
 
-    pub fn render<I: Instance, V: Vertex>(
+    pub fn draw_generic<I: Instance, V: Vertex>(
         &mut self,
         shader: &'a Shader,
-        buffer: &'a InstanceBuffer<I>,
+        instances: &'a InstanceBuffer<I>,
         mesh: &'a Mesh<V>,
         uniforms: &[&'a dyn Uniform],
     ) {
-        self.use_shader_with_buffers(shader, buffer, mesh);
+        self.use_shader_with_buffers(shader, instances, mesh);
         for (i, uniform) in uniforms.iter().enumerate() {
             self.use_uniform(*uniform, i as u32);
         }
         self.draw();
     }
 
-    pub fn render_sprite(
+    pub fn draw_sprite(
         &mut self,
-        buffer: &'a InstanceBuffer2D,
+        instances: &'a InstanceBuffer2D,
         camera: &'a CameraBuffer2D,
         mesh: &'a Mesh2D,
         sprite: &'a Sprite,
     ) {
-        if buffer.buffer_size() != 0 && mesh.vertex_buffer_size() != 0 {
-            self.use_shader_with_buffers(&self.default_assets.sprite, buffer, mesh);
+        if instances.buffer_size() != 0 && mesh.vertex_buffer_size() != 0 {
+            self.use_shader_with_buffers(&self.default_assets.sprite, instances, mesh);
             self.use_camera(camera);
             self.use_sprite(sprite, 1);
             self.draw();
         }
     }
 
-    pub fn render_sprite_sheet(
+    pub fn draw_sprite_sheet(
         &mut self,
-        buffer: &'a InstanceBuffer2D,
+        instances: &'a InstanceBuffer2D,
         camera: &'a CameraBuffer2D,
         mesh: &'a Mesh2D,
         sprite: &'a SpriteSheet,
     ) {
-        if buffer.buffer_size() != 0 && mesh.vertex_buffer_size() != 0 {
-            self.use_shader_with_buffers(&self.default_assets.sprite_sheet, buffer, mesh);
+        if instances.buffer_size() != 0 && mesh.vertex_buffer_size() != 0 {
+            self.use_shader_with_buffers(&self.default_assets.sprite_sheet, instances, mesh);
             self.use_camera(camera);
             self.use_sprite_sheet(sprite, 1);
             self.draw();
         }
     }
 
-    pub fn render_color(
+    pub fn draw_color(
         &mut self,
-        buffer: &'a InstanceBuffer2D,
+        instances: &'a InstanceBuffer2D,
         camera: &'a CameraBuffer2D,
         mesh: &'a Mesh2D,
     ) {
-        if buffer.buffer_size() != 0 && mesh.vertex_buffer_size() != 0 {
-            self.use_shader_with_buffers(&self.default_assets.color, buffer, mesh);
+        if instances.buffer_size() != 0 && mesh.vertex_buffer_size() != 0 {
+            self.use_shader_with_buffers(&self.default_assets.color, instances, mesh);
             self.use_camera(camera);
             self.draw();
         }
     }
 
     #[cfg(feature = "text")]
-    pub fn render_text_mesh(
+    pub fn draw_text_mesh(
         &mut self,
-        buffer: &'a InstanceBuffer2D,
+        instances: &'a InstanceBuffer2D,
         camera: &'a CameraBuffer2D,
         text: &'a TextMesh,
     ) {
-        if buffer.buffer_size() != 0 && text.mesh().vertex_buffer_size() != 0 {
-            self.use_shader_with_buffers(&self.default_assets.text_mesh, buffer, text.mesh());
+        if instances.buffer_size() != 0 && text.mesh().vertex_buffer_size() != 0 {
+            self.use_shader_with_buffers(&self.default_assets.text_mesh, instances, text.mesh());
             self.use_camera(camera);
             self.use_mesh(text.mesh());
             self.use_sprite_sheet(text.font().sprite_sheet(), 1);
@@ -241,16 +241,16 @@ impl<'a> Renderer<'a> {
     }
 
     #[cfg(feature = "text")]
-    pub fn render_text(
+    pub fn draw_text(
         &mut self,
-        buffer: &'a InstanceBuffer<LetterInstance2D>,
+        instances: &'a InstanceBuffer<LetterInstance2D>,
         camera: &'a CameraBuffer2D,
         font: &'a Font,
     ) {
-        if buffer.buffer_size() != 0 {
+        if instances.buffer_size() != 0 {
             self.use_shader_with_buffers(
                 &self.default_assets.text_instance,
-                buffer,
+                instances,
                 self.default_assets.unit_mesh(),
             );
             self.use_camera(camera);
@@ -259,59 +259,59 @@ impl<'a> Renderer<'a> {
         }
     }
 
-    pub fn render_grey(
+    pub fn draw_grey(
         &mut self,
-        buffer: &'a InstanceBuffer2D,
+        instances: &'a InstanceBuffer2D,
         camera: &'a CameraBuffer2D,
         mesh: &'a Mesh2D,
         sprite: &'a Sprite,
     ) {
-        if buffer.buffer_size() != 0 && mesh.vertex_buffer_size() != 0 {
-            self.use_shader_with_buffers(&self.default_assets.grey, buffer, mesh);
+        if instances.buffer_size() != 0 && mesh.vertex_buffer_size() != 0 {
+            self.use_shader_with_buffers(&self.default_assets.grey, instances, mesh);
             self.use_camera(camera);
             self.use_sprite(sprite, 1);
             self.draw();
         }
     }
 
-    pub fn render_blurred(
+    pub fn draw_blurred(
         &mut self,
-        buffer: &'a InstanceBuffer2D,
+        instances: &'a InstanceBuffer2D,
         camera: &'a CameraBuffer2D,
         mesh: &'a Mesh2D,
         sprite: &'a Sprite,
     ) {
-        if buffer.buffer_size() != 0 && mesh.vertex_buffer_size() != 0 {
-            self.use_shader_with_buffers(&self.default_assets.blurr, buffer, mesh);
+        if instances.buffer_size() != 0 && mesh.vertex_buffer_size() != 0 {
+            self.use_shader_with_buffers(&self.default_assets.blurr, instances, mesh);
             self.use_camera(camera);
             self.use_sprite(sprite, 1);
             self.draw();
         }
     }
 
-    pub fn render_rainbow(
+    pub fn draw_rainbow(
         &mut self,
-        buffer: &'a InstanceBuffer2D,
+        instances: &'a InstanceBuffer2D,
         camera: &'a CameraBuffer2D,
         mesh: &'a Mesh2D,
     ) {
-        if buffer.buffer_size() != 0 && mesh.vertex_buffer_size() != 0 {
-            self.use_shader_with_buffers(&self.default_assets.rainbow, buffer, mesh);
+        if instances.buffer_size() != 0 && mesh.vertex_buffer_size() != 0 {
+            self.use_shader_with_buffers(&self.default_assets.rainbow, instances, mesh);
             self.use_camera(camera);
             self.use_uniform_data(&self.default_assets.times, 1);
             self.draw();
         }
     }
 
-    pub fn render_model<C: Camera>(
+    pub fn draw_model<C: Camera>(
         &mut self,
-        buffer: &'a InstanceBuffer3D,
+        instances: &'a InstanceBuffer3D,
         camera: &'a CameraBuffer<C>,
         model: &'a Model,
     ) {
-        if buffer.buffer_size() != 0 {
+        if instances.buffer_size() != 0 {
             self.use_shader(&self.default_assets.model);
-            self.use_instances(buffer);
+            self.use_instances(instances);
             self.use_camera(camera);
             for mesh in &model.meshes {
                 if mesh.1.vertex_buffer_size() != 0 {

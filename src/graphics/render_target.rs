@@ -11,6 +11,8 @@ use crate::{
     math::Vector2,
 };
 
+use super::Uniform;
+
 pub trait RenderTarget: Downcast {
     fn msaa(&self) -> Option<&wgpu::TextureView>;
     fn view(&self) -> &wgpu::TextureView;
@@ -331,6 +333,12 @@ impl SpriteRenderTarget {
             (size.x / camera_fov.x * window_size.x as f32).ceil() as u32,
             (size.y / camera_fov.y * window_size.y as f32).ceil() as u32,
         )
+    }
+}
+
+impl Uniform for SpriteRenderTarget {
+    fn bind_group(&self) -> &wgpu::BindGroup {
+        self.sprite().bind_group()
     }
 }
 

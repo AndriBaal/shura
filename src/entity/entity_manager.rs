@@ -288,7 +288,7 @@ impl EntityManager {
             }));
     }
 
-    pub fn apply_registered(&mut self, globals: &GlobalEntities) {
+    pub fn apply(&mut self, globals: &GlobalEntities) {
         for new in self.new_types.drain(..).collect::<Vec<_>>() {
             (new)(self, globals)
         }

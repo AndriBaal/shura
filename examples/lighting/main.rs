@@ -1,6 +1,6 @@
-use std::f32::consts::{PI, TAU};
 use egui::Widget;
 use shura::prelude::*;
+use std::f32::consts::{PI, TAU};
 
 const SIZE: Vector2<u32> = vector!(800, 800);
 
@@ -64,8 +64,8 @@ fn setup(ctx: &mut Context) {
 fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
     let assets = ctx.entities.single::<LightAssets>().get_ref().unwrap();
     encoder.render2d(Some(Color::BLACK), |renderer| {
-        ctx.render(renderer, "background", |renderer, buffer| {
-            renderer.render_sprite(
+        ctx.group("background", |buffer| {
+            renderer.draw_sprite(
                 buffer,
                 ctx.world_camera2d,
                 ctx.unit_mesh,
@@ -75,7 +75,7 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
     });
 
     encoder.render2d_to(Some(Color::BLACK), &assets.light_map, |renderer| {
-        ctx.render::<LightInstance>(renderer, "light", |renderer, buffer| {
+        ctx.group::<LightInstance>("light", |buffer| {
             renderer.use_instances(buffer);
             renderer.use_camera(ctx.world_camera2d);
             renderer.use_shader(&assets.light_shader);
@@ -93,12 +93,12 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
     });
 
     encoder.render2d(None, |renderer| {
-        renderer.use_mesh(ctx.unit_mesh);
-        renderer.use_camera(ctx.unit_camera);
-        renderer.use_instances(ctx.centered_instance);
-        renderer.use_shader(&assets.present_shader);
-        renderer.use_sprite(assets.light_map.sprite(), 1);
-        renderer.draw();
+        renderer.draw_generic(
+            &assets.present_shader,
+            ctx.single_instance,
+            ctx.unit_mesh,
+            &[ctx.unit_camera, &assets.light_map],
+        );
     });
 }
 
@@ -120,11 +120,7 @@ fn update(ctx: &mut Context) {
 
                     ui.horizontal(|ui| {
                         ui.label("Inner Radius:");
-                        gui::widgets::Slider::new(
-                            &mut light.inner.inner_radius,
-                            0.0..=1.0,
-                        )
-                        .ui(ui);
+                        gui::widgets::Slider::new(&mut light.inner.inner_radius, 0.0..=1.0).ui(ui);
                     });
 
                     let mut egui_color = light.inner.color.into();
@@ -162,7 +158,7 @@ fn update(ctx: &mut Context) {
                             &mut light.inner.side_falloff_magnification,
                             0.0..=10.0,
                         )
-                            .ui(ui);
+                        .ui(ui);
                     });
 
                     ui.horizontal(|ui| {
@@ -183,14 +179,12 @@ fn update(ctx: &mut Context) {
                     });
                 });
 
-
             if ctx.input.is_pressed(MouseButton::Left) && !ctx.gui.is_pointer_over_area() {
                 light.follow_player = !light.follow_player;
             }
             if light.follow_player {
                 light.inner.translation = ctx.cursor.coords;
             }
-
         }
     }
 }
@@ -266,7 +260,9 @@ impl LightAssets {
                 ))),
             background: PositionComponent2D::new().with_scaling(Vector2::new(10.0, 10.0) * 2.0),
             light_map: ctx.gpu.create_render_target(ctx.window_size),
-            shadow_stencil: ctx.gpu.create_depth_buffer(ctx.window_size, TextureFormat::Depth16Unorm),
+            shadow_stencil: ctx
+                .gpu
+                .create_depth_buffer(ctx.window_size, TextureFormat::Depth16Unorm),
         }
     }
 }
@@ -282,7 +278,7 @@ struct LightInstance {
     outer_radius: f32,
     inner_magnification: f32,
     outer_magnification: f32,
-    side_falloff_magnification: f32
+    side_falloff_magnification: f32,
 }
 
 impl Default for LightInstance {
@@ -296,7 +292,7 @@ impl Default for LightInstance {
             inner_radius: 0.5,
             inner_magnification: 1.1,
             outer_magnification: 1.1,
-            side_falloff_magnification: 0.2
+            side_falloff_magnification: 0.2,
         }
     }
 }
@@ -320,7 +316,7 @@ struct Light {
     #[shura(component = "light")]
     inner: LightInstance,
     display: bool,
-    follow_player: bool
+    follow_player: bool,
 }
 
 impl Light {
@@ -331,7 +327,7 @@ impl Light {
         Self {
             inner: instance,
             display: follow_player,
-            follow_player
+            follow_player,
         }
     }
 }

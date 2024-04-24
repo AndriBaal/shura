@@ -14,8 +14,18 @@ use crate::{
     tasks::TaskManager,
 };
 
+pub trait Plugin {
+    fn init<S: SceneCreator>(&mut self, scene: S) -> S;
+}
+
 pub trait SceneCreator {
     fn scene(&mut self) -> &mut Scene;
+    fn plugin(self, mut plugin: impl Plugin) -> Self
+    where
+        Self: Sized,
+    {
+        plugin.init(self)
+    }
 
     fn render_group<I: Instance>(mut self, name: &'static str, config: RenderGroupUpdate) -> Self
     where

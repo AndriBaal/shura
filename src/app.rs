@@ -395,20 +395,20 @@ impl App {
         let (systems, mut ctx) = Context::new(&scene_id, self, scene);
         let now = ctx.time.update();
 
-        for setup in systems.setup_systems.drain(..) {
+        for (_, setup) in systems.setup_systems.drain(..) {
             (setup)(&mut ctx)
         }
 
         if *ctx.started {
             if let Some(last_id) = ctx.scenes.switched() {
-                for switch in &systems.switch_systems {
+                for (_, switch) in &systems.switch_systems {
                     (switch)(&mut ctx, last_id)
                 }
             }
         }
 
         if ctx.screen_config.changed {
-            for resize in &systems.resize_systems {
+            for (_, resize) in &systems.resize_systems {
                 (resize)(&mut ctx);
             }
         }
@@ -418,7 +418,7 @@ impl App {
             (callback)(&mut ctx);
         }
 
-        for (update_operation, update) in &mut systems.update_systems {
+        for (_, (update_operation, update)) in &mut systems.update_systems {
             match update_operation {
                 UpdateOperation::EveryFrame => (),
                 UpdateOperation::EveryNFrame(frames) => {
@@ -472,7 +472,7 @@ impl App {
         let (systems, ctx) = RenderContext::new(&surface_target, &default_assets, scene);
         let mut encoder = RenderEncoder::new(&self.gpu, ctx.target(), &default_assets);
 
-        for render in &systems.render_systems {
+        for (_, render) in &systems.render_systems {
             (render)(&ctx, &mut encoder);
         }
 
@@ -502,7 +502,7 @@ impl App {
         for (id, scene) in scenes {
             let mut scene = scene.borrow_mut();
             let (systems, mut ctx) = Context::new(&id, self, &mut scene);
-            for end in &systems.end_systems {
+            for (_, end) in &systems.end_systems {
                 (end)(&mut ctx, EndReason::Close)
             }
         }

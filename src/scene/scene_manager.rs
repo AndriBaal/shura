@@ -82,7 +82,8 @@ impl SceneManager {
 
     pub fn add(&mut self, id: u32, scene: impl Into<Scene>) {
         let mut scene = scene.into();
-        scene.entities.apply_registered(&self.global_entities);
+        scene.entities.apply(&self.global_entities);
+        scene.systems.apply();
         assert!(!self.scenes.contains_key(&id), "Scene {id} already exists!");
         self.scenes.insert(id, Rc::new(RefCell::new(scene)));
     }

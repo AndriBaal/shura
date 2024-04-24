@@ -415,7 +415,7 @@ pub struct DefaultAssets {
     pub relative_top_left_camera: (CameraBuffer2D, Camera2D),
     pub relative_top_right_camera: (CameraBuffer2D, Camera2D),
     pub unit_camera: (CameraBuffer2D, Camera2D),
-    pub centered_instance: InstanceBuffer2D,
+    pub single_instance: InstanceBuffer2D,
 
     #[cfg(feature = "framebuffer")]
     pub framebuffer: SpriteRenderTarget,
@@ -557,7 +557,7 @@ impl DefaultAssets {
 
         let size = surface.size();
         let times = UniformData::new(gpu, [0.0, 0.0]);
-        let centered_instance = gpu.create_instance_buffer(&[Instance2D::default()]);
+        let single_instance = gpu.create_instance_buffer(&[Instance2D::default()]);
 
         let fov = Self::relative_fov(size);
 
@@ -618,7 +618,7 @@ impl DefaultAssets {
 
             times,
             unit_camera,
-            centered_instance,
+            single_instance,
             relative_camera,
             relative_bottom_left_camera,
             relative_bottom_right_camera,

@@ -9,7 +9,7 @@ use crate::{
     },
     graphics::{
         CameraBuffer, CameraBuffer2D, DefaultAssets, Instance, Instance2D, InstanceBuffer,
-        Mesh2D, RenderGroupManager, RenderTarget, Renderer, SurfaceRenderTarget,
+        Mesh2D, RenderGroupManager, RenderTarget, SurfaceRenderTarget,
         WorldCamera3D,
     },
     prelude::Scene,
@@ -53,7 +53,8 @@ pub struct RenderContext<'a> {
     pub relative_top_right_camera: &'a CameraBuffer2D,
     pub unit_camera: &'a CameraBuffer2D,
     pub unit_mesh: &'a Mesh2D,
-    pub centered_instance: &'a InstanceBuffer<Instance2D>,
+    /// Single Instance positioned at (0, 0)
+    pub single_instance: &'a InstanceBuffer<Instance2D>,
 }
 
 impl<'a> RenderContext<'a> {
@@ -73,7 +74,7 @@ impl<'a> RenderContext<'a> {
                 relative_top_left_camera: &default_assets.relative_top_left_camera.0,
                 relative_top_right_camera: &default_assets.relative_top_right_camera.0,
                 unit_camera: &default_assets.unit_camera.0,
-                centered_instance: &default_assets.centered_instance,
+                single_instance: &default_assets.single_instance,
                 unit_mesh: &default_assets.unit_mesh,
                 world_camera2d: &default_assets.world_camera2d,
                 world_camera3d: &default_assets.world_camera3d,
@@ -93,11 +94,10 @@ impl<'a> RenderContext<'a> {
         return self.surface_target;
     }
 
-    pub fn render<I: Instance>(
+    pub fn group<I: Instance>(
         &self,
-        renderer: &mut Renderer<'a>,
         name: &'static str,
-        all: impl Fn(&mut Renderer<'a>, &'a InstanceBuffer<I>),
+        mut all: impl FnMut(&'a InstanceBuffer<I>),
     ) {
         let buffer = self
             .render_groups
@@ -106,7 +106,7 @@ impl<'a> RenderContext<'a> {
             .buffer();
 
         if buffer.instance_amount() != 0 {
-            (all)(renderer, buffer);
+            (all)(buffer);
         }
     }
 }

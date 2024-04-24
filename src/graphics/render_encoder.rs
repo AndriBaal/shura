@@ -140,8 +140,8 @@ impl<'a> RenderEncoder<'a> {
             .downcast_ref::<SpriteRenderTarget>()
             .expect("Cannot copy this texture!");
         let mut renderer = self.renderer(target, None, None);
-        renderer.render_sprite(
-            &renderer.default_assets.centered_instance,
+        renderer.draw_sprite(
+            &renderer.default_assets.single_instance,
             &renderer.default_assets.unit_camera.0,
             renderer.default_assets.unit_mesh(),
             src.sprite(),

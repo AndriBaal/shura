@@ -217,7 +217,7 @@ impl<'a> Context<'a> {
     pub fn remove_scene(&mut self, scene_id: u32) -> Option<Scene> {
         if self.scenes.exists(scene_id) {
             self.with_scene(scene_id, |systems, ctx| {
-                for setup in &systems.end_systems {
+                for (_, setup) in &systems.end_systems {
                     (setup)(ctx, EndReason::Removed);
                 }
             });
