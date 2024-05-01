@@ -19,8 +19,8 @@ use crate::{
 pub struct RenderContextEntities<'a>(&'a EntityManager);
 
 impl<'a> RenderContextEntities<'a> {
-    pub fn type_raw(&self, type_id: EntityId) -> Ref<dyn EntityType> {
-        self.0.type_raw(type_id)
+    pub fn get_dyn(&self, type_id: EntityId) -> Ref<dyn EntityType> {
+        self.0.get_dyn(type_id)
     }
 
     pub fn single<E: EntityIdentifier>(&self) -> Ref<SingleEntity<E>> {

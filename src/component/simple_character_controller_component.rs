@@ -7,14 +7,14 @@ use crate::{
     physics::{Shape, World},
 };
 
-use super::Component;
+use super::{Component, PhysicsComponentVisibility};
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone)]
 pub struct SimpleCharacterControllerComponent<S: Shape> {
     pub shape: S,
     instance: Instance2D,
-    active: bool,
+    visibility: PhysicsComponentVisibility,
     linvel: Vector2<f32>,
 }
 
@@ -23,7 +23,7 @@ impl<S: Shape> SimpleCharacterControllerComponent<S> {
         Self {
             shape,
             instance: Instance2D::default(),
-            active: true,
+            visibility: PhysicsComponentVisibility::default(),
             linvel: Vector2::zeros(),
         }
     }
@@ -65,8 +65,8 @@ impl<S: Shape> SimpleCharacterControllerComponent<S> {
         self
     }
 
-    pub fn with_active(mut self, active: bool) -> Self {
-        self.set_active(active);
+    pub fn with_visibility(mut self, visibility: PhysicsComponentVisibility) -> Self {
+        self.set_visibility(visibility);
         self
     }
 
@@ -75,8 +75,8 @@ impl<S: Shape> SimpleCharacterControllerComponent<S> {
         self
     }
 
-    pub fn set_active(&mut self, active: bool) {
-        self.active = active;
+    pub fn set_visibility(&mut self, visibility: PhysicsComponentVisibility) {
+        self.visibility = visibility;
     }
 
     pub fn set_rotation(&mut self, rotation: f32) {
@@ -99,8 +99,8 @@ impl<S: Shape> SimpleCharacterControllerComponent<S> {
         self.linvel = linvel;
     }
 
-    pub fn active(&self) -> bool {
-        self.active
+    pub fn visibility(&self) -> PhysicsComponentVisibility {
+        self.visibility
     }
 
     pub fn rotation(&self) -> f32 {
@@ -202,12 +202,29 @@ impl<S: Shape> SimpleCharacterControllerComponent<S> {
 impl<S: Shape> Component for SimpleCharacterControllerComponent<S> {
     type Instance = Instance2D;
 
-    fn buffer(&self, _world: &World, _cam2d: &AABB, render_group: &mut RenderGroup<Self::Instance>)
+    fn buffer(&self, _world: &World, cam2d: &AABB, render_group: &mut RenderGroup<Self::Instance>)
     where
         Self: Sized,
     {
-        // TODO: Implement AABB check
-        render_group.push(self.instance);
+        match self.visibility {
+            PhysicsComponentVisibility::Static(b) => {
+                if b {
+                    render_group.push(self.instance);
+                }
+            }
+            PhysicsComponentVisibility::Size(size) => {
+                let aabb = AABB::from_center(self.translation(), size);
+                if cam2d.intersects(&aabb) {
+                    render_group.push(self.instance);
+                }
+            }
+            PhysicsComponentVisibility::ColliderSize => {
+                let aabb = self.shape.compute_aabb(&self.position()).into();
+                if cam2d.intersects(&aabb) {
+                    render_group.push(self.instance);
+                }
+            }
+        }
     }
 
     fn init(&mut self, _handle: EntityHandle, _world: &mut World) {}

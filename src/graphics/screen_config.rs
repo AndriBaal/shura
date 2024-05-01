@@ -1,6 +1,9 @@
+use crate::graphics::Color;
+#[cfg(feature = "framebuffer")]
+use crate::math::Vector2;
 use instant::Duration;
 
-use crate::graphics::Color;
+use super::Gpu;
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Clone, Debug)]
@@ -79,5 +82,19 @@ impl ScreenConfig {
             return Some(Duration::from_secs_f32(1.0 / max_fps as f32));
         }
         None
+    }
+
+    pub fn render_size(&self, gpu: &Gpu) -> Vector2<u32> {
+        let surface_size = gpu.surface_size();
+        #[cfg(not(feature = "framebuffer"))]
+        {
+            return surface_size;
+        }
+        #[cfg(feature = "framebuffer")]
+        {
+            let size = surface_size.cast::<f32>() * self.render_scale;
+            let size = Vector2::new(size.x.max(1.0) as u32, size.y.max(1.0) as u32);
+            return size;
+        }
     }
 }

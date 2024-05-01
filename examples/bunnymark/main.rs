@@ -28,7 +28,7 @@ fn update(ctx: &mut Context) {
     const GRAVITY: f32 = -2.5;
 
     let mut bunnies = ctx.entities.get_mut::<Bunny>();
-    let mut assets = ctx.entities.single_mut::<Assets>().get_ref().unwrap();
+    let mut assets = ctx.entities.single_mut::<Assets>().unwrap();
 
     if ctx.input.is_held(MouseButton::Left) || ctx.input.is_held(ScreenTouch) {
         let cursor: Vector2<f32> = ctx.cursor.coords;
@@ -66,7 +66,7 @@ fn update(ctx: &mut Context) {
         let bytes = screenshot.sprite().to_bytes(&ctx.gpu);
         save_data("screenshot.png", bytes).unwrap();
     } else if ctx.input.is_pressed(Key::KeyS) {
-        assets.screenshot = Some(ctx.gpu.create_render_target(ctx.window_size));
+        assets.screenshot = Some(ctx.gpu.create_render_target(ctx.render_size));
     }
 
     let frame = ctx.time.delta();
@@ -98,7 +98,7 @@ fn update(ctx: &mut Context) {
 }
 
 fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
-    let assets = ctx.entities.single::<Assets>().get_ref().unwrap();
+    let assets = ctx.entities.single::<Assets>().unwrap();
     encoder.render2d(
         Some(RgbaColor::new(220, 220, 220, 255).into()),
         |renderer| {

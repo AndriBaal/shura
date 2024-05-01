@@ -116,6 +116,7 @@ pub struct Scene {
     pub(crate) world_camera3d: WorldCamera3D,
     pub(crate) groups: EntityGroupManager,
     pub(crate) world: World,
+    pub(crate) started: bool,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default = "EntityManager::new"))]
     pub(crate) entities: EntityManager,
@@ -128,7 +129,6 @@ pub struct Scene {
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default = "TaskManager::new"))]
     pub(crate) tasks: TaskManager,
-    pub(crate) started: bool,
 }
 
 impl Default for Scene {

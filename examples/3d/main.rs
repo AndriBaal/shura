@@ -85,8 +85,8 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
         encoder.render3d(
             Some(RgbaColor::new(220, 220, 220, 255).into()),
             |renderer| {
-                ctx.render(renderer, "cube", |renderer, buffer, instances| {
-                    renderer.render_model(instances, buffer, ctx.world_camera3d, &assets.model);
+                ctx.group("cube", |buffer| {
+                    renderer.draw_model(buffer, ctx.world_camera3d, &assets.model);
                 });
             },
         );

@@ -48,10 +48,12 @@ pub struct Context<'a> {
     pub end: &'a mut bool,
     pub scenes: &'a mut SceneManager,
     pub window: Arc<winit::window::Window>,
+    pub event_loop: &'a winit::event_loop::ActiveEventLoop,
 
     // Misc
     pub scene_id: &'a u32,
-    pub window_size: Vector2<u32>,
+    pub surface_size: Vector2<u32>,
+    pub render_size: Vector2<u32>,
     pub cursor: Point2<f32>,
 }
 
@@ -60,9 +62,11 @@ impl<'a> Context<'a> {
         scene_id: &'a u32,
         app: &'a mut App,
         scene: &'a mut Scene,
+        event_loop: &'a winit::event_loop::ActiveEventLoop
     ) -> (&'a mut SystemManager, Context<'a>) {
-        let mint: mint::Vector2<u32> = app.window.inner_size().into();
-        let window_size = mint.into();
+        let surface_size = app.gpu.surface_size();
+        let render_size = scene.screen_config.render_size(&app.gpu);
+
         let cursor = app.input.cursor(&scene.world_camera2d);
         (
             &mut scene.systems,
@@ -90,10 +94,12 @@ impl<'a> Context<'a> {
                 end: &mut app.end,
                 scenes: &mut app.scenes,
                 window: app.window.clone(),
+                event_loop,
 
                 // Misc
                 scene_id,
-                window_size,
+                surface_size,
+                render_size,
                 cursor,
             },
         )
@@ -102,7 +108,7 @@ impl<'a> Context<'a> {
     #[cfg(feature = "serde")]
     #[must_use]
     pub fn serialize_scene(
-        &mut self,
+        &mut self, // Not actually needed, just to ensure there are only unique references to entities
         serialize: impl FnOnce(SceneSerializer) -> SceneSerializer,
     ) -> Result<Vec<u8>, Box<bincode::ErrorKind>> {
         let entities = &self.entities;
@@ -173,8 +179,6 @@ impl<'a> Context<'a> {
             let mut scene_ref = scene_cell.borrow_mut();
             let scene = &mut *scene_ref;
 
-            let mint: mint::Vector2<u32> = self.window.inner_size().into();
-            let window_size = mint.into();
             let cursor = self.input.cursor(&scene.world_camera2d);
             let mut ctx = Context {
                 // Scene
@@ -191,7 +195,8 @@ impl<'a> Context<'a> {
 
                 // Misc
                 scene_id: &scene_id,
-                window_size,
+                surface_size: self.surface_size,
+                render_size: self.render_size,
                 cursor,
 
                 time: self.time,
@@ -204,6 +209,7 @@ impl<'a> Context<'a> {
                 end: self.end,
                 scenes: self.scenes,
                 window: self.window.clone(),
+                event_loop: self.event_loop
             };
             (action)(&mut scene.systems, &mut ctx);
         }

@@ -11,14 +11,16 @@ pub struct SceneManager {
 }
 
 impl SceneManager {
-    pub(crate) fn new(active_scene_id: u32) -> Self {
-        Self {
-            scenes: Default::default(),
+    pub(crate) fn new(scene: Scene, active_scene_id: u32) -> Self {
+        let mut scenes = Self {
+            scenes: FxHashMap::default(),
             active_scene_id,
             next_active_scene_id: active_scene_id,
             scene_switched: None,
             global_entities: GlobalEntities::default(),
-        }
+        };
+        scenes.add(active_scene_id, scene);
+        return scenes;
     }
 
     pub(crate) fn end_scenes(

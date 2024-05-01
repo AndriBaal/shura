@@ -1,7 +1,4 @@
-use std::{
-    ops::{Deref, DerefMut},
-    sync::OnceLock,
-};
+use std::ops::{Deref, DerefMut};
 
 use crate::{
     graphics::{Gpu, RenderEncoder, RenderTarget, SurfaceRenderTarget},
@@ -17,7 +14,7 @@ use winit::window::Window;
 pub struct Gui {
     state: State,
     context: GuiContext,
-    renderer: OnceLock<Renderer>,
+    renderer: Renderer,
     screen_descriptor: Mutex<ScreenDescriptor>,
 }
 
@@ -38,7 +35,7 @@ impl Gui {
             pixels_per_point: 1.0,
         };
         Self {
-            renderer: OnceLock::new(),
+            renderer: Renderer::new(&gpu.device, gpu.format(), None, gpu.samples()),
             state,
             context,
             screen_descriptor: Mutex::new(screen_descriptor),
@@ -60,20 +57,6 @@ impl Gui {
         let mut egui_input = self.state.take_egui_input(window);
         egui_input.time = Some(total_time.as_secs_f64());
         self.context.begin_frame(egui_input);
-    }
-
-    pub(crate) fn initialize(&mut self, gpu: &Gpu) {
-        if self.renderer.get().is_none() {
-            self.renderer
-                .set(Renderer::new(
-                    &gpu.device,
-                    gpu.format(),
-                    None,
-                    gpu.samples(),
-                ))
-                .ok()
-                .unwrap();
-        }
     }
 
     pub(crate) fn render(

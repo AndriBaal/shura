@@ -4,7 +4,7 @@ use std::sync::Arc;
 use crate::gui::Gui;
 use crate::{
     context::{Context, RenderContext},
-    graphics::{Gpu, GpuConfig, RenderEncoder, Surface, GLOBAL_GPU},
+    graphics::{Gpu, GpuConfig, RenderEncoder, GLOBAL_GPU},
     input::Input,
     math::Vector2,
     scene::{Scene, SceneManager},
@@ -19,7 +19,8 @@ use crate::{
 #[cfg(target_os = "android")]
 use winit::platform::android::activity::AndroidApp;
 use winit::{
-    event_loop::{EventLoop, EventLoopWindowTarget},
+    event::WindowEvent,
+    event_loop::{ActiveEventLoop, EventLoop},
     window::Window,
 };
 
@@ -30,9 +31,9 @@ use crate::audio::AudioManager;
 use rustc_hash::FxHashMap;
 
 pub struct AppConfig {
-    pub window: winit::window::WindowBuilder,
-    pub winit_events:
-        Vec<Box<dyn Fn(&winit::event::Event<()>, &winit::event_loop::EventLoopWindowTarget<()>)>>,
+    pub window: winit::window::WindowAttributes,
+    // pub winit_events:
+    //     Vec<Box<dyn Fn(&winit::event::Event<()>, &winit::event_loop::EventLoopWindowTarget<()>)>>,
     pub gpu: GpuConfig,
     pub scene_id: u32,
     #[cfg(feature = "framebuffer")]
@@ -57,10 +58,10 @@ impl AppConfig {
     pub const FIRST_SCENE_ID: u32 = 0;
     pub fn new(#[cfg(target_os = "android")] android: AndroidApp) -> Self {
         AppConfig {
-            window: winit::window::WindowBuilder::new()
+            window: winit::window::WindowAttributes::default()
                 .with_inner_size(winit::dpi::PhysicalSize::new(800, 600))
                 .with_title("App Game"),
-            winit_events: vec![],
+            // winit_events: vec![],
             gpu: GpuConfig::default(),
             #[cfg(target_os = "android")]
             android,
@@ -86,7 +87,7 @@ impl AppConfig {
         }
     }
 
-    pub fn window(mut self, window: winit::window::WindowBuilder) -> Self {
+    pub fn window(mut self, window: winit::window::WindowAttributes) -> Self {
         self.window = window;
         self
     }
@@ -102,16 +103,16 @@ impl AppConfig {
         self
     }
 
-    pub fn winit_event(
-        mut self,
-        event: impl for<'a, 'b> Fn(
-                &'a winit::event::Event<()>,
-                &'b winit::event_loop::EventLoopWindowTarget<()>,
-            ) + 'static,
-    ) -> Self {
-        self.winit_events.push(Box::new(event));
-        self
-    }
+    // pub fn winit_event(
+    //     mut self,
+    //     event: impl for<'a, 'b> Fn(
+    //             &'a winit::event::Event<()>,
+    //             &'b winit::event_loop::EventLoopWindowTarget<()>,
+    //         ) + 'static,
+    // ) -> Self {
+    //     self.winit_events.push(Box::new(event));
+    //     self
+    // }
 
     #[cfg(target_arch = "wasm32")]
     pub fn canvas_attr(mut self, key: String, value: String) -> Self {
@@ -126,12 +127,120 @@ impl AppConfig {
     }
 }
 
+enum AppState<S: Into<Scene>, I: FnOnce() -> S> {
+    Uninitialized { config: AppConfig, init: I },
+    Initialized(App),
+}
+
+impl<S: Into<Scene>, I: FnOnce() -> S> AppState<S, I> {
+    fn init(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+        take_mut::take(self, |state| match state {
+            AppState::Initialized(_) => panic!(),
+            AppState::Uninitialized { config, init } => {
+                Self::Initialized(App::new(event_loop, config, init))
+            }
+        });
+    }
+}
+
+impl<S: Into<Scene>, I: FnOnce() -> S> winit::application::ApplicationHandler<()>
+    for AppState<S, I>
+{
+    fn about_to_wait(&mut self, _event_loop: &winit::event_loop::ActiveEventLoop) {
+        match self {
+            AppState::Initialized(app) => app.window.request_redraw(),
+            AppState::Uninitialized { .. } => return,
+        };
+    }
+
+    fn new_events(
+        &mut self,
+        event_loop: &winit::event_loop::ActiveEventLoop,
+        cause: winit::event::StartCause,
+    ) {
+        if !cfg!(target_os = "android") {
+            if let winit::event::StartCause::Init = cause {
+                match self {
+                    AppState::Initialized(app) => app.gpu.resume(&app.window),
+                    AppState::Uninitialized { .. } => self.init(event_loop),
+                };
+            }
+        }
+    }
+
+    fn exiting(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+        let app = match self {
+            AppState::Initialized(app) => app,
+            AppState::Uninitialized { .. } => return,
+        };
+        app.end(event_loop);
+    }
+
+    fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+        if cfg!(target_os = "android") {
+            match self {
+                AppState::Initialized(app) => app.gpu.resume(&app.window),
+                AppState::Uninitialized { .. } => self.init(event_loop),
+            };
+        }
+    }
+
+    fn window_event(
+        &mut self,
+        event_loop: &winit::event_loop::ActiveEventLoop,
+        window_id: winit::window::WindowId,
+        event: winit::event::WindowEvent,
+    ) {
+        let app = match self {
+            AppState::Initialized(app) => app,
+            AppState::Uninitialized { .. } => return,
+        };
+
+        #[cfg(feature = "gui")]
+        app.gui.handle_event(&app.window, event);
+
+        if app.end || window_id != app.window.id() {
+            return;
+        }
+
+        match event {
+            WindowEvent::RedrawRequested => {
+                app.process_frame(event_loop);
+                if app.end {
+                    app.end(event_loop);
+                } else {
+                    app.window.request_redraw();
+                }
+            }
+            WindowEvent::CloseRequested | WindowEvent::Destroyed => {
+                app.end(event_loop);
+            }
+            WindowEvent::Resized(physical_size) => {
+                let width = physical_size.width.max(1);
+                let height = physical_size.height.max(1);
+                app.resize(Vector2::new(width, height));
+            }
+            _ => app.input.on_event(&event),
+        }
+    }
+
+    fn suspended(&mut self, _event_loop: &winit::event_loop::ActiveEventLoop) {}
+    fn memory_warning(&mut self, _event_loop: &winit::event_loop::ActiveEventLoop) {}
+    fn user_event(&mut self, _event_loop: &winit::event_loop::ActiveEventLoop, _event: ()) {}
+    fn device_event(
+        &mut self,
+        _event_loop: &winit::event_loop::ActiveEventLoop,
+        _device_id: winit::event::DeviceId,
+        _event: winit::event::DeviceEvent,
+    ) {
+    }
+}
+
 pub struct App {
     pub end: bool,
     pub time: TimeManager,
     pub scenes: SceneManager,
     pub window: Arc<Window>,
-    pub surface: Surface,
     pub input: Input,
     pub gpu: Arc<Gpu>,
     #[cfg(feature = "gui")]
@@ -145,76 +254,23 @@ pub struct App {
 }
 
 impl App {
-    pub fn run<S: Into<Scene>>(mut config: AppConfig, init: impl FnOnce() -> S) {
-        let first_scene_id = config.scene_id;
-        let winit_events = std::mem::take(&mut config.winit_events);
-        let (events, mut app) = App::new(config);
-        let shura_window_id = app.window.id();
-        let mut init = Some(init);
-        events
-            .run(move |event, event_loop| {
-                use winit::event::{Event, WindowEvent};
-                for callback in &winit_events {
-                    callback(&event, event_loop);
-                }
-                if !app.end {
-                    match event {
-                        ref e if Surface::start_condition(e) => {
-                            app.surface.resume(&app.gpu, app.window.clone());
-
-                            if init.is_some() {
-                                let size = app.surface.size();
-                                app.gpu.initialize(&app.surface);
-                                app.surface.update_msaa(&app.gpu, size);
-                                app.input.resize(size);
-                                let scene = (init.take().unwrap())();
-                                app.scenes.add(first_scene_id, scene);
-                                #[cfg(feature = "gui")]
-                                app.gui.initialize(&app.gpu);
-                            }
-                        }
-                        Event::WindowEvent {
-                            ref event,
-                            window_id,
-                        } => {
-                            #[cfg(feature = "gui")]
-                            app.gui.handle_event(&app.window, event);
-                            if window_id == shura_window_id && init.is_none() {
-                                match event {
-                                    WindowEvent::RedrawRequested => {
-                                        app.process_frame();
-                                        if app.end {
-                                            app.end(event_loop);
-                                        } else {
-                                            app.window.request_redraw()
-                                        }
-                                    }
-                                    WindowEvent::CloseRequested | WindowEvent::Destroyed => {
-                                        app.end(event_loop);
-                                    }
-                                    WindowEvent::Resized(physical_size) => {
-                                        let mint: mint::Vector2<u32> = (*physical_size).into();
-                                        let window_size: Vector2<u32> = mint.into();
-                                        app.resize(window_size);
-                                    }
-                                    _ => app.input.on_event(event),
-                                }
-                            }
-                        }
-                        Event::Suspended => {
-                            app.surface.suspend();
-                        }
-                        Event::LoopExiting => {
-                            app.end(event_loop);
-                        }
-                        _ => {}
-                    }
-                }
-            })
+    pub fn run<S: Into<Scene>>(config: AppConfig, init: impl FnOnce() -> S) {
+        #[cfg(target_os = "android")]
+        let events = winit::event_loop::EventLoopBuilder::new()
+            .with_android_app(config.android)
+            .build()
             .unwrap();
+        #[cfg(not(target_os = "android"))]
+        let events: EventLoop<()> = winit::event_loop::EventLoop::new().unwrap();
+        let mut app_state = AppState::Uninitialized { config, init };
+        events.run_app(&mut app_state).unwrap();
     }
 
-    fn new(config: AppConfig) -> (EventLoop<()>, Self) {
+    fn new<S: Into<Scene>>(
+        event_loop: &ActiveEventLoop,
+        config: AppConfig,
+        init: impl FnOnce() -> S,
+    ) -> Self {
         #[cfg(target_os = "android")]
         use winit::platform::android::EventLoopBuilderExtAndroid;
 
@@ -238,14 +294,7 @@ impl App {
                 .unwrap();
         }
 
-        #[cfg(target_os = "android")]
-        let events = winit::event_loop::EventLoopBuilder::new()
-            .with_android_app(config.android)
-            .build()
-            .unwrap();
-        #[cfg(not(target_os = "android"))]
-        let events = winit::event_loop::EventLoop::new().unwrap();
-        let window = config.window.build(&events).unwrap();
+        let window = event_loop.create_window(config.window).unwrap();
         let window = Arc::new(window);
 
         #[cfg(target_arch = "wasm32")]
@@ -265,16 +314,18 @@ impl App {
             body.append_child(canvas).ok();
         }
 
-        let mut surface = Surface::new();
-        let gpu = pollster::block_on(Gpu::new(&mut surface, window.clone(), config.gpu));
+        let gpu = pollster::block_on(Gpu::new(window.clone(), config.gpu));
         let gpu = Arc::new(gpu);
+        gpu.resume(&window);
 
         GLOBAL_GPU.set(gpu.clone()).ok().unwrap();
 
-        let shura = Self {
-            scenes: SceneManager::new(config.scene_id),
+        let size = gpu.surface_size();
+        let scene = (init)();
+        Self {
+            scenes: SceneManager::new(scene.into(), config.scene_id),
             time: TimeManager::new(),
-            input: Input::new(),
+            input: Input::new(size.cast::<f32>()),
             #[cfg(feature = "audio")]
             audio: AudioManager::new(),
             end: false,
@@ -286,31 +337,27 @@ impl App {
             apply_framebuffer: config.apply_frame_buffer,
             window,
             gpu,
-            surface,
-        };
-
-        (events, shura)
-    }
-
-    fn resize(&mut self, new_size: Vector2<u32>) {
-        if new_size.x > 0 && new_size.y > 0 {
-            #[cfg(feature = "log")]
-            info!("Resizing window to: {} x {}", new_size.x, new_size.y,);
-            let mut default_assets = self.gpu.default_assets_mut();
-            self.scenes.resize();
-            self.input.resize(new_size);
-            self.surface.resize(&self.gpu, new_size);
-            default_assets.resize(&self.gpu, new_size);
         }
     }
 
-    fn process_frame(&mut self) {
+    fn resize(&mut self, new_size: Vector2<u32>) {
+        #[cfg(feature = "log")]
+        info!("Resizing window to: {} x {}", new_size.x, new_size.y,);
+        self.scenes.resize();
+        self.input.resize(new_size);
+        self.gpu.resize(new_size);
+        let mut default_assets = self.gpu.default_assets_mut();
+        default_assets.resize(&self.gpu, new_size);
+        #[cfg(feature = "gui")]
+        self.gui.resize(new_size);
+    }
+
+    fn process_frame(&mut self, event_loop: &ActiveEventLoop) {
         let scene_id = self.scenes.active_scene_id();
         let scene = self.scenes.get_active_scene();
         let mut scene = scene.borrow_mut();
         let scene = &mut scene;
-        let mint: mint::Vector2<u32> = self.window.inner_size().into();
-        let window_size: Vector2<u32> = mint.into();
+        let surface_size = self.gpu.surface_size();
         #[cfg(target_arch = "wasm32")]
         {
             if self.auto_scale_canvas {
@@ -331,7 +378,7 @@ impl App {
 
             #[cfg(feature = "log")]
             {
-                let render_size = self.surface.size();
+                let render_size = scene.screen_config.render_size(&self.gpu);
 
                 #[cfg(feature = "framebuffer")]
                 let render_size = {
@@ -349,29 +396,25 @@ impl App {
                     "Resizing render target to: {} x {} using present mode: {:?} (VSYNC: {})",
                     render_size.x,
                     render_size.y,
-                    self.surface.config().present_mode,
+                    self.gpu.surface_config().present_mode,
                     scene.screen_config.vsync()
                 );
 
                 #[cfg(feature = "framebuffer")]
                 info!("Using framebuffer scale: {}", scale);
             }
-            scene.world_camera2d.resize(window_size);
-            scene.world_camera3d.resize(window_size);
+            scene.world_camera2d.resize(surface_size);
+            scene.world_camera3d.resize(surface_size);
 
-            self.surface
-                .apply_vsync(&self.gpu, scene.screen_config.vsync());
+            self.gpu.apply_vsync(scene.screen_config.vsync());
             #[cfg(feature = "framebuffer")]
             {
                 let mut default_assets = self.gpu.default_assets_mut();
-                default_assets.apply_render_scale(&self.surface, &self.gpu, scale);
+                default_assets.apply_render_scale(&self.gpu, &scene.screen_config);
             }
-            #[cfg(feature = "gui")]
-            self.gui.resize(self.surface.size());
-            // self.time.tick();
         }
 
-        self.update(scene_id, scene);
+        self.update(scene_id, scene, event_loop);
         scene.screen_config.changed = false;
         if scene.render_entities {
             self.render(scene);
@@ -379,7 +422,7 @@ impl App {
         self.input.update();
     }
 
-    fn update(&mut self, scene_id: u32, scene: &mut Scene) {
+    fn update(&mut self, scene_id: u32, scene: &mut Scene, event_loop: &ActiveEventLoop) {
         if let Some(max_frame_time) = scene.screen_config.max_frame_time() {
             let last_update = self.time.update();
             if instant::Instant::now() < last_update + max_frame_time {
@@ -392,7 +435,7 @@ impl App {
         self.input.sync_gamepad();
         #[cfg(feature = "gui")]
         self.gui.begin(&self.time.total_duration(), &self.window);
-        let (systems, mut ctx) = Context::new(&scene_id, self, scene);
+        let (systems, mut ctx) = Context::new(&scene_id, self, scene, event_loop);
         let now = ctx.time.update();
 
         for (_, setup) in systems.setup_systems.drain(..) {
@@ -466,7 +509,7 @@ impl App {
     fn render(&mut self, scene: &mut Scene) {
         self.buffer(scene);
 
-        let surface_target = self.surface.start_frame(&self.gpu);
+        let surface_target = self.gpu.start_frame(&self.gpu);
         let default_assets = self.gpu.default_assets();
 
         let (systems, ctx) = RenderContext::new(&surface_target, &default_assets, scene);
@@ -491,7 +534,7 @@ impl App {
         surface_target.finish()
     }
 
-    fn end(&mut self, event_loop: &EventLoopWindowTarget<()>) {
+    fn end(&mut self, event_loop: &ActiveEventLoop) {
         self.end = true;
         event_loop.exit();
         let scenes = self.scenes.end_scenes();
@@ -501,7 +544,7 @@ impl App {
         }
         for (id, scene) in scenes {
             let mut scene = scene.borrow_mut();
-            let (systems, mut ctx) = Context::new(&id, self, &mut scene);
+            let (systems, mut ctx) = Context::new(&id, self, &mut scene, event_loop);
             for (_, end) in &systems.end_systems {
                 (end)(&mut ctx, EndReason::Close)
             }

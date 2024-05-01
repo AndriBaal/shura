@@ -13,10 +13,10 @@ fn app(config: AppConfig) {
                     ..Default::default()
                 },
             )
-            .entity::<Floor>(EntityStorage::Single, Default::default())
-            .entity::<Player>(EntityStorage::Single, Default::default())
-            .entity::<Assets>(EntityStorage::Single, Default::default())
-            .entity::<PhysicsBox>(EntityStorage::Multiple, Default::default())
+            .entity_single::<Floor>()
+            .entity_single::<Player>()
+            .entity_single::<Assets>()
+            .entity::<PhysicsBox>()
             .system(System::render(render))
             .system(System::setup(setup))
             .system(System::update(update))
@@ -28,27 +28,26 @@ fn setup(ctx: &mut Context) {
     const MINIMAL_SPACING: f32 = 0.1;
     ctx.world_camera2d.set_scaling(WorldCameraScaling::Max(5.0));
     ctx.world.set_gravity(Vector2::new(0.00, -9.81));
-    ctx.entities.single().set(ctx.world, Assets::new(ctx));
 
+    let mut boxes = ctx.entities.get_mut();
     for x in -PYRAMID_ELEMENTS..PYRAMID_ELEMENTS {
         for y in 0..(PYRAMID_ELEMENTS - x.abs()) {
             let b = PhysicsBox::new(Vector2::new(
                 x as f32 * (PhysicsBox::HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING),
                 y as f32 * (PhysicsBox::HALF_BOX_SIZE * 2.0 + MINIMAL_SPACING * 2.0),
             ));
-            ctx.entities.multiple().add(ctx.world, b);
+            boxes.add(ctx.world, b);
         }
     }
 
-    let player = Player::new();
-    ctx.entities.single().set(ctx.world, player);
-    let floor = Floor::new();
-    ctx.entities.single().set(ctx.world, floor);
+    ctx.entities.single_mut().set(ctx.world, Player::new());
+    ctx.entities.single_mut().set(ctx.world, Floor::new());
+    ctx.entities.single_mut().set(ctx.world, Assets::new(ctx));
 }
 
 fn update(ctx: &mut Context) {
-    let mut boxes = ctx.entities.multiple::<PhysicsBox>();
-    let mut player = ctx.entities.single::<Player>().get_mut().unwrap();
+    let mut boxes = ctx.entities.get_mut::<PhysicsBox>();
+    let mut player = ctx.entities.single_mut::<Player>().unwrap();
 
     let scroll = ctx.input.wheel_delta();
     let fov = ctx.world_camera2d.fov();
@@ -89,10 +88,10 @@ fn update(ctx: &mut Context) {
             false
         });
     if let Some(handle) = entity {
-        if let Some(physics_box) = boxes.get_mut(handle) {
+        if let Some(physics_box) = boxes.get_mut(&handle) {
             physics_box.body.set_color(Color::RED);
             if remove {
-                boxes.remove(ctx.world, handle);
+                boxes.remove(ctx.world, &handle);
             }
         }
     }
@@ -120,7 +119,7 @@ fn update(ctx: &mut Context) {
 
     ctx.world.step(ctx.time.delta()).collisions(|event| {
         if let Some(event) = event.is::<Player, PhysicsBox>(ctx.world) {
-            if let Some(b) = boxes.get_mut(event.entity2) {
+            if let Some(b) = boxes.get_mut(&event.entity2) {
                 b.body.set_color(match event.collision_type {
                     CollisionType::Started => Color::BLUE,
                     CollisionType::Stopped => Color::GREEN,
@@ -134,11 +133,10 @@ fn update(ctx: &mut Context) {
 }
 
 fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
-    let assets = ctx.entities.single::<Assets>().get().unwrap();
+    let assets = ctx.entities.single::<Assets>().unwrap();
     encoder.render2d(Some(Color::BLACK), |renderer| {
-        ctx.render(renderer, "player", |renderer, buffer, instances| {
-            renderer.render_sprite(
-                instances,
+        ctx.group("player",|buffer| {
+            renderer.draw_sprite(
                 buffer,
                 ctx.world_camera2d,
                 &assets.player_mesh,
@@ -146,12 +144,12 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
             )
         });
 
-        ctx.render(renderer, "floor", |renderer, buffer, instances| {
-            renderer.render_color(instances, buffer, ctx.world_camera2d, &assets.floor_mesh)
+        ctx.group("floor",|buffer| {
+            renderer.draw_color(buffer, ctx.world_camera2d, &assets.floor_mesh)
         });
 
-        ctx.render(renderer, "box", |renderer, buffer, instance| {
-            renderer.render_color(instance, buffer, ctx.world_camera2d, &assets.box_mesh);
+        ctx.group("box",|buffer| {
+            renderer.draw_color(buffer, ctx.world_camera2d, &assets.box_mesh);
         });
     })
 }

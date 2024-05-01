@@ -62,7 +62,7 @@ fn setup(ctx: &mut Context) {
 }
 
 fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
-    let assets = ctx.entities.single::<LightAssets>().get_ref().unwrap();
+    let assets = ctx.entities.single::<LightAssets>().unwrap();
     encoder.render2d(Some(Color::BLACK), |renderer| {
         ctx.group("background", |buffer| {
             renderer.draw_sprite(
@@ -103,8 +103,8 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
 }
 
 fn resize(ctx: &mut Context) {
-    let mut res = ctx.entities.single_mut::<LightAssets>().get_ref().unwrap();
-    res.light_map.resize(&ctx.gpu, ctx.window_size);
+    let mut res = ctx.entities.single_mut::<LightAssets>().unwrap();
+    res.light_map.resize(&ctx.gpu, ctx.render_size);
 }
 
 fn update(ctx: &mut Context) {
@@ -259,10 +259,10 @@ impl LightAssets {
                     "lighting/level.png"
                 ))),
             background: PositionComponent2D::new().with_scaling(Vector2::new(10.0, 10.0) * 2.0),
-            light_map: ctx.gpu.create_render_target(ctx.window_size),
+            light_map: ctx.gpu.create_render_target(ctx.render_size),
             shadow_stencil: ctx
                 .gpu
-                .create_depth_buffer(ctx.window_size, TextureFormat::Depth16Unorm),
+                .create_depth_buffer(ctx.render_size, TextureFormat::Depth16Unorm),
         }
     }
 }

@@ -16,11 +16,13 @@ use crate::{
         Instance3D, InstanceBuffer, InstanceBuffer2D, Mesh, Mesh2D, MeshBuilder, MeshBuilder2D,
         Model, ModelBuilder, RenderEncoder, Shader, ShaderConfig, ShaderModule,
         ShaderModuleDescriptor, ShaderModuleSource, Sprite, SpriteBuilder, SpriteRenderTarget,
-        SpriteSheet, SpriteSheetBuilder, Surface, UniformData, UniformField, Vertex, Vertex3D,
+        SpriteSheet, SpriteSheetBuilder, UniformData, UniformField, Vertex, Vertex3D,
         WorldCamera3D,
     },
     math::{Isometry2, Vector2},
 };
+
+use super::SurfaceRenderTarget;
 
 pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 0.5;
 
@@ -54,29 +56,33 @@ pub struct Gpu {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub adapter: wgpu::Adapter,
+    pub surface: wgpu::Surface<'static>,
     pub command_buffers: Mutex<Vec<wgpu::CommandBuffer>>,
-    format: OnceLock<wgpu::TextureFormat>,
-    shared_assets: OnceLock<SharedAssets>,
+    pub config: Mutex<wgpu::SurfaceConfiguration>,
+
+    format: wgpu::TextureFormat,
+    shared_assets: SharedAssets,
+    surface_size: Mutex<Vector2<u32>>,
+    target_msaa: Mutex<Option<wgpu::Texture>>,
     default_assets: OnceLock<RwLock<DefaultAssets>>,
 
-    samples: OnceLock<u32>,
-    max_samples: u32,
-    sample_state: OnceLock<wgpu::MultisampleState>,
+    samples: u32,
+    sample_state: wgpu::MultisampleState,
 }
 
 impl Gpu {
-    pub(crate) async fn new(surface: &mut Surface, window: Arc<Window>, config: GpuConfig) -> Self {
-        let max_samples = config.max_samples as u32;
+    pub(crate) async fn new(window: Arc<Window>, gpu_config: GpuConfig) -> Self {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            backends: config.backends,
+            backends: gpu_config.backends,
             dx12_shader_compiler: wgpu::Dx12Compiler::Fxc,
             ..Default::default()
         });
-        surface.pre_adapter(&instance, window);
+        // Important: Request surface before adapter!
+        let surface = instance.create_surface(window.clone()).unwrap();
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::HighPerformance,
-                compatible_surface: surface.surface(),
+                compatible_surface: Some(&surface),
                 force_fallback_adapter: false,
             })
             .await
@@ -86,8 +92,8 @@ impl Gpu {
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: None,
-                    required_features: config.device_features,
-                    required_limits: config.device_limits.using_resolution(adapter.limits()),
+                    required_features: gpu_config.device_features,
+                    required_limits: gpu_config.device_limits.using_resolution(adapter.limits()),
                 },
                 None,
             )
@@ -101,18 +107,160 @@ impl Gpu {
             info!("Using WGPU backend: {:?}", adapter_info.backend);
         }
 
-        Self {
+        let config = Self::default_config(&surface, &adapter, &window);
+        let format = config.format;
+        let max_samples = gpu_config.max_samples;
+        let sample_flags = adapter.get_texture_format_features(config.format).flags;
+        let samples: u32 = {
+            if max_samples >= 16
+                && sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X16)
+            {
+                16
+            } else if max_samples >= 8
+                && sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X8)
+            {
+                8
+            } else if max_samples >= 4
+                && sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X4)
+            {
+                4
+            } else if max_samples >= 2
+                && sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X2)
+            {
+                2
+            } else {
+                1
+            }
+        };
+        let sample_state = wgpu::MultisampleState {
+            count: samples,
+            mask: !0,
+            alpha_to_coverage_enabled: false,
+        };
+        #[cfg(feature = "log")]
+        {
+            info!("Using multisample X{samples}");
+            info!("Using texture format: {:?}", config.format);
+            info!("Using Present mode: {:?}", config.present_mode);
+        }
+
+        let gpu = Self {
+            shared_assets: SharedAssets::new(&device),
+            config: Mutex::new(config),
+            surface,
             instance,
             queue,
             device,
             adapter,
-            max_samples,
             command_buffers: Mutex::new(Default::default()),
-            format: OnceLock::new(),
-            samples: OnceLock::new(),
-            sample_state: OnceLock::new(),
-            shared_assets: OnceLock::new(),
+            format,
+            samples,
+            sample_state,
+
+            // These get initialized below
             default_assets: OnceLock::new(),
+            surface_size: Default::default(),
+            target_msaa: Default::default(),
+        };
+
+        gpu.resume(&window);
+        gpu.default_assets
+            .set(RwLock::new(DefaultAssets::new(&gpu))).unwrap();
+
+        return gpu;
+    }
+
+    pub(crate) fn compute_surface_size(window: &Window) -> Vector2<u32> {
+        let window_size = window.inner_size();
+        let width = window_size.width.max(1);
+        let height = window_size.height.max(1);
+        return Vector2::new(width, height);
+    }
+
+    pub(crate) fn default_config(
+        surface: &wgpu::Surface,
+        adapter: &wgpu::Adapter,
+        window: &Window,
+    ) -> wgpu::SurfaceConfiguration {
+        let surface_size = Self::compute_surface_size(window);
+        surface
+            .get_default_config(adapter, surface_size.x, surface_size.y)
+            .expect("Surface isn't supported by the adapter.")
+    }
+
+    pub(crate) fn resume(&self, window: &Window) {
+        #[cfg(feature = "log")]
+        log::info!("Surface resume");
+
+        let config = Self::default_config(&self.surface, &self.adapter, &window);
+        self.update_msaa(Vector2::new(config.width, config.height));
+        self.surface.configure(&self.device, &config);
+        *self.surface_size.lock().unwrap() = Vector2::new(config.width, config.height);
+        *self.config.lock().unwrap() = config;
+    }
+
+    /// Resize the surface, making sure to not resize to zero.
+    pub(crate) fn resize(&self, size: Vector2<u32>) {
+        #[cfg(feature = "log")]
+        log::info!("Surface resize {size:?}");
+        self.update_msaa(size);
+
+        let mut config = self.config.lock().unwrap();
+        config.width = size.x.max(1);
+        config.height = size.y.max(1);
+        *self.surface_size.lock().unwrap() = Vector2::new(config.width, config.height);
+        self.surface.configure(&self.device, &config);
+    }
+
+    pub(crate) fn start_frame(&self, gpu: &Gpu) -> SurfaceRenderTarget {
+        let config = self.config.lock().unwrap();
+        let surface_texture = match self.surface.get_current_texture() {
+            Ok(frame) => frame,
+            // If we timed out, just try again
+            Err(wgpu::SurfaceError::Timeout) => self.surface
+                .get_current_texture()
+                .expect("Failed to acquire next surface texture!"),
+            Err(
+                // If the surface is outdated, or was lost, reconfigure it.
+                wgpu::SurfaceError::Outdated
+                | wgpu::SurfaceError::Lost
+                // If OutOfMemory happens, reconfiguring may not help, but we might as well try
+                | wgpu::SurfaceError::OutOfMemory,
+            ) => {
+                self.surface.configure(&gpu.device, &config);
+                self.surface
+                    .get_current_texture()
+                    .expect("Failed to acquire next surface texture!")
+            }
+        };
+
+        return SurfaceRenderTarget {
+            target_view: surface_texture.texture.create_view(&Default::default()),
+            msaa_view: self
+                .target_msaa
+                .lock()
+                .unwrap()
+                .as_ref()
+                .map(|msaa| msaa.create_view(&Default::default())),
+            surface_texture,
+        };
+    }
+
+    pub(crate) fn apply_vsync(&self, vsync: bool) {
+        let mut config = self.config.lock().unwrap();
+        let new_mode = if vsync {
+            wgpu::PresentMode::AutoVsync
+        } else {
+            wgpu::PresentMode::AutoNoVsync
+        };
+        config.present_mode = new_mode;
+        self.surface.configure(&self.device, &config);
+    }
+
+    pub(crate) fn update_msaa(&self, size: Vector2<u32>) {
+        let mut target_msaa = self.target_msaa.lock().unwrap();
+        if self.samples() != 1 && (size != self.surface_size() || target_msaa.is_none()) {
+            *target_msaa = Some(SpriteRenderTarget::create_msaa(self, size));
         }
     }
 
@@ -208,81 +356,39 @@ impl Gpu {
     }
 
     pub fn samples(&self) -> u32 {
-        return *self.samples.get().unwrap();
+        self.samples
     }
 
     pub fn format(&self) -> wgpu::TextureFormat {
-        return *self.format.get().unwrap();
+        self.format
     }
 
     pub fn sample_state(&self) -> wgpu::MultisampleState {
-        return *self.sample_state.get().unwrap();
+        self.sample_state
     }
 
     pub fn shared_assets(&self) -> &SharedAssets {
-        return self.shared_assets.get().unwrap();
+        &self.shared_assets
     }
 
     pub fn default_assets(&self) -> impl Deref<Target = DefaultAssets> + '_ {
-        return self.default_assets.get().unwrap().read().unwrap();
+        self.default_assets.get().unwrap().read().unwrap()
     }
 
     pub fn default_assets_mut(&self) -> impl DerefMut<Target = DefaultAssets> + '_ {
-        return self.default_assets.get().unwrap().write().unwrap();
+        self.default_assets.get().unwrap().write().unwrap()
     }
 
-    pub fn is_initialized(&self) -> bool {
-        return self.format.get().is_some();
+    pub fn surface_size(&self) -> Vector2<u32> {
+        self.surface_size.lock().unwrap().clone()
     }
 
-    pub(crate) fn initialize(&self, surface: &Surface) {
-        let config = surface.config();
-        let format = config.format;
-        let max_samples = self.max_samples;
-        let sample_flags = self
-            .adapter
-            .get_texture_format_features(config.format)
-            .flags;
-        let samples: u32 = {
-            if max_samples >= 16
-                && sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X16)
-            {
-                16
-            } else if max_samples >= 8
-                && sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X8)
-            {
-                8
-            } else if max_samples >= 4
-                && sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X4)
-            {
-                4
-            } else if max_samples >= 2
-                && sample_flags.contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X2)
-            {
-                2
-            } else {
-                1
-            }
-        };
-        let sample_state = wgpu::MultisampleState {
-            count: samples,
-            mask: !0,
-            alpha_to_coverage_enabled: false,
-        };
-        #[cfg(feature = "log")]
-        {
-            info!("Using multisample X{samples}");
-            info!("Using texture format: {:?}", config.format);
-            info!("Using Present mode: {:?}", config.present_mode);
-        }
+    pub fn surface(&self) -> &wgpu::Surface {
+        &self.surface
+    }
 
-        self.samples.set(samples).unwrap();
-        self.format.set(format).unwrap();
-        self.sample_state.set(sample_state).unwrap();
-        self.shared_assets.set(SharedAssets::new(self)).unwrap();
-        self.default_assets
-            .set(RwLock::new(DefaultAssets::new(self, surface)))
-            .unwrap();
+    pub fn surface_config(&self) -> wgpu::SurfaceConfiguration {
+        self.config.lock().unwrap().clone()
     }
 }
 
@@ -296,8 +402,7 @@ pub struct SharedAssets {
 }
 
 impl SharedAssets {
-    pub fn new(gpu: &Gpu) -> Self {
-        let device = &gpu.device;
+    pub(crate) fn new(device: &wgpu::Device) -> Self {
         let sprite_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[
                 wgpu::BindGroupLayoutEntry {
@@ -422,7 +527,7 @@ pub struct DefaultAssets {
 }
 
 impl DefaultAssets {
-    pub(crate) fn new(gpu: &Gpu, surface: &Surface) -> Self {
+    pub(crate) fn new(gpu: &Gpu) -> Self {
         let shared_assets = gpu.shared_assets();
         let sprite_sheet = gpu.create_shader(ShaderConfig {
             name: Some("sprite_sheet"),
@@ -449,7 +554,6 @@ impl DefaultAssets {
             },
             buffers: &[
                 crate::text::Vertex2DText::LAYOUT,
-                // Not Instance2D::LAYOUT because of offset
                 wgpu::VertexBufferLayout {
                     array_stride: Instance2D::SIZE,
                     step_mode: wgpu::VertexStepMode::Instance,
@@ -555,7 +659,7 @@ impl DefaultAssets {
             ..Default::default()
         });
 
-        let size = surface.size();
+        let size = gpu.surface_size();
         let times = UniformData::new(gpu, [0.0, 0.0]);
         let single_instance = gpu.create_instance_buffer(&[Instance2D::default()]);
 
@@ -633,10 +737,13 @@ impl DefaultAssets {
     }
 
     #[cfg(feature = "framebuffer")]
-    pub(crate) fn apply_render_scale(&mut self, surface: &Surface, gpu: &Gpu, scale: f32) {
-        use crate::graphics::RenderTarget;
-        let size = surface.size().cast::<f32>() * scale;
-        let size = Vector2::new(size.x as u32, size.y as u32);
+    pub(crate) fn apply_render_scale(
+        &mut self,
+        gpu: &Gpu,
+        screen_config: &crate::graphics::ScreenConfig,
+    ) {
+        use super::RenderTarget;
+        let size = screen_config.render_size(gpu);
         if self.framebuffer.size() != size {
             self.framebuffer = gpu.create_render_target(size);
         }

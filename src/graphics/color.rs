@@ -1,5 +1,3 @@
-use crate::gui::Rgba;
-
 #[repr(C)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Copy, Clone, Debug, PartialEq, Default)]
@@ -187,7 +185,7 @@ impl From<Color> for egui::Rgba {
 
 #[cfg(feature = "gui")]
 impl From<egui::Rgba> for Color {
-    fn from(value: Rgba) -> Self {
+    fn from(value: egui::Rgba) -> Self {
         Self {
             r: value.r(),
             g: value.g(),

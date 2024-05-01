@@ -112,6 +112,7 @@ impl Shader {
                     },
                     entry_point: config.vertex_entry,
                     buffers: config.buffers,
+                    compilation_options: wgpu::PipelineCompilationOptions::default(),
                 },
                 fragment: Some(wgpu::FragmentState {
                     module: match config.source {
@@ -125,6 +126,7 @@ impl Shader {
                         blend: Some(config.blend),
                         write_mask: config.write_mask,
                     })],
+                    compilation_options: wgpu::PipelineCompilationOptions::default(),
                 }),
                 primitive: wgpu::PrimitiveState {
                     topology: wgpu::PrimitiveTopology::TriangleList,

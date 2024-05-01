@@ -337,7 +337,7 @@ impl EntityManager {
     #[cfg(feature = "serde")]
     pub fn serialize<ET: EntityType + serde::Serialize>(&self) -> Vec<u8> {
         bincode::serialize(
-            self.type_raw(ET::Entity::IDENTIFIER)
+            self.get_dyn(ET::Entity::IDENTIFIER)
                 .downcast_ref::<ET>()
                 .unwrap(),
         )
