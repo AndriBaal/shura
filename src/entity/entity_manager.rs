@@ -257,7 +257,7 @@ impl EntityManager {
 
         self.new_types
             .push(Box::new(move |entities: &mut EntityManager, globals| {
-                let mut globals = globals.lock().unwrap();
+                let mut globals = globals.lock();
                 match scope {
                     EntityScope::Scene => {
                         if let Some(ty) = globals.get(&id) {

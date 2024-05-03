@@ -1,6 +1,9 @@
 use shura::{
     prelude::*,
-    rand::distributions::{Distribution, WeightedIndex},
+    random::rand::{
+        distributions::{Distribution, WeightedIndex},
+        thread_rng,
+    },
     winit::window::WindowButtons,
 };
 
@@ -15,14 +18,14 @@ fn app(config: AppConfig) {
             .render_group2d("background", RenderGroupUpdate::MANUAL)
             .render_group2d("pipe", RenderGroupUpdate::EVERY_FRAME)
             .render_group2d("bird", RenderGroupUpdate::EVERY_FRAME)
-            .single_entity::<Background>(Default::default())
-            .single_entity::<Ground>(Default::default())
-            .single_entity::<BirdSimulation>(Default::default())
-            .entities::<Pipe>(Default::default())
-            .entities::<Bird>(Default::default())
-            .system(System::Update(update))
-            .system(System::Setup(setup))
-            .system(System::Render(render))
+            .entity_single::<Background>()
+            .entity_single::<Ground>()
+            .entity_single::<BirdSimulation>()
+            .entity::<Pipe>()
+            .entity::<Bird>()
+            .system(System::update(update))
+            .system(System::setup(setup))
+            .system(System::render(render))
     });
 }
 
@@ -38,19 +41,19 @@ fn setup(ctx: &mut Context) {
     ctx.screen_config.set_vsync(false);
     ctx.screen_config.set_render_scale(0.5);
     ctx.window.set_enabled_buttons(WindowButtons::CLOSE);
-    let mut birds = ctx.entities.multiple::<Bird>();
+    let mut birds = ctx.entities.get_mut::<Bird>();
     for _ in 0..AMOUNT_BIRDS {
         birds.add(ctx.world, Bird::new());
     }
 }
 
 fn update(ctx: &mut Context) {
-    let mut pipes = ctx.entities.multiple::<Pipe>();
-    let mut simulation = ctx.entities.single::<BirdSimulation>().get().unwrap();
-    let mut birds = ctx.entities.multiple::<Bird>();
+    let mut pipes = ctx.entities.get_mut::<Pipe>();
+    let mut simulation = ctx.entities.single_mut::<BirdSimulation>().unwrap();
+    let mut birds = ctx.entities.get_mut::<Bird>();
     let fps = ctx.time.fps();
-    let delta = ctx.time.delta_time() * simulation.time_scale;
-    let step = ctx.time.delta_time() * simulation.time_scale * Pipe::VELOCITY;
+    let delta = ctx.time.delta() * simulation.time_scale;
+    let step = ctx.time.delta() * simulation.time_scale * Pipe::VELOCITY;
     pipes.retain(ctx.world, |pipe, _| {
         let new_pos = pipe.pos.translation() + step;
         pipe.pos.set_translation(new_pos);
@@ -61,7 +64,7 @@ fn update(ctx: &mut Context) {
     });
 
     simulation.spawn_timer += delta;
-    let score = birds.iter().find(|b| b.pos.active()).unwrap().score as u32;
+    let score = birds.iter().find(|b| b.pos.visibility == PositionComponent2DVisibility::Static(true)).unwrap().score as u32;
     if score > simulation.high_score {
         simulation.high_score = score;
     }
@@ -98,15 +101,15 @@ fn update(ctx: &mut Context) {
         bird.pos.set_translation(new_pos);
 
         let bird_aabb = AABB::from_center(bird.pos.translation(), Bird::HALF_EXTENTS);
-        if bird_aabb.min.y < -GAME_SIZE.y + Ground::HALF_EXTENTS.y * 2.0
-            || bird_aabb.max.y > GAME_SIZE.y
+        if bird_aabb.min().y < -GAME_SIZE.y + Ground::HALF_EXTENTS.y * 2.0
+            || bird_aabb.max().y > GAME_SIZE.y
             || bird_aabb.intersects(&bottom_aabb)
             || bird_aabb.intersects(&top_aabb)
         {
-            bird.pos.set_active(false);
+            bird.pos.set_visibility(PositionComponent2DVisibility::Static(false));
         }
 
-        if !bird.pos.active() {
+        if bird.pos.visibility == PositionComponent2DVisibility::Static(false) {
             return;
         }
 
@@ -124,7 +127,7 @@ fn update(ctx: &mut Context) {
         }
     });
 
-    let dead_count = birds.iter().filter(|b| b.pos.active()).count();
+    let dead_count = birds.iter().filter(|b| b.pos.visibility == PositionComponent2DVisibility::Static(true)).count();
 
     if dead_count == 0 {
         let mut max_fitness = 0.0;
@@ -178,13 +181,12 @@ fn update(ctx: &mut Context) {
 }
 
 fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
-    let simulation = ctx.single::<BirdSimulation>().get().unwrap();
+    let simulation = ctx.entities.single::<BirdSimulation>().get().unwrap();
     encoder.render2d(
         Some(RgbaColor::new(220, 220, 220, 255).into()),
         |renderer| {
-            ctx.render(renderer, "background", |renderer, buffer, instance| {
-                renderer.render_sprite(
-                    instance,
+            ctx.group("background", |buffer| {
+                renderer.draw_sprite(
                     buffer,
                     ctx.world_camera2d,
                     ctx.unit_mesh,
@@ -192,25 +194,22 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
                 )
             });
 
-            ctx.render(renderer, "ground", |renderer, buffer, instance| {
-                renderer.render_sprite(
-                    instance,
+            ctx.group("ground", |buffer| {
+                renderer.draw_sprite(
                     buffer,
                     ctx.world_camera2d,
                     ctx.unit_mesh,
                     &simulation.ground_sprite,
                 )
             });
-            ctx.render(renderer, "pipe", |renderer, buffer, instances| {
-                renderer.render_sprite(
-                    instances,
+            ctx.group("pipe", |buffer| {
+                renderer.draw_sprite(
                     buffer,
                     ctx.world_camera2d,
                     &simulation.top_pipe_mesh,
                     &simulation.pipe_sprite,
                 );
-                renderer.render_sprite(
-                    instances,
+                renderer.draw_sprite(
                     buffer,
                     ctx.world_camera2d,
                     &simulation.bottom_pipe_mesh,
@@ -218,9 +217,8 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
                 );
             });
 
-            ctx.render(renderer, "bird", |renderer, buffer, instance| {
-                renderer.render_sprite(
-                    instance,
+            ctx.group("bird", |buffer| {
+                renderer.draw_sprite(
                     buffer,
                     ctx.world_camera2d,
                     &simulation.bird_mesh,

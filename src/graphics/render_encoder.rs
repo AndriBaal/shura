@@ -156,7 +156,6 @@ impl<'a> RenderEncoder<'a> {
         self.gpu
             .command_buffers
             .lock()
-            .unwrap()
             .push(self.finish_get())
     }
 }

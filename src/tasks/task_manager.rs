@@ -3,8 +3,8 @@ use std::{
     any::Any,
     future::Future,
     rc::Rc,
-    sync::mpsc::{channel, Receiver, Sender},
 };
+use crossbeam_channel::{unbounded, Sender, Receiver};
 
 type TaskCallback = Box<dyn FnOnce(&mut Context) + Send + 'static>;
 
@@ -15,7 +15,7 @@ pub struct TaskManager {
 
 impl TaskManager {
     pub(crate) fn new() -> Self {
-        let (sender, receiver) = channel();
+        let (sender, receiver) = unbounded();
         Self {
             receiver: Rc::new(receiver),
             sender,

@@ -75,9 +75,11 @@ serde = [
     "wgpu/replay",
     "winit/serde",
     "rstar/serde",
+    "nalgebra/serde-serialize",
+    "parking_lot/serde",
+
     "gilrs?/serde-serialize",
     "egui?/serde",
-    "nalgebra/serde-serialize",
     "rapier2d?/serde-serialize",
 ]
 default = [
@@ -90,7 +92,7 @@ default = [
     # "gui",
     "log",
     "framebuffer",
-    # "rayon",
+    "rayon",
 ]
 
 [lib]
@@ -105,9 +107,11 @@ wgpu = { version = "0.20", features = ["glsl", "spirv", "webgl"] }
 anyhow = "1.0"
 env_logger = { version = "0.11", optional = true }
 tobj = { version = "4.0", features = ["async"] }
-rstar = "0.12.0"
+rstar = "0.12"
 delaunator = "1"
-take_mut = "0.2.2"
+take_mut = "0.2"
+crossbeam-channel = "0.5"
+parking_lot = "0.12"
 rayon = { version = "1.7", optional = true }
 mint = { version = "0.5" }
 nalgebra = { version = "0.32", features = ["convert-bytemuck", "mint", "rand"] }

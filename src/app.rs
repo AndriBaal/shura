@@ -237,20 +237,20 @@ impl<S: Into<Scene>, I: FnOnce() -> S> winit::application::ApplicationHandler<()
 }
 
 pub struct App {
-    pub end: bool,
-    pub time: TimeManager,
-    pub scenes: SceneManager,
-    pub window: Arc<Window>,
-    pub input: Input,
-    pub gpu: Arc<Gpu>,
+    pub(crate) end: bool,
+    pub(crate) time: TimeManager,
+    pub(crate) scenes: SceneManager,
+    pub(crate) window: Arc<Window>,
+    pub(crate) input: Input,
+    pub(crate) gpu: Arc<Gpu>,
     #[cfg(feature = "gui")]
-    pub gui: Gui,
+    pub(crate) gui: Gui,
     #[cfg(feature = "audio")]
-    pub audio: AudioManager,
+    pub(crate) audio: AudioManager,
     #[cfg(target_arch = "wasm32")]
-    pub auto_scale_canvas: bool,
+    pub(crate) auto_scale_canvas: bool,
     #[cfg(feature = "framebuffer")]
-    pub apply_framebuffer: bool,
+    pub(crate) apply_framebuffer: bool,
 }
 
 impl App {

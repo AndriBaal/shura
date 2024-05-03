@@ -87,6 +87,7 @@ fn update(ctx: &mut Context) {
                     ctx.remove_scene(active_scene_id).unwrap();
                 })),
             );
+            ctx.scenes.set_next_active_scene(active_scene_id + 1);
         }
     }
 

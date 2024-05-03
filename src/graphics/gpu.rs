@@ -1,8 +1,9 @@
 use std::{
     ops::{Deref, DerefMut},
-    sync::{Arc, Mutex, OnceLock, RwLock},
+    sync::{Arc, OnceLock},
 };
 
+use parking_lot::{Mutex, RwLock};
 use wgpu::include_wgsl;
 use winit::window::Window;
 
@@ -195,8 +196,8 @@ impl Gpu {
         let config = Self::default_config(&self.surface, &self.adapter, &window);
         self.update_msaa(Vector2::new(config.width, config.height));
         self.surface.configure(&self.device, &config);
-        *self.surface_size.lock().unwrap() = Vector2::new(config.width, config.height);
-        *self.config.lock().unwrap() = config;
+        *self.surface_size.lock() = Vector2::new(config.width, config.height);
+        *self.config.lock() = config;
     }
 
     /// Resize the surface, making sure to not resize to zero.
@@ -205,15 +206,15 @@ impl Gpu {
         log::info!("Surface resize {size:?}");
         self.update_msaa(size);
 
-        let mut config = self.config.lock().unwrap();
+        let mut config = self.config.lock();
         config.width = size.x.max(1);
         config.height = size.y.max(1);
-        *self.surface_size.lock().unwrap() = Vector2::new(config.width, config.height);
+        *self.surface_size.lock() = Vector2::new(config.width, config.height);
         self.surface.configure(&self.device, &config);
     }
 
     pub(crate) fn start_frame(&self, gpu: &Gpu) -> SurfaceRenderTarget {
-        let config = self.config.lock().unwrap();
+        let config = self.config.lock();
         let surface_texture = match self.surface.get_current_texture() {
             Ok(frame) => frame,
             // If we timed out, just try again
@@ -239,7 +240,6 @@ impl Gpu {
             msaa_view: self
                 .target_msaa
                 .lock()
-                .unwrap()
                 .as_ref()
                 .map(|msaa| msaa.create_view(&Default::default())),
             surface_texture,
@@ -247,7 +247,7 @@ impl Gpu {
     }
 
     pub(crate) fn apply_vsync(&self, vsync: bool) {
-        let mut config = self.config.lock().unwrap();
+        let mut config = self.config.lock();
         let new_mode = if vsync {
             wgpu::PresentMode::AutoVsync
         } else {
@@ -258,7 +258,7 @@ impl Gpu {
     }
 
     pub(crate) fn update_msaa(&self, size: Vector2<u32>) {
-        let mut target_msaa = self.target_msaa.lock().unwrap();
+        let mut target_msaa = self.target_msaa.lock();
         if self.samples() != 1 && (size != self.surface_size() || target_msaa.is_none()) {
             *target_msaa = Some(SpriteRenderTarget::create_msaa(self, size));
         }
@@ -270,7 +270,7 @@ impl Gpu {
     }
 
     pub fn submit(&self) -> wgpu::SubmissionIndex {
-        let mut command_buffers = self.command_buffers.lock().unwrap();
+        let mut command_buffers = self.command_buffers.lock();
         let command_buffers = std::mem::take(&mut *command_buffers);
         self.queue.submit(command_buffers)
     }
@@ -372,15 +372,15 @@ impl Gpu {
     }
 
     pub fn default_assets(&self) -> impl Deref<Target = DefaultAssets> + '_ {
-        self.default_assets.get().unwrap().read().unwrap()
+        self.default_assets.get().unwrap().read()
     }
 
     pub fn default_assets_mut(&self) -> impl DerefMut<Target = DefaultAssets> + '_ {
-        self.default_assets.get().unwrap().write().unwrap()
+        self.default_assets.get().unwrap().write()
     }
 
     pub fn surface_size(&self) -> Vector2<u32> {
-        self.surface_size.lock().unwrap().clone()
+        self.surface_size.lock().clone()
     }
 
     pub fn surface(&self) -> &wgpu::Surface {
@@ -388,7 +388,7 @@ impl Gpu {
     }
 
     pub fn surface_config(&self) -> wgpu::SurfaceConfiguration {
-        self.config.lock().unwrap().clone()
+        self.config.lock().clone()
     }
 }
 
