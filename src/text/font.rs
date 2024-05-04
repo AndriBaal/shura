@@ -1,16 +1,12 @@
-use std::sync::Arc;
-
 use owned_ttf_parser::AsFaceRef;
 use rustc_hash::FxHashMap;
+use std::sync::Arc;
 
 use crate::{
-    assets::load_asset_bytes_async,
     graphics::{Gpu, SpriteSheet, SpriteSheetBuilder, SpriteSheetIndex},
+    io::AssetManager,
     math::Vector2,
 };
-
-#[cfg(not(target_arch = "wasm32"))]
-use crate::assets::load_asset_bytes;
 
 pub enum FontBuilder {
     Ref(&'static [u8]),
@@ -26,14 +22,8 @@ impl<'a> FontBuilder {
         Self::Owned(bytes)
     }
 
-    pub async fn asset_async(path: &str) -> Self {
-        let bytes = load_asset_bytes_async(path).await.unwrap();
-        Self::Owned(bytes)
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn asset(path: &str) -> Self {
-        let bytes = load_asset_bytes(path).unwrap();
+    pub fn asset(assets: &dyn AssetManager, path: &str) -> Self {
+        let bytes = assets.load_bytes(path).unwrap();
         Self::Owned(bytes)
     }
 }

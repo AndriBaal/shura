@@ -6,6 +6,7 @@ use crate::{
     context::{Context, RenderContext},
     graphics::{Gpu, GpuConfig, RenderEncoder, GLOBAL_GPU},
     input::Input,
+    io::{AssetManager, StorageManager},
     math::Vector2,
     scene::{Scene, SceneManager},
     system::{EndReason, UpdateOperation},
@@ -19,6 +20,7 @@ use crate::{
 #[cfg(target_os = "android")]
 use winit::platform::android::activity::AndroidApp;
 use winit::{
+    application::ApplicationHandler,
     event::WindowEvent,
     event_loop::{ActiveEventLoop, EventLoop},
     window::Window,
@@ -32,9 +34,9 @@ use rustc_hash::FxHashMap;
 
 pub struct AppConfig {
     pub window: winit::window::WindowAttributes,
-    // pub winit_events:
-    //     Vec<Box<dyn Fn(&winit::event::Event<()>, &winit::event_loop::EventLoopWindowTarget<()>)>>,
     pub gpu: GpuConfig,
+    pub storage: Arc<dyn StorageManager>,
+    pub assets: Arc<dyn AssetManager>,
     pub scene_id: u32,
     #[cfg(feature = "framebuffer")]
     pub apply_frame_buffer: bool,
@@ -57,12 +59,20 @@ impl Default for AppConfig {
 impl AppConfig {
     pub const FIRST_SCENE_ID: u32 = 0;
     pub fn new(#[cfg(target_os = "android")] android: AndroidApp) -> Self {
+        #[cfg(target_arch = "wasm32")]
+        let (assets, storage) = (crate::io::WebAssetManager, crate::io::UnimplmentedStorageManager);
+
+        #[cfg(not(target_arch = "wasm32"))]
+        let (assets, storage) = (crate::io::NativeAssetManager, crate::io::NativeStorageManager);
+
         AppConfig {
             window: winit::window::WindowAttributes::default()
                 .with_inner_size(winit::dpi::PhysicalSize::new(800, 600))
                 .with_title("App Game"),
-            // winit_events: vec![],
             gpu: GpuConfig::default(),
+            scene_id: Self::FIRST_SCENE_ID,
+            storage: Arc::new(storage),
+            assets: Arc::new(assets),
             #[cfg(target_os = "android")]
             android,
             #[cfg(feature = "log")]
@@ -81,7 +91,6 @@ impl AppConfig {
                 );
                 map
             },
-            scene_id: Self::FIRST_SCENE_ID,
             #[cfg(feature = "framebuffer")]
             apply_frame_buffer: true,
         }
@@ -97,22 +106,26 @@ impl AppConfig {
         self
     }
 
+    pub fn scene_id(mut self, scene_id: u32) -> Self {
+        self.scene_id = scene_id;
+        self
+    }
+
+    pub fn storage(mut self, storage: impl StorageManager) -> Self {
+        self.storage = Arc::new(storage);
+        self
+    }
+
+    pub fn assets(mut self, assets: impl AssetManager) -> Self {
+        self.assets = Arc::new(assets);
+        self
+    }
+
     #[cfg(feature = "log")]
     pub fn logger(mut self, logger: Option<LoggerBuilder>) -> Self {
         self.logger = logger;
         self
     }
-
-    // pub fn winit_event(
-    //     mut self,
-    //     event: impl for<'a, 'b> Fn(
-    //             &'a winit::event::Event<()>,
-    //             &'b winit::event_loop::EventLoopWindowTarget<()>,
-    //         ) + 'static,
-    // ) -> Self {
-    //     self.winit_events.push(Box::new(event));
-    //     self
-    // }
 
     #[cfg(target_arch = "wasm32")]
     pub fn canvas_attr(mut self, key: String, value: String) -> Self {
@@ -143,9 +156,7 @@ impl<S: Into<Scene>, I: FnOnce() -> S> AppState<S, I> {
     }
 }
 
-impl<S: Into<Scene>, I: FnOnce() -> S> winit::application::ApplicationHandler<()>
-    for AppState<S, I>
-{
+impl<S: Into<Scene>, I: FnOnce() -> S> ApplicationHandler<()> for AppState<S, I> {
     fn about_to_wait(&mut self, _event_loop: &winit::event_loop::ActiveEventLoop) {
         match self {
             AppState::Initialized(app) => app.window.request_redraw(),
@@ -237,6 +248,8 @@ impl<S: Into<Scene>, I: FnOnce() -> S> winit::application::ApplicationHandler<()
 }
 
 pub struct App {
+    pub(crate) storage: Arc<dyn StorageManager>,
+    pub(crate) assets: Arc<dyn AssetManager>,
     pub(crate) end: bool,
     pub(crate) time: TimeManager,
     pub(crate) scenes: SceneManager,
@@ -314,7 +327,7 @@ impl App {
             body.append_child(canvas).ok();
         }
 
-        let gpu = pollster::block_on(Gpu::new(window.clone(), config.gpu));
+        let gpu = futures_executor::block_on(Gpu::new(window.clone(), config.gpu));
         let gpu = Arc::new(gpu);
         gpu.resume(&window);
 
@@ -322,13 +335,10 @@ impl App {
 
         let size = gpu.surface_size();
         let scene = (init)();
+
         Self {
-            scenes: SceneManager::new(scene.into(), config.scene_id),
-            time: TimeManager::new(),
-            input: Input::new(size.cast::<f32>()),
             #[cfg(feature = "audio")]
             audio: AudioManager::new(),
-            end: false,
             #[cfg(feature = "gui")]
             gui: Gui::new(&window, &gpu),
             #[cfg(target_arch = "wasm32")]
@@ -337,6 +347,12 @@ impl App {
             apply_framebuffer: config.apply_frame_buffer,
             window,
             gpu,
+            assets: config.assets,
+            storage: config.storage,
+            end: false,
+            scenes: SceneManager::new(scene.into(), config.scene_id),
+            time: TimeManager::new(),
+            input: Input::new(size.cast::<f32>()),
         }
     }
 
@@ -366,7 +382,7 @@ impl App {
                 let height: u32 = browser_window.inner_height().unwrap().as_f64().unwrap() as u32;
                 let size = winit::dpi::PhysicalSize::new(width, height);
                 if size != self.window.inner_size().into() {
-                    self.window.request_inner_size(size);
+                    let _ = self.window.request_inner_size(size);
                 }
             }
         }

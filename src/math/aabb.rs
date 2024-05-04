@@ -79,7 +79,7 @@ impl AABB {
         }
     }
 
-    pub fn from_position(position: Isometry2<f32>, half_extents: Vector2<f32>,) -> Self {
+    pub fn from_position(position: Isometry2<f32>, half_extents: Vector2<f32>) -> Self {
         Self {
             min: -half_extents,
             max: half_extents,
@@ -138,14 +138,14 @@ impl AABB {
     }
 }
 
-#[cfg(feature="physics")]
+#[cfg(feature = "physics")]
 impl Into<rapier2d::prelude::Aabb> for AABB {
     fn into(self) -> rapier2d::prelude::Aabb {
         rapier2d::prelude::Aabb::new(self.min.into(), self.max.into())
     }
 }
 
-#[cfg(feature="physics")]
+#[cfg(feature = "physics")]
 impl From<rapier2d::prelude::Aabb> for AABB {
     fn from(value: rapier2d::prelude::Aabb) -> Self {
         Self::new(value.mins.coords, value.maxs.coords)

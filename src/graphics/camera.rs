@@ -4,10 +4,9 @@ use std::ops::*;
 
 use crate::{
     graphics::Gpu,
-    graphics::{UniformData, Uniform},
+    graphics::{Uniform, UniformData},
     math::{Isometry2, Isometry3, Matrix4, Point3, Rotation2, Vector2, Vector3, AABB},
 };
-
 
 const MINIMAL_FOV: f32 = 0.0001;
 
@@ -47,7 +46,7 @@ impl<C: Camera> CameraBuffer<C> {
     }
 }
 
-impl <C: Camera> Uniform for CameraBuffer<C> {
+impl<C: Camera> Uniform for CameraBuffer<C> {
     fn bind_group(&self) -> &wgpu::BindGroup {
         self.uniform.bind_group()
     }

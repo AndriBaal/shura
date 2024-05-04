@@ -1,6 +1,7 @@
-use crate::prelude::load_asset_bytes_async;
 use rodio::Decoder;
 use std::sync::Arc;
+
+use crate::io::AssetManager;
 
 #[derive(Clone)]
 pub struct SoundBuilder {
@@ -14,15 +15,8 @@ impl SoundBuilder {
         }
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn asset(path: &str) -> Self {
-        use crate::prelude::load_asset_bytes;
-        let bytes = load_asset_bytes(path).unwrap();
-        Self::bytes(&bytes)
-    }
-
-    pub async fn asset_async(path: &str) -> Self {
-        let bytes = load_asset_bytes_async(path).await.unwrap();
+    pub fn asset(assets: &dyn AssetManager, path: &str) -> Self {
+        let bytes = assets.load_bytes(path).unwrap();
         Self::bytes(&bytes)
     }
 }

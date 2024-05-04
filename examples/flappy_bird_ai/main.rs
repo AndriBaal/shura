@@ -64,7 +64,11 @@ fn update(ctx: &mut Context) {
     });
 
     simulation.spawn_timer += delta;
-    let score = birds.iter().find(|b| b.pos.visibility == PositionComponent2DVisibility::Static(true)).unwrap().score as u32;
+    let score = birds
+        .iter()
+        .find(|b| b.pos.visibility == PositionComponent2DVisibility::Static(true))
+        .unwrap()
+        .score as u32;
     if score > simulation.high_score {
         simulation.high_score = score;
     }
@@ -106,7 +110,8 @@ fn update(ctx: &mut Context) {
             || bird_aabb.intersects(&bottom_aabb)
             || bird_aabb.intersects(&top_aabb)
         {
-            bird.pos.set_visibility(PositionComponent2DVisibility::Static(false));
+            bird.pos
+                .set_visibility(PositionComponent2DVisibility::Static(false));
         }
 
         if bird.pos.visibility == PositionComponent2DVisibility::Static(false) {
@@ -127,7 +132,10 @@ fn update(ctx: &mut Context) {
         }
     });
 
-    let dead_count = birds.iter().filter(|b| b.pos.visibility == PositionComponent2DVisibility::Static(true)).count();
+    let dead_count = birds
+        .iter()
+        .filter(|b| b.pos.visibility == PositionComponent2DVisibility::Static(true))
+        .count();
 
     if dead_count == 0 {
         let mut max_fitness = 0.0;

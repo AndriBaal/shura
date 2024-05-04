@@ -9,10 +9,14 @@ use rustc_hash::FxHashMap;
 #[cfg(feature = "serde")]
 use crate::entity::EntityGroupHandle;
 use crate::{
-    component::{ComponentBundle, ComponentType, ComponentTypeMut}, entity::{
+    component::{ComponentBundle, ComponentType, ComponentTypeMut},
+    entity::{
         Entities, Entity, EntityGroupManager, EntityId, EntityIdentifier, EntityType,
         GroupedEntities, SingleEntity,
-    }, graphics::RenderGroupManager, math::AABB, physics::World
+    },
+    graphics::RenderGroupManager,
+    math::AABB,
+    physics::World,
 };
 
 use super::{EntityHandle, GlobalEntities};
@@ -299,7 +303,7 @@ impl EntityManager {
         buffers: &mut RenderGroupManager,
         groups: &EntityGroupManager,
         world: &World,
-        cam2d: &AABB
+        cam2d: &AABB,
     ) {
         for ty in &self.types {
             let ty = ty.1.ref_dyn();
@@ -339,7 +343,7 @@ impl EntityManager {
         bincode::serialize(
             self.get_dyn(ET::Entity::IDENTIFIER)
                 .downcast_ref::<ET>()
-                .unwrap(),
+                .unwrap_or_else(|| panic!("{}", wrong_type::<ET::Entity>())),
         )
         .unwrap()
     }
@@ -368,43 +372,42 @@ impl EntityManager {
     pub fn single_mut<E: EntityIdentifier>(&self) -> RefMut<SingleEntity<E>> {
         self.types
             .get(&E::IDENTIFIER)
-            .unwrap_or_else(|| { panic!("{}", no_type_error::<E>()) })
+            .unwrap_or_else(|| panic!("{}", no_type_error::<E>()))
             .ref_mut()
     }
 
     pub fn single<E: EntityIdentifier>(&self) -> Ref<SingleEntity<E>> {
         self.types
             .get(&E::IDENTIFIER)
-            .unwrap_or_else(|| { panic!("{}", no_type_error::<E>()) })
+            .unwrap_or_else(|| panic!("{}", no_type_error::<E>()))
             ._ref()
     }
 
     pub fn get_mut<E: EntityIdentifier>(&self) -> RefMut<Entities<E>> {
         self.types
             .get(&E::IDENTIFIER)
-            .unwrap_or_else(|| { panic!("{}", no_type_error::<E>()) })
+            .unwrap_or_else(|| panic!("{}", no_type_error::<E>()))
             .ref_mut()
     }
 
     pub fn get<E: EntityIdentifier>(&self) -> Ref<Entities<E>> {
         self.types
             .get(&E::IDENTIFIER)
-            .unwrap_or_else(|| { panic!("{}", no_type_error::<E>()) })
+            .unwrap_or_else(|| panic!("{}", no_type_error::<E>()))
             ._ref()
     }
 
     pub fn group_mut<ET: EntityType + Default>(&self) -> RefMut<GroupedEntities<ET>> {
         self.types
             .get(&ET::Entity::IDENTIFIER)
-            .unwrap_or_else(|| { panic!("{}", no_type_error::<ET::Entity>()) })
+            .unwrap_or_else(|| panic!("{}", no_type_error::<ET::Entity>()))
             .ref_mut()
     }
 
     pub fn group<ET: EntityType + Default>(&self) -> Ref<GroupedEntities<ET>> {
         self.types
             .get(&ET::Entity::IDENTIFIER)
-            .unwrap_or_else(|| { panic!("{}", no_type_error::<ET::Entity>()) })
+            .unwrap_or_else(|| panic!("{}", no_type_error::<ET::Entity>()))
             ._ref()
     }
-
 }

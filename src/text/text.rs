@@ -283,7 +283,12 @@ pub struct TextComponent2D {
 
 impl Component for TextComponent2D {
     type Instance = LetterInstance2D;
-    fn buffer(&self, _world: &World, _cam2d: &AABB, render_group: &mut RenderGroup<Self::Instance>) {
+    fn buffer(
+        &self,
+        _world: &World,
+        _cam2d: &AABB,
+        render_group: &mut RenderGroup<Self::Instance>,
+    ) {
         for letter in &self.letters {
             // TODO: Implement AABB check
             let rotation = letter.pos.rotation * self.position.rotation;

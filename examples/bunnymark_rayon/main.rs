@@ -65,7 +65,7 @@ fn update(ctx: &mut Context) {
     if let Some(screenshot) = assets.screenshot.take() {
         log::info!("Saving Screenshot!");
         let bytes = screenshot.sprite().to_bytes(&ctx.gpu);
-        save_data("screenshot.png", bytes).unwrap();
+        store("screenshot.png", bytes).unwrap();
     } else if ctx.input.is_pressed(Key::KeyS) {
         assets.screenshot = Some(ctx.gpu.create_render_target(ctx.window_size));
     }

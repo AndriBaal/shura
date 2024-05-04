@@ -70,7 +70,7 @@ impl RigidBodyComponentStatus {
 pub enum PhysicsComponentVisibility {
     Static(bool),
     Size(Vector2<f32>),
-    ColliderSize
+    ColliderSize,
 }
 
 impl Default for PhysicsComponentVisibility {
@@ -227,9 +227,7 @@ impl Component for RigidBodyComponent {
                     RigidBodyComponentStatus::Initialized { rigid_body_handle } => {
                         world.rigid_body(*rigid_body_handle).unwrap()
                     }
-                    RigidBodyComponentStatus::Uninitialized { rigid_body, .. } => {
-                        &**rigid_body
-                    }
+                    RigidBodyComponentStatus::Uninitialized { rigid_body, .. } => &**rigid_body,
                 };
 
                 let aabb = AABB::from_center(*rigid_body.translation(), size);
@@ -255,9 +253,17 @@ impl Component for RigidBodyComponent {
                         }
                         rigid_body
                     }
-                    RigidBodyComponentStatus::Uninitialized { rigid_body, colliders } => {
+                    RigidBodyComponentStatus::Uninitialized {
+                        rigid_body,
+                        colliders,
+                    } => {
                         for collider in colliders {
-                            aabb.combine(collider.shape().compute_aabb(&(rigid_body.position() * collider.position())).into())
+                            aabb.combine(
+                                collider
+                                    .shape()
+                                    .compute_aabb(&(rigid_body.position() * collider.position()))
+                                    .into(),
+                            )
                         }
                         &**rigid_body
                     }

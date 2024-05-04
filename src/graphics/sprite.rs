@@ -1,10 +1,8 @@
 use wgpu::util::DeviceExt;
 
-#[cfg(not(target_arch = "wasm32"))]
-use crate::assets::load_asset_bytes;
 use crate::{
-    assets::load_asset_bytes_async,
     graphics::{Gpu, RgbaColor, Uniform},
+    io::AssetManager,
     math::Vector2,
 };
 use std::ops::Deref;
@@ -18,16 +16,11 @@ pub struct SpriteBuilder<'a, D: Deref<Target = [u8]>> {
 }
 
 impl<'a> SpriteBuilder<'a, image::RgbaImage> {
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn asset(path: &str) -> SpriteBuilder<'a, image::ImageBuffer<image::Rgba<u8>, Vec<u8>>> {
-        let bytes = load_asset_bytes(path).unwrap();
-        Self::bytes(&bytes)
-    }
-
-    pub async fn asset_async(
+    pub fn asset(
+        assets: &dyn AssetManager,
         path: &str,
     ) -> SpriteBuilder<'a, image::ImageBuffer<image::Rgba<u8>, Vec<u8>>> {
-        let bytes = load_asset_bytes_async(path).await.unwrap();
+        let bytes = assets.load_bytes(path).unwrap();
         Self::bytes(&bytes)
     }
 
@@ -306,7 +299,7 @@ impl Sprite {
                 tx.send(result).unwrap();
             });
             gpu.device.poll(wgpu::Maintain::Wait);
-            pollster::block_on(rx.receive()).unwrap().unwrap();
+            futures_executor::block_on(rx.receive()).unwrap().unwrap();
             let data = buffer_slice.get_mapped_range();
             let mut raw = data.as_ref().to_vec();
             if self.format == wgpu::TextureFormat::Bgra8Unorm
@@ -346,10 +339,8 @@ impl Sprite {
     }
 }
 
-
 impl Uniform for Sprite {
     fn bind_group(&self) -> &wgpu::BindGroup {
         &self.bind_group
     }
 }
-

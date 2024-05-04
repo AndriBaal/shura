@@ -153,9 +153,6 @@ impl<'a> RenderEncoder<'a> {
     }
 
     pub fn finish(self) {
-        self.gpu
-            .command_buffers
-            .lock()
-            .push(self.finish_get())
+        self.gpu.command_buffers.lock().push(self.finish_get())
     }
 }

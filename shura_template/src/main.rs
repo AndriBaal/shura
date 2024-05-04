@@ -30,8 +30,9 @@ fn setup(ctx: &mut Context) {
     ctx.entities.get_mut().add_many(ctx.world, cubes);
 
     let gpu = ctx.gpu.clone();
+    let assets = ctx.assets.clone();
     ctx.tasks
-        .spawn_async(async move { Assets::new(&gpu).await }, |ctx, res| {
+        .spawn(move || { Assets::new(&*assets, &gpu) }, |ctx, res| {
             ctx.entities.single_mut().set(ctx.world, res);
         });
 }
@@ -84,8 +85,8 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
         encoder.render3d(
             Some(RgbaColor::new(220, 220, 220, 255).into()),
             |renderer| {
-                ctx.render(renderer, "cube", |renderer, buffer, instances| {
-                    renderer.render_model(instances, buffer, ctx.world_camera3d, &assets.model);
+                ctx.group("cube", |buffer| {
+                    renderer.draw_model(buffer, ctx.world_camera3d, &assets.model);
                 });
             },
         );
@@ -98,9 +99,9 @@ struct Assets {
 }
 
 impl Assets {
-    pub async fn new(gpu: &Gpu) -> Self {
+    pub fn new(assets: &dyn AssetManager, gpu: &Gpu) -> Self {
         Self {
-            model: gpu.create_model(ModelBuilder::asset_async("3d/cube/cube.obj").await),
+            model: gpu.create_model(ModelBuilder::asset(assets, "3d/cube/cube.obj")),
         }
     }
 }

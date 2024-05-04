@@ -116,6 +116,8 @@ pub struct Scene {
     pub(crate) world_camera3d: WorldCamera3D,
     pub(crate) groups: EntityGroupManager,
     pub(crate) world: World,
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[cfg_attr(feature = "serde", serde(default))]
     pub(crate) started: bool,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default = "EntityManager::new"))]

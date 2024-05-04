@@ -1,5 +1,5 @@
-use std::ops::Deref;
 use downcast_rs::{impl_downcast, Downcast};
+use std::ops::Deref;
 
 use crate::{
     graphics::{Camera2D, Color, Gpu, RenderEncoder, Sprite, SpriteBuilder},

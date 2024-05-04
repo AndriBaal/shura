@@ -135,7 +135,7 @@ fn update(ctx: &mut Context) {
 fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
     let assets = ctx.entities.single::<Assets>().unwrap();
     encoder.render2d(Some(Color::BLACK), |renderer| {
-        ctx.group("player",|buffer| {
+        ctx.group("player", |buffer| {
             renderer.draw_sprite(
                 buffer,
                 ctx.world_camera2d,
@@ -144,11 +144,11 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
             )
         });
 
-        ctx.group("floor",|buffer| {
+        ctx.group("floor", |buffer| {
             renderer.draw_color(buffer, ctx.world_camera2d, &assets.floor_mesh)
         });
 
-        ctx.group("box",|buffer| {
+        ctx.group("box", |buffer| {
             renderer.draw_color(buffer, ctx.world_camera2d, &assets.box_mesh);
         });
     })

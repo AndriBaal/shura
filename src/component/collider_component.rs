@@ -6,7 +6,6 @@ use crate::{
     physics::{Collider, ColliderHandle, World},
 };
 
-
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ColliderComponentStatus {
     Initialized { collider_handle: ColliderHandle },
@@ -160,9 +159,7 @@ impl Component for ColliderComponent {
                     ColliderComponentStatus::Initialized { collider_handle } => {
                         world.collider(*collider_handle).unwrap()
                     }
-                    ColliderComponentStatus::Uninitialized { collider} => {
-                        &*collider
-                    }
+                    ColliderComponentStatus::Uninitialized { collider } => &*collider,
                 };
 
                 let aabb = AABB::from_center(*collider.translation(), size);
@@ -182,9 +179,7 @@ impl Component for ColliderComponent {
                     ColliderComponentStatus::Initialized { collider_handle } => {
                         world.collider(*collider_handle).unwrap()
                     }
-                    ColliderComponentStatus::Uninitialized { collider } => {
-                        &*collider
-                    }
+                    ColliderComponentStatus::Uninitialized { collider } => &*collider,
                 };
                 let aabb: AABB = collider.compute_aabb().into();
                 if aabb.intersects(cam2d) {

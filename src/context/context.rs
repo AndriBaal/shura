@@ -16,6 +16,7 @@ use crate::{
     entity::{EntityGroupManager, EntityManager},
     graphics::{Gpu, RenderGroupManager, ScreenConfig, WorldCamera2D, WorldCamera3D},
     input::Input,
+    io::{AssetManager, StorageManager},
     math::{Point2, Vector2},
     physics::World,
     prelude::{App, Scene, SceneManager, TimeManager},
@@ -49,6 +50,8 @@ pub struct Context<'a> {
     pub scenes: &'a mut SceneManager,
     pub window: Arc<winit::window::Window>,
     pub event_loop: &'a winit::event_loop::ActiveEventLoop,
+    pub storage: Arc<dyn StorageManager>,
+    pub assets: Arc<dyn AssetManager>,
 
     // Misc
     pub scene_id: &'a u32,
@@ -62,7 +65,7 @@ impl<'a> Context<'a> {
         scene_id: &'a u32,
         app: &'a mut App,
         scene: &'a mut Scene,
-        event_loop: &'a winit::event_loop::ActiveEventLoop
+        event_loop: &'a winit::event_loop::ActiveEventLoop,
     ) -> (&'a mut SystemManager, Context<'a>) {
         let surface_size = app.gpu.surface_size();
         let render_size = scene.screen_config.render_size(&app.gpu);
@@ -87,6 +90,8 @@ impl<'a> Context<'a> {
                 time: &app.time,
                 input: &app.input,
                 gpu: app.gpu.clone(),
+                storage: app.storage.clone(),
+                assets: app.assets.clone(),
                 #[cfg(feature = "gui")]
                 gui: &mut app.gui,
                 #[cfg(feature = "audio")]
@@ -202,6 +207,8 @@ impl<'a> Context<'a> {
                 time: self.time,
                 input: self.input,
                 gpu: self.gpu.clone(),
+                storage: self.storage.clone(),
+                assets: self.assets.clone(),
                 #[cfg(feature = "gui")]
                 gui: self.gui,
                 #[cfg(feature = "audio")]
@@ -209,7 +216,7 @@ impl<'a> Context<'a> {
                 end: self.end,
                 scenes: self.scenes,
                 window: self.window.clone(),
-                event_loop: self.event_loop
+                event_loop: self.event_loop,
             };
             (action)(&mut scene.systems, &mut ctx);
         }

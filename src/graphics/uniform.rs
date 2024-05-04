@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 
 pub trait Uniform {
     fn bind_group(&self) -> &wgpu::BindGroup;
-} 
+}
 
 #[derive(Debug)]
 pub struct UniformData<T: bytemuck::Pod> {
@@ -76,7 +76,7 @@ impl<T: bytemuck::Pod> UniformData<T> {
     }
 }
 
-impl <T: bytemuck::Pod> Uniform for UniformData<T> {
+impl<T: bytemuck::Pod> Uniform for UniformData<T> {
     fn bind_group(&self) -> &wgpu::BindGroup {
         &self.bind_group
     }

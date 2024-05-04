@@ -5,7 +5,6 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub mod animation;
 pub mod app;
 pub mod arena;
-pub mod assets;
 #[cfg(feature = "audio")]
 pub mod audio;
 pub mod component;
@@ -15,6 +14,7 @@ pub mod graphics;
 #[cfg(feature = "gui")]
 pub mod gui;
 pub mod input;
+pub mod io;
 #[cfg(feature = "log")]
 pub mod log;
 pub mod math;
@@ -72,7 +72,6 @@ pub mod prelude {
     pub use crate::animation::*;
     pub use crate::app::*;
     pub use crate::arena::*;
-    pub use crate::assets::*;
     #[cfg(feature = "audio")]
     pub use crate::audio::*;
     pub use crate::component::*;
@@ -82,6 +81,7 @@ pub mod prelude {
     #[cfg(feature = "gui")]
     pub use crate::gui;
     pub use crate::input::*;
+    pub use crate::io::*;
     #[cfg(feature = "log")]
     pub use crate::log::*;
     pub use crate::macros::*;

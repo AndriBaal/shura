@@ -4,7 +4,7 @@ use crate::{graphics::Gpu, math::Vector2};
 pub struct DepthBuffer {
     view: wgpu::TextureView,
     size: Vector2<u32>,
-    format: wgpu::TextureFormat
+    format: wgpu::TextureFormat,
 }
 
 impl DepthBuffer {

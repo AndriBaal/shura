@@ -8,9 +8,8 @@ use crate::{
         SingleEntity,
     },
     graphics::{
-        CameraBuffer, CameraBuffer2D, DefaultAssets, Instance, Instance2D, InstanceBuffer,
-        Mesh2D, RenderGroupManager, RenderTarget, SurfaceRenderTarget,
-        WorldCamera3D,
+        CameraBuffer, CameraBuffer2D, DefaultAssets, Instance, Instance2D, InstanceBuffer, Mesh2D,
+        RenderGroupManager, RenderTarget, SurfaceRenderTarget, WorldCamera3D,
     },
     prelude::Scene,
     system::SystemManager,

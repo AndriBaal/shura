@@ -25,7 +25,7 @@ fn deserialized_scene(data: Vec<u8>) -> SerializedScene {
 
 #[shura::main]
 fn app(config: AppConfig) {
-    if let Ok(save_game) = load_data_bytes("data.binc") {
+    if let Ok(save_game) = config.storage.load_bytes("data.binc") {
         App::run(config, move || deserialized_scene(save_game))
     } else {
         App::run(config, || {
@@ -79,7 +79,7 @@ fn update(ctx: &mut Context) {
     }
 
     if ctx.input.is_pressed(Key::KeyR) {
-        if let Ok(save_game) = load_data_bytes("data.binc") {
+        if let Ok(save_game) = ctx.storage.load_bytes("data.binc") {
             let active_scene_id = ctx.scenes.active_scene_id();
             ctx.add_scene(
                 active_scene_id + 1,
@@ -212,10 +212,10 @@ fn serialize_scene(ctx: &mut Context) {
             serializer
                 .serialize_entity_single::<Floor>()
                 .serialize_entity_single::<Player>()
-                .serialize_entity_single::<PhysicsBox>()
+                .serialize_entity::<PhysicsBox>()
         })
         .unwrap();
-    save_data("data.binc", ser).unwrap();
+    ctx.storage.store("data.binc", &ser).unwrap();
 }
 
 #[derive(Entity)]

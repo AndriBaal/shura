@@ -59,14 +59,20 @@ impl_downcast!(EntityType);
 
 pub trait SingleEntityRef<'a, E: Entity> {
     fn get_ref(self) -> Option<Ref<'a, E>>;
-    fn unwrap(self) -> Ref<'a, E> where Self: Sized {
+    fn unwrap(self) -> Ref<'a, E>
+    where
+        Self: Sized,
+    {
         self.get_ref().unwrap()
     }
 }
 
 pub trait SingleEntityRefMut<'a, E: Entity> {
     fn get_ref(self) -> Option<RefMut<'a, E>>;
-    fn unwrap(self) -> RefMut<'a, E> where Self: Sized {
+    fn unwrap(self) -> RefMut<'a, E>
+    where
+        Self: Sized,
+    {
         self.get_ref().unwrap()
     }
 }

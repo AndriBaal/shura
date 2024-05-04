@@ -19,7 +19,7 @@ cargo apk run --lib --release
 ```
 
 ### WASM:
-Make sure that [wasm-server-runner](https://github.com/jakobhellermann/wasm-server-runner) is installed.
+Make sure that [wasm-server-runner](https://github.com/jakobhellermann/wasm-server-runner) is installed and up to date.
 
 ```
 cargo build --release --target wasm32-unknown-unknown

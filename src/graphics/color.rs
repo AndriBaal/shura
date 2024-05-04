@@ -174,12 +174,7 @@ pub struct Color {
 #[cfg(feature = "gui")]
 impl From<Color> for egui::Rgba {
     fn from(val: Color) -> Self {
-        egui::Rgba::from_rgba_premultiplied(
-            val.r,
-            val.g,
-            val.g,
-            val.a,
-        )
+        egui::Rgba::from_rgba_premultiplied(val.r, val.g, val.g, val.a)
     }
 }
 

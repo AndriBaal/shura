@@ -166,7 +166,8 @@ impl Gpu {
 
         gpu.resume(&window);
         gpu.default_assets
-            .set(RwLock::new(DefaultAssets::new(&gpu))).unwrap();
+            .set(RwLock::new(DefaultAssets::new(&gpu)))
+            .unwrap();
 
         return gpu;
     }

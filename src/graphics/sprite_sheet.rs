@@ -1,8 +1,6 @@
-#[cfg(not(target_arch = "wasm32"))]
-use crate::assets::load_asset_bytes;
 use crate::{
-    assets::load_asset_bytes_async,
     graphics::{Gpu, RgbaColor, Uniform},
+    io::AssetManager,
     math::Vector2,
 };
 use std::ops::Deref;
@@ -26,31 +24,16 @@ pub struct SpriteSheetBuilder<'a, D: Deref<Target = [u8]>> {
 }
 
 impl<'a> SpriteSheetBuilder<'a, image::RgbaImage> {
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn asset(path: &str, size: TileSize) -> Self {
-        let bytes = load_asset_bytes(path).unwrap();
+    pub fn asset(assets: &dyn AssetManager, path: &str, size: TileSize) -> Self {
+        let bytes = assets.load_bytes(path).unwrap();
         Self::bytes(&bytes, size)
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn assets(paths: &[&str]) -> Self {
+    pub fn assets(assets: &dyn AssetManager, paths: &[&str]) -> Self {
         let byte_array = paths
             .iter()
-            .map(|path| load_asset_bytes(path).unwrap())
+            .map(|path| assets.load_bytes(path).unwrap())
             .collect::<Vec<_>>();
-        Self::byte_array(&byte_array)
-    }
-
-    pub async fn asset_async(path: &str, size: TileSize) -> Self {
-        let bytes = load_asset_bytes_async(path).await.unwrap();
-        Self::bytes(&bytes, size)
-    }
-
-    pub async fn assets_async(paths: &[&str]) -> Self {
-        let mut byte_array = vec![];
-        for path in paths {
-            byte_array.push(load_asset_bytes_async(path).await.unwrap());
-        }
         Self::byte_array(&byte_array)
     }
 
@@ -345,7 +328,6 @@ impl Uniform for SpriteSheet {
         &self.bind_group
     }
 }
-
 
 // pub fn from_multiple(gpu: &Gpu, sheets: &[&[u8]], sprite_size: Vector2<u32>) -> Self {
 //     let sprite_amount = size.component_div(&sprite_size);
