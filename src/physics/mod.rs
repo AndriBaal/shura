@@ -7,6 +7,7 @@ pub use rapier2d::control::{
 };
 pub use rapier2d::parry;
 pub use rapier2d::prelude::*;
+pub use rapier2d::parry::query::{ShapeCastOptions, ShapeCastStatus, ShapeCastHit};
 pub use rapier2d::{
     prelude::CollisionEvent as RapierCollisionEvent,
     prelude::ContactForceEvent as RapierContactForceEvent,

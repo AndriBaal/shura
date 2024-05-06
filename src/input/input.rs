@@ -8,7 +8,7 @@ use crate::{
 use gilrs::*;
 use instant::{Duration, Instant};
 use rustc_hash::FxHashMap;
-use winit::event::*;
+use winit::{event::*, keyboard::SmolStr};
 
 pub use winit::{
     event::{Modifiers, MouseButton},
@@ -87,6 +87,7 @@ pub enum InputEventState {
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct InputEvent {
+    display: Option<SmolStr>,
     trigger: InputTrigger,
     state: InputEventState,
     #[cfg_attr(feature = "serde", serde(skip))]
@@ -97,8 +98,9 @@ pub struct InputEvent {
 }
 
 impl InputEvent {
-    pub fn new(trigger: InputTrigger, pressure: f32) -> Self {
+    pub(crate) fn new(display: Option<SmolStr>, trigger: InputTrigger, pressure: f32) -> Self {
         Self {
+            display,
             trigger,
             state: InputEventState::Pressed,
             start: Instant::now(),
@@ -195,7 +197,7 @@ impl Input {
         self.window_size = window_size.cast()
     }
 
-    pub(crate) fn on_event(&mut self, event: &WindowEvent) {
+    pub(crate) fn on_event(&mut self, event: WindowEvent) {
         match event {
             WindowEvent::CursorMoved { position, .. } => {
                 self.cursor_raw = Point2::new(position.x as u32, position.y as u32);
@@ -207,7 +209,8 @@ impl Input {
                     TouchPhase::Started => {
                         let trigger = ScreenTouch.into();
                         self.touches.insert(touch.id, pos);
-                        self.events.insert(trigger, InputEvent::new(trigger, 1.0));
+                        self.events
+                            .insert(trigger, InputEvent::new(None, trigger, 1.0));
                     }
                     TouchPhase::Ended | TouchPhase::Cancelled => {
                         let trigger = ScreenTouch.into();
@@ -231,7 +234,7 @@ impl Input {
                             self.last_keys.push(key);
                             self.events
                                 .entry(trigger)
-                                .or_insert_with(|| InputEvent::new(trigger, 1.0));
+                                .or_insert_with(|| InputEvent::new(event.text, trigger, 1.0));
                         }
                         ElementState::Released => {
                             if let Some(event) = self.events.get_mut(&trigger) {
@@ -243,10 +246,21 @@ impl Input {
                 winit::keyboard::PhysicalKey::Unidentified(_) => {}
             },
             WindowEvent::MouseInput { state, button, .. } => {
-                let trigger = (*button).into();
+                let trigger = button.into();
                 match state {
                     ElementState::Pressed => {
-                        self.events.insert(trigger, InputEvent::new(trigger, 1.0));
+                        let display = match button {
+                            MouseButton::Left => format!("MouseLeft"),
+                            MouseButton::Right => format!("MouseRight"),
+                            MouseButton::Middle => format!("MouseMiddle"),
+                            MouseButton::Back => format!("MouseBack"),
+                            MouseButton::Forward => format!("MouseForward"),
+                            MouseButton::Other(u) => format!("Mouse{}", &u.to_string()),
+                        };
+                        self.events.insert(
+                            trigger,
+                            InputEvent::new(Some(SmolStr::new(display)), trigger, 1.0),
+                        );
                     }
                     ElementState::Released => {
                         if let Some(event) = self.events.get_mut(&trigger) {
@@ -257,14 +271,14 @@ impl Input {
             }
             WindowEvent::MouseWheel { delta, .. } => match delta {
                 MouseScrollDelta::LineDelta(_x, y) => {
-                    self.wheel_delta = *y;
+                    self.wheel_delta = y;
                 }
                 MouseScrollDelta::PixelDelta(delta) => {
                     self.wheel_delta = if delta.y > 0.0 { 1.0 } else { -1.0 };
                 }
             },
             WindowEvent::ModifiersChanged(state) => {
-                self.modifiers = *state;
+                self.modifiers = state;
             }
             _ => {}
         }
@@ -369,8 +383,14 @@ impl Input {
             match event.event {
                 EventType::ButtonPressed(button, _) => {
                     let trigger = GamepadButton { gamepad, button };
-                    self.events
-                        .insert(trigger.into(), InputEvent::new(trigger.into(), 1.0));
+                    self.events.insert(
+                        trigger.into(),
+                        InputEvent::new(
+                            Some(SmolStr::new(format!("{button:?}"))),
+                            trigger.into(),
+                            1.0,
+                        ),
+                    );
                 }
                 EventType::ButtonChanged(button, pressure, _) => {
                     let trigger = GamepadButton { gamepad, button };
@@ -379,8 +399,14 @@ impl Input {
                             event.state = InputEventState::JustReleased;
                         }
                     } else {
-                        self.events
-                            .insert(trigger.into(), InputEvent::new(trigger.into(), pressure));
+                        self.events.insert(
+                            trigger.into(),
+                            InputEvent::new(
+                                Some(SmolStr::new(format!("{button:?}"))),
+                                trigger.into(),
+                                pressure,
+                            ),
+                        );
                     }
                 }
                 EventType::ButtonReleased(button, _) => {
@@ -389,15 +415,8 @@ impl Input {
                         event.state = InputEventState::JustReleased;
                     }
                 }
-                EventType::Disconnected => {
-                    #[cfg(feature = "log")]
-                    {
-                        info!("Dropped gamepad: {}", gamepad);
-                    }
-                    self.events.retain(|trigger, _| match trigger {
-                        InputTrigger::GamepadButton(c) => c.gamepad != gamepad,
-                        _ => true,
-                    })
+                EventType::AxisChanged(_, _, _) => {
+                    
                 }
                 // TODO: Maybe support this
                 EventType::ButtonRepeated(_, _) => {}
@@ -414,7 +433,16 @@ impl Input {
                         );
                     }
                 }
-                EventType::AxisChanged(_, _, _) => {}
+                EventType::Disconnected => {
+                    #[cfg(feature = "log")]
+                    {
+                        info!("Dropped gamepad: {}", gamepad);
+                    }
+                    self.events.retain(|trigger, _| match trigger {
+                        InputTrigger::GamepadButton(c) => c.gamepad != gamepad,
+                        _ => true,
+                    })
+                }
             }
         }
         if let Some(active) = self.active_gamepad {

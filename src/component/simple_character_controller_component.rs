@@ -1,4 +1,4 @@
-use rapier2d::pipeline::QueryFilter;
+use rapier2d::{parry::query::ShapeCastOptions, pipeline::QueryFilter};
 
 use crate::{
     entity::EntityHandle,
@@ -181,17 +181,17 @@ impl<S: Shape> SimpleCharacterControllerComponent<S> {
         let colliders = world.colliders();
         let queries = world.query_pipeline();
         let translation_dir = desired_translation.normalize();
+
         if let Some((_handle, toi)) = queries.cast_shape(
             bodies,
             colliders,
             &character_pos,
             &desired_translation.normalize(),
             character_shape,
-            desired_translation.norm(),
-            false,
+            ShapeCastOptions::with_max_time_of_impact(desired_translation.norm()),
             filter,
         ) {
-            let allowed_dist = toi.toi;
+            let allowed_dist = toi.time_of_impact;
             desired_translation = translation_dir * allowed_dist;
         }
 

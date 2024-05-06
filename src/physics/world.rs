@@ -6,7 +6,7 @@ use crate::{
     math::{Isometry2, Point2, Vector2},
     physics::{RapierCollisionEvent, RapierContactForceEvent},
 };
-use rapier2d::{crossbeam, prelude::*};
+use rapier2d::{crossbeam, parry::query::ShapeCastOptions, prelude::*};
 use rustc_hash::FxHashMap;
 
 type EventReceiver<T> = crossbeam::channel::Receiver<T>;
@@ -247,7 +247,7 @@ pub struct World {
 
     integration_parameters: IntegrationParameters,
     islands: IslandManager,
-    broad_phase: BroadPhase,
+    broad_phase: BroadPhaseMultiSap,
     narrow_phase: NarrowPhase,
     ccd_solver: CCDSolver,
     #[cfg_attr(feature = "serde", serde(skip))]
@@ -288,7 +288,7 @@ impl World {
             query_pipeline: QueryPipeline::new(),
             integration_parameters: IntegrationParameters::default(),
             islands: IslandManager::new(),
-            broad_phase: BroadPhase::new(),
+            broad_phase: BroadPhaseMultiSap::new(),
             narrow_phase: NarrowPhase::new(),
             impulse_joints: ImpulseJointSet::new(),
             multibody_joints: MultibodyJointSet::new(),
@@ -515,18 +515,16 @@ impl World {
         shape: &dyn Shape,
         position: &Isometry2<f32>,
         velocity: &Vector2<f32>,
-        max_toi: f32,
-        stop_at_penetration: bool,
+        options: ShapeCastOptions,
         filter: QueryFilter,
-    ) -> Option<(EntityHandle, ColliderHandle, TOI)> {
+    ) -> Option<(EntityHandle, ColliderHandle, ShapeCastHit)> {
         if let Some(collider) = self.query_pipeline.cast_shape(
             &self.bodies,
             &self.colliders,
             position,
             velocity,
             shape,
-            max_toi,
-            stop_at_penetration,
+            options,
             filter,
         ) {
             if let Some(entity) = self.entity_from_collider(&collider.0) {

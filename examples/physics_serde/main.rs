@@ -74,7 +74,7 @@ fn setup(ctx: &mut Context) {
 }
 
 fn update(ctx: &mut Context) {
-    if ctx.input.is_pressed(Key::KeyZ) {
+    if ctx.input.is_pressed(Key::KeyT) {
         serialize_scene(ctx);
     }
 

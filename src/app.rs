@@ -231,7 +231,7 @@ impl<S: Into<Scene>, I: FnOnce() -> S> ApplicationHandler<()> for AppState<S, I>
                 let height = physical_size.height.max(1);
                 app.resize(Vector2::new(width, height));
             }
-            _ => app.input.on_event(&event),
+            _ => app.input.on_event(event),
         }
     }
 
