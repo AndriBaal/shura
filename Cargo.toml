@@ -89,7 +89,7 @@ winit = { version = "0.30", features = ["mint"] }
 wgpu = { version = "0.20", features = ["glsl", "spirv", "webgl"] }
 anyhow = "1.0"
 env_logger = { version = "0.11", optional = true }
-tobj = { version = "4.0", features = ["async"] }
+tobj = { version = "4.0" }
 rstar = "0.12"
 delaunator = "1"
 take_mut = "0.2"
@@ -112,7 +112,7 @@ log = { version = "0.4", optional = true, features = ["std"] }
 downcast-rs = "1.2.0"
 rustc-hash = "1.1"
 futures-intrusive = "0.5.0"
-futures-executor = "0.3.30"
+pollster = "0.3"
 bytemuck = { version = "1.15", features = ["derive"] }
 instant = "0.1.12"
 shura_macros = { workspace = true }

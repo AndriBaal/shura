@@ -131,15 +131,15 @@ impl WebAssetManager {
 impl AssetManager for WebAssetManager {
     fn load_bytes(&self, path: &str) -> Result<Vec<u8>> {
         let url = self.asset_url(path)?;
-        let response = futures_executor::block_on(reqwest::get(url))?;
-        let bytes = futures_executor::block_on(response.bytes())?;
+        let response = reqwest::get(url)?;
+        let bytes = response.bytes()?;
         return Ok(bytes.to_vec());
     }
 
     fn load_string(&self, path: &str) -> Result<String> {
         let url = self.asset_url(path)?;
-        let response = futures_executor::block_on(reqwest::get(url))?;
-        let text = futures_executor::block_on(response.text())?;
+        let response = reqwest::get(url)?;
+        let text = response.text()?;
         return Ok(text);
     }
 }

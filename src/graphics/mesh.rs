@@ -479,12 +479,12 @@ impl MeshBuilder2D {
         }
     }
 
-    pub fn compound(shapes: Vec<Self>) -> Self {
+    pub fn compound(shapes: &[Self]) -> Self {
         let mut vertices = vec![];
         let mut indices = vec![];
         let mut offset = 0;
         for shape in shapes {
-            let shape = shape.apply();
+            let shape = shape.clone().apply();
             vertices.extend(shape.vertices);
             let len = shape.indices.len() as u32;
             for index in shape.indices {
@@ -547,7 +547,7 @@ impl MeshBuilder2D {
                 )
             }
             TypedShape::Compound(compound) => {
-                let builders = compound
+                let builders: Vec<_> = compound
                     .shapes()
                     .iter()
                     .map(|s| {
@@ -556,21 +556,21 @@ impl MeshBuilder2D {
                     })
                     .collect();
 
-                Self::compound(builders)
+                Self::compound(&builders)
             }
             TypedShape::TriMesh(tri_mesh) => {
-                let builders = tri_mesh
+                let builders: Vec<_> = tri_mesh
                     .triangles()
                     .map(|s| Self::triangle(s.a.coords, s.b.coords, s.c.coords))
                     .collect();
-                Self::compound(builders)
+                Self::compound(&builders)
             }
             TypedShape::Polyline(poly_line) => {
-                let builders = poly_line
+                let builders: Vec<_> = poly_line
                     .segments()
                     .map(|s| Self::segment(s.a.coords, s.b.coords, half_thickness))
                     .collect();
-                Self::compound(builders)
+                Self::compound(&builders)
             }
             TypedShape::Custom(_) | TypedShape::HalfSpace(_) | TypedShape::HeightField(_) => {
                 panic!("Unsupported collider shape!");

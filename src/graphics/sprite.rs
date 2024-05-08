@@ -299,7 +299,7 @@ impl Sprite {
                 tx.send(result).unwrap();
             });
             gpu.device.poll(wgpu::Maintain::Wait);
-            futures_executor::block_on(rx.receive()).unwrap().unwrap();
+            pollster::block_on(rx.receive()).unwrap().unwrap();
             let data = buffer_slice.get_mapped_range();
             let mut raw = data.as_ref().to_vec();
             if self.format == wgpu::TextureFormat::Bgra8Unorm

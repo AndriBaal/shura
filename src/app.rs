@@ -327,7 +327,7 @@ impl App {
             body.append_child(canvas).ok();
         }
 
-        let gpu = futures_executor::block_on(Gpu::new(window.clone(), config.gpu));
+        let gpu = pollster::block_on(Gpu::new(window.clone(), config.gpu));
         let gpu = Arc::new(gpu);
         gpu.resume(&window);
 

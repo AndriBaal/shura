@@ -1,4 +1,4 @@
-use egui::Widget;
+// use egui::Widget;
 use shura::prelude::*;
 use std::f32::consts::{PI, TAU};
 
@@ -10,9 +10,9 @@ fn app(mut config: AppConfig) {
     App::run(config, || {
         Scene::new()
             .system(System::setup(setup))
-            .system(System::update(update))
             .system(System::resize(resize))
             .system(System::render(render))
+            .system(System::update(update).priority(SystemPriority::AFTER))
             .render_group2d("background", RenderGroupUpdate::MANUAL)
             // .render_group::<LightInstance>("shadow", RenderGroupUpdate::EVERY_FRAME)
             .render_group::<LightInstance>("light", RenderGroupUpdate::EVERY_FRAME)
@@ -108,7 +108,13 @@ fn resize(ctx: &mut Context) {
 }
 
 fn update(ctx: &mut Context) {
+    let mut shadow_mesh = MeshBuilder2D::custom(Default::default(), Default::default());
+    let cam_aabb = ctx.world_camera2d.aabb();
+    let mut assets = ctx.entities.single_mut::<LightAssets>().unwrap();
     for light in ctx.entities.get_mut::<Light>().iter_mut() {
+
+        for shadow in 
+
         if light.display {
             gui::Window::new("Light")
                 .resizable(false)
@@ -178,19 +184,17 @@ fn update(ctx: &mut Context) {
                         gui::widgets::Slider::new(&mut light.inner.sector.y, start..=PI).ui(ui);
                     });
                 });
-
-            if ctx.input.is_pressed(MouseButton::Left) && !ctx.gui.is_pointer_over_area() {
-                light.follow_player = !light.follow_player;
-            }
             if light.follow_player {
                 light.inner.translation = ctx.cursor.coords;
             }
         }
     }
+    assets.shadow_mesh = Some(ctx.gpu.create_mesh(&shadow_mesh));
 }
 
 #[derive(Entity)]
 pub struct LightAssets {
+    shadow_mesh: Option<Mesh2D>,
     light_map: SpriteRenderTarget,
     shadow_stencil: DepthBuffer,
     light_shader: Shader,
@@ -262,7 +266,8 @@ impl LightAssets {
             light_map: ctx.gpu.create_render_target(ctx.render_size),
             shadow_stencil: ctx
                 .gpu
-                .create_depth_buffer(ctx.render_size, TextureFormat::Depth16Unorm),
+                .create_depth_buffer(ctx.render_size, TextureFormat::Stencil8),
+            shadow_mesh: None,
         }
     }
 }
