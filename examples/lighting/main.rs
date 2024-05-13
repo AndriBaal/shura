@@ -113,7 +113,6 @@ fn update(ctx: &mut Context) {
     let mut assets = ctx.entities.single_mut::<LightAssets>().unwrap();
     for light in ctx.entities.get_mut::<Light>().iter_mut() {
 
-        for shadow in 
 
         if light.display {
             gui::Window::new("Light")

@@ -12,7 +12,7 @@ mod renderer;
 mod screen_config;
 mod shader;
 mod sprite;
-mod sprite_sheet;
+mod sprite_array;
 mod uniform;
 
 pub use camera::*;
@@ -29,5 +29,5 @@ pub use renderer::*;
 pub use screen_config::*;
 pub use shader::*;
 pub use sprite::*;
-pub use sprite_sheet::*;
+pub use sprite_array::*;
 pub use uniform::*;

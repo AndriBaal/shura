@@ -1,7 +1,7 @@
 use crate::{
     component::Component,
     entity::EntityHandle,
-    graphics::{Color, Instance2D, Instance3D, RenderGroup, SpriteAtlas, SpriteSheetIndex},
+    graphics::{Color, Instance2D, Instance3D, RenderGroup, SpriteAtlas, SpriteArrayIndex},
     math::{Isometry2, Isometry3, Rotation3, Vector2, Vector3, AABB},
     physics::World,
 };
@@ -133,15 +133,15 @@ impl PositionComponent2D {
         self
     }
 
-    pub const fn index(&self) -> &SpriteSheetIndex {
-        &self.instance.sprite_sheet_index
+    pub const fn index(&self) -> &SpriteArrayIndex {
+        &self.instance.sprite_array_index
     }
 
-    pub fn set_index(&mut self, index: SpriteSheetIndex) {
-        self.instance.sprite_sheet_index = index;
+    pub fn set_index(&mut self, index: SpriteArrayIndex) {
+        self.instance.sprite_array_index = index;
     }
 
-    pub fn with_index(mut self, index: SpriteSheetIndex) -> Self {
+    pub fn with_index(mut self, index: SpriteArrayIndex) -> Self {
         self.set_index(index);
         self
     }

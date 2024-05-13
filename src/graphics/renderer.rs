@@ -4,7 +4,7 @@ use crate::text::{Font, LetterInstance2D, TextMesh};
 use crate::graphics::{
     Camera, CameraBuffer, CameraBuffer2D, Color, DefaultAssets, DepthBuffer, Gpu, GpuId, Instance,
     InstanceBuffer, InstanceBuffer2D, InstanceBuffer3D, Mesh, Mesh2D, Model, RenderTarget, Shader,
-    Sprite, SpriteSheet, Uniform, UniformData, Vertex,
+    Sprite, SpriteArray, Uniform, UniformData, Vertex,
 };
 use std::ops::Range;
 
@@ -150,8 +150,8 @@ impl<'a> Renderer<'a> {
         self.use_uniform(sprite, slot);
     }
 
-    pub fn use_sprite_sheet(&mut self, sprite_sheet: &'a SpriteSheet, slot: u32) {
-        self.use_uniform(sprite_sheet, slot);
+    pub fn use_sprite_array(&mut self, sprite_array: &'a SpriteArray, slot: u32) {
+        self.use_uniform(sprite_array, slot);
     }
 
     pub fn use_uniform_data<T: bytemuck::Pod>(&mut self, uniform: &'a UniformData<T>, slot: u32) {
@@ -196,17 +196,17 @@ impl<'a> Renderer<'a> {
         }
     }
 
-    pub fn draw_sprite_sheet(
+    pub fn draw_sprite_array(
         &mut self,
         instances: &'a InstanceBuffer2D,
         camera: &'a CameraBuffer2D,
         mesh: &'a Mesh2D,
-        sprite: &'a SpriteSheet,
+        sprite: &'a SpriteArray,
     ) {
         if instances.buffer_size() != 0 && mesh.vertex_buffer_size() != 0 {
-            self.use_shader_with_buffers(&self.default_assets.sprite_sheet, instances, mesh);
+            self.use_shader_with_buffers(&self.default_assets.sprite_array, instances, mesh);
             self.use_camera(camera);
-            self.use_sprite_sheet(sprite, 1);
+            self.use_sprite_array(sprite, 1);
             self.draw();
         }
     }
@@ -235,7 +235,7 @@ impl<'a> Renderer<'a> {
             self.use_shader_with_buffers(&self.default_assets.text_mesh, instances, text.mesh());
             self.use_camera(camera);
             self.use_mesh(text.mesh());
-            self.use_sprite_sheet(text.font().sprite_sheet(), 1);
+            self.use_sprite_array(text.font().sprite_array(), 1);
             self.draw();
         }
     }
@@ -254,7 +254,7 @@ impl<'a> Renderer<'a> {
                 self.default_assets.unit_mesh(),
             );
             self.use_camera(camera);
-            self.use_sprite_sheet(font.sprite_sheet(), 1);
+            self.use_sprite_array(font.sprite_array(), 1);
             self.draw();
         }
     }

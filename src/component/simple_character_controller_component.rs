@@ -2,7 +2,7 @@ use rapier2d::{parry::query::ShapeCastOptions, pipeline::QueryFilter};
 
 use crate::{
     entity::EntityHandle,
-    graphics::{Color, Instance2D, RenderGroup, SpriteAtlas, SpriteSheetIndex},
+    graphics::{Color, Instance2D, RenderGroup, SpriteAtlas, SpriteArrayIndex},
     math::{Isometry2, Vector2, AABB},
     physics::{Shape, World},
 };
@@ -153,15 +153,15 @@ impl<S: Shape> SimpleCharacterControllerComponent<S> {
         self
     }
 
-    pub const fn index(&self) -> &SpriteSheetIndex {
-        &self.instance.sprite_sheet_index
+    pub const fn index(&self) -> &SpriteArrayIndex {
+        &self.instance.sprite_array_index
     }
 
-    pub fn set_index(&mut self, index: SpriteSheetIndex) {
-        self.instance.sprite_sheet_index = index;
+    pub fn set_index(&mut self, index: SpriteArrayIndex) {
+        self.instance.sprite_array_index = index;
     }
 
-    pub fn with_index(mut self, index: SpriteSheetIndex) -> Self {
+    pub fn with_index(mut self, index: SpriteArrayIndex) -> Self {
         self.set_index(index);
         self
     }

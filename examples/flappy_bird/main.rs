@@ -164,12 +164,12 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
             });
 
             ctx.render_single::<Bird>(renderer, |renderer, bird, buffer, instance| {
-                renderer.render_sprite_sheet(
+                renderer.render_sprite_array(
                     instance,
                     buffer,
                     ctx.world_camera2d,
                     &bird.mesh,
-                    &bird.sprite_sheet,
+                    &bird.sprite_array,
                 )
             });
         },
@@ -228,7 +228,7 @@ struct Bird {
     #[shura(instance)]
     body: RigidBodyComponent,
     mesh: Mesh2D,
-    sprite_sheet: SpriteSheet,
+    sprite_array: SpriteArray,
     sink: AudioSink,
     hit_sound: Sound,
     wing_sound: Sound,
@@ -251,7 +251,7 @@ impl Bird {
             ),
 
             mesh: gpu.create_mesh(&MeshBuilder2D::cuboid(Self::HALF_EXTENTS)),
-            sprite_sheet: gpu.create_sprite_sheet(SpriteSheetBuilder::bytes(
+            sprite_array: gpu.create_sprite_array(SpriteArrayBuilder::bytes(
                 include_asset_bytes!("flappy_bird/sprites/yellowbird.png",),
                 Vector2::new(17, 12),
             )),

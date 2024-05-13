@@ -3,7 +3,7 @@ use crate::{
     entity::EntityHandle,
     graphics::{
         Color, Gpu, Index, Instance, Instance2D, Mesh, MeshBuilder2D, RenderGroup, SpriteAtlas,
-        SpriteSheetIndex, Vertex,
+        SpriteArrayIndex, Vertex,
     },
     math::{Isometry2, Rotation2, Vector2, AABB},
     physics::World,
@@ -272,7 +272,7 @@ pub struct Letter {
     pub color: Color,
     pub size: Vector2<f32>,
     pub atlas: SpriteAtlas,
-    pub index: SpriteSheetIndex,
+    pub index: SpriteArrayIndex,
 }
 pub struct TextComponent2D {
     pub letters: Vec<Letter>,
@@ -299,7 +299,7 @@ impl Component for TextComponent2D {
                 rotation: rotation.angle(),
                 scaling: size,
                 atlas: letter.atlas,
-                sprite_sheet_index: letter.index,
+                sprite_array_index: letter.index,
             });
             render_group.push(instance)
         }

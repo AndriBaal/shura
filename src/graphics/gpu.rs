@@ -17,7 +17,7 @@ use crate::{
         Instance3D, InstanceBuffer, InstanceBuffer2D, Mesh, Mesh2D, MeshBuilder, MeshBuilder2D,
         Model, ModelBuilder, RenderEncoder, Shader, ShaderConfig, ShaderModule,
         ShaderModuleDescriptor, ShaderModuleSource, Sprite, SpriteBuilder, SpriteRenderTarget,
-        SpriteSheet, SpriteSheetBuilder, UniformData, UniformField, Vertex, Vertex3D,
+        SpriteArray, SpriteArrayBuilder, UniformData, UniformField, Vertex, Vertex3D,
         WorldCamera3D,
     },
     math::{Isometry2, Vector2},
@@ -315,11 +315,11 @@ impl Gpu {
         Sprite::new(self, desc)
     }
 
-    pub fn create_sprite_sheet<D: Deref<Target = [u8]>>(
+    pub fn create_sprite_array<D: Deref<Target = [u8]>>(
         &self,
-        desc: SpriteSheetBuilder<D>,
-    ) -> SpriteSheet {
-        SpriteSheet::new(self, desc)
+        desc: SpriteArrayBuilder<D>,
+    ) -> SpriteArray {
+        SpriteArray::new(self, desc)
     }
 
     pub fn create_uniform_data<T: bytemuck::Pod>(&self, data: T) -> UniformData<T> {
@@ -396,7 +396,7 @@ impl Gpu {
 #[derive(Debug)]
 pub struct SharedAssets {
     pub vertex_shader_module: ShaderModule,
-    pub sprite_sheet_layout: wgpu::BindGroupLayout,
+    pub sprite_array_layout: wgpu::BindGroupLayout,
     pub sprite_layout: wgpu::BindGroupLayout,
     pub camera_layout: wgpu::BindGroupLayout,
     pub single_uniform_layout: wgpu::BindGroupLayout,
@@ -455,9 +455,9 @@ impl SharedAssets {
             label: Some("camera_bind_group_layout"),
         });
 
-        let sprite_sheet_layout =
+        let sprite_array_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("sprite_sheet_layout"),
+                label: Some("sprite_array_layout"),
                 entries: &[
                     wgpu::BindGroupLayoutEntry {
                         binding: 0,
@@ -483,7 +483,7 @@ impl SharedAssets {
 
         Self {
             vertex_shader_module,
-            sprite_sheet_layout,
+            sprite_array_layout,
             sprite_layout,
             camera_layout,
             single_uniform_layout,
@@ -495,7 +495,7 @@ impl SharedAssets {
 pub struct DefaultAssets {
     // 2D
     pub sprite: Shader,
-    pub sprite_sheet: Shader,
+    pub sprite_array: Shader,
     pub color: Shader,
     pub rainbow: Shader,
     pub grey: Shader,
@@ -530,22 +530,22 @@ pub struct DefaultAssets {
 impl DefaultAssets {
     pub(crate) fn new(gpu: &Gpu) -> Self {
         let shared_assets = gpu.shared_assets();
-        let sprite_sheet = gpu.create_shader(ShaderConfig {
-            name: Some("sprite_sheet"),
+        let sprite_array = gpu.create_shader(ShaderConfig {
+            name: Some("sprite_array"),
             source: ShaderModuleSource::Separate {
                 vertex: &shared_assets.vertex_shader_module,
                 fragment: &gpu.create_shader_module(include_wgsl!(
-                    "../../static/shader/2d/sprite_sheet.wgsl"
+                    "../../static/shader/2d/sprite_array.wgsl"
                 )),
             },
-            uniforms: &[UniformField::Camera, UniformField::SpriteSheet],
+            uniforms: &[UniformField::Camera, UniformField::SpriteArray],
             ..Default::default()
         });
 
         #[cfg(feature = "text")]
         let text_mesh = gpu.create_shader(ShaderConfig {
             name: Some("text_vertex"),
-            uniforms: &[UniformField::Camera, UniformField::SpriteSheet],
+            uniforms: &[UniformField::Camera, UniformField::SpriteArray],
             source: ShaderModuleSource::Separate {
                 vertex: &gpu.create_shader_module(include_wgsl!(
                     "../../static/shader/2d/vertex_text_mesh.wgsl"
@@ -575,7 +575,7 @@ impl DefaultAssets {
         #[cfg(feature = "text")]
         let text_instance = gpu.create_shader(ShaderConfig {
             name: Some("text_instance"),
-            uniforms: &[UniformField::Camera, UniformField::SpriteSheet],
+            uniforms: &[UniformField::Camera, UniformField::SpriteArray],
             source: ShaderModuleSource::Separate {
                 vertex: &shared_assets.vertex_shader_module,
                 fragment: &gpu
@@ -705,7 +705,7 @@ impl DefaultAssets {
         );
 
         Self {
-            sprite_sheet,
+            sprite_array,
             #[cfg(feature = "text")]
             text_mesh,
             #[cfg(feature = "text")]

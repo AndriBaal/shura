@@ -1,7 +1,7 @@
 use crate::{
     component::Component,
     entity::EntityHandle,
-    graphics::{Color, Instance2D, RenderGroup, SpriteAtlas, SpriteSheetIndex},
+    graphics::{Color, Instance2D, RenderGroup, SpriteAtlas, SpriteArrayIndex},
     math::{Vector2, AABB},
     physics::{Collider, ColliderHandle, RigidBody, RigidBodyHandle, World},
 };
@@ -85,7 +85,7 @@ pub struct RigidBodyComponent {
     pub scaling: Vector2<f32>,
     pub atlas: SpriteAtlas,
     pub color: Color,
-    pub index: SpriteSheetIndex,
+    pub index: SpriteArrayIndex,
     pub visibility: PhysicsComponentVisibility,
 }
 
@@ -175,15 +175,15 @@ impl RigidBodyComponent {
         &self.color
     }
 
-    pub fn with_index(mut self, index: SpriteSheetIndex) -> Self {
+    pub fn with_index(mut self, index: SpriteArrayIndex) -> Self {
         self.index = index;
         self
     }
-    pub fn set_index(&mut self, index: SpriteSheetIndex) {
+    pub fn set_index(&mut self, index: SpriteArrayIndex) {
         self.index = index;
     }
 
-    pub const fn index(&self) -> &SpriteSheetIndex {
+    pub const fn index(&self) -> &SpriteArrayIndex {
         &self.index
     }
 

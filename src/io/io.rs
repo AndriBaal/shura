@@ -6,6 +6,14 @@ use std::{env, fs, path::PathBuf};
 #[cfg(target_os = "android")]
 use std::{ffi::CString, io::Read};
 
+#[cfg(feature = "audio")]
+use crate::audio::SoundBuilder;
+
+#[cfg(feature = "text")]
+use crate::text::FontBuilder;
+
+use crate::graphics::{ModelBuilder, SpriteArrayBuilder, SpriteBuilder, TileSize};
+
 #[macro_export]
 macro_rules! include_asset_bytes {
     ($file:expr $(,)?) => {
@@ -32,6 +40,47 @@ pub trait AssetManager: Send + Sync + Downcast {
     fn load_string(&self, path: &str) -> Result<String>;
 }
 impl_downcast!(AssetManager);
+
+pub trait AssetManagerHelpers: AssetManager {
+    fn load_sprite_array_sheet(
+        &self,
+        path: &str,
+        size: TileSize
+    ) -> SpriteArrayBuilder<image::RgbaImage>;
+    fn load_sprite_array(&self, paths: &[&str]) -> SpriteArrayBuilder<image::RgbaImage>;
+    #[cfg(feature = "audio")]
+    fn load_sound(&self, path: &str) -> SoundBuilder;
+    #[cfg(feature = "text")]
+    fn load_font(&self, path: &str) -> FontBuilder;
+    fn load_model(&self, path: &str) -> ModelBuilder;
+    fn load_sprite(&self, path: &str) -> SpriteBuilder<image::RgbaImage>;
+}
+impl<A: AssetManager> AssetManagerHelpers for A {
+    fn load_sprite_array_sheet(
+        &self,
+        path: &str,
+        size: TileSize
+    ) -> SpriteArrayBuilder<image::RgbaImage> {
+        SpriteArrayBuilder::asset_sheet(self, path, size)
+    }
+    fn load_sprite_array(&self, paths: &[&str]) -> SpriteArrayBuilder<image::RgbaImage> {
+        SpriteArrayBuilder::assets(self, paths)
+    }
+    #[cfg(feature = "audio")]
+    fn load_sound(&self, path: &str) -> SoundBuilder {
+        SoundBuilder::asset(self, path)
+    }
+    #[cfg(feature = "text")]
+    fn load_font(&self, path: &str) -> FontBuilder {
+        FontBuilder::asset(self, path)
+    }
+    fn load_model(&self, path: &str) -> ModelBuilder {
+        ModelBuilder::asset(self, path)
+    }
+    fn load_sprite(&self, path: &str) -> SpriteBuilder<image::RgbaImage> {
+        SpriteBuilder::asset(self, path)
+    }
+}
 
 pub trait StorageManager: Send + Sync + Downcast {
     fn store(&self, path: &str, data: &dyn AsRef<[u8]>) -> Result<()>;

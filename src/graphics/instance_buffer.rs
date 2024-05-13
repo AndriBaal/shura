@@ -4,7 +4,7 @@ use nalgebra::Isometry2;
 use wgpu::{util::DeviceExt, vertex_attr_array};
 
 use crate::{
-    graphics::{Color, Gpu, SpriteSheetIndex},
+    graphics::{Color, Gpu, SpriteArrayIndex},
     math::{Isometry3, Matrix4, Vector2, Vector3},
 };
 
@@ -57,7 +57,7 @@ pub struct Instance2D {
     pub rotation: f32,
     pub atlas: SpriteAtlas,
     pub color: Color,
-    pub sprite_sheet_index: SpriteSheetIndex,
+    pub sprite_array_index: SpriteArrayIndex,
 }
 
 impl Instance for Instance2D {
@@ -79,14 +79,14 @@ impl Instance2D {
         scaling: Vector2<f32>,
         atlas: SpriteAtlas,
         color: Color,
-        sprite_sheet_index: SpriteSheetIndex,
+        sprite_array_index: SpriteArrayIndex,
     ) -> Self {
         Self {
             rotation,
             translation,
             atlas,
             color,
-            sprite_sheet_index,
+            sprite_array_index,
             scaling,
         }
     }

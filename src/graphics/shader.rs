@@ -49,7 +49,7 @@ impl Default for ShaderConfig<'static> {
 pub enum UniformField {
     Sprite,
     SingleUniform,
-    SpriteSheet,
+    SpriteArray,
     Camera,
     Custom(wgpu::BindGroupLayout),
 }
@@ -69,7 +69,7 @@ impl Shader {
             let layout = match link {
                 UniformField::SingleUniform => &shared_assets.single_uniform_layout,
                 UniformField::Sprite => &shared_assets.sprite_layout,
-                UniformField::SpriteSheet => &shared_assets.sprite_sheet_layout,
+                UniformField::SpriteArray => &shared_assets.sprite_array_layout,
                 UniformField::Camera => &shared_assets.camera_layout,
                 UniformField::Custom(c) => c,
             };

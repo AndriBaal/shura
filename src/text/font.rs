@@ -3,7 +3,7 @@ use rustc_hash::FxHashMap;
 use std::sync::Arc;
 
 use crate::{
-    graphics::{Gpu, SpriteSheet, SpriteSheetBuilder, SpriteSheetIndex},
+    graphics::{Gpu, SpriteArray, SpriteArrayBuilder, SpriteArrayIndex},
     io::AssetManager,
     math::Vector2,
 };
@@ -41,14 +41,14 @@ impl Font {
         }
     }
 
-    pub fn sprite_sheet(&self) -> &SpriteSheet {
-        &self.inner.sprite_sheet
+    pub fn sprite_array(&self) -> &SpriteArray {
+        &self.inner.sprite_array
     }
 }
 
 pub(super) struct FontInner {
-    pub(super) sprite_sheet: SpriteSheet,
-    pub(super) index_map: FxHashMap<rusttype::GlyphId, (SpriteSheetIndex, Vector2<f32>)>,
+    pub(super) sprite_array: SpriteArray,
+    pub(super) index_map: FxHashMap<rusttype::GlyphId, (SpriteArrayIndex, Vector2<f32>)>,
     pub(super) font: rusttype::Font<'static>,
 }
 impl FontInner {
@@ -112,7 +112,7 @@ impl FontInner {
             }
         }
 
-        let desc = SpriteSheetBuilder::empty(
+        let desc = SpriteArrayBuilder::empty(
             Vector2::new(size.x as u32, Self::RES as u32),
             Vector2::new(amount as u32, 1),
         )
@@ -127,7 +127,7 @@ impl FontInner {
         })
         .format(wgpu::TextureFormat::R8Unorm);
 
-        let mut sprite_sheet = gpu.create_sprite_sheet(desc);
+        let mut sprite_array = gpu.create_sprite_array(desc);
         let mut index_map = FxHashMap::default();
 
         let glyphs = glyphs!(face_ref);
@@ -150,7 +150,7 @@ impl FontInner {
                     .cast::<f32>()
                     .component_div(&size.cast::<f32>());
                 index_map.insert(id, (counter, ratio));
-                sprite_sheet.write(
+                sprite_array.write(
                     gpu,
                     counter,
                     Vector2::new(bb.width() as u32, bb.height() as u32),
@@ -163,7 +163,7 @@ impl FontInner {
         }
 
         Self {
-            sprite_sheet,
+            sprite_array,
             index_map,
             font,
         }

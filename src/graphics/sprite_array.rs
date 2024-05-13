@@ -6,15 +6,15 @@ use crate::{
 use std::ops::Deref;
 use wgpu::ImageCopyTexture;
 
-pub type SpriteSheetIndex = u32;
-pub type SpriteSheetIndex2D = Vector2<u32>;
+pub type SpriteArrayIndex = u32;
+pub type SpriteArrayIndex2D = Vector2<u32>;
 
 pub enum TileSize {
     Amount(Vector2<u32>),
     Size(Vector2<u32>),
 }
 
-pub struct SpriteSheetBuilder<'a, D: Deref<Target = [u8]>> {
+pub struct SpriteArrayBuilder<'a, D: Deref<Target = [u8]>> {
     pub label: Option<&'a str>,
     pub sprite_size: Vector2<u32>,
     pub sprite_amount: Vector2<u32>,
@@ -23,10 +23,10 @@ pub struct SpriteSheetBuilder<'a, D: Deref<Target = [u8]>> {
     pub format: wgpu::TextureFormat,
 }
 
-impl<'a> SpriteSheetBuilder<'a, image::RgbaImage> {
-    pub fn asset(assets: &dyn AssetManager, path: &str, size: TileSize) -> Self {
+impl<'a> SpriteArrayBuilder<'a, image::RgbaImage> {
+    pub fn asset_sheet(assets: &dyn AssetManager, path: &str, size: TileSize) -> Self {
         let bytes = assets.load_bytes(path).unwrap();
-        Self::bytes(&bytes, size)
+        Self::byte_sheet(&bytes, size)
     }
 
     pub fn assets(assets: &dyn AssetManager, paths: &[&str]) -> Self {
@@ -37,9 +37,9 @@ impl<'a> SpriteSheetBuilder<'a, image::RgbaImage> {
         Self::byte_array(&byte_array)
     }
 
-    pub fn bytes(bytes: &[u8], size: TileSize) -> Self {
+    pub fn byte_sheet(bytes: &[u8], size: TileSize) -> Self {
         let img = image::load_from_memory(bytes).unwrap();
-        Self::image(img, size)
+        Self::image_sheet(img, size)
     }
 
     pub fn byte_array(byte_array: &[Vec<u8>]) -> Self {
@@ -50,13 +50,13 @@ impl<'a> SpriteSheetBuilder<'a, image::RgbaImage> {
         Self::images(&images)
     }
 
-    pub fn image(mut image: image::DynamicImage, size: TileSize) -> Self {
-        let sheet_size = Vector2::new(image.width(), image.height());
+    pub fn image_sheet(mut image: image::DynamicImage, size: TileSize) -> Self {
+        let array_size = Vector2::new(image.width(), image.height());
         let (sprite_size, sprite_amount) = match size {
             TileSize::Amount(sprite_amount) => {
-                (sheet_size.component_div(&sprite_amount), sprite_amount)
+                (array_size.component_div(&sprite_amount), sprite_amount)
             }
-            TileSize::Size(sprite_size) => (sprite_size, sheet_size.component_div(&sprite_size)),
+            TileSize::Size(sprite_size) => (sprite_size, array_size.component_div(&sprite_size)),
         };
         let mut data = vec![];
         for i in 0..sprite_amount.y {
@@ -99,7 +99,7 @@ impl<'a> SpriteSheetBuilder<'a, image::RgbaImage> {
     }
 }
 
-impl<'a> SpriteSheetBuilder<'a, Vec<u8>> {
+impl<'a> SpriteArrayBuilder<'a, Vec<u8>> {
     pub fn colors(colors: &[RgbaColor]) -> Self {
         let mut data = vec![];
         for c in colors {
@@ -117,7 +117,7 @@ impl<'a> SpriteSheetBuilder<'a, Vec<u8>> {
     }
 }
 
-impl<'a> SpriteSheetBuilder<'a, &'a [u8]> {
+impl<'a> SpriteArrayBuilder<'a, &'a [u8]> {
     pub fn raw(
         sprite_size: Vector2<u32>,
         sprite_amount: Vector2<u32>,
@@ -145,7 +145,7 @@ impl<'a> SpriteSheetBuilder<'a, &'a [u8]> {
     }
 }
 
-impl<'a, D: Deref<Target = [u8]>> SpriteSheetBuilder<'a, D> {
+impl<'a, D: Deref<Target = [u8]>> SpriteArrayBuilder<'a, D> {
     pub const DEFAULT_SAMPLER: wgpu::SamplerDescriptor<'static> = wgpu::SamplerDescriptor {
         label: None,
         address_mode_u: wgpu::AddressMode::ClampToEdge,
@@ -178,7 +178,7 @@ impl<'a, D: Deref<Target = [u8]>> SpriteSheetBuilder<'a, D> {
     }
 }
 
-pub struct SpriteSheet {
+pub struct SpriteArray {
     texture: wgpu::Texture,
     _sampler: wgpu::Sampler,
     bind_group: wgpu::BindGroup,
@@ -186,8 +186,8 @@ pub struct SpriteSheet {
     sprite_amount: Vector2<u32>,
 }
 
-impl SpriteSheet {
-    pub fn new<D: Deref<Target = [u8]>>(gpu: &Gpu, desc: SpriteSheetBuilder<D>) -> Self {
+impl SpriteArray {
+    pub fn new<D: Deref<Target = [u8]>>(gpu: &Gpu, desc: SpriteArrayBuilder<D>) -> Self {
         let amount = desc.sprite_amount.x * desc.sprite_amount.y;
         let shared_assets = gpu.shared_assets();
 
@@ -252,8 +252,8 @@ impl SpriteSheet {
                     resource: wgpu::BindingResource::Sampler(&sampler),
                 },
             ],
-            layout: &shared_assets.sprite_sheet_layout,
-            label: Some("sprite_sheet_bind_group"),
+            layout: &shared_assets.sprite_array_layout,
+            label: Some("sprite_array_bind_group"),
         });
 
         Self {
@@ -268,7 +268,7 @@ impl SpriteSheet {
     pub fn write(
         &mut self,
         gpu: &Gpu,
-        index: SpriteSheetIndex,
+        index: SpriteArrayIndex,
         size: Vector2<u32>,
         layers: u32,
         bytes: &[u8],
@@ -310,11 +310,11 @@ impl SpriteSheet {
         &self.sprite_amount
     }
 
-    pub fn index(&self, index_2d: SpriteSheetIndex2D) -> SpriteSheetIndex {
+    pub fn index(&self, index_2d: SpriteArrayIndex2D) -> SpriteArrayIndex {
         index_2d.y * self.sprite_amount.x + index_2d.x
     }
 
-    pub fn compute_index(sprite_amount_x: u32, index_2d: SpriteSheetIndex2D) -> SpriteSheetIndex {
+    pub fn compute_index(sprite_amount_x: u32, index_2d: SpriteArrayIndex2D) -> SpriteArrayIndex {
         index_2d.y * sprite_amount_x + index_2d.x
     }
 
@@ -323,13 +323,13 @@ impl SpriteSheet {
     }
 }
 
-impl Uniform for SpriteSheet {
+impl Uniform for SpriteArray {
     fn bind_group(&self) -> &wgpu::BindGroup {
         &self.bind_group
     }
 }
 
-// pub fn from_multiple(gpu: &Gpu, sheets: &[&[u8]], sprite_size: Vector2<u32>) -> Self {
+// pub fn from_multiple(gpu: &Gpu, arrays: &[&[u8]], sprite_size: Vector2<u32>) -> Self {
 //     let sprite_amount = size.component_div(&sprite_size);
 //     let mut sprites: Vec<Vec<u8>> = vec![];
 
