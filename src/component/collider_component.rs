@@ -1,7 +1,7 @@
 use crate::{
     component::{Component, PhysicsComponentVisibility},
     entity::EntityHandle,
-    graphics::{Color, Instance2D, RenderGroup, SpriteAtlas, SpriteArrayIndex},
+    graphics::{Color, Instance2D, RenderGroup, SpriteArrayIndex, SpriteAtlas},
     math::{Vector2, AABB},
     physics::{Collider, ColliderHandle, World},
 };
@@ -182,6 +182,20 @@ impl Component for ColliderComponent {
                     ColliderComponentStatus::Uninitialized { collider } => &*collider,
                 };
                 let aabb: AABB = collider.compute_aabb().into();
+                if aabb.intersects(cam2d) {
+                    render_group.push(Instance2D::new(
+                        collider.position().translation.vector,
+                        collider.position().rotation.angle(),
+                        self.scaling,
+                        self.atlas,
+                        self.color,
+                        self.index,
+                    ))
+                }
+            }
+            PhysicsComponentVisibility::Scaling => {
+                let collider = self.get(world);
+                let aabb = AABB::from_center(*collider.translation(), self.scaling);
                 if aabb.intersects(cam2d) {
                     render_group.push(Instance2D::new(
                         collider.position().translation.vector,

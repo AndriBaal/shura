@@ -432,7 +432,7 @@ impl App {
 
         self.update(scene_id, scene, event_loop);
         scene.screen_config.changed = false;
-        if scene.render_entities {
+        if scene.render_entities || resized {
             self.render(scene);
         }
         self.input.update();

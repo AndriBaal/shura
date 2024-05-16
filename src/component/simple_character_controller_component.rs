@@ -224,6 +224,12 @@ impl<S: Shape> Component for SimpleCharacterControllerComponent<S> {
                     render_group.push(self.instance);
                 }
             }
+            PhysicsComponentVisibility::Scaling => {
+                let aabb = AABB::from_center(self.translation(), *self.scaling());
+                if cam2d.intersects(&aabb) {
+                    render_group.push(self.instance);
+                }
+            }
         }
     }
 

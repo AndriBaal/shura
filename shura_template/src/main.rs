@@ -101,7 +101,7 @@ struct Assets {
 impl Assets {
     pub fn new(assets: &dyn AssetManager, gpu: &Gpu) -> Self {
         Self {
-            model: gpu.create_model(ModelBuilder::asset(assets, "3d/cube/cube.obj")),
+            model: gpu.create_model(assets.load_model("3d/cube/cube.obj")),
         }
     }
 }

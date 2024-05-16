@@ -115,89 +115,101 @@ fn update(ctx: &mut Context) {
 
 
         if light.display {
-            gui::Window::new("Light")
-                .resizable(false)
-                .show(ctx.gui, |ui| {
-                    ui.horizontal(|ui| {
-                        ui.label("Outer Radius:");
-                        gui::widgets::Slider::new(&mut light.inner.outer_radius, 0.0..=50.0).ui(ui);
-                    });
+            // gui::Window::new("Light")
+            //     .resizable(false)
+            //     .show(ctx.gui, |ui| {
+            //         ui.horizontal(|ui| {
+            //             ui.label("Outer Radius:");
+            //             gui::widgets::Slider::new(&mut light.inner.outer_radius, 0.0..=50.0).ui(ui);
+            //         });
 
-                    ui.horizontal(|ui| {
-                        ui.label("Inner Radius:");
-                        gui::widgets::Slider::new(&mut light.inner.inner_radius, 0.0..=1.0).ui(ui);
-                    });
+            //         ui.horizontal(|ui| {
+            //             ui.label("Inner Radius:");
+            //             gui::widgets::Slider::new(&mut light.inner.inner_radius, 0.0..=1.0).ui(ui);
+            //         });
 
-                    let mut egui_color = light.inner.color.into();
-                    ui.horizontal(|ui| {
-                        ui.label("Color:");
-                        gui::widgets::color_picker::color_edit_button_rgba(
-                            ui,
-                            &mut egui_color,
-                            egui::widgets::color_picker::Alpha::OnlyBlend,
-                        )
-                    });
-                    light.inner.color = egui_color.into();
+            //         let mut egui_color = light.inner.color.into();
+            //         ui.horizontal(|ui| {
+            //             ui.label("Color:");
+            //             gui::widgets::color_picker::color_edit_button_rgba(
+            //                 ui,
+            //                 &mut egui_color,
+            //                 egui::widgets::color_picker::Alpha::OnlyBlend,
+            //             )
+            //         });
+            //         light.inner.color = egui_color.into();
 
-                    ui.horizontal(|ui| {
-                        ui.label("Inner Magnification:");
-                        gui::widgets::Slider::new(
-                            &mut light.inner.inner_magnification,
-                            0.01..=10.0,
-                        )
-                        .ui(ui);
-                    });
+            //         ui.horizontal(|ui| {
+            //             ui.label("Inner Magnification:");
+            //             gui::widgets::Slider::new(
+            //                 &mut light.inner.inner_magnification,
+            //                 0.01..=10.0,
+            //             )
+            //             .ui(ui);
+            //         });
 
-                    ui.horizontal(|ui| {
-                        ui.label("Outer Magnification:");
-                        gui::widgets::Slider::new(
-                            &mut light.inner.outer_magnification,
-                            0.01..=10.0,
-                        )
-                        .ui(ui);
-                    });
+            //         ui.horizontal(|ui| {
+            //             ui.label("Outer Magnification:");
+            //             gui::widgets::Slider::new(
+            //                 &mut light.inner.outer_magnification,
+            //                 0.01..=10.0,
+            //             )
+            //             .ui(ui);
+            //         });
 
-                    ui.horizontal(|ui| {
-                        ui.label("Side Falloff Magnification:");
-                        gui::widgets::Slider::new(
-                            &mut light.inner.side_falloff_magnification,
-                            0.0..=10.0,
-                        )
-                        .ui(ui);
-                    });
+            //         ui.horizontal(|ui| {
+            //             ui.label("Side Falloff Magnification:");
+            //             gui::widgets::Slider::new(
+            //                 &mut light.inner.side_falloff_magnification,
+            //                 0.0..=10.0,
+            //             )
+            //             .ui(ui);
+            //         });
 
-                    ui.horizontal(|ui| {
-                        ui.label("Rotation:");
-                        gui::widgets::Slider::new(&mut light.inner.rotation, -TAU..=TAU).ui(ui);
-                    });
+            //         ui.horizontal(|ui| {
+            //             ui.label("Rotation:");
+            //             gui::widgets::Slider::new(&mut light.inner.rotation, -TAU..=TAU).ui(ui);
+            //         });
 
-                    let end = light.inner.sector.y;
-                    ui.horizontal(|ui| {
-                        ui.label("Start:");
-                        gui::widgets::Slider::new(&mut light.inner.sector.x, -PI..=end).ui(ui);
-                    });
+            //         let end = light.inner.sector.y;
+            //         ui.horizontal(|ui| {
+            //             ui.label("Start:");
+            //             gui::widgets::Slider::new(&mut light.inner.sector.x, -PI..=end).ui(ui);
+            //         });
 
-                    let start = light.inner.sector.x;
-                    ui.horizontal(|ui| {
-                        ui.label("End:");
-                        gui::widgets::Slider::new(&mut light.inner.sector.y, start..=PI).ui(ui);
-                    });
-                });
-            if light.follow_player {
-                light.inner.translation = ctx.cursor.coords;
-            }
+            //         let start = light.inner.sector.x;
+            //         ui.horizontal(|ui| {
+            //             ui.label("End:");
+            //             gui::widgets::Slider::new(&mut light.inner.sector.y, start..=PI).ui(ui);
+            //         });
+            //     });
+        }
+
+        if light.follow_player {
+            light.inner.translation = ctx.cursor.coords;
         }
     }
     assets.shadow_mesh = Some(ctx.gpu.create_mesh(&shadow_mesh));
 }
+
+// #[repr(C)]
+// #[derive(bytemuck::Pod, bytemuck::Zeroable, Clone, Copy)]
+// #[bytemuck(crate="shura::bytemuck")]
+// pub struct ShadowVertex {
+
+// }
+
+// impl Vertex for ShadowVertex {
+//     const ATTRIBUTES: &'static [wgpu::VertexAttribute] = &[];
+// }
 
 #[derive(Entity)]
 pub struct LightAssets {
     shadow_mesh: Option<Mesh2D>,
     light_map: SpriteRenderTarget,
     shadow_stencil: DepthBuffer,
-    light_shader: Shader,
     shadow_shader: Shader,
+    light_shader: Shader,
     present_shader: Shader,
     background_sprite: Sprite,
     #[shura(component = "background")]

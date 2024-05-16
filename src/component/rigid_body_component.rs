@@ -1,7 +1,7 @@
 use crate::{
     component::Component,
     entity::EntityHandle,
-    graphics::{Color, Instance2D, RenderGroup, SpriteAtlas, SpriteArrayIndex},
+    graphics::{Color, Instance2D, RenderGroup, SpriteArrayIndex, SpriteAtlas},
     math::{Vector2, AABB},
     physics::{Collider, ColliderHandle, RigidBody, RigidBodyHandle, World},
 };
@@ -70,6 +70,7 @@ impl RigidBodyComponentStatus {
 pub enum PhysicsComponentVisibility {
     Static(bool),
     Size(Vector2<f32>),
+    Scaling,
     ColliderSize,
 }
 
@@ -223,13 +224,7 @@ impl Component for RigidBodyComponent {
                 }
             }
             PhysicsComponentVisibility::Size(size) => {
-                let rigid_body = match &self.status {
-                    RigidBodyComponentStatus::Initialized { rigid_body_handle } => {
-                        world.rigid_body(*rigid_body_handle).unwrap()
-                    }
-                    RigidBodyComponentStatus::Uninitialized { rigid_body, .. } => &**rigid_body,
-                };
-
+                let rigid_body = self.get(world);
                 let aabb = AABB::from_center(*rigid_body.translation(), size);
                 if aabb.intersects(cam2d) {
                     render_group.push(Instance2D::new(
@@ -269,6 +264,20 @@ impl Component for RigidBodyComponent {
                     }
                 };
 
+                if aabb.intersects(cam2d) {
+                    render_group.push(Instance2D::new(
+                        rigid_body.position().translation.vector,
+                        rigid_body.position().rotation.angle(),
+                        self.scaling,
+                        self.atlas,
+                        self.color,
+                        self.index,
+                    ))
+                }
+            }
+            PhysicsComponentVisibility::Scaling => {
+                let rigid_body = self.get(world);
+                let aabb = AABB::from_center(*rigid_body.translation(), self.scaling);
                 if aabb.intersects(cam2d) {
                     render_group.push(Instance2D::new(
                         rigid_body.position().translation.vector,

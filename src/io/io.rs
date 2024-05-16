@@ -35,13 +35,13 @@ macro_rules! include_asset_wgsl {
     };
 }
 
-pub trait AssetManager: Send + Sync + Downcast {
+pub trait BaseAssetManager: Send + Sync + Downcast {
     fn load_bytes(&self, path: &str) -> Result<Vec<u8>>;
     fn load_string(&self, path: &str) -> Result<String>;
 }
 impl_downcast!(AssetManager);
 
-pub trait AssetManagerHelpers: AssetManager {
+pub trait AssetManager: BaseAssetManager {
     fn load_sprite_array_sheet(
         &self,
         path: &str,
@@ -55,7 +55,7 @@ pub trait AssetManagerHelpers: AssetManager {
     fn load_model(&self, path: &str) -> ModelBuilder;
     fn load_sprite(&self, path: &str) -> SpriteBuilder<image::RgbaImage>;
 }
-impl<A: AssetManager> AssetManagerHelpers for A {
+impl<A: BaseAssetManager> AssetManager for A {
     fn load_sprite_array_sheet(
         &self,
         path: &str,
@@ -110,7 +110,7 @@ impl NativeAssetManager {
     }
 }
 
-impl AssetManager for NativeAssetManager {
+impl BaseAssetManager for NativeAssetManager {
     fn load_bytes(&self, path: &str) -> Result<Vec<u8>> {
         let path = self.asset_path(path)?;
         let data = std::fs::read(path)?;

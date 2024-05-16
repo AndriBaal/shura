@@ -10,6 +10,7 @@ use crate::{
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum PositionComponent2DVisibility {
     Static(bool),
+    Scaling,
     Size(Vector2<f32>),
 }
 
@@ -170,6 +171,12 @@ impl Component for PositionComponent2D {
                     render_group.push(self.instance())
                 }
             }
+            PositionComponent2DVisibility::Scaling => {
+                let aabb = AABB::from_center(self.translation(), self.scaling());
+                if aabb.intersects(cam2d) {
+                    render_group.push(self.instance())
+                }
+            },
         }
     }
 
