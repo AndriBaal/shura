@@ -35,17 +35,24 @@ macro_rules! include_asset_wgsl {
     };
 }
 
+#[async_trait::async_trait(?Send)]
 pub trait BaseAssetManager: Send + Sync + Downcast {
     fn load_bytes(&self, path: &str) -> Result<Vec<u8>>;
     fn load_string(&self, path: &str) -> Result<String>;
+    async fn async_load_bytes(&self, path: &str) -> Result<Vec<u8>> {
+        self.load_bytes(path)
+    }
+    async fn async_load_string(&self, path: &str) -> Result<String> {
+        self.load_string(path)
+    }
 }
-impl_downcast!(AssetManager);
+impl_downcast!(BaseAssetManager);
 
 pub trait AssetManager: BaseAssetManager {
     fn load_sprite_array_sheet(
         &self,
         path: &str,
-        size: TileSize
+        size: TileSize,
     ) -> SpriteArrayBuilder<image::RgbaImage>;
     fn load_sprite_array(&self, paths: &[&str]) -> SpriteArrayBuilder<image::RgbaImage>;
     #[cfg(feature = "audio")]
@@ -54,12 +61,25 @@ pub trait AssetManager: BaseAssetManager {
     fn load_font(&self, path: &str) -> FontBuilder;
     fn load_model(&self, path: &str) -> ModelBuilder;
     fn load_sprite(&self, path: &str) -> SpriteBuilder<image::RgbaImage>;
+    // async fn async_load_sprite_array_sheet(
+    //     &self,
+    //     path: &str,
+    //     size: TileSize,
+    // ) -> SpriteArrayBuilder<image::RgbaImage>;
+    // async fn async_load_sprite_array(&self, paths: &[&str]) -> SpriteArrayBuilder<image::RgbaImage>;
+    // #[cfg(feature = "audio")]
+    // async fn async_load_sound(&self, path: &str) -> SoundBuilder;
+    // #[cfg(feature = "text")]
+    // async fn async_load_font(&self, path: &str) -> FontBuilder;
+    // async fn async_load_model(&self, path: &str) -> ModelBuilder;
+    // async fn async_load_sprite(&self, path: &str) -> SpriteBuilder<image::RgbaImage>;
 }
+
 impl<A: BaseAssetManager> AssetManager for A {
     fn load_sprite_array_sheet(
         &self,
         path: &str,
-        size: TileSize
+        size: TileSize,
     ) -> SpriteArrayBuilder<image::RgbaImage> {
         SpriteArrayBuilder::asset_sheet(self, path, size)
     }
@@ -177,28 +197,37 @@ impl WebAssetManager {
 }
 
 #[cfg(target_arch = "wasm32")]
-impl AssetManager for WebAssetManager {
-    fn load_bytes(&self, path: &str) -> Result<Vec<u8>> {
-        let url = self.asset_url(path)?;
-        let response = reqwest::get(url)?;
-        let bytes = response.bytes()?;
-        return Ok(bytes.to_vec());
+#[async_trait::async_trait(?Send)]
+impl BaseAssetManager for WebAssetManager {
+    fn load_bytes(&self, _path: &str) -> Result<Vec<u8>> {
+        unimplemented!("Synchronous asset operations are not allowed with WASM!")
     }
 
-    fn load_string(&self, path: &str) -> Result<String> {
+    fn load_string(&self, _path: &str) -> Result<String> {
+        unimplemented!("Synchronous asset operations are not allowed with WASM!")
+    }
+
+    async fn async_load_bytes(&self, path: &str) -> Result<Vec<u8>> {
         let url = self.asset_url(path)?;
-        let response = reqwest::get(url)?;
-        let text = response.text()?;
-        return Ok(text);
+        let response = reqwest::get(url).await?;
+        let bytes = response.bytes().await?;
+        Ok(bytes.to_vec())
+    }
+    
+    async fn async_load_string(&self, path: &str) -> Result<String> {
+        let url = self.asset_url(path)?;
+        let response = reqwest::get(url).await?;
+        let text = response.text().await?;
+        Ok(text)
     }
 }
 
 #[non_exhaustive]
 #[cfg(target_arch = "wasm32")]
-pub struct UnimplmentedStorageManager;
+pub struct UnimplementedStorageManager;
 
 #[cfg(target_arch = "wasm32")]
-impl StorageManager for UnimplmentedStorageManager {
+impl StorageManager for UnimplementedStorageManager {
     fn store(&self, _path: &str, _data: &dyn AsRef<[u8]>) -> Result<()> {
         unimplemented!()
     }
@@ -212,15 +241,58 @@ impl StorageManager for UnimplmentedStorageManager {
     }
 }
 
-// #[non_exhaustive]
-// #[cfg(target_arch = "wasm32")]
-// pub struct WasmAssetManager;
+#[cfg(target_os = "android")]
+pub struct AndroidAssetManager {
+    manager: ndk::asset::AssetManager,
+}
 
-// #[cfg(target_os = "android")]
-// pub struct AndroidAssetManager {
-//     android_assets: ndk::asset::AssetManager,
-//     android_DATA: PathBuf,
+#[cfg(target_os = "android")]
+impl AndroidAssetManager {
+    pub fn new(app: &winit::platform::android::activity::AndroidApp) -> Self {
+        Self {
+            manager: app.asset_manager()
+        }
+    }
+}
+
+#[cfg(target_os = "android")]
+impl BaseAssetManager for AndroidAssetManager {
+    fn load_bytes(&self, path: &str) -> Result<Vec<u8>> {
+        let manager = &self.manager;
+        let path = CString::new(path).unwrap();
+        let mut asset = manager.open(&path).unwrap();
+        let mut data = vec![];
+        asset.read_to_end(&mut data).unwrap();
+        return Ok(data);
+    }
+
+    fn load_string(&self, path: &str) -> Result<String> {
+        let manager = &self.manager;
+        let path = CString::new(path).unwrap();
+        let mut asset = manager.open(&path).unwrap();
+        let mut data = String::new();
+        asset.read_to_string(&mut data).unwrap();
+        return Ok(data);
+    }
+}
+
+// pub struct AndroidStorageManager {
+//     android_data: PathBuf,
 // }
+
+// impl AndroidStorageManager {
+//     pub fn new(app: &winit::platform::android::activity::AndroidApp) -> Self {
+//         Self {
+//             manager: app.internal_data_path().unwrap()
+//         }
+//     }
+
+//     fn data_path(&self, path: &str) -> Result<PathBuf> {
+//         let path = self.android_data.join(path);
+//         Ok(path)
+//     }
+// }
+
 
 // pub async fn load_asset_bytes_async(path: &str) -> Result<Vec<u8>> {
 //     #[cfg(target_arch = "wasm32")]

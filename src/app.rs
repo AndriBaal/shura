@@ -60,10 +60,14 @@ impl AppConfig {
     pub const FIRST_SCENE_ID: u32 = 0;
     pub fn new(#[cfg(target_os = "android")] android: AndroidApp) -> Self {
         #[cfg(target_arch = "wasm32")]
-        let (assets, storage) = (crate::io::WebAssetManager, crate::io::UnimplmentedStorageManager);
+        let (assets, storage) = (crate::io::WebAssetManager, crate::io::UnimplementedStorageManager);
 
-        #[cfg(not(target_arch = "wasm32"))]
+        #[cfg(all(not(target_arch = "wasm32"), not(target_os="android")))]
         let (assets, storage) = (crate::io::NativeAssetManager, crate::io::NativeStorageManager);
+
+
+        #[cfg(target_os="android")]
+        let (assets, storage) = (crate::io::AndroidAssetManager::new(&android), crate::io::UnimplementedStorageManager);
 
         AppConfig {
             window: winit::window::WindowAttributes::default()

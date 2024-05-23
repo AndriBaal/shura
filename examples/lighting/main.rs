@@ -1,6 +1,6 @@
 // use egui::Widget;
 use shura::prelude::*;
-use std::f32::consts::{PI, TAU};
+use std::f32::consts::PI;
 
 const SIZE: Vector2<u32> = vector!(800, 800);
 
@@ -76,20 +76,14 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
 
     encoder.render2d_to(Some(Color::BLACK), &assets.light_map, |renderer| {
         ctx.group::<LightInstance>("light", |buffer| {
-            renderer.use_instances(buffer);
-            renderer.use_camera(ctx.world_camera2d);
-            renderer.use_shader(&assets.light_shader);
-            renderer.use_mesh(ctx.unit_mesh);
-            renderer.draw();
+            for instance in buffer.instances() {
+                renderer.use_instances_with_range(buffer, instance..instance + 1);
+                renderer.use_camera(ctx.world_camera2d);
+                renderer.use_shader(&assets.light_shader);
+                renderer.use_mesh(ctx.unit_mesh);
+                renderer.draw();
+            }
         });
-
-        // ctx.render::<LightInstance>(renderer, "shadow", |renderer, buffer, instances| {
-        //     renderer.use_instances(buffer);
-        //     renderer.use_camera(ctx.world_camera2d);
-        //     renderer.use_shader(&assets.shadow_shader);
-        //     renderer.use_mesh(ctx.unit_mesh);
-        //     renderer.draw(instances);
-        // });
     });
 
     encoder.render2d(None, |renderer| {
@@ -108,107 +102,24 @@ fn resize(ctx: &mut Context) {
 }
 
 fn update(ctx: &mut Context) {
-    let mut shadow_mesh = MeshBuilder2D::custom(Default::default(), Default::default());
     let cam_aabb = ctx.world_camera2d.aabb();
     let mut assets = ctx.entities.single_mut::<LightAssets>().unwrap();
+
     for light in ctx.entities.get_mut::<Light>().iter_mut() {
-
-
         if light.display {
-            // gui::Window::new("Light")
-            //     .resizable(false)
-            //     .show(ctx.gui, |ui| {
-            //         ui.horizontal(|ui| {
-            //             ui.label("Outer Radius:");
-            //             gui::widgets::Slider::new(&mut light.inner.outer_radius, 0.0..=50.0).ui(ui);
-            //         });
-
-            //         ui.horizontal(|ui| {
-            //             ui.label("Inner Radius:");
-            //             gui::widgets::Slider::new(&mut light.inner.inner_radius, 0.0..=1.0).ui(ui);
-            //         });
-
-            //         let mut egui_color = light.inner.color.into();
-            //         ui.horizontal(|ui| {
-            //             ui.label("Color:");
-            //             gui::widgets::color_picker::color_edit_button_rgba(
-            //                 ui,
-            //                 &mut egui_color,
-            //                 egui::widgets::color_picker::Alpha::OnlyBlend,
-            //             )
-            //         });
-            //         light.inner.color = egui_color.into();
-
-            //         ui.horizontal(|ui| {
-            //             ui.label("Inner Magnification:");
-            //             gui::widgets::Slider::new(
-            //                 &mut light.inner.inner_magnification,
-            //                 0.01..=10.0,
-            //             )
-            //             .ui(ui);
-            //         });
-
-            //         ui.horizontal(|ui| {
-            //             ui.label("Outer Magnification:");
-            //             gui::widgets::Slider::new(
-            //                 &mut light.inner.outer_magnification,
-            //                 0.01..=10.0,
-            //             )
-            //             .ui(ui);
-            //         });
-
-            //         ui.horizontal(|ui| {
-            //             ui.label("Side Falloff Magnification:");
-            //             gui::widgets::Slider::new(
-            //                 &mut light.inner.side_falloff_magnification,
-            //                 0.0..=10.0,
-            //             )
-            //             .ui(ui);
-            //         });
-
-            //         ui.horizontal(|ui| {
-            //             ui.label("Rotation:");
-            //             gui::widgets::Slider::new(&mut light.inner.rotation, -TAU..=TAU).ui(ui);
-            //         });
-
-            //         let end = light.inner.sector.y;
-            //         ui.horizontal(|ui| {
-            //             ui.label("Start:");
-            //             gui::widgets::Slider::new(&mut light.inner.sector.x, -PI..=end).ui(ui);
-            //         });
-
-            //         let start = light.inner.sector.x;
-            //         ui.horizontal(|ui| {
-            //             ui.label("End:");
-            //             gui::widgets::Slider::new(&mut light.inner.sector.y, start..=PI).ui(ui);
-            //         });
-            //     });
         }
 
         if light.follow_player {
             light.inner.translation = ctx.cursor.coords;
         }
     }
-    assets.shadow_mesh = Some(ctx.gpu.create_mesh(&shadow_mesh));
+    // assets.shadow_mesh = Some(ctx.gpu.create_mesh(&shadow_mesh));
 }
-
-// #[repr(C)]
-// #[derive(bytemuck::Pod, bytemuck::Zeroable, Clone, Copy)]
-// #[bytemuck(crate="shura::bytemuck")]
-// pub struct ShadowVertex {
-
-// }
-
-// impl Vertex for ShadowVertex {
-//     const ATTRIBUTES: &'static [wgpu::VertexAttribute] = &[];
-// }
 
 #[derive(Entity)]
 pub struct LightAssets {
-    shadow_mesh: Option<Mesh2D>,
     light_map: SpriteRenderTarget,
     shadow_stencil: DepthBuffer,
-    shadow_shader: Shader,
     light_shader: Shader,
     present_shader: Shader,
     background_sprite: Sprite,
@@ -237,27 +148,6 @@ impl LightAssets {
                 },
                 ..Default::default()
             }),
-            shadow_shader: ctx.gpu.create_shader(ShaderConfig {
-                source: ShaderModuleSource::Single(
-                    &ctx.gpu
-                        .create_shader_module(include_asset_wgsl!("lighting/light.wgsl")),
-                ),
-                uniforms: &[UniformField::Camera],
-                buffers: &[Vertex2D::LAYOUT, LightInstance::LAYOUT],
-                blend: BlendState {
-                    color: BlendComponent {
-                        src_factor: BlendFactor::One,
-                        dst_factor: BlendFactor::One, // Use additive blending for the first render
-                        operation: BlendOperation::ReverseSubtract,
-                    },
-                    alpha: BlendComponent {
-                        src_factor: BlendFactor::OneMinusSrcAlpha,
-                        dst_factor: BlendFactor::One,
-                        operation: BlendOperation::ReverseSubtract,
-                    },
-                },
-                ..Default::default()
-            }),
             light_shader: ctx.gpu.create_shader(ShaderConfig {
                 source: ShaderModuleSource::Single(
                     &ctx.gpu
@@ -278,7 +168,6 @@ impl LightAssets {
             shadow_stencil: ctx
                 .gpu
                 .create_depth_buffer(ctx.render_size, TextureFormat::Stencil8),
-            shadow_mesh: None,
         }
     }
 }

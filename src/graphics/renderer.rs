@@ -82,9 +82,33 @@ impl<'a> Renderer<'a> {
         &mut self.render_pass
     }
 
+    pub fn set_scissor_rect(&mut self, x: u32, y: u32, width: u32, height: u32) {
+        self.render_pass.set_scissor_rect(x, y, width, height)
+    }
+
+    pub fn set_viewport(
+    &mut self,
+    x: f32,
+    y: f32,
+    w: f32,
+    h: f32,
+    min_depth: f32,
+    max_depth: f32
+    ) {
+        self.render_pass.set_viewport(x, y, w, h, min_depth, max_depth)
+    }
+
+    pub fn set_stencil_reference(&mut self, reference: u32) {
+        self.render_pass.set_stencil_reference(reference)
+    }
+
     pub fn use_instances<I: Instance>(&mut self, instances: &'a InstanceBuffer<I>) {
+        self.use_instances_with_range(instances, instances.instances());
+    }
+
+    pub fn use_instances_with_range<I: Instance>(&mut self, instances: &'a InstanceBuffer<I>, range: Range<u32>) {
         let buffer_id: GpuId<wgpu::Buffer> = instances.buffer().global_id();
-        self.instances = instances.instances();
+        self.instances = range;
         if self.cache.bound_buffers[Self::INSTANCE_SLOT as usize].map_or(true, |id| id != buffer_id)
         {
             self.cache.bound_buffers[Self::INSTANCE_SLOT as usize] = Some(buffer_id);

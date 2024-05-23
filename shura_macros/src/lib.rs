@@ -153,12 +153,12 @@ fn component_bundle(ast: &DeriveInput) -> TokenStream2 {
 
     let component = tagged_components.iter().map(|(name_lit, field_name)| {
         quote! {
-            #name_lit => Some( ::shura::component::ComponentType::Component(&self.#field_name as _))
+            #name_lit => Some( &self.#field_name as _)
         }
     });
     let component_mut = tagged_components.iter().map(|(name_lit, field_name)| {
         quote! {
-            #name_lit => Some( ::shura::component::ComponentTypeMut::Component(&mut self.#field_name as _))
+            #name_lit => Some( &mut self.#field_name as _)
         }
     });
     let component_buffer = render_groups
@@ -176,12 +176,12 @@ fn component_bundle(ast: &DeriveInput) -> TokenStream2 {
 
     let bundle = tagged_bundles.iter().map(|(name_lit, field_name)| {
         quote! {
-            #name_lit => Some( ::shura::component::ComponentType::ComponentBundle(&self.#field_name as _))
+            #name_lit => Some( &self.#field_name as _)
         }
     });
     let bundle_mut = tagged_bundles.iter().map(|(name_lit, field_name)| {
         quote! {
-            #name_lit => Some( ::shura::component::ComponentTypeMut::ComponentBundle(&mut self.#field_name as _))
+            #name_lit => Some( &mut self.#field_name as _)
         }
     });
     let bundle_buffer = bundles.iter().map(|(field, ty)| {
@@ -195,6 +195,23 @@ fn component_bundle(ast: &DeriveInput) -> TokenStream2 {
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
 
     quote!(
+        impl #impl_generics ::shura::component::MetaComponent for #struct_name #ty_generics #where_clause {
+            fn component(&self, name: &'static str) -> Option<&dyn ::shura::component::MetaComponent> {
+                match name {
+                    #( #component, )*
+                    #( #bundle, )*
+                    _ => None
+                }
+            }
+    
+            fn component_mut(&mut self, name: &'static str) -> Option<&mut dyn ::shura::component::MetaComponent> {
+                match name {
+                    #( #component_mut, )*
+                    #( #bundle_mut, )*
+                    _ => None
+                }
+            }
+        }
 
         impl #impl_generics ::shura::component::ComponentBundle for #struct_name #ty_generics #where_clause {
             fn init(&mut self, handle: ::shura::entity::EntityHandle, world: &mut ::shura::physics::World) {
@@ -225,22 +242,6 @@ fn component_bundle(ast: &DeriveInput) -> TokenStream2 {
 
             fn tags() -> &'static [&'static str] where Self: Sized{
                 return &[ #( #names, )* ];
-            }
-
-            fn component(&self, name: &'static str) -> Option<::shura::component::ComponentType> {
-                match name {
-                    #( #component, )*
-                    #( #bundle, )*
-                    _ => None
-                }
-            }
-
-            fn component_mut(&mut self, name: &'static str) -> Option<::shura::component::ComponentTypeMut> {
-                match name {
-                    #( #component_mut, )*
-                    #( #bundle_mut, )*
-                    _ => None
-                }
             }
         }
     )

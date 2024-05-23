@@ -85,6 +85,7 @@ crate-type = ["lib", "cdylib"]
 egui_demo_lib = "0.27"
 
 [dependencies]
+async-trait="0.1"
 winit = { version = "0.30", features = ["mint"] }
 wgpu = { version = "0.20", features = ["glsl", "spirv", "webgl"] }
 anyhow = "1.0"
