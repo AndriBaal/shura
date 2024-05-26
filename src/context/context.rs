@@ -133,7 +133,7 @@ impl<'a> Context<'a> {
         {
             let ser_entities = serializer.finish();
             let mut world_cpy = self.world.clone();
-            for ty in self.entities.types() {
+            for ty in self.entities.entities() {
                 if !ser_entities.contains_key(&ty.entity_type_id()) {
                     for (_, entity) in ty.dyn_iter() {
                         entity.remove_from_world(&mut world_cpy);

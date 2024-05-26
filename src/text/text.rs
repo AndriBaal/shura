@@ -1,13 +1,7 @@
 use crate::{
-    component::Component,
-    entity::EntityHandle,
-    graphics::{
-        Color, Gpu, Index, Instance, Instance2D, Mesh, MeshBuilder2D, RenderGroup, SpriteAtlas,
-        SpriteArrayIndex, Vertex,
-    },
-    math::{Isometry2, Rotation2, Vector2, AABB},
-    physics::World,
-    text::Font,
+    component::Component, entity::EntityHandle, graphics::{
+        Color, Gpu, Index, Instance, Instance2D, Mesh, MeshBuilder2D, RenderGroup, SpriteArrayIndex, SpriteAtlas, Vertex
+    }, math::{Isometry2, Rotation2, Vector2, AABB}, physics::World, prelude::MetaComponent, text::Font
 };
 use wgpu::vertex_attr_array;
 
@@ -281,6 +275,7 @@ pub struct TextComponent2D {
     pub scaling: Vector2<f32>,
 }
 
+impl MetaComponent for TextComponent2D {}
 impl Component for TextComponent2D {
     type Instance = LetterInstance2D;
     fn buffer(

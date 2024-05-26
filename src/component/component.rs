@@ -5,11 +5,19 @@ use crate::{
     physics::World,
 };
 use downcast_rs::{impl_downcast, Downcast};
-use std::{any::Any, collections::{BTreeMap, HashMap, LinkedList, VecDeque}};
+use std::collections::{BTreeMap, HashMap, LinkedList, VecDeque};
 
-pub trait MetaComponent: Any + Downcast {
-    fn component<'a>(&'a self, tag: &'static str) -> Option<&'a dyn MetaComponent>;
-    fn component_mut<'a>(&'a mut self, tag: &'static str) -> Option<&'a mut dyn MetaComponent>;
+#[allow(unused_variables)]
+pub trait MetaComponent: Downcast {
+    fn is_bundle(&self) -> bool {
+        false
+    }
+    fn component<'a>(&'a self, tag: &'static str) -> Option<&'a dyn MetaComponent> {
+        None
+    }
+    fn component_mut<'a>(&'a mut self, tag: &'static str) -> Option<&'a mut dyn MetaComponent> {
+        None
+    }
 }
 impl_downcast!(MetaComponent);
 
@@ -39,7 +47,7 @@ pub trait ComponentBundle: MetaComponent {
 }
 
 #[allow(unused_variables)]
-pub trait Component {
+pub trait Component: MetaComponent {
     type Instance: Instance
     where
         Self: Sized;
@@ -51,6 +59,7 @@ pub trait Component {
     fn remove_from_world(&self, _world: &mut World) {}
 }
 
+impl<I: Instance + Clone> MetaComponent for I {}
 impl<I: Instance + Clone> Component for I {
     type Instance = I where Self: Sized;
 
@@ -94,6 +103,7 @@ macro_rules! impl_collection_inner {
 
 macro_rules! impl_collection {
     ($collection: ty) => {
+        impl<C: MetaComponent> MetaComponent for $collection {}
         impl<C: Component> Component for $collection {
             impl_collection_inner!();
         }
@@ -102,6 +112,7 @@ macro_rules! impl_collection {
 
 macro_rules! impl_collection_map {
     ($collection: ty) => {
+        impl<K: 'static, C: MetaComponent> MetaComponent for $collection {}
         impl<K: 'static, C: Component> Component for $collection {
             type Instance = C::Instance;
             fn buffer(
@@ -130,6 +141,7 @@ macro_rules! impl_collection_map {
     };
 }
 
+impl<const U: usize, C: MetaComponent> MetaComponent for [C; U] {}
 impl<const U: usize, C: Component> Component for [C; U] {
     impl_collection_inner!();
 }

@@ -6,7 +6,7 @@ use crate::{
     context::{Context, RenderContext},
     graphics::{Gpu, GpuConfig, RenderEncoder, GLOBAL_GPU},
     input::Input,
-    io::{AssetManager, StorageManager},
+    io::{AssetManager, StorageManager, GLOBAL_ASSETS, GLOBAL_STORAGE},
     math::Vector2,
     scene::{Scene, SceneManager},
     system::{EndReason, UpdateOperation},
@@ -212,7 +212,7 @@ impl<S: Into<Scene>, I: FnOnce() -> S> ApplicationHandler<()> for AppState<S, I>
         };
 
         #[cfg(feature = "gui")]
-        app.gui.handle_event(&app.window, event);
+        app.gui.handle_event(&app.window, &event);
 
         if app.end || window_id != app.window.id() {
             return;
@@ -336,6 +336,8 @@ impl App {
         gpu.resume(&window);
 
         GLOBAL_GPU.set(gpu.clone()).ok().unwrap();
+        GLOBAL_ASSETS.set(config.assets.clone()).ok().unwrap();
+        GLOBAL_STORAGE.set(config.storage.clone()).ok().unwrap();
 
         let size = gpu.surface_size();
         let scene = (init)();

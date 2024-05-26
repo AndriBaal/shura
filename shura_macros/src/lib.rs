@@ -46,17 +46,6 @@ fn bundle_data(data_struct: &DataStruct) -> ComponentBundleData {
                                 data.handle_fields.push(field_name.clone());
                             } else if meta.path.is_ident("component") {
                                 data.components.insert(field_name.clone());
-                                if let Ok(value) = meta.value() {
-                                    if let Ok(name) = value.parse::<LitStr>() {
-                                        data.render_groups
-                                            .entry(name.value())
-                                            .or_insert_with(|| {
-                                                (name, field.ty.clone(), Vec::default())
-                                            })
-                                            .2
-                                            .push(field_name.clone());
-                                    }
-                                }
                             } else if meta.path.is_ident("bundle") {
                                 data.bundles.insert(field_name.clone(), field.ty.clone());
                             } else if meta.path.is_ident("tag") {
@@ -76,11 +65,31 @@ fn bundle_data(data_struct: &DataStruct) -> ComponentBundleData {
                                         }
                                     }
                                 }
+                            } else if meta.path.is_ident("ads") {
+                                if let Ok(value) = meta.value() {
+                                    if let Ok(name) = value.parse::<LitStr>() {
+                                        if data.components.contains(field_name) {
+                                            data.render_groups
+                                            .entry(name.value())
+                                            .or_insert_with(|| {
+                                                (name, field.ty.clone(), Vec::default())
+                                            })
+                                            .2
+                                            .push(field_name.clone());
+                                            return Ok(());
+                                        } else if data.bundles.contains_key(field_name) {
+                                            panic!("'#[shura(render=\"{value}\"]' cannot be used on a bundle");
+                                        } else {
+                                            panic!("'#[shura(render=\"{value}\"]' must be after a component declaration");
+                                        }
+                                    }
+                                }
+                                panic!("'#[shura(render=\"<render_group>\"]' was declared incorrectly");
                             }
-                            Ok(())
+                            return Ok(());
                         })
                         .expect(
-                            "Define your components like the this: '#[shura(component = \"<render_group>\")]' or '#[shura(component)]'",
+                            "Define your components like the this: '#[shura(component)]'",
                         );
                     }
                 }
@@ -203,7 +212,7 @@ fn component_bundle(ast: &DeriveInput) -> TokenStream2 {
                     _ => None
                 }
             }
-    
+
             fn component_mut(&mut self, name: &'static str) -> Option<&mut dyn ::shura::component::MetaComponent> {
                 match name {
                     #( #component_mut, )*
@@ -313,6 +322,10 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         .unwrap_or_else(|| quote!(()));
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
     quote!(
+        impl #impl_generics ::shura::component::MetaComponent for #struct_name #ty_generics #where_clause {
+
+        }
+
         impl #impl_generics ::shura::component::Component for #struct_name #ty_generics #where_clause {
             type Instance = #instance;
             fn buffer(

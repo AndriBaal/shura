@@ -1,7 +1,7 @@
 use anyhow::Result;
 use downcast_rs::{impl_downcast, Downcast};
 
-use std::{env, fs, path::PathBuf};
+use std::{env, fs, path::PathBuf, sync::{Arc, OnceLock}};
 
 #[cfg(target_os = "android")]
 use std::{ffi::CString, io::Read};
@@ -34,6 +34,11 @@ macro_rules! include_asset_wgsl {
         ::shura::graphics::include_wgsl!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/", $file))
     };
 }
+
+
+pub static GLOBAL_ASSETS: OnceLock<Arc<dyn AssetManager>> = OnceLock::new();
+pub static GLOBAL_STORAGE: OnceLock<Arc<dyn StorageManager>> = OnceLock::new();
+
 
 #[async_trait::async_trait(?Send)]
 pub trait BaseAssetManager: Send + Sync + Downcast {
@@ -275,215 +280,3 @@ impl BaseAssetManager for AndroidAssetManager {
         return Ok(data);
     }
 }
-
-// pub struct AndroidStorageManager {
-//     android_data: PathBuf,
-// }
-
-// impl AndroidStorageManager {
-//     pub fn new(app: &winit::platform::android::activity::AndroidApp) -> Self {
-//         Self {
-//             manager: app.internal_data_path().unwrap()
-//         }
-//     }
-
-//     fn data_path(&self, path: &str) -> Result<PathBuf> {
-//         let path = self.android_data.join(path);
-//         Ok(path)
-//     }
-// }
-
-
-// pub async fn load_asset_bytes_async(path: &str) -> Result<Vec<u8>> {
-//     #[cfg(target_arch = "wasm32")]
-//     {
-//         let url = asset_url(path)?;
-//         return Ok(reqwest::get(url).await?.bytes().await?.to_vec());
-//     }
-//     #[cfg(not(target_arch = "wasm32"))]
-//     {
-//         load_asset_bytes(path)
-//     }
-// }
-
-// pub async fn load_asset_string_async(path: &str) -> Result<String> {
-//     #[cfg(target_arch = "wasm32")]
-//     {
-//         let url = asset_url(path)?;
-//         let test = reqwest::get(url).await?;
-//         let text = test.text().await?;
-//         return Ok(text);
-//     }
-//     #[cfg(not(target_arch = "wasm32"))]
-//     {
-//         load_asset_string(path)
-//     }
-// }
-
-// #[cfg(not(target_arch = "wasm32"))]
-// pub fn load_asset_bytes(path: &str) -> Result<Vec<u8>> {
-//     #[cfg(target_os = "android")]
-//     {
-//         #[cfg(feature = "log")]
-//         info!("Loading: {}", path);
-//         let manager = ANDROID_ASSETS.get().unwrap();
-//         let path = CString::new(path).unwrap();
-//         let mut asset = manager.open(&path).unwrap();
-//         let mut data = vec![];
-//         asset.read_to_end(&mut data).unwrap();
-//         return Ok(data);
-//     }
-//     #[cfg(not(target_os = "android"))]
-//     {
-//         let path = asset_path(path)?;
-//         let data = std::fs::read(path)?;
-//         Ok(data)
-//     }
-// }
-
-// #[cfg(not(target_arch = "wasm32"))]
-// pub fn load_asset_string(path: &str) -> Result<String> {
-//     #[cfg(target_os = "android")]
-//     {
-//         #[cfg(feature = "log")]
-//         info!("Loading: {}", path);
-//         let manager = ANDROID_ASSETS.get().unwrap();
-//         let path = CString::new(path).unwrap();
-//         let mut asset = manager.open(&path).unwrap();
-//         let mut data = String::new();
-//         asset.read_to_string(&mut data).unwrap();
-//         return Ok(data);
-//     }
-//     #[cfg(not(target_os = "android"))]
-//     {
-//         let path = asset_path(path)?;
-//         let data = std::fs::read_to_string(path)?;
-//         Ok(data)
-//     }
-// }
-
-// #[cfg(not(target_arch = "wasm32"))]
-// pub fn load_data_bytes(path: &str) -> Result<Vec<u8>> {
-//     #[cfg(target_arch = "wasm32")]
-//     {
-//         todo!()
-//     }
-//     #[cfg(target_os = "android")]
-//     {
-//         todo!()
-//     }
-//     #[cfg(not(target_os = "android"))]
-//     {
-//         let path = data_path(path)?;
-//         let data = std::fs::read(path)?;
-//         Ok(data)
-//     }
-// }
-
-// #[cfg(not(target_arch = "wasm32"))]
-// pub fn load_data_string(path: &str) -> Result<String> {
-//     #[cfg(target_arch = "wasm32")]
-//     {
-//         todo!()
-//     }
-//     #[cfg(target_os = "android")]
-//     {
-//         todo!()
-//     }
-//     #[cfg(not(target_os = "android"))]
-//     {
-//         let path = data_path(path)?;
-//         let data = std::fs::read_to_string(path)?;
-//         Ok(data)
-//     }
-// }
-
-// #[cfg(not(target_arch = "wasm32"))]
-// pub fn delete_data(path: &str) -> Result<()> {
-//     #[cfg(target_arch = "wasm32")]
-//     {
-//         todo!()
-//     }
-//     #[cfg(target_os = "android")]
-//     {
-//         todo!()
-//     }
-//     #[cfg(not(target_os = "android"))]
-//     {
-//         let path = data_path(path)?;
-//         if path.is_dir() {
-//             std::fs::remove_dir_all(path)?;
-//         } else {
-//             std::fs::remove_file(path)?;
-//         }
-//         Ok(())
-//     }
-// }
-
-// // #[cfg(not(target_arch = "wasm32"))]
-// // pub fn read_data_dir(path: &str) -> Result<std::fs::ReadDir> {
-// //     #[cfg(target_arch = "wasm32")]
-// //     {
-// //         todo!()
-// //     }
-// //     #[cfg(target_os = "android")]
-// //     {
-// //         todo!()
-// //     }
-// //     #[cfg(not(target_os = "android"))]
-// //     {
-// //         let path = data_path(path)?;
-// //         let data = std::fs::read_dir(path)?;
-// //         Ok(data)
-// //     }
-// // }
-
-// #[cfg(not(target_arch = "wasm32"))]
-// pub fn store(path: &str, data: impl AsRef<[u8]>) -> Result<()> {
-//     #[cfg(target_os = "android")]
-//     {
-//         todo!()
-//     }
-//     #[cfg(not(target_os = "android"))]
-//     {
-//         let path = data_path(path)?;
-//         let prefix = path.parent().unwrap();
-//         if !prefix.exists() {
-//             std::fs::create_dir_all(prefix)?;
-//         }
-//         std::fs::write(path, data)?;
-//         Ok(())
-//     }
-// }
-
-// #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
-// pub fn data_path(path: &str) -> Result<PathBuf> {
-//     let exe = env::current_exe()?;
-//     let mut dir = fs::canonicalize(exe)?;
-//     dir.pop();
-//     let path = dir.join("data").join(path);
-//     Ok(path)
-// }
-
-// #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
-// pub fn asset_path(path: &str) -> Result<PathBuf> {
-//     let exe = env::current_exe()?;
-//     let mut dir = fs::canonicalize(exe)?;
-//     dir.pop();
-//     let path = dir.join("assets").join(path);
-//     #[cfg(feature = "log")]
-//     info!("Loading: {}", path.display());
-//     Ok(path)
-// }
-
-// #[cfg(target_arch = "wasm32")]
-// pub fn asset_url(path: &str) -> Result<reqwest::Url> {
-//     let window = web_sys::window().unwrap();
-//     let location = window.location();
-//     let origin = location.origin().unwrap();
-//     let base = reqwest::Url::parse(&origin)?;
-//     let url = base.join("assets/")?.join(path)?;
-//     #[cfg(feature = "log")]
-//     info!("Loading: {}", url);
-//     return Ok(url);
-// }

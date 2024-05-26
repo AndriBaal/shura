@@ -1,5 +1,5 @@
 use crate::{
-    component::Component,
+    component::{Component, MetaComponent},
     entity::EntityHandle,
     graphics::{Color, Instance2D, Instance3D, RenderGroup, SpriteAtlas, SpriteArrayIndex},
     math::{Isometry2, Isometry3, Rotation3, Vector2, Vector3, AABB},
@@ -151,7 +151,7 @@ impl PositionComponent2D {
         self.instance
     }
 }
-
+impl MetaComponent for PositionComponent2D {}
 impl Component for PositionComponent2D {
     type Instance = Instance2D;
 
@@ -279,6 +279,7 @@ impl PositionComponent3D {
     }
 }
 
+impl MetaComponent for PositionComponent3D {}
 impl Component for PositionComponent3D {
     type Instance = Instance3D;
 

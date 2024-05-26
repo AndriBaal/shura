@@ -1,5 +1,5 @@
 use crate::{
-    component::Component,
+    component::{Component, MetaComponent},
     entity::EntityHandle,
     graphics::{Color, Instance2D, RenderGroup, SpriteArrayIndex, SpriteAtlas},
     math::{Vector2, AABB},
@@ -210,6 +210,7 @@ impl RigidBodyComponent {
     }
 }
 
+impl MetaComponent for RigidBodyComponent {}
 impl Component for RigidBodyComponent {
     type Instance = Instance2D;
 

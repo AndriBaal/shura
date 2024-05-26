@@ -543,6 +543,10 @@ impl DefaultAssets {
         });
 
         #[cfg(feature = "text")]
+        let text_module = gpu
+        .create_shader_module(include_wgsl!("../../static/shader/2d/text.wgsl"));
+
+        #[cfg(feature = "text")]
         let text_mesh = gpu.create_shader(ShaderConfig {
             name: Some("text_vertex"),
             uniforms: &[UniformField::Camera, UniformField::SpriteArray],
@@ -550,8 +554,7 @@ impl DefaultAssets {
                 vertex: &gpu.create_shader_module(include_wgsl!(
                     "../../static/shader/2d/vertex_text_mesh.wgsl"
                 )),
-                fragment: &gpu
-                    .create_shader_module(include_wgsl!("../../static/shader/2d/text.wgsl")),
+                fragment: &text_module,
             },
             buffers: &[
                 crate::text::Vertex2DText::LAYOUT,
@@ -578,8 +581,7 @@ impl DefaultAssets {
             uniforms: &[UniformField::Camera, UniformField::SpriteArray],
             source: ShaderModuleSource::Separate {
                 vertex: &shared_assets.vertex_shader_module,
-                fragment: &gpu
-                    .create_shader_module(include_wgsl!("../../static/shader/2d/text.wgsl")),
+                fragment: &text_module,
             },
             buffers: &[
                 crate::graphics::Vertex2D::LAYOUT,

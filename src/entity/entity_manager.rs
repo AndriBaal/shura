@@ -148,9 +148,9 @@ impl EntityManager {
         tag: &'static str,
         mut each: impl FnMut(EntityHandle, &dyn MetaComponent),
     ) {
-        if let Some(type_ids) = self.components.get(tag) {
-            for type_id in type_ids {
-                let ty = self.types.get(type_id).unwrap();
+        if let Some(entity_ids) = self.components.get(tag) {
+            for entity_id in entity_ids {
+                let ty = self.types.get(entity_id).unwrap();
                 let ty = ty.ref_dyn();
                 for (handle, entity) in ty.dyn_iter() {
                     if let Some(collection) = entity.component(tag) {
@@ -166,9 +166,9 @@ impl EntityManager {
         tag: &'static str,
         mut each: impl FnMut(EntityHandle, &mut dyn MetaComponent),
     ) {
-        if let Some(type_ids) = self.components.get(tag) {
-            for type_id in type_ids {
-                let ty = self.types.get(type_id).unwrap();
+        if let Some(entity_ids) = self.components.get(tag) {
+            for entity_id in entity_ids {
+                let ty = self.types.get(entity_id).unwrap();
                 let mut ty = ty.ref_mut_dyn();
                 for (handle, entity) in ty.dyn_iter_mut() {
                     if let Some(collection) = entity.component_mut(tag) {
@@ -184,9 +184,9 @@ impl EntityManager {
         tag: &'static str,
         mut each: impl FnMut(EntityHandle, &dyn Entity),
     ) {
-        if let Some(type_ids) = self.components.get(tag) {
-            for type_id in type_ids {
-                let ty = self.types.get(type_id).unwrap();
+        if let Some(entity_ids) = self.components.get(tag) {
+            for entity_id in entity_ids {
+                let ty = self.types.get(entity_id).unwrap();
                 let ty = ty.ref_dyn();
                 for (handle, entity) in ty.dyn_iter() {
                     each(handle, entity);
@@ -200,9 +200,9 @@ impl EntityManager {
         tag: &'static str,
         mut each: impl FnMut(EntityHandle, &mut dyn Entity),
     ) {
-        if let Some(type_ids) = self.components.get(tag) {
-            for type_id in type_ids {
-                let ty = self.types.get(type_id).unwrap();
+        if let Some(entity_ids) = self.components.get(tag) {
+            for entity_id in entity_ids {
+                let ty = self.types.get(entity_id).unwrap();
                 let mut ty = ty.ref_mut_dyn();
                 for (handle, entity) in ty.dyn_iter_mut() {
                     each(handle, entity);
@@ -213,9 +213,9 @@ impl EntityManager {
 
     pub fn count_entities_with_component(&self, tag: &'static str) -> usize {
         let mut count = 0;
-        if let Some(type_ids) = self.components.get(tag) {
-            for type_id in type_ids {
-                let ty = self.types.get(type_id).unwrap();
+        if let Some(entity_ids) = self.components.get(tag) {
+            for entity_id in entity_ids {
+                let ty = self.types.get(entity_id).unwrap();
                 let ty = ty.ref_dyn();
                 count += ty.len();
             }
@@ -229,9 +229,9 @@ impl EntityManager {
         tag: &'static str,
         keep: impl Fn(&mut dyn Entity, &mut World) -> bool,
     ) {
-        if let Some(type_ids) = self.components.get(tag) {
-            for type_id in type_ids {
-                let ty = self.types.get(type_id).unwrap();
+        if let Some(entity_ids) = self.components.get(tag) {
+            for entity_id in entity_ids {
+                let ty = self.types.get(entity_id).unwrap();
                 let mut ty = ty.ref_mut_dyn();
                 ty.dyn_retain(world, &keep);
             }
@@ -311,11 +311,11 @@ impl EntityManager {
         }
     }
 
-    pub fn types(&mut self) -> impl Iterator<Item = Ref<'_, dyn EntityType>> {
+    pub fn entities(&mut self) -> impl Iterator<Item = Ref<'_, dyn EntityType>> {
         self.types.values_mut().map(|r| r.ref_dyn())
     }
 
-    pub fn types_mut(&mut self) -> impl Iterator<Item = RefMut<'_, dyn EntityType>> {
+    pub fn entities_mut(&mut self) -> impl Iterator<Item = RefMut<'_, dyn EntityType>> {
         self.types.values_mut().map(|r| r.ref_mut_dyn())
     }
 
@@ -335,7 +335,11 @@ impl EntityManager {
     }
 
     pub fn exists<E: EntityIdentifier>(&self) -> bool {
-        self.types.contains_key(&E::IDENTIFIER)
+        self.exists_id(&E::IDENTIFIER)
+    }
+
+    pub fn exists_id(&self, entity_id: &EntityId) -> bool {
+        self.types.contains_key(&entity_id)
     }
 
     #[cfg(feature = "serde")]
@@ -348,23 +352,16 @@ impl EntityManager {
         .unwrap()
     }
 
-    pub fn get_dyn_mut(&self, type_id: EntityId) -> RefMut<dyn EntityType> {
+    pub fn get_dyn_mut(&self, entity_id: EntityId) -> RefMut<dyn EntityType> {
         self.types
-            .get(&type_id)
+            .get(&entity_id)
             .expect("Cannot find type!")
             .ref_mut_dyn()
     }
 
-    pub fn get_dyn(&self, type_id: EntityId) -> Ref<dyn EntityType> {
+    pub fn get_dyn(&self, entity_id: EntityId) -> Ref<dyn EntityType> {
         self.types
-            .get(&type_id)
-            .expect("Cannot find type!")
-            .ref_dyn()
-    }
-
-    pub fn entity_raw(&self, type_id: EntityId) -> Ref<dyn EntityType> {
-        self.types
-            .get(&type_id)
+            .get(&entity_id)
             .expect("Cannot find type!")
             .ref_dyn()
     }
@@ -409,5 +406,71 @@ impl EntityManager {
             .get(&ET::Entity::IDENTIFIER)
             .unwrap_or_else(|| panic!("{}", no_type_error::<ET::Entity>()))
             ._ref()
+    }
+
+
+
+    pub fn try_get_dyn_mut(&self, entity_id: EntityId) -> Option<RefMut<dyn EntityType>> {
+        if self.exists_id(&entity_id) {
+            Some(self.get_dyn_mut(entity_id))
+        } else {
+            None
+        }
+    }
+
+    pub fn try_get_dyn(&self, entity_id: EntityId) -> Option<Ref<dyn EntityType>> {
+        if self.exists_id(&entity_id) {
+            Some(self.get_dyn(entity_id))
+        } else {
+            None
+        }
+    }
+
+    pub fn try_single_mut<E: EntityIdentifier>(&self) -> Option<RefMut<SingleEntity<E>>> {
+        if self.exists::<E>() {
+            Some(self.single_mut())
+        } else {
+            None
+        }
+    }
+
+    pub fn try_single<E: EntityIdentifier>(&self) -> Option<Ref<SingleEntity<E>>> {
+        if self.exists::<E>() {
+            Some(self.single())
+        } else {
+            None
+        }
+    }
+
+    pub fn try_get_mut<E: EntityIdentifier>(&self) -> Option<RefMut<Entities<E>>> {
+        if self.exists::<E>() {
+            Some(self.get_mut())
+        } else {
+            None
+        }
+    }
+
+    pub fn try_get<E: EntityIdentifier>(&self) -> Option<Ref<Entities<E>>> {
+        if self.exists::<E>() {
+            Some(self.get())
+        } else {
+            None
+        }
+    }
+
+    pub fn try_group_mut<ET: EntityType + Default>(&self) -> Option<RefMut<GroupedEntities<ET>>> {
+        if self.exists::<ET::Entity>() {
+            Some(self.group_mut())
+        } else {
+            None
+        }
+    }
+
+    pub fn try_group<ET: EntityType + Default>(&self) -> Option<Ref<GroupedEntities<ET>>> {
+        if self.exists::<ET::Entity>() {
+            Some(self.group())
+        } else {
+            None
+        }
     }
 }

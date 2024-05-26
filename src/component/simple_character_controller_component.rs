@@ -5,9 +5,8 @@ use crate::{
     graphics::{Color, Instance2D, RenderGroup, SpriteAtlas, SpriteArrayIndex},
     math::{Isometry2, Vector2, AABB},
     physics::{Shape, World},
+    component::{Component, MetaComponent, PhysicsComponentVisibility}
 };
-
-use super::{Component, PhysicsComponentVisibility};
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone)]
@@ -199,6 +198,7 @@ impl<S: Shape> SimpleCharacterControllerComponent<S> {
     }
 }
 
+impl<S: Shape> MetaComponent for SimpleCharacterControllerComponent<S> {}
 impl<S: Shape> Component for SimpleCharacterControllerComponent<S> {
     type Instance = Instance2D;
 

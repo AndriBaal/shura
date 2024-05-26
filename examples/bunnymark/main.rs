@@ -153,7 +153,8 @@ impl Assets {
 struct Bunny {
     #[shura(handle)]
     handle: EntityHandle,
-    #[shura(component = "bunny")]
+    #[shura(component)]
+    #[shura(render="bunny")]
     position: PositionComponent2D,
     linvel: Vector2<f32>,
 }

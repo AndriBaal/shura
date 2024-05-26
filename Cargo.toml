@@ -60,7 +60,6 @@ serde = [
     "rstar/serde",
     "nalgebra/serde-serialize",
     "parking_lot/serde",
-
     "gilrs?/serde-serialize",
     "egui?/serde",
     "rapier2d?/serde-serialize",
@@ -72,7 +71,7 @@ default = [
     "audio",
     "physics",
     "serde",
-    # "gui",
+    "gui",
     "log",
     "framebuffer",
     "rayon",
@@ -102,8 +101,9 @@ nalgebra = { version = "0.32", features = ["convert-bytemuck", "mint", "rand"] }
 rusttype = { version = "0.9", optional = true }
 owned_ttf_parser = { version = "0.15", optional = true }
 gilrs = { version = "0.10", optional = true }
-egui-wgpu = { version = "0.27", features = ["winit"], optional = true }
-egui = { version = "0.27", default-features = false, optional = true, features = [
+# git = "https://github.com/AndriBaal/egui.git"
+egui-wgpu = { path = "../egui/crates/egui-wgpu", features = ["winit"], optional = true }
+egui = { path = "../egui/crates/egui", default-features = false, optional = true, features = [
     "bytemuck",
     "default_fonts",
     "mint",
@@ -126,7 +126,7 @@ rand = "0.8.5"
 rodio = { version = "0.18", default-features = false, optional = true, features = [
     "symphonia-all",
 ] }
-egui-winit = { version = "0.27", features = [
+egui-winit = { path = "../egui/crates/egui-winit", features = [
     "links",
 ], default-features = false, optional = true }
 
@@ -162,7 +162,7 @@ version = "0.1"
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies.egui-winit]
 features = ["arboard", "webbrowser"]
 default-features = true
-version = "0.27"
+path = "../egui/crates/egui-winit"
 
 [target.'cfg(target_os = "android")'.dependencies.winit]
 features = ["android-native-activity"]

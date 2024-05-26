@@ -115,7 +115,7 @@ impl EntityGroupManager {
         let update_activation = group.update_activation;
         let render_activation = group.render_activation;
         let handle = EntityGroupHandle(self.groups.insert(group));
-        for mut ty in entities.types_mut() {
+        for mut ty in entities.entities_mut() {
             ty.add_group();
         }
         self.all_groups.insert(handle);
@@ -156,7 +156,7 @@ impl EntityGroupManager {
         let group = self.groups.remove(handle.0);
         if let Some(group) = group {
             let mut out = FxHashMap::default();
-            for mut ty in entities.types_mut() {
+            for mut ty in entities.entities_mut() {
                 if let Some(g) = ty.remove_group(world, handle) {
                     out.insert(ty.entity_type_id(), g);
                 }

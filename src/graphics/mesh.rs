@@ -107,12 +107,6 @@ impl Vertex for Vertex2D {
 pub struct MeshBuilder2D {
     pub vertices: Vec<Vertex2D>,
     pub indices: Vec<Index>,
-    pub vertex_offset: Isometry2<f32>,
-    pub tex_coord_offset: Isometry2<f32>,
-    pub vertex_scale: Vector2<f32>,
-    pub tex_coord_scale: Vector2<f32>,
-    pub vertex_rotation_axis: Vector2<f32>,
-    pub tex_coord_rotation_axis: Vector2<f32>,
 }
 
 impl MeshBuilder for MeshBuilder2D {
@@ -177,41 +171,6 @@ impl MeshBuilder2D {
             ..Default::default()
         }
     }
-
-    // pub fn regular_polygon_section(
-    //     start: Vector2<f32>,
-    //     end: Vector2<f32>,
-    //     center: Vector2<f32>,
-    //     corners: u32,
-    // ) -> Self {
-    //     let mut vertices = vec![
-    //         Vertex2D::new(center, Vector2::new(0.5, 0.5)),
-    //         Vertex2D::new(start, ..),
-    //     ];
-    //     // for i in 0..corners {
-    //     //     let i = i as f32;
-    //     //
-    //     //     let pos = Vector2::new(
-    //     //         radius * (i / corners as f32 * 2.0 * PI).cos(),
-    //     //         radius * (i / corners as f32 * 2.0 * PI).sin(),
-    //     //     );
-    //     //
-    //     //     vertices.push(Vertex2D {
-    //     //         pos,
-    //     //         tex: Vector2::new(
-    //     //             (i / corners as f32 * 2.0 * PI).cos() / 2.0 + 0.5,
-    //     //             (i / corners as f32 * 2.0 * PI).sin() / -2.0 + 0.5,
-    //     //         ),
-    //     //     });
-    //     // }
-    //     vertices.push(Vertex2D::new(end, ..));
-    //     let indices = Self::triangulate(&vertices);
-    //     Self {
-    //         vertices,
-    //         indices,
-    //         ..Default::default()
-    //     }
-    // }
 
     pub fn square(half_length: f32) -> Self {
         Self::cuboid(Vector2::new(half_length, half_length))
@@ -331,7 +290,6 @@ impl MeshBuilder2D {
         border_radius: f32,
         resolution: u32,
     ) -> Self {
-        let inner = inner.apply();
         let v = inner.vertices.iter().map(|v| v.pos).collect();
         let border = border_radius;
 
@@ -484,10 +442,9 @@ impl MeshBuilder2D {
         let mut indices = vec![];
         let mut offset = 0;
         for shape in shapes {
-            let shape = shape.clone().apply();
-            vertices.extend(shape.vertices);
+            vertices.extend(&shape.vertices);
             let len = shape.indices.len() as u32;
-            for index in shape.indices {
+            for index in &shape.indices {
                 indices.push(Index {
                     a: index.a + offset,
                     b: index.b + offset,
@@ -552,7 +509,7 @@ impl MeshBuilder2D {
                     .iter()
                     .map(|s| {
                         Self::from_collider_shape(s.1.as_ref(), resolution, half_thickness)
-                            .vertex_position(s.0)
+                            .apply_vertex_position(s.0)
                     })
                     .collect();
 
@@ -634,127 +591,72 @@ impl MeshBuilder2D {
         result
     }
 
-    pub fn vertex_scale(mut self, scale: Vector2<f32>) -> Self {
-        self.vertex_scale = scale;
+    pub fn apply_vertex_scale(mut self, scale: Vector2<f32>) -> Self {
+        for v in self.vertices.iter_mut() {
+            v.pos.x *= scale.x;
+            v.pos.y *= scale.y;
+        }
         self
     }
 
-    pub fn vertex_position(mut self, position: Isometry2<f32>) -> Self {
-        self.vertex_offset = position;
+    pub fn apply_vertex_position(self, position: Isometry2<f32>) -> Self {
+        self.apply_vertex_translation(position.translation.vector)
+            .apply_vertex_rotation(position.rotation, Vector2::new(0.0, 0.0))
+    }
+
+    pub fn apply_vertex_rotation(
+        mut self,
+        rotation: Rotation2<f32>,
+        vertex_rotation_axis: Vector2<f32>,
+    ) -> Self {
+        for v in self.vertices.iter_mut() {
+            let delta = v.pos - vertex_rotation_axis;
+            v.pos = vertex_rotation_axis + rotation * delta;
+        }
         self
     }
 
-    pub fn vertex_rotation(mut self, rotation: Rotation2<f32>) -> Self {
-        self.vertex_offset.rotation = rotation;
+    pub fn apply_vertex_translation(mut self, translation: Vector2<f32>) -> Self {
+        for v in self.vertices.iter_mut() {
+            v.pos += translation;
+        }
         self
     }
 
-    pub fn vertex_translation(mut self, translation: Vector2<f32>) -> Self {
-        self.vertex_offset.translation.vector = translation;
+    pub fn apply_tex_coord_scale(mut self, scale: Vector2<f32>) -> Self {
+        for v in self.vertices.iter_mut() {
+            v.tex.x *= scale.x;
+            v.tex.y *= scale.y;
+        }
         self
     }
 
-    pub fn vertex_rotation_axis(mut self, rotation_axis: Vector2<f32>) -> Self {
-        self.vertex_rotation_axis = rotation_axis;
+    pub fn apply_tex_coord_position(self, position: Isometry2<f32>) -> Self {
+        self.apply_tex_coord_rotation(position.rotation, Vector2::new(0.5, 0.5))
+            .apply_tex_coord_translation(position.translation.vector)
+    }
+
+    pub fn apply_tex_coord_rotation(
+        mut self,
+        rotation: Rotation2<f32>,
+        tex_coord_rotation_axis: Vector2<f32>,
+    ) -> Self {
+        for v in self.vertices.iter_mut() {
+            let delta = v.tex - tex_coord_rotation_axis;
+            v.tex = tex_coord_rotation_axis + rotation * delta;
+        }
         self
     }
 
-    pub fn tex_coord_scale(mut self, scale: Vector2<f32>) -> Self {
-        self.tex_coord_scale = scale;
-        self
-    }
-
-    pub fn tex_coord_position(mut self, position: Isometry2<f32>) -> Self {
-        self.tex_coord_offset = position;
-        self
-    }
-
-    pub fn tex_coord_rotation(mut self, rotation: Rotation2<f32>) -> Self {
-        self.tex_coord_offset.rotation = rotation;
-        self
-    }
-
-    pub fn tex_coord_translation(mut self, translation: Vector2<f32>) -> Self {
-        self.tex_coord_offset.translation.vector = translation;
-        self
-    }
-
-    pub fn tex_coord_rotation_axis(mut self, rotation_axis: Vector2<f32>) -> Self {
-        self.tex_coord_rotation_axis = rotation_axis;
+    pub fn apply_tex_coord_translation(mut self, translation: Vector2<f32>) -> Self {
+        for v in self.vertices.iter_mut() {
+            v.tex += translation;
+        }
         self
     }
 
     pub fn vertex_size(&self) -> wgpu::BufferAddress {
         mem::size_of::<Vertex2D>() as u64
-    }
-
-    pub fn apply(mut self) -> Self {
-        Self::compute_modifed_vertices(
-            &mut self.vertices,
-            self.vertex_offset,
-            self.tex_coord_offset,
-            self.vertex_scale,
-            self.tex_coord_scale,
-            self.vertex_rotation_axis,
-            self.tex_coord_rotation_axis,
-        );
-        Self {
-            vertices: self.vertices,
-            indices: self.indices,
-            ..Default::default()
-        }
-    }
-
-    pub fn compute_modifed_vertices(
-        vertices: &mut [Vertex2D],
-        vertex_offset: Isometry2<f32>,
-        tex_coord_offset: Isometry2<f32>,
-        vertex_scale: Vector2<f32>,
-        tex_coord_scale: Vector2<f32>,
-        vertex_rotation_axis: Vector2<f32>,
-        tex_coord_rotation_axis: Vector2<f32>,
-    ) {
-        if vertex_scale != Self::DEFAULT_SCALE {
-            for v in vertices.iter_mut() {
-                v.pos.x *= vertex_scale.x;
-                v.pos.y *= vertex_scale.y;
-            }
-        }
-
-        let angle = vertex_offset.rotation.angle();
-        if angle != Self::DEFAULT_ROTATION {
-            for v in vertices.iter_mut() {
-                let delta = v.pos - vertex_rotation_axis;
-                v.pos = vertex_rotation_axis + vertex_offset.rotation * delta;
-            }
-        }
-
-        if vertex_offset.translation.vector != Self::DEFAULT_OFFSET {
-            for v in vertices.iter_mut() {
-                v.pos += vertex_offset.translation.vector;
-            }
-        }
-
-        if tex_coord_scale != Self::DEFAULT_SCALE {
-            for v in vertices.iter_mut() {
-                v.tex.x *= tex_coord_scale.x;
-                v.tex.y *= tex_coord_scale.y;
-            }
-        }
-
-        let angle = tex_coord_offset.rotation.angle();
-        if angle != Self::DEFAULT_ROTATION {
-            for v in vertices.iter_mut() {
-                let delta = v.tex - tex_coord_rotation_axis;
-                v.tex = tex_coord_rotation_axis + tex_coord_offset.rotation * delta;
-            }
-        }
-
-        if tex_coord_offset.translation.vector != Self::DEFAULT_OFFSET {
-            for v in vertices.iter_mut() {
-                v.tex += tex_coord_offset.translation.vector;
-            }
-        }
     }
 }
 
@@ -763,12 +665,6 @@ impl Default for MeshBuilder2D {
         Self {
             vertices: Default::default(),
             indices: Default::default(),
-            vertex_offset: Isometry2::new(Self::DEFAULT_OFFSET, Self::DEFAULT_ROTATION),
-            vertex_scale: Self::DEFAULT_SCALE,
-            vertex_rotation_axis: Vector2::new(0.0, 0.0),
-            tex_coord_offset: Isometry2::new(Self::DEFAULT_OFFSET, Self::DEFAULT_ROTATION),
-            tex_coord_scale: Self::DEFAULT_SCALE,
-            tex_coord_rotation_axis: Vector2::new(0.5, 0.5),
         }
     }
 }

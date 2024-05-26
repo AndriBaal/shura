@@ -1,5 +1,5 @@
 use crate::{
-    component::{Component, PhysicsComponentVisibility},
+    component::{Component, MetaComponent, PhysicsComponentVisibility},
     entity::EntityHandle,
     graphics::{Color, Instance2D, RenderGroup, SpriteArrayIndex, SpriteAtlas},
     math::{Vector2, AABB},
@@ -141,6 +141,7 @@ impl ColliderComponent {
     }
 }
 
+impl MetaComponent for ColliderComponent {}
 impl Component for ColliderComponent {
     type Instance = Instance2D;
 
