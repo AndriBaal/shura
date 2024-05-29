@@ -167,14 +167,30 @@ impl RenderGroupManager {
         }
     }
 
-    pub fn get(&self, name: &'static str) -> Option<&Box<dyn RenderGroup>> {
+    pub fn get<I: Instance>(&self, name: &'static str) -> &InstanceRenderGroup<I> {
         self.buffers
             .get(name)
+            .unwrap_or_else(|| panic!("Render group {name} is not registered!"))
+            .downcast_ref::<InstanceRenderGroup<I>>()
+            .unwrap_or_else(|| {
+                panic!(
+                    "Render group {name} has wrong Instance: {}!",
+                    std::any::type_name::<I>()
+                )
+            })
     }
 
-    pub fn get_mut(&mut self, name: &'static str) -> Option<&mut Box<dyn RenderGroup>> {
+    pub fn get_mut<I: Instance>(&mut self, name: &'static str) -> &mut InstanceRenderGroup<I> {
         self.buffers
             .get_mut(name)
+            .unwrap_or_else(|| panic!("Render group {name} is not registered!"))
+            .downcast_mut::<InstanceRenderGroup<I>>()
+            .unwrap_or_else(|| {
+                panic!(
+                    "Render group {name} has wrong Instance: {}!",
+                    std::any::type_name::<I>()
+                )
+            })
     }
 
     pub fn iter(&self) -> Iter<'_, &str, Box<dyn RenderGroup>> {

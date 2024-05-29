@@ -174,7 +174,7 @@ fn component_bundle(ast: &DeriveInput) -> TokenStream2 {
         .iter()
         .map(|(_, (group_name, type_name, field_names))| {
             quote! {
-                let buffer = render_groups.get_mut::<<#type_name as ::shura::component::Component>::Instance>(#group_name).expect(&format!("Cannot find render group \"{}\"! Try declaring it when setting up the scene.", #group_name));
+                let buffer = render_groups.get_mut::<<#type_name as ::shura::component::Component>::Instance>(#group_name);
                 if buffer.needs_update() {
                     for e in iter.clone() {
                         #( e.#field_names.buffer(world, cam2d, buffer); ) *
