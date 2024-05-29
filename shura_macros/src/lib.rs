@@ -65,7 +65,7 @@ fn bundle_data(data_struct: &DataStruct) -> ComponentBundleData {
                                         }
                                     }
                                 }
-                            } else if meta.path.is_ident("ads") {
+                            } else if meta.path.is_ident("render") {
                                 if let Ok(value) = meta.value() {
                                     if let Ok(name) = value.parse::<LitStr>() {
                                         if data.components.contains(field_name) {
@@ -243,7 +243,7 @@ fn component_bundle(ast: &DeriveInput) -> TokenStream2 {
                 world: &::shura::physics::World,
                 cam2d: &::shura::math::AABB,
             ) {
-                use ::shura::graphics::RenderGroupCommon;
+                use ::shura::graphics::RenderGroup;
                 use ::shura::component::Component;
                 #( #component_buffer )*
                 #( #bundle_buffer )*
@@ -332,7 +332,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                 &self,
                 world: &::shura::physics::World,
                 cam2d: &::shura::math::AABB,
-                render_group: &mut ::shura::graphics::RenderGroup<Self::Instance>,
+                render_group: &mut ::shura::graphics::InstanceRenderGroup<Self::Instance>,
             ) where
                 Self: Sized,
             {

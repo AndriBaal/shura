@@ -8,8 +8,7 @@ use crate::{
         SingleEntity,
     },
     graphics::{
-        CameraBuffer, CameraBuffer2D, DefaultAssets, Instance, Instance2D, InstanceBuffer, Mesh2D,
-        RenderGroupManager, RenderTarget, SurfaceRenderTarget, WorldCamera3D,
+        CameraBuffer, CameraBuffer2D, DefaultAssets, Instance, Instance2D, InstanceBuffer, InstanceRenderGroup, Mesh2D, RenderGroupManager, RenderTarget, SurfaceRenderTarget, WorldCamera3D
     },
     prelude::Scene,
     system::SystemManager,
@@ -100,8 +99,10 @@ impl<'a> RenderContext<'a> {
     ) {
         let buffer = self
             .render_groups
-            .get::<I>(name)
+            .get(name)
             .unwrap_or_else(|| panic!("Render group {name} is not registered!"))
+            .downcast_ref::<InstanceRenderGroup<I>>()
+            .unwrap_or_else(|| panic!("Render group {name} has wrong Instance: {}!", std::any::type_name::<I>()))
             .buffer();
 
         if buffer.instance_amount() != 0 {

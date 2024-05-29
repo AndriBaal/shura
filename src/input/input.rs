@@ -69,6 +69,7 @@ impl From<ScreenTouch> for InputTrigger {
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[non_exhaustive]
 pub enum InputTrigger {
     Key(Key),
     MouseButton(MouseButton),
@@ -197,7 +198,7 @@ impl Input {
         self.window_size = window_size.cast()
     }
 
-    pub(crate) fn on_event(&mut self, event: WindowEvent) {
+    pub(crate) fn on_event(&mut self, event: &WindowEvent) {
         match event {
             WindowEvent::CursorMoved { position, .. } => {
                 self.cursor_raw = Point2::new(position.x as u32, position.y as u32);
@@ -234,7 +235,7 @@ impl Input {
                             self.last_keys.push(key);
                             self.events
                                 .entry(trigger)
-                                .or_insert_with(|| InputEvent::new(event.text, trigger, 1.0));
+                                .or_insert_with(|| InputEvent::new(event.text.clone(), trigger, 1.0));
                         }
                         ElementState::Released => {
                             if let Some(event) = self.events.get_mut(&trigger) {
@@ -246,7 +247,7 @@ impl Input {
                 winit::keyboard::PhysicalKey::Unidentified(_) => {}
             },
             WindowEvent::MouseInput { state, button, .. } => {
-                let trigger = button.into();
+                let trigger = (*button).into();
                 match state {
                     ElementState::Pressed => {
                         let display = match button {
@@ -271,14 +272,14 @@ impl Input {
             }
             WindowEvent::MouseWheel { delta, .. } => match delta {
                 MouseScrollDelta::LineDelta(_x, y) => {
-                    self.wheel_delta = y;
+                    self.wheel_delta = *y;
                 }
                 MouseScrollDelta::PixelDelta(delta) => {
                     self.wheel_delta = if delta.y > 0.0 { 1.0 } else { -1.0 };
                 }
             },
             WindowEvent::ModifiersChanged(state) => {
-                self.modifiers = state;
+                self.modifiers = *state;
             }
             _ => {}
         }

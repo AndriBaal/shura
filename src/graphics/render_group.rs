@@ -47,7 +47,7 @@ pub enum BufferCall {
     EveryFrame,
 }
 
-pub trait RenderGroupCommon: Downcast {
+pub trait RenderGroup: Downcast {
     fn prepare(&mut self, groups: &EntityGroupManager);
     fn apply(&mut self, gpu: &Gpu);
     fn deinit(&mut self);
@@ -55,9 +55,9 @@ pub trait RenderGroupCommon: Downcast {
     fn manual_buffer(&self) -> bool;
     fn set_manual_buffer(&mut self, manual_buffer: bool);
 }
-impl_downcast!(RenderGroupCommon);
+impl_downcast!(RenderGroup);
 
-pub struct RenderGroup<I: Instance> {
+pub struct InstanceRenderGroup<I: Instance> {
     buffer: Option<InstanceBuffer<I>>,
     config: RenderGroupUpdate,
     data: Vec<I>,
@@ -65,7 +65,7 @@ pub struct RenderGroup<I: Instance> {
     needs_update: bool,
 }
 
-impl<I: Instance> RenderGroup<I> {
+impl<I: Instance> InstanceRenderGroup<I> {
     const ALLOC: u64 = 16;
     pub(crate) fn new(config: RenderGroupUpdate) -> Self {
         Self {
@@ -91,13 +91,13 @@ impl<I: Instance> RenderGroup<I> {
 }
 
 #[cfg(feature = "rayon")]
-impl<I: Instance + Send + Sync> RenderGroup<I> {
+impl<I: Instance + Send + Sync> InstanceRenderGroup<I> {
     pub fn par_extend(&mut self, instances: impl ParallelIterator<Item = I>) {
         self.data.par_extend(instances);
     }
 }
 
-impl<I: Instance> RenderGroupCommon for RenderGroup<I> {
+impl<I: Instance> RenderGroup for InstanceRenderGroup<I> {
     fn apply(&mut self, gpu: &Gpu) {
         if self.needs_update {
             self.buffer
@@ -136,7 +136,7 @@ impl<I: Instance> RenderGroupCommon for RenderGroup<I> {
 }
 
 pub struct RenderGroupManager {
-    buffers: FxHashMap<&'static str, Box<dyn RenderGroupCommon>>,
+    buffers: FxHashMap<&'static str, Box<dyn RenderGroup>>,
 }
 
 impl RenderGroupManager {
@@ -152,7 +152,7 @@ impl RenderGroupManager {
         }
 
         self.buffers
-            .insert(name, Box::new(RenderGroup::<I>::new(config)));
+            .insert(name, Box::new(InstanceRenderGroup::<I>::new(config)));
     }
 
     pub(crate) fn apply_buffers(&mut self, gpu: &Gpu) {
@@ -167,23 +167,21 @@ impl RenderGroupManager {
         }
     }
 
-    pub fn get<I: Instance>(&self, name: &'static str) -> Option<&RenderGroup<I>> {
+    pub fn get(&self, name: &'static str) -> Option<&Box<dyn RenderGroup>> {
         self.buffers
             .get(name)
-            .and_then(|b| b.downcast_ref::<RenderGroup<I>>())
     }
 
-    pub fn get_mut<I: Instance>(&mut self, name: &'static str) -> Option<&mut RenderGroup<I>> {
+    pub fn get_mut(&mut self, name: &'static str) -> Option<&mut Box<dyn RenderGroup>> {
         self.buffers
             .get_mut(name)
-            .and_then(|b| b.downcast_mut::<RenderGroup<I>>())
     }
 
-    pub fn iter(&self) -> Iter<'_, &str, Box<dyn RenderGroupCommon>> {
+    pub fn iter(&self) -> Iter<'_, &str, Box<dyn RenderGroup>> {
         return self.buffers.iter();
     }
 
-    pub fn iter_mut(&mut self) -> IterMut<'_, &str, Box<dyn RenderGroupCommon>> {
+    pub fn iter_mut(&mut self) -> IterMut<'_, &str, Box<dyn RenderGroup>> {
         return self.buffers.iter_mut();
     }
 }

@@ -32,7 +32,22 @@ use crate::audio::AudioManager;
 #[cfg(target_arch = "wasm32")]
 use rustc_hash::FxHashMap;
 
+pub struct WindowEventManager {
+    pub events: Vec<Box<dyn FnMut(&mut Context, &winit::event::WindowEvent)>>
+}
+
+impl WindowEventManager {
+    pub fn new() -> Self {
+        Self { events: Default::default() }
+    }
+
+    pub fn add(&mut self, event: impl FnMut(&mut Context, &winit::event::WindowEvent) + 'static) {
+        self.events.push(Box::new(event));
+    }
+}
+
 pub struct AppConfig {
+    pub window_events: WindowEventManager,
     pub window: winit::window::WindowAttributes,
     pub gpu: GpuConfig,
     pub storage: Arc<dyn StorageManager>,
@@ -60,14 +75,22 @@ impl AppConfig {
     pub const FIRST_SCENE_ID: u32 = 0;
     pub fn new(#[cfg(target_os = "android")] android: AndroidApp) -> Self {
         #[cfg(target_arch = "wasm32")]
-        let (assets, storage) = (crate::io::WebAssetManager, crate::io::UnimplementedStorageManager);
+        let (assets, storage) = (
+            crate::io::WebAssetManager,
+            crate::io::UnimplementedStorageManager,
+        );
 
-        #[cfg(all(not(target_arch = "wasm32"), not(target_os="android")))]
-        let (assets, storage) = (crate::io::NativeAssetManager, crate::io::NativeStorageManager);
+        #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
+        let (assets, storage) = (
+            crate::io::NativeAssetManager,
+            crate::io::NativeStorageManager,
+        );
 
-
-        #[cfg(target_os="android")]
-        let (assets, storage) = (crate::io::AndroidAssetManager::new(&android), crate::io::UnimplementedStorageManager);
+        #[cfg(target_os = "android")]
+        let (assets, storage) = (
+            crate::io::AndroidAssetManager::new(&android),
+            crate::io::UnimplementedStorageManager,
+        );
 
         AppConfig {
             window: winit::window::WindowAttributes::default()
@@ -97,6 +120,7 @@ impl AppConfig {
             },
             #[cfg(feature = "framebuffer")]
             apply_frame_buffer: true,
+            window_events: WindowEventManager::new(),
         }
     }
 
@@ -122,6 +146,11 @@ impl AppConfig {
 
     pub fn assets(mut self, assets: impl AssetManager) -> Self {
         self.assets = Arc::new(assets);
+        self
+    }
+
+    pub fn window_event(mut self, event: impl FnMut(&mut Context, &winit::event::WindowEvent) + 'static) -> Self {
+        self.window_events.add(event);
         self
     }
 
@@ -214,28 +243,42 @@ impl<S: Into<Scene>, I: FnOnce() -> S> ApplicationHandler<()> for AppState<S, I>
         #[cfg(feature = "gui")]
         app.gui.handle_event(&app.window, &event);
 
-        if app.end || window_id != app.window.id() {
-            return;
+        if app.end {
+            event_loop.exit();
         }
 
-        match event {
-            WindowEvent::RedrawRequested => {
-                app.process_frame(event_loop);
-                if app.end {
-                    app.end(event_loop);
-                } else {
-                    app.window.request_redraw();
+        if app.window_events.events.is_empty() {
+            let scene_id = app.scenes.active_scene_id();
+            let scene = app.scenes.get_active_scene();
+            let mut scene = scene.borrow_mut();
+            let scene = &mut scene;
+
+            let (window_events, _, mut ctx) = Context::new(&scene_id, app, scene, event_loop);
+            for e in &mut window_events.events {
+                e(&mut ctx, &event);
+            }
+        }
+
+        if window_id == app.window.id() {
+            match &event {
+                WindowEvent::RedrawRequested => {
+                    app.process_frame(event_loop);
+                    if app.end {
+                        app.end(event_loop);
+                    } else {
+                        app.window.request_redraw();
+                    }
                 }
+                WindowEvent::CloseRequested | WindowEvent::Destroyed => {
+                    app.end = true;
+                }
+                WindowEvent::Resized(physical_size) => {
+                    let width = physical_size.width.max(1);
+                    let height = physical_size.height.max(1);
+                    app.resize(Vector2::new(width, height));
+                }
+                _ => app.input.on_event(&event),
             }
-            WindowEvent::CloseRequested | WindowEvent::Destroyed => {
-                app.end(event_loop);
-            }
-            WindowEvent::Resized(physical_size) => {
-                let width = physical_size.width.max(1);
-                let height = physical_size.height.max(1);
-                app.resize(Vector2::new(width, height));
-            }
-            _ => app.input.on_event(event),
         }
     }
 
@@ -252,6 +295,7 @@ impl<S: Into<Scene>, I: FnOnce() -> S> ApplicationHandler<()> for AppState<S, I>
 }
 
 pub struct App {
+    pub(crate) window_events: WindowEventManager,
     pub(crate) storage: Arc<dyn StorageManager>,
     pub(crate) assets: Arc<dyn AssetManager>,
     pub(crate) end: bool,
@@ -272,6 +316,9 @@ pub struct App {
 
 impl App {
     pub fn run<S: Into<Scene>>(config: AppConfig, init: impl FnOnce() -> S) {
+        #[cfg(feature = "log")]
+        info!("Using shura version: {}", VERSION);
+
         #[cfg(target_os = "android")]
         let events = winit::event_loop::EventLoopBuilder::new()
             .with_android_app(config.android)
@@ -281,6 +328,9 @@ impl App {
         let events: EventLoop<()> = winit::event_loop::EventLoop::new().unwrap();
         let mut app_state = AppState::Uninitialized { config, init };
         events.run_app(&mut app_state).unwrap();
+
+        #[cfg(feature = "log")]
+        info!("Goodbye!");
     }
 
     fn new<S: Into<Scene>>(
@@ -295,9 +345,6 @@ impl App {
         if let Some(logger) = config.logger {
             logger.init().ok();
         }
-
-        #[cfg(feature = "log")]
-        info!("Using shura version: {}", VERSION);
 
         #[cfg(target_os = "android")]
         {
@@ -343,6 +390,7 @@ impl App {
         let scene = (init)();
 
         Self {
+            window_events: config.window_events,
             #[cfg(feature = "audio")]
             audio: AudioManager::new(),
             #[cfg(feature = "gui")]
@@ -457,7 +505,7 @@ impl App {
         self.input.sync_gamepad();
         #[cfg(feature = "gui")]
         self.gui.begin(&self.time.total_duration(), &self.window);
-        let (systems, mut ctx) = Context::new(&scene_id, self, scene, event_loop);
+        let (_, systems, mut ctx) = Context::new(&scene_id, self, scene, event_loop);
         let now = ctx.time.update();
 
         for (_, setup) in systems.setup_systems.drain(..) {
@@ -558,15 +606,10 @@ impl App {
 
     fn end(&mut self, event_loop: &ActiveEventLoop) {
         self.end = true;
-        event_loop.exit();
         let scenes = self.scenes.end_scenes();
-        #[cfg(feature = "log")]
-        if scenes.len() != 0 {
-            info!("Goodbye!");
-        }
         for (id, scene) in scenes {
             let mut scene = scene.borrow_mut();
-            let (systems, mut ctx) = Context::new(&id, self, &mut scene, event_loop);
+            let (_, systems, mut ctx) = Context::new(&id, self, &mut scene, event_loop);
             for (_, end) in &systems.end_systems {
                 (end)(&mut ctx, EndReason::Close)
             }

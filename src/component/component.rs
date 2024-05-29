@@ -1,6 +1,6 @@
 use crate::{
     entity::EntityHandle,
-    graphics::{Instance, RenderGroup, RenderGroupManager},
+    graphics::{Instance, InstanceRenderGroup, RenderGroupManager},
     math::AABB,
     physics::World,
 };
@@ -51,7 +51,7 @@ pub trait Component: MetaComponent {
     type Instance: Instance
     where
         Self: Sized;
-    fn buffer(&self, world: &World, cam2d: &AABB, render_group: &mut RenderGroup<Self::Instance>)
+    fn buffer(&self, world: &World, cam2d: &AABB, render_group: &mut InstanceRenderGroup<Self::Instance>)
     where
         Self: Sized;
     fn init(&mut self, handle: EntityHandle, world: &mut World) {}
@@ -59,11 +59,12 @@ pub trait Component: MetaComponent {
     fn remove_from_world(&self, _world: &mut World) {}
 }
 
+
 impl<I: Instance + Clone> MetaComponent for I {}
 impl<I: Instance + Clone> Component for I {
     type Instance = I where Self: Sized;
 
-    fn buffer(&self, _world: &World, _cam2d: &AABB, render_group: &mut RenderGroup<Self::Instance>)
+    fn buffer(&self, _world: &World, _cam2d: &AABB, render_group: &mut InstanceRenderGroup<Self::Instance>)
     where
         Self: Sized,
     {
@@ -80,7 +81,7 @@ macro_rules! impl_collection_inner {
             &self,
             world: &World,
             cam2d: &AABB,
-            render_group: &mut RenderGroup<Self::Instance>,
+            render_group: &mut InstanceRenderGroup<Self::Instance>,
         ) {
             for component in self.iter() {
                 component.buffer(world, cam2d, render_group);
@@ -119,7 +120,7 @@ macro_rules! impl_collection_map {
                 &self,
                 world: &World,
                 cam2d: &AABB,
-                render_group: &mut RenderGroup<Self::Instance>,
+                render_group: &mut InstanceRenderGroup<Self::Instance>,
             ) {
                 for component in self.values() {
                     component.buffer(world, cam2d, render_group);

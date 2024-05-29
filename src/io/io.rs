@@ -66,18 +66,6 @@ pub trait AssetManager: BaseAssetManager {
     fn load_font(&self, path: &str) -> FontBuilder;
     fn load_model(&self, path: &str) -> ModelBuilder;
     fn load_sprite(&self, path: &str) -> SpriteBuilder<image::RgbaImage>;
-    // async fn async_load_sprite_array_sheet(
-    //     &self,
-    //     path: &str,
-    //     size: TileSize,
-    // ) -> SpriteArrayBuilder<image::RgbaImage>;
-    // async fn async_load_sprite_array(&self, paths: &[&str]) -> SpriteArrayBuilder<image::RgbaImage>;
-    // #[cfg(feature = "audio")]
-    // async fn async_load_sound(&self, path: &str) -> SoundBuilder;
-    // #[cfg(feature = "text")]
-    // async fn async_load_font(&self, path: &str) -> FontBuilder;
-    // async fn async_load_model(&self, path: &str) -> ModelBuilder;
-    // async fn async_load_sprite(&self, path: &str) -> SpriteBuilder<image::RgbaImage>;
 }
 
 impl<A: BaseAssetManager> AssetManager for A {
@@ -110,7 +98,9 @@ impl<A: BaseAssetManager> AssetManager for A {
 pub trait StorageManager: Send + Sync + Downcast {
     fn store(&self, path: &str, data: &dyn AsRef<[u8]>) -> Result<()>;
     fn load_string(&self, path: &str) -> Result<String>;
+    fn delete(&self, path: &str) -> Result<()>;
     fn load_bytes(&self, path: &str) -> Result<Vec<u8>>;
+    fn list(&self) -> Vec<String>;
 }
 impl_downcast!(StorageManager);
 
@@ -153,6 +143,9 @@ impl BaseAssetManager for NativeAssetManager {
 pub struct NativeStorageManager;
 impl NativeStorageManager {
     fn data_path(&self, path: &str) -> Result<PathBuf> {
+        if PathBuf::from(path).parent().is_some() {
+            panic!("Nested storage is not supported!");
+        }
         let exe = env::current_exe()?;
         let mut dir = fs::canonicalize(exe)?;
         dir.pop();
@@ -168,8 +161,7 @@ impl StorageManager for NativeStorageManager {
         if !prefix.exists() {
             std::fs::create_dir_all(prefix)?;
         }
-        std::fs::write(path, data)?;
-        Ok(())
+        Ok(std::fs::write(path, data)?)
     }
 
     fn load_string(&self, path: &str) -> Result<String> {
@@ -182,6 +174,23 @@ impl StorageManager for NativeStorageManager {
         let path = self.data_path(path)?;
         let data = std::fs::read(path)?;
         Ok(data)
+    }
+    
+    fn list(&self) -> Vec<String> {
+        let path = self.data_path("/").unwrap();
+        std::fs::read_dir(path).unwrap().into_iter().filter_map(|f| {
+            if let Ok(f) = f {
+                if let Some(file) = f.path().file_name() {
+                    return file.to_os_string().into_string().ok();
+                }
+            }
+            return None;
+        }).collect()
+    }
+    
+    fn delete(&self, path: &str) -> Result<()> {
+        let path = self.data_path(path)?;
+        Ok(std::fs::remove_file(path)?)
     }
 }
 
@@ -228,10 +237,8 @@ impl BaseAssetManager for WebAssetManager {
 }
 
 #[non_exhaustive]
-#[cfg(target_arch = "wasm32")]
 pub struct UnimplementedStorageManager;
 
-#[cfg(target_arch = "wasm32")]
 impl StorageManager for UnimplementedStorageManager {
     fn store(&self, _path: &str, _data: &dyn AsRef<[u8]>) -> Result<()> {
         unimplemented!()
@@ -242,6 +249,14 @@ impl StorageManager for UnimplementedStorageManager {
     }
 
     fn load_bytes(&self, _path: &str) -> Result<Vec<u8>> {
+        unimplemented!()
+    }
+    
+    fn delete(&self, _path: &str) -> Result<()> {
+        unimplemented!()
+    }
+    
+    fn list(&self) -> Vec<String> {
         unimplemented!()
     }
 }

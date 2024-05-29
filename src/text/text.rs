@@ -1,9 +1,8 @@
 use crate::{
     component::Component, entity::EntityHandle, graphics::{
-        Color, Gpu, Index, Instance, Instance2D, Mesh, MeshBuilder2D, RenderGroup, SpriteArrayIndex, SpriteAtlas, Vertex
+        Color, Gpu, Index, Instance, Instance2D, Mesh, MeshBuilder2D, InstanceRenderGroup, SpriteArrayIndex, SpriteAtlas, Vertex
     }, math::{Isometry2, Rotation2, Vector2, AABB}, physics::World, prelude::MetaComponent, text::Font
 };
-use wgpu::vertex_attr_array;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Default, bytemuck::Pod, bytemuck::Zeroable)]
@@ -16,11 +15,11 @@ pub struct Vertex2DText {
 }
 
 impl Vertex for Vertex2DText {
-    const ATTRIBUTES: &'static [wgpu::VertexAttribute] = &vertex_attr_array![
-        0 => Float32x2,
-        1 => Float32x2,
-        2 => Float32x4,
-        3 => Uint32,
+    const ATTRIBUTES: &'static [wgpu::VertexFormat] = &[
+        wgpu::VertexFormat::Float32x2,
+        wgpu::VertexFormat::Float32x2,
+        wgpu::VertexFormat::Float32x4,
+        wgpu::VertexFormat::Uint32,
     ];
 }
 
@@ -257,7 +256,7 @@ impl TextMesh {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct LetterInstance2D(pub Instance2D);
 impl Instance for LetterInstance2D {
-    const ATTRIBUTES: &'static [wgpu::VertexAttribute] = Instance2D::ATTRIBUTES;
+    const ATTRIBUTES: &'static [wgpu::VertexFormat] = Instance2D::ATTRIBUTES;
 }
 
 pub struct Letter {
@@ -282,7 +281,7 @@ impl Component for TextComponent2D {
         &self,
         _world: &World,
         _cam2d: &AABB,
-        render_group: &mut RenderGroup<Self::Instance>,
+        render_group: &mut InstanceRenderGroup<Self::Instance>,
     ) {
         for letter in &self.letters {
             // TODO: Implement AABB check

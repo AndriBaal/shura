@@ -66,7 +66,6 @@ impl<'a> SceneSerializer<'a> {
     }
 }
 
-#[non_exhaustive]
 pub struct SerializedScene {
     pub id: u32,
     pub scene: Scene,

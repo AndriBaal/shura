@@ -1,7 +1,6 @@
 use std::{marker::PhantomData, mem::size_of, ops::Range};
-
 use nalgebra::Isometry2;
-use wgpu::{util::DeviceExt, vertex_attr_array};
+use wgpu::util::DeviceExt;
 
 use crate::{
     graphics::{Color, Gpu, SpriteArrayIndex},
@@ -12,17 +11,12 @@ pub type InstanceBuffer2D = InstanceBuffer<Instance2D>;
 pub type InstanceBuffer3D = InstanceBuffer<Instance3D>;
 
 pub trait Instance: bytemuck::Pod + bytemuck::Zeroable {
-    const ATTRIBUTES: &'static [wgpu::VertexAttribute];
-    const SIZE: u64 = size_of::<Self>() as u64;
-    const LAYOUT: wgpu::VertexBufferLayout<'static> = wgpu::VertexBufferLayout {
-        array_stride: Self::SIZE,
-        step_mode: wgpu::VertexStepMode::Instance,
-        attributes: Self::ATTRIBUTES,
-    };
+    const ATTRIBUTES: &'static [wgpu::VertexFormat];
+    const SIZE: u64 = std::mem::size_of::<Self>() as u64;
 }
 
 impl Instance for () {
-    const ATTRIBUTES: &'static [wgpu::VertexAttribute] = &[];
+    const ATTRIBUTES: &'static [wgpu::VertexFormat] = &[];
 }
 
 #[repr(C)]
@@ -61,14 +55,14 @@ pub struct Instance2D {
 }
 
 impl Instance for Instance2D {
-    const ATTRIBUTES: &'static [wgpu::VertexAttribute] = &vertex_attr_array![
-        2 => Float32x2,
-        3 => Float32x2,
-        4 => Float32,
-        5 => Float32x2,
-        6 => Float32x2,
-        7 => Float32x4,
-        8 => Uint32,
+    const ATTRIBUTES: &'static [wgpu::VertexFormat] = &[
+        wgpu::VertexFormat::Float32x2,
+        wgpu::VertexFormat::Float32x2,
+        wgpu::VertexFormat::Float32,
+        wgpu::VertexFormat::Float32x2,
+        wgpu::VertexFormat::Float32x2,
+        wgpu::VertexFormat::Float32x4,
+        wgpu::VertexFormat::Uint32,
     ];
 }
 
@@ -122,11 +116,11 @@ pub struct Instance3D {
 }
 
 impl Instance for Instance3D {
-    const ATTRIBUTES: &'static [wgpu::VertexAttribute] = &vertex_attr_array![
-        3 => Float32x4,
-        4 => Float32x4,
-        5 => Float32x4,
-        6 => Float32x4,
+    const ATTRIBUTES: &'static [wgpu::VertexFormat] = &[
+        wgpu::VertexFormat::Float32x4,
+        wgpu::VertexFormat::Float32x4,
+        wgpu::VertexFormat::Float32x4,
+        wgpu::VertexFormat::Float32x4,
     ];
 }
 

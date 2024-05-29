@@ -1,7 +1,7 @@
 use crate::{
     component::{Component, MetaComponent, PhysicsComponentVisibility},
     entity::EntityHandle,
-    graphics::{Color, Instance2D, RenderGroup, SpriteArrayIndex, SpriteAtlas},
+    graphics::{Color, Instance2D, InstanceRenderGroup, SpriteArrayIndex, SpriteAtlas},
     math::{Vector2, AABB},
     physics::{Collider, ColliderHandle, World},
 };
@@ -145,7 +145,7 @@ impl MetaComponent for ColliderComponent {}
 impl Component for ColliderComponent {
     type Instance = Instance2D;
 
-    fn buffer(&self, world: &World, cam2d: &AABB, render_group: &mut RenderGroup<Self::Instance>)
+    fn buffer(&self, world: &World, cam2d: &AABB, render_group: &mut InstanceRenderGroup<Self::Instance>)
     where
         Self: Sized,
     {

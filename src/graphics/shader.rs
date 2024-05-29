@@ -1,4 +1,6 @@
-use crate::graphics::{Gpu, Instance, Instance2D, Vertex, Vertex2D};
+use std::marker::PhantomData;
+
+use crate::graphics::{Gpu, Instance, Vertex};
 pub use wgpu::{
     include_spirv, include_wgsl, vertex_attr_array, BlendComponent, BlendFactor, BlendOperation,
     BlendState, ColorWrites, Id as GpuId, ShaderModule, ShaderModuleDescriptor, ShaderSource,
@@ -18,30 +20,30 @@ pub enum ShaderModuleSource<'a> {
     Dummy,
 }
 
-pub struct ShaderConfig<'a> {
+pub struct ShaderConfig<'a, V: Vertex, I: Instance> {
     pub name: Option<&'a str>,
     pub source: ShaderModuleSource<'a>,
-    pub buffers: &'a [VertexBufferLayout<'a>],
     pub uniforms: &'a [UniformField],
     pub blend: BlendState,
     pub write_mask: ColorWrites,
     pub vertex_entry: &'static str,
     pub fragment_entry: &'static str,
     pub depth_stencil: Option<wgpu::DepthStencilState>,
+    pub marker: PhantomData<(V, I)>
 }
 
-impl Default for ShaderConfig<'static> {
+impl <V: Vertex, I: Instance>Default for ShaderConfig<'static, V, I> {
     fn default() -> Self {
         Self {
             name: None,
             uniforms: &[UniformField::Camera],
             blend: BlendState::ALPHA_BLENDING,
             write_mask: ColorWrites::ALL,
-            buffers: &[Vertex2D::LAYOUT, Instance2D::LAYOUT],
             source: ShaderModuleSource::Dummy,
             depth_stencil: None,
             fragment_entry: "fs_main",
             vertex_entry: "vs_main",
+            marker: PhantomData,
         }
     }
 }
@@ -62,7 +64,7 @@ pub struct Shader {
 }
 
 impl Shader {
-    pub fn new(gpu: &Gpu, config: ShaderConfig) -> Self {
+    pub fn new<V: Vertex, I: Instance>(gpu: &Gpu, config: ShaderConfig<V, I>) -> Self {
         let mut layouts: Vec<&wgpu::BindGroupLayout> = Vec::with_capacity(config.uniforms.len());
         let shared_assets = gpu.shared_assets();
         for link in config.uniforms.iter() {
@@ -87,15 +89,46 @@ impl Shader {
         let mut vertex_size = 0;
         let mut instance_size = 0;
 
-        for buffer in config.buffers {
-            match &buffer.step_mode {
-                wgpu::VertexStepMode::Vertex => {
-                    vertex_size += buffer.array_stride;
-                }
-                wgpu::VertexStepMode::Instance => {
-                    instance_size += buffer.array_stride;
-                }
-            }
+        let mut shader_index_counter = 0;
+        let vertex_attributes = V::ATTRIBUTES
+            .iter()
+            .map(|format| {
+                vertex_size += format.size();
+                let attr = wgpu::VertexAttribute {
+                    format: *format,
+                    offset: 0,
+                    shader_location: shader_index_counter,
+                };
+                shader_index_counter += 1;
+                attr
+            })
+            .collect::<Vec<_>>();
+        let instance_attributes = I::ATTRIBUTES
+            .iter()
+            .map(|format| {
+                instance_size += format.size();
+                let attr = wgpu::VertexAttribute {
+                    format: *format,
+                    offset: 0,
+                    shader_location: shader_index_counter,
+                };
+                shader_index_counter += 1;
+                attr
+            })
+            .collect::<Vec<_>>();
+
+        let mut buffers = vec![VertexBufferLayout {
+            array_stride: vertex_size,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &vertex_attributes,
+        }];
+
+        if !instance_attributes.is_empty() {
+            buffers.push(VertexBufferLayout {
+                array_stride: instance_size,
+                step_mode: wgpu::VertexStepMode::Instance,
+                attributes: &instance_attributes,
+            });
         }
 
         // Default Shader Configuration
@@ -111,7 +144,7 @@ impl Shader {
                         ShaderModuleSource::Dummy => panic!("Dummy not allowed!"),
                     },
                     entry_point: config.vertex_entry,
-                    buffers: config.buffers,
+                    buffers: &buffers,
                     compilation_options: wgpu::PipelineCompilationOptions::default(),
                 },
                 fragment: Some(wgpu::FragmentState {
@@ -151,6 +184,27 @@ impl Shader {
             pipeline,
             vertex_size,
             instance_size,
+        }
+    }
+
+    pub fn custom(gpu: &Gpu, descriptor: &wgpu::RenderPipelineDescriptor) -> Self {
+        let pipeline = gpu.device.create_render_pipeline(descriptor);
+        let vertex_size = descriptor
+            .vertex
+            .buffers
+            .iter()
+            .filter(|s| s.step_mode == wgpu::VertexStepMode::Vertex)
+            .fold(0, |sum, s| sum + s.array_stride);
+        let instance_size = descriptor
+            .vertex
+            .buffers
+            .iter()
+            .filter(|s| s.step_mode == wgpu::VertexStepMode::Instance)
+            .fold(0, |sum, s| sum + s.array_stride);
+        Self {
+            pipeline,
+            instance_size,
+            vertex_size,
         }
     }
 

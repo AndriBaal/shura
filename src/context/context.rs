@@ -19,7 +19,7 @@ use crate::{
     io::{AssetManager, StorageManager},
     math::{Point2, Vector2},
     physics::World,
-    prelude::{App, Scene, SceneManager, TimeManager},
+    prelude::{App, Scene, SceneManager, TimeManager, WindowEventManager},
     system::{EndReason, SystemManager},
     tasks::TaskManager,
 };
@@ -66,12 +66,13 @@ impl<'a> Context<'a> {
         app: &'a mut App,
         scene: &'a mut Scene,
         event_loop: &'a winit::event_loop::ActiveEventLoop,
-    ) -> (&'a mut SystemManager, Context<'a>) {
+    ) -> (&'a mut WindowEventManager, &'a mut SystemManager, Context<'a>) {
         let surface_size = app.gpu.surface_size();
         let render_size = scene.screen_config.render_size(&app.gpu);
 
         let cursor = app.input.cursor(&scene.world_camera2d);
         (
+            &mut app.window_events,
             &mut scene.systems,
             Self {
                 // Scene

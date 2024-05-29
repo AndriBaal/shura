@@ -2,7 +2,7 @@ use rapier2d::{parry::query::ShapeCastOptions, pipeline::QueryFilter};
 
 use crate::{
     entity::EntityHandle,
-    graphics::{Color, Instance2D, RenderGroup, SpriteAtlas, SpriteArrayIndex},
+    graphics::{Color, Instance2D, InstanceRenderGroup, SpriteAtlas, SpriteArrayIndex},
     math::{Isometry2, Vector2, AABB},
     physics::{Shape, World},
     component::{Component, MetaComponent, PhysicsComponentVisibility}
@@ -202,7 +202,7 @@ impl<S: Shape> MetaComponent for SimpleCharacterControllerComponent<S> {}
 impl<S: Shape> Component for SimpleCharacterControllerComponent<S> {
     type Instance = Instance2D;
 
-    fn buffer(&self, _world: &World, cam2d: &AABB, render_group: &mut RenderGroup<Self::Instance>)
+    fn buffer(&self, _world: &World, cam2d: &AABB, render_group: &mut InstanceRenderGroup<Self::Instance>)
     where
         Self: Sized,
     {

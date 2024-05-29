@@ -18,7 +18,7 @@ use crate::{
         Model, ModelBuilder, RenderEncoder, Shader, ShaderConfig, ShaderModule,
         ShaderModuleDescriptor, ShaderModuleSource, Sprite, SpriteBuilder, SpriteRenderTarget,
         SpriteArray, SpriteArrayBuilder, UniformData, UniformField, Vertex, Vertex3D,
-        WorldCamera3D,
+        WorldCamera3D, Vertex2D
     },
     math::{Isometry2, Vector2},
 };
@@ -326,7 +326,7 @@ impl Gpu {
         UniformData::new(self, data)
     }
 
-    pub fn create_shader(&self, config: ShaderConfig) -> Shader {
+    pub fn create_shader<V: Vertex, I: Instance>(&self, config: ShaderConfig<V, I>) -> Shader {
         Shader::new(self, config)
     }
 
@@ -530,7 +530,7 @@ pub struct DefaultAssets {
 impl DefaultAssets {
     pub(crate) fn new(gpu: &Gpu) -> Self {
         let shared_assets = gpu.shared_assets();
-        let sprite_array = gpu.create_shader(ShaderConfig {
+        let sprite_array = gpu.create_shader(ShaderConfig::<Vertex2D, Instance2D> {
             name: Some("sprite_array"),
             source: ShaderModuleSource::Separate {
                 vertex: &shared_assets.vertex_shader_module,
@@ -547,56 +547,35 @@ impl DefaultAssets {
         .create_shader_module(include_wgsl!("../../static/shader/2d/text.wgsl"));
 
         #[cfg(feature = "text")]
-        let text_mesh = gpu.create_shader(ShaderConfig {
+        let text_mesh = gpu.create_shader(ShaderConfig::<crate::text::Vertex2DText, Instance2D> {
             name: Some("text_vertex"),
             uniforms: &[UniformField::Camera, UniformField::SpriteArray],
             source: ShaderModuleSource::Separate {
                 vertex: &gpu.create_shader_module(include_wgsl!(
-                    "../../static/shader/2d/vertex_text_mesh.wgsl"
+                    "../../static/shader/2d/text_mesh.wgsl"
                 )),
                 fragment: &text_module,
             },
-            buffers: &[
-                crate::text::Vertex2DText::LAYOUT,
-                wgpu::VertexBufferLayout {
-                    array_stride: Instance2D::SIZE,
-                    step_mode: wgpu::VertexStepMode::Instance,
-                    attributes: &wgpu::vertex_attr_array![
-                        4 => Float32x2,
-                        5 => Float32x2,
-                        6 => Float32,
-                        7 => Float32x2,
-                        8 => Float32x2,
-                        9 => Float32x4,
-                        10 => Uint32,
-                    ],
-                },
-            ],
             ..Default::default()
         });
 
         #[cfg(feature = "text")]
-        let text_instance = gpu.create_shader(ShaderConfig {
+        let text_instance = gpu.create_shader(ShaderConfig::<Vertex2D, crate::text::LetterInstance2D> {
             name: Some("text_instance"),
             uniforms: &[UniformField::Camera, UniformField::SpriteArray],
             source: ShaderModuleSource::Separate {
                 vertex: &shared_assets.vertex_shader_module,
                 fragment: &text_module,
             },
-            buffers: &[
-                crate::graphics::Vertex2D::LAYOUT,
-                crate::text::LetterInstance2D::LAYOUT,
-            ],
             ..Default::default()
         });
 
-        let model = gpu.create_shader(ShaderConfig {
+        let model = gpu.create_shader(ShaderConfig::<Vertex3D, Instance3D> {
             name: Some("model"),
             uniforms: &[UniformField::Camera, UniformField::Sprite],
             source: ShaderModuleSource::Single(
                 &gpu.create_shader_module(include_wgsl!("../../static/shader/3d/model.wgsl")),
             ),
-            buffers: &[Vertex3D::LAYOUT, Instance3D::LAYOUT],
             depth_stencil: Some(wgpu::DepthStencilState {
                 format: DepthBuffer::DEPTH_FORMAT_3D,
                 depth_write_enabled: true,
@@ -607,7 +586,7 @@ impl DefaultAssets {
             ..Default::default()
         });
 
-        let color = gpu.create_shader(ShaderConfig {
+        let color = gpu.create_shader(ShaderConfig::<Vertex2D, Instance2D> {
             name: Some("color"),
             source: ShaderModuleSource::Separate {
                 vertex: &shared_assets.vertex_shader_module,
@@ -618,7 +597,7 @@ impl DefaultAssets {
             ..Default::default()
         });
 
-        let sprite = gpu.create_shader(ShaderConfig {
+        let sprite = gpu.create_shader(ShaderConfig::<Vertex2D, Instance2D> {
             name: Some("sprite"),
             source: ShaderModuleSource::Separate {
                 vertex: &shared_assets.vertex_shader_module,
@@ -629,7 +608,7 @@ impl DefaultAssets {
             ..Default::default()
         });
 
-        let rainbow = gpu.create_shader(ShaderConfig {
+        let rainbow = gpu.create_shader(ShaderConfig::<Vertex2D, Instance2D> {
             name: Some("rainbow"),
             source: ShaderModuleSource::Separate {
                 vertex: &shared_assets.vertex_shader_module,
@@ -640,7 +619,7 @@ impl DefaultAssets {
             ..Default::default()
         });
 
-        let grey = gpu.create_shader(ShaderConfig {
+        let grey = gpu.create_shader(ShaderConfig::<Vertex2D, Instance2D> {
             name: Some("grey"),
             source: ShaderModuleSource::Separate {
                 vertex: &shared_assets.vertex_shader_module,
@@ -651,7 +630,7 @@ impl DefaultAssets {
             ..Default::default()
         });
 
-        let blurr = gpu.create_shader(ShaderConfig {
+        let blurr = gpu.create_shader(ShaderConfig::<Vertex2D, Instance2D> {
             name: Some("blurr"),
             source: ShaderModuleSource::Separate {
                 vertex: &shared_assets.vertex_shader_module,

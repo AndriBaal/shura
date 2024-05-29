@@ -1,11 +1,9 @@
-use std::mem;
 use std::{
     f32::consts::{FRAC_PI_2, PI},
     marker::PhantomData,
+    mem
 };
-
 use wgpu::util::DeviceExt;
-use wgpu::vertex_attr_array;
 
 #[cfg(feature = "physics")]
 use crate::physics::{Shape, TypedShape};
@@ -23,14 +21,10 @@ pub trait MeshBuilder {
     fn vertices(&self) -> &[Self::Vertex];
 }
 
+
 pub trait Vertex: bytemuck::Pod + bytemuck::Zeroable {
-    const ATTRIBUTES: &'static [wgpu::VertexAttribute];
+    const ATTRIBUTES: &'static [wgpu::VertexFormat];
     const SIZE: u64 = std::mem::size_of::<Self>() as u64;
-    const LAYOUT: wgpu::VertexBufferLayout<'static> = wgpu::VertexBufferLayout {
-        array_stride: Self::SIZE,
-        step_mode: wgpu::VertexStepMode::Vertex,
-        attributes: Self::ATTRIBUTES,
-    };
 }
 
 #[repr(C)]
@@ -88,17 +82,9 @@ impl Vertex2D {
 
 impl Vertex for Vertex2D {
     const SIZE: u64 = mem::size_of::<Self>() as u64;
-    const ATTRIBUTES: &'static [wgpu::VertexAttribute] = &[
-        wgpu::VertexAttribute {
-            offset: 0,
-            shader_location: 0,
-            format: wgpu::VertexFormat::Float32x2,
-        },
-        wgpu::VertexAttribute {
-            offset: mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
-            shader_location: 1,
-            format: wgpu::VertexFormat::Float32x2,
-        },
+    const ATTRIBUTES: &'static [wgpu::VertexFormat] = &[
+        wgpu::VertexFormat::Float32x2,
+        wgpu::VertexFormat::Float32x2,
     ];
 }
 
@@ -275,6 +261,7 @@ impl MeshBuilder2D {
             ..Default::default()
         }
     }
+    
     pub fn convex_polygon(vertices: Vec<Vector2<f32>>) -> Self {
         let vertices = Self::create_tex(vertices);
         let indices = Self::triangulate(&vertices);
@@ -284,6 +271,7 @@ impl MeshBuilder2D {
             ..Default::default()
         }
     }
+    
     pub fn rounded(
         inner: Self,
         direction: RoundingDirection,
@@ -686,10 +674,10 @@ impl Vertex3D {
 
 impl Vertex for Vertex3D {
     const SIZE: u64 = mem::size_of::<Self>() as u64;
-    const ATTRIBUTES: &'static [wgpu::VertexAttribute] = &vertex_attr_array![
-        0 => Float32x3,
-        1 => Float32x2,
-        2 => Float32x3,
+    const ATTRIBUTES: &'static [wgpu::VertexFormat] = &[
+        wgpu::VertexFormat::Float32x3,
+        wgpu::VertexFormat::Float32x2,
+        wgpu::VertexFormat::Float32x3,
     ];
 }
 

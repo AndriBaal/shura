@@ -1,6 +1,6 @@
-// use egui::Widget;
 use shura::prelude::*;
-use std::f32::consts::PI;
+use shura::gui::Widget;
+use std::f32::consts::{PI, TAU};
 
 const SIZE: Vector2<u32> = vector!(800, 800);
 
@@ -13,8 +13,6 @@ fn app(mut config: AppConfig) {
             .system(System::resize(resize))
             .system(System::render(render))
             .system(System::update(update).priority(SystemPriority::AFTER))
-            .render_group2d("background", RenderGroupUpdate::MANUAL)
-            // .render_group::<LightInstance>("shadow", RenderGroupUpdate::EVERY_FRAME)
             .render_group::<LightInstance>("light", RenderGroupUpdate::EVERY_FRAME)
             .entity_single::<LightAssets>()
             .entity::<Light>()
@@ -107,10 +105,81 @@ fn update(ctx: &mut Context) {
 
     for light in ctx.entities.get_mut::<Light>().iter_mut() {
         if light.display {
-        }
+            gui::Window::new("Light")
+                .resizable(false)
+                .show(ctx.gui, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.label("Outer Radius:");
+                        gui::widgets::Slider::new(&mut light.inner.outer_radius, 0.0..=50.0).ui(ui);
+                    });
 
-        if light.follow_player {
-            light.inner.translation = ctx.cursor.coords;
+                    ui.horizontal(|ui| {
+                        ui.label("Inner Radius:");
+                        gui::widgets::Slider::new(&mut light.inner.inner_radius, 0.0..=1.0).ui(ui);
+                    });
+
+                    let mut egui_color = light.inner.color.into();
+                    ui.horizontal(|ui| {
+                        ui.label("Color:");
+                        gui::widgets::color_picker::color_edit_button_rgba(
+                            ui,
+                            &mut egui_color,
+                            egui::widgets::color_picker::Alpha::OnlyBlend,
+                        )
+                    });
+                    light.inner.color = egui_color.into();
+
+                    ui.horizontal(|ui| {
+                        ui.label("Inner Magnification:");
+                        gui::widgets::Slider::new(
+                            &mut light.inner.inner_magnification,
+                            0.01..=10.0,
+                        )
+                        .ui(ui);
+                    });
+
+                    ui.horizontal(|ui| {
+                        ui.label("Outer Magnification:");
+                        gui::widgets::Slider::new(
+                            &mut light.inner.outer_magnification,
+                            0.01..=10.0,
+                        )
+                        .ui(ui);
+                    });
+
+                    ui.horizontal(|ui| {
+                        ui.label("Side Falloff Magnification:");
+                        gui::widgets::Slider::new(
+                            &mut light.inner.side_falloff_magnification,
+                            0.0..=10.0,
+                        )
+                        .ui(ui);
+                    });
+
+                    ui.horizontal(|ui| {
+                        ui.label("Rotation:");
+                        gui::widgets::Slider::new(&mut light.inner.rotation, -TAU..=TAU).ui(ui);
+                    });
+
+                    let end = light.inner.sector.y;
+                    ui.horizontal(|ui| {
+                        ui.label("Start:");
+                        gui::widgets::Slider::new(&mut light.inner.sector.x, -PI..=end).ui(ui);
+                    });
+
+                    let start = light.inner.sector.x;
+                    ui.horizontal(|ui| {
+                        ui.label("End:");
+                        gui::widgets::Slider::new(&mut light.inner.sector.y, start..=PI).ui(ui);
+                    });
+                });
+
+            if ctx.input.is_pressed(MouseButton::Left) && !ctx.gui.is_pointer_over_area() {
+                light.follow_player = !light.follow_player;
+            }
+            if light.follow_player {
+                light.inner.translation = ctx.cursor.coords;
+            }
         }
     }
     // assets.shadow_mesh = Some(ctx.gpu.create_mesh(&shadow_mesh));
@@ -123,14 +192,12 @@ pub struct LightAssets {
     light_shader: Shader,
     present_shader: Shader,
     background_sprite: Sprite,
-    #[shura(component = "background")]
-    background: PositionComponent2D,
 }
 
 impl LightAssets {
     pub fn new(ctx: &Context) -> Self {
         Self {
-            present_shader: ctx.gpu.create_shader(ShaderConfig {
+            present_shader: ctx.gpu.create_shader(ShaderConfig::<Vertex2D, Instance2D> {
                 source: ShaderModuleSource::Separate {
                     vertex: &ctx.gpu.shared_assets().vertex_shader_module,
                     fragment: &ctx
@@ -148,16 +215,17 @@ impl LightAssets {
                 },
                 ..Default::default()
             }),
-            light_shader: ctx.gpu.create_shader(ShaderConfig {
-                source: ShaderModuleSource::Single(
-                    &ctx.gpu
-                        .create_shader_module(include_asset_wgsl!("lighting/light.wgsl")),
-                ),
-                uniforms: &[UniformField::Camera],
-                buffers: &[Vertex2D::LAYOUT, LightInstance::LAYOUT],
-                blend: BlendState::ALPHA_BLENDING,
-                ..Default::default()
-            }),
+            light_shader: ctx
+                .gpu
+                .create_shader(ShaderConfig::<Vertex2D, LightInstance> {
+                    source: ShaderModuleSource::Single(
+                        &ctx.gpu
+                            .create_shader_module(include_asset_wgsl!("lighting/light.wgsl")),
+                    ),
+                    uniforms: &[UniformField::Camera],
+                    blend: BlendState::ALPHA_BLENDING,
+                    ..Default::default()
+                }),
             background_sprite: ctx
                 .gpu
                 .create_sprite(SpriteBuilder::bytes(include_asset_bytes!(
@@ -203,22 +271,23 @@ impl Default for LightInstance {
 }
 
 impl Instance for LightInstance {
-    const ATTRIBUTES: &'static [VertexAttribute] = &vertex_attr_array![
-        2 => Float32x2,
-        3 => Float32,
-        4 => Float32x4,
-        5 => Float32x2,
-        6 => Float32,
-        7 => Float32,
-        8 => Float32,
-        9 => Float32,
-        10 => Float32,
+    const ATTRIBUTES: &'static [VertexFormat] = &[
+        wgpu::VertexFormat::Float32x2,
+        wgpu::VertexFormat::Float32,
+        wgpu::VertexFormat::Float32x4,
+        wgpu::VertexFormat::Float32x2,
+        wgpu::VertexFormat::Float32,
+        wgpu::VertexFormat::Float32,
+        wgpu::VertexFormat::Float32,
+        wgpu::VertexFormat::Float32,
+        wgpu::VertexFormat::Float32,
     ];
 }
 
 #[derive(Entity)]
 struct Light {
-    #[shura(component = "light")]
+    #[shura(component)]
+    #[shura(render = "light")]
     inner: LightInstance,
     display: bool,
     follow_player: bool,

@@ -1,7 +1,7 @@
 use crate::{
     component::{Component, MetaComponent},
     entity::EntityHandle,
-    graphics::{Color, Instance2D, Instance3D, RenderGroup, SpriteAtlas, SpriteArrayIndex},
+    graphics::{Color, Instance2D, Instance3D, InstanceRenderGroup, SpriteArrayIndex, SpriteAtlas},
     math::{Isometry2, Isometry3, Rotation3, Vector2, Vector3, AABB},
     physics::World,
 };
@@ -32,7 +32,6 @@ impl Default for PositionComponent2D {
         Self {
             instance: Instance2D::default(),
             visibility: PositionComponent2DVisibility::default(),
-            // size: None,
         }
     }
 }
@@ -155,7 +154,7 @@ impl MetaComponent for PositionComponent2D {}
 impl Component for PositionComponent2D {
     type Instance = Instance2D;
 
-    fn buffer(&self, _world: &World, cam2d: &AABB, render_group: &mut RenderGroup<Self::Instance>)
+    fn buffer(&self, _world: &World, cam2d: &AABB, render_group: &mut InstanceRenderGroup<Self::Instance>)
     where
         Self: Sized,
     {
@@ -283,7 +282,7 @@ impl MetaComponent for PositionComponent3D {}
 impl Component for PositionComponent3D {
     type Instance = Instance3D;
 
-    fn buffer(&self, _world: &World, _cam2d: &AABB, render_group: &mut RenderGroup<Self::Instance>)
+    fn buffer(&self, _world: &World, _cam2d: &AABB, render_group: &mut InstanceRenderGroup<Self::Instance>)
     where
         Self: Sized,
     {
