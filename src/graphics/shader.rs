@@ -16,8 +16,7 @@ pub enum ShaderModuleSource<'a> {
         vertex: &'a ShaderModule,
         fragment: &'a ShaderModule,
     },
-    #[doc(hidden)]
-    Dummy,
+    Dummy
 }
 
 pub struct ShaderConfig<'a, V: Vertex, I: Instance> {
@@ -93,12 +92,12 @@ impl Shader {
         let vertex_attributes = V::ATTRIBUTES
             .iter()
             .map(|format| {
-                vertex_size += format.size();
                 let attr = wgpu::VertexAttribute {
                     format: *format,
-                    offset: 0,
+                    offset: vertex_size,
                     shader_location: shader_index_counter,
                 };
+                vertex_size += format.size();
                 shader_index_counter += 1;
                 attr
             })
@@ -106,26 +105,26 @@ impl Shader {
         let instance_attributes = I::ATTRIBUTES
             .iter()
             .map(|format| {
-                instance_size += format.size();
                 let attr = wgpu::VertexAttribute {
                     format: *format,
-                    offset: 0,
+                    offset: instance_size,
                     shader_location: shader_index_counter,
                 };
+                instance_size += format.size();
                 shader_index_counter += 1;
                 attr
             })
             .collect::<Vec<_>>();
 
         let mut buffers = vec![VertexBufferLayout {
-            array_stride: vertex_size,
+            array_stride: V::SIZE,
             step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &vertex_attributes,
         }];
 
         if !instance_attributes.is_empty() {
             buffers.push(VertexBufferLayout {
-                array_stride: instance_size,
+                array_stride: I::SIZE,
                 step_mode: wgpu::VertexStepMode::Instance,
                 attributes: &instance_attributes,
             });

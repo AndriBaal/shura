@@ -243,11 +243,8 @@ impl<S: Into<Scene>, I: FnOnce() -> S> ApplicationHandler<()> for AppState<S, I>
         #[cfg(feature = "gui")]
         app.gui.handle_event(&app.window, &event);
 
-        if app.end {
-            event_loop.exit();
-        }
 
-        if app.window_events.events.is_empty() {
+        if !app.window_events.events.is_empty() {
             let scene_id = app.scenes.active_scene_id();
             let scene = app.scenes.get_active_scene();
             let mut scene = scene.borrow_mut();
@@ -264,7 +261,7 @@ impl<S: Into<Scene>, I: FnOnce() -> S> ApplicationHandler<()> for AppState<S, I>
                 WindowEvent::RedrawRequested => {
                     app.process_frame(event_loop);
                     if app.end {
-                        app.end(event_loop);
+                        event_loop.exit();
                     } else {
                         app.window.request_redraw();
                     }
@@ -601,7 +598,7 @@ impl App {
 
         encoder.finish();
         self.gpu.submit();
-        surface_target.finish()
+        surface_target.finish();
     }
 
     fn end(&mut self, event_loop: &ActiveEventLoop) {

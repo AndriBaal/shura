@@ -1,5 +1,3 @@
-// Texture Shader
-
 struct VertexInput {
     @location(0) v_position: vec2<f32>,
     @location(1) tex: vec2<f32>,

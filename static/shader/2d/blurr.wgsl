@@ -1,4 +1,3 @@
-// Blurr Shader
 @group(1) @binding(0)
 var t_diffuse: texture_2d<f32>;
 @group(1) @binding(1)

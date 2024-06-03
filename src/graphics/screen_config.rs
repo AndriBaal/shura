@@ -1,5 +1,4 @@
 use crate::graphics::Color;
-#[cfg(feature = "framebuffer")]
 use crate::math::Vector2;
 use instant::Duration;
 

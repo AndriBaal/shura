@@ -99,7 +99,6 @@ impl<'a> RenderContext<'a> {
         mut all: impl FnMut(&'a InstanceBuffer<I>),
     ) {
         let buffer = self.render_groups.get(name).buffer();
-
         if buffer.instance_amount() != 0 {
             (all)(buffer);
         }
