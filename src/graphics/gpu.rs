@@ -1,29 +1,31 @@
 use std::{
-    ops::{Deref, DerefMut},
+    ops::Deref,
     sync::{Arc, OnceLock},
 };
 
-use parking_lot::{Mutex, RwLock};
+use parking_lot::Mutex;
 use wgpu::include_wgsl;
 use winit::window::Window;
 
 #[cfg(feature = "log")]
 use crate::log::info;
 #[cfg(feature = "text")]
-use crate::text::{Font, FontBuilder, TextMesh, TextSection};
+use crate::text::{Font, FontBuilder, TextMesh, TextSection, TextVertex2D};
 use crate::{
     graphics::{
-        Camera, Camera2D, CameraBuffer, CameraBuffer2D, DepthBuffer, Instance, Instance2D,
-        Instance3D, InstanceBuffer, InstanceBuffer2D, Mesh, Mesh2D, MeshBuilder, MeshBuilder2D,
-        Model, ModelBuilder, RenderEncoder, Shader, ShaderConfig, ShaderModule,
-        ShaderModuleDescriptor, ShaderModuleSource, Sprite, SpriteBuilder, SpriteRenderTarget,
-        SpriteArray, SpriteArrayBuilder, UniformData, UniformField, Vertex, Vertex3D,
-        WorldCamera3D, Vertex2D
+        Camera, Camera2D, CameraBuffer, CameraBuffer2D, ColorInstance2D, ColorVertex2D,
+        DepthBuffer, Instance, Instance3D, InstanceBuffer, Mesh, MeshData, MeshData2D, Model,
+        ModelBuilder, PositionVertex2D, RenderEncoder, Shader, ShaderConfig, ShaderModule,
+        ShaderModuleDescriptor, ShaderModuleSource, Sprite, SpriteArray, SpriteArrayBuilder,
+        SpriteArrayCropInstance2D, SpriteArrayInstance2D, SpriteArrayVertex2D, SpriteBuilder,
+        SpriteCropInstance2D, SpriteInstance2D, SpriteMesh2D, SpriteRenderTarget, SpriteVertex2D,
+        SurfaceRenderTarget, UniformData, UniformField, Vertex, Vertex3D, VertexBuffers,
+        WorldCamera3D,
     },
     math::{Isometry2, Vector2},
 };
 
-use super::SurfaceRenderTarget;
+use super::PositionMesh2D;
 
 pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 0.5;
 
@@ -65,7 +67,6 @@ pub struct Gpu {
     shared_assets: SharedAssets,
     surface_size: Mutex<Vector2<u32>>,
     target_msaa: Mutex<Option<wgpu::Texture>>,
-    default_assets: OnceLock<RwLock<DefaultAssets>>,
 
     samples: u32,
     sample_state: wgpu::MultisampleState,
@@ -95,6 +96,7 @@ impl Gpu {
                     label: None,
                     required_features: gpu_config.device_features,
                     required_limits: gpu_config.device_limits.using_resolution(adapter.limits()),
+                    memory_hints: wgpu::MemoryHints::Performance,
                 },
                 None,
             )
@@ -159,24 +161,20 @@ impl Gpu {
             sample_state,
 
             // These get initialized below
-            default_assets: OnceLock::new(),
             surface_size: Default::default(),
             target_msaa: Default::default(),
         };
 
         gpu.resume(&window);
-        gpu.default_assets
-            .set(RwLock::new(DefaultAssets::new(&gpu)))
-            .unwrap();
 
-        return gpu;
+        gpu
     }
 
     pub(crate) fn compute_surface_size(window: &Window) -> Vector2<u32> {
         let window_size = window.inner_size();
         let width = window_size.width.max(1);
         let height = window_size.height.max(1);
-        return Vector2::new(width, height);
+        Vector2::new(width, height)
     }
 
     pub(crate) fn default_config(
@@ -194,7 +192,7 @@ impl Gpu {
         #[cfg(feature = "log")]
         log::info!("Surface resume");
 
-        let config = Self::default_config(&self.surface, &self.adapter, &window);
+        let config = Self::default_config(&self.surface, &self.adapter, window);
         self.update_msaa(Vector2::new(config.width, config.height));
         self.surface.configure(&self.device, &config);
         *self.surface_size.lock() = Vector2::new(config.width, config.height);
@@ -203,8 +201,6 @@ impl Gpu {
 
     /// Resize the surface, making sure to not resize to zero.
     pub(crate) fn resize(&self, size: Vector2<u32>) {
-        #[cfg(feature = "log")]
-        log::info!("Surface resize {size:?}");
         self.update_msaa(size);
 
         let mut config = self.config.lock();
@@ -303,7 +299,7 @@ impl Gpu {
         CameraBuffer::new(self, camera)
     }
 
-    pub fn create_mesh<V: Vertex>(&self, builder: &dyn MeshBuilder<Vertex = V>) -> Mesh<V> {
+    pub fn create_mesh<V: Vertex>(&self, builder: &dyn MeshData<Vertex = V>) -> Mesh<V> {
         Mesh::new(self, builder)
     }
 
@@ -326,7 +322,7 @@ impl Gpu {
         UniformData::new(self, data)
     }
 
-    pub fn create_shader<V: Vertex, I: Instance>(&self, config: ShaderConfig<V, I>) -> Shader {
+    pub fn create_shader(&self, config: ShaderConfig) -> Shader {
         Shader::new(self, config)
     }
 
@@ -353,7 +349,7 @@ impl Gpu {
         sprite: SpriteBuilder<D>,
         compute: impl FnMut(&mut RenderEncoder),
     ) -> SpriteRenderTarget {
-        SpriteRenderTarget::computed(self, sprite, compute)
+        SpriteRenderTarget::computed(sprite, compute)
     }
 
     pub fn samples(&self) -> u32 {
@@ -372,16 +368,8 @@ impl Gpu {
         &self.shared_assets
     }
 
-    pub fn default_assets(&self) -> impl Deref<Target = DefaultAssets> + '_ {
-        self.default_assets.get().unwrap().read()
-    }
-
-    pub fn default_assets_mut(&self) -> impl DerefMut<Target = DefaultAssets> + '_ {
-        self.default_assets.get().unwrap().write()
-    }
-
     pub fn surface_size(&self) -> Vector2<u32> {
-        self.surface_size.lock().clone()
+        *self.surface_size.lock()
     }
 
     pub fn surface(&self) -> &wgpu::Surface {
@@ -395,7 +383,6 @@ impl Gpu {
 
 #[derive(Debug)]
 pub struct SharedAssets {
-    pub vertex_shader_module: ShaderModule,
     pub sprite_array_layout: wgpu::BindGroupLayout,
     pub sprite_layout: wgpu::BindGroupLayout,
     pub camera_layout: wgpu::BindGroupLayout,
@@ -478,11 +465,7 @@ impl SharedAssets {
                 ],
             });
 
-        let vertex_shader_module =
-            device.create_shader_module(include_wgsl!("../../static/shader/2d/vertex.wgsl"));
-
         Self {
-            vertex_shader_module,
             sprite_array_layout,
             sprite_layout,
             camera_layout,
@@ -494,24 +477,25 @@ impl SharedAssets {
 #[derive(Debug)]
 pub struct DefaultAssets {
     // 2D
-    pub sprite: Shader,
-    pub sprite_array: Shader,
-    pub color: Shader,
-    pub rainbow: Shader,
-    pub grey: Shader,
-    #[cfg(feature = "text")]
-    pub text_mesh: Shader,
-    #[cfg(feature = "text")]
-    pub text_instance: Shader,
-    pub blurr: Shader,
+    pub sprite_shader: Shader,
+    pub color_shader: Shader,
+    pub sprite_array_shader: Shader,
+    pub sprite_crop_shader: Shader,
+    pub sprite_array_crop_shader: Shader,
 
-    pub missing: Sprite,
+    pub mesh_color_shader: Shader,
+    pub mesh_sprite_shader: Shader,
+    pub mesh_sprite_array_shader: Shader,
+    pub mesh_text_shader: Shader,
+
+    pub missing_sprite: Sprite,
 
     // 3D
-    pub model: Shader,
+    pub model_shader: Shader,
     pub depth_buffer: DepthBuffer,
-    pub unit_mesh: Mesh2D,
 
+    pub sprite_mesh: SpriteMesh2D,
+    pub position_mesh: PositionMesh2D,
     pub times: UniformData<[f32; 2]>,
     pub world_camera2d: CameraBuffer2D,
     pub world_camera3d: CameraBuffer<WorldCamera3D>,
@@ -521,56 +505,13 @@ pub struct DefaultAssets {
     pub relative_top_left_camera: (CameraBuffer2D, Camera2D),
     pub relative_top_right_camera: (CameraBuffer2D, Camera2D),
     pub unit_camera: (CameraBuffer2D, Camera2D),
-    pub single_instance: InstanceBuffer2D,
-
     #[cfg(feature = "framebuffer")]
     pub framebuffer: SpriteRenderTarget,
 }
 
 impl DefaultAssets {
     pub(crate) fn new(gpu: &Gpu) -> Self {
-        let shared_assets = gpu.shared_assets();
-        let sprite_array = gpu.create_shader(ShaderConfig::<Vertex2D, Instance2D> {
-            name: Some("sprite_array"),
-            source: ShaderModuleSource::Separate {
-                vertex: &shared_assets.vertex_shader_module,
-                fragment: &gpu.create_shader_module(include_wgsl!(
-                    "../../static/shader/2d/sprite_array.wgsl"
-                )),
-            },
-            uniforms: &[UniformField::Camera, UniformField::SpriteArray],
-            ..Default::default()
-        });
-
-        #[cfg(feature = "text")]
-        let text_module = gpu
-        .create_shader_module(include_wgsl!("../../static/shader/2d/text.wgsl"));
-
-        #[cfg(feature = "text")]
-        let text_mesh = gpu.create_shader(ShaderConfig::<crate::text::Vertex2DText, Instance2D> {
-            name: Some("text_vertex"),
-            uniforms: &[UniformField::Camera, UniformField::SpriteArray],
-            source: ShaderModuleSource::Separate {
-                vertex: &gpu.create_shader_module(include_wgsl!(
-                    "../../static/shader/2d/text_mesh.wgsl"
-                )),
-                fragment: &text_module,
-            },
-            ..Default::default()
-        });
-
-        #[cfg(feature = "text")]
-        let text_instance = gpu.create_shader(ShaderConfig::<Vertex2D, crate::text::LetterInstance2D> {
-            name: Some("text_instance"),
-            uniforms: &[UniformField::Camera, UniformField::SpriteArray],
-            source: ShaderModuleSource::Separate {
-                vertex: &shared_assets.vertex_shader_module,
-                fragment: &text_module,
-            },
-            ..Default::default()
-        });
-
-        let model = gpu.create_shader(ShaderConfig::<Vertex3D, Instance3D> {
+        let model_shader = gpu.create_shader(ShaderConfig {
             name: Some("model"),
             uniforms: &[UniformField::Camera, UniformField::Sprite],
             source: ShaderModuleSource::Single(
@@ -583,67 +524,136 @@ impl DefaultAssets {
                 stencil: wgpu::StencilState::default(),
                 bias: wgpu::DepthBiasState::default(),
             }),
+            vertex_buffers: VertexBuffers::instance::<Vertex3D, Instance3D>(),
             ..Default::default()
         });
 
-        let color = gpu.create_shader(ShaderConfig::<Vertex2D, Instance2D> {
+        let color_shader = gpu.create_shader(ShaderConfig {
             name: Some("color"),
-            source: ShaderModuleSource::Separate {
-                vertex: &shared_assets.vertex_shader_module,
-                fragment: &gpu
-                    .create_shader_module(include_wgsl!("../../static/shader/2d/color.wgsl")),
-            },
+            source: ShaderModuleSource::Single(
+                &gpu.create_shader_module(include_wgsl!("../../static/shader/2d/color.wgsl")),
+            ),
             uniforms: &[UniformField::Camera],
+            vertex_buffers: VertexBuffers::instance::<PositionVertex2D, ColorInstance2D>(),
             ..Default::default()
         });
 
-        let sprite = gpu.create_shader(ShaderConfig::<Vertex2D, Instance2D> {
+        let sprite_shader = gpu.create_shader(ShaderConfig {
             name: Some("sprite"),
-            source: ShaderModuleSource::Separate {
-                vertex: &shared_assets.vertex_shader_module,
-                fragment: &gpu
-                    .create_shader_module(include_wgsl!("../../static/shader/2d/sprite.wgsl")),
-            },
+            source: ShaderModuleSource::Single(
+                &gpu.create_shader_module(include_wgsl!("../../static/shader/2d/sprite.wgsl")),
+            ),
             uniforms: &[UniformField::Camera, UniformField::Sprite],
+            vertex_buffers: VertexBuffers::instance::<SpriteVertex2D, SpriteInstance2D>(),
             ..Default::default()
         });
 
-        let rainbow = gpu.create_shader(ShaderConfig::<Vertex2D, Instance2D> {
-            name: Some("rainbow"),
-            source: ShaderModuleSource::Separate {
-                vertex: &shared_assets.vertex_shader_module,
-                fragment: &gpu
-                    .create_shader_module(include_wgsl!("../../static/shader/2d/rainbow.wgsl")),
-            },
-            uniforms: &[UniformField::Camera, UniformField::SingleUniform],
+        let sprite_crop_shader = gpu.create_shader(ShaderConfig {
+            name: Some("sprite_crop"),
+            source: ShaderModuleSource::Single(
+                &gpu.create_shader_module(include_wgsl!("../../static/shader/2d/sprite_crop.wgsl")),
+            ),
+            uniforms: &[UniformField::Camera, UniformField::Sprite],
+            vertex_buffers: VertexBuffers::instance::<SpriteVertex2D, SpriteCropInstance2D>(),
             ..Default::default()
         });
 
-        let grey = gpu.create_shader(ShaderConfig::<Vertex2D, Instance2D> {
-            name: Some("grey"),
-            source: ShaderModuleSource::Separate {
-                vertex: &shared_assets.vertex_shader_module,
-                fragment: &gpu
-                    .create_shader_module(include_wgsl!("../../static/shader/2d/grey.wgsl")),
-            },
-            uniforms: &[UniformField::Camera, UniformField::Sprite],
+        let sprite_array_shader =
+            gpu.create_shader(ShaderConfig {
+                name: Some("sprite_array"),
+                source: ShaderModuleSource::Single(&gpu.create_shader_module(include_wgsl!(
+                    "../../static/shader/2d/sprite_array.wgsl"
+                ))),
+                uniforms: &[UniformField::Camera, UniformField::SpriteArray],
+                vertex_buffers: VertexBuffers::instance::<SpriteVertex2D, SpriteArrayInstance2D>(),
+                ..Default::default()
+            });
+
+        let sprite_array_crop_shader = gpu.create_shader(ShaderConfig {
+            name: Some("sprite_array_crop"),
+            source: ShaderModuleSource::Single(&gpu.create_shader_module(include_wgsl!(
+                "../../static/shader/2d/sprite_array_crop.wgsl"
+            ))),
+            uniforms: &[UniformField::Camera, UniformField::SpriteArray],
+            vertex_buffers: VertexBuffers::instance::<SpriteVertex2D, SpriteArrayCropInstance2D>(),
             ..Default::default()
         });
 
-        let blurr = gpu.create_shader(ShaderConfig::<Vertex2D, Instance2D> {
-            name: Some("blurr"),
-            source: ShaderModuleSource::Separate {
-                vertex: &shared_assets.vertex_shader_module,
-                fragment: &gpu
-                    .create_shader_module(include_wgsl!("../../static/shader/2d/blurr.wgsl")),
-            },
-            uniforms: &[UniformField::Camera, UniformField::Sprite],
+        let mesh_color_shader = gpu.create_shader(ShaderConfig {
+            name: Some("mesh_color"),
+            source: ShaderModuleSource::Single(
+                &gpu.create_shader_module(include_wgsl!("../../static/shader/2d/mesh_color.wgsl")),
+            ),
+            uniforms: &[UniformField::Camera],
+            vertex_buffers: VertexBuffers::vertex::<ColorVertex2D>(),
             ..Default::default()
         });
+
+        let mesh_sprite_shader = gpu.create_shader(ShaderConfig {
+            name: Some("mesh_sprite"),
+            source: ShaderModuleSource::Single(
+                &gpu.create_shader_module(include_wgsl!("../../static/shader/2d/mesh_sprite.wgsl")),
+            ),
+            uniforms: &[UniformField::Camera, UniformField::Sprite],
+            vertex_buffers: VertexBuffers::vertex::<SpriteVertex2D>(),
+            ..Default::default()
+        });
+
+        let mesh_sprite_array_shader = gpu.create_shader(ShaderConfig {
+            name: Some("mesh_sprite_array"),
+            source: ShaderModuleSource::Single(&gpu.create_shader_module(include_wgsl!(
+                "../../static/shader/2d/mesh_sprite_array.wgsl"
+            ))),
+            uniforms: &[UniformField::Camera, UniformField::SpriteArray],
+            vertex_buffers: VertexBuffers::vertex::<SpriteArrayVertex2D>(),
+            ..Default::default()
+        });
+
+        #[cfg(feature = "text")]
+        let mesh_text_shader = gpu.create_shader(ShaderConfig {
+            name: Some("mesh_text"),
+            vertex_buffers: VertexBuffers::vertex::<TextVertex2D>(),
+            uniforms: &[UniformField::Camera, UniformField::SpriteArray],
+            source: ShaderModuleSource::Single(
+                &gpu.create_shader_module(include_wgsl!("../../static/shader/2d/mesh_text.wgsl")),
+            ),
+            ..Default::default()
+        });
+        // let rainbow_shader = gpu.create_shader(ShaderConfig::<Vertex2D, Instance2D> {
+        //     name: Some("rainbow"),
+        //     source: ShaderModuleSource::Separate {
+        //         vertex: &shared_assets.vertex_shader_module,
+        //         fragment: &gpu
+        //             .create_shader_module(include_wgsl!("../../static/shader/2d/rainbow.wgsl")),
+        //     },
+        //     uniforms: &[UniformField::Camera, UniformField::SingleUniform],
+        //     ..Default::default()
+        // });
+
+        // let grey_shader = gpu.create_shader(ShaderConfig::<Vertex2D, Instance2D> {
+        //     name: Some("grey"),
+        //     source: ShaderModuleSource::Separate {
+        //         vertex: &shared_assets.vertex_shader_module,
+        //         fragment: &gpu
+        //             .create_shader_module(include_wgsl!("../../static/shader/2d/grey.wgsl")),
+        //     },
+        //     uniforms: &[UniformField::Camera, UniformField::Sprite],
+        //     ..Default::default()
+        // });
+
+        // let blurr_shader = gpu.create_shader(ShaderConfig::<Vertex2D, Instance2D> {
+        //     name: Some("blurr"),
+        //     source: ShaderModuleSource::Separate {
+        //         vertex: &shared_assets.vertex_shader_module,
+        //         fragment: &gpu
+        //             .create_shader_module(include_wgsl!("../../static/shader/2d/blurr.wgsl")),
+        //     },
+        //     uniforms: &[UniformField::Camera, UniformField::Sprite],
+        //     ..Default::default()
+        // });
 
         let size = gpu.surface_size();
         let times = UniformData::new(gpu, [0.0, 0.0]);
-        let single_instance = gpu.create_instance_buffer(&[Instance2D::default()]);
 
         let fov = Self::relative_fov(size);
 
@@ -668,13 +678,14 @@ impl DefaultAssets {
         let world_camera2d = CameraBuffer2D::empty(gpu);
         let world_camera3d = CameraBuffer::empty(gpu);
 
-        let unit_mesh = gpu.create_mesh(&MeshBuilder2D::cuboid(Vector2::new(0.5, 0.5)));
+        let sprite_mesh = gpu.create_mesh(&MeshData2D::cuboid(Vector2::new(0.5, 0.5)));
+        let position_mesh = gpu.create_mesh(&MeshData2D::cuboid(Vector2::new(0.5, 0.5)));
 
         #[cfg(feature = "framebuffer")]
         let framebuffer = SpriteRenderTarget::new(gpu, size);
         let depth_buffer = DepthBuffer::new(gpu, size, DepthBuffer::DEPTH_FORMAT_3D);
 
-        let missing = gpu.create_sprite(
+        let missing_sprite = gpu.create_sprite(
             SpriteBuilder::bytes(include_bytes!("../../static/img/missing.png")).sampler(
                 wgpu::SamplerDescriptor {
                     address_mode_u: wgpu::AddressMode::Repeat,
@@ -686,25 +697,24 @@ impl DefaultAssets {
         );
 
         Self {
-            sprite_array,
+            sprite_shader,
+            color_shader,
+            sprite_array_shader,
+            sprite_crop_shader,
+            sprite_array_crop_shader,
+            mesh_sprite_array_shader,
+            mesh_color_shader,
+            mesh_sprite_shader,
             #[cfg(feature = "text")]
-            text_mesh,
-            #[cfg(feature = "text")]
-            text_instance,
-            sprite,
-            rainbow,
-            grey,
-            blurr,
-            color,
-
-            model,
-            unit_mesh,
+            mesh_text_shader,
+            model_shader,
+            sprite_mesh,
             depth_buffer,
-            missing,
+            position_mesh,
+            missing_sprite,
 
             times,
             unit_camera,
-            single_instance,
             relative_camera,
             relative_bottom_left_camera,
             relative_bottom_right_camera,
@@ -759,10 +769,6 @@ impl DefaultAssets {
             .0
             .write(gpu, &self.relative_top_left_camera.1);
         self.relative_camera.0.write(gpu, &self.relative_camera.1);
-    }
-
-    pub fn unit_mesh(&self) -> &Mesh2D {
-        &self.unit_mesh
     }
 
     fn relative_fov(window_size: Vector2<u32>) -> Vector2<f32> {

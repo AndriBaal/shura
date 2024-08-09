@@ -233,9 +233,9 @@ impl Input {
                     match event.state {
                         ElementState::Pressed => {
                             self.last_keys.push(key);
-                            self.events
-                                .entry(trigger)
-                                .or_insert_with(|| InputEvent::new(event.text.clone(), trigger, 1.0));
+                            self.events.entry(trigger).or_insert_with(|| {
+                                InputEvent::new(event.text.clone(), trigger, 1.0)
+                            });
                         }
                         ElementState::Released => {
                             if let Some(event) = self.events.get_mut(&trigger) {
@@ -251,11 +251,11 @@ impl Input {
                 match state {
                     ElementState::Pressed => {
                         let display = match button {
-                            MouseButton::Left => format!("MouseLeft"),
-                            MouseButton::Right => format!("MouseRight"),
-                            MouseButton::Middle => format!("MouseMiddle"),
-                            MouseButton::Back => format!("MouseBack"),
-                            MouseButton::Forward => format!("MouseForward"),
+                            MouseButton::Left => "MouseLeft".to_string(),
+                            MouseButton::Right => "MouseRight".to_string(),
+                            MouseButton::Middle => "MouseMiddle".to_string(),
+                            MouseButton::Back => "MouseBack".to_string(),
+                            MouseButton::Forward => "MouseForward".to_string(),
                             MouseButton::Other(u) => format!("Mouse{}", &u.to_string()),
                         };
                         self.events.insert(
@@ -416,10 +416,7 @@ impl Input {
                         event.state = InputEventState::JustReleased;
                     }
                 }
-                EventType::AxisChanged(_, _, _) => {
-                    
-                }
-                // TODO: Maybe support this
+                EventType::AxisChanged(_, _, _) => {}
                 EventType::ButtonRepeated(_, _) => {}
                 EventType::Dropped => {}
                 EventType::Connected => {

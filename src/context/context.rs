@@ -14,9 +14,9 @@ use crate::{
 };
 use crate::{
     entity::{EntityGroupManager, EntityManager},
-    graphics::{Gpu, RenderGroupManager, ScreenConfig, WorldCamera2D, WorldCamera3D},
+    graphics::{AssetManager, Gpu, ScreenConfig, WorldCamera2D, WorldCamera3D},
     input::Input,
-    io::{AssetManager, StorageManager},
+    io::StorageLoader,
     math::{Point2, Vector2},
     physics::World,
     prelude::{App, Scene, SceneManager, TimeManager, WindowEventManager},
@@ -35,7 +35,6 @@ pub struct Context<'a> {
     pub groups: &'a mut EntityGroupManager,
     pub world: &'a mut World,
     pub tasks: &'a mut TaskManager,
-    pub render_groups: &'a mut RenderGroupManager,
     pub started: &'a bool,
 
     // App
@@ -50,8 +49,8 @@ pub struct Context<'a> {
     pub scenes: &'a mut SceneManager,
     pub window: Arc<winit::window::Window>,
     pub event_loop: &'a winit::event_loop::ActiveEventLoop,
-    pub storage: Arc<dyn StorageManager>,
-    pub assets: Arc<dyn AssetManager>,
+    pub storage: Arc<dyn StorageLoader>,
+    pub assets: Arc<AssetManager>,
 
     // Misc
     pub scene_id: &'a u32,
@@ -66,7 +65,11 @@ impl<'a> Context<'a> {
         app: &'a mut App,
         scene: &'a mut Scene,
         event_loop: &'a winit::event_loop::ActiveEventLoop,
-    ) -> (&'a mut WindowEventManager, &'a mut SystemManager, Context<'a>) {
+    ) -> (
+        &'a mut WindowEventManager,
+        &'a mut SystemManager,
+        Context<'a>,
+    ) {
         let surface_size = app.gpu.surface_size();
         let render_size = scene.screen_config.render_size(&app.gpu);
 
@@ -84,7 +87,6 @@ impl<'a> Context<'a> {
                 groups: &mut scene.groups,
                 world: &mut scene.world,
                 tasks: &mut scene.tasks,
-                render_groups: &mut scene.render_groups,
                 started: &scene.started,
 
                 // App
@@ -196,7 +198,6 @@ impl<'a> Context<'a> {
                 groups: &mut scene.groups,
                 world: &mut scene.world,
                 tasks: &mut scene.tasks,
-                render_groups: &mut scene.render_groups,
                 started: &scene.started,
 
                 // Misc

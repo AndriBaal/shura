@@ -134,10 +134,6 @@ impl EntityGroupManager {
             GroupActivation::Position { aabb } => {
                 self.render_tree.insert(EntityGroupAABB::new(aabb, handle))
             }
-            // GroupActivation::Always => {
-            //     self.render_groups.insert(handle);
-            //     self.render_groups_changed = true;
-            // }
             _ => (),
         }
 

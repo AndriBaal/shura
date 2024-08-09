@@ -2,7 +2,7 @@ use wgpu::util::DeviceExt;
 
 use crate::{
     graphics::{Gpu, RgbaColor, Uniform},
-    io::AssetManager,
+    io::GLOBAL_ASSET_LOADER,
     math::Vector2,
 };
 use std::ops::Deref;
@@ -16,10 +16,8 @@ pub struct SpriteBuilder<'a, D: Deref<Target = [u8]>> {
 }
 
 impl<'a> SpriteBuilder<'a, image::RgbaImage> {
-    pub fn asset(
-        assets: &dyn AssetManager,
-        path: &str,
-    ) -> SpriteBuilder<'a, image::ImageBuffer<image::Rgba<u8>, Vec<u8>>> {
+    pub fn asset(path: &str) -> SpriteBuilder<'a, image::ImageBuffer<image::Rgba<u8>, Vec<u8>>> {
+        let assets = GLOBAL_ASSET_LOADER.get().unwrap();
         let bytes = assets.load_bytes(path).unwrap();
         Self::bytes(&bytes)
     }

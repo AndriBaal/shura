@@ -92,8 +92,8 @@ impl ScreenConfig {
         #[cfg(feature = "framebuffer")]
         {
             let size = surface_size.cast::<f32>() * self.render_scale;
-            let size = Vector2::new(size.x.max(1.0) as u32, size.y.max(1.0) as u32);
-            return size;
+
+            Vector2::new(size.x.max(1.0) as u32, size.y.max(1.0) as u32)
         }
     }
 }

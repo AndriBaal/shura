@@ -52,7 +52,7 @@ impl<C: Camera> Uniform for CameraBuffer<C> {
     }
 }
 
-pub trait Camera {
+pub trait Camera: Send + Sync + 'static {
     fn matrix(&self) -> Matrix4<f32>;
 }
 
@@ -181,6 +181,10 @@ impl WorldCamera2D {
     pub(crate) fn resize(&mut self, window_size: Vector2<u32>) {
         self.window_size = window_size.cast();
         self.compute_fov();
+    }
+
+    pub fn intersects(&self, aabb: &AABB) -> bool {
+        self.aabb().intersects(aabb)
     }
 
     pub fn fov_scale(&self) -> WorldCameraScaling {
@@ -400,7 +404,7 @@ impl CameraProjection3D {
     }
 }
 
-pub trait CameraView3D {
+pub trait CameraView3D: Send + Sync + 'static {
     fn matrix(&self) -> Matrix4<f32>;
 }
 

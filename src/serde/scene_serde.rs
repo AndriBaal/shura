@@ -1,5 +1,5 @@
 use rustc_hash::FxHashMap;
-use std::sync::Arc;
+use std::{ops::Deref, sync::Arc};
 
 use crate::{
     entity::{
@@ -8,6 +8,7 @@ use crate::{
     },
     graphics::{Gpu, GLOBAL_GPU},
     scene::{Scene, SceneCreator},
+    system::System,
 };
 
 pub fn gpu() -> Arc<Gpu> {
@@ -69,21 +70,28 @@ impl<'a> SceneSerializer<'a> {
 pub struct SerializedScene {
     pub id: u32,
     pub scene: Scene,
+    once: bool,
     ser_entities: FxHashMap<EntityId, Vec<u8>>,
 }
 
 impl SerializedScene {
-    pub fn new(id: u32, scene: &[u8]) -> SerializedScene {
+    pub fn new<A: Deref<Target = [u8]>>(id: u32, scene: Option<A>) -> SerializedScene {
+        let once = scene.is_none();
         let (scene, ser_entities): (Scene, FxHashMap<EntityId, Vec<u8>>) =
-            bincode::deserialize(scene).unwrap();
+            if let Some(scene) = scene {
+                bincode::deserialize(&scene).unwrap()
+            } else {
+                (Scene::new(), Default::default())
+            };
         Self {
+            once,
             id,
             scene,
             ser_entities,
         }
     }
 
-    pub fn deserialize_entity_custom<ET: EntityType + serde::de::DeserializeOwned>(
+    pub fn deserialize_entity_custom<ET: EntityType + Default + serde::de::DeserializeOwned>(
         mut self,
         scope: EntityScope,
     ) -> Self {
@@ -92,6 +100,8 @@ impl SerializedScene {
             self.scene
                 .entities
                 .register_entity(scope, bincode::deserialize::<ET>(&data).unwrap());
+        } else {
+            return self.entity_custom(ET::default(), scope);
         }
         self
     }
@@ -147,6 +157,17 @@ impl SerializedScene {
         Self: Sized,
     {
         self.deserialize_entity_custom::<GroupedEntities<SingleEntity<E>>>(scope)
+    }
+
+    pub fn system_once(self, system: System) -> Self {
+        if self.once {
+            return self.system(system);
+        }
+        self
+    }
+
+    pub fn once(&self) -> bool {
+        self.once
     }
 
     pub fn finish(self) -> Scene {

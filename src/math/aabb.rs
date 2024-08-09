@@ -1,5 +1,5 @@
 use crate::{
-    graphics::Vertex2D,
+    graphics::BaseVertex2D,
     math::{Isometry2, Vector2},
 };
 
@@ -48,28 +48,28 @@ impl AABB {
         Self::new(min, max)
     }
 
-    pub fn from_vertices(vertices: &[Vertex2D]) -> Self {
+    pub fn from_vertices(vertices: &[impl BaseVertex2D]) -> Self {
         if vertices.is_empty() {
             return Default::default();
         }
 
-        let mut min_x = vertices[0].pos.x;
-        let mut max_x = vertices[0].pos.x;
-        let mut min_y = vertices[0].pos.y;
-        let mut max_y = vertices[0].pos.y;
+        let mut min_x = vertices[0].pos().x;
+        let mut max_x = vertices[0].pos().x;
+        let mut min_y = vertices[0].pos().y;
+        let mut max_y = vertices[0].pos().y;
         for v in vertices.iter().skip(1) {
-            if v.pos.x < min_x {
-                min_x = v.pos.x;
+            if v.pos().x < min_x {
+                min_x = v.pos().x;
             }
-            if v.pos.x > max_x {
-                max_x = v.pos.x;
+            if v.pos().x > max_x {
+                max_x = v.pos().x;
             }
 
-            if v.pos.y < min_y {
-                min_y = v.pos.y;
+            if v.pos().y < min_y {
+                min_y = v.pos().y;
             }
-            if v.pos.y > max_y {
-                max_y = v.pos.y;
+            if v.pos().y > max_y {
+                max_y = v.pos().y;
             }
         }
 
@@ -139,9 +139,9 @@ impl AABB {
 }
 
 #[cfg(feature = "physics")]
-impl Into<rapier2d::prelude::Aabb> for AABB {
-    fn into(self) -> rapier2d::prelude::Aabb {
-        rapier2d::prelude::Aabb::new(self.min.into(), self.max.into())
+impl From<AABB> for rapier2d::prelude::Aabb {
+    fn from(val: AABB) -> Self {
+        rapier2d::prelude::Aabb::new(val.min.into(), val.max.into())
     }
 }
 

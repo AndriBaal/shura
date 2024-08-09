@@ -69,7 +69,8 @@ impl Gui {
         let paint_jobs = self.context.tessellate(output.shapes, 1.0);
 
         for add in &output.textures_delta.set {
-            self.renderer.update_texture(&gpu.device, &gpu.queue, add.0, &add.1);
+            self.renderer
+                .update_texture(&gpu.device, &gpu.queue, add.0, &add.1);
         }
 
         let screen_descriptor = self.screen_descriptor.lock();
@@ -92,7 +93,8 @@ impl Gui {
                     occlusion_query_set: None,
                 });
 
-            self.renderer.render(&mut rpass, &paint_jobs, &screen_descriptor);
+            self.renderer
+                .render(&mut rpass, &paint_jobs, &screen_descriptor);
         }
 
         for free in &output.textures_delta.free {

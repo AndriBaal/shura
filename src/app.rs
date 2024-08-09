@@ -4,9 +4,9 @@ use std::sync::Arc;
 use crate::gui::Gui;
 use crate::{
     context::{Context, RenderContext},
-    graphics::{Gpu, GpuConfig, RenderEncoder, GLOBAL_GPU},
+    graphics::{AssetManager, Gpu, GpuConfig, RenderEncoder, GLOBAL_ASSETS, GLOBAL_GPU},
     input::Input,
-    io::{AssetManager, StorageManager, GLOBAL_ASSETS, GLOBAL_STORAGE},
+    io::{AssetLoader, StorageLoader, GLOBAL_ASSET_LOADER, GLOBAL_STORAGE_LOADER},
     math::Vector2,
     scene::{Scene, SceneManager},
     system::{EndReason, UpdateOperation},
@@ -33,12 +33,20 @@ use crate::audio::AudioManager;
 use rustc_hash::FxHashMap;
 
 pub struct WindowEventManager {
-    pub events: Vec<Box<dyn FnMut(&mut Context, &winit::event::WindowEvent)>>
+    pub events: Vec<Box<dyn FnMut(&mut Context, &winit::event::WindowEvent)>>,
+}
+
+impl Default for WindowEventManager {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl WindowEventManager {
     pub fn new() -> Self {
-        Self { events: Default::default() }
+        Self {
+            events: Default::default(),
+        }
     }
 
     pub fn add(&mut self, event: impl FnMut(&mut Context, &winit::event::WindowEvent) + 'static) {
@@ -50,8 +58,8 @@ pub struct AppConfig {
     pub window_events: WindowEventManager,
     pub window: winit::window::WindowAttributes,
     pub gpu: GpuConfig,
-    pub storage: Arc<dyn StorageManager>,
-    pub assets: Arc<dyn AssetManager>,
+    pub storage: Arc<dyn StorageLoader>,
+    pub assets: Arc<dyn AssetLoader>,
     pub scene_id: u32,
     #[cfg(feature = "framebuffer")]
     pub apply_frame_buffer: bool,
@@ -77,19 +85,19 @@ impl AppConfig {
         #[cfg(target_arch = "wasm32")]
         let (assets, storage) = (
             crate::io::WebAssetManager,
-            crate::io::UnimplementedStorageManager,
+            crate::io::UnimplementedStorageLoader,
         );
 
         #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
         let (assets, storage) = (
             crate::io::NativeAssetManager,
-            crate::io::NativeStorageManager,
+            crate::io::NativeStorageLoader,
         );
 
         #[cfg(target_os = "android")]
         let (assets, storage) = (
             crate::io::AndroidAssetManager::new(&android),
-            crate::io::UnimplementedStorageManager,
+            crate::io::UnimplementedStorageLoader,
         );
 
         AppConfig {
@@ -139,17 +147,20 @@ impl AppConfig {
         self
     }
 
-    pub fn storage(mut self, storage: impl StorageManager) -> Self {
+    pub fn storage(mut self, storage: impl StorageLoader) -> Self {
         self.storage = Arc::new(storage);
         self
     }
 
-    pub fn assets(mut self, assets: impl AssetManager) -> Self {
+    pub fn assets(mut self, assets: impl AssetLoader) -> Self {
         self.assets = Arc::new(assets);
         self
     }
 
-    pub fn window_event(mut self, event: impl FnMut(&mut Context, &winit::event::WindowEvent) + 'static) -> Self {
+    pub fn window_event(
+        mut self,
+        event: impl FnMut(&mut Context, &winit::event::WindowEvent) + 'static,
+    ) -> Self {
         self.window_events.add(event);
         self
     }
@@ -193,8 +204,8 @@ impl<S: Into<Scene>, I: FnOnce() -> S> ApplicationHandler<()> for AppState<S, I>
     fn about_to_wait(&mut self, _event_loop: &winit::event_loop::ActiveEventLoop) {
         match self {
             AppState::Initialized(app) => app.window.request_redraw(),
-            AppState::Uninitialized { .. } => return,
-        };
+            AppState::Uninitialized { .. } => (),
+        }
     }
 
     fn new_events(
@@ -242,7 +253,6 @@ impl<S: Into<Scene>, I: FnOnce() -> S> ApplicationHandler<()> for AppState<S, I>
 
         #[cfg(feature = "gui")]
         app.gui.handle_event(&app.window, &event);
-
 
         if !app.window_events.events.is_empty() {
             let scene_id = app.scenes.active_scene_id();
@@ -293,8 +303,8 @@ impl<S: Into<Scene>, I: FnOnce() -> S> ApplicationHandler<()> for AppState<S, I>
 
 pub struct App {
     pub(crate) window_events: WindowEventManager,
-    pub(crate) storage: Arc<dyn StorageManager>,
-    pub(crate) assets: Arc<dyn AssetManager>,
+    pub(crate) storage: Arc<dyn StorageLoader>,
+    pub(crate) assets: Arc<AssetManager>,
     pub(crate) end: bool,
     pub(crate) time: TimeManager,
     pub(crate) scenes: SceneManager,
@@ -379,9 +389,15 @@ impl App {
         let gpu = Arc::new(gpu);
         gpu.resume(&window);
 
+        let assets = Arc::new(AssetManager::new(config.assets.clone(), gpu.clone()));
+
         GLOBAL_GPU.set(gpu.clone()).ok().unwrap();
-        GLOBAL_ASSETS.set(config.assets.clone()).ok().unwrap();
-        GLOBAL_STORAGE.set(config.storage.clone()).ok().unwrap();
+        GLOBAL_ASSET_LOADER.set(config.assets.clone()).ok().unwrap();
+        GLOBAL_ASSETS.set(assets.clone()).ok().unwrap();
+        GLOBAL_STORAGE_LOADER
+            .set(config.storage.clone())
+            .ok()
+            .unwrap();
 
         let size = gpu.surface_size();
         let scene = (init)();
@@ -398,7 +414,7 @@ impl App {
             apply_framebuffer: config.apply_frame_buffer,
             window,
             gpu,
-            assets: config.assets,
+            assets,
             storage: config.storage,
             end: false,
             scenes: SceneManager::new(scene.into(), config.scene_id),
@@ -413,7 +429,7 @@ impl App {
         self.scenes.resize();
         self.input.resize(new_size);
         self.gpu.resize(new_size);
-        let mut default_assets = self.gpu.default_assets_mut();
+        let mut default_assets = self.assets.default_assets_mut();
         default_assets.resize(&self.gpu, new_size);
         #[cfg(feature = "gui")]
         self.gui.resize(new_size);
@@ -476,7 +492,7 @@ impl App {
             self.gpu.apply_vsync(scene.screen_config.vsync());
             #[cfg(feature = "framebuffer")]
             {
-                let mut default_assets = self.gpu.default_assets_mut();
+                let mut default_assets = self.assets.default_assets_mut();
                 default_assets.apply_render_scale(&self.gpu, &scene.screen_config);
             }
         }
@@ -484,7 +500,7 @@ impl App {
         self.update(scene_id, scene, event_loop);
         scene.screen_config.changed = false;
         if scene.render_entities || resized {
-            self.render(scene);
+            self.render(scene_id, scene, event_loop);
         }
         self.input.update();
     }
@@ -551,15 +567,13 @@ impl App {
         scene.groups.update(&scene.world_camera2d);
     }
 
-    fn buffer(&mut self, scene: &mut Scene) {
-        let aabb = scene.world_camera2d.aabb();
-        scene.render_groups.prepare_buffers(&scene.groups);
-        scene
-            .entities
-            .buffer(&mut scene.render_groups, &scene.groups, &scene.world, &aabb);
-        scene.render_groups.apply_buffers(&self.gpu);
+    fn buffer(&mut self, scene_id: u32, scene: &mut Scene, event_loop: &ActiveEventLoop) {
+        self.assets.prepare(&scene.groups);
+        let (_, _, ctx) = &Context::new(&scene_id, self, scene, event_loop);
+        ctx.entities.buffer(&ctx);
+        self.assets.apply();
 
-        let mut default_assets = self.gpu.default_assets_mut();
+        let mut default_assets = self.assets.default_assets_mut();
         default_assets
             .world_camera2d
             .write(&self.gpu, &scene.world_camera2d);
@@ -573,14 +587,16 @@ impl App {
             .write(&self.gpu, [self.time.total(), self.time.delta()]);
     }
 
-    fn render(&mut self, scene: &mut Scene) {
-        self.buffer(scene);
+    fn render(&mut self, scene_id: u32, scene: &mut Scene, event_loop: &ActiveEventLoop) {
+        self.buffer(scene_id, scene, event_loop);
 
         let surface_target = self.gpu.start_frame(&self.gpu);
-        let default_assets = self.gpu.default_assets();
+        let default_assets = self.assets.default_assets();
 
-        let (systems, ctx) = RenderContext::new(&surface_target, &default_assets, scene);
-        let mut encoder = RenderEncoder::new(&self.gpu, ctx.target(), &default_assets);
+        let (systems, ctx) =
+            RenderContext::new(self.assets.clone(), &surface_target, &default_assets, scene);
+        let mut encoder =
+            RenderEncoder::new(&self.gpu, &self.assets, &default_assets, ctx.target());
 
         for (_, render) in &systems.render_systems {
             (render)(&ctx, &mut encoder);

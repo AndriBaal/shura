@@ -4,8 +4,7 @@ use crate::{
         GroupedEntities, SingleEntity,
     },
     graphics::{
-        CameraViewSelection, Instance, Instance2D, Instance3D, PerspectiveCamera3D,
-        RenderGroupManager, RenderGroupUpdate, ScreenConfig, WorldCamera2D, WorldCamera3D,
+        CameraViewSelection, PerspectiveCamera3D, ScreenConfig, WorldCamera2D, WorldCamera3D,
         WorldCameraScaling,
     },
     math::Vector2,
@@ -27,13 +26,6 @@ pub trait SceneCreator {
         plugin.init(self)
     }
 
-    fn render_group<I: Instance>(mut self, name: &'static str, config: RenderGroupUpdate) -> Self
-    where
-        Self: Sized,
-    {
-        self.scene().render_groups.register::<I>(name, config);
-        self
-    }
     fn entity_grouped<E: EntityIdentifier>(self) -> Self
     where
         Self: Sized,
@@ -43,6 +35,7 @@ pub trait SceneCreator {
             EntityScope::Scene,
         )
     }
+
     fn entity_grouped_single<E: EntityIdentifier>(self) -> Self
     where
         Self: Sized,
@@ -52,30 +45,35 @@ pub trait SceneCreator {
             EntityScope::Scene,
         )
     }
+
     fn entity_single<E: EntityIdentifier>(self) -> Self
     where
         Self: Sized,
     {
         self.entity_custom(SingleEntity::<E>::default(), EntityScope::Scene)
     }
+
     fn entity<E: EntityIdentifier>(self) -> Self
     where
         Self: Sized,
     {
         self.entity_custom(Entities::<E>::default(), EntityScope::Scene)
     }
+
     fn entity_single_global<E: EntityIdentifier>(self) -> Self
     where
         Self: Sized,
     {
         self.entity_custom(SingleEntity::<E>::default(), EntityScope::Global)
     }
+
     fn entity_global<E: EntityIdentifier>(self) -> Self
     where
         Self: Sized,
     {
         self.entity_custom(Entities::<E>::default(), EntityScope::Global)
     }
+
     fn entity_custom<ET: EntityType>(mut self, ty: ET, scope: EntityScope) -> Self
     where
         Self: Sized,
@@ -90,20 +88,6 @@ pub trait SceneCreator {
     {
         self.scene().systems.register_system(system);
         self
-    }
-
-    fn render_group2d(self, name: &'static str, config: RenderGroupUpdate) -> Self
-    where
-        Self: Sized,
-    {
-        self.render_group::<Instance2D>(name, config)
-    }
-
-    fn render_group3d(self, name: &'static str, config: RenderGroupUpdate) -> Self
-    where
-        Self: Sized,
-    {
-        self.render_group::<Instance3D>(name, config)
     }
 }
 
@@ -125,9 +109,6 @@ pub struct Scene {
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default = "SystemManager::new"))]
     pub(crate) systems: SystemManager,
-    #[cfg_attr(feature = "serde", serde(skip))]
-    #[cfg_attr(feature = "serde", serde(default = "RenderGroupManager::new"))]
-    pub(crate) render_groups: RenderGroupManager,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default = "TaskManager::new"))]
     pub(crate) tasks: TaskManager,
@@ -151,7 +132,6 @@ impl Scene {
             render_entities: true,
             world: World::new(),
             tasks: TaskManager::new(),
-            render_groups: RenderGroupManager::new(),
             world_camera3d: WorldCamera3D::new(
                 window_size,
                 CameraViewSelection::PerspectiveCamera3D(PerspectiveCamera3D::default()),

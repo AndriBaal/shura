@@ -4,9 +4,7 @@ use shura::prelude::*;
 fn app(config: AppConfig) {
     App::run(config, || {
         Scene::new()
-            .render_group2d("bunny", RenderGroupUpdate::default())
             .entity::<Bunny>()
-            .entity_single::<Assets>()
             .system(System::update(update))
             .system(System::setup(setup))
             .system(System::render(render))
@@ -15,12 +13,22 @@ fn app(config: AppConfig) {
 
 fn setup(ctx: &mut Context) {
     ctx.world_camera2d.set_scaling(WorldCameraScaling::Min(3.0));
+    ctx.assets.load_font(
+        "font",
+        FontBuilder::bytes(include_asset_bytes!("bunnymark/novem.ttf")),
+    );
+    ctx.assets.load_text_mesh::<&str>("text", "font", &[]);
+    ctx.assets.load_smart_instance_buffer::<SpriteInstance2D>(
+        "bunny_instances",
+        SmartInstanceBuffer::EVERY_FRAME,
+    );
+    ctx.assets.load_sprite(
+        "bunny_sprite",
+        SpriteBuilder::bytes(include_asset_bytes!("bunnymark/wabbit.png")),
+    );
     ctx.entities
         .get_mut::<Bunny>()
         .add(ctx.world, Bunny::new(Default::default()));
-    ctx.entities
-        .single_mut::<Assets>()
-        .set(ctx.world, Assets::new(ctx));
 }
 
 fn update(ctx: &mut Context) {
@@ -28,7 +36,6 @@ fn update(ctx: &mut Context) {
     const GRAVITY: f32 = -2.5;
 
     let mut bunnies = ctx.entities.get_mut::<Bunny>();
-    let mut assets = ctx.entities.single_mut::<Assets>().unwrap();
 
     if ctx.input.is_held(MouseButton::Left) || ctx.input.is_held(ScreenTouch) {
         let cursor: Vector2<f32> = ctx.cursor.coords;
@@ -49,8 +56,9 @@ fn update(ctx: &mut Context) {
         }
     }
 
-    assets.text.write(
-        &ctx.gpu,
+    ctx.assets.write_text(
+        "text",
+        "font",
         &[TextSection {
             color: Color::RED,
             text: format!("FPS: {}\nBunnies: {}", ctx.time.fps(), bunnies.len()),
@@ -61,22 +69,15 @@ fn update(ctx: &mut Context) {
         }],
     );
 
-    if let Some(screenshot) = assets.screenshot.take() {
-        log::info!("Saving Screenshot!");
-        let bytes = screenshot.sprite().to_bytes(&ctx.gpu);
-        ctx.storage.store("screenshot.png", &bytes).unwrap();
-    } else if ctx.input.is_pressed(Key::KeyS) {
-        assets.screenshot = Some(ctx.gpu.create_render_target(ctx.render_size));
-    }
-
-    let frame = ctx.time.delta();
+    let delta = ctx.time.delta();
     let fov = ctx.world_camera2d.fov();
+
     for bunny in bunnies.iter_mut() {
         let mut linvel = bunny.linvel;
-        let mut translation = bunny.position.translation();
+        let mut translation = bunny.position.translation.vector;
 
-        linvel.y += GRAVITY * frame;
-        translation += linvel * frame;
+        linvel.y += GRAVITY * delta;
+        translation += linvel * delta;
         if translation.x >= fov.x {
             linvel.x = -linvel.x;
             translation.x = fov.x;
@@ -93,84 +94,54 @@ fn update(ctx: &mut Context) {
             translation.y = fov.y;
         }
         bunny.linvel = linvel;
-        bunny.position.set_translation(translation);
+        bunny.position.translation.vector = translation;
     }
 }
 
 fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
-    let assets = ctx.entities.single::<Assets>().unwrap();
     encoder.render2d(
         Some(RgbaColor::new(220, 220, 220, 255).into()),
         |renderer| {
-            ctx.group("bunny", |buffer| {
-                renderer.draw_sprite(
-                    buffer,
-                    ctx.world_camera2d,
-                    ctx.unit_mesh,
-                    &assets.bunny_sprite,
-                );
-            });
+            renderer.draw_sprite(
+                &ctx.assets.instances("bunny_instances"),
+                &ctx.default_assets.world_camera2d,
+                &ctx.default_assets.sprite_mesh,
+                &ctx.assets.sprite("bunny_sprite"),
+            );
 
             renderer.draw_text_mesh(
-                ctx.single_instance,
-                ctx.relative_top_right_camera,
-                &assets.text,
+                &ctx.assets.text_mesh("text"),
+                &ctx.assets.font("font"),
+                &ctx.default_assets.relative_top_right_camera.0,
             );
         },
     );
-
-    if let Some(screenshot) = &assets.screenshot {
-        encoder.copy_target(ctx.target(), screenshot)
-    }
 }
 
 #[derive(Entity)]
-struct Assets {
-    screenshot: Option<SpriteRenderTarget>,
-    bunny_sprite: Sprite,
-    text: TextMesh,
-}
-
-impl Assets {
-    pub fn new(ctx: &Context) -> Self {
-        let bunny_sprite = ctx
-            .gpu
-            .create_sprite(SpriteBuilder::bytes(include_asset_bytes!(
-                "bunnymark/wabbit.png"
-            )));
-        let font = ctx.gpu.create_font(FontBuilder::bytes(include_asset_bytes!(
-            "bunnymark/novem.ttf"
-        )));
-        Assets {
-            screenshot: None,
-            bunny_sprite,
-            text: ctx.gpu.create_text_mesh::<&str>(&font, &[]),
-        }
-    }
-}
-
-#[derive(Entity)]
+#[shura(
+    asset = "bunny_instances", 
+    ty = SmartInstanceBuffer<SpriteInstance2D>,
+    action = |bunny, asset, _| asset.push(SpriteInstance2D::new(bunny.position, bunny.scaling, ()));
+)]
 struct Bunny {
-    #[shura(handle)]
-    handle: EntityHandle,
     #[shura(component)]
-    #[shura(render="bunny")]
-    position: PositionComponent2D,
+    handle: EntityHandle,
+    position: Isometry2<f32>,
+    scaling: Vector2<f32>,
     linvel: Vector2<f32>,
 }
 
 impl Bunny {
     pub fn new(translation: Vector2<f32>) -> Bunny {
-        let scaling = gen_range(0.75_f32..2.0);
-        let position = PositionComponent2D::new()
-            .with_translation(translation)
-            .with_rotation(gen_range(-1.0..1.0))
-            .with_scaling(scaling * vector!(0.12, 0.18));
+        let scaling = gen_range(0.75_f32..2.0) * vector!(0.12, 0.18);
+        let rotation = gen_range(-1.0..1.0);
         let linvel = vector!(gen_range(-2.5..2.5), gen_range(-7.5..7.5));
         Bunny {
-            position,
+            position: Isometry2::new(translation, rotation),
             linvel,
             handle: Default::default(),
+            scaling,
         }
     }
 }

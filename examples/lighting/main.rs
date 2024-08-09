@@ -1,5 +1,5 @@
-use shura::prelude::*;
 use shura::gui::Widget;
+use shura::prelude::*;
 use std::f32::consts::{PI, TAU};
 
 const SIZE: Vector2<u32> = vector!(800, 800);

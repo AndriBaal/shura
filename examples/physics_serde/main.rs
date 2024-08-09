@@ -1,54 +1,36 @@
 use shura::{physics::*, prelude::*};
 
-fn deserialized_scene(data: Vec<u8>) -> SerializedScene {
-    SerializedScene::new(1, &data)
-        .render_group2d("player", RenderGroupUpdate::default())
-        .render_group2d("box", RenderGroupUpdate::default())
-        .render_group2d(
-            "floor",
-            RenderGroupUpdate {
-                call: BufferCall::Manual,
-                ..Default::default()
-            },
-        )
+fn scene(data: Option<Vec<u8>>) -> SerializedScene {
+    SerializedScene::new(1, data)
         .deserialize_entity_single::<Floor>()
         .deserialize_entity_single::<Player>()
         .deserialize_entity::<PhysicsBox>()
-        .entity_single::<Assets>()
+        .system(System::setup(load_assets))
         .system(System::render(render))
-        .system(System::setup(|ctx| {
-            ctx.entities.single_mut().set(ctx.world, Assets::new(ctx));
-        }))
         .system(System::update(update))
         .system(System::end(end))
+        .system_once(System::setup(setup))
 }
 
 #[shura::main]
 fn app(config: AppConfig) {
-    if let Ok(save_game) = config.storage.load_bytes("data.binc") {
-        App::run(config, move || deserialized_scene(save_game))
-    } else {
-        App::run(config, || {
-            Scene::new()
-                .render_group2d("player", RenderGroupUpdate::default())
-                .render_group2d("box", RenderGroupUpdate::default())
-                .render_group2d(
-                    "floor",
-                    RenderGroupUpdate {
-                        call: BufferCall::Manual,
-                        ..Default::default()
-                    },
-                )
-                .entity_single::<Floor>()
-                .entity_single::<Player>()
-                .entity_single::<Assets>()
-                .entity::<PhysicsBox>()
-                .system(System::render(render))
-                .system(System::setup(setup))
-                .system(System::update(update))
-                .system(System::end(end))
-        });
-    };
+    let data = config.storage.load_bytes("data.binc").ok();
+    App::run(config, || {
+        scene(data)
+    });
+}
+
+fn load_assets(ctx: &mut Context) {
+    ctx.assets.load_sprite(
+        "burger",
+        SpriteBuilder::bytes(include_asset_bytes!("physics/burger.png")),
+    );
+    ctx.assets
+        .load_smart_instance_buffer("boxes", SmartInstanceBuffer::<ColorInstance2D>::EVERY_FRAME);
+    ctx.assets
+        .load_smart_mesh("floor", SmartMesh::<ColorVertex2D>::MANUAL);
+    ctx.assets
+        .load_smart_mesh("player", SmartMesh::<SpriteVertex2D>::EVERY_FRAME);
 }
 
 fn setup(ctx: &mut Context) {
@@ -57,7 +39,7 @@ fn setup(ctx: &mut Context) {
     ctx.world_camera2d.set_scaling(WorldCameraScaling::Max(5.0));
     ctx.world.set_gravity(Vector2::new(0.00, -9.81));
 
-    let mut boxes = ctx.entities.get_mut::<PhysicsBox>();
+    let mut boxes = ctx.entities.get_mut();
     for x in -PYRAMID_ELEMENTS..PYRAMID_ELEMENTS {
         for y in 0..(PYRAMID_ELEMENTS - x.abs()) {
             let b = PhysicsBox::new(Vector2::new(
@@ -70,7 +52,6 @@ fn setup(ctx: &mut Context) {
 
     ctx.entities.single_mut().set(ctx.world, Player::new());
     ctx.entities.single_mut().set(ctx.world, Floor::new());
-    ctx.entities.single_mut().set(ctx.world, Assets::new(ctx));
 }
 
 fn update(ctx: &mut Context) {
@@ -82,8 +63,8 @@ fn update(ctx: &mut Context) {
         if let Ok(save_game) = ctx.storage.load_bytes("data.binc") {
             let active_scene_id = ctx.scenes.active_scene_id();
             ctx.add_scene(
-                active_scene_id + 1,
-                deserialized_scene(save_game).system(System::setup(move |ctx| {
+                active_scene_id.wrapping_add(1),
+                scene(Some(save_game)).system(System::setup(move |ctx| {
                     ctx.remove_scene(active_scene_id).unwrap();
                 })),
             );
@@ -122,8 +103,8 @@ fn update(ctx: &mut Context) {
     let cursor_world: Point2<f32> = ctx.cursor;
     let remove = ctx.input.is_held(MouseButton::Left) || ctx.input.is_pressed(ScreenTouch);
     for physics_box in boxes.iter_mut() {
-        if *physics_box.body.color() == Color::RED {
-            physics_box.body.set_color(Color::GREEN);
+        if physics_box.color == Color::RED {
+            physics_box.color = Color::GREEN;
         }
     }
     let mut entity: Option<EntityHandle> = None;
@@ -134,7 +115,7 @@ fn update(ctx: &mut Context) {
         });
     if let Some(handle) = entity {
         if let Some(physics_box) = boxes.get_mut(&handle) {
-            physics_box.body.set_color(Color::RED);
+            physics_box.color = Color::RED;
             if remove {
                 boxes.remove(ctx.world, &handle);
             }
@@ -165,38 +146,16 @@ fn update(ctx: &mut Context) {
     ctx.world.step(ctx.time.delta()).collisions(|event| {
         if let Some(event) = event.is::<Player, PhysicsBox>(ctx.world) {
             if let Some(b) = boxes.get_mut(&event.entity2) {
-                b.body.set_color(match event.collision_type {
+                b.color = match event.collision_type {
                     CollisionType::Started => Color::BLUE,
                     CollisionType::Stopped => Color::GREEN,
-                })
+                }
             }
         }
     });
 
     ctx.world_camera2d
         .set_translation(*player.body.get_mut(ctx.world).translation());
-}
-
-fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
-    let assets = ctx.entities.single::<Assets>().unwrap();
-    encoder.render2d(Some(Color::BLACK), |renderer| {
-        ctx.group("player", |buffer| {
-            renderer.draw_sprite(
-                buffer,
-                ctx.world_camera2d,
-                &assets.player_mesh,
-                &assets.player_sprite,
-            )
-        });
-
-        ctx.group("floor", |buffer| {
-            renderer.draw_color(buffer, ctx.world_camera2d, &assets.floor_mesh)
-        });
-
-        ctx.group("box", |buffer| {
-            renderer.draw_color(buffer, ctx.world_camera2d, &assets.box_mesh);
-        });
-    })
 }
 
 fn end(ctx: &mut Context, reason: EndReason) {
@@ -218,46 +177,38 @@ fn serialize_scene(ctx: &mut Context) {
     ctx.storage.store("data.binc", &ser).unwrap();
 }
 
-#[derive(Entity)]
-struct Assets {
-    floor_mesh: Mesh2D,
-    box_mesh: Mesh2D,
-    player_mesh: Mesh2D,
-    player_sprite: Sprite,
-}
+fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
+    encoder.render2d(Some(Color::BLACK), |renderer| {
+        renderer.draw_color(
+            &ctx.assets.smart_instances("boxes"),
+            &ctx.default_assets.world_camera2d,
+            &ctx.default_assets.position_mesh,
+        );
 
-impl Assets {
-    pub fn new(ctx: &Context) -> Self {
-        Self {
-            player_sprite: ctx
-                .gpu
-                .create_sprite(SpriteBuilder::bytes(include_asset_bytes!(
-                    "physics/burger.png"
-                ))),
-            player_mesh: ctx.gpu.create_mesh(&MeshBuilder2D::from_collider_shape(
-                &Player::SHAPE,
-                Player::RESOLUTION,
-                0.0,
-            )),
-            floor_mesh: ctx.gpu.create_mesh(&MeshBuilder2D::from_collider_shape(
-                &Floor::SHAPE,
-                Floor::RESOLUTION,
-                0.0,
-            )),
-            box_mesh: ctx.gpu.create_mesh(&MeshBuilder2D::from_collider_shape(
-                &PhysicsBox::BOX_SHAPE,
-                0,
-                0.0,
-            )),
-        }
-    }
+        renderer.draw_sprite_mesh(
+            &ctx.default_assets.world_camera2d,
+            &ctx.assets.smart_mesh("player"),
+            &ctx.assets.get("burger"),
+        );
+
+        renderer.draw_color_mesh(
+            &ctx.default_assets.world_camera2d,
+            &ctx.assets.get::<SmartMesh<ColorVertex2D>>("floor").mesh(),
+        );
+    })
 }
 
 #[derive(Entity, serde::Serialize, serde::Deserialize)]
 #[serde(crate = "shura::serde")]
+#[shura(
+    asset = "player", 
+    ty = SmartMesh<SpriteVertex2D>,
+    action = |player, asset, ctx| asset.push_offset(&player.mesh, player.body.position(ctx.world))
+)]
 struct Player {
-    #[shura(component = "player")]
+    #[shura(component)]
     body: RigidBodyComponent,
+    mesh: MeshData2D<SpriteVertex2D>,
 }
 
 impl Player {
@@ -270,20 +221,28 @@ impl Player {
     pub fn new() -> Self {
         let collider = ColliderBuilder::new(SharedShape::new(Self::SHAPE))
             .active_events(ActiveEvents::COLLISION_EVENTS);
+        let mesh = MeshData2D::from_collider_shape(&Player::SHAPE, Player::RESOLUTION, 0.0);
         Self {
             body: RigidBodyComponent::new(
                 RigidBodyBuilder::dynamic().translation(Vector2::new(5.0, 4.0)),
                 [collider],
             ),
+            mesh,
         }
     }
 }
 
 #[derive(Entity, serde::Serialize, serde::Deserialize)]
 #[serde(crate = "shura::serde")]
+#[shura(
+    asset = "floor", 
+    ty = SmartMesh<ColorVertex2D>,
+    action = |floor, asset, ctx| asset.push_offset(&floor.mesh, floor.collider.position(ctx.world))
+)]
 struct Floor {
-    #[shura(component = "floor")]
+    #[shura(component)]
     collider: ColliderComponent,
+    mesh: MeshData2D<ColorVertex2D>,
 }
 
 impl Floor {
@@ -298,16 +257,24 @@ impl Floor {
         let collider = ColliderBuilder::new(SharedShape::new(Self::SHAPE))
             .translation(Vector2::new(0.0, -1.0));
         Self {
-            collider: ColliderComponent::new(collider).with_color(Color::BLUE),
+            collider: ColliderComponent::new(collider),
+            mesh: MeshData2D::from_collider_shape(&Floor::SHAPE, Floor::RESOLUTION, 0.0)
+                .set_data(Color::BLUE),
         }
     }
 }
 
 #[derive(Entity, serde::Serialize, serde::Deserialize)]
 #[serde(crate = "shura::serde")]
+#[shura(
+    asset = "boxes", 
+    ty = SmartInstanceBuffer<ColorInstance2D>,
+    action = |b, asset, _|asset.push(ColorInstance2D::new(b.body.position(ctx.world), Vector2::new(Self::HALF_BOX_SIZE * 2., Self::HALF_BOX_SIZE * 2.), b.color));
+)]
 struct PhysicsBox {
-    #[shura(component = "box")]
+    #[shura(component)]
     body: RigidBodyComponent,
+    color: Color,
 }
 
 impl PhysicsBox {
@@ -322,8 +289,8 @@ impl PhysicsBox {
                 [ColliderBuilder::new(SharedShape::new(
                     PhysicsBox::BOX_SHAPE,
                 ))],
-            )
-            .with_color(Color::GREEN),
+            ),
+            color: Color::GREEN,
         }
     }
 }

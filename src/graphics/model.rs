@@ -1,8 +1,8 @@
 use std::io::{BufReader, Cursor};
 
 use crate::{
-    graphics::{Gpu, Index, Mesh3D, MeshBuilder3D, Sprite, SpriteBuilder, Vertex3D},
-    io::AssetManager,
+    graphics::{Gpu, Mesh3D, MeshData3D, Sprite, SpriteBuilder, Vertex3D},
+    io::GLOBAL_ASSET_LOADER,
     math::{Vector2, Vector3},
 };
 
@@ -12,7 +12,8 @@ pub struct ModelBuilder {
 }
 
 impl ModelBuilder {
-    pub fn asset(assets: &dyn AssetManager, path: &str) -> Self {
+    pub fn asset(path: &str) -> Self {
+        let assets = GLOBAL_ASSET_LOADER.get().unwrap();
         let obj_text = assets.load_string(path).unwrap();
         let obj_cursor = Cursor::new(&obj_text);
         let mut obj_reader = BufReader::new(obj_cursor);
@@ -124,9 +125,9 @@ impl Model {
                     .collect::<Vec<_>>();
                 (
                     m.mesh.material_id,
-                    gpu.create_mesh(&MeshBuilder3D {
+                    gpu.create_mesh(&MeshData3D {
                         vertices,
-                        indices: Index::from_vec(m.mesh.indices),
+                        indices: m.mesh.indices,
                     }),
                 )
             })

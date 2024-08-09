@@ -1,6 +1,4 @@
-use std::marker::PhantomData;
-
-use crate::graphics::{Gpu, Instance, Vertex};
+use crate::graphics::{Gpu, Instance, PositionInstance2D, SpriteVertex2D, Vertex};
 pub use wgpu::{
     include_spirv, include_wgsl, vertex_attr_array, BlendComponent, BlendFactor, BlendOperation,
     BlendState, ColorWrites, Id as GpuId, ShaderModule, ShaderModuleDescriptor, ShaderSource,
@@ -8,7 +6,7 @@ pub use wgpu::{
 };
 
 #[cfg(feature = "log")]
-use log::info;
+use crate::log::info;
 
 pub enum ShaderModuleSource<'a> {
     Single(&'a ShaderModule),
@@ -16,33 +14,49 @@ pub enum ShaderModuleSource<'a> {
         vertex: &'a ShaderModule,
         fragment: &'a ShaderModule,
     },
-    Dummy
+    Dummy,
 }
 
-pub struct ShaderConfig<'a, V: Vertex, I: Instance> {
+pub enum VertexBuffers<'a> {
+    Vertex(&'a [wgpu::VertexFormat]),
+    VertexInstance(&'a [wgpu::VertexFormat], &'a [wgpu::VertexFormat]),
+    Custom(Vec<wgpu::VertexBufferLayout<'a>>),
+}
+
+impl<'a> VertexBuffers<'a> {
+    pub fn vertex<V: Vertex>() -> Self {
+        Self::Vertex(V::ATTRIBUTES)
+    }
+
+    pub fn instance<V: Vertex, I: Instance>() -> Self {
+        Self::VertexInstance(V::ATTRIBUTES, I::ATTRIBUTES)
+    }
+}
+
+pub struct ShaderConfig<'a> {
     pub name: Option<&'a str>,
     pub source: ShaderModuleSource<'a>,
     pub uniforms: &'a [UniformField],
+    pub vertex_buffers: VertexBuffers<'a>,
     pub blend: BlendState,
     pub write_mask: ColorWrites,
     pub vertex_entry: &'static str,
     pub fragment_entry: &'static str,
     pub depth_stencil: Option<wgpu::DepthStencilState>,
-    pub marker: PhantomData<(V, I)>
 }
 
-impl <V: Vertex, I: Instance>Default for ShaderConfig<'static, V, I> {
+impl Default for ShaderConfig<'static> {
     fn default() -> Self {
         Self {
             name: None,
             uniforms: &[UniformField::Camera],
             blend: BlendState::ALPHA_BLENDING,
             write_mask: ColorWrites::ALL,
-            source: ShaderModuleSource::Dummy,
             depth_stencil: None,
             fragment_entry: "fs_main",
             vertex_entry: "vs_main",
-            marker: PhantomData,
+            vertex_buffers: VertexBuffers::instance::<SpriteVertex2D, PositionInstance2D>(),
+            source: ShaderModuleSource::Dummy,
         }
     }
 }
@@ -63,7 +77,7 @@ pub struct Shader {
 }
 
 impl Shader {
-    pub fn new<V: Vertex, I: Instance>(gpu: &Gpu, config: ShaderConfig<V, I>) -> Self {
+    pub fn new(gpu: &Gpu, config: ShaderConfig) -> Self {
         let mut layouts: Vec<&wgpu::BindGroupLayout> = Vec::with_capacity(config.uniforms.len());
         let shared_assets = gpu.shared_assets();
         for link in config.uniforms.iter() {
@@ -85,50 +99,80 @@ impl Shader {
                     push_constant_ranges: &[],
                 });
 
-        let mut vertex_size = 0;
-        let mut instance_size = 0;
+        let va;
+        let ia;
+        let buffers = match config.vertex_buffers {
+            VertexBuffers::VertexInstance(vertex_attributes, instance_attributes) => {
+                let mut shader_index_counter = 0;
+                let mut vertex_size = 0;
+                let mut instance_size = 0;
+                va = vertex_attributes
+                    .iter()
+                    .map(|format| {
+                        let attr = wgpu::VertexAttribute {
+                            format: *format,
+                            offset: vertex_size,
+                            shader_location: shader_index_counter,
+                        };
+                        vertex_size += format.size();
+                        shader_index_counter += 1;
+                        attr
+                    })
+                    .collect::<Vec<_>>();
+                ia = instance_attributes
+                    .iter()
+                    .map(|format| {
+                        let attr = wgpu::VertexAttribute {
+                            format: *format,
+                            offset: instance_size,
+                            shader_location: shader_index_counter,
+                        };
+                        instance_size += format.size();
+                        shader_index_counter += 1;
+                        attr
+                    })
+                    .collect::<Vec<_>>();
 
-        let mut shader_index_counter = 0;
-        let vertex_attributes = V::ATTRIBUTES
-            .iter()
-            .map(|format| {
-                let attr = wgpu::VertexAttribute {
-                    format: *format,
-                    offset: vertex_size,
-                    shader_location: shader_index_counter,
-                };
-                vertex_size += format.size();
-                shader_index_counter += 1;
-                attr
-            })
-            .collect::<Vec<_>>();
-        let instance_attributes = I::ATTRIBUTES
-            .iter()
-            .map(|format| {
-                let attr = wgpu::VertexAttribute {
-                    format: *format,
-                    offset: instance_size,
-                    shader_location: shader_index_counter,
-                };
-                instance_size += format.size();
-                shader_index_counter += 1;
-                attr
-            })
-            .collect::<Vec<_>>();
+                vec![
+                    wgpu::VertexBufferLayout {
+                        array_stride: vertex_size,
+                        step_mode: wgpu::VertexStepMode::Vertex,
+                        attributes: &va,
+                    },
+                    wgpu::VertexBufferLayout {
+                        array_stride: instance_size,
+                        step_mode: wgpu::VertexStepMode::Instance,
+                        attributes: &ia,
+                    },
+                ]
+            }
+            VertexBuffers::Vertex(vertex_attributes) => {
+                let mut shader_index_counter = 0;
+                let mut vertex_size = 0;
+                va = vertex_attributes
+                    .iter()
+                    .map(|format| {
+                        let attr = wgpu::VertexAttribute {
+                            format: *format,
+                            offset: vertex_size,
+                            shader_location: shader_index_counter,
+                        };
+                        vertex_size += format.size();
+                        shader_index_counter += 1;
+                        attr
+                    })
+                    .collect::<Vec<_>>();
 
-        let mut buffers = vec![VertexBufferLayout {
-            array_stride: V::SIZE,
-            step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &vertex_attributes,
-        }];
+                vec![wgpu::VertexBufferLayout {
+                    array_stride: vertex_size,
+                    step_mode: wgpu::VertexStepMode::Vertex,
+                    attributes: &va,
+                }]
+            }
+            VertexBuffers::Custom(custom) => custom,
+        };
 
-        if !instance_attributes.is_empty() {
-            buffers.push(VertexBufferLayout {
-                array_stride: I::SIZE,
-                step_mode: wgpu::VertexStepMode::Instance,
-                attributes: &instance_attributes,
-            });
-        }
+        // let cache = unsafe { gpu.device.create_pipeline_cache(&wgpu::PipelineCacheDescriptor { label: None, data: None, fallback: true }) };
 
         // Default Shader Configuration
         let pipeline = gpu
@@ -172,6 +216,7 @@ impl Shader {
                 depth_stencil: config.depth_stencil,
                 multisample: gpu.sample_state(),
                 multiview: None,
+                cache: None, // cache: Some(&cache)
             });
 
         #[cfg(feature = "log")]
@@ -181,29 +226,35 @@ impl Shader {
 
         Shader {
             pipeline,
-            vertex_size,
-            instance_size,
+            instance_size: Self::size_of_step_mode(&buffers, wgpu::VertexStepMode::Instance),
+            vertex_size: Self::size_of_step_mode(&buffers, wgpu::VertexStepMode::Vertex),
         }
+    }
+
+    pub fn size_of_step_mode(
+        buffers: &[wgpu::VertexBufferLayout],
+        step_mode: wgpu::VertexStepMode,
+    ) -> u64 {
+        buffers
+            .iter()
+            .filter(|s| s.step_mode == step_mode)
+            .map(|b| b.array_stride)
+            .max()
+            .unwrap_or(0)
     }
 
     pub fn custom(gpu: &Gpu, descriptor: &wgpu::RenderPipelineDescriptor) -> Self {
         let pipeline = gpu.device.create_render_pipeline(descriptor);
-        let vertex_size = descriptor
-            .vertex
-            .buffers
-            .iter()
-            .filter(|s| s.step_mode == wgpu::VertexStepMode::Vertex)
-            .fold(0, |sum, s| sum + s.array_stride);
-        let instance_size = descriptor
-            .vertex
-            .buffers
-            .iter()
-            .filter(|s| s.step_mode == wgpu::VertexStepMode::Instance)
-            .fold(0, |sum, s| sum + s.array_stride);
         Self {
             pipeline,
-            instance_size,
-            vertex_size,
+            instance_size: Self::size_of_step_mode(
+                descriptor.vertex.buffers,
+                wgpu::VertexStepMode::Instance,
+            ),
+            vertex_size: Self::size_of_step_mode(
+                descriptor.vertex.buffers,
+                wgpu::VertexStepMode::Vertex,
+            ),
         }
     }
 

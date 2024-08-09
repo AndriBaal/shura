@@ -30,12 +30,13 @@ impl LoggerBuilder {
         let mut builder = EnvLoggerBuilder::new();
         builder
             .filter_level(level)
-            .filter_module("wgpu_hal", LevelFilter::Off);
-        // .filter_module("wgpu", LevelFilter::Warn)
-        // .filter_module("naga", LevelFilter::Warn)
-        // .filter_module("winit", LevelFilter::Warn)
-        // .filter_module("symphonia_core", LevelFilter::Warn)
-        // .filter_module("symphonia_bundle_mp3", LevelFilter::Warn);
+            .filter_module("wgpu_hal", LevelFilter::Off)
+            .filter_module("wgpu", LevelFilter::Warn)
+            .filter_module("wgpu_core", LevelFilter::Warn)
+            .filter_module("naga", LevelFilter::Warn)
+            .filter_module("winit", LevelFilter::Warn)
+            .filter_module("symphonia_core", LevelFilter::Warn)
+            .filter_module("symphonia_bundle_mp3", LevelFilter::Warn);
         Self { env: builder }
     }
 

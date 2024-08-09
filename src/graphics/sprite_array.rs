@@ -1,13 +1,12 @@
 use crate::{
     graphics::{Gpu, RgbaColor, Uniform},
-    io::AssetManager,
+    io::GLOBAL_ASSET_LOADER,
     math::Vector2,
 };
 use std::ops::Deref;
 use wgpu::ImageCopyTexture;
 
 pub type SpriteArrayIndex = u32;
-pub type SpriteArrayIndex2D = Vector2<u32>;
 
 pub enum TileSize {
     Amount(Vector2<u32>),
@@ -24,12 +23,14 @@ pub struct SpriteArrayBuilder<'a, D: Deref<Target = [u8]>> {
 }
 
 impl<'a> SpriteArrayBuilder<'a, image::RgbaImage> {
-    pub fn asset_sheet(assets: &dyn AssetManager, path: &str, size: TileSize) -> Self {
+    pub fn asset_sheet(path: &str, size: TileSize) -> Self {
+        let assets = GLOBAL_ASSET_LOADER.get().unwrap();
         let bytes = assets.load_bytes(path).unwrap();
         Self::byte_sheet(&bytes, size)
     }
 
-    pub fn assets(assets: &dyn AssetManager, paths: &[&str]) -> Self {
+    pub fn assets(paths: &[&str]) -> Self {
+        let assets = GLOBAL_ASSET_LOADER.get().unwrap();
         let byte_array = paths
             .iter()
             .map(|path| assets.load_bytes(path).unwrap())
@@ -310,11 +311,14 @@ impl SpriteArray {
         &self.sprite_amount
     }
 
-    pub fn index(&self, index_2d: SpriteArrayIndex2D) -> SpriteArrayIndex {
-        index_2d.y * self.sprite_amount.x + index_2d.x
+    pub fn index(&self, index_2d: Vector2<SpriteArrayIndex>) -> SpriteArrayIndex {
+        Self::compute_index(self.sprite_amount.x, index_2d)
     }
 
-    pub fn compute_index(sprite_amount_x: u32, index_2d: SpriteArrayIndex2D) -> SpriteArrayIndex {
+    pub fn compute_index(
+        sprite_amount_x: u32,
+        index_2d: Vector2<SpriteArrayIndex>,
+    ) -> SpriteArrayIndex {
         index_2d.y * sprite_amount_x + index_2d.x
     }
 

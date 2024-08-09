@@ -9,31 +9,29 @@ use rustc_hash::FxHashMap;
 #[cfg(feature = "serde")]
 use crate::entity::EntityGroupHandle;
 use crate::{
-    component::ComponentBundle,
+    component::Component,
+    context::Context,
     entity::{
-        Entities, Entity, EntityGroupManager, EntityId, EntityIdentifier, EntityType,
+        Entities, Entity, EntityHandle, EntityId, EntityIdentifier, EntityType, GlobalEntities,
         GroupedEntities, SingleEntity,
     },
-    graphics::RenderGroupManager,
-    math::AABB,
-    physics::World, prelude::MetaComponent,
+    physics::World,
 };
 
-use super::{EntityHandle, GlobalEntities};
-
-fn already_borrowed<E: EntityIdentifier>() -> String {
-    format!(
+fn already_borrowed<E: EntityIdentifier>() -> ! {
+    panic!(
         "The entity type {} is already mutably borrowed!",
         E::TYPE_NAME
     )
 }
 
-fn wrong_type<E: EntityIdentifier>() -> String {
-    format!("Wrong entity storage for {}!", E::TYPE_NAME)
+fn wrong_type<E: EntityIdentifier>() -> ! {
+    // TODO: print actual type
+    panic!("Wrong entity type for {}!", E::TYPE_NAME)
 }
 
-fn no_type_error<E: EntityIdentifier>() -> String {
-    format!("The type '{}' is not registered!", E::TYPE_NAME)
+fn no_type_error<E: EntityIdentifier>() -> ! {
+    panic!("The type '{}' is not registered!", E::TYPE_NAME)
 }
 
 #[derive(Clone, Copy, Eq, PartialEq, Debug, Default)]
@@ -73,19 +71,19 @@ impl EntityTypeScope {
             EntityTypeScope::Scene(scene) => Ref::map(
                 scene
                     .try_borrow()
-                    .unwrap_or_else(|_| panic!("{}", already_borrowed::<ET::Entity>())),
+                    .unwrap_or_else(|_| already_borrowed::<ET::Entity>()),
                 |ty| {
                     ty.downcast_ref::<ET>()
-                        .unwrap_or_else(|| panic!("{}", &wrong_type::<ET::Entity>()))
+                        .unwrap_or_else(|| wrong_type::<ET::Entity>())
                 },
             ),
             EntityTypeScope::Global(global) => Ref::map(
                 global
                     .try_borrow()
-                    .unwrap_or_else(|_| panic!("{}", already_borrowed::<ET::Entity>())),
+                    .unwrap_or_else(|_| already_borrowed::<ET::Entity>()),
                 |ty| {
                     ty.downcast_ref::<ET>()
-                        .unwrap_or_else(|| panic!("{}", &wrong_type::<ET::Entity>()))
+                        .unwrap_or_else(|| wrong_type::<ET::Entity>())
                 },
             ),
         }
@@ -96,19 +94,19 @@ impl EntityTypeScope {
             EntityTypeScope::Scene(scene) => RefMut::map(
                 scene
                     .try_borrow_mut()
-                    .unwrap_or_else(|_| panic!("{}", already_borrowed::<ET::Entity>())),
+                    .unwrap_or_else(|_| already_borrowed::<ET::Entity>()),
                 |ty| {
                     ty.downcast_mut::<ET>()
-                        .unwrap_or_else(|| panic!("{}", &wrong_type::<ET::Entity>()))
+                        .unwrap_or_else(|| wrong_type::<ET::Entity>())
                 },
             ),
             EntityTypeScope::Global(global) => RefMut::map(
                 global
                     .try_borrow_mut()
-                    .unwrap_or_else(|_| panic!("{}", already_borrowed::<ET::Entity>())),
+                    .unwrap_or_else(|_| already_borrowed::<ET::Entity>()),
                 |ty| {
                     ty.downcast_mut::<ET>()
-                        .unwrap_or_else(|| panic!("{}", &wrong_type::<ET::Entity>()))
+                        .unwrap_or_else(|| wrong_type::<ET::Entity>())
                 },
             ),
         }
@@ -143,10 +141,18 @@ impl EntityManager {
         }
     }
 
+    pub fn buffer(&self, ctx: &Context) {
+        for ty in &self.types {
+            let ty = ty.1.ref_dyn();
+            ty.buffer(ctx);
+        }
+    }
+
+    // TODO: Recursive
     pub fn components_each(
         &self,
         tag: &'static str,
-        mut each: impl FnMut(EntityHandle, &dyn MetaComponent),
+        mut each: impl FnMut(EntityHandle, &dyn Component),
     ) {
         if let Some(entity_ids) = self.components.get(tag) {
             for entity_id in entity_ids {
@@ -164,7 +170,7 @@ impl EntityManager {
     pub fn components_each_mut(
         &self,
         tag: &'static str,
-        mut each: impl FnMut(EntityHandle, &mut dyn MetaComponent),
+        mut each: impl FnMut(EntityHandle, &mut dyn Component),
     ) {
         if let Some(entity_ids) = self.components.get(tag) {
             for entity_id in entity_ids {
@@ -249,7 +255,7 @@ impl EntityManager {
     pub fn register_entity<ET: EntityType>(&mut self, scope: EntityScope, ty: ET) {
         let id = ET::Entity::IDENTIFIER;
         if self.types.contains_key(&id) {
-            panic!("Entity {} already defined!", ET::Entity::TYPE_NAME);
+            panic!("Entity with identifier '{}' already exists! Consider giving a custom identifier with '#[shura(name=\"<unique_identifier>\")]'", ET::Entity::TYPE_NAME);
         }
 
         if TypeId::of::<ET>() == TypeId::of::<GroupedEntities<ET>>() && scope == EntityScope::Global
@@ -298,19 +304,6 @@ impl EntityManager {
         }
     }
 
-    pub fn buffer(
-        &mut self,
-        buffers: &mut RenderGroupManager,
-        groups: &EntityGroupManager,
-        world: &World,
-        cam2d: &AABB,
-    ) {
-        for ty in &self.types {
-            let ty = ty.1.ref_dyn();
-            ty.buffer(buffers, groups, world, cam2d);
-        }
-    }
-
     pub fn entities(&mut self) -> impl Iterator<Item = Ref<'_, dyn EntityType>> {
         self.types.values_mut().map(|r| r.ref_dyn())
     }
@@ -339,7 +332,7 @@ impl EntityManager {
     }
 
     pub fn exists_id(&self, entity_id: &EntityId) -> bool {
-        self.types.contains_key(&entity_id)
+        self.types.contains_key(entity_id)
     }
 
     #[cfg(feature = "serde")]
@@ -347,7 +340,7 @@ impl EntityManager {
         bincode::serialize(
             self.get_dyn(ET::Entity::IDENTIFIER)
                 .downcast_ref::<ET>()
-                .unwrap_or_else(|| panic!("{}", wrong_type::<ET::Entity>())),
+                .unwrap_or_else(|| wrong_type::<ET::Entity>()),
         )
         .unwrap()
     }
@@ -369,46 +362,44 @@ impl EntityManager {
     pub fn single_mut<E: EntityIdentifier>(&self) -> RefMut<SingleEntity<E>> {
         self.types
             .get(&E::IDENTIFIER)
-            .unwrap_or_else(|| panic!("{}", no_type_error::<E>()))
+            .unwrap_or_else(|| no_type_error::<E>())
             .ref_mut()
     }
 
     pub fn single<E: EntityIdentifier>(&self) -> Ref<SingleEntity<E>> {
         self.types
             .get(&E::IDENTIFIER)
-            .unwrap_or_else(|| panic!("{}", no_type_error::<E>()))
+            .unwrap_or_else(|| no_type_error::<E>())
             ._ref()
     }
 
     pub fn get_mut<E: EntityIdentifier>(&self) -> RefMut<Entities<E>> {
         self.types
             .get(&E::IDENTIFIER)
-            .unwrap_or_else(|| panic!("{}", no_type_error::<E>()))
+            .unwrap_or_else(|| no_type_error::<E>())
             .ref_mut()
     }
 
     pub fn get<E: EntityIdentifier>(&self) -> Ref<Entities<E>> {
         self.types
             .get(&E::IDENTIFIER)
-            .unwrap_or_else(|| panic!("{}", no_type_error::<E>()))
+            .unwrap_or_else(|| no_type_error::<E>())
             ._ref()
     }
 
     pub fn group_mut<ET: EntityType + Default>(&self) -> RefMut<GroupedEntities<ET>> {
         self.types
             .get(&ET::Entity::IDENTIFIER)
-            .unwrap_or_else(|| panic!("{}", no_type_error::<ET::Entity>()))
+            .unwrap_or_else(|| no_type_error::<ET::Entity>())
             .ref_mut()
     }
 
     pub fn group<ET: EntityType + Default>(&self) -> Ref<GroupedEntities<ET>> {
         self.types
             .get(&ET::Entity::IDENTIFIER)
-            .unwrap_or_else(|| panic!("{}", no_type_error::<ET::Entity>()))
+            .unwrap_or_else(|| no_type_error::<ET::Entity>())
             ._ref()
     }
-
-
 
     pub fn try_get_dyn_mut(&self, entity_id: EntityId) -> Option<RefMut<dyn EntityType>> {
         if self.exists_id(&entity_id) {

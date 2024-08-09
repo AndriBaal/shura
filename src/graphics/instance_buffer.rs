@@ -1,22 +1,26 @@
-use std::{marker::PhantomData, mem::size_of, ops::Range};
-use nalgebra::Isometry2;
+use std::{
+    marker::PhantomData,
+    mem::size_of,
+    ops::{Deref, Range},
+};
 use wgpu::util::DeviceExt;
 
 use crate::{
-    graphics::{Color, Gpu, SpriteArrayIndex},
-    math::{Isometry3, Matrix4, Vector2, Vector3},
+    entity::EntityGroupManager,
+    graphics::{Asset, Color, Gpu, SpriteArrayIndex},
+    math::{Isometry2, Isometry3, Matrix2, Matrix4, Rotation2, Vector2, Vector3, AABB},
 };
 
-pub type InstanceBuffer2D = InstanceBuffer<Instance2D>;
-pub type InstanceBuffer3D = InstanceBuffer<Instance3D>;
+pub type ColorInstance2D = Instance2D<Color>;
+pub type PositionInstance2D = Instance2D<()>;
+pub type SpriteInstance2D = Instance2D<()>;
+pub type SpriteArrayInstance2D = Instance2D<SpriteArrayIndex>;
+pub type SpriteCropInstance2D = Instance2D<SpriteAtlas>;
+pub type SpriteArrayCropInstance2D = Instance2D<SpriteArrayAtlas>;
 
-pub trait Instance: bytemuck::Pod + bytemuck::Zeroable {
+pub trait Instance: bytemuck::Pod + bytemuck::Zeroable + Send + Sync {
     const ATTRIBUTES: &'static [wgpu::VertexFormat];
     const SIZE: u64 = std::mem::size_of::<Self>() as u64;
-}
-
-impl Instance for () {
-    const ATTRIBUTES: &'static [wgpu::VertexFormat] = &[];
 }
 
 #[repr(C)]
@@ -25,11 +29,19 @@ impl Instance for () {
 pub struct SpriteAtlas {
     pub offset: Vector2<f32>,
     pub scaling: Vector2<f32>,
+    pub alpha: f32,
 }
 
 impl SpriteAtlas {
-    pub fn new(scaling: Vector2<f32>, offset: Vector2<f32>) -> Self {
-        Self { offset, scaling }
+    pub fn new(top_left: Vector2<f32>, bottom_right: Vector2<f32>, alpha: f32) -> Self {
+        let aabb = AABB::new(top_left, bottom_right);
+        let offset = aabb.center();
+        let scaling = aabb.dim();
+        Self {
+            offset,
+            scaling,
+            alpha,
+        }
     }
 }
 
@@ -38,6 +50,7 @@ impl Default for SpriteAtlas {
         Self {
             scaling: Vector2::new(1.0, 1.0),
             offset: Vector2::default(),
+            alpha: 1.0,
         }
     }
 }
@@ -45,65 +58,135 @@ impl Default for SpriteAtlas {
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Instance2D {
-    pub translation: Vector2<f32>,
+pub struct SpriteArrayAtlas {
+    pub offset: Vector2<f32>,
     pub scaling: Vector2<f32>,
-    pub rotation: f32,
-    pub atlas: SpriteAtlas,
-    pub color: Color,
-    pub sprite_array_index: SpriteArrayIndex,
+    pub alpha: f32,
+    pub index: SpriteArrayIndex,
 }
 
-impl Instance for Instance2D {
+impl SpriteArrayAtlas {
+    pub fn new(
+        top_left: Vector2<f32>,
+        bottom_right: Vector2<f32>,
+        alpha: f32,
+        index: SpriteArrayIndex,
+    ) -> Self {
+        let aabb = AABB::new(top_left, bottom_right);
+        let offset = aabb.center();
+        let scaling = aabb.dim();
+        Self {
+            offset,
+            scaling,
+            alpha,
+            index,
+        }
+    }
+}
+
+impl Default for SpriteArrayAtlas {
+    fn default() -> Self {
+        Self {
+            scaling: Vector2::new(1.0, 1.0),
+            offset: Vector2::default(),
+            alpha: 1.0,
+            index: 0,
+        }
+    }
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Zeroable)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct Instance2D<D: bytemuck::Pod> {
+    pub translation: Vector2<f32>,
+    pub scale_rotation: Matrix2<f32>,
+    pub data: D,
+}
+
+unsafe impl<D: bytemuck::Pod> bytemuck::Pod for Instance2D<D> {}
+
+impl Instance for ColorInstance2D {
     const ATTRIBUTES: &'static [wgpu::VertexFormat] = &[
         wgpu::VertexFormat::Float32x2,
-        wgpu::VertexFormat::Float32x2,
-        wgpu::VertexFormat::Float32,
-        wgpu::VertexFormat::Float32x2,
+        wgpu::VertexFormat::Float32x4,
+        wgpu::VertexFormat::Float32x4,
+    ];
+}
+
+impl Instance for SpriteArrayInstance2D {
+    const ATTRIBUTES: &'static [wgpu::VertexFormat] = &[
         wgpu::VertexFormat::Float32x2,
         wgpu::VertexFormat::Float32x4,
         wgpu::VertexFormat::Uint32,
     ];
 }
 
-impl Instance2D {
-    pub fn new(
-        translation: Vector2<f32>,
-        rotation: f32,
-        scaling: Vector2<f32>,
-        atlas: SpriteAtlas,
-        color: Color,
-        sprite_array_index: SpriteArrayIndex,
-    ) -> Self {
+impl Instance for SpriteCropInstance2D {
+    const ATTRIBUTES: &'static [wgpu::VertexFormat] = &[
+        wgpu::VertexFormat::Float32x2,
+        wgpu::VertexFormat::Float32x4,
+        wgpu::VertexFormat::Float32x2,
+        wgpu::VertexFormat::Float32x2,
+        wgpu::VertexFormat::Float32,
+    ];
+}
+
+impl Instance for SpriteArrayCropInstance2D {
+    const ATTRIBUTES: &'static [wgpu::VertexFormat] = &[
+        wgpu::VertexFormat::Float32x2,
+        wgpu::VertexFormat::Float32x4,
+        wgpu::VertexFormat::Float32x2,
+        wgpu::VertexFormat::Float32x2,
+        wgpu::VertexFormat::Float32,
+        wgpu::VertexFormat::Uint32,
+    ];
+}
+
+impl Instance for PositionInstance2D {
+    const ATTRIBUTES: &'static [wgpu::VertexFormat] =
+        &[wgpu::VertexFormat::Float32x2, wgpu::VertexFormat::Float32x4];
+}
+
+impl<D: bytemuck::Pod> Instance2D<D> {
+    pub fn new(position: Isometry2<f32>, scaling: Vector2<f32>, data: D) -> Self {
         Self {
-            rotation,
-            translation,
-            atlas,
-            color,
-            sprite_array_index,
-            scaling,
+            scale_rotation: Matrix2::new(
+                scaling.x * position.rotation.cos_angle(),
+                scaling.x * position.rotation.sin_angle(),
+                scaling.y * -position.rotation.sin_angle(),
+                scaling.y * position.rotation.cos_angle(),
+            ),
+            translation: position.translation.vector,
+            data,
         }
     }
 
-    pub fn set_position(&mut self, pos: Isometry2<f32>) {
-        self.rotation = pos.rotation.angle();
-        self.translation = pos.translation.vector;
+    pub fn set_data(&mut self, data: D) {
+        self.data = data;
     }
 
-    pub fn position(&self) -> Isometry2<f32> {
-        Isometry2::new(self.translation, self.rotation)
+    pub fn set_translation(&mut self, translation: Vector2<f32>) {
+        self.translation = translation;
+    }
+
+    pub fn set_scale_rotation(&mut self, scale: Vector2<f32>, rotation: Rotation2<f32>) {
+        self.scale_rotation = Matrix2::new(scale.x, 0.0, 0.0, scale.y)
+            * Matrix2::new(
+                rotation.cos_angle(),
+                -rotation.sin_angle(),
+                rotation.sin_angle(),
+                rotation.cos_angle(),
+            )
     }
 }
 
-impl Default for Instance2D {
+impl<D: bytemuck::Pod + Default> Default for Instance2D<D> {
     fn default() -> Self {
         Self::new(
-            Vector2::default(),
-            0.0,
+            Isometry2::new(Vector2::default(), 0.0),
             Vector2::new(1.0, 1.0),
             Default::default(),
-            Color::WHITE,
-            0,
         )
     }
 }
@@ -138,10 +221,16 @@ impl Default for Instance3D {
     }
 }
 
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum BufferCall {
+    Manual,
+    EveryFrame,
+}
+
 #[derive(Debug)]
 pub struct InstanceBuffer<I: Instance> {
     buffer: wgpu::Buffer,
-    buffer_size: wgpu::BufferAddress,
     instances: u64,
     marker: PhantomData<I>,
 }
@@ -163,7 +252,6 @@ impl<I: Instance> InstanceBuffer<I> {
 
         Self {
             buffer,
-            buffer_size,
             instances: buffer_size / instance_size,
             marker: PhantomData,
         }
@@ -182,7 +270,6 @@ impl<I: Instance> InstanceBuffer<I> {
         Self {
             buffer,
             instances: 0,
-            buffer_size: 0,
             marker: PhantomData,
         }
     }
@@ -196,7 +283,7 @@ impl<I: Instance> InstanceBuffer<I> {
         let data = bytemuck::cast_slice(data);
         let new_size = instance_offset * instance_size + data.len() as u64;
 
-        if new_size > self.buffer_size {
+        if new_size > self.buffer_size() {
             self.buffer = gpu
                 .device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -209,12 +296,11 @@ impl<I: Instance> InstanceBuffer<I> {
                 .write_buffer(&self.buffer, instance_offset * instance_size, data);
         }
 
-        self.buffer_size = new_size;
         self.instances = new_size / instance_size;
     }
 
     pub fn slice(&self) -> wgpu::BufferSlice {
-        self.buffer.slice(..self.buffer_size)
+        self.buffer.slice(..self.buffer_size())
     }
 
     pub fn buffer_capacity(&self) -> wgpu::BufferAddress {
@@ -226,7 +312,7 @@ impl<I: Instance> InstanceBuffer<I> {
     }
 
     pub fn buffer_size(&self) -> wgpu::BufferAddress {
-        self.buffer_size
+        I::SIZE * self.instance_amount() as u64
     }
 
     pub fn instance_amount(&self) -> wgpu::BufferAddress {
@@ -242,53 +328,90 @@ impl<I: Instance> InstanceBuffer<I> {
     }
 }
 
-// #[derive(Debug, Copy, Clone)]
-// pub struct InstanceIndex {
-//     pub index: u32,
-// }
+pub struct SmartInstanceBuffer<I: Instance> {
+    pub call: BufferCall,
+    pub buffer_on_group_change: bool,
+    pub needs_update: bool,
+    pub instances: Vec<I>,
+    pub force_update: bool,
+    buffer: Option<InstanceBuffer<I>>,
+}
 
-// impl InstanceIndex {
-//     pub const fn new(index: u32) -> Self {
-//         Self { index }
-//     }
-// }
+impl<I: Instance> SmartInstanceBuffer<I> {
+    pub const MANUAL: SmartInstanceBuffer<I> = SmartInstanceBuffer {
+        call: BufferCall::Manual,
+        buffer_on_group_change: false,
+        needs_update: true,
+        instances: Vec::new(),
+        force_update: true,
+        buffer: None,
+    };
 
-// impl From<InstanceIndex> for InstanceIndices {
-//     fn from(val: InstanceIndex) -> Self {
-//         InstanceIndices::new(val.index, val.index + 1)
-//     }
-// }
+    pub const GROUP_CHANGED: SmartInstanceBuffer<I> = SmartInstanceBuffer {
+        call: BufferCall::Manual,
+        buffer_on_group_change: true,
+        needs_update: true,
+        instances: Vec::new(),
+        force_update: true,
+        buffer: None,
+    };
 
-// impl From<u32> for InstanceIndices {
-//     fn from(val: u32) -> Self {
-//         InstanceIndices::new(val, val + 1)
-//     }
-// }
+    pub const EVERY_FRAME: SmartInstanceBuffer<I> = SmartInstanceBuffer {
+        call: BufferCall::EveryFrame,
+        buffer_on_group_change: true,
+        needs_update: true,
+        instances: Vec::new(),
+        force_update: true,
+        buffer: None,
+    };
 
-// impl From<Range<u32>> for InstanceIndices {
-//     fn from(val: Range<u32>) -> Self {
-//         InstanceIndices::new(val.start, val.end)
-//     }
-// }
+    pub fn push(&mut self, instance: I) {
+        self.instances.push(instance);
+    }
 
-// impl<I: Instance> From<&InstanceBuffer<I>> for InstanceIndices {
-//     fn from(value: &InstanceBuffer<I>) -> Self {
-//         value.instances()
-//     }
-// }
+    pub fn extend<T: IntoIterator<Item = I>>(&mut self, iter: T) {
+        self.instances.extend(iter);
+    }
 
-// #[derive(Debug, Copy, Clone)]
-// pub struct InstanceIndices {
-//     pub start: u32,
-//     pub end: u32,
-// }
+    pub fn buffer(&self) -> &InstanceBuffer<I> {
+        self.buffer.as_ref().unwrap()
+    }
+}
 
-// impl InstanceIndices {
-//     pub const fn new(start: u32, end: u32) -> Self {
-//         Self { start, end }
-//     }
+impl<I: Instance> Default for SmartInstanceBuffer<I> {
+    fn default() -> Self {
+        Self::EVERY_FRAME
+    }
+}
 
-//     pub fn range(&self) -> Range<u32> {
-//         self.start..self.end
-//     }
-// }
+impl<I: Instance> Asset for SmartInstanceBuffer<I> {
+    fn needs_update(&self) -> bool {
+        return self.needs_update;
+    }
+
+    fn prepare(&mut self, groups: &EntityGroupManager) {
+        self.needs_update = self.call == BufferCall::EveryFrame
+            || self.force_update
+            || (groups.render_groups_changed() && self.buffer_on_group_change)
+    }
+
+    fn apply(&mut self, gpu: &Gpu) {
+        if self.needs_update {
+            if let Some(buffer) = self.buffer.as_mut() {
+                buffer.write(gpu, &self.instances)
+            } else {
+                self.buffer = Some(gpu.create_instance_buffer(&self.instances))
+            }
+            self.instances.clear();
+            self.force_update = false;
+            self.needs_update = false;
+        }
+    }
+}
+
+impl<I: Instance> Deref for SmartInstanceBuffer<I> {
+    type Target = InstanceBuffer<I>;
+    fn deref(&self) -> &Self::Target {
+        self.buffer()
+    }
+}

@@ -1,4 +1,4 @@
-use crate::component::ComponentBundle;
+use crate::component::Component;
 use std::fmt::{Display, Formatter, Result};
 
 pub trait BufferEntityIterator<'a, E: Entity>: Iterator<Item = &'a E> + Clone + 'a {}
@@ -29,4 +29,4 @@ pub trait EntityIdentifier: Entity {
     fn entity_type_id(&self) -> EntityId;
 }
 
-pub trait Entity: ComponentBundle {}
+pub trait Entity: Component {}

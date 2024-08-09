@@ -1,10 +1,9 @@
 use owned_ttf_parser::AsFaceRef;
 use rustc_hash::FxHashMap;
-use std::sync::Arc;
 
 use crate::{
     graphics::{Gpu, SpriteArray, SpriteArrayBuilder, SpriteArrayIndex},
-    io::AssetManager,
+    io::GLOBAL_ASSET_LOADER,
     math::Vector2,
 };
 
@@ -22,37 +21,24 @@ impl<'a> FontBuilder {
         Self::Owned(bytes)
     }
 
-    pub fn asset(assets: &dyn AssetManager, path: &str) -> Self {
+    pub fn asset(path: &str) -> Self {
+        let assets = GLOBAL_ASSET_LOADER.get().unwrap();
         let bytes = assets.load_bytes(path).unwrap();
         Self::Owned(bytes)
     }
 }
 
-#[derive(Clone)]
 pub struct Font {
-    pub(super) inner: Arc<FontInner>,
-}
-
-impl Font {
-    pub fn new(gpu: &Gpu, builder: FontBuilder) -> Self {
-        let inner = FontInner::new(gpu, builder);
-        Self {
-            inner: Arc::new(inner),
-        }
-    }
-
-    pub fn sprite_array(&self) -> &SpriteArray {
-        &self.inner.sprite_array
-    }
-}
-
-pub(super) struct FontInner {
     pub(super) sprite_array: SpriteArray,
     pub(super) index_map: FxHashMap<rusttype::GlyphId, (SpriteArrayIndex, Vector2<f32>)>,
     pub(super) font: rusttype::Font<'static>,
 }
-impl FontInner {
+impl Font {
     const RES: f32 = 400.0;
+
+    pub fn sprite_array(&self) -> &SpriteArray {
+        &self.sprite_array
+    }
 
     pub fn new(gpu: &Gpu, builder: FontBuilder) -> Self {
         let scale = rusttype::Scale::uniform(Self::RES);

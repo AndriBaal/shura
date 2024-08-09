@@ -1,18 +1,14 @@
 use anyhow::Result;
 use downcast_rs::{impl_downcast, Downcast};
 
-use std::{env, fs, path::PathBuf, sync::{Arc, OnceLock}};
+use std::{
+    env, fs,
+    path::PathBuf,
+    sync::{Arc, OnceLock},
+};
 
 #[cfg(target_os = "android")]
 use std::{ffi::CString, io::Read};
-
-#[cfg(feature = "audio")]
-use crate::audio::SoundBuilder;
-
-#[cfg(feature = "text")]
-use crate::text::FontBuilder;
-
-use crate::graphics::{ModelBuilder, SpriteArrayBuilder, SpriteBuilder, TileSize};
 
 #[macro_export]
 macro_rules! include_asset_bytes {
@@ -35,13 +31,11 @@ macro_rules! include_asset_wgsl {
     };
 }
 
-
-pub static GLOBAL_ASSETS: OnceLock<Arc<dyn AssetManager>> = OnceLock::new();
-pub static GLOBAL_STORAGE: OnceLock<Arc<dyn StorageManager>> = OnceLock::new();
-
+pub static GLOBAL_ASSET_LOADER: OnceLock<Arc<dyn AssetLoader>> = OnceLock::new();
+pub static GLOBAL_STORAGE_LOADER: OnceLock<Arc<dyn StorageLoader>> = OnceLock::new();
 
 #[async_trait::async_trait(?Send)]
-pub trait BaseAssetManager: Send + Sync + Downcast {
+pub trait AssetLoader: Send + Sync + Downcast {
     fn load_bytes(&self, path: &str) -> Result<Vec<u8>>;
     fn load_string(&self, path: &str) -> Result<String>;
     async fn async_load_bytes(&self, path: &str) -> Result<Vec<u8>> {
@@ -51,58 +45,16 @@ pub trait BaseAssetManager: Send + Sync + Downcast {
         self.load_string(path)
     }
 }
-impl_downcast!(BaseAssetManager);
+impl_downcast!(AssetLoader);
 
-pub trait AssetManager: BaseAssetManager {
-    fn load_sprite_array_sheet(
-        &self,
-        path: &str,
-        size: TileSize,
-    ) -> SpriteArrayBuilder<image::RgbaImage>;
-    fn load_sprite_array(&self, paths: &[&str]) -> SpriteArrayBuilder<image::RgbaImage>;
-    #[cfg(feature = "audio")]
-    fn load_sound(&self, path: &str) -> SoundBuilder;
-    #[cfg(feature = "text")]
-    fn load_font(&self, path: &str) -> FontBuilder;
-    fn load_model(&self, path: &str) -> ModelBuilder;
-    fn load_sprite(&self, path: &str) -> SpriteBuilder<image::RgbaImage>;
-}
-
-impl<A: BaseAssetManager> AssetManager for A {
-    fn load_sprite_array_sheet(
-        &self,
-        path: &str,
-        size: TileSize,
-    ) -> SpriteArrayBuilder<image::RgbaImage> {
-        SpriteArrayBuilder::asset_sheet(self, path, size)
-    }
-    fn load_sprite_array(&self, paths: &[&str]) -> SpriteArrayBuilder<image::RgbaImage> {
-        SpriteArrayBuilder::assets(self, paths)
-    }
-    #[cfg(feature = "audio")]
-    fn load_sound(&self, path: &str) -> SoundBuilder {
-        SoundBuilder::asset(self, path)
-    }
-    #[cfg(feature = "text")]
-    fn load_font(&self, path: &str) -> FontBuilder {
-        FontBuilder::asset(self, path)
-    }
-    fn load_model(&self, path: &str) -> ModelBuilder {
-        ModelBuilder::asset(self, path)
-    }
-    fn load_sprite(&self, path: &str) -> SpriteBuilder<image::RgbaImage> {
-        SpriteBuilder::asset(self, path)
-    }
-}
-
-pub trait StorageManager: Send + Sync + Downcast {
+pub trait StorageLoader: Send + Sync + Downcast {
     fn store(&self, path: &str, data: &dyn AsRef<[u8]>) -> Result<()>;
     fn load_string(&self, path: &str) -> Result<String>;
     fn delete(&self, path: &str) -> Result<()>;
     fn load_bytes(&self, path: &str) -> Result<Vec<u8>>;
     fn list(&self) -> Vec<String>;
 }
-impl_downcast!(StorageManager);
+impl_downcast!(StorageLoader);
 
 // #[cfg(any(
 //     target_os = "windows",
@@ -125,7 +77,7 @@ impl NativeAssetManager {
     }
 }
 
-impl BaseAssetManager for NativeAssetManager {
+impl AssetLoader for NativeAssetManager {
     fn load_bytes(&self, path: &str) -> Result<Vec<u8>> {
         let path = self.asset_path(path)?;
         let data = std::fs::read(path)?;
@@ -140,12 +92,9 @@ impl BaseAssetManager for NativeAssetManager {
 }
 
 #[non_exhaustive]
-pub struct NativeStorageManager;
-impl NativeStorageManager {
+pub struct NativeStorageLoader;
+impl NativeStorageLoader {
     fn data_path(&self, path: &str) -> Result<PathBuf> {
-        if PathBuf::from(path).parent().is_some() {
-            panic!("Nested storage is not supported!");
-        }
         let exe = env::current_exe()?;
         let mut dir = fs::canonicalize(exe)?;
         dir.pop();
@@ -154,7 +103,7 @@ impl NativeStorageManager {
     }
 }
 
-impl StorageManager for NativeStorageManager {
+impl StorageLoader for NativeStorageLoader {
     fn store(&self, path: &str, data: &dyn AsRef<[u8]>) -> Result<()> {
         let path = self.data_path(path)?;
         let prefix = path.parent().unwrap();
@@ -175,19 +124,22 @@ impl StorageManager for NativeStorageManager {
         let data = std::fs::read(path)?;
         Ok(data)
     }
-    
+
     fn list(&self) -> Vec<String> {
         let path = self.data_path("/").unwrap();
-        std::fs::read_dir(path).unwrap().into_iter().filter_map(|f| {
-            if let Ok(f) = f {
-                if let Some(file) = f.path().file_name() {
-                    return file.to_os_string().into_string().ok();
+        std::fs::read_dir(path)
+            .unwrap()
+            .filter_map(|f| {
+                if let Ok(f) = f {
+                    if let Some(file) = f.path().file_name() {
+                        return file.to_os_string().into_string().ok();
+                    }
                 }
-            }
-            return None;
-        }).collect()
+                None
+            })
+            .collect()
     }
-    
+
     fn delete(&self, path: &str) -> Result<()> {
         let path = self.data_path(path)?;
         Ok(std::fs::remove_file(path)?)
@@ -212,7 +164,7 @@ impl WebAssetManager {
 
 #[cfg(target_arch = "wasm32")]
 #[async_trait::async_trait(?Send)]
-impl BaseAssetManager for WebAssetManager {
+impl AssetLoader for WebAssetManager {
     fn load_bytes(&self, _path: &str) -> Result<Vec<u8>> {
         unimplemented!("Synchronous asset operations are not allowed with WASM!")
     }
@@ -227,7 +179,7 @@ impl BaseAssetManager for WebAssetManager {
         let bytes = response.bytes().await?;
         Ok(bytes.to_vec())
     }
-    
+
     async fn async_load_string(&self, path: &str) -> Result<String> {
         let url = self.asset_url(path)?;
         let response = reqwest::get(url).await?;
@@ -237,9 +189,9 @@ impl BaseAssetManager for WebAssetManager {
 }
 
 #[non_exhaustive]
-pub struct UnimplementedStorageManager;
+pub struct UnimplementedStorageLoader;
 
-impl StorageManager for UnimplementedStorageManager {
+impl StorageLoader for UnimplementedStorageLoader {
     fn store(&self, _path: &str, _data: &dyn AsRef<[u8]>) -> Result<()> {
         unimplemented!()
     }
@@ -251,11 +203,11 @@ impl StorageManager for UnimplementedStorageManager {
     fn load_bytes(&self, _path: &str) -> Result<Vec<u8>> {
         unimplemented!()
     }
-    
+
     fn delete(&self, _path: &str) -> Result<()> {
         unimplemented!()
     }
-    
+
     fn list(&self) -> Vec<String> {
         unimplemented!()
     }
@@ -270,13 +222,13 @@ pub struct AndroidAssetManager {
 impl AndroidAssetManager {
     pub fn new(app: &winit::platform::android::activity::AndroidApp) -> Self {
         Self {
-            manager: app.asset_manager()
+            manager: app.asset_manager(),
         }
     }
 }
 
 #[cfg(target_os = "android")]
-impl BaseAssetManager for AndroidAssetManager {
+impl AssetLoader for AndroidAssetManager {
     fn load_bytes(&self, path: &str) -> Result<Vec<u8>> {
         let manager = &self.manager;
         let path = CString::new(path).unwrap();

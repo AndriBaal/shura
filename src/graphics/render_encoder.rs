@@ -1,9 +1,11 @@
 use crate::graphics::{
-    Color, DefaultAssets, DepthBuffer, Gpu, RenderTarget, Renderer, SpriteRenderTarget,
+    AssetManager, Color, DefaultAssets, DepthBuffer, Gpu, RenderTarget, Renderer,
+    SpriteRenderTarget,
 };
 
 pub struct RenderEncoder<'a> {
     pub inner: wgpu::CommandEncoder,
+    pub assets: &'a AssetManager,
     pub default_assets: &'a DefaultAssets,
     pub gpu: &'a Gpu,
     pub default_target: &'a dyn RenderTarget,
@@ -11,15 +13,21 @@ pub struct RenderEncoder<'a> {
 
 impl<'a> Clone for RenderEncoder<'a> {
     fn clone(&self) -> Self {
-        Self::new(self.gpu, self.default_target, self.default_assets)
+        Self::new(
+            self.gpu,
+            self.assets,
+            self.default_assets,
+            self.default_target,
+        )
     }
 }
 
 impl<'a> RenderEncoder<'a> {
     pub fn new(
         gpu: &'a Gpu,
-        default_target: &'a dyn RenderTarget,
+        assets: &'a AssetManager,
         default_assets: &'a DefaultAssets,
+        default_target: &'a dyn RenderTarget,
     ) -> Self {
         let encoder = gpu
             .device
@@ -29,6 +37,7 @@ impl<'a> RenderEncoder<'a> {
 
         Self {
             inner: encoder,
+            assets,
             default_assets,
             default_target,
             gpu,
@@ -42,6 +51,7 @@ impl<'a> RenderEncoder<'a> {
     ) {
         let mut renderer = Renderer::new(
             &mut self.inner,
+            self.assets,
             self.default_assets,
             self.gpu,
             self.default_target,
@@ -59,6 +69,7 @@ impl<'a> RenderEncoder<'a> {
     ) {
         let mut renderer = Renderer::new(
             &mut self.inner,
+            self.assets,
             self.default_assets,
             self.gpu,
             target,
@@ -75,6 +86,7 @@ impl<'a> RenderEncoder<'a> {
     ) {
         let mut renderer = Renderer::new(
             &mut self.inner,
+            self.assets,
             self.default_assets,
             self.gpu,
             self.default_target,
@@ -93,6 +105,7 @@ impl<'a> RenderEncoder<'a> {
     ) {
         let mut renderer = Renderer::new(
             &mut self.inner,
+            self.assets,
             self.default_assets,
             self.gpu,
             target,
@@ -110,6 +123,7 @@ impl<'a> RenderEncoder<'a> {
     ) -> Renderer<'b> {
         Renderer::new(
             &mut self.inner,
+            self.assets,
             self.default_assets,
             self.gpu,
             target,
@@ -140,10 +154,9 @@ impl<'a> RenderEncoder<'a> {
             .downcast_ref::<SpriteRenderTarget>()
             .expect("Cannot copy this texture!");
         let mut renderer = self.renderer(target, None, None);
-        renderer.draw_sprite(
-            &renderer.default_assets.single_instance,
+        renderer.draw_sprite_mesh(
             &renderer.default_assets.unit_camera.0,
-            renderer.default_assets.unit_mesh(),
+            &renderer.default_assets.sprite_mesh,
             src.sprite(),
         );
     }

@@ -1,7 +1,7 @@
 use rodio::Decoder;
 use std::sync::Arc;
 
-use crate::io::AssetManager;
+use crate::io::GLOBAL_ASSET_LOADER;
 
 #[derive(Clone)]
 pub struct SoundBuilder {
@@ -15,7 +15,8 @@ impl SoundBuilder {
         }
     }
 
-    pub fn asset(assets: &dyn AssetManager, path: &str) -> Self {
+    pub fn asset(path: &str) -> Self {
+        let assets = GLOBAL_ASSET_LOADER.get().unwrap();
         let bytes = assets.load_bytes(path).unwrap();
         Self::bytes(&bytes)
     }
@@ -28,6 +29,7 @@ impl From<SoundBuilder> for Sound {
 }
 
 #[derive(Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Sound(pub Arc<Vec<u8>>);
 impl AsRef<[u8]> for Sound {
     fn as_ref(&self) -> &[u8] {

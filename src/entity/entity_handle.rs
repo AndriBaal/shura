@@ -1,5 +1,6 @@
 use crate::{
     arena::ArenaIndex,
+    component::Component,
     entity::{EntityId, EntityIdentifier},
 };
 use core::hash::Hash;
@@ -83,5 +84,15 @@ impl EntityHandle {
 
     pub fn index(&self) -> usize {
         self.entity_index.0.index()
+    }
+}
+
+impl Component for EntityHandle {
+    fn init(&mut self, handle: EntityHandle, _world: &mut crate::physics::World) {
+        *self = handle;
+    }
+
+    fn finish(&mut self, _world: &mut crate::physics::World) {
+        *self = Self::INVALID;
     }
 }

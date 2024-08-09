@@ -6,9 +6,9 @@ use crate::{
     math::Vector2,
 };
 
-use super::Uniform;
+use super::{Uniform, GLOBAL_ASSETS, GLOBAL_GPU};
 
-pub trait RenderTarget: Downcast {
+pub trait RenderTarget: Downcast + Send + Sync {
     fn msaa(&self) -> Option<&wgpu::TextureView>;
     fn view(&self) -> &wgpu::TextureView;
     fn texture(&self) -> &wgpu::Texture;
@@ -118,12 +118,12 @@ impl SpriteRenderTarget {
     }
 
     pub fn computed<D: Deref<Target = [u8]>>(
-        gpu: &Gpu,
         sprite: SpriteBuilder<D>,
         compute: impl FnMut(&mut RenderEncoder),
     ) -> Self {
+        let gpu = GLOBAL_GPU.get().unwrap();
         let target = SpriteRenderTarget::custom(gpu, sprite);
-        target.draw(gpu, compute);
+        target.draw(compute);
         target
     }
 
@@ -156,9 +156,11 @@ impl SpriteRenderTarget {
         &self.target
     }
 
-    pub fn draw(&self, gpu: &Gpu, compute: impl FnOnce(&mut RenderEncoder)) {
-        let default_assets = gpu.default_assets();
-        let mut encoder = RenderEncoder::new(gpu, self, &default_assets);
+    pub fn draw(&self, compute: impl FnOnce(&mut RenderEncoder)) {
+        let assets = GLOBAL_ASSETS.get().unwrap();
+        let gpu = GLOBAL_GPU.get().unwrap();
+        let default_assets = assets.default_assets();
+        let mut encoder = RenderEncoder::new(gpu, assets, &*default_assets, self);
         compute(&mut encoder);
     }
 

@@ -6,13 +6,12 @@ use crate::{arena::ArenaEntry, rayon::prelude::*};
 
 use crate::{
     arena::{Arena, ArenaIndex, ArenaIter, ArenaIterMut},
-    component::ComponentBundle,
+    component::Component,
+    context::Context,
     entity::{
         Entity, EntityGroupHandle, EntityGroupManager, EntityHandle, EntityId, EntityIdentifier,
         EntityIndex,
     },
-    graphics::RenderGroupManager,
-    math::AABB,
     physics::World,
 };
 
@@ -21,14 +20,8 @@ pub trait EntityType: Downcast {
     type Entity: EntityIdentifier
     where
         Self: Sized;
-    fn buffer(
-        &self,
-        buffers: &mut RenderGroupManager,
-        groups: &EntityGroupManager,
-        world: &World,
-        cam2d: &AABB,
-    );
     fn entity_type_id(&self) -> EntityId;
+    fn buffer(&self, ctx: &Context);
     fn remove_group(
         &mut self,
         world: &mut World,
@@ -47,7 +40,7 @@ pub trait EntityType: Downcast {
     fn dyn_iter_mut<'a>(
         &'a mut self,
     ) -> Box<dyn Iterator<Item = (EntityHandle, &mut dyn Entity)> + 'a>;
-    fn dyn_iter_render<'a>(
+    fn iter_render<'a>(
         &'a self,
         groups: &'a EntityGroupManager,
     ) -> impl Iterator<Item = &Self::Entity> + Clone + 'a
@@ -203,20 +196,13 @@ impl<E: EntityIdentifier> SingleEntity<E> {
 
 impl<E: EntityIdentifier> EntityType for SingleEntity<E> {
     type Entity = E;
-    fn buffer(
-        &self,
-        buffers: &mut RenderGroupManager,
-        groups: &EntityGroupManager,
-        world: &World,
-        cam2d: &AABB,
-    ) {
-        E::buffer(self.dyn_iter_render(groups), buffers, world, cam2d);
-    }
-
     fn entity_type_id(&self) -> EntityId {
         E::IDENTIFIER
     }
-    fn dyn_iter_render<'a>(
+    fn buffer(&self, ctx: &Context) {
+        E::buffer(self.iter_render(&ctx.groups), ctx);
+    }
+    fn iter_render<'a>(
         &'a self,
         _groups: &'a EntityGroupManager,
     ) -> impl Iterator<Item = &Self::Entity> + Clone + 'a
@@ -491,21 +477,15 @@ impl<'a, E: EntityIdentifier> IntoIterator for &'a mut Entities<E> {
 impl<E: EntityIdentifier> EntityType for Entities<E> {
     type Entity = E;
 
-    fn buffer(
-        &self,
-        buffers: &mut RenderGroupManager,
-        groups: &EntityGroupManager,
-        world: &World,
-        cam2d: &AABB,
-    ) {
-        E::buffer(self.dyn_iter_render(groups), buffers, world, cam2d);
-    }
-
     fn entity_type_id(&self) -> EntityId {
         E::IDENTIFIER
     }
 
-    fn dyn_iter_render<'a>(
+    fn buffer(&self, ctx: &Context) {
+        E::buffer(self.iter_render(&ctx.groups), ctx);
+    }
+
+    fn iter_render<'a>(
         &'a self,
         _groups: &'a EntityGroupManager,
     ) -> impl Iterator<Item = &Self::Entity> + Clone + 'a
@@ -815,14 +795,8 @@ impl<E: EntityIdentifier> GroupedEntities<Entities<E>> {
 impl<ET: EntityType + Default> EntityType for GroupedEntities<ET> {
     type Entity = ET::Entity;
 
-    fn buffer(
-        &self,
-        buffers: &mut RenderGroupManager,
-        groups: &EntityGroupManager,
-        world: &World,
-        cam2d: &AABB,
-    ) {
-        ET::Entity::buffer(self.dyn_iter_render(groups), buffers, world, cam2d);
+    fn buffer(&self, ctx: &Context) {
+        ET::Entity::buffer(self.iter_render(ctx.groups), ctx);
     }
 
     fn add_group(&mut self) {
@@ -847,7 +821,7 @@ impl<ET: EntityType + Default> EntityType for GroupedEntities<ET> {
         ET::Entity::IDENTIFIER
     }
 
-    fn dyn_iter_render<'a>(
+    fn iter_render<'a>(
         &'a self,
         groups: &'a EntityGroupManager,
     ) -> impl Iterator<Item = &Self::Entity> + Clone + 'a
@@ -857,7 +831,7 @@ impl<ET: EntityType + Default> EntityType for GroupedEntities<ET> {
         groups
             .render_groups()
             .iter()
-            .flat_map(|g| self.get_group(g).unwrap().dyn_iter_render(groups))
+            .flat_map(|g| self.get_group(g).unwrap().iter_render(groups))
     }
 
     fn dyn_iter<'a>(&'a self) -> Box<dyn Iterator<Item = (EntityHandle, &dyn Entity)> + 'a> {

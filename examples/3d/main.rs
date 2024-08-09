@@ -4,9 +4,7 @@ use shura::prelude::*;
 fn app(config: AppConfig) {
     App::run(config, || {
         Scene::new()
-            .render_group3d("cube", RenderGroupUpdate::EVERY_FRAME)
             .entity::<Cube>()
-            .entity_single::<Assets>()
             .system(System::update(update))
             .system(System::setup(setup))
             .system(System::render(render))
@@ -24,25 +22,30 @@ fn setup(ctx: &mut Context) {
                 let z = SPACE_BETWEEN * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
                 let position = Vector3::new(x, 0.0, z);
 
-                Cube::new(position)
+                Cube {
+                    position: position.into(),
+                }
             })
         }),
     );
 
-    let gpu = ctx.gpu.clone();
-    ctx.tasks.spawn(
-        move || Assets::new(&gpu),
-        |ctx, res| {
-            ctx.entities.single_mut().set(ctx.world, res);
-        },
+    ctx.assets
+        .load_smart_instance_buffer("cubes", SmartInstanceBuffer::<Instance3D>::EVERY_FRAME);
+    ctx.assets.load_model(
+        "cube",
+        ModelBuilder::bytes(
+            include_asset_str!("3d/cube/cube.obj"),
+            &[("cube.mtl", include_asset_str!("3d/cube/cube.mtl"))],
+            &[(
+                "cobble-diffuse.png",
+                include_asset_bytes!("3d/cube/cobble-diffuse.png"),
+            )],
+        ),
     );
 }
 
 fn update(ctx: &mut Context) {
     const SPEED: f32 = 7.0;
-    if ctx.entities.single::<Assets>().is_none() {
-        return;
-    }
     let speed = SPEED * ctx.time.delta();
     let camera = ctx.world_camera3d.perspective_mut().unwrap();
 
@@ -70,59 +73,33 @@ fn update(ctx: &mut Context) {
     }
 
     for cube in ctx.entities.get_mut::<Cube>().iter_mut() {
-        let mut rot = cube.position.rotation();
-        rot *= Rotation3::new(Vector3::new(
+        cube.position.rotation *= Rotation3::new(Vector3::new(
             1.0 * ctx.time.delta(),
             1.0 * ctx.time.delta(),
             1.0 * ctx.time.delta(),
         ));
-        cube.position.set_rotation(rot);
     }
 }
 
 fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
-    if let Some(assets) = ctx.entities.single::<Assets>().get() {
-        encoder.render3d(
-            Some(RgbaColor::new(220, 220, 220, 255).into()),
-            |renderer| {
-                ctx.group("cube", |buffer| {
-                    renderer.draw_model(buffer, ctx.world_camera3d, &assets.model);
-                });
-            },
-        );
-    }
+    encoder.render3d(
+        Some(RgbaColor::new(220, 220, 220, 255).into()),
+        |renderer| {
+            renderer.draw_model(
+                &ctx.assets.smart_instances("cubes"),
+                &ctx.default_assets.world_camera3d,
+                &ctx.assets.model("cube"),
+            );
+        },
+    );
 }
 
 #[derive(Entity)]
-struct Assets {
-    model: Model,
-}
-
-impl Assets {
-    pub fn new(gpu: &Gpu) -> Self {
-        Self {
-            model: gpu.create_model(ModelBuilder::bytes(
-                include_asset_str!("3d/cube/cube.obj"),
-                &[("cube.mtl", include_asset_str!("3d/cube/cube.mtl"))],
-                &[(
-                    "cobble-diffuse.png",
-                    include_asset_bytes!("3d/cube/cobble-diffuse.png"),
-                )],
-            )),
-        }
-    }
-}
-
-#[derive(Entity)]
+#[shura(
+    asset = "cubes", 
+    ty = SmartInstanceBuffer<Instance3D>,
+    action = |cube, asset, _|asset.push(Instance3D::new(cube.position, Vector3::new(1.0, 1.0, 1.0)));
+)]
 struct Cube {
-    #[shura(component = "cube")]
-    position: PositionComponent3D,
-}
-
-impl Cube {
-    pub fn new(position: Vector3<f32>) -> Cube {
-        Cube {
-            position: PositionComponent3D::new().with_translation(position), // .with_scaling(Vector3::new(0.001, 0.001, 0.001)),
-        }
-    }
+    position: Isometry3<f32>,
 }

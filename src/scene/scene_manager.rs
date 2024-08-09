@@ -20,7 +20,7 @@ impl SceneManager {
             global_entities: GlobalEntities::default(),
         };
         scenes.add(active_scene_id, scene);
-        return scenes;
+        scenes
     }
 
     pub(crate) fn end_scenes(
