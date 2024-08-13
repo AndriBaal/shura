@@ -141,10 +141,10 @@ impl Assets {
     pub fn new(ctx: &Context) -> Self {
         let bunny_sprite = ctx
             .gpu
-            .create_sprite(SpriteBuilder::bytes(include_asset_bytes!(
+            .create_sprite(SpriteBuilder::bytes(include_resource_bytes!(
                 "bunnymark/wabbit.png"
             )));
-        let font = ctx.gpu.create_font(FontBuilder::bytes(include_asset_bytes!(
+        let font = ctx.gpu.create_font(FontBuilder::bytes(include_resource_bytes!(
             "bunnymark/novem.ttf"
         )));
         Assets {

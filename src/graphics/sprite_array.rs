@@ -1,6 +1,6 @@
 use crate::{
     graphics::{Gpu, RgbaColor, Uniform},
-    io::GLOBAL_ASSET_LOADER,
+    io::GLOBAL_RESOURCE_LOADER,
     math::Vector2,
 };
 use std::ops::Deref;
@@ -23,14 +23,14 @@ pub struct SpriteArrayBuilder<'a, D: Deref<Target = [u8]>> {
 }
 
 impl<'a> SpriteArrayBuilder<'a, image::RgbaImage> {
-    pub fn asset_sheet(path: &str, size: TileSize) -> Self {
-        let assets = GLOBAL_ASSET_LOADER.get().unwrap();
+    pub fn resource_to_sheet(path: &str, size: TileSize) -> Self {
+        let assets = GLOBAL_RESOURCE_LOADER.get().unwrap();
         let bytes = assets.load_bytes(path).unwrap();
         Self::byte_sheet(&bytes, size)
     }
 
-    pub fn assets(paths: &[&str]) -> Self {
-        let assets = GLOBAL_ASSET_LOADER.get().unwrap();
+    pub fn resources(paths: &[&str]) -> Self {
+        let assets = GLOBAL_RESOURCE_LOADER.get().unwrap();
         let byte_array = paths
             .iter()
             .map(|path| assets.load_bytes(path).unwrap())

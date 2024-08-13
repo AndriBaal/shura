@@ -6,7 +6,7 @@ use crate::{
     context::{Context, RenderContext},
     graphics::{AssetManager, Gpu, GpuConfig, RenderEncoder, GLOBAL_ASSETS, GLOBAL_GPU},
     input::Input,
-    io::{AssetLoader, StorageLoader, GLOBAL_ASSET_LOADER, GLOBAL_STORAGE_LOADER},
+    io::{ResourceLoader, StorageLoader, GLOBAL_RESOURCE_LOADER, GLOBAL_STORAGE_LOADER},
     math::Vector2,
     scene::{Scene, SceneManager},
     system::{EndReason, UpdateOperation},
@@ -59,7 +59,7 @@ pub struct AppConfig {
     pub window: winit::window::WindowAttributes,
     pub gpu: GpuConfig,
     pub storage: Arc<dyn StorageLoader>,
-    pub assets: Arc<dyn AssetLoader>,
+    pub assets: Arc<dyn ResourceLoader>,
     pub scene_id: u32,
     #[cfg(feature = "framebuffer")]
     pub apply_frame_buffer: bool,
@@ -90,7 +90,7 @@ impl AppConfig {
 
         #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
         let (assets, storage) = (
-            crate::io::NativeAssetManager,
+            crate::io::NativeResourceLoader,
             crate::io::NativeStorageLoader,
         );
 
@@ -147,12 +147,12 @@ impl AppConfig {
         self
     }
 
-    pub fn storage(mut self, storage: impl StorageLoader) -> Self {
+    pub fn storage_loader(mut self, storage: impl StorageLoader) -> Self {
         self.storage = Arc::new(storage);
         self
     }
 
-    pub fn assets(mut self, assets: impl AssetLoader) -> Self {
+    pub fn resource_loader(mut self, assets: impl ResourceLoader) -> Self {
         self.assets = Arc::new(assets);
         self
     }
@@ -392,7 +392,7 @@ impl App {
         let assets = Arc::new(AssetManager::new(config.assets.clone(), gpu.clone()));
 
         GLOBAL_GPU.set(gpu.clone()).ok().unwrap();
-        GLOBAL_ASSET_LOADER.set(config.assets.clone()).ok().unwrap();
+        GLOBAL_RESOURCE_LOADER.set(config.assets.clone()).ok().unwrap();
         GLOBAL_ASSETS.set(assets.clone()).ok().unwrap();
         GLOBAL_STORAGE_LOADER
             .set(config.storage.clone())

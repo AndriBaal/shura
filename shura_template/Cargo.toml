@@ -16,7 +16,7 @@ shura = { path = "../" }
 package = "com.shura.template"
 apk_name = "Shura Example"
 assets = "./assets"
-resources = "./android/resources"
+resources = "./android/android_resources"
 
 [package.metadata.android.application]
 label = "Shura Example"

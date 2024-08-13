@@ -1,4 +1,4 @@
 mod io;
 
-pub use crate::{include_asset_bytes, include_asset_str, include_asset_wgsl};
+pub use crate::{include_resource_bytes, include_resource_str, include_resource_wgsl};
 pub use io::*;

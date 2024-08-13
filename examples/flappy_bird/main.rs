@@ -211,8 +211,8 @@ impl FlappyManager {
                     .apply(),
             ),
             point_sink: audio.create_sink(),
-            point_sound: audio.create_sound(include_asset_bytes!("flappy_bird/audio/point.wav")),
-            pipe_sprite: gpu.create_sprite(SpriteBuilder::bytes(include_asset_bytes!(
+            point_sound: audio.create_sound(include_resource_bytes!("flappy_bird/audio/point.wav")),
+            pipe_sprite: gpu.create_sprite(SpriteBuilder::bytes(include_resource_bytes!(
                 "flappy_bird/sprites/pipe-green.png"
             ))),
             spawn_timer: Pipe::SPAWN_TIME,
@@ -252,12 +252,12 @@ impl Bird {
 
             mesh: gpu.create_mesh(&MeshBuilder2D::cuboid(Self::HALF_EXTENTS)),
             sprite_array: gpu.create_sprite_array(SpriteArrayBuilder::bytes(
-                include_asset_bytes!("flappy_bird/sprites/yellowbird.png",),
+                include_resource_bytes!("flappy_bird/sprites/yellowbird.png",),
                 Vector2::new(17, 12),
             )),
             sink: audio.create_sink(),
-            hit_sound: audio.create_sound(include_asset_bytes!("flappy_bird/audio/hit.wav")),
-            wing_sound: audio.create_sound(include_asset_bytes!("flappy_bird/audio/wing.wav")),
+            hit_sound: audio.create_sound(include_resource_bytes!("flappy_bird/audio/hit.wav")),
+            wing_sound: audio.create_sound(include_resource_bytes!("flappy_bird/audio/wing.wav")),
         }
     }
 }
@@ -280,7 +280,7 @@ impl Ground {
                     .vertex_translation(pos)
                     .apply(),
             ),
-            sprite: gpu.create_sprite(SpriteBuilder::bytes(include_asset_bytes!(
+            sprite: gpu.create_sprite(SpriteBuilder::bytes(include_resource_bytes!(
                 "flappy_bird/sprites/base.png"
             ))),
             collider: ColliderComponent::new(ColliderBuilder::compound(vec![
@@ -312,7 +312,7 @@ impl Background {
     pub fn new(ctx: &Context) -> Self {
         let sprite = ctx
             .gpu
-            .create_sprite(SpriteBuilder::bytes(include_asset_bytes!(
+            .create_sprite(SpriteBuilder::bytes(include_resource_bytes!(
                 "flappy_bird/sprites/background-night.png"
             )));
         Self {

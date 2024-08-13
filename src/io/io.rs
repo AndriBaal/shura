@@ -11,31 +11,31 @@ use std::{
 use std::{ffi::CString, io::Read};
 
 #[macro_export]
-macro_rules! include_asset_bytes {
+macro_rules! include_resource_bytes {
     ($file:expr $(,)?) => {
-        include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/", $file))
+        include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/resources/", $file))
     };
 }
 
 #[macro_export]
-macro_rules! include_asset_str {
+macro_rules! include_resource_str {
     ($file:expr $(,)?) => {
-        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/", $file))
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/resources/", $file))
     };
 }
 
 #[macro_export]
-macro_rules! include_asset_wgsl {
+macro_rules! include_resource_wgsl {
     ($file:expr $(,)?) => {
-        ::shura::graphics::include_wgsl!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/", $file))
+        ::shura::graphics::include_wgsl!(concat!(env!("CARGO_MANIFEST_DIR"), "/resources/", $file))
     };
 }
 
-pub static GLOBAL_ASSET_LOADER: OnceLock<Arc<dyn AssetLoader>> = OnceLock::new();
+pub static GLOBAL_RESOURCE_LOADER: OnceLock<Arc<dyn ResourceLoader>> = OnceLock::new();
 pub static GLOBAL_STORAGE_LOADER: OnceLock<Arc<dyn StorageLoader>> = OnceLock::new();
 
 #[async_trait::async_trait(?Send)]
-pub trait AssetLoader: Send + Sync + Downcast {
+pub trait ResourceLoader: Send + Sync + Downcast {
     fn load_bytes(&self, path: &str) -> Result<Vec<u8>>;
     fn load_string(&self, path: &str) -> Result<String>;
     async fn async_load_bytes(&self, path: &str) -> Result<Vec<u8>> {
@@ -45,7 +45,7 @@ pub trait AssetLoader: Send + Sync + Downcast {
         self.load_string(path)
     }
 }
-impl_downcast!(AssetLoader);
+impl_downcast!(ResourceLoader);
 
 pub trait StorageLoader: Send + Sync + Downcast {
     fn store(&self, path: &str, data: &dyn AsRef<[u8]>) -> Result<()>;
@@ -66,26 +66,26 @@ impl_downcast!(StorageLoader);
 // ))] // I don't know if freebsd, fuchsia and redox even works
 // Maybe move to build script
 #[non_exhaustive]
-pub struct NativeAssetManager;
-impl NativeAssetManager {
-    fn asset_path(&self, path: &str) -> Result<PathBuf> {
+pub struct NativeResourceLoader;
+impl NativeResourceLoader {
+    fn resource_path(&self, path: &str) -> Result<PathBuf> {
         let exe = env::current_exe()?;
         let mut dir = fs::canonicalize(exe)?;
         dir.pop();
-        let path = dir.join("assets").join(path);
+        let path = dir.join("resources").join(path);
         Ok(path)
     }
 }
 
-impl AssetLoader for NativeAssetManager {
+impl ResourceLoader for NativeResourceLoader {
     fn load_bytes(&self, path: &str) -> Result<Vec<u8>> {
-        let path = self.asset_path(path)?;
+        let path = self.resource_path(path)?;
         let data = std::fs::read(path)?;
         Ok(data)
     }
 
     fn load_string(&self, path: &str) -> Result<String> {
-        let path = self.asset_path(path)?;
+        let path = self.resource_path(path)?;
         let data = std::fs::read_to_string(path)?;
         Ok(data)
     }
@@ -148,23 +148,23 @@ impl StorageLoader for NativeStorageLoader {
 
 #[cfg(target_arch = "wasm32")]
 #[non_exhaustive]
-pub struct WebAssetManager;
+pub struct WebResourceLoader;
 
 #[cfg(target_arch = "wasm32")]
-impl WebAssetManager {
-    pub fn asset_url(&self, path: &str) -> Result<reqwest::Url> {
+impl WebResourceLoader {
+    pub fn resource_url(&self, path: &str) -> Result<reqwest::Url> {
         let window = web_sys::window().unwrap();
         let location = window.location();
         let origin = location.origin().unwrap();
         let base = reqwest::Url::parse(&origin)?;
-        let url = base.join("assets/")?.join(path)?;
+        let url = base.join("resources/")?.join(path)?;
         return Ok(url);
     }
 }
 
 #[cfg(target_arch = "wasm32")]
 #[async_trait::async_trait(?Send)]
-impl AssetLoader for WebAssetManager {
+impl ResourceLoader for WebResourceLoader {
     fn load_bytes(&self, _path: &str) -> Result<Vec<u8>> {
         unimplemented!("Synchronous asset operations are not allowed with WASM!")
     }
@@ -214,12 +214,12 @@ impl StorageLoader for UnimplementedStorageLoader {
 }
 
 #[cfg(target_os = "android")]
-pub struct AndroidAssetManager {
-    manager: ndk::asset::AssetManager,
+pub struct AndroidResourceLoader {
+    manager: ndk::asset::ResourceLoader,
 }
 
 #[cfg(target_os = "android")]
-impl AndroidAssetManager {
+impl AndroidResourceLoader {
     pub fn new(app: &winit::platform::android::activity::AndroidApp) -> Self {
         Self {
             manager: app.asset_manager(),
@@ -228,7 +228,7 @@ impl AndroidAssetManager {
 }
 
 #[cfg(target_os = "android")]
-impl AssetLoader for AndroidAssetManager {
+impl ResourceLoader for AndroidResourceLoader {
     fn load_bytes(&self, path: &str) -> Result<Vec<u8>> {
         let manager = &self.manager;
         let path = CString::new(path).unwrap();

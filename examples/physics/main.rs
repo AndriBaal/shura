@@ -35,7 +35,7 @@ fn setup(ctx: &mut Context) {
 
     ctx.assets.load_sprite(
         "burger",
-        SpriteBuilder::bytes(include_asset_bytes!("physics/burger.png")),
+        SpriteBuilder::bytes(include_resource_bytes!("physics/burger.png")),
     );
     ctx.assets
         .load_smart_instance_buffer("boxes", SmartInstanceBuffer::<ColorInstance2D>::EVERY_FRAME);

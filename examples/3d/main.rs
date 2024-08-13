@@ -34,11 +34,11 @@ fn setup(ctx: &mut Context) {
     ctx.assets.load_model(
         "cube",
         ModelBuilder::bytes(
-            include_asset_str!("3d/cube/cube.obj"),
-            &[("cube.mtl", include_asset_str!("3d/cube/cube.mtl"))],
+            include_resource_str!("3d/cube/cube.obj"),
+            &[("cube.mtl", include_resource_str!("3d/cube/cube.mtl"))],
             &[(
                 "cobble-diffuse.png",
-                include_asset_bytes!("3d/cube/cobble-diffuse.png"),
+                include_resource_bytes!("3d/cube/cobble-diffuse.png"),
             )],
         ),
     );

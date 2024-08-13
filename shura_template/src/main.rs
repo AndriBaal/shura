@@ -17,7 +17,7 @@ fn setup(ctx: &mut Context) {
     info!("hello world");
     ctx.assets.load_font(
         "font",
-        FontBuilder::bytes(include_asset_bytes!("novem.ttf")),
+        FontBuilder::bytes(include_resource_bytes!("novem.ttf")),
     );
     info!("hello world2");
     ctx.assets.load_text_mesh::<&str>("text", "font", &[]);
@@ -29,7 +29,7 @@ fn setup(ctx: &mut Context) {
     info!("hello world4");
     ctx.assets.load_sprite(
         "bunny_sprite",
-        SpriteBuilder::bytes(include_asset_bytes!("wabbit.png")),
+        SpriteBuilder::bytes(include_resource_bytes!("wabbit.png")),
     );
     info!("hello world5");
     ctx.entities

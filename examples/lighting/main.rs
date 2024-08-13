@@ -220,7 +220,7 @@ impl LightAssets {
                 .create_shader(ShaderConfig::<Vertex2D, LightInstance> {
                     source: ShaderModuleSource::Single(
                         &ctx.gpu
-                            .create_shader_module(include_asset_wgsl!("lighting/light.wgsl")),
+                            .create_shader_module(include_resource_wgsl!("lighting/light.wgsl")),
                     ),
                     uniforms: &[UniformField::Camera],
                     blend: BlendState::ALPHA_BLENDING,
@@ -228,7 +228,7 @@ impl LightAssets {
                 }),
             background_sprite: ctx
                 .gpu
-                .create_sprite(SpriteBuilder::bytes(include_asset_bytes!(
+                .create_sprite(SpriteBuilder::bytes(include_resource_bytes!(
                     "lighting/level.png"
                 ))),
             background: PositionComponent2D::new().with_scaling(Vector2::new(10.0, 10.0) * 2.0),

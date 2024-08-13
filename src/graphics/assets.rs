@@ -25,7 +25,7 @@ use crate::{
         ShaderModuleDescriptor, Sprite, SpriteArray, SpriteArrayBuilder, SpriteBuilder,
         SpriteRenderTarget, UniformData, Vertex,
     },
-    io::AssetLoader,
+    io::ResourceLoader,
     math::Vector2,
 };
 
@@ -49,14 +49,14 @@ pub type AssetWrap<'a, A> = dashmap::mapref::one::MappedRef<'a, AssetKey, Box<dy
 pub type AssetWrapMut<'a, A> = dashmap::mapref::one::MappedRefMut<'a, AssetKey, Box<dyn Asset>, A>;
 
 pub struct AssetManager {
-    pub loader: Arc<dyn AssetLoader>,
+    pub loader: Arc<dyn ResourceLoader>,
     default_assets: RwLock<DefaultAssets>,
     gpu: Arc<Gpu>,
     assets: DashMap<AssetKey, Box<dyn Asset>, FxBuildHasher>,
 }
 
 impl AssetManager {
-    pub(crate) fn new(loader: Arc<dyn AssetLoader>, gpu: Arc<Gpu>) -> Self {
+    pub(crate) fn new(loader: Arc<dyn ResourceLoader>, gpu: Arc<Gpu>) -> Self {
         Self {
             default_assets: RwLock::new(DefaultAssets::new(&gpu)),
             assets: DashMap::with_hasher(FxBuildHasher),

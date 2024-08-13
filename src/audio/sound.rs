@@ -1,7 +1,7 @@
 use rodio::Decoder;
 use std::sync::Arc;
 
-use crate::io::GLOBAL_ASSET_LOADER;
+use crate::io::GLOBAL_RESOURCE_LOADER;
 
 #[derive(Clone)]
 pub struct SoundBuilder {
@@ -15,8 +15,8 @@ impl SoundBuilder {
         }
     }
 
-    pub fn asset(path: &str) -> Self {
-        let assets = GLOBAL_ASSET_LOADER.get().unwrap();
+    pub fn resource(path: &str) -> Self {
+        let assets = GLOBAL_RESOURCE_LOADER.get().unwrap();
         let bytes = assets.load_bytes(path).unwrap();
         Self::bytes(&bytes)
     }
