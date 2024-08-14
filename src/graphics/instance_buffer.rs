@@ -149,7 +149,20 @@ impl Instance for PositionInstance2D {
 }
 
 impl<D: bytemuck::Pod> Instance2D<D> {
-    pub fn new(position: Isometry2<f32>, scaling: Vector2<f32>, data: D) -> Self {
+    pub fn new(position: Isometry2<f32>, data: D) -> Self {
+        Self {
+            scale_rotation: Matrix2::new(
+                position.rotation.cos_angle(),
+                position.rotation.sin_angle(),
+                -position.rotation.sin_angle(),
+                position.rotation.cos_angle(),
+            ),
+            translation: position.translation.vector,
+            data,
+        }
+    }
+
+    pub fn with_scaling(position: Isometry2<f32>, scaling: Vector2<f32>, data: D) -> Self {
         Self {
             scale_rotation: Matrix2::new(
                 scaling.x * position.rotation.cos_angle(),
@@ -185,7 +198,6 @@ impl<D: bytemuck::Pod + Default> Default for Instance2D<D> {
     fn default() -> Self {
         Self::new(
             Isometry2::new(Vector2::default(), 0.0),
-            Vector2::new(1.0, 1.0),
             Default::default(),
         )
     }

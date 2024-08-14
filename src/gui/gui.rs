@@ -32,7 +32,7 @@ impl Gui {
 
         let screen_descriptor = ScreenDescriptor {
             size_in_pixels: [size.width, size.height],
-            pixels_per_point: 1.0,
+            pixels_per_point: window.scale_factor() as f32,
         };
         Self {
             renderer: Renderer::new(&gpu.device, gpu.format(), None, gpu.samples()),
@@ -42,10 +42,10 @@ impl Gui {
         }
     }
 
-    pub(crate) fn resize(&mut self, size: Vector2<u32>) {
+    pub(crate) fn resize(&mut self, scale_factor: f32, size: Vector2<u32>) {
         *self.screen_descriptor.lock() = ScreenDescriptor {
             size_in_pixels: [size.x, size.y],
-            pixels_per_point: 1.0,
+            pixels_per_point: scale_factor,
         };
     }
 
@@ -102,13 +102,13 @@ impl Gui {
         }
     }
 
-    pub fn pixels_per_point(&self) -> f32 {
-        self.screen_descriptor.lock().pixels_per_point
-    }
+    // pub fn pixels_per_point(&self) -> f32 {
+    //     self.screen_descriptor.lock().pixels_per_point
+    // }
 
-    pub fn set_pixels_per_point(&self, value: f32) {
-        self.screen_descriptor.lock().pixels_per_point = value
-    }
+    // pub fn set_pixels_per_point(&self, value: f32) {
+    //     self.screen_descriptor.lock().pixels_per_point = value
+    // }
 }
 
 impl Deref for Gui {

@@ -119,11 +119,6 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
 }
 
 #[derive(Entity)]
-#[shura(
-    asset = "bunny_instances", 
-    ty = SmartInstanceBuffer<SpriteInstance2D>,
-    action = |bunny, asset, _| asset.push(SpriteInstance2D::new(bunny.position, bunny.scaling, ()));
-)]
 struct Bunny {
     #[shura(component)]
     handle: EntityHandle,

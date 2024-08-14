@@ -162,7 +162,7 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
 struct Player {
     #[shura(component)]
     body: RigidBodyComponent,
-    mesh: MeshData2D<SpriteVertex2D>,
+    mesh: MeshBuilder2D<SpriteVertex2D>,
 }
 
 impl Player {
@@ -175,7 +175,7 @@ impl Player {
     pub fn new() -> Self {
         let collider = ColliderBuilder::new(SharedShape::new(Self::SHAPE))
             .active_events(ActiveEvents::COLLISION_EVENTS);
-        let mesh = MeshData2D::from_collider_shape(&Player::SHAPE, Player::RESOLUTION, 0.0);
+        let mesh = MeshBuilder2D::from_collider_shape(&Player::SHAPE, Player::RESOLUTION, 0.0);
         Self {
             body: RigidBodyComponent::new(
                 RigidBodyBuilder::dynamic().translation(Vector2::new(5.0, 4.0)),
@@ -195,7 +195,7 @@ impl Player {
 struct Floor {
     #[shura(component)]
     collider: ColliderComponent,
-    mesh: MeshData2D<ColorVertex2D>,
+    mesh: MeshBuilder2D<ColorVertex2D>,
 }
 
 impl Floor {
@@ -211,7 +211,7 @@ impl Floor {
             .translation(Vector2::new(0.0, -1.0));
         Self {
             collider: ColliderComponent::new(collider),
-            mesh: MeshData2D::from_collider_shape(&Floor::SHAPE, Floor::RESOLUTION, 0.0)
+            mesh: MeshBuilder2D::from_collider_shape(&Floor::SHAPE, Floor::RESOLUTION, 0.0)
                 .set_data(Color::BLUE),
         }
     }

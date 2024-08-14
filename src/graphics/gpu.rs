@@ -14,7 +14,7 @@ use crate::text::{Font, FontBuilder, TextMesh, TextSection, TextVertex2D};
 use crate::{
     graphics::{
         Camera, Camera2D, CameraBuffer, CameraBuffer2D, ColorInstance2D, ColorVertex2D,
-        DepthBuffer, Instance, Instance3D, InstanceBuffer, Mesh, MeshData, MeshData2D, Model,
+        DepthBuffer, Instance, Instance3D, InstanceBuffer, Mesh, MeshData, MeshBuilder2D, Model,
         ModelBuilder, PositionVertex2D, RenderEncoder, Shader, ShaderConfig, ShaderModule,
         ShaderModuleDescriptor, ShaderModuleSource, Sprite, SpriteArray, SpriteArrayBuilder,
         SpriteArrayCropInstance2D, SpriteArrayInstance2D, SpriteArrayVertex2D, SpriteBuilder,
@@ -678,8 +678,8 @@ impl DefaultAssets {
         let world_camera2d = CameraBuffer2D::empty(gpu);
         let world_camera3d = CameraBuffer::empty(gpu);
 
-        let sprite_mesh = gpu.create_mesh(&MeshData2D::cuboid(Vector2::new(0.5, 0.5)));
-        let position_mesh = gpu.create_mesh(&MeshData2D::cuboid(Vector2::new(0.5, 0.5)));
+        let sprite_mesh = gpu.create_mesh(&MeshBuilder2D::cuboid(Vector2::new(0.5, 0.5)));
+        let position_mesh = gpu.create_mesh(&MeshBuilder2D::cuboid(Vector2::new(0.5, 0.5)));
 
         #[cfg(feature = "framebuffer")]
         let framebuffer = SpriteRenderTarget::new(gpu, size);

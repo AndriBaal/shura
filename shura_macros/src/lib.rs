@@ -153,7 +153,7 @@ fn component(ast: &DeriveInput) -> TokenStream2 {
             if asset.needs_update() {
                 let asset = asset.downcast_mut::<#asset_type>().unwrap();
                 for obj in iter.clone() {
-                    fn exec(obj: &#struct_name #ty_generics, asset: &mut #asset_type, ctx: &Context, mut f: impl FnMut(&#struct_name #ty_generics, &mut #asset_type, &Context)) {
+                    fn exec(obj: &#struct_name #ty_generics, asset: &mut #asset_type, ctx: &::shura::context::Context, mut f: impl FnMut(&#struct_name #ty_generics, &mut #asset_type, &::shura::context::Context)) {
                         (f)(obj, asset, ctx)
                     }
                     exec(obj, asset, ctx, #action)
@@ -166,7 +166,7 @@ fn component(ast: &DeriveInput) -> TokenStream2 {
         impl #impl_generics ::shura::component::Component for #struct_name #ty_generics #where_clause {
             fn buffer<'a>(
                 iter: impl ::shura::component::BufferComponentIterator<'a, Self>,
-                ctx: &Context
+                ctx: &::shura::context::Context
             ) where
                 Self: Sized,
             {

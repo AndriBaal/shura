@@ -432,7 +432,7 @@ impl App {
         let mut default_assets = self.assets.default_assets_mut();
         default_assets.resize(&self.gpu, new_size);
         #[cfg(feature = "gui")]
-        self.gui.resize(new_size);
+        self.gui.resize(self.window.scale_factor() as f32, new_size);
     }
 
     fn process_frame(&mut self, event_loop: &ActiveEventLoop) {

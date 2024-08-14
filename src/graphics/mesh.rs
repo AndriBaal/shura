@@ -218,12 +218,12 @@ impl Vertex for ColorVertex2D {
 
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct MeshData2D<V: BaseVertex2D> {
+pub struct MeshBuilder2D<V: BaseVertex2D> {
     pub vertices: Vec<V>,
     pub indices: Vec<Index>,
 }
 
-impl<V: BaseVertex2D> MeshData for MeshData2D<V> {
+impl<V: BaseVertex2D> MeshData for MeshBuilder2D<V> {
     type Vertex = V;
 
     fn indices(&self) -> &[Index] {
@@ -234,7 +234,7 @@ impl<V: BaseVertex2D> MeshData for MeshData2D<V> {
     }
 }
 
-impl<V: BaseVertex2D> MeshData2D<V> {
+impl<V: BaseVertex2D> MeshBuilder2D<V> {
     pub const TRIANGLE_INDICES: [Index; 3] = [0, 1, 2];
     pub const CUBOID_INDICES: [Index; 6] = [0, 1, 2, 2, 3, 0];
 
@@ -635,7 +635,7 @@ impl<V: BaseVertex2D> MeshData2D<V> {
     }
 }
 
-impl<D: bytemuck::Pod + Default> MeshData2D<Vertex2D<D>>
+impl<D: bytemuck::Pod + Default> MeshBuilder2D<Vertex2D<D>>
 where
     Vertex2D<D>: BaseVertex2D,
 {
@@ -647,7 +647,7 @@ where
     }
 }
 
-impl MeshData2D<SpriteVertex2D> {
+impl MeshBuilder2D<SpriteVertex2D> {
     pub fn apply_tex_coord_rotation(
         mut self,
         rotation: Rotation2<f32>,
@@ -686,7 +686,7 @@ impl MeshData2D<SpriteVertex2D> {
     }
 }
 
-impl<V: BaseVertex2D> Default for MeshData2D<V> {
+impl<V: BaseVertex2D> Default for MeshBuilder2D<V> {
     fn default() -> Self {
         Self {
             vertices: Default::default(),

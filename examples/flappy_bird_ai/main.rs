@@ -7,6 +7,7 @@ use shura::{
     winit::window::WindowButtons,
 };
 
+const GROUND_SIZE: Vector2<f32> = Vector2::new(GAME_SIZE.data.0[0][0], 0.9375);
 const GAME_SIZE: Vector2<f32> = Vector2::new(11.25, 5.0);
 const AMOUNT_BIRDS: u32 = 1000;
 
@@ -14,12 +15,6 @@ const AMOUNT_BIRDS: u32 = 1000;
 fn app(config: AppConfig) {
     App::run(config, || {
         Scene::new()
-            .render_group2d("ground", RenderGroupUpdate::MANUAL)
-            .render_group2d("background", RenderGroupUpdate::MANUAL)
-            .render_group2d("pipe", RenderGroupUpdate::EVERY_FRAME)
-            .render_group2d("bird", RenderGroupUpdate::EVERY_FRAME)
-            .entity_single::<Background>()
-            .entity_single::<Ground>()
             .entity_single::<BirdSimulation>()
             .entity::<Pipe>()
             .entity::<Bird>()
@@ -29,14 +24,46 @@ fn app(config: AppConfig) {
     });
 }
 
+
 fn setup(ctx: &mut Context) {
+    ctx.assets.load_mesh::<SpriteVertex2D>(
+        "ground",
+        &MeshBuilder2D::cuboid(GROUND_SIZE)
+            .apply_vertex_translation(Vector2::new(0.0, -GAME_SIZE.y + GROUND_SIZE.y / 2.0)),
+    );
+    ctx.assets.load_mesh::<SpriteVertex2D>("background", &MeshBuilder2D::cuboid(GAME_SIZE));
+    ctx.assets
+        .load_smart_instance_buffer::<SpriteInstance2D>("pipe", SmartInstanceBuffer::EVERY_FRAME);
+    ctx.assets
+        .load_smart_instance_buffer::<SpriteInstance2D>("bird", SmartInstanceBuffer::EVERY_FRAME);
+
+    ctx.assets.load_sprite(
+        "bird_sprite",
+        SpriteBuilder::bytes(include_resource_bytes!(
+            "flappy_bird/sprites/yellowbird-downflap.png"
+        )),
+    );
+    ctx.assets.load_sprite(
+        "ground_sprite",
+        SpriteBuilder::bytes(include_resource_bytes!("flappy_bird/sprites/base.png")),
+    );
+    ctx.assets.load_sprite(
+        "background_sprite",
+        SpriteBuilder::bytes(include_resource_bytes!(
+            "flappy_bird/sprites/background-night.png"
+        )),
+    );
+    ctx.assets.load_sprite(
+        "pipe_sprite",
+        SpriteBuilder::bytes(include_resource_bytes!(
+            "flappy_bird/sprites/pipe-green.png",
+        )),
+    );
+    ctx.entities
+        .single_mut()
+        .set(ctx.world, BirdSimulation::new());
     ctx.world_camera2d
         .set_scaling(WorldCameraScaling::Vertical(GAME_SIZE.y));
-    ctx.entities
-        .single()
-        .set(ctx.world, BirdSimulation::new(ctx));
-    ctx.entities.single().set(ctx.world, Background::new());
-    ctx.entities.single().set(ctx.world, Ground::new());
     ctx.window.set_resizable(false);
     ctx.screen_config.set_vsync(false);
     ctx.screen_config.set_render_scale(0.5);
@@ -55,8 +82,8 @@ fn update(ctx: &mut Context) {
     let delta = ctx.time.delta() * simulation.time_scale;
     let step = ctx.time.delta() * simulation.time_scale * Pipe::VELOCITY;
     pipes.retain(ctx.world, |pipe, _| {
-        let new_pos = pipe.pos.translation() + step;
-        pipe.pos.set_translation(new_pos);
+        let new_pos = pipe.pos + step;
+        pipe.pos = new_pos;
         if new_pos.x <= -GAME_SIZE.x {
             return false;
         }
@@ -64,11 +91,7 @@ fn update(ctx: &mut Context) {
     });
 
     simulation.spawn_timer += delta;
-    let score = birds
-        .iter()
-        .find(|b| b.pos.visibility == PositionComponent2DVisibility::Static(true))
-        .unwrap()
-        .score as u32;
+    let score = birds.iter().find(|b| b.alive).unwrap().score as u32;
     if score > simulation.high_score {
         simulation.high_score = score;
     }
@@ -79,7 +102,7 @@ fn update(ctx: &mut Context) {
 
     let mut closest = Vector2::new(GAME_SIZE.x, 0.0);
     for pipe in pipes.iter() {
-        let translation = pipe.pos.translation();
+        let translation = pipe.pos;
         if translation.x >= 0.0 && translation.x < closest.x {
             closest = translation;
         }
@@ -99,28 +122,27 @@ fn update(ctx: &mut Context) {
     let x = closest.x;
     assert!(x >= 0.0);
 
-    birds.par_iter_mut().for_each(|bird| {
+    birds.iter_mut().for_each(|bird| {
         bird.linvel += delta * Bird::GRAVITY;
-        let new_pos = bird.pos.translation() + delta * bird.linvel;
-        bird.pos.set_translation(new_pos);
+        let new_pos = bird.pos.translation.vector + delta * bird.linvel;
+        bird.pos.translation.vector = new_pos;
 
-        let bird_aabb = AABB::from_center(bird.pos.translation(), Bird::HALF_EXTENTS);
-        if bird_aabb.min().y < -GAME_SIZE.y + Ground::HALF_EXTENTS.y * 2.0
+        let bird_aabb = AABB::from_center(bird.pos.translation.vector, Bird::HALF_EXTENTS);
+        if bird_aabb.min().y < -GAME_SIZE.y + GROUND_SIZE.y * 2.0
             || bird_aabb.max().y > GAME_SIZE.y
             || bird_aabb.intersects(&bottom_aabb)
             || bird_aabb.intersects(&top_aabb)
         {
-            bird.pos
-                .set_visibility(PositionComponent2DVisibility::Static(false));
+            bird.alive = false;
         }
 
-        if bird.pos.visibility == PositionComponent2DVisibility::Static(false) {
+        if !bird.alive {
             return;
         }
 
         bird.score += delta * 1.0;
         let out = bird.brain.predict(&vec![
-            bird.pos.translation().y as f64,
+            bird.pos.translation.y as f64,
             bottom_y as f64,
             top_y as f64,
             x as f64,
@@ -132,10 +154,7 @@ fn update(ctx: &mut Context) {
         }
     });
 
-    let dead_count = birds
-        .iter()
-        .filter(|b| b.pos.visibility == PositionComponent2DVisibility::Static(true))
-        .count();
+    let dead_count = birds.iter().filter(|b| !b.alive).count();
 
     if dead_count == 0 {
         let mut max_fitness = 0.0;
@@ -189,63 +208,52 @@ fn update(ctx: &mut Context) {
 }
 
 fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
-    let simulation = ctx.entities.single::<BirdSimulation>().get().unwrap();
     encoder.render2d(
         Some(RgbaColor::new(220, 220, 220, 255).into()),
         |renderer| {
-            ctx.group("background", |buffer| {
-                renderer.draw_sprite(
-                    buffer,
-                    ctx.world_camera2d,
-                    ctx.unit_mesh,
-                    &simulation.background_sprite,
-                )
-            });
+            renderer.draw_sprite(
+                &ctx.assets.instances("key"),
+                &ctx.default_assets.world_camera2d,
+                &ctx.default_assets.sprite_mesh,
+                &ctx.assets.sprite("background_sprite"),
+            );
 
-            ctx.group("ground", |buffer| {
-                renderer.draw_sprite(
-                    buffer,
-                    ctx.world_camera2d,
-                    ctx.unit_mesh,
-                    &simulation.ground_sprite,
-                )
-            });
-            ctx.group("pipe", |buffer| {
-                renderer.draw_sprite(
-                    buffer,
-                    ctx.world_camera2d,
-                    &simulation.top_pipe_mesh,
-                    &simulation.pipe_sprite,
-                );
-                renderer.draw_sprite(
-                    buffer,
-                    ctx.world_camera2d,
-                    &simulation.bottom_pipe_mesh,
-                    &simulation.pipe_sprite,
-                );
-            });
+            // ctx.group("ground", |buffer| {
+            renderer.draw_sprite(
+                &ctx.assets.instances("ground"),
+                &ctx.default_assets.world_camera2d,
+                &ctx.default_assets.sprite_mesh,
+                &ctx.assets.sprite("ground_sprite"),
+            );
 
-            ctx.group("bird", |buffer| {
-                renderer.draw_sprite(
-                    buffer,
-                    ctx.world_camera2d,
-                    &simulation.bird_mesh,
-                    &simulation.bird_sprite,
-                )
-            });
+            // ctx.group("pipe", |buffer| {
+            renderer.draw_sprite(
+                &ctx.assets.instances("pipe"),
+                &ctx.default_assets.world_camera2d,
+                &ctx.assets.mesh("top_pipe_mesh"),
+                &ctx.assets.sprite("pipe_sprite"),
+            );
+
+            renderer.draw_sprite(
+                &ctx.assets.instances("pipe"),
+                &ctx.default_assets.world_camera2d,
+                &ctx.assets.mesh("bottom_pipe_mesh"),
+                &ctx.assets.sprite("pipe_sprite"),
+            );
+
+            // ctx.group("bird", |buffer| {
+            renderer.draw_sprite(
+                &ctx.assets.instances("bird"),
+                &ctx.default_assets.world_camera2d,
+                &ctx.assets.mesh("bird_mesh"),
+                &ctx.assets.sprite("bird_sprite"),
+            );
         },
     );
 }
 
 #[derive(Entity)]
 struct BirdSimulation {
-    bird_mesh: Mesh2D,
-    top_pipe_mesh: Mesh2D,
-    bottom_pipe_mesh: Mesh2D,
-    pipe_sprite: Sprite,
-    bird_sprite: Sprite,
-    ground_sprite: Sprite,
-    background_sprite: Sprite,
     spawn_timer: f32,
     generation: u32,
     high_score: u32,
@@ -253,48 +261,8 @@ struct BirdSimulation {
 }
 
 impl BirdSimulation {
-    pub fn new(ctx: &Context) -> Self {
+    pub fn new() -> Self {
         return Self {
-            bird_mesh: ctx
-                .gpu
-                .create_mesh(&MeshBuilder2D::cuboid(Bird::HALF_EXTENTS)),
-            bird_sprite: ctx
-                .gpu
-                .create_sprite(SpriteBuilder::bytes(include_resource_bytes!(
-                    "flappy_bird/sprites/yellowbird-downflap.png"
-                ))),
-            ground_sprite: ctx
-                .gpu
-                .create_sprite(SpriteBuilder::bytes(include_resource_bytes!(
-                    "flappy_bird/sprites/base.png"
-                ))),
-            background_sprite: ctx
-                .gpu
-                .create_sprite(SpriteBuilder::bytes(include_resource_bytes!(
-                    "flappy_bird/sprites/background-night.png"
-                ))),
-            top_pipe_mesh: ctx.gpu.create_mesh(
-                &MeshBuilder2D::cuboid(Pipe::HALF_EXTENTS)
-                    .vertex_translation(Vector2::new(
-                        0.0,
-                        Pipe::HALF_HOLE_SIZE + Pipe::HALF_EXTENTS.y,
-                    ))
-                    .tex_coord_rotation(Rotation2::new(180.0_f32.to_radians()))
-                    .apply(),
-            ),
-            bottom_pipe_mesh: ctx.gpu.create_mesh(
-                &MeshBuilder2D::cuboid(Pipe::HALF_EXTENTS)
-                    .vertex_translation(Vector2::new(
-                        0.0,
-                        -Pipe::HALF_HOLE_SIZE - Pipe::HALF_EXTENTS.y,
-                    ))
-                    .apply(),
-            ),
-            pipe_sprite: ctx
-                .gpu
-                .create_sprite(SpriteBuilder::bytes(include_resource_bytes!(
-                    "flappy_bird/sprites/pipe-green.png",
-                ))),
             spawn_timer: Pipe::SPAWN_TIME,
             generation: 0,
             high_score: 0,
@@ -310,8 +278,8 @@ impl BirdSimulation {
 
 #[derive(Entity)]
 struct Bird {
-    #[shura(component = "bird")]
-    pos: PositionComponent2D,
+    pos: Isometry2<f32>,
+    alive: bool,
     brain: NeuralNetwork,
     score: f32,
     linvel: Vector2<f32>,
@@ -322,8 +290,9 @@ impl Bird {
     const GRAVITY: Vector2<f32> = Vector2::new(0.0, -15.0);
     pub fn new() -> Self {
         Self {
-            pos: PositionComponent2D::new(),
+            pos: Isometry2::default(),
             score: 0.0,
+            alive: true,
             brain: NeuralNetwork::new(vec![5, 8, 1]),
             linvel: Vector2::default(),
         }
@@ -337,40 +306,8 @@ impl Bird {
 }
 
 #[derive(Entity)]
-struct Ground {
-    #[shura(component = "ground")]
-    pos: PositionComponent2D,
-}
-
-impl Ground {
-    const HALF_EXTENTS: Vector2<f32> = Vector2::new(GAME_SIZE.data.0[0][0], 0.9375);
-    pub fn new() -> Self {
-        Self {
-            pos: PositionComponent2D::new()
-                .with_translation(Vector2::new(0.0, -GAME_SIZE.y + Self::HALF_EXTENTS.y))
-                .with_scaling(Self::HALF_EXTENTS * 2.0),
-        }
-    }
-}
-
-#[derive(Entity)]
-struct Background {
-    #[shura(component = "background")]
-    pos: PositionComponent2D,
-}
-
-impl Background {
-    pub fn new() -> Self {
-        Self {
-            pos: PositionComponent2D::default().with_scaling(GAME_SIZE * 2.0),
-        }
-    }
-}
-
-#[derive(Entity)]
 struct Pipe {
-    #[shura(component = "pipe")]
-    pos: PositionComponent2D,
+    pos: Vector2<f32>,
 }
 
 impl Pipe {
@@ -381,11 +318,11 @@ impl Pipe {
     const SPAWN_TIME: f32 = 3.0;
     pub fn new() -> Self {
         let y = gen_range(
-            -GAME_SIZE.y + Self::MIN_PIPE_Y + Pipe::HALF_HOLE_SIZE + Ground::HALF_EXTENTS.y * 2.0
+            -GAME_SIZE.y + Self::MIN_PIPE_Y + Pipe::HALF_HOLE_SIZE + GROUND_SIZE.y * 2.0
                 ..GAME_SIZE.y - Self::MIN_PIPE_Y - Pipe::HALF_HOLE_SIZE,
         );
         return Self {
-            pos: PositionComponent2D::new().with_translation(Vector2::new(GAME_SIZE.x, y)),
+            pos: Vector2::new(GAME_SIZE.x, y),
         };
     }
 }
