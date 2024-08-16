@@ -144,9 +144,11 @@ impl Assets {
             .create_sprite(SpriteBuilder::bytes(include_resource_bytes!(
                 "bunnymark/wabbit.png"
             )));
-        let font = ctx.gpu.create_font(FontBuilder::bytes(include_resource_bytes!(
-            "bunnymark/novem.ttf"
-        )));
+        let font = ctx
+            .gpu
+            .create_font(FontBuilder::bytes(include_resource_bytes!(
+                "bunnymark/novem.ttf"
+            )));
         Assets {
             screenshot: None,
             bunny_sprite,

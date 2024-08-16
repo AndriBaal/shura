@@ -10,7 +10,6 @@ use rustc_hash::FxHashMap;
 use crate::entity::EntityGroupHandle;
 use crate::{
     component::Component,
-    context::Context,
     entity::{
         Entities, Entity, EntityHandle, EntityId, EntityIdentifier, EntityType, GlobalEntities,
         GroupedEntities, SingleEntity,
@@ -138,13 +137,6 @@ impl EntityManager {
                 .entry(name)
                 .or_default()
                 .push(ET::Entity::IDENTIFIER);
-        }
-    }
-
-    pub fn buffer(&self, ctx: &Context) {
-        for ty in &self.types {
-            let ty = ty.1.ref_dyn();
-            ty.buffer(ctx);
         }
     }
 

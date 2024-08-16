@@ -3,7 +3,7 @@ use wgpu::util::DeviceExt;
 use crate::{
     graphics::{Gpu, RgbaColor, Uniform},
     io::GLOBAL_RESOURCE_LOADER,
-    math::Vector2,
+    math::Vector2, tasks::TaskManager,
 };
 use std::ops::Deref;
 
@@ -297,7 +297,7 @@ impl Sprite {
                 tx.send(result).unwrap();
             });
             gpu.device.poll(wgpu::Maintain::Wait);
-            pollster::block_on(rx.receive()).unwrap().unwrap();
+            TaskManager::await_future(rx.receive()).unwrap().unwrap();
             let data = buffer_slice.get_mapped_range();
             let mut raw = data.as_ref().to_vec();
             if self.format == wgpu::TextureFormat::Bgra8Unorm

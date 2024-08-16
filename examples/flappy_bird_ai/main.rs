@@ -24,18 +24,14 @@ fn app(config: AppConfig) {
     });
 }
 
-
 fn setup(ctx: &mut Context) {
     ctx.assets.load_mesh::<SpriteVertex2D>(
-        "ground",
+        "ground_mesh",
         &MeshBuilder2D::cuboid(GROUND_SIZE)
             .apply_vertex_translation(Vector2::new(0.0, -GAME_SIZE.y + GROUND_SIZE.y / 2.0)),
     );
-    ctx.assets.load_mesh::<SpriteVertex2D>("background", &MeshBuilder2D::cuboid(GAME_SIZE));
     ctx.assets
-        .load_smart_instance_buffer::<SpriteInstance2D>("pipe", SmartInstanceBuffer::EVERY_FRAME);
-    ctx.assets
-        .load_smart_instance_buffer::<SpriteInstance2D>("bird", SmartInstanceBuffer::EVERY_FRAME);
+        .load_mesh::<SpriteVertex2D>("background_mesh", &MeshBuilder2D::cuboid(GAME_SIZE));
 
     ctx.assets.load_sprite(
         "bird_sprite",
@@ -122,7 +118,7 @@ fn update(ctx: &mut Context) {
     let x = closest.x;
     assert!(x >= 0.0);
 
-    birds.iter_mut().for_each(|bird| {
+    birds.par_iter_mut().for_each(|bird| {
         bird.linvel += delta * Bird::GRAVITY;
         let new_pos = bird.pos.translation.vector + delta * bird.linvel;
         bird.pos.translation.vector = new_pos;
@@ -154,9 +150,9 @@ fn update(ctx: &mut Context) {
         }
     });
 
-    let dead_count = birds.iter().filter(|b| !b.alive).count();
+    let alive_count = birds.iter().filter(|b| b.alive).count();
 
-    if dead_count == 0 {
+    if alive_count == 0 {
         let mut max_fitness = 0.0;
         let mut weights = Vec::new();
 
@@ -202,53 +198,65 @@ fn update(ctx: &mut Context) {
             ui.label(format!("Generation: {}", simulation.generation));
             ui.label(format!("Score: {}", score));
             ui.label(format!("High Score: {}", simulation.high_score));
-            ui.label(format!("Birds: {}", dead_count as u32));
+            ui.label(format!("Birds: {}", alive_count as u32));
             ui.add(gui::Slider::new(&mut simulation.time_scale, 0.1..=20.0).text("Speed"));
         });
 }
 
 fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
-    encoder.render2d(
-        Some(RgbaColor::new(220, 220, 220, 255).into()),
-        |renderer| {
-            renderer.draw_sprite(
-                &ctx.assets.instances("key"),
-                &ctx.default_assets.world_camera2d,
-                &ctx.default_assets.sprite_mesh,
-                &ctx.assets.sprite("background_sprite"),
-            );
+    let mut renderer = encoder.renderer2d(None);
+    renderer.draw_sprite_mesh(
+        &ctx.default_assets.world_camera2d,
+        &ctx.assets.mesh("background_mesh"),
+        &ctx.assets.sprite("background_sprite"),
+    );
 
-            // ctx.group("ground", |buffer| {
-            renderer.draw_sprite(
-                &ctx.assets.instances("ground"),
-                &ctx.default_assets.world_camera2d,
-                &ctx.default_assets.sprite_mesh,
-                &ctx.assets.sprite("ground_sprite"),
-            );
+    renderer.draw_sprite_mesh(
+        &ctx.default_assets.world_camera2d,
+        &ctx.assets.mesh("ground_mesh"),
+        &ctx.assets.sprite("ground_sprite"),
+    );
 
-            // ctx.group("pipe", |buffer| {
-            renderer.draw_sprite(
-                &ctx.assets.instances("pipe"),
-                &ctx.default_assets.world_camera2d,
-                &ctx.assets.mesh("top_pipe_mesh"),
-                &ctx.assets.sprite("pipe_sprite"),
-            );
+    renderer.draw_sprite(
+        &ctx.assets.write_instances(
+            "pipes",
+            &ctx.entities.instances::<Pipe, _>(|pipe, data| {
+                data.extend([
+                    SpriteInstance2D::new(
+                        Isometry2::new(
+                            pipe.pos
+                                - Vector::new(0.0, Pipe::HALF_HOLE_SIZE + Pipe::HALF_EXTENTS.y),
+                            std::f32::consts::PI,
+                        ),
+                        Pipe::HALF_EXTENTS * 2.0,
+                        (),
+                    ),
+                    SpriteInstance2D::new(
+                        (pipe.pos - Vector::new(0.0, -Pipe::HALF_HOLE_SIZE - Pipe::HALF_EXTENTS.y))
+                            .into(),
+                        Pipe::HALF_EXTENTS * 2.0,
+                        (),
+                    ),
+                ])
+            }),
+        ),
+        &ctx.default_assets.world_camera2d,
+        &ctx.default_assets.sprite_mesh,
+        &ctx.assets.sprite("pipe_sprite"),
+    );
 
-            renderer.draw_sprite(
-                &ctx.assets.instances("pipe"),
-                &ctx.default_assets.world_camera2d,
-                &ctx.assets.mesh("bottom_pipe_mesh"),
-                &ctx.assets.sprite("pipe_sprite"),
-            );
-
-            // ctx.group("bird", |buffer| {
-            renderer.draw_sprite(
-                &ctx.assets.instances("bird"),
-                &ctx.default_assets.world_camera2d,
-                &ctx.assets.mesh("bird_mesh"),
-                &ctx.assets.sprite("bird_sprite"),
-            );
-        },
+    renderer.draw_sprite(
+        &ctx.assets.write_instances(
+            "birds",
+            &ctx.entities.instances::<Bird, _>(|bird, data| {
+                if bird.alive {
+                    data.push(SpriteInstance2D::new(bird.pos, Bird::HALF_EXTENTS, ()));
+                }
+            }),
+        ),
+        &ctx.default_assets.world_camera2d,
+        &ctx.default_assets.sprite_mesh,
+        &ctx.assets.sprite("bird_sprite"),
     );
 }
 

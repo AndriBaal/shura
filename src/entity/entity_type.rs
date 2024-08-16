@@ -6,8 +6,6 @@ use crate::{arena::ArenaEntry, rayon::prelude::*};
 
 use crate::{
     arena::{Arena, ArenaIndex, ArenaIter, ArenaIterMut},
-    component::Component,
-    context::Context,
     entity::{
         Entity, EntityGroupHandle, EntityGroupManager, EntityHandle, EntityId, EntityIdentifier,
         EntityIndex,
@@ -21,7 +19,6 @@ pub trait EntityType: Downcast {
     where
         Self: Sized;
     fn entity_type_id(&self) -> EntityId;
-    fn buffer(&self, ctx: &Context);
     fn remove_group(
         &mut self,
         world: &mut World,
@@ -198,9 +195,6 @@ impl<E: EntityIdentifier> EntityType for SingleEntity<E> {
     type Entity = E;
     fn entity_type_id(&self) -> EntityId {
         E::IDENTIFIER
-    }
-    fn buffer(&self, ctx: &Context) {
-        E::buffer(self.iter_render(&ctx.groups), ctx);
     }
     fn iter_render<'a>(
         &'a self,
@@ -479,10 +473,6 @@ impl<E: EntityIdentifier> EntityType for Entities<E> {
 
     fn entity_type_id(&self) -> EntityId {
         E::IDENTIFIER
-    }
-
-    fn buffer(&self, ctx: &Context) {
-        E::buffer(self.iter_render(&ctx.groups), ctx);
     }
 
     fn iter_render<'a>(
@@ -794,10 +784,6 @@ impl<E: EntityIdentifier> GroupedEntities<Entities<E>> {
 
 impl<ET: EntityType + Default> EntityType for GroupedEntities<ET> {
     type Entity = ET::Entity;
-
-    fn buffer(&self, ctx: &Context) {
-        ET::Entity::buffer(self.iter_render(ctx.groups), ctx);
-    }
 
     fn add_group(&mut self) {
         self.groups.insert(Default::default());

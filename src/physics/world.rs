@@ -458,22 +458,6 @@ impl World {
         }
     }
 
-    // pub(crate) fn move_shape(
-    //     &self,
-    //     controller: &mut CharacterControllerEntity,
-    //     time: &TimeManager,
-    //     bodies: &RigidBodySet,
-    //     colliders: &ColliderSet,
-    //     queries: &QueryPipeline,
-    //     character_shape: &dyn Shape,
-    //     character_pos: &Isometry2<Real>,
-    //     desired_translation: Vector2<Real>,
-    //     filter: QueryFilter,
-    //     mut events: impl FnMut(CharacterCollision, &World),
-    // ) -> EffectiveCharacterMovement {
-
-    // }
-
     pub fn entity_from_collider(&self, collider_handle: &ColliderHandle) -> Option<&EntityHandle> {
         self.collider_mapping.get(collider_handle)
     }

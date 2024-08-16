@@ -1,21 +1,9 @@
-use crate::{context::Context, entity::EntityHandle, physics::World};
+use crate::{entity::EntityHandle, physics::World};
 use downcast_rs::{impl_downcast, Downcast};
 use std::collections::{BTreeMap, HashMap, LinkedList, VecDeque};
 
-pub trait BufferComponentIterator<'a, C: Component>: Iterator<Item = &'a C> + Clone + 'a {}
-impl<'a, C: Component, I: Iterator<Item = &'a C> + Clone + 'a> BufferComponentIterator<'a, C>
-    for I
-{
-}
-
 #[allow(unused_variables)]
 pub trait Component: Downcast {
-    fn buffer<'a>(entites: impl BufferComponentIterator<'a, Self>, ctx: &Context)
-    where
-        Self: Sized,
-    {
-    }
-
     fn init(&mut self, handle: EntityHandle, world: &mut World) {}
     fn finish(&mut self, world: &mut World) {}
     fn remove_from_world(&self, world: &mut World) {}

@@ -67,12 +67,12 @@ default = [
     "gamepad",
     "text",
     "audio",
-    "physics",
-    "serde",
-    "gui",
     "log",
     "framebuffer",
-    # "rayon",
+    "physics",
+    "serde",
+    "rayon",
+    "gui",
 ]
 
 [lib]

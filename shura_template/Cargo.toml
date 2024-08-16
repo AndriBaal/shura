@@ -9,7 +9,18 @@ edition = "2021"
 #crate_type=["cdylib"]
 
 [dependencies]
-shura = { path = "../" }
+shura = { path = "../", default-features = false, features = [
+    "animation",
+    "gamepad",
+    "text",
+    "audio",
+    "log",
+    "framebuffer",
+    "physics",
+    "serde",
+    # "rayon",
+    # "gui",
+]}
 # shura = "0.7"
 
 [package.metadata.android]

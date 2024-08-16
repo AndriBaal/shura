@@ -3,19 +3,15 @@ use std::{
     fmt::Debug,
     marker::PhantomData,
     mem,
-    ops::Deref,
 };
 use wgpu::util::DeviceExt;
 
 #[cfg(feature = "physics")]
 use crate::physics::{Shape, TypedShape};
 use crate::{
-    entity::EntityGroupManager,
     graphics::{Color, Gpu},
     math::{Isometry2, Matrix2, Rotation2, Vector2, Vector3, AABB},
 };
-
-use super::{Asset, BufferCall};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Default, bytemuck::Pod, bytemuck::Zeroable)]
@@ -26,19 +22,26 @@ pub struct SpriteArrayCoordinates {
 }
 
 pub type SpriteCoordinates = Vector2<f32>;
+pub type Index = u32;
+
 pub type SpriteVertex2D = Vertex2D<SpriteCoordinates>;
 pub type SpriteArrayVertex2D = Vertex2D<SpriteArrayCoordinates>;
 pub type ColorVertex2D = Vertex2D<Color>;
 pub type PositionVertex2D = Vertex2D<()>;
+
+pub type SpriteMeshBuilder2D = MeshBuilder2D<SpriteVertex2D>;
+pub type SpriteArrayMeshBuilder2D = MeshBuilder2D<SpriteArrayVertex2D>;
+pub type ColorMeshBuilder2D = MeshBuilder2D<ColorVertex2D>;
+pub type PositionMeshBuilder2D = MeshBuilder2D<PositionVertex2D>;
 
 pub type SpriteMesh2D = Mesh<SpriteVertex2D>;
 pub type SpriteArrayMesh2D = Mesh<SpriteArrayVertex2D>;
 pub type ColorMesh2D = Mesh<ColorVertex2D>;
 pub type PositionMesh2D = Mesh<PositionVertex2D>;
 pub type Mesh3D = Mesh<Vertex3D>;
-pub type Index = u32;
 
-pub trait MeshData {
+
+pub trait MeshBuilder {
     type Vertex;
     fn indices(&self) -> &[Index];
     fn vertices(&self) -> &[Self::Vertex];
@@ -49,7 +52,7 @@ pub trait Vertex: bytemuck::Pod + bytemuck::Zeroable + Send + Sync + Debug {
     const SIZE: u64 = std::mem::size_of::<Self>() as u64;
 }
 
-impl<V: Vertex> MeshData for (Vec<V>, Vec<Index>) {
+impl<V: Vertex> MeshBuilder for (Vec<V>, Vec<Index>) {
     type Vertex = V;
 
     fn indices(&self) -> &[Index] {
@@ -60,7 +63,7 @@ impl<V: Vertex> MeshData for (Vec<V>, Vec<Index>) {
     }
 }
 
-impl<V: Vertex> MeshData for (&[V], &[Index]) {
+impl<V: Vertex> MeshBuilder for (&[V], &[Index]) {
     type Vertex = V;
 
     fn indices(&self) -> &[Index] {
@@ -223,7 +226,7 @@ pub struct MeshBuilder2D<V: BaseVertex2D> {
     pub indices: Vec<Index>,
 }
 
-impl<V: BaseVertex2D> MeshData for MeshBuilder2D<V> {
+impl<V: BaseVertex2D> MeshBuilder for MeshBuilder2D<V> {
     type Vertex = V;
 
     fn indices(&self) -> &[Index] {
@@ -639,7 +642,7 @@ impl<D: bytemuck::Pod + Default> MeshBuilder2D<Vertex2D<D>>
 where
     Vertex2D<D>: BaseVertex2D,
 {
-    pub fn set_data(mut self, data: D) -> Self {
+    pub fn apply_data(mut self, data: D) -> Self {
         for v in &mut self.vertices {
             v.data = data;
         }
@@ -719,12 +722,12 @@ impl Vertex for Vertex3D {
     ];
 }
 
-pub struct MeshData3D {
+pub struct MeshBuilder3D {
     pub vertices: Vec<Vertex3D>,
     pub indices: Vec<Index>,
 }
 
-impl MeshData for MeshData3D {
+impl MeshBuilder for MeshBuilder3D {
     type Vertex = Vertex3D;
 
     fn indices(&self) -> &[Index] {
@@ -736,7 +739,7 @@ impl MeshData for MeshData3D {
     }
 }
 
-impl MeshData3D {
+impl MeshBuilder3D {
     pub fn plane(top_left: Vector3<f32>, bottom_right: Vector3<f32>) -> Self {
         let top_right = Vector3::new(bottom_right.x, top_left.y, 0.0);
         let bottom_left = Vector3::new(top_left.x, bottom_right.y, 0.0);
@@ -828,7 +831,7 @@ pub struct Mesh<V: Vertex> {
 }
 
 impl<V: Vertex> Mesh<V> {
-    pub fn new(gpu: &Gpu, builder: &dyn MeshData<Vertex = V>) -> Self {
+    pub fn new(gpu: &Gpu, builder: &dyn MeshBuilder<Vertex = V>) -> Self {
         let vertices = builder.vertices();
         let indices = builder.indices();
         let vertices_slice = bytemuck::cast_slice(vertices);
@@ -884,7 +887,7 @@ impl<V: Vertex> Mesh<V> {
         }
     }
 
-    pub fn write(&mut self, gpu: &Gpu, builder: impl MeshData<Vertex = V>) {
+    pub fn write(&mut self, gpu: &Gpu, builder: &dyn MeshBuilder<Vertex = V>) {
         let vertices = builder.vertices();
         let indices = builder.indices();
         self.write_indices(gpu, indices);
@@ -982,126 +985,4 @@ impl<V: Vertex> Mesh<V> {
 pub enum RoundingDirection {
     Inward,
     Outward,
-}
-
-pub struct SmartMesh<V: Vertex> {
-    pub call: BufferCall,
-    pub buffer_on_group_change: bool,
-    pub needs_update: bool,
-    pub buffer_indices_once: bool,
-    pub force_update: bool,
-    pub vertices: Vec<V>,
-    pub indices: Vec<Index>,
-    pub index_offset: u32,
-    mesh: Option<Mesh<V>>,
-}
-
-impl<V: Vertex> SmartMesh<V> {
-    pub const MANUAL: SmartMesh<V> = SmartMesh {
-        call: BufferCall::Manual,
-        buffer_on_group_change: false,
-        needs_update: true,
-        buffer_indices_once: false,
-        force_update: true,
-        vertices: Vec::new(),
-        indices: Vec::new(),
-        index_offset: 0,
-        mesh: None,
-    };
-
-    pub const GROUP_CHANGED: SmartMesh<V> = SmartMesh {
-        call: BufferCall::Manual,
-        buffer_on_group_change: true,
-        needs_update: true,
-        buffer_indices_once: false,
-        force_update: true,
-        vertices: Vec::new(),
-        indices: Vec::new(),
-        index_offset: 0,
-        mesh: None,
-    };
-
-    pub const EVERY_FRAME: SmartMesh<V> = SmartMesh {
-        call: BufferCall::EveryFrame,
-        buffer_on_group_change: true,
-        needs_update: true,
-        buffer_indices_once: false,
-        force_update: true,
-        vertices: Vec::new(),
-        indices: Vec::new(),
-        index_offset: 0,
-        mesh: None,
-    };
-
-    pub fn push(&mut self, mesh: &dyn MeshData<Vertex = V>) {
-        self.vertices.extend(mesh.vertices());
-        self.indices
-            .extend(mesh.indices().iter().map(|index| index + self.index_offset));
-        self.index_offset += self.vertices.len() as u32;
-    }
-
-    pub fn mesh(&self) -> &Mesh<V> {
-        self.mesh.as_ref().unwrap()
-    }
-}
-
-impl<V: VertexPosition2D + Vertex> SmartMesh<V> {
-    pub fn push_offset(&mut self, mesh: &dyn MeshData<Vertex = V>, position: Isometry2<f32>) {
-        let offset = position.translation.vector;
-        let rotation = position.rotation;
-        for v in mesh.vertices() {
-            let mut pos = *v.pos();
-            pos = rotation * pos;
-            pos += offset;
-            self.vertices.push(v.with_pos(pos));
-        }
-
-        self.indices
-            .extend(mesh.indices().iter().map(|index| index + self.index_offset));
-        self.index_offset += self.vertices.len() as u32;
-    }
-
-    // TODO: Implement scale, rotation, translation and offset_with_scale
-}
-
-impl<V: Vertex> Default for SmartMesh<V> {
-    fn default() -> Self {
-        Self::EVERY_FRAME
-    }
-}
-
-impl<V: Vertex> Asset for SmartMesh<V> {
-    fn needs_update(&self) -> bool {
-        return self.needs_update;
-    }
-
-    fn prepare(&mut self, groups: &EntityGroupManager) {
-        self.needs_update = self.call == BufferCall::EveryFrame
-            || self.force_update
-            || (groups.render_groups_changed() && self.buffer_on_group_change)
-    }
-
-    fn apply(&mut self, gpu: &Gpu) {
-        if self.needs_update {
-            if let Some(mesh) = self.mesh.as_mut() {
-                mesh.write_vertices(gpu, &self.vertices);
-                mesh.write_indices(gpu, &self.indices);
-            } else {
-                self.mesh = Some(Mesh::new(gpu, &(&self.vertices[..], &self.indices[..])));
-            }
-            self.indices.clear();
-            self.vertices.clear();
-            self.index_offset = 0;
-            self.force_update = false;
-            self.needs_update = false;
-        }
-    }
-}
-
-impl<V: Vertex> Deref for SmartMesh<V> {
-    type Target = Mesh<V>;
-
-    fn deref(&self) -> &Self::Target {
-        self.mesh()
-    }
 }

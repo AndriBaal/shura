@@ -232,7 +232,7 @@ impl TextMesh {
 
     pub fn write<S: AsRef<str>>(&mut self, gpu: &Gpu, font: &Font, sections: &[TextSection<S>]) {
         let builder = Self::compute_vertices(font, sections);
-        self.mesh.write(gpu, builder);
+        self.mesh.write(gpu, &builder);
     }
 
     pub fn mesh(&self) -> &Mesh<TextVertex2D> {
@@ -273,7 +273,7 @@ impl TextInstance2D {
             pos = rotation * pos;
             pos += letter.section.offset.translation.vector;
 
-            instances.push(TextInstance2D::with_scaling(
+            instances.push(TextInstance2D::new(
                 Isometry2::from_parts(pos.into(), rotation),
                 letter.size,
                 LetterData {

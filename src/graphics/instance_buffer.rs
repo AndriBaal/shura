@@ -1,13 +1,8 @@
-use std::{
-    marker::PhantomData,
-    mem::size_of,
-    ops::{Deref, Range},
-};
+use std::{marker::PhantomData, mem::size_of, ops::Range};
 use wgpu::util::DeviceExt;
 
 use crate::{
-    entity::EntityGroupManager,
-    graphics::{Asset, Color, Gpu, SpriteArrayIndex},
+    graphics::{Color, Gpu, SpriteArrayIndex},
     math::{Isometry2, Isometry3, Matrix2, Matrix4, Rotation2, Vector2, Vector3, AABB},
 };
 
@@ -149,20 +144,7 @@ impl Instance for PositionInstance2D {
 }
 
 impl<D: bytemuck::Pod> Instance2D<D> {
-    pub fn new(position: Isometry2<f32>, data: D) -> Self {
-        Self {
-            scale_rotation: Matrix2::new(
-                position.rotation.cos_angle(),
-                position.rotation.sin_angle(),
-                -position.rotation.sin_angle(),
-                position.rotation.cos_angle(),
-            ),
-            translation: position.translation.vector,
-            data,
-        }
-    }
-
-    pub fn with_scaling(position: Isometry2<f32>, scaling: Vector2<f32>, data: D) -> Self {
+    pub fn new(position: Isometry2<f32>, scaling: Vector2<f32>, data: D) -> Self {
         Self {
             scale_rotation: Matrix2::new(
                 scaling.x * position.rotation.cos_angle(),
@@ -175,7 +157,7 @@ impl<D: bytemuck::Pod> Instance2D<D> {
         }
     }
 
-    pub fn set_data(&mut self, data: D) {
+    pub fn apply_data(&mut self, data: D) {
         self.data = data;
     }
 
@@ -198,6 +180,7 @@ impl<D: bytemuck::Pod + Default> Default for Instance2D<D> {
     fn default() -> Self {
         Self::new(
             Isometry2::new(Vector2::default(), 0.0),
+            Vector2::new(1.0, 1.0),
             Default::default(),
         )
     }
@@ -337,93 +320,5 @@ impl<I: Instance> InstanceBuffer<I> {
 
     pub(crate) fn buffer(&self) -> &wgpu::Buffer {
         &self.buffer
-    }
-}
-
-pub struct SmartInstanceBuffer<I: Instance> {
-    pub call: BufferCall,
-    pub buffer_on_group_change: bool,
-    pub needs_update: bool,
-    pub instances: Vec<I>,
-    pub force_update: bool,
-    buffer: Option<InstanceBuffer<I>>,
-}
-
-impl<I: Instance> SmartInstanceBuffer<I> {
-    pub const MANUAL: SmartInstanceBuffer<I> = SmartInstanceBuffer {
-        call: BufferCall::Manual,
-        buffer_on_group_change: false,
-        needs_update: true,
-        instances: Vec::new(),
-        force_update: true,
-        buffer: None,
-    };
-
-    pub const GROUP_CHANGED: SmartInstanceBuffer<I> = SmartInstanceBuffer {
-        call: BufferCall::Manual,
-        buffer_on_group_change: true,
-        needs_update: true,
-        instances: Vec::new(),
-        force_update: true,
-        buffer: None,
-    };
-
-    pub const EVERY_FRAME: SmartInstanceBuffer<I> = SmartInstanceBuffer {
-        call: BufferCall::EveryFrame,
-        buffer_on_group_change: true,
-        needs_update: true,
-        instances: Vec::new(),
-        force_update: true,
-        buffer: None,
-    };
-
-    pub fn push(&mut self, instance: I) {
-        self.instances.push(instance);
-    }
-
-    pub fn extend<T: IntoIterator<Item = I>>(&mut self, iter: T) {
-        self.instances.extend(iter);
-    }
-
-    pub fn buffer(&self) -> &InstanceBuffer<I> {
-        self.buffer.as_ref().unwrap()
-    }
-}
-
-impl<I: Instance> Default for SmartInstanceBuffer<I> {
-    fn default() -> Self {
-        Self::EVERY_FRAME
-    }
-}
-
-impl<I: Instance> Asset for SmartInstanceBuffer<I> {
-    fn needs_update(&self) -> bool {
-        return self.needs_update;
-    }
-
-    fn prepare(&mut self, groups: &EntityGroupManager) {
-        self.needs_update = self.call == BufferCall::EveryFrame
-            || self.force_update
-            || (groups.render_groups_changed() && self.buffer_on_group_change)
-    }
-
-    fn apply(&mut self, gpu: &Gpu) {
-        if self.needs_update {
-            if let Some(buffer) = self.buffer.as_mut() {
-                buffer.write(gpu, &self.instances)
-            } else {
-                self.buffer = Some(gpu.create_instance_buffer(&self.instances))
-            }
-            self.instances.clear();
-            self.force_update = false;
-            self.needs_update = false;
-        }
-    }
-}
-
-impl<I: Instance> Deref for SmartInstanceBuffer<I> {
-    type Target = InstanceBuffer<I>;
-    fn deref(&self) -> &Self::Target {
-        self.buffer()
     }
 }

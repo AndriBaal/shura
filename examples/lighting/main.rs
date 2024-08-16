@@ -226,11 +226,9 @@ impl LightAssets {
                     blend: BlendState::ALPHA_BLENDING,
                     ..Default::default()
                 }),
-            background_sprite: ctx
-                .gpu
-                .create_sprite(SpriteBuilder::bytes(include_resource_bytes!(
-                    "lighting/level.png"
-                ))),
+            background_sprite: ctx.gpu.create_sprite(SpriteBuilder::bytes(
+                include_resource_bytes!("lighting/level.png"),
+            )),
             background: PositionComponent2D::new().with_scaling(Vector2::new(10.0, 10.0) * 2.0),
             light_map: ctx.gpu.create_render_target(ctx.render_size),
             shadow_stencil: ctx

@@ -13,33 +13,21 @@ fn app(config: AppConfig) {
 
 fn setup(ctx: &mut Context) {
     ctx.world_camera2d.set_scaling(WorldCameraScaling::Min(3.0));
-    info!("hello world");
-    info!("hello world");
     ctx.assets.load_font(
         "font",
         FontBuilder::bytes(include_resource_bytes!("novem.ttf")),
     );
-    info!("hello world2");
     ctx.assets.load_text_mesh::<&str>("text", "font", &[]);
-    info!("hello world3");
-    ctx.assets.load_smart_instance_buffer::<SpriteInstance2D>(
-        "bunny_instances",
-        SmartInstanceBuffer::EVERY_FRAME,
-    );
-    info!("hello world4");
     ctx.assets.load_sprite(
         "bunny_sprite",
         SpriteBuilder::bytes(include_resource_bytes!("wabbit.png")),
     );
-    info!("hello world5");
     ctx.entities
         .get_mut::<Bunny>()
         .add(ctx.world, Bunny::new(Default::default()));
-    info!("hello world6");
 }
 
 fn update(ctx: &mut Context) {
-    info!("hello world1");
     const MODIFY_STEP: usize = 1500;
     const GRAVITY: f32 = -2.5;
 
@@ -111,7 +99,12 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
         Some(RgbaColor::new(220, 220, 220, 255).into()),
         |renderer| {
             renderer.draw_sprite(
-                &ctx.assets.instances("bunny_instances"),
+                &ctx.assets.write_instances(
+                    "bunny_instances",
+                    &ctx.entities.instances::<Bunny, _>(|bunny, data| {
+                        data.push(SpriteInstance2D::new(bunny.position, bunny.scaling, ()))
+                    }),
+                ),
                 &ctx.default_assets.world_camera2d,
                 &ctx.default_assets.sprite_mesh,
                 &ctx.assets.sprite("bunny_sprite"),
@@ -127,11 +120,6 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
 }
 
 #[derive(Entity)]
-#[shura(
-    asset = "bunny_instances", 
-    ty = SmartInstanceBuffer<SpriteInstance2D>,
-    action = |bunny, asset, _| asset.push(SpriteInstance2D::new(bunny.position, bunny.scaling, ()));
-)]
 struct Bunny {
     #[shura(component)]
     handle: EntityHandle,

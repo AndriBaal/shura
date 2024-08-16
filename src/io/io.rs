@@ -174,14 +174,14 @@ impl ResourceLoader for WebResourceLoader {
     }
 
     async fn async_load_bytes(&self, path: &str) -> Result<Vec<u8>> {
-        let url = self.asset_url(path)?;
+        let url = self.resource_url(path)?;
         let response = reqwest::get(url).await?;
         let bytes = response.bytes().await?;
         Ok(bytes.to_vec())
     }
 
     async fn async_load_string(&self, path: &str) -> Result<String> {
-        let url = self.asset_url(path)?;
+        let url = self.resource_url(path)?;
         let response = reqwest::get(url).await?;
         let text = response.text().await?;
         Ok(text)

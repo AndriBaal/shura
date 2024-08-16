@@ -15,9 +15,7 @@ fn scene(data: Option<Vec<u8>>) -> SerializedScene {
 #[shura::main]
 fn app(config: AppConfig) {
     let data = config.storage.load_bytes("data.binc").ok();
-    App::run(config, || {
-        scene(data)
-    });
+    App::run(config, || scene(data));
 }
 
 fn load_assets(ctx: &mut Context) {
@@ -25,12 +23,6 @@ fn load_assets(ctx: &mut Context) {
         "burger",
         SpriteBuilder::bytes(include_resource_bytes!("physics/burger.png")),
     );
-    ctx.assets
-        .load_smart_instance_buffer("boxes", SmartInstanceBuffer::<ColorInstance2D>::EVERY_FRAME);
-    ctx.assets
-        .load_smart_mesh("floor", SmartMesh::<ColorVertex2D>::MANUAL);
-    ctx.assets
-        .load_smart_mesh("player", SmartMesh::<SpriteVertex2D>::EVERY_FRAME);
 }
 
 fn setup(ctx: &mut Context) {
@@ -180,31 +172,44 @@ fn serialize_scene(ctx: &mut Context) {
 fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
     encoder.render2d(Some(Color::BLACK), |renderer| {
         renderer.draw_color(
-            &ctx.assets.smart_instances("boxes"),
+            &ctx.assets.write_instances(
+                "boxes",
+                &ctx.entities.instances::<PhysicsBox, _>(|b, data| {
+                    data.push(ColorInstance2D::new(
+                        b.body.position(ctx.world),
+                        PhysicsBox::BOX_SIZE,
+                        b.color,
+                    ))
+                }),
+            ),
             &ctx.default_assets.world_camera2d,
             &ctx.default_assets.position_mesh,
         );
 
         renderer.draw_sprite_mesh(
             &ctx.default_assets.world_camera2d,
-            &ctx.assets.smart_mesh("player"),
+            &ctx.assets.write_mesh(
+                "player",
+                &ctx.entities.meshes_with_offset::<Player, _>(|player| {
+                    (&player.mesh, player.body.position(ctx.world))
+                }),
+            ),
             &ctx.assets.get("burger"),
         );
 
         renderer.draw_color_mesh(
             &ctx.default_assets.world_camera2d,
-            &ctx.assets.get::<SmartMesh<ColorVertex2D>>("floor").mesh(),
+            &ctx.assets.write_mesh_once("floor", || {
+                ctx.entities.meshes_with_offset::<Floor, _>(|floor| {
+                    (&floor.mesh, floor.collider.position(ctx.world))
+                })
+            }),
         );
     })
 }
 
 #[derive(Entity, serde::Serialize, serde::Deserialize)]
 #[serde(crate = "shura::serde")]
-#[shura(
-    asset = "player", 
-    ty = SmartMesh<SpriteVertex2D>,
-    action = |player, asset, ctx| asset.push_offset(&player.mesh, player.body.position(ctx.world))
-)]
 struct Player {
     #[shura(component)]
     body: RigidBodyComponent,
@@ -234,11 +239,6 @@ impl Player {
 
 #[derive(Entity, serde::Serialize, serde::Deserialize)]
 #[serde(crate = "shura::serde")]
-#[shura(
-    asset = "floor", 
-    ty = SmartMesh<ColorVertex2D>,
-    action = |floor, asset, ctx| asset.push_offset(&floor.mesh, floor.collider.position(ctx.world))
-)]
 struct Floor {
     #[shura(component)]
     collider: ColliderComponent,
@@ -259,18 +259,13 @@ impl Floor {
         Self {
             collider: ColliderComponent::new(collider),
             mesh: MeshBuilder2D::from_collider_shape(&Floor::SHAPE, Floor::RESOLUTION, 0.0)
-                .set_data(Color::BLUE),
+                .apply_data(Color::BLUE),
         }
     }
 }
 
 #[derive(Entity, serde::Serialize, serde::Deserialize)]
 #[serde(crate = "shura::serde")]
-#[shura(
-    asset = "boxes", 
-    ty = SmartInstanceBuffer<ColorInstance2D>,
-    action = |b, asset, _|asset.push(ColorInstance2D::with_scaling(b.body.position(ctx.world), Self::BOX_SIZE, b.color));
-)]
 struct PhysicsBox {
     #[shura(component)]
     body: RigidBodyComponent,

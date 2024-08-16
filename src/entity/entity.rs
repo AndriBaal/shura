@@ -1,8 +1,7 @@
+use downcast_rs::{impl_downcast, Downcast};
+
 use crate::component::Component;
 use std::fmt::{Display, Formatter, Result};
-
-pub trait BufferEntityIterator<'a, E: Entity>: Iterator<Item = &'a E> + Clone + 'a {}
-impl<'a, E: Entity, I: Iterator<Item = &'a E> + Clone + 'a> BufferEntityIterator<'a, E> for I {}
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -29,4 +28,5 @@ pub trait EntityIdentifier: Entity {
     fn entity_type_id(&self) -> EntityId;
 }
 
-pub trait Entity: Component {}
+pub trait Entity: Component + Downcast {}
+impl_downcast!(Entity);

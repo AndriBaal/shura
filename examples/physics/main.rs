@@ -37,12 +37,6 @@ fn setup(ctx: &mut Context) {
         "burger",
         SpriteBuilder::bytes(include_resource_bytes!("physics/burger.png")),
     );
-    ctx.assets
-        .load_smart_instance_buffer("boxes", SmartInstanceBuffer::<ColorInstance2D>::EVERY_FRAME);
-    ctx.assets
-        .load_smart_mesh("floor", SmartMesh::<ColorVertex2D>::MANUAL);
-    ctx.assets
-        .load_smart_mesh("player", SmartMesh::<SpriteVertex2D>::EVERY_FRAME);
 }
 
 fn update(ctx: &mut Context) {
@@ -135,7 +129,16 @@ fn update(ctx: &mut Context) {
 fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
     encoder.render2d(Some(Color::BLACK), |renderer| {
         renderer.draw_color(
-            &ctx.assets.smart_instances("boxes"),
+            &ctx.assets.write_instances(
+                "boxes",
+                ctx.entities.instances(|b, data| {
+                    data.push(ColorInstance2D::with_scaling(
+                        b.body.position(ctx.world),
+                        Vector2::new(Self::HALF_BOX_SIZE * 2., Self::HALF_BOX_SIZE * 2.),
+                        b.color,
+                    ))
+                }),
+            ),
             &ctx.default_assets.world_camera2d,
             &ctx.default_assets.position_mesh,
         );
@@ -212,17 +215,12 @@ impl Floor {
         Self {
             collider: ColliderComponent::new(collider),
             mesh: MeshBuilder2D::from_collider_shape(&Floor::SHAPE, Floor::RESOLUTION, 0.0)
-                .set_data(Color::BLUE),
+                .apply_data(Color::BLUE),
         }
     }
 }
 
 #[derive(Entity)]
-#[shura(
-    asset = "boxes", 
-    ty = SmartInstanceBuffer<ColorInstance2D>,
-    action = |b, asset, _|asset.push(ColorInstance2D::new(b.body.position(ctx.world), Vector2::new(Self::HALF_BOX_SIZE * 2., Self::HALF_BOX_SIZE * 2.), b.color));
-)]
 struct PhysicsBox {
     #[shura(component)]
     body: RigidBodyComponent,

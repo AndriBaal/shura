@@ -18,10 +18,6 @@ fn setup(ctx: &mut Context) {
         FontBuilder::bytes(include_resource_bytes!("bunnymark/novem.ttf")),
     );
     ctx.assets.load_text_mesh::<&str>("text", "font", &[]);
-    ctx.assets.load_smart_instance_buffer::<SpriteInstance2D>(
-        "bunny_instances",
-        SmartInstanceBuffer::EVERY_FRAME,
-    );
     ctx.assets.load_sprite(
         "bunny_sprite",
         SpriteBuilder::bytes(include_resource_bytes!("bunnymark/wabbit.png")),
@@ -103,7 +99,12 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
         Some(RgbaColor::new(220, 220, 220, 255).into()),
         |renderer| {
             renderer.draw_sprite(
-                &ctx.assets.smart_instances("bunny_instances"),
+                &ctx.assets.write_instances(
+                    "bunny_instances",
+                    &ctx.entities.instances::<Bunny, _>(|bunny, data| {
+                        data.push(SpriteInstance2D::new(bunny.position, bunny.scaling, ()))
+                    }),
+                ),
                 &ctx.default_assets.world_camera2d,
                 &ctx.default_assets.sprite_mesh,
                 &ctx.assets.sprite("bunny_sprite"),

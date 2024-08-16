@@ -1,7 +1,7 @@
 use std::io::{BufReader, Cursor};
 
 use crate::{
-    graphics::{Gpu, Mesh3D, MeshData3D, Sprite, SpriteBuilder, Vertex3D},
+    graphics::{Gpu, Mesh3D, MeshBuilder3D, Sprite, SpriteBuilder, Vertex3D},
     io::GLOBAL_RESOURCE_LOADER,
     math::{Vector2, Vector3},
 };
@@ -125,7 +125,7 @@ impl Model {
                     .collect::<Vec<_>>();
                 (
                     m.mesh.material_id,
-                    gpu.create_mesh(&MeshData3D {
+                    gpu.create_mesh(&MeshBuilder3D {
                         vertices,
                         indices: m.mesh.indices,
                     }),

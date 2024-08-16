@@ -49,15 +49,7 @@ impl<'a> RenderEncoder<'a> {
         clear: Option<Color>,
         render: impl FnOnce(&mut Renderer<'b>),
     ) {
-        let mut renderer = Renderer::new(
-            &mut self.inner,
-            self.assets,
-            self.default_assets,
-            self.gpu,
-            self.default_target,
-            clear,
-            None,
-        );
+        let mut renderer = self.renderer(self.default_target, clear, None);
         (render)(&mut renderer);
     }
 
@@ -67,15 +59,7 @@ impl<'a> RenderEncoder<'a> {
         target: &'b dyn RenderTarget,
         render: impl FnOnce(&mut Renderer<'b>),
     ) {
-        let mut renderer = Renderer::new(
-            &mut self.inner,
-            self.assets,
-            self.default_assets,
-            self.gpu,
-            target,
-            clear,
-            None,
-        );
+        let mut renderer = self.renderer(target, clear, None);
         (render)(&mut renderer);
     }
 
@@ -84,15 +68,12 @@ impl<'a> RenderEncoder<'a> {
         clear: Option<Color>,
         render: impl FnOnce(&mut Renderer<'b>),
     ) {
-        let mut renderer = Renderer::new(
-            &mut self.inner,
-            self.assets,
-            self.default_assets,
-            self.gpu,
+        let mut renderer = self.renderer(
             self.default_target,
             clear,
             Some(&self.default_assets.depth_buffer),
         );
+
         (render)(&mut renderer);
     }
 
@@ -103,15 +84,7 @@ impl<'a> RenderEncoder<'a> {
         depth: Option<&'b DepthBuffer>,
         render: impl FnOnce(&mut Renderer<'b>),
     ) {
-        let mut renderer = Renderer::new(
-            &mut self.inner,
-            self.assets,
-            self.default_assets,
-            self.gpu,
-            target,
-            clear,
-            depth,
-        );
+        let mut renderer = self.renderer(target, clear, depth);
         (render)(&mut renderer);
     }
 
@@ -131,6 +104,23 @@ impl<'a> RenderEncoder<'a> {
             depth,
         )
     }
+
+    pub fn renderer2d<'b>(
+        &'b mut self,
+        clear: Option<Color>,
+    ) -> Renderer<'b> {
+        self.renderer2d_to(self.default_target, clear)
+    }
+
+
+    pub fn renderer2d_to<'b>(
+        &'b mut self,
+        target: &'b dyn RenderTarget,
+        clear: Option<Color>,
+    ) -> Renderer<'b> {
+        self.renderer(target, clear, None)
+    }
+
 
     pub fn copy_target(&mut self, src: &dyn RenderTarget, target: &dyn RenderTarget) {
         // if src

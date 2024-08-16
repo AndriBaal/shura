@@ -75,47 +75,6 @@ fn entity_name(ast: &DeriveInput) -> Option<Expr> {
     result
 }
 
-fn component_assets(ast: &DeriveInput) -> Vec<(String, Type, Expr)> {
-    let mut result = vec![];
-    for attr in &ast.attrs {
-        if attr.path().is_ident(IDENT_NAME) {
-            let mut asset_name = None;
-            let mut asset_type = None;
-            let mut asset_action = None;
-
-            let _ = attr.parse_nested_meta(|meta| {
-                let value = meta.value()?;
-                if meta.path.is_ident("asset") {
-                    if let Ok(lit_str) = value.parse::<LitStr>() {
-                        asset_name = Some(lit_str.value());
-                    }
-                } else if meta.path.is_ident("ty") {
-                    if let Ok(ty) = value.parse::<Type>() {
-                        asset_type = Some(ty);
-                    }
-                } else if meta.path.is_ident("action") {
-                    if let Ok(expr) = value.parse::<Expr>() {
-                        asset_action = Some(expr);
-                    }
-                }
-
-                Ok(())
-            });
-
-            if asset_name.is_some() || asset_type.is_some() || asset_action.is_some() {
-                let asset_name =
-                    asset_name.expect("Expected 'asset' argument in 'shura' attribute");
-                let asset_type = asset_type.expect("Expected 'ty' argument in 'shura' attribute");
-                let asset_action =
-                    asset_action.expect("Expected 'action' argument in 'shura' attribute");
-
-                result.push((asset_name, asset_type, asset_action))
-            }
-        }
-    }
-    result
-}
-
 fn component(ast: &DeriveInput) -> TokenStream2 {
     let data_struct = match ast.data {
         Data::Struct(ref data_struct) => data_struct,
@@ -138,42 +97,12 @@ fn component(ast: &DeriveInput) -> TokenStream2 {
             #name_lit => Some( &mut self.#field_name as _)
         }
     });
-    let buffer_children = components.iter().map(|(field_name, ty)| {
-        quote! {
-            #ty::buffer(iter.clone().map(|e| &e.#field_name), ctx);
-        }
-    });
 
     let components = components.keys().collect::<Vec<_>>();
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
-    let assets: Vec<(String, Type, Expr)> = component_assets(ast);
-    let assets = assets.iter().map(|(asset_name, asset_type, action)| {
-        quote! {
-            let mut asset = ctx.assets.get_dyn_mut(#asset_name);
-            if asset.needs_update() {
-                let asset = asset.downcast_mut::<#asset_type>().unwrap();
-                for obj in iter.clone() {
-                    fn exec(obj: &#struct_name #ty_generics, asset: &mut #asset_type, ctx: &::shura::context::Context, mut f: impl FnMut(&#struct_name #ty_generics, &mut #asset_type, &::shura::context::Context)) {
-                        (f)(obj, asset, ctx)
-                    }
-                    exec(obj, asset, ctx, #action)
-                }
-            }
-        }
-    });
 
     quote!(
         impl #impl_generics ::shura::component::Component for #struct_name #ty_generics #where_clause {
-            fn buffer<'a>(
-                iter: impl ::shura::component::BufferComponentIterator<'a, Self>,
-                ctx: &::shura::context::Context
-            ) where
-                Self: Sized,
-            {
-                #( #assets )*
-                #( #buffer_children )*
-            }
-
             fn init(&mut self, handle: ::shura::entity::EntityHandle, world: &mut ::shura::physics::World) {
                 use ::shura::component::Component;
                 #( self.#components.init(handle, world); )*

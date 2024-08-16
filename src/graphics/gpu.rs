@@ -14,7 +14,7 @@ use crate::text::{Font, FontBuilder, TextMesh, TextSection, TextVertex2D};
 use crate::{
     graphics::{
         Camera, Camera2D, CameraBuffer, CameraBuffer2D, ColorInstance2D, ColorVertex2D,
-        DepthBuffer, Instance, Instance3D, InstanceBuffer, Mesh, MeshData, MeshBuilder2D, Model,
+        DepthBuffer, Instance, Instance3D, InstanceBuffer, Mesh, MeshBuilder, MeshBuilder2D, Model,
         ModelBuilder, PositionVertex2D, RenderEncoder, Shader, ShaderConfig, ShaderModule,
         ShaderModuleDescriptor, ShaderModuleSource, Sprite, SpriteArray, SpriteArrayBuilder,
         SpriteArrayCropInstance2D, SpriteArrayInstance2D, SpriteArrayVertex2D, SpriteBuilder,
@@ -23,6 +23,7 @@ use crate::{
         WorldCamera3D,
     },
     math::{Isometry2, Vector2},
+    tasks::TaskManager,
 };
 
 use super::PositionMesh2D;
@@ -73,7 +74,7 @@ pub struct Gpu {
 }
 
 impl Gpu {
-    pub(crate) async fn new(window: Arc<Window>, gpu_config: GpuConfig) -> Self {
+    pub(crate) fn new(window: Arc<Window>, gpu_config: GpuConfig) -> Self {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: gpu_config.backends,
             dx12_shader_compiler: wgpu::Dx12Compiler::Fxc,
@@ -81,27 +82,24 @@ impl Gpu {
         });
         // Important: Request surface before adapter!
         let surface = instance.create_surface(window.clone()).unwrap();
-        let adapter = instance
-            .request_adapter(&wgpu::RequestAdapterOptions {
+        let adapter =
+            TaskManager::await_future(instance.request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::HighPerformance,
                 compatible_surface: Some(&surface),
                 force_fallback_adapter: false,
-            })
-            .await
+            }))
             .expect("Invalid Graphics Backend!");
 
-        let (device, queue) = adapter
-            .request_device(
-                &wgpu::DeviceDescriptor {
-                    label: None,
-                    required_features: gpu_config.device_features,
-                    required_limits: gpu_config.device_limits.using_resolution(adapter.limits()),
-                    memory_hints: wgpu::MemoryHints::Performance,
-                },
-                None,
-            )
-            .await
-            .unwrap();
+        let (device, queue) = TaskManager::await_future(adapter.request_device(
+            &wgpu::DeviceDescriptor {
+                label: None,
+                required_features: gpu_config.device_features,
+                required_limits: gpu_config.device_limits.using_resolution(adapter.limits()),
+                memory_hints: wgpu::MemoryHints::Performance,
+            },
+            None,
+        ))
+        .expect("Cannot find device!");
 
         #[cfg(feature = "log")]
         {
@@ -299,7 +297,7 @@ impl Gpu {
         CameraBuffer::new(self, camera)
     }
 
-    pub fn create_mesh<V: Vertex>(&self, builder: &dyn MeshData<Vertex = V>) -> Mesh<V> {
+    pub fn create_mesh<V: Vertex>(&self, builder: &dyn MeshBuilder<Vertex = V>) -> Mesh<V> {
         Mesh::new(self, builder)
     }
 

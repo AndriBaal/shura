@@ -84,7 +84,7 @@ impl AppConfig {
     pub fn new(#[cfg(target_os = "android")] android: AndroidApp) -> Self {
         #[cfg(target_arch = "wasm32")]
         let (assets, storage) = (
-            crate::io::WebAssetManager,
+            crate::io::WebResourceLoader,
             crate::io::UnimplementedStorageLoader,
         );
 
@@ -385,14 +385,17 @@ impl App {
             body.append_child(canvas).ok();
         }
 
-        let gpu = pollster::block_on(Gpu::new(window.clone(), config.gpu));
+        let gpu = Gpu::new(window.clone(), config.gpu);
         let gpu = Arc::new(gpu);
         gpu.resume(&window);
 
         let assets = Arc::new(AssetManager::new(config.assets.clone(), gpu.clone()));
 
         GLOBAL_GPU.set(gpu.clone()).ok().unwrap();
-        GLOBAL_RESOURCE_LOADER.set(config.assets.clone()).ok().unwrap();
+        GLOBAL_RESOURCE_LOADER
+            .set(config.assets.clone())
+            .ok()
+            .unwrap();
         GLOBAL_ASSETS.set(assets.clone()).ok().unwrap();
         GLOBAL_STORAGE_LOADER
             .set(config.storage.clone())
@@ -500,7 +503,7 @@ impl App {
         self.update(scene_id, scene, event_loop);
         scene.screen_config.changed = false;
         if scene.render_entities || resized {
-            self.render(scene_id, scene, event_loop);
+            self.render(scene);
         }
         self.input.update();
     }
@@ -567,12 +570,7 @@ impl App {
         scene.groups.update(&scene.world_camera2d);
     }
 
-    fn buffer(&mut self, scene_id: u32, scene: &mut Scene, event_loop: &ActiveEventLoop) {
-        self.assets.prepare(&scene.groups);
-        let (_, _, ctx) = &Context::new(&scene_id, self, scene, event_loop);
-        ctx.entities.buffer(&ctx);
-        self.assets.apply();
-
+    fn buffer(&mut self, scene: &mut Scene) {
         let mut default_assets = self.assets.default_assets_mut();
         default_assets
             .world_camera2d
@@ -587,8 +585,8 @@ impl App {
             .write(&self.gpu, [self.time.total(), self.time.delta()]);
     }
 
-    fn render(&mut self, scene_id: u32, scene: &mut Scene, event_loop: &ActiveEventLoop) {
-        self.buffer(scene_id, scene, event_loop);
+    fn render(&mut self, scene: &mut Scene) {
+        self.buffer(scene);
 
         let surface_target = self.gpu.start_frame(&self.gpu);
         let default_assets = self.assets.default_assets();

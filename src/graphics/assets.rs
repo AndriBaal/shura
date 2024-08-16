@@ -18,10 +18,9 @@ use crate::audio::Sound;
 use crate::text::{Font, FontBuilder, TextMesh, TextSection};
 
 use crate::{
-    entity::EntityGroupManager,
     graphics::{
         Camera, CameraBuffer, DefaultAssets, DepthBuffer, Gpu, Instance, InstanceBuffer, Mesh,
-        MeshData, Model, ModelBuilder, RenderTarget, Shader, ShaderConfig, ShaderModule,
+        MeshBuilder, Model, ModelBuilder, RenderTarget, Shader, ShaderConfig, ShaderModule,
         ShaderModuleDescriptor, Sprite, SpriteArray, SpriteArrayBuilder, SpriteBuilder,
         SpriteRenderTarget, UniformData, Vertex,
     },
@@ -29,16 +28,8 @@ use crate::{
     math::Vector2,
 };
 
-use super::{SmartInstanceBuffer, SmartMesh};
-
 pub static GLOBAL_ASSETS: OnceLock<Arc<AssetManager>> = OnceLock::new();
-pub trait Asset: Send + Sync + Downcast {
-    fn needs_update(&self) -> bool {
-        false
-    }
-    fn prepare(&mut self, _groups: &EntityGroupManager) {}
-    fn apply(&mut self, _gpu: &Gpu) {}
-}
+pub trait Asset: Send + Sync + Downcast {}
 impl_downcast!(Asset);
 
 pub type AssetKey = &'static str;
@@ -65,24 +56,16 @@ impl AssetManager {
         }
     }
 
-    pub(crate) fn prepare(&self, groups: &EntityGroupManager) {
-        for mut asset in self.assets.iter_mut() {
-            asset.prepare(groups)
-        }
-    }
-
-    pub(crate) fn apply(&self) {
-        for mut asset in self.assets.iter_mut() {
-            asset.apply(&self.gpu)
-        }
-    }
-
     pub fn default_assets(&self) -> impl Deref<Target = DefaultAssets> + '_ {
         self.default_assets.read()
     }
 
     pub(crate) fn default_assets_mut(&self) -> impl DerefMut<Target = DefaultAssets> + '_ {
         self.default_assets.write()
+    }
+
+    pub fn exists(&self, key: AssetKey) -> bool {
+        self.assets.contains_key(key)
     }
 
     pub fn get_dyn(&self, key: AssetKey) -> AssetDynamic {
@@ -132,29 +115,69 @@ impl AssetManager {
         self.get(key)
     }
 
-    pub fn smart_mesh<V: Vertex>(&self, key: AssetKey) -> AssetWrap<SmartMesh<V>> {
-        self.get(key)
-    }
-
-    pub fn smart_instances<I: Instance>(&self, key: AssetKey) -> AssetWrap<SmartInstanceBuffer<I>> {
-        self.get(key)
-    }
-
     pub fn instances<I: Instance>(&self, key: AssetKey) -> AssetWrap<InstanceBuffer<I>> {
         self.get(key)
     }
 
-    pub fn write_instances<I: Instance>(&self, key: AssetKey, data: &[I]) {
-        self.get_mut::<InstanceBuffer<I>>(key)
-            .write(&self.gpu, data)
+    pub fn write_instances<I: Instance>(
+        &self,
+        key: AssetKey,
+        data: &[I],
+    ) -> AssetWrapMut<InstanceBuffer<I>> {
+        return if !self.exists(key) {
+            self.load_instance_buffer(key, data);
+            self.get_mut(key)
+        } else {
+            let mut instance_buffer = self.get_mut::<InstanceBuffer<I>>(key);
+            instance_buffer.write(&self.gpu, data);
+            instance_buffer
+        };
+    }
+
+    pub fn write_instances_once<I: Instance>(
+        &self,
+        key: AssetKey,
+        mut data: impl (FnMut() -> Vec<I>),
+    ) -> AssetWrapMut<InstanceBuffer<I>> {
+        if !self.exists(key) {
+            let instances = data();
+            self.load(key, InstanceBuffer::<I>::new(&self.gpu, &instances));
+        }
+
+        self.get_mut::<_>(key)
     }
 
     pub fn mesh<V: Vertex>(&self, key: AssetKey) -> AssetWrap<Mesh<V>> {
         self.get(key)
     }
 
-    pub fn write_mesh<V: Vertex>(&self, key: AssetKey, data: impl MeshData<Vertex = V>) {
-        self.get_mut::<Mesh<V>>(key).write(&self.gpu, data)
+    pub fn write_mesh<V: Vertex, M: MeshBuilder<Vertex = V>>(
+        &self,
+        key: AssetKey,
+        data: &M,
+    ) -> AssetWrapMut<Mesh<V>> {
+        return if !self.exists(key) {
+            self.load_mesh(key, data);
+            self.get_mut(key)
+        } else {
+            let mut mesh = self.get_mut::<Mesh<V>>(key);
+            mesh.write(&self.gpu, data);
+            mesh
+        };
+    }
+
+    // TODO: Manual rebuffer && buffer on group change
+    pub fn write_mesh_once<V: Vertex, M: MeshBuilder<Vertex = V>>(
+        &self,
+        key: AssetKey,
+        mut data: impl (FnMut() -> M),
+    ) -> AssetWrapMut<Mesh<V>> {
+        if !self.exists(key) {
+            let mesh_builder = data();
+            self.load(key, Mesh::<V>::new(&self.gpu, &mesh_builder));
+        }
+
+        self.get_mut::<Mesh<V>>(key)
     }
 
     pub fn write_text<S: AsRef<str>>(
@@ -162,9 +185,16 @@ impl AssetManager {
         key: AssetKey,
         font: AssetKey,
         sections: &[TextSection<S>],
-    ) {
-        self.get_mut::<TextMesh>(key)
-            .write(&self.gpu, &self.get(font), sections)
+    ) -> AssetWrapMut<TextMesh> {
+        return if !self.exists(key) {
+            self.load_text_mesh(key, font, sections);
+            self.get_mut(key)
+        } else {
+            let mut mesh = self.get_mut::<TextMesh>(key);
+            let font = self.get(font);
+            mesh.write(&self.gpu, &font, sections);
+            mesh
+        };
     }
 
     pub fn uniform<D: bytemuck::Pod + Send + Sync>(
@@ -249,14 +279,6 @@ impl AssetManager {
         self.load(key, SpriteRenderTarget::custom(&self.gpu, sprite));
     }
 
-    pub fn load_smart_instance_buffer<I: Instance>(
-        &self,
-        key: AssetKey,
-        smart_buffer: SmartInstanceBuffer<I>,
-    ) {
-        self.load(key, smart_buffer);
-    }
-
     pub fn load_instance_buffer<I: Instance>(&self, key: AssetKey, instances: &[I]) {
         self.load(key, InstanceBuffer::new(&self.gpu, instances));
     }
@@ -265,11 +287,7 @@ impl AssetManager {
         self.load(key, CameraBuffer::new(&self.gpu, camera));
     }
 
-    pub fn load_smart_mesh<V: Vertex>(&self, key: AssetKey, smart_mesh: SmartMesh<V>) {
-        self.load(key, smart_mesh);
-    }
-
-    pub fn load_mesh<V: Vertex>(&self, key: AssetKey, builder: &dyn MeshData<Vertex = V>) {
+    pub fn load_mesh<V: Vertex>(&self, key: AssetKey, builder: &dyn MeshBuilder<Vertex = V>) {
         self.load(key, Mesh::new(&self.gpu, builder));
     }
 
