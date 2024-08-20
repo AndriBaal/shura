@@ -1,6 +1,6 @@
 use shura::prelude::*;
 
-#[shura::main]
+#[shura::app]
 fn app(config: AppConfig) {
     App::run(config, || {
         Scene::new()
@@ -29,8 +29,6 @@ fn setup(ctx: &mut Context) {
         }),
     );
 
-    ctx.assets
-        .load_smart_instance_buffer("cubes", SmartInstanceBuffer::<Instance3D>::EVERY_FRAME);
     ctx.assets.load_model(
         "cube",
         ModelBuilder::bytes(
@@ -86,20 +84,17 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
         Some(RgbaColor::new(220, 220, 220, 255).into()),
         |renderer| {
             renderer.draw_model(
-                &ctx.assets.smart_instances("cubes"),
-                &ctx.default_assets.world_camera3d,
+                &ctx.write_instance_entities::<Cube, _>("cubes", |cube, data| {
+                    data.push(Instance3D::new(cube.position, Vector3::new(1.0, 1.0, 1.0)))
+                }),
                 &ctx.assets.model("cube"),
+                &ctx.default_assets.world_camera3d,
             );
         },
     );
 }
 
 #[derive(Entity)]
-#[shura(
-    asset = "cubes", 
-    ty = SmartInstanceBuffer<Instance3D>,
-    action = |cube, asset, _|asset.push(Instance3D::new(cube.position, Vector3::new(1.0, 1.0, 1.0)));
-)]
 struct Cube {
     position: Isometry3<f32>,
 }

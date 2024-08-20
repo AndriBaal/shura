@@ -160,7 +160,7 @@ impl SpriteRenderTarget {
         let assets = GLOBAL_ASSETS.get().unwrap();
         let gpu = GLOBAL_GPU.get().unwrap();
         let default_assets = assets.default_assets();
-        let mut encoder = RenderEncoder::new(gpu, assets, &*default_assets, self);
+        let mut encoder = RenderEncoder::new(gpu, assets, &default_assets, self);
         compute(&mut encoder);
     }
 

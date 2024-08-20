@@ -2,59 +2,35 @@ use proc_macro::TokenStream;
 use std::collections::HashMap;
 
 use proc_macro2::{Ident, TokenStream as TokenStream2};
-use quote::{quote, ToTokens};
+use quote::quote;
 use syn::{
-    parse_macro_input, parse_quote, Data, DataStruct, DeriveInput, Expr, Fields, LitStr, Type,
+    parse_macro_input, parse_quote, parse_str, Data, DataStruct, DeriveInput, Expr, LitStr, Type,
 };
 
 type AllComponents = HashMap<Ident, Type>;
-type TaggedComponents = HashMap<String, Ident>;
 
 const IDENT_NAME: &str = "shura";
 
-#[derive(Default)]
-struct ComponentBundleData {
-    components: AllComponents,
-    tagged_components: TaggedComponents,
-}
-
-fn component_data(data_struct: &DataStruct) -> ComponentBundleData {
-    let mut data = ComponentBundleData::default();
-    match &data_struct.fields {
-        Fields::Named(fields_named) => {
-            for field in fields_named.named.iter() {
-                for attr in &field.attrs {
-                    if attr.path().is_ident(IDENT_NAME) {
-                        attr.parse_nested_meta(|meta| {
-                            let field_name = field.ident.as_ref().unwrap();
-                            if meta.path.is_ident("component") {
-                                data.components.insert(field_name.clone(), field.ty.clone());
-                                if let Ok(value) = meta.value() {
-                                    if let Ok(name) = value.parse::<LitStr>() {
-                                        let value = name.value();
-                                        if data.tagged_components.contains_key(&value) {
-                                            panic!("'#[shura(component=\"{value}\")]' must be unique per Entity!");
-                                        }
-
-                                        data.tagged_components.insert(value, field_name.clone());
-                                    }
-                                }
-                            }
-                            Ok(())
-                        })
-                        .expect(
-                            "Define your components like the this: '#[shura(component)]'",
-                        );
+fn component_data(data_struct: &DataStruct) -> AllComponents {
+    let mut components = AllComponents::default();
+    for field in data_struct.fields.iter() {
+        for attr in &field.attrs {
+            if attr.path().is_ident(IDENT_NAME) {
+                attr.parse_nested_meta(|meta| {
+                    let field_name = field.ident.as_ref().unwrap();
+                    if meta.path.is_ident("component") {
+                        components.insert(field_name.clone(), field.ty.clone());
                     }
-                }
+                    Ok(())
+                })
+                .expect("Define your components like the this: '#[shura(component)]'");
             }
         }
-        _ => panic!("Fields must be named!"),
-    };
-    data
+    }
+    components
 }
 
-fn entity_name(ast: &DeriveInput) -> Option<Expr> {
+fn identifier_name(ast: &DeriveInput) -> Option<Expr> {
     const ATTR_NAME: &str = "name";
     let mut result: Option<Expr> = None;
     for attr in &ast.attrs {
@@ -75,34 +51,70 @@ fn entity_name(ast: &DeriveInput) -> Option<Expr> {
     result
 }
 
-fn component(ast: &DeriveInput) -> TokenStream2 {
+fn component(ast: &DeriveInput, trait_type: Type, trait_identifier_type: Type) -> TokenStream2 {
     let data_struct = match ast.data {
         Data::Struct(ref data_struct) => data_struct,
         _ => panic!("Must be a struct!"),
     };
-    let struct_name = ast.ident.clone();
-    let ComponentBundleData {
-        components,
-        tagged_components,
-    } = component_data(data_struct);
-    let names = tagged_components.keys();
 
-    let component = tagged_components.iter().map(|(name_lit, field_name)| {
-        quote! {
-            #name_lit => Some( &self.#field_name as _)
-        }
-    });
-    let component_mut = tagged_components.iter().map(|(name_lit, field_name)| {
-        quote! {
-            #name_lit => Some( &mut self.#field_name as _)
-        }
-    });
+    let struct_name = ast.ident.clone();
+    let struct_name_str = struct_name.to_string();
+    let struct_identifier = identifier_name(ast).unwrap_or(parse_quote!(#struct_name_str));
+    let components = component_data(data_struct);
+
+    let component = components
+        .iter()
+        .enumerate()
+        .map(|(idx, (field_name, _field_type))| {
+            let idx = idx as u32;
+            quote! {
+                #idx => Some( &self.#field_name as _)
+            }
+        });
+    let component_mut = components
+        .iter()
+        .enumerate()
+        .map(|(idx, (field_name, _field_type))| {
+            let idx = idx as u32;
+            quote! {
+                #idx => Some( &mut self.#field_name as _)
+            }
+        });
+
+    
+    let component_identifiers = components
+        .iter()
+        .enumerate()
+        .map(|(idx, (_field_name, field_type))| {
+            let idx = idx as u32;
+            quote! {
+                (#field_type::IDENTIFIER, #idx)
+            }
+        });
+
+    let component_identifiers_recursive = components
+        .iter()
+        .enumerate()
+        .map(|(idx, (_field_name, field_type))| {
+            let idx = idx as u32;
+            quote! {
+                result.push((#field_type::IDENTIFIER, vec![#idx]));
+                for (identifier, mut indexes) in #field_type::component_identifiers_recursive() {
+                    indexes.insert(0, #idx);
+                    result.push((identifier, indexes));
+                }
+            }
+        });
 
     let components = components.keys().collect::<Vec<_>>();
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
 
     quote!(
-        impl #impl_generics ::shura::component::Component for #struct_name #ty_generics #where_clause {
+        impl #impl_generics ::shura::entity::ConstIdentifier for #struct_name #ty_generics #where_clause {
+            const TYPE_NAME: &'static str = #struct_identifier;
+        }
+        impl #impl_generics #trait_identifier_type for #struct_name #ty_generics #where_clause {}
+        impl #impl_generics #trait_type for #struct_name #ty_generics #where_clause {
             fn init(&mut self, handle: ::shura::entity::EntityHandle, world: &mut ::shura::physics::World) {
                 use ::shura::component::Component;
                 #( self.#components.init(handle, world); )*
@@ -113,26 +125,36 @@ fn component(ast: &DeriveInput) -> TokenStream2 {
                 #( self.#components.finish(world); )*
             }
 
-            fn component(&self, name: &'static str) -> Option<&dyn ::shura::component::Component> {
-                match name {
+            fn component(&self, idx: u32) -> Option<&dyn ::shura::component::Component> {
+                match idx {
                     #( #component, )*
                     _ => None
                 }
             }
 
-            fn component_mut(&mut self, name: &'static str) -> Option<&mut dyn ::shura::component::Component> {
-                match name {
+            fn component_mut(&mut self, idx: u32) -> Option<&mut dyn ::shura::component::Component> {
+                match idx {
                     #( #component_mut, )*
                     _ => None
                 }
             }
 
-            fn remove_from_world(&self, world: &mut ::shura::physics::World) {
-                #( self.#components.remove_from_world(world); )*
+            fn component_identifiers() -> &'static [(::shura::entity::ConstTypeId, u32)]
+            where
+                Self: Sized,
+            {
+                &[
+                    #( #component_identifiers, )*
+                ]
             }
 
-            fn tags() -> &'static [&'static str] where Self: Sized{
-                return &[ #( #names, )* ];
+            fn component_identifiers_recursive() -> Vec<(::shura::entity::ConstTypeId, Vec<u32>)>
+            where
+                Self: Sized,
+            {
+                let mut result = vec![];
+                #( #component_identifiers_recursive )*
+                return result;
             }
         }
     )
@@ -141,45 +163,29 @@ fn component(ast: &DeriveInput) -> TokenStream2 {
 #[proc_macro_derive(Component, attributes(shura))]
 pub fn derive_component(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
-    let component = component(&ast);
+    let component = component(
+        &ast,
+        parse_str("::shura::component::Component").unwrap(),
+        parse_str("::shura::component::ComponentIdentifier").unwrap(),
+    );
 
-    quote!(
-        #component
-    )
-    .into()
+    component.into()
 }
 
 #[proc_macro_derive(Entity, attributes(shura))]
 pub fn derive_entity(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
-    let struct_name = ast.ident.clone();
-    let struct_name_str = struct_name.to_string();
-    let struct_identifier = entity_name(&ast).unwrap_or(parse_quote!(#struct_name_str));
-    let struct_identifier_str = struct_identifier.to_token_stream().to_string();
-    let hash = const_fnv1a_hash::fnv1a_hash_str_32(&struct_identifier_str);
-
-    let component = component(&ast);
-    let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
-    quote!(
-        #component
-
-        impl #impl_generics ::shura::entity::Entity for #struct_name #ty_generics #where_clause {}
-
-        impl #impl_generics ::shura::entity::EntityIdentifier for #struct_name #ty_generics #where_clause {
-            const TYPE_NAME: &'static str = #struct_identifier;
-            const IDENTIFIER: ::shura::entity::EntityId = ::shura::entity::EntityId::new(#hash);
-
-            fn entity_type_id(&self) -> ::shura::entity::EntityId {
-                Self::IDENTIFIER
-            }
-        }
-    )
-    .into()
+    let entity = component(
+        &ast,
+        parse_str("::shura::entity::Entity").unwrap(),
+        parse_str("::shura::entity::EntityIdentifier").unwrap(),
+    );
+    entity.into()
 }
 
 #[proc_macro_attribute]
 /// This macro helps setup a cross plattform main method
-pub fn main(_args: TokenStream, item: TokenStream) -> TokenStream {
+pub fn app(_args: TokenStream, item: TokenStream) -> TokenStream {
     let item: TokenStream2 = item.into();
     quote!(
         #item

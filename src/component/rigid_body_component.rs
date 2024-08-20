@@ -1,9 +1,10 @@
 use crate::{
-    component::Component,
-    entity::EntityHandle,
+    component::{Component, ComponentIdentifier},
+    entity::{ConstIdentifier, EntityHandle},
     math::Isometry2,
     physics::{Collider, ColliderHandle, RigidBody, RigidBodyHandle, World},
 };
+
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum RigidBodyComponentStatus {
@@ -118,6 +119,10 @@ impl RigidBodyComponent {
     }
 }
 
+impl ConstIdentifier for RigidBodyComponent {
+    const TYPE_NAME: &'static str = "__shura_rigid_body_component";
+}
+impl ComponentIdentifier for RigidBodyComponent {}
 impl Component for RigidBodyComponent {
     fn init(&mut self, handle: EntityHandle, world: &mut World) {
         match self.status {
@@ -146,9 +151,5 @@ impl Component for RigidBodyComponent {
             }
             RigidBodyComponentStatus::Uninitialized { .. } => (),
         }
-    }
-
-    fn remove_from_world(&self, world: &mut World) {
-        world.remove_no_maintain_rigid_body(self)
     }
 }

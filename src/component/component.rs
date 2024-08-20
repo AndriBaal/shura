@@ -1,23 +1,34 @@
-use crate::{entity::EntityHandle, physics::World};
+use crate::{
+    entity::{ConstIdentifier, ConstTypeId, EntityHandle},
+    physics::World,
+};
 use downcast_rs::{impl_downcast, Downcast};
 use std::collections::{BTreeMap, HashMap, LinkedList, VecDeque};
+
+pub trait ComponentIdentifier: ConstIdentifier + Component {}
 
 #[allow(unused_variables)]
 pub trait Component: Downcast {
     fn init(&mut self, handle: EntityHandle, world: &mut World) {}
     fn finish(&mut self, world: &mut World) {}
-    fn remove_from_world(&self, world: &mut World) {}
-    fn component<'a>(&'a self, tag: &'static str) -> Option<&'a dyn Component> {
+    fn component(&self, idx: u32) -> Option<&dyn Component> {
         None
     }
-    fn component_mut<'a>(&'a mut self, tag: &'static str) -> Option<&'a mut dyn Component> {
+    fn component_mut(&mut self, idx: u32) -> Option<&mut dyn Component> {
         None
     }
-    fn tags() -> &'static [&'static str]
+    fn component_identifiers() -> &'static [(ConstTypeId, u32)]
     where
         Self: Sized,
     {
         &[]
+    }
+
+    fn component_identifiers_recursive() -> Vec<(ConstTypeId, Vec<u32>)>
+    where
+        Self: Sized,
+    {
+        vec![]
     }
 }
 impl_downcast!(Component);
@@ -33,12 +44,6 @@ macro_rules! impl_collection_inner {
         fn finish(&mut self, world: &mut World) {
             for component in self.iter_mut() {
                 component.finish(world);
-            }
-        }
-
-        fn remove_from_world(&self, world: &mut World) {
-            for component in self.iter() {
-                component.remove_from_world(world);
             }
         }
     };
@@ -64,12 +69,6 @@ macro_rules! impl_collection_map {
             fn finish(&mut self, world: &mut World) {
                 for component in self.values_mut() {
                     component.finish(world);
-                }
-            }
-
-            fn remove_from_world(&self, world: &mut World) {
-                for component in self.values() {
-                    component.remove_from_world(world);
                 }
             }
         }

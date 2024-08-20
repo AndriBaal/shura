@@ -311,6 +311,10 @@ impl Color {
         Self { r, g, b, a }
     }
 
+    pub fn new_rgba(r: u8, g: u8, b: u8, a: u8) -> Self {
+        RgbaColor::new(r, g, b, a).into()
+    }
+
     pub fn set(&mut self, r: f32, g: f32, b: f32, a: f32) {
         self.r = r;
         self.g = g;

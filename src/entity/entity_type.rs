@@ -7,8 +7,8 @@ use crate::{arena::ArenaEntry, rayon::prelude::*};
 use crate::{
     arena::{Arena, ArenaIndex, ArenaIter, ArenaIterMut},
     entity::{
-        Entity, EntityGroupHandle, EntityGroupManager, EntityHandle, EntityId, EntityIdentifier,
-        EntityIndex,
+        Entity, EntityGroupHandle, EntityGroupManager, EntityHandle, ConstTypeId, EntityIdentifier,
+        EntityIndex, ConstIdentifier
     },
     physics::World,
 };
@@ -18,7 +18,7 @@ pub trait EntityType: Downcast {
     type Entity: EntityIdentifier
     where
         Self: Sized;
-    fn entity_type_id(&self) -> EntityId;
+    fn entity_type_id(&self) -> ConstTypeId;
     fn remove_group(
         &mut self,
         world: &mut World,
@@ -40,10 +40,11 @@ pub trait EntityType: Downcast {
     fn iter_render<'a>(
         &'a self,
         groups: &'a EntityGroupManager,
-    ) -> impl Iterator<Item = &Self::Entity> + Clone + 'a
-    where
-        Self: Sized;
+    ) -> Box<dyn Iterator<Item = &dyn Entity> + 'a>;
     fn len(&self) -> usize;
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 impl_downcast!(EntityType);
 
@@ -193,17 +194,17 @@ impl<E: EntityIdentifier> SingleEntity<E> {
 
 impl<E: EntityIdentifier> EntityType for SingleEntity<E> {
     type Entity = E;
-    fn entity_type_id(&self) -> EntityId {
+    fn entity_type_id(&self) -> ConstTypeId {
         E::IDENTIFIER
     }
     fn iter_render<'a>(
         &'a self,
         _groups: &'a EntityGroupManager,
-    ) -> impl Iterator<Item = &Self::Entity> + Clone + 'a
+    ) -> Box<dyn Iterator<Item = &dyn Entity> + 'a>
     where
         Self: Sized,
     {
-        self.entity.iter()
+        Box::new(self.entity.iter().map(|e| e as &dyn Entity))
     }
 
     fn dyn_iter<'a>(&'a self) -> Box<dyn Iterator<Item = (EntityHandle, &dyn Entity)> + 'a> {
@@ -471,18 +472,18 @@ impl<'a, E: EntityIdentifier> IntoIterator for &'a mut Entities<E> {
 impl<E: EntityIdentifier> EntityType for Entities<E> {
     type Entity = E;
 
-    fn entity_type_id(&self) -> EntityId {
+    fn entity_type_id(&self) -> ConstTypeId {
         E::IDENTIFIER
     }
 
     fn iter_render<'a>(
         &'a self,
         _groups: &'a EntityGroupManager,
-    ) -> impl Iterator<Item = &Self::Entity> + Clone + 'a
+    ) -> Box<dyn Iterator<Item = &dyn Entity> + 'a>
     where
         Self: Sized,
     {
-        self.entities.iter()
+        Box::new(self.entities.iter().map(|e| e as &dyn Entity))
     }
 
     fn dyn_iter<'a>(&'a self) -> Box<dyn Iterator<Item = (EntityHandle, &dyn Entity)> + 'a> {
@@ -803,21 +804,21 @@ impl<ET: EntityType + Default> EntityType for GroupedEntities<ET> {
         None
     }
 
-    fn entity_type_id(&self) -> EntityId {
+    fn entity_type_id(&self) -> ConstTypeId {
         ET::Entity::IDENTIFIER
     }
 
     fn iter_render<'a>(
         &'a self,
         groups: &'a EntityGroupManager,
-    ) -> impl Iterator<Item = &Self::Entity> + Clone + 'a
+    ) -> Box<dyn Iterator<Item = &dyn Entity> + 'a>
     where
         Self: Sized,
     {
-        groups
+        Box::new(groups
             .render_groups()
             .iter()
-            .flat_map(|g| self.get_group(g).unwrap().iter_render(groups))
+            .flat_map(|g| self.get_group(g).unwrap().iter_render(groups)))
     }
 
     fn dyn_iter<'a>(&'a self) -> Box<dyn Iterator<Item = (EntityHandle, &dyn Entity)> + 'a> {

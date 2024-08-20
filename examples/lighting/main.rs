@@ -4,7 +4,7 @@ use std::f32::consts::{PI, TAU};
 
 const SIZE: Vector2<u32> = vector!(800, 800);
 
-#[shura::main]
+#[shura::app]
 fn app(mut config: AppConfig) {
     config.gpu.max_samples = 1;
     App::run(config, || {

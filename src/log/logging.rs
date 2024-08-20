@@ -44,7 +44,7 @@ impl LoggerBuilder {
         Self { env: builder }
     }
 
-    pub fn init(mut self) -> Result<(), SetLoggerError> {
+    pub fn init(&mut self) -> Result<(), SetLoggerError> {
         let logger = Logger {
             env: self.env.build(),
             #[cfg(target_arch = "wasm32")]

@@ -11,8 +11,8 @@ use crate::{
 #[derive(Clone)]
 pub struct SimpleCharacterControllerComponent<S: Shape> {
     pub shape: S,
-    position: Isometry2<f32>,
-    linvel: Vector2<f32>,
+    pub position: Isometry2<f32>,
+    pub linvel: Vector2<f32>,
 }
 
 impl<S: Shape> SimpleCharacterControllerComponent<S> {
@@ -120,6 +120,7 @@ impl<S: Shape> SimpleCharacterControllerComponent<S> {
         ) {
             let allowed_dist = toi.time_of_impact;
             desired_translation = translation_dir * allowed_dist;
+            // TODO: Collision callback
         }
 
         self.set_translation(self.translation() + desired_translation);

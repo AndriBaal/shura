@@ -1,7 +1,6 @@
 use std::{
     f32::consts::{FRAC_PI_2, PI},
     fmt::Debug,
-    marker::PhantomData,
     mem,
 };
 use wgpu::util::DeviceExt;
@@ -40,7 +39,6 @@ pub type ColorMesh2D = Mesh<ColorVertex2D>;
 pub type PositionMesh2D = Mesh<PositionVertex2D>;
 pub type Mesh3D = Mesh<Vertex3D>;
 
-
 pub trait MeshBuilder {
     type Vertex;
     fn indices(&self) -> &[Index];
@@ -77,11 +75,21 @@ impl<V: Vertex> MeshBuilder for (&[V], &[Index]) {
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Default, bytemuck::Zeroable)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Vertex2D<D: bytemuck::Pod + Default> {
+pub struct Vertex2D<D> where D: bytemuck::Pod + Default {
     pub pos: Vector2<f32>,
     pub data: D,
 }
 unsafe impl<D: bytemuck::Pod + Default> bytemuck::Pod for Vertex2D<D> {}
+
+impl<D: bytemuck::Pod + Default> Vertex2D<D> {
+    pub fn offset(mut self, offset: Isometry2<f32>) -> Self {
+        let rotation = offset.rotation;
+        let translation = offset.translation.vector;
+        self.pos = rotation * self.pos;
+        self.pos += translation;
+        self
+    }
+}
 
 pub trait VertexPosition2D {
     fn pos(&self) -> &Vector2<f32>;
@@ -132,16 +140,7 @@ impl BaseVertex2D for SpriteVertex2D {
             }
         }
         let size = Vector2::new(max_x - min_x, max_y - min_y);
-        let mut result: Vec<
-            Vertex2D<
-                nalgebra::Matrix<
-                    f32,
-                    nalgebra::Const<2>,
-                    nalgebra::Const<1>,
-                    nalgebra::ArrayStorage<f32, 2, 1>,
-                >,
-            >,
-        > = vec![];
+        let mut result = vec![];
         for v in vertices {
             let delta_x = v.x - min_x;
             let ratio_x = delta_x / size.x;
@@ -460,7 +459,6 @@ impl<V: BaseVertex2D> MeshBuilder2D<V> {
         Self {
             vertices,
             indices,
-            ..inner
         }
     }
 
@@ -827,7 +825,10 @@ pub struct Mesh<V: Vertex> {
     index_amount: u32,
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
-    marker: PhantomData<V>,
+    pub(crate) vertex_data: Vec<V>,
+    pub(crate) index_data: Vec<Index>,
+    pub(crate) force_update: bool,
+    pub(crate) write_indices: bool,
 }
 
 impl<V: Vertex> Mesh<V> {
@@ -857,7 +858,10 @@ impl<V: Vertex> Mesh<V> {
             index_buffer,
             vertex_amount: vertices.len() as u32,
             index_amount: indices.len() as u32,
-            marker: PhantomData,
+            vertex_data: Vec::new(),
+            index_data: Vec::new(),
+            force_update: true,
+            write_indices: true
         }
     }
 
@@ -868,7 +872,7 @@ impl<V: Vertex> Mesh<V> {
             label: Some("vertex_buffer"),
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             size: vertex_buffer_size,
-            mapped_at_creation: false,
+            mapped_at_creation: true,
         });
 
         let index_buffer = gpu.device.create_buffer(&wgpu::BufferDescriptor {
@@ -883,7 +887,10 @@ impl<V: Vertex> Mesh<V> {
             index_buffer,
             vertex_amount: 0,
             index_amount: 0,
-            marker: PhantomData,
+            vertex_data: Vec::new(),
+            index_data: Vec::new(),
+            force_update: true,
+            write_indices: true,
         }
     }
 

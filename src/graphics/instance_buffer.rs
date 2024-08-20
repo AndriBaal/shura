@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, mem::size_of, ops::Range};
+use std::{mem::size_of, ops::Range};
 use wgpu::util::DeviceExt;
 
 use crate::{
@@ -93,7 +93,7 @@ impl Default for SpriteArrayAtlas {
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Zeroable)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Instance2D<D: bytemuck::Pod> {
+pub struct Instance2D<D> where D: bytemuck::Pod {
     pub translation: Vector2<f32>,
     pub scale_rotation: Matrix2<f32>,
     pub data: D,
@@ -227,7 +227,8 @@ pub enum BufferCall {
 pub struct InstanceBuffer<I: Instance> {
     buffer: wgpu::Buffer,
     instances: u64,
-    marker: PhantomData<I>,
+    pub(crate) data: Vec<I>,
+    pub(crate) force_update: bool,
 }
 
 impl<I: Instance> InstanceBuffer<I> {
@@ -248,7 +249,8 @@ impl<I: Instance> InstanceBuffer<I> {
         Self {
             buffer,
             instances: buffer_size / instance_size,
-            marker: PhantomData,
+            data: Vec::new(),
+            force_update: true,
         }
     }
 
@@ -265,7 +267,8 @@ impl<I: Instance> InstanceBuffer<I> {
         Self {
             buffer,
             instances: 0,
-            marker: PhantomData,
+            data: Vec::new(),
+            force_update: true,
         }
     }
 
@@ -307,7 +310,7 @@ impl<I: Instance> InstanceBuffer<I> {
     }
 
     pub fn buffer_size(&self) -> wgpu::BufferAddress {
-        I::SIZE * self.instance_amount() as u64
+        I::SIZE * self.instance_amount()
     }
 
     pub fn instance_amount(&self) -> wgpu::BufferAddress {

@@ -3,15 +3,15 @@ use rustc_hash::FxHashMap;
 use crate::{
     context::Context,
     entity::{
-        Entities, EntityGroup, EntityGroupHandle, EntityGroupManager, EntityId, EntityIdentifier,
-        EntityManager, EntityType, GroupedEntities, SingleEntity,
+        Entities, EntityGroup, EntityGroupHandle, EntityGroupManager, ConstTypeId, EntityIdentifier,
+        EntityManager, EntityType, GroupedEntities, SingleEntity, ConstIdentifier
     },
     physics::World,
 };
 
 pub struct EntityGroupSerializer {
-    entities: FxHashMap<EntityId, Box<dyn EntityType>>,
-    ser_entities: FxHashMap<EntityId, Vec<u8>>,
+    entities: FxHashMap<ConstTypeId, Box<dyn EntityType>>,
+    ser_entities: FxHashMap<ConstTypeId, Vec<u8>>,
     group: EntityGroup,
 }
 
@@ -59,13 +59,13 @@ impl EntityGroupSerializer {
 
 pub struct EntityGroupDeserializer {
     group: EntityGroup,
-    ser_entities: FxHashMap<EntityId, Vec<u8>>,
+    ser_entities: FxHashMap<ConstTypeId, Vec<u8>>,
     pub(crate) init_callbacks: Vec<Box<dyn FnOnce(EntityGroupHandle, &mut Context)>>,
 }
 
 impl EntityGroupDeserializer {
     pub fn new(data: &[u8]) -> Self {
-        let (group, ser_entities): (EntityGroup, FxHashMap<EntityId, Vec<u8>>) =
+        let (group, ser_entities): (EntityGroup, FxHashMap<ConstTypeId, Vec<u8>>) =
             bincode::deserialize(data).unwrap();
         Self {
             group,

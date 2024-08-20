@@ -1,6 +1,6 @@
 use crate::{
     arena::Arena,
-    entity::{EntityGroupHandle, EntityId, EntityManager, EntityType},
+    entity::{EntityGroupHandle, ConstTypeId, EntityManager, EntityType},
     graphics::Camera2D,
     math::AABB,
     physics::World,
@@ -130,11 +130,8 @@ impl EntityGroupManager {
             _ => (),
         }
 
-        match render_activation {
-            GroupActivation::Position { aabb } => {
-                self.render_tree.insert(EntityGroupAABB::new(aabb, handle))
-            }
-            _ => (),
+        if let GroupActivation::Position { aabb } = render_activation {
+            self.render_tree.insert(EntityGroupAABB::new(aabb, handle))
         }
 
         handle
@@ -145,7 +142,7 @@ impl EntityGroupManager {
         entities: &mut EntityManager,
         world: &mut World,
         handle: &EntityGroupHandle,
-    ) -> Option<(EntityGroup, FxHashMap<EntityId, Box<dyn EntityType>>)> {
+    ) -> Option<(EntityGroup, FxHashMap<ConstTypeId, Box<dyn EntityType>>)> {
         if *handle == EntityGroupHandle::DEFAULT_GROUP {
             panic!("Cannot remove default group!");
         }

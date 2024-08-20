@@ -3,8 +3,8 @@ use std::{ops::Deref, sync::Arc};
 
 use crate::{
     entity::{
-        Entities, EntityId, EntityIdentifier, EntityManager, EntityScope, EntityType,
-        GroupedEntities, SingleEntity,
+        Entities, ConstTypeId, EntityIdentifier, EntityManager, EntityScope, EntityType,
+        GroupedEntities, SingleEntity, ConstIdentifier
     },
     graphics::{Gpu, GLOBAL_GPU},
     scene::{Scene, SceneCreator},
@@ -17,7 +17,7 @@ pub fn gpu() -> Arc<Gpu> {
 
 pub struct SceneSerializer<'a> {
     entities: &'a EntityManager,
-    ser_entities: FxHashMap<EntityId, Vec<u8>>,
+    ser_entities: FxHashMap<ConstTypeId, Vec<u8>>,
 }
 
 impl<'a> SceneSerializer<'a> {
@@ -28,7 +28,7 @@ impl<'a> SceneSerializer<'a> {
         }
     }
 
-    pub(crate) fn finish(self) -> FxHashMap<EntityId, Vec<u8>> {
+    pub(crate) fn finish(self) -> FxHashMap<ConstTypeId, Vec<u8>> {
         self.ser_entities
     }
 
@@ -71,13 +71,13 @@ pub struct SerializedScene {
     pub id: u32,
     pub scene: Scene,
     once: bool,
-    ser_entities: FxHashMap<EntityId, Vec<u8>>,
+    ser_entities: FxHashMap<ConstTypeId, Vec<u8>>,
 }
 
 impl SerializedScene {
     pub fn new<A: Deref<Target = [u8]>>(id: u32, scene: Option<A>) -> SerializedScene {
         let once = scene.is_none();
-        let (scene, ser_entities): (Scene, FxHashMap<EntityId, Vec<u8>>) =
+        let (scene, ser_entities): (Scene, FxHashMap<ConstTypeId, Vec<u8>>) =
             if let Some(scene) = scene {
                 bincode::deserialize(&scene).unwrap()
             } else {

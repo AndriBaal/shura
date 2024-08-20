@@ -56,56 +56,65 @@ pub trait StorageLoader: Send + Sync + Downcast {
 }
 impl_downcast!(StorageLoader);
 
-// #[cfg(any(
-//     target_os = "windows",
-//     target_os = "macos",
-//     target_os = "linux",
-//     target_os = "freebsd",
-//     target_os = "fuchsia",
-//     target_os = "redox"
-// ))] // I don't know if freebsd, fuchsia and redox even works
-// Maybe move to build script
 #[non_exhaustive]
-pub struct NativeResourceLoader;
+pub struct NativeResourceLoader {
+    pub resource_dir: PathBuf,
+}
+
 impl NativeResourceLoader {
-    fn resource_path(&self, path: &str) -> Result<PathBuf> {
+    pub fn new() -> Result<Self> {
         let exe = env::current_exe()?;
         let mut dir = fs::canonicalize(exe)?;
         dir.pop();
-        let path = dir.join("resources").join(path);
-        Ok(path)
+        let resource_dir = dir.join("resources");
+        Ok(Self { resource_dir })
+    }
+}
+
+impl NativeResourceLoader {
+    fn resource_path(&self, path: &str) -> PathBuf {
+        self.resource_dir.join(path)
     }
 }
 
 impl ResourceLoader for NativeResourceLoader {
     fn load_bytes(&self, path: &str) -> Result<Vec<u8>> {
-        let path = self.resource_path(path)?;
+        let path = self.resource_path(path);
         let data = std::fs::read(path)?;
         Ok(data)
     }
 
     fn load_string(&self, path: &str) -> Result<String> {
-        let path = self.resource_path(path)?;
+        let path = self.resource_path(path);
         let data = std::fs::read_to_string(path)?;
         Ok(data)
     }
 }
 
 #[non_exhaustive]
-pub struct NativeStorageLoader;
+pub struct NativeStorageLoader {
+    pub data_dir: PathBuf,
+}
+
 impl NativeStorageLoader {
-    fn data_path(&self, path: &str) -> Result<PathBuf> {
+    pub fn new() -> Result<Self> {
         let exe = env::current_exe()?;
         let mut dir = fs::canonicalize(exe)?;
         dir.pop();
-        let path = dir.join("data").join(path);
-        Ok(path)
+        let data_dir = dir.join("data");
+        Ok(Self { data_dir })
+    }
+}
+
+impl NativeStorageLoader {
+    fn data_path(&self, path: &str) -> PathBuf {
+        self.data_dir.join(path)
     }
 }
 
 impl StorageLoader for NativeStorageLoader {
     fn store(&self, path: &str, data: &dyn AsRef<[u8]>) -> Result<()> {
-        let path = self.data_path(path)?;
+        let path = self.data_path(path);
         let prefix = path.parent().unwrap();
         if !prefix.exists() {
             std::fs::create_dir_all(prefix)?;
@@ -114,20 +123,19 @@ impl StorageLoader for NativeStorageLoader {
     }
 
     fn load_string(&self, path: &str) -> Result<String> {
-        let path = self.data_path(path)?;
+        let path = self.data_path(path);
         let data = std::fs::read_to_string(path)?;
         Ok(data)
     }
 
     fn load_bytes(&self, path: &str) -> Result<Vec<u8>> {
-        let path = self.data_path(path)?;
+        let path = self.data_path(path);
         let data = std::fs::read(path)?;
         Ok(data)
     }
 
     fn list(&self) -> Vec<String> {
-        let path = self.data_path("/").unwrap();
-        std::fs::read_dir(path)
+        std::fs::read_dir(&self.data_dir)
             .unwrap()
             .filter_map(|f| {
                 if let Ok(f) = f {
@@ -141,7 +149,7 @@ impl StorageLoader for NativeStorageLoader {
     }
 
     fn delete(&self, path: &str) -> Result<()> {
-        let path = self.data_path(path)?;
+        let path = self.data_path(path);
         Ok(std::fs::remove_file(path)?)
     }
 }

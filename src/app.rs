@@ -59,7 +59,7 @@ pub struct AppConfig {
     pub window: winit::window::WindowAttributes,
     pub gpu: GpuConfig,
     pub storage: Arc<dyn StorageLoader>,
-    pub assets: Arc<dyn ResourceLoader>,
+    pub resource: Arc<dyn ResourceLoader>,
     pub scene_id: u32,
     #[cfg(feature = "framebuffer")]
     pub apply_frame_buffer: bool,
@@ -83,31 +83,31 @@ impl AppConfig {
     pub const FIRST_SCENE_ID: u32 = 0;
     pub fn new(#[cfg(target_os = "android")] android: AndroidApp) -> Self {
         #[cfg(target_arch = "wasm32")]
-        let (assets, storage) = (
+        let (resource, storage) = (
             crate::io::WebResourceLoader,
             crate::io::UnimplementedStorageLoader,
         );
 
         #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
-        let (assets, storage) = (
-            crate::io::NativeResourceLoader,
-            crate::io::NativeStorageLoader,
+        let (resource, storage) = (
+            crate::io::NativeResourceLoader::new().unwrap(),
+            crate::io::NativeStorageLoader::new().unwrap(),
         );
 
         #[cfg(target_os = "android")]
-        let (assets, storage) = (
+        let (resource, storage) = (
             crate::io::AndroidAssetManager::new(&android),
             crate::io::UnimplementedStorageLoader,
         );
 
-        AppConfig {
+        Self {
             window: winit::window::WindowAttributes::default()
                 .with_inner_size(winit::dpi::PhysicalSize::new(800, 600))
                 .with_title("App Game"),
             gpu: GpuConfig::default(),
             scene_id: Self::FIRST_SCENE_ID,
             storage: Arc::new(storage),
-            assets: Arc::new(assets),
+            resource: Arc::new(resource),
             #[cfg(target_os = "android")]
             android,
             #[cfg(feature = "log")]
@@ -153,7 +153,7 @@ impl AppConfig {
     }
 
     pub fn resource_loader(mut self, assets: impl ResourceLoader) -> Self {
-        self.assets = Arc::new(assets);
+        self.resource = Arc::new(assets);
         self
     }
 
@@ -303,7 +303,8 @@ impl<S: Into<Scene>, I: FnOnce() -> S> ApplicationHandler<()> for AppState<S, I>
 
 pub struct App {
     pub(crate) window_events: WindowEventManager,
-    pub(crate) storage: Arc<dyn StorageLoader>,
+    pub(crate) storage_loader: Arc<dyn StorageLoader>,
+    pub(crate) resource_loader: Arc<dyn ResourceLoader>,
     pub(crate) assets: Arc<AssetManager>,
     pub(crate) end: bool,
     pub(crate) time: TimeManager,
@@ -322,9 +323,20 @@ pub struct App {
 }
 
 impl App {
-    pub fn run<S: Into<Scene>>(config: AppConfig, init: impl FnOnce() -> S) {
+    pub fn run<S: Into<Scene>>(mut config: AppConfig, init: impl FnOnce() -> S) {
+        #[cfg(target_os = "android")]
+        use winit::platform::android::EventLoopBuilderExtAndroid;
+
+        #[cfg(feature = "log")]
+        if let Some(logger) = config.logger.as_mut() {
+            logger.init().ok();
+        }
+
         #[cfg(feature = "log")]
         info!("Using shura version: {}", VERSION);
+
+        #[cfg(all(target_os = "android", feature = "log"))]
+        info!("Android SDK version: {}", AndroidApp::sdk_version());
 
         #[cfg(target_os = "android")]
         let events = winit::event_loop::EventLoopBuilder::new()
@@ -332,7 +344,9 @@ impl App {
             .build()
             .unwrap();
         #[cfg(not(target_os = "android"))]
-        let events: EventLoop<()> = winit::event_loop::EventLoop::new().unwrap();
+        let events: EventLoop<()> = winit::event_loop::EventLoop::with_user_event()
+            .build()
+            .unwrap();
         let mut app_state = AppState::Uninitialized { config, init };
         events.run_app(&mut app_state).unwrap();
 
@@ -345,26 +359,7 @@ impl App {
         config: AppConfig,
         init: impl FnOnce() -> S,
     ) -> Self {
-        #[cfg(target_os = "android")]
-        use winit::platform::android::EventLoopBuilderExtAndroid;
-
-        #[cfg(feature = "log")]
-        if let Some(logger) = config.logger {
-            logger.init().ok();
-        }
-
-        #[cfg(target_os = "android")]
-        {
-            #[cfg(feature = "log")]
-            info!("Android SDK version: {}", AndroidApp::sdk_version());
-            crate::asset::ANDROID_ASSETS
-                .set(config.android.asset_manager())
-                .unwrap();
-            crate::asset::ANDROID_DATA
-                .set(config.android.internal_data_path().unwrap())
-                .unwrap();
-        }
-
+        let (resource, storage) = (config.resource, config.storage);
         let window = event_loop.create_window(config.window).unwrap();
         let window = Arc::new(window);
 
@@ -385,22 +380,16 @@ impl App {
             body.append_child(canvas).ok();
         }
 
-        let gpu = Gpu::new(window.clone(), config.gpu);
+        let gpu = pollster::block_on(Gpu::new(window.clone(), config.gpu));
         let gpu = Arc::new(gpu);
         gpu.resume(&window);
 
-        let assets = Arc::new(AssetManager::new(config.assets.clone(), gpu.clone()));
+        let assets = Arc::new(AssetManager::new(resource.clone(), gpu.clone()));
 
         GLOBAL_GPU.set(gpu.clone()).ok().unwrap();
-        GLOBAL_RESOURCE_LOADER
-            .set(config.assets.clone())
-            .ok()
-            .unwrap();
+        GLOBAL_RESOURCE_LOADER.set(resource.clone()).ok().unwrap();
         GLOBAL_ASSETS.set(assets.clone()).ok().unwrap();
-        GLOBAL_STORAGE_LOADER
-            .set(config.storage.clone())
-            .ok()
-            .unwrap();
+        GLOBAL_STORAGE_LOADER.set(storage.clone()).ok().unwrap();
 
         let size = gpu.surface_size();
         let scene = (init)();
@@ -418,7 +407,8 @@ impl App {
             window,
             gpu,
             assets,
-            storage: config.storage,
+            storage_loader: storage,
+            resource_loader: resource,
             end: false,
             scenes: SceneManager::new(scene.into(), config.scene_id),
             time: TimeManager::new(),
@@ -591,8 +581,13 @@ impl App {
         let surface_target = self.gpu.start_frame(&self.gpu);
         let default_assets = self.assets.default_assets();
 
-        let (systems, ctx) =
-            RenderContext::new(self.assets.clone(), &surface_target, &default_assets, scene);
+        let (systems, ctx) = RenderContext::new(
+            self.assets.clone(),
+            self.gpu.clone(),
+            &surface_target,
+            &default_assets,
+            scene,
+        );
         let mut encoder =
             RenderEncoder::new(&self.gpu, &self.assets, &default_assets, ctx.target());
 

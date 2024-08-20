@@ -12,7 +12,7 @@ pub enum FontBuilder {
     Owned(Vec<u8>),
 }
 
-impl<'a> FontBuilder {
+impl FontBuilder {
     pub fn bytes(bytes: &'static [u8]) -> Self {
         Self::Ref(bytes)
     }

@@ -18,8 +18,8 @@ shura = { path = "../", default-features = false, features = [
     "framebuffer",
     "physics",
     "serde",
-    # "rayon",
-    # "gui",
+    "rayon",
+    "gui",
 ]}
 # shura = "0.7"
 

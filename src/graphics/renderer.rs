@@ -179,11 +179,11 @@ impl<'a> Renderer<'a> {
     pub fn draw_sprite(
         &mut self,
         instances: &InstanceBuffer<PositionInstance2D>,
-        camera: &CameraBuffer2D,
         mesh: &SpriteMesh2D,
+        camera: &CameraBuffer2D,
         sprite: &Sprite,
     ) {
-        if instances.buffer_size() != 0 && mesh.vertex_buffer_size() != 0 {
+        if instances.buffer_size() != 0 && mesh.vertex_buffer_size() != 0 && mesh.index_buffer_size() != 0 {
             self.use_shader(&self.default_assets.sprite_shader);
             self.use_instances(instances);
             self.use_mesh(mesh);
@@ -196,11 +196,11 @@ impl<'a> Renderer<'a> {
     pub fn draw_sprite_array(
         &mut self,
         instances: &InstanceBuffer<SpriteArrayCropInstance2D>,
-        camera: &CameraBuffer2D,
         mesh: &SpriteMesh2D,
+        camera: &CameraBuffer2D,
         sprite: &Sprite,
     ) {
-        if instances.buffer_size() != 0 && mesh.vertex_buffer_size() != 0 {
+        if instances.buffer_size() != 0 && mesh.vertex_buffer_size() != 0 && mesh.index_buffer_size() != 0 {
             self.use_shader(&self.default_assets.sprite_shader);
             self.use_instances(instances);
             self.use_mesh(mesh);
@@ -213,10 +213,10 @@ impl<'a> Renderer<'a> {
     pub fn draw_color(
         &mut self,
         instances: &InstanceBuffer<ColorInstance2D>,
-        camera: &CameraBuffer2D,
         mesh: &PositionMesh2D,
+        camera: &CameraBuffer2D,
     ) {
-        if instances.buffer_size() != 0 && mesh.vertex_buffer_size() != 0 {
+        if instances.buffer_size() != 0 && mesh.vertex_buffer_size() != 0 && mesh.index_buffer_size() != 0 {
             self.use_shader(&self.default_assets.color_shader);
             self.use_instances(instances);
             self.use_mesh(mesh);
@@ -225,8 +225,8 @@ impl<'a> Renderer<'a> {
         }
     }
 
-    pub fn draw_color_mesh(&mut self, camera: &CameraBuffer2D, mesh: &ColorMesh2D) {
-        if mesh.vertex_buffer_size() != 0 {
+    pub fn draw_color_mesh(&mut self,  mesh: &ColorMesh2D, camera: &CameraBuffer2D) {
+        if mesh.vertex_buffer_size() != 0 && mesh.index_buffer_size() != 0 {
             self.use_shader(&self.default_assets.mesh_color_shader);
             self.use_mesh(mesh);
             self.use_camera(camera);
@@ -236,11 +236,11 @@ impl<'a> Renderer<'a> {
 
     pub fn draw_sprite_mesh(
         &mut self,
-        camera: &CameraBuffer2D,
         mesh: &SpriteMesh2D,
+        camera: &CameraBuffer2D,
         sprite: &Sprite,
     ) {
-        if mesh.vertex_buffer_size() != 0 {
+        if mesh.vertex_buffer_size() != 0 && mesh.index_buffer_size() != 0 {
             self.use_shader(&self.default_assets.mesh_sprite_shader);
             self.use_mesh(mesh);
             self.use_camera(camera);
@@ -251,11 +251,11 @@ impl<'a> Renderer<'a> {
 
     pub fn draw_sprite_array_mesh(
         &mut self,
-        camera: &CameraBuffer2D,
         mesh: &SpriteArrayMesh2D,
+        camera: &CameraBuffer2D,
         sprite: &Sprite,
     ) {
-        if mesh.vertex_buffer_size() != 0 {
+        if mesh.vertex_buffer_size() != 0 && mesh.index_buffer_size() != 0 {
             self.use_shader(&self.default_assets.mesh_sprite_shader);
             self.use_mesh(mesh);
             self.use_camera(camera);
@@ -267,11 +267,11 @@ impl<'a> Renderer<'a> {
     pub fn draw_sprite_crop(
         &mut self,
         instances: &InstanceBuffer<SpriteCropInstance2D>,
-        camera: &CameraBuffer2D,
         mesh: &SpriteMesh2D,
+        camera: &CameraBuffer2D,
         sprite: &Sprite,
     ) {
-        if instances.buffer_size() != 0 && mesh.vertex_buffer_size() != 0 {
+        if instances.buffer_size() != 0 && mesh.vertex_buffer_size() != 0 && mesh.index_buffer_size() != 0 {
             self.use_shader(&self.default_assets.sprite_crop_shader);
             self.use_instances(instances);
             self.use_mesh(mesh);
@@ -282,7 +282,7 @@ impl<'a> Renderer<'a> {
     }
 
     #[cfg(feature = "text")]
-    pub fn draw_text_mesh(&mut self, text: &TextMesh, font: &Font, camera: &CameraBuffer2D) {
+    pub fn draw_text_mesh(&mut self, text: &TextMesh, camera: &CameraBuffer2D, font: &Font) {
         if text.mesh().vertex_buffer_size() != 0 {
             self.use_shader(&self.default_assets.mesh_text_shader);
             self.use_camera(camera);
@@ -295,8 +295,8 @@ impl<'a> Renderer<'a> {
     pub fn draw_model<C: Camera>(
         &mut self,
         instances: &InstanceBuffer<Instance3D>,
-        camera: &CameraBuffer<C>,
         model: &Model,
+        camera: &CameraBuffer<C>,
     ) {
         if instances.buffer_size() != 0 {
             self.use_shader(&self.default_assets.model_shader);

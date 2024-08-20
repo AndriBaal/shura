@@ -1,6 +1,6 @@
 use shura::prelude::*;
 
-#[shura::main]
+#[shura::app]
 fn app(config: AppConfig) {
     App::run(config, || {
         Scene::new()

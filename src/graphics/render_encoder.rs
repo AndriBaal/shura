@@ -105,10 +105,10 @@ impl<'a> RenderEncoder<'a> {
         )
     }
 
-    pub fn renderer2d<'b>(
-        &'b mut self,
+    pub fn renderer2d(
+        &mut self,
         clear: Option<Color>,
-    ) -> Renderer<'b> {
+    ) -> Renderer<'_> {
         self.renderer2d_to(self.default_target, clear)
     }
 
@@ -145,8 +145,8 @@ impl<'a> RenderEncoder<'a> {
             .expect("Cannot copy this texture!");
         let mut renderer = self.renderer(target, None, None);
         renderer.draw_sprite_mesh(
-            &renderer.default_assets.unit_camera.0,
             &renderer.default_assets.sprite_mesh,
+            &renderer.default_assets.unit_camera.0,
             src.sprite(),
         );
     }

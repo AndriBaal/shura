@@ -9,13 +9,15 @@ use rustc_hash::FxHashMap;
 #[cfg(feature = "serde")]
 use crate::entity::EntityGroupHandle;
 use crate::{
-    component::Component,
     entity::{
-        Entities, Entity, EntityHandle, EntityId, EntityIdentifier, EntityType, GlobalEntities,
-        GroupedEntities, SingleEntity,
+        ConstIdentifier, ConstTypeId, Entities, Entity, EntityIdentifier, EntityType,
+        GlobalEntities, GroupedEntities, SingleEntity,
     },
     physics::World,
+    component::ComponentIdentifier
 };
+
+use super::EntityHandle;
 
 fn already_borrowed<E: EntityIdentifier>() -> ! {
     panic!(
@@ -112,12 +114,12 @@ impl EntityTypeScope {
     }
 }
 
-type TypeMap = FxHashMap<EntityId, EntityTypeScope>;
+type TypeMap = FxHashMap<ConstTypeId, EntityTypeScope>;
 
 pub struct EntityManager {
     pub(crate) types: TypeMap,
     pub(crate) new_types: Vec<Box<dyn FnOnce(&mut Self, &GlobalEntities)>>,
-    pub(crate) components: FxHashMap<&'static str, Vec<EntityId>>,
+    pub(crate) components: FxHashMap<ConstTypeId, Vec<(ConstTypeId, Vec<u32>)>>,
 }
 
 impl EntityManager {
@@ -132,116 +134,115 @@ impl EntityManager {
     pub(crate) fn add_type<ET: EntityType>(&mut self, scope: EntityTypeScope) {
         let previous = self.types.insert(ET::Entity::IDENTIFIER, scope);
         assert!(previous.is_none(), "Entity already defined!");
-        for name in ET::Entity::tags() {
+
+        for (type_id, idx) in ET::Entity::component_identifiers_recursive() {
             self.components
-                .entry(name)
+                .entry(type_id)
                 .or_default()
-                .push(ET::Entity::IDENTIFIER);
+                .push((ET::Entity::IDENTIFIER, idx));
         }
     }
 
-    // TODO: Recursive
-    pub fn components_each(
-        &self,
-        tag: &'static str,
-        mut each: impl FnMut(EntityHandle, &dyn Component),
-    ) {
-        if let Some(entity_ids) = self.components.get(tag) {
-            for entity_id in entity_ids {
+    pub fn components_each<C: ComponentIdentifier>(&self, mut each: impl FnMut(EntityHandle, &C)) {
+        if let Some(entity_ids) = self.components.get(&C::IDENTIFIER) {
+            for (entity_id, path) in entity_ids {
                 let ty = self.types.get(entity_id).unwrap();
                 let ty = ty.ref_dyn();
+                let mut path_iter = path.iter();
                 for (handle, entity) in ty.dyn_iter() {
-                    if let Some(collection) = entity.component(tag) {
-                        each(handle, collection);
+                    let first = path_iter.next().unwrap();
+                    let mut component = entity.component(*first).unwrap();
+                    for e in path_iter.by_ref() {
+                        component = component.component(*e).unwrap();
                     }
+                    let component = component.downcast_ref().unwrap();
+                    (each)(handle, component);
                 }
             }
         }
     }
 
-    pub fn components_each_mut(
-        &self,
-        tag: &'static str,
-        mut each: impl FnMut(EntityHandle, &mut dyn Component),
-    ) {
-        if let Some(entity_ids) = self.components.get(tag) {
-            for entity_id in entity_ids {
+    pub fn components_each_mut<C: ComponentIdentifier>(&self, mut each: impl FnMut(EntityHandle, &mut C)) {
+        if let Some(entity_ids) = self.components.get(&C::IDENTIFIER) {
+            for (entity_id, path) in entity_ids {
                 let ty = self.types.get(entity_id).unwrap();
                 let mut ty = ty.ref_mut_dyn();
+                let mut path_iter = path.iter();
                 for (handle, entity) in ty.dyn_iter_mut() {
-                    if let Some(collection) = entity.component_mut(tag) {
-                        each(handle, collection);
+                    let first = path_iter.next().unwrap();
+                    let mut component = entity.component_mut(*first).unwrap();
+                    for e in path_iter.by_ref() {
+                        component = component.component_mut(*e).unwrap();
                     }
+                    let component = component.downcast_mut().unwrap();
+                    (each)(handle, component);
                 }
             }
         }
     }
 
-    pub fn entities_for_component(
-        &self,
-        tag: &'static str,
-        mut each: impl FnMut(EntityHandle, &dyn Entity),
-    ) {
-        if let Some(entity_ids) = self.components.get(tag) {
-            for entity_id in entity_ids {
-                let ty = self.types.get(entity_id).unwrap();
-                let ty = ty.ref_dyn();
-                for (handle, entity) in ty.dyn_iter() {
-                    each(handle, entity);
-                }
-            }
-        }
-    }
+    // TODO: Reimplement
+    // pub fn entities_for_component(
+    //     &self,
+    //     tag: &'static str,
+    //     mut each: impl FnMut(EntityHandle, &dyn Entity, u32),
+    // ) {
+    //     if let Some(entity_ids) = self.components.get(tag) {
+    //         for entity_id in entity_ids {
+    //             let ty = self.types.get(entity_id).unwrap();
+    //             let ty = ty.ref_dyn();
+    //             for (handle, entity) in ty.dyn_iter() {
+    //                 each(handle, entity);
+    //             }
+    //         }
+    //     }
+    // }
 
-    pub fn entities_for_component_mut(
-        &self,
-        tag: &'static str,
-        mut each: impl FnMut(EntityHandle, &mut dyn Entity),
-    ) {
-        if let Some(entity_ids) = self.components.get(tag) {
-            for entity_id in entity_ids {
-                let ty = self.types.get(entity_id).unwrap();
-                let mut ty = ty.ref_mut_dyn();
-                for (handle, entity) in ty.dyn_iter_mut() {
-                    each(handle, entity);
-                }
-            }
-        }
-    }
+    // pub fn entities_for_component_mut(
+    //     &self,
+    //     tag: &'static str,
+    //     mut each: impl FnMut(EntityHandle, &mut dyn Entity),
+    // ) {
+    //     if let Some(entity_ids) = self.components.get(tag) {
+    //         for entity_id in entity_ids {
+    //             let ty = self.types.get(entity_id).unwrap();
+    //             let mut ty = ty.ref_mut_dyn();
+    //             for (handle, entity) in ty.dyn_iter_mut() {
+    //                 each(handle, entity);
+    //             }
+    //         }
+    //     }
+    // }
 
-    pub fn count_entities_with_component(&self, tag: &'static str) -> usize {
-        let mut count = 0;
-        if let Some(entity_ids) = self.components.get(tag) {
-            for entity_id in entity_ids {
-                let ty = self.types.get(entity_id).unwrap();
-                let ty = ty.ref_dyn();
-                count += ty.len();
-            }
-        }
-        count
-    }
+    // pub fn count_entities_with_component(&self, tag: &'static str) -> usize {
+    //     let mut count = 0;
+    //     if let Some(entity_ids) = self.components.get(tag) {
+    //         for entity_id in entity_ids {
+    //             let ty = self.types.get(entity_id).unwrap();
+    //             let ty = ty.ref_dyn();
+    //             count += ty.len();
+    //         }
+    //     }
+    //     count
+    // }
 
-    pub fn retain_entities_for_component(
-        &self,
-        world: &mut World,
-        tag: &'static str,
-        keep: impl Fn(&mut dyn Entity, &mut World) -> bool,
-    ) {
-        if let Some(entity_ids) = self.components.get(tag) {
-            for entity_id in entity_ids {
-                let ty = self.types.get(entity_id).unwrap();
-                let mut ty = ty.ref_mut_dyn();
-                ty.dyn_retain(world, &keep);
-            }
-        }
-    }
+    // pub fn retain_entities_for_component(
+    //     &self,
+    //     world: &mut World,
+    //     tag: &'static str,
+    //     keep: impl Fn(&mut dyn Entity, &mut World) -> bool,
+    // ) {
+    //     if let Some(entity_ids) = self.components.get(tag) {
+    //         for entity_id in entity_ids {
+    //             let ty = self.types.get(entity_id).unwrap();
+    //             let mut ty = ty.ref_mut_dyn();
+    //             ty.dyn_retain(world, &keep);
+    //         }
+    //     }
+    // }
 
-    pub fn component_mapping(&self) -> &FxHashMap<&'static str, Vec<EntityId>> {
+    pub fn component_mapping(&self) -> &FxHashMap<ConstTypeId, Vec<(ConstTypeId, Vec<u32>)>> {
         &self.components
-    }
-
-    pub fn entities_with_component(&self, name: &'static str) -> Option<&Vec<EntityId>> {
-        return self.components.get(name);
     }
 
     pub fn register_entity<ET: EntityType>(&mut self, scope: EntityScope, ty: ET) {
@@ -323,7 +324,7 @@ impl EntityManager {
         self.exists_id(&E::IDENTIFIER)
     }
 
-    pub fn exists_id(&self, entity_id: &EntityId) -> bool {
+    pub fn exists_id(&self, entity_id: &ConstTypeId) -> bool {
         self.types.contains_key(entity_id)
     }
 
@@ -337,14 +338,14 @@ impl EntityManager {
         .unwrap()
     }
 
-    pub fn get_dyn_mut(&self, entity_id: EntityId) -> RefMut<dyn EntityType> {
+    pub fn get_dyn_mut(&self, entity_id: ConstTypeId) -> RefMut<dyn EntityType> {
         self.types
             .get(&entity_id)
             .expect("Cannot find type!")
             .ref_mut_dyn()
     }
 
-    pub fn get_dyn(&self, entity_id: EntityId) -> Ref<dyn EntityType> {
+    pub fn get_dyn(&self, entity_id: ConstTypeId) -> Ref<dyn EntityType> {
         self.types
             .get(&entity_id)
             .expect("Cannot find type!")
@@ -393,7 +394,7 @@ impl EntityManager {
             ._ref()
     }
 
-    pub fn try_get_dyn_mut(&self, entity_id: EntityId) -> Option<RefMut<dyn EntityType>> {
+    pub fn try_get_dyn_mut(&self, entity_id: ConstTypeId) -> Option<RefMut<dyn EntityType>> {
         if self.exists_id(&entity_id) {
             Some(self.get_dyn_mut(entity_id))
         } else {
@@ -401,7 +402,7 @@ impl EntityManager {
         }
     }
 
-    pub fn try_get_dyn(&self, entity_id: EntityId) -> Option<Ref<dyn EntityType>> {
+    pub fn try_get_dyn(&self, entity_id: ConstTypeId) -> Option<Ref<dyn EntityType>> {
         if self.exists_id(&entity_id) {
             Some(self.get_dyn(entity_id))
         } else {

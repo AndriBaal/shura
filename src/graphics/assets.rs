@@ -39,6 +39,7 @@ pub type AssetDynamicMut<'a> = dashmap::mapref::one::RefMut<'a, AssetKey, Box<dy
 pub type AssetWrap<'a, A> = dashmap::mapref::one::MappedRef<'a, AssetKey, Box<dyn Asset>, A>;
 pub type AssetWrapMut<'a, A> = dashmap::mapref::one::MappedRefMut<'a, AssetKey, Box<dyn Asset>, A>;
 
+
 pub struct AssetManager {
     pub loader: Arc<dyn ResourceLoader>,
     default_assets: RwLock<DefaultAssets>,
@@ -119,65 +120,8 @@ impl AssetManager {
         self.get(key)
     }
 
-    pub fn write_instances<I: Instance>(
-        &self,
-        key: AssetKey,
-        data: &[I],
-    ) -> AssetWrapMut<InstanceBuffer<I>> {
-        return if !self.exists(key) {
-            self.load_instance_buffer(key, data);
-            self.get_mut(key)
-        } else {
-            let mut instance_buffer = self.get_mut::<InstanceBuffer<I>>(key);
-            instance_buffer.write(&self.gpu, data);
-            instance_buffer
-        };
-    }
-
-    pub fn write_instances_once<I: Instance>(
-        &self,
-        key: AssetKey,
-        mut data: impl (FnMut() -> Vec<I>),
-    ) -> AssetWrapMut<InstanceBuffer<I>> {
-        if !self.exists(key) {
-            let instances = data();
-            self.load(key, InstanceBuffer::<I>::new(&self.gpu, &instances));
-        }
-
-        self.get_mut::<_>(key)
-    }
-
     pub fn mesh<V: Vertex>(&self, key: AssetKey) -> AssetWrap<Mesh<V>> {
         self.get(key)
-    }
-
-    pub fn write_mesh<V: Vertex, M: MeshBuilder<Vertex = V>>(
-        &self,
-        key: AssetKey,
-        data: &M,
-    ) -> AssetWrapMut<Mesh<V>> {
-        return if !self.exists(key) {
-            self.load_mesh(key, data);
-            self.get_mut(key)
-        } else {
-            let mut mesh = self.get_mut::<Mesh<V>>(key);
-            mesh.write(&self.gpu, data);
-            mesh
-        };
-    }
-
-    // TODO: Manual rebuffer && buffer on group change
-    pub fn write_mesh_once<V: Vertex, M: MeshBuilder<Vertex = V>>(
-        &self,
-        key: AssetKey,
-        mut data: impl (FnMut() -> M),
-    ) -> AssetWrapMut<Mesh<V>> {
-        if !self.exists(key) {
-            let mesh_builder = data();
-            self.load(key, Mesh::<V>::new(&self.gpu, &mesh_builder));
-        }
-
-        self.get_mut::<Mesh<V>>(key)
     }
 
     pub fn write_text<S: AsRef<str>>(
@@ -186,15 +130,10 @@ impl AssetManager {
         font: AssetKey,
         sections: &[TextSection<S>],
     ) -> AssetWrapMut<TextMesh> {
-        return if !self.exists(key) {
-            self.load_text_mesh(key, font, sections);
-            self.get_mut(key)
-        } else {
-            let mut mesh = self.get_mut::<TextMesh>(key);
-            let font = self.get(font);
-            mesh.write(&self.gpu, &font, sections);
-            mesh
-        };
+        let mut mesh = self.get_mut::<TextMesh>(key);
+        let font = self.get(font);
+        mesh.write(&self.gpu, &font, sections);
+        mesh
     }
 
     pub fn uniform<D: bytemuck::Pod + Send + Sync>(
@@ -331,7 +270,7 @@ impl AssetManager {
         font: AssetKey,
         sections: &[TextSection<S>],
     ) {
-        self.load(key, TextMesh::new(&self.gpu, &*self.font(font), sections));
+        self.load(key, TextMesh::new(&self.gpu, &self.font(font), sections));
     }
 }
 

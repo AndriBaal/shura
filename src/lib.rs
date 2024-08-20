@@ -51,7 +51,7 @@ pub use reqwest;
 #[cfg(target_arch = "wasm32")]
 pub use wasm_bindgen_futures;
 
-pub use crate::macros::main;
+pub use crate::macros::app;
 
 #[cfg(not(feature = "physics"))]
 pub mod physics {
@@ -65,7 +65,6 @@ pub mod physics {
 }
 
 pub mod prelude {
-    pub use crate::macros::main;
     pub use crate::winit::window::Window;
 
     #[cfg(feature = "animation")]

@@ -23,7 +23,6 @@ use crate::{
         WorldCamera3D,
     },
     math::{Isometry2, Vector2},
-    tasks::TaskManager,
 };
 
 use super::PositionMesh2D;
@@ -74,7 +73,7 @@ pub struct Gpu {
 }
 
 impl Gpu {
-    pub(crate) fn new(window: Arc<Window>, gpu_config: GpuConfig) -> Self {
+    pub(crate) async fn new(window: Arc<Window>, gpu_config: GpuConfig) -> Self {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: gpu_config.backends,
             dx12_shader_compiler: wgpu::Dx12Compiler::Fxc,
@@ -82,24 +81,27 @@ impl Gpu {
         });
         // Important: Request surface before adapter!
         let surface = instance.create_surface(window.clone()).unwrap();
-        let adapter =
-            TaskManager::await_future(instance.request_adapter(&wgpu::RequestAdapterOptions {
+        let adapter = instance
+            .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::HighPerformance,
                 compatible_surface: Some(&surface),
                 force_fallback_adapter: false,
-            }))
+            })
+            .await
             .expect("Invalid Graphics Backend!");
 
-        let (device, queue) = TaskManager::await_future(adapter.request_device(
-            &wgpu::DeviceDescriptor {
-                label: None,
-                required_features: gpu_config.device_features,
-                required_limits: gpu_config.device_limits.using_resolution(adapter.limits()),
-                memory_hints: wgpu::MemoryHints::Performance,
-            },
-            None,
-        ))
-        .expect("Cannot find device!");
+        let (device, queue) = adapter
+            .request_device(
+                &wgpu::DeviceDescriptor {
+                    label: None,
+                    required_features: gpu_config.device_features,
+                    required_limits: gpu_config.device_limits.using_resolution(adapter.limits()),
+                    memory_hints: wgpu::MemoryHints::Performance,
+                },
+                None,
+            )
+            .await
+            .expect("Cannot find device!");
 
         #[cfg(feature = "log")]
         {

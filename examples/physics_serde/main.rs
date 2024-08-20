@@ -1,4 +1,4 @@
-use shura::{physics::*, prelude::*};
+use shura::prelude::*;
 
 fn scene(data: Option<Vec<u8>>) -> SerializedScene {
     SerializedScene::new(1, data)
@@ -12,7 +12,7 @@ fn scene(data: Option<Vec<u8>>) -> SerializedScene {
         .system_once(System::setup(setup))
 }
 
-#[shura::main]
+#[shura::app]
 fn app(config: AppConfig) {
     let data = config.storage.load_bytes("data.binc").ok();
     App::run(config, || scene(data));
@@ -172,38 +172,38 @@ fn serialize_scene(ctx: &mut Context) {
 fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
     encoder.render2d(Some(Color::BLACK), |renderer| {
         renderer.draw_color(
-            &ctx.assets.write_instances(
-                "boxes",
-                &ctx.entities.instances::<PhysicsBox, _>(|b, data| {
-                    data.push(ColorInstance2D::new(
-                        b.body.position(ctx.world),
-                        PhysicsBox::BOX_SIZE,
-                        b.color,
-                    ))
-                }),
-            ),
-            &ctx.default_assets.world_camera2d,
+            &ctx.write_instance_entities("boxes", |b: &PhysicsBox, data| {
+                data.push(ColorInstance2D::new(
+                    b.body.position(ctx.world),
+                    PhysicsBox::BOX_SIZE,
+                    b.color,
+                ))
+            }),
             &ctx.default_assets.position_mesh,
+            &ctx.default_assets.world_camera2d,
         );
 
         renderer.draw_sprite_mesh(
-            &ctx.default_assets.world_camera2d,
-            &ctx.assets.write_mesh(
+            &ctx.write_mesh_entities(
                 "player",
-                &ctx.entities.meshes_with_offset::<Player, _>(|player| {
-                    (&player.mesh, player.body.position(ctx.world))
+                |player| &player.mesh,
+                Some(|player: &Player, v: &SpriteVertex2D| {
+                    v.offset(player.body.position(ctx.world))
                 }),
             ),
+            &ctx.default_assets.world_camera2d,
             &ctx.assets.get("burger"),
         );
 
         renderer.draw_color_mesh(
+            &ctx.write_mesh_entities(
+                "floor",
+                |floor| &floor.mesh,
+                Some(|floor: &Floor, v: &ColorVertex2D| {
+                    v.offset(floor.collider.position(ctx.world))
+                }),
+            ),
             &ctx.default_assets.world_camera2d,
-            &ctx.assets.write_mesh_once("floor", || {
-                ctx.entities.meshes_with_offset::<Floor, _>(|floor| {
-                    (&floor.mesh, floor.collider.position(ctx.world))
-                })
-            }),
         );
     })
 }

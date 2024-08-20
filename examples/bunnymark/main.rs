@@ -1,6 +1,6 @@
 use shura::prelude::*;
 
-#[shura::main]
+#[shura::app]
 fn app(config: AppConfig) {
     App::run(config, || {
         Scene::new()
@@ -68,7 +68,7 @@ fn update(ctx: &mut Context) {
     let delta = ctx.time.delta();
     let fov = ctx.world_camera2d.fov();
 
-    for bunny in bunnies.iter_mut() {
+    bunnies.par_iter_mut().for_each(|bunny| {
         let mut linvel = bunny.linvel;
         let mut translation = bunny.position.translation.vector;
 
@@ -91,32 +91,26 @@ fn update(ctx: &mut Context) {
         }
         bunny.linvel = linvel;
         bunny.position.translation.vector = translation;
-    }
+    });
 }
 
 fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
-    encoder.render2d(
-        Some(RgbaColor::new(220, 220, 220, 255).into()),
-        |renderer| {
-            renderer.draw_sprite(
-                &ctx.assets.write_instances(
-                    "bunny_instances",
-                    &ctx.entities.instances::<Bunny, _>(|bunny, data| {
-                        data.push(SpriteInstance2D::new(bunny.position, bunny.scaling, ()))
-                    }),
-                ),
-                &ctx.default_assets.world_camera2d,
-                &ctx.default_assets.sprite_mesh,
-                &ctx.assets.sprite("bunny_sprite"),
-            );
+    encoder.render2d(Some(Color::new_rgba(220, 220, 220, 255)), |renderer| {
+        renderer.draw_sprite(
+            &ctx.write_instance_entities("bunny_instances", |bunny: &Bunny, data| {
+                data.push(SpriteInstance2D::new(bunny.position, bunny.scaling, ()))
+            }),
+            &ctx.default_assets.sprite_mesh,
+            &ctx.default_assets.world_camera2d,
+            &ctx.assets.sprite("bunny_sprite"),
+        );
 
-            renderer.draw_text_mesh(
-                &ctx.assets.text_mesh("text"),
-                &ctx.assets.font("font"),
-                &ctx.default_assets.relative_top_right_camera.0,
-            );
-        },
-    );
+        renderer.draw_text_mesh(
+            &ctx.assets.text_mesh("text"),
+            &ctx.default_assets.relative_top_right_camera.0,
+            &ctx.assets.font("font"),
+        );
+    });
 }
 
 #[derive(Entity)]

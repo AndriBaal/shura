@@ -1,9 +1,10 @@
 use crate::{
-    component::Component,
-    entity::EntityHandle,
+    component::{Component, ComponentIdentifier},
+    entity::{ConstIdentifier, EntityHandle},
     math::Isometry2,
     physics::{Collider, ColliderHandle, World},
 };
+
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ColliderComponentStatus {
@@ -67,6 +68,10 @@ impl ColliderComponent {
     }
 }
 
+impl ConstIdentifier for ColliderComponent {
+    const TYPE_NAME: &'static str = "__shura_collider_component";
+}
+impl ComponentIdentifier for ColliderComponent {}
 impl Component for ColliderComponent {
     fn init(&mut self, handle: EntityHandle, world: &mut World) {
         match self.status {
@@ -87,9 +92,5 @@ impl Component for ColliderComponent {
             }
             ColliderComponentStatus::Uninitialized { .. } => (),
         }
-    }
-
-    fn remove_from_world(&self, world: &mut World) {
-        world.remove_no_maintain_collider(self)
     }
 }

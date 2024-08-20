@@ -1,7 +1,7 @@
 use crate::{
     arena::ArenaIndex,
-    component::Component,
-    entity::{EntityId, EntityIdentifier},
+    component::{Component, ComponentIdentifier},
+    entity::{ConstIdentifier, ConstTypeId, EntityIdentifier},
 };
 use core::hash::Hash;
 
@@ -36,14 +36,14 @@ impl Default for EntityGroupHandle {
 pub struct EntityHandle {
     pub entity_index: EntityIndex,
     pub group_handle: EntityGroupHandle,
-    pub type_id: EntityId,
+    pub type_id: ConstTypeId,
 }
 
 impl EntityHandle {
     pub const INVALID: Self = EntityHandle {
         entity_index: EntityIndex::INVALID,
         group_handle: EntityGroupHandle::INVALID,
-        type_id: EntityId::INVALID,
+        type_id: ConstTypeId::INVALID,
     };
 }
 
@@ -56,7 +56,7 @@ impl Default for EntityHandle {
 impl EntityHandle {
     pub(crate) const fn new(
         entity_index: EntityIndex,
-        type_id: EntityId,
+        type_id: ConstTypeId,
         group_handle: EntityGroupHandle,
     ) -> Self {
         Self {
@@ -70,7 +70,7 @@ impl EntityHandle {
         E::IDENTIFIER == self.entity_type_id()
     }
 
-    pub fn entity_type_id(&self) -> EntityId {
+    pub fn entity_type_id(&self) -> ConstTypeId {
         self.type_id
     }
 
@@ -87,6 +87,10 @@ impl EntityHandle {
     }
 }
 
+impl ConstIdentifier for EntityHandle {
+    const TYPE_NAME: &'static str = "__shura_entity_handle";
+}
+impl ComponentIdentifier for EntityHandle {}
 impl Component for EntityHandle {
     fn init(&mut self, handle: EntityHandle, _world: &mut crate::physics::World) {
         *self = handle;

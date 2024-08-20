@@ -82,6 +82,7 @@ crate-type = ["lib", "cdylib"]
 egui_demo_lib = { git = "https://github.com/AndriBaal/egui.git" }
 
 [dependencies]
+const-fnv1a-hash = "1.1"
 async-trait = "0.1"
 winit = { version = "0.30", features = ["mint"] }
 wgpu = { version = "22.0", features = ["glsl", "spirv", "webgl"] }
@@ -113,7 +114,7 @@ log = { version = "0.4", optional = true, features = ["std"] }
 downcast-rs = "1.2.0"
 rustc-hash = "2.0"
 futures-intrusive = "0.5.0"
-bytemuck = { version = "1.15", features = ["derive"] }
+bytemuck = { version = "1.17", features = ["derive"] }
 instant = "0.1.12"
 shura_macros = { workspace = true }
 image = { version = "0.25.1", default-features = false, features = [

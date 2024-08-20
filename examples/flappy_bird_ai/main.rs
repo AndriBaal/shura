@@ -11,7 +11,7 @@ const GROUND_SIZE: Vector2<f32> = Vector2::new(GAME_SIZE.data.0[0][0], 0.9375);
 const GAME_SIZE: Vector2<f32> = Vector2::new(11.25, 5.0);
 const AMOUNT_BIRDS: u32 = 1000;
 
-#[shura::main]
+#[shura::app]
 fn app(config: AppConfig) {
     App::run(config, || {
         Scene::new()
@@ -206,56 +206,49 @@ fn update(ctx: &mut Context) {
 fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
     let mut renderer = encoder.renderer2d(None);
     renderer.draw_sprite_mesh(
-        &ctx.default_assets.world_camera2d,
         &ctx.assets.mesh("background_mesh"),
+        &ctx.default_assets.world_camera2d,
         &ctx.assets.sprite("background_sprite"),
     );
 
     renderer.draw_sprite_mesh(
-        &ctx.default_assets.world_camera2d,
         &ctx.assets.mesh("ground_mesh"),
+        &ctx.default_assets.world_camera2d,
         &ctx.assets.sprite("ground_sprite"),
     );
 
     renderer.draw_sprite(
-        &ctx.assets.write_instances(
-            "pipes",
-            &ctx.entities.instances::<Pipe, _>(|pipe, data| {
-                data.extend([
-                    SpriteInstance2D::new(
-                        Isometry2::new(
-                            pipe.pos
-                                - Vector::new(0.0, Pipe::HALF_HOLE_SIZE + Pipe::HALF_EXTENTS.y),
-                            std::f32::consts::PI,
-                        ),
-                        Pipe::HALF_EXTENTS * 2.0,
-                        (),
+        &ctx.write_instance_entities::<Pipe, _>("pipes", |pipe, data| {
+            data.extend([
+                SpriteInstance2D::new(
+                    Isometry2::new(
+                        pipe.pos - Vector::new(0.0, Pipe::HALF_HOLE_SIZE + Pipe::HALF_EXTENTS.y),
+                        std::f32::consts::PI,
                     ),
-                    SpriteInstance2D::new(
-                        (pipe.pos - Vector::new(0.0, -Pipe::HALF_HOLE_SIZE - Pipe::HALF_EXTENTS.y))
-                            .into(),
-                        Pipe::HALF_EXTENTS * 2.0,
-                        (),
-                    ),
-                ])
-            }),
-        ),
-        &ctx.default_assets.world_camera2d,
+                    Pipe::HALF_EXTENTS * 2.0,
+                    (),
+                ),
+                SpriteInstance2D::new(
+                    (pipe.pos - Vector::new(0.0, -Pipe::HALF_HOLE_SIZE - Pipe::HALF_EXTENTS.y))
+                        .into(),
+                    Pipe::HALF_EXTENTS * 2.0,
+                    (),
+                ),
+            ])
+        }),
         &ctx.default_assets.sprite_mesh,
+        &ctx.default_assets.world_camera2d,
         &ctx.assets.sprite("pipe_sprite"),
     );
 
     renderer.draw_sprite(
-        &ctx.assets.write_instances(
-            "birds",
-            &ctx.entities.instances::<Bird, _>(|bird, data| {
-                if bird.alive {
-                    data.push(SpriteInstance2D::new(bird.pos, Bird::HALF_EXTENTS, ()));
-                }
-            }),
-        ),
-        &ctx.default_assets.world_camera2d,
+        &ctx.write_instance_entities("birds", |bird: &Bird, data| {
+            if bird.alive {
+                data.push(SpriteInstance2D::new(bird.pos, Bird::HALF_EXTENTS, ()));
+            }
+        }),
         &ctx.default_assets.sprite_mesh,
+        &ctx.default_assets.world_camera2d,
         &ctx.assets.sprite("bird_sprite"),
     );
 }

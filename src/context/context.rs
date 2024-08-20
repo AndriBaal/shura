@@ -9,19 +9,21 @@ use crate::audio::AudioManager;
 use crate::gui::Gui;
 #[cfg(feature = "serde")]
 use crate::{
-    entity::{EntityGroupHandle, EntityId},
+    entity::{EntityGroupHandle, ConstTypeId},
     serde::{EntityGroupDeserializer, EntityGroupSerializer, SceneSerializer},
 };
 use crate::{
     entity::{EntityGroupManager, EntityManager},
     graphics::{AssetManager, Gpu, ScreenConfig, WorldCamera2D, WorldCamera3D},
     input::Input,
-    io::StorageLoader,
+    io::{ResourceLoader, StorageLoader},
     math::{Point2, Vector2},
     physics::World,
-    prelude::{App, Scene, SceneManager, TimeManager, WindowEventManager},
+    scene::{Scene, SceneManager},
+    time::TimeManager,
     system::{EndReason, SystemManager},
     tasks::TaskManager,
+    app::{App, WindowEventManager}
 };
 
 #[non_exhaustive]
@@ -50,6 +52,7 @@ pub struct Context<'a> {
     pub window: Arc<winit::window::Window>,
     pub event_loop: &'a winit::event_loop::ActiveEventLoop,
     pub storage: Arc<dyn StorageLoader>,
+    pub resource: Arc<dyn ResourceLoader>,
     pub assets: Arc<AssetManager>,
 
     // Misc
@@ -93,7 +96,8 @@ impl<'a> Context<'a> {
                 time: &app.time,
                 input: &app.input,
                 gpu: app.gpu.clone(),
-                storage: app.storage.clone(),
+                storage: app.storage_loader.clone(),
+                resource: app.resource_loader.clone(),
                 assets: app.assets.clone(),
                 #[cfg(feature = "gui")]
                 gui: &mut app.gui,
@@ -114,11 +118,11 @@ impl<'a> Context<'a> {
     }
 
     #[cfg(feature = "serde")]
-    #[must_use]
     pub fn serialize_scene(
         &mut self, // Not actually needed, just to ensure there are only unique references to entities
         serialize: impl FnOnce(SceneSerializer) -> SceneSerializer,
     ) -> Result<Vec<u8>, Box<bincode::ErrorKind>> {
+
         let entities = &self.entities;
         let serializer = (serialize)(SceneSerializer::new(entities));
 
@@ -134,18 +138,22 @@ impl<'a> Context<'a> {
 
         #[cfg(feature = "physics")]
         {
+            use crate::component::{ColliderComponent, RigidBodyComponent};
+
             let ser_entities = serializer.finish();
             let mut world_cpy = self.world.clone();
-            for ty in self.entities.entities() {
-                if !ser_entities.contains_key(&ty.entity_type_id()) {
-                    for (_, entity) in ty.dyn_iter() {
-                        entity.remove_from_world(&mut world_cpy);
-                        // for component in entity.components() {
-                        //     component.remove_from_world(&mut world_cpy);
-                        // }
-                    }
+
+            self.entities.components_each::<ColliderComponent>(|entity, component| {
+                if !ser_entities.contains_key(&entity.entity_type_id()) {
+                    world_cpy.remove_no_maintain_collider(component)
                 }
-            }
+            });
+
+            self.entities.components_each::<RigidBodyComponent>(|entity, component| {
+                if !ser_entities.contains_key(&entity.entity_type_id()) {
+                    world_cpy.remove_no_maintain_rigid_body(component)
+                }
+            });
 
             let scene = Scene {
                 render_entities: *self.render_entities,
@@ -155,7 +163,7 @@ impl<'a> Context<'a> {
                 groups: self.groups,
                 world: &world_cpy,
             };
-            let scene: (&Scene, FxHashMap<EntityId, Vec<u8>>) = (&scene, ser_entities);
+            let scene: (&Scene, FxHashMap<ConstTypeId, Vec<u8>>) = (&scene, ser_entities);
 
             bincode::serialize(&scene)
         }
@@ -171,7 +179,7 @@ impl<'a> Context<'a> {
                 groups: self.groups,
                 world: &self.world,
             };
-            let scene: (&Scene, FxHashMap<EntityId, Vec<u8>>) = (&scene, ser_entities);
+            let scene: (&Scene, FxHashMap<ConstTypeId, Vec<u8>>) = (&scene, ser_entities);
             let result = bincode::serialize(&scene);
             return result;
         }
@@ -210,6 +218,7 @@ impl<'a> Context<'a> {
                 input: self.input,
                 gpu: self.gpu.clone(),
                 storage: self.storage.clone(),
+                resource: self.resource.clone(),
                 assets: self.assets.clone(),
                 #[cfg(feature = "gui")]
                 gui: self.gui,
