@@ -30,7 +30,7 @@ impl LoggerBuilder {
         let mut builder = EnvLoggerBuilder::new();
         builder
             .filter_level(level)
-            .filter_module("wgpu_hal", LevelFilter::Warn)
+            .filter_module("wgpu_hal", LevelFilter::Off) // TODO
             .filter_module("wgpu", LevelFilter::Warn)
             .filter_module("wgpu_core", LevelFilter::Warn)
             .filter_module("naga", LevelFilter::Warn)

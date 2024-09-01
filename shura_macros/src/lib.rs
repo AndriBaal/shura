@@ -62,28 +62,28 @@ fn component(ast: &DeriveInput) -> TokenStream2 {
         .iter()
         .map(|(field_name, (name, field_type))| {
             quote! {
-                #name | #field_type::NAME => Some( &self.#field_name as _)
+                #name | <#field_type>::NAME => Some( &self.#field_name as _)
             }
         });
     let component_mut = components
         .iter()
         .map(|(field_name, (name, field_type))| {
             quote! {
-                #name | #field_type::NAME => Some( &mut self.#field_name as _)
+                #name | <#field_type>::NAME => Some( &mut self.#field_name as _)
             }
         });
 
     let tags = components.iter().map(|(_field_name, (name, field_type))| {
         quote! {
             #name,
-            #field_type::NAME
+            <#field_type>::NAME
         }
     });
 
     let tags_recursive = components.iter().map(|(_field_name, (name, field_type))| {
         quote! {
-            result.push((#field_type::NAME, vec![#name]));
-            for (identifier, mut indexes) in #field_type::tags_recursive() {
+            result.push((<#field_type>::NAME, vec![#name]));
+            for (identifier, mut indexes) in <#field_type>::tags_recursive() {
                 indexes.insert(0, #name);
                 result.push((identifier, indexes));
             }
