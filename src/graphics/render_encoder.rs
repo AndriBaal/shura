@@ -105,13 +105,9 @@ impl<'a> RenderEncoder<'a> {
         )
     }
 
-    pub fn renderer2d(
-        &mut self,
-        clear: Option<Color>,
-    ) -> Renderer<'_> {
+    pub fn renderer2d(&mut self, clear: Option<Color>) -> Renderer<'_> {
         self.renderer2d_to(self.default_target, clear)
     }
-
 
     pub fn renderer2d_to<'b>(
         &'b mut self,
@@ -121,25 +117,7 @@ impl<'a> RenderEncoder<'a> {
         self.renderer(target, clear, None)
     }
 
-
     pub fn copy_target(&mut self, src: &dyn RenderTarget, target: &dyn RenderTarget) {
-        // if src
-        //     .texture()
-        //     .usage()
-        //     .contains(wgpu::TextureUsages::COPY_SRC)
-        //     && target
-        //         .texture()
-        //         .usage()
-        //         .contains(wgpu::TextureUsages::COPY_DST)
-        // {
-        //     let size = wgpu::Extent3d {
-        //         width: src.size().x,
-        //         height: src.size().y,
-        //         depth_or_array_layers: 1,
-        //     };
-        //     self.inner
-        //         .copy_texture_to_texture(src.as_copy(), target.as_copy(), size);
-        // } else {
         let src = src
             .downcast_ref::<SpriteRenderTarget>()
             .expect("Cannot copy this texture!");

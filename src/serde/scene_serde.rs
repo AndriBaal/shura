@@ -1,19 +1,14 @@
 use rustc_hash::FxHashMap;
-use std::{ops::Deref, sync::Arc};
+use std::ops::Deref;
 
 use crate::{
     entity::{
-        Entities, ConstTypeId, EntityIdentifier, EntityManager, EntityScope, EntityType,
-        GroupedEntities, SingleEntity, ConstIdentifier
+        ConstTypeId, Entities, EntityIdentifier, EntityManager, EntityScope, EntityType,
+        GroupedEntities, SingleEntity,
     },
-    graphics::{Gpu, GLOBAL_GPU},
     scene::{Scene, SceneCreator},
     system::System,
 };
-
-pub fn gpu() -> Arc<Gpu> {
-    GLOBAL_GPU.get().unwrap().clone()
-}
 
 pub struct SceneSerializer<'a> {
     entities: &'a EntityManager,

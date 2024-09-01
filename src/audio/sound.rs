@@ -1,8 +1,6 @@
 use rodio::Decoder;
 use std::sync::Arc;
 
-use crate::io::GLOBAL_RESOURCE_LOADER;
-
 #[derive(Clone)]
 pub struct SoundBuilder {
     data: Vec<u8>,
@@ -16,8 +14,8 @@ impl SoundBuilder {
     }
 
     pub fn resource(path: &str) -> Self {
-        let assets = GLOBAL_RESOURCE_LOADER.get().unwrap();
-        let bytes = assets.load_bytes(path).unwrap();
+        let resources = crate::app::global_resources();
+        let bytes = resources.load_bytes(path).unwrap();
         Self::bytes(&bytes)
     }
 }

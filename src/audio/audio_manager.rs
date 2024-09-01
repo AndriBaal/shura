@@ -1,20 +1,31 @@
 use crate::audio::{AudioSink, Sound, SoundBuilder};
 
-// Thin wrapper around rodio
-pub struct AudioManager {
+pub struct AudioDeviceManager {
     pub output_stream: rodio::OutputStream,
     pub output_handle: rodio::OutputStreamHandle,
 }
 
-impl AudioManager {
-    pub(crate) fn new() -> Self {
+impl AudioDeviceManager {
+    pub(crate) fn new() -> (Self, AudioManager) {
         let (output_stream, output_handle) = rodio::OutputStream::try_default().unwrap();
-        Self {
-            output_stream,
-            output_handle,
-        }
+        (
+            Self {
+                output_stream,
+                output_handle: output_handle.clone(),
+            },
+            AudioManager { output_handle },
+        )
     }
 
+    // TODO: Custom device
+}
+
+#[derive(Clone)]
+pub struct AudioManager {
+    pub output_handle: rodio::OutputStreamHandle,
+}
+
+impl AudioManager {
     pub fn play_once(&self, sound: &Sound) {
         self.output_handle
             .play_once(sound.cursor())

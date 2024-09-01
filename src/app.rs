@@ -1,12 +1,12 @@
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 #[cfg(feature = "gui")]
 use crate::gui::Gui;
 use crate::{
     context::{Context, RenderContext},
-    graphics::{AssetManager, Gpu, GpuConfig, RenderEncoder, GLOBAL_ASSETS, GLOBAL_GPU},
+    graphics::{AssetManager, Gpu, GpuConfig, RenderEncoder},
     input::Input,
-    io::{ResourceLoader, StorageLoader, GLOBAL_RESOURCE_LOADER, GLOBAL_STORAGE_LOADER},
+    io::{ResourceLoader, StorageLoader},
     math::Vector2,
     scene::{Scene, SceneManager},
     system::{EndReason, UpdateOperation},
@@ -27,7 +27,7 @@ use winit::{
 };
 
 #[cfg(feature = "audio")]
-use crate::audio::AudioManager;
+use crate::audio::{AudioDeviceManager, AudioManager};
 
 #[cfg(target_arch = "wasm32")]
 use rustc_hash::FxHashMap;
@@ -315,6 +315,8 @@ pub struct App {
     #[cfg(feature = "gui")]
     pub(crate) gui: Gui,
     #[cfg(feature = "audio")]
+    pub(crate) audio_device: AudioDeviceManager,
+    #[cfg(feature = "audio")]
     pub(crate) audio: AudioManager,
     #[cfg(target_arch = "wasm32")]
     pub(crate) auto_scale_canvas: bool,
@@ -386,10 +388,15 @@ impl App {
 
         let assets = Arc::new(AssetManager::new(resource.clone(), gpu.clone()));
 
+        #[cfg(feature = "audio")]
+        let (audio_device, audio) = AudioDeviceManager::new();
+
         GLOBAL_GPU.set(gpu.clone()).ok().unwrap();
         GLOBAL_RESOURCE_LOADER.set(resource.clone()).ok().unwrap();
         GLOBAL_ASSETS.set(assets.clone()).ok().unwrap();
         GLOBAL_STORAGE_LOADER.set(storage.clone()).ok().unwrap();
+        #[cfg(feature = "audio")]
+        GLOBAL_AUDIO.set(audio.clone()).ok().unwrap();
 
         let size = gpu.surface_size();
         let scene = (init)();
@@ -397,7 +404,9 @@ impl App {
         Self {
             window_events: config.window_events,
             #[cfg(feature = "audio")]
-            audio: AudioManager::new(),
+            audio,
+            #[cfg(feature = "audio")]
+            audio_device,
             #[cfg(feature = "gui")]
             gui: Gui::new(&window, &gpu),
             #[cfg(target_arch = "wasm32")]
@@ -488,10 +497,10 @@ impl App {
                 let mut default_assets = self.assets.default_assets_mut();
                 default_assets.apply_render_scale(&self.gpu, &scene.screen_config);
             }
+            scene.screen_config.changed = false;
         }
 
         self.update(scene_id, scene, event_loop);
-        scene.screen_config.changed = false;
         if scene.render_entities || resized {
             self.render(scene);
         }
@@ -572,7 +581,7 @@ impl App {
 
         default_assets
             .times
-            .write(&self.gpu, [self.time.total(), self.time.delta()]);
+            .write(&self.gpu, &[[self.time.total(), self.time.delta()]]);
     }
 
     fn render(&mut self, scene: &mut Scene) {
@@ -621,4 +630,28 @@ impl App {
             }
         }
     }
+}
+
+pub static GLOBAL_RESOURCE_LOADER: OnceLock<Arc<dyn ResourceLoader>> = OnceLock::new();
+pub static GLOBAL_STORAGE_LOADER: OnceLock<Arc<dyn StorageLoader>> = OnceLock::new();
+pub static GLOBAL_ASSETS: OnceLock<Arc<AssetManager>> = OnceLock::new();
+pub static GLOBAL_GPU: OnceLock<Arc<Gpu>> = OnceLock::new();
+#[cfg(feature = "audio")]
+pub static GLOBAL_AUDIO: OnceLock<AudioManager> = OnceLock::new();
+
+pub fn global_resources() -> Arc<dyn ResourceLoader> {
+    GLOBAL_RESOURCE_LOADER.get().unwrap().clone()
+}
+pub fn global_storage() -> Arc<dyn StorageLoader> {
+    GLOBAL_STORAGE_LOADER.get().unwrap().clone()
+}
+pub fn global_assets() -> Arc<AssetManager> {
+    GLOBAL_ASSETS.get().unwrap().clone()
+}
+pub fn global_gpu() -> Arc<Gpu> {
+    GLOBAL_GPU.get().unwrap().clone()
+}
+#[cfg(feature = "audio")]
+pub fn global_audio() -> AudioManager {
+    GLOBAL_AUDIO.get().unwrap().clone()
 }

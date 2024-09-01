@@ -1,33 +1,32 @@
 use proc_macro::TokenStream;
-use std::collections::HashMap;
-
 use proc_macro2::{Ident, TokenStream as TokenStream2};
 use quote::quote;
-use syn::{
-    parse_macro_input, parse_quote, parse_str, Data, DataStruct, DeriveInput, Expr, LitStr, Type,
-};
+use std::collections::HashMap;
+use syn::{parse_macro_input, parse_quote, Data, DataStruct, DeriveInput, Expr, LitStr, Type};
 
-type AllComponents = HashMap<Ident, Type>;
+type AllComponents = HashMap<Ident, (String, Type)>;
 
 const IDENT_NAME: &str = "shura";
 
 fn component_data(data_struct: &DataStruct) -> AllComponents {
-    let mut components = AllComponents::default();
-    for field in data_struct.fields.iter() {
+    let mut data: AllComponents = Default::default();
+    for (i, field) in data_struct.fields.iter().enumerate() {
         for attr in &field.attrs {
             if attr.path().is_ident(IDENT_NAME) {
                 attr.parse_nested_meta(|meta| {
                     let field_name = field.ident.as_ref().unwrap();
                     if meta.path.is_ident("component") {
-                        components.insert(field_name.clone(), field.ty.clone());
+                        let number = i.to_string();
+                        data.insert(field_name.clone(), (number, field.ty.clone()));
                     }
-                    Ok(())
+
+                    return Ok(());
                 })
                 .expect("Define your components like the this: '#[shura(component)]'");
             }
         }
     }
-    components
+    return data;
 }
 
 fn identifier_name(ast: &DeriveInput) -> Option<Expr> {
@@ -51,70 +50,51 @@ fn identifier_name(ast: &DeriveInput) -> Option<Expr> {
     result
 }
 
-fn component(ast: &DeriveInput, trait_type: Type, trait_identifier_type: Type) -> TokenStream2 {
+fn component(ast: &DeriveInput) -> TokenStream2 {
     let data_struct = match ast.data {
         Data::Struct(ref data_struct) => data_struct,
         _ => panic!("Must be a struct!"),
     };
-
     let struct_name = ast.ident.clone();
-    let struct_name_str = struct_name.to_string();
-    let struct_identifier = identifier_name(ast).unwrap_or(parse_quote!(#struct_name_str));
     let components = component_data(data_struct);
 
     let component = components
         .iter()
-        .enumerate()
-        .map(|(idx, (field_name, _field_type))| {
-            let idx = idx as u32;
+        .map(|(field_name, (name, field_type))| {
             quote! {
-                #idx => Some( &self.#field_name as _)
+                #name | #field_type::NAME => Some( &self.#field_name as _)
             }
         });
     let component_mut = components
         .iter()
-        .enumerate()
-        .map(|(idx, (field_name, _field_type))| {
-            let idx = idx as u32;
+        .map(|(field_name, (name, field_type))| {
             quote! {
-                #idx => Some( &mut self.#field_name as _)
+                #name | #field_type::NAME => Some( &mut self.#field_name as _)
             }
         });
 
-    
-    let component_identifiers = components
-        .iter()
-        .enumerate()
-        .map(|(idx, (_field_name, field_type))| {
-            let idx = idx as u32;
-            quote! {
-                (#field_type::IDENTIFIER, #idx)
-            }
-        });
+    let tags = components.iter().map(|(_field_name, (name, field_type))| {
+        quote! {
+            #name,
+            #field_type::NAME
+        }
+    });
 
-    let component_identifiers_recursive = components
-        .iter()
-        .enumerate()
-        .map(|(idx, (_field_name, field_type))| {
-            let idx = idx as u32;
-            quote! {
-                result.push((#field_type::IDENTIFIER, vec![#idx]));
-                for (identifier, mut indexes) in #field_type::component_identifiers_recursive() {
-                    indexes.insert(0, #idx);
-                    result.push((identifier, indexes));
-                }
+    let tags_recursive = components.iter().map(|(_field_name, (name, field_type))| {
+        quote! {
+            result.push((#field_type::NAME, vec![#name]));
+            for (identifier, mut indexes) in #field_type::tags_recursive() {
+                indexes.insert(0, #name);
+                result.push((identifier, indexes));
             }
-        });
+        }
+    });
 
     let components = components.keys().collect::<Vec<_>>();
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
 
     quote!(
-        impl #impl_generics ::shura::entity::ConstIdentifier for #struct_name #ty_generics #where_clause {
-            const TYPE_NAME: &'static str = #struct_identifier;
-        }
-        impl #impl_generics #trait_identifier_type for #struct_name #ty_generics #where_clause {}
-        impl #impl_generics #trait_type for #struct_name #ty_generics #where_clause {
+        impl #impl_generics ::shura::component::Component for #struct_name #ty_generics #where_clause {
             fn init(&mut self, handle: ::shura::entity::EntityHandle, world: &mut ::shura::physics::World) {
                 use ::shura::component::Component;
                 #( self.#components.init(handle, world); )*
@@ -125,36 +105,43 @@ fn component(ast: &DeriveInput, trait_type: Type, trait_identifier_type: Type) -
                 #( self.#components.finish(world); )*
             }
 
-            fn component(&self, idx: u32) -> Option<&dyn ::shura::component::Component> {
-                match idx {
+            fn remove_from_world(&self, world: &mut ::shura::physics::World) {
+                #( self.#components.remove_from_world(world); )*
+            }
+
+            fn component_dyn(&self, name: &str) -> Option<&dyn ::shura::component::Component> {
+                match name {
                     #( #component, )*
                     _ => None
                 }
             }
 
-            fn component_mut(&mut self, idx: u32) -> Option<&mut dyn ::shura::component::Component> {
-                match idx {
+            fn component_mut_dyn(&mut self, name: &str) -> Option<&mut dyn ::shura::component::Component> {
+                match name {
                     #( #component_mut, )*
                     _ => None
                 }
             }
 
-            fn component_identifiers() -> &'static [(::shura::entity::ConstTypeId, u32)]
-            where
-                Self: Sized,
-            {
-                &[
-                    #( #component_identifiers, )*
-                ]
+            fn tags() -> &'static [&'static str] where Self: Sized {
+                return &[ #( #tags, )* ];
             }
 
-            fn component_identifiers_recursive() -> Vec<(::shura::entity::ConstTypeId, Vec<u32>)>
+            fn tags_recursive() -> Vec<(&'static str, Vec<&'static str>)>
             where
                 Self: Sized,
             {
                 let mut result = vec![];
-                #( #component_identifiers_recursive )*
+                #( #tags_recursive )*
                 return result;
+            }
+
+            fn as_component(&self) -> &dyn ::shura::component::Component {
+                self as _
+            }
+
+            fn as_component_mut(&mut self) -> &mut dyn ::shura::component::Component {
+                self as _
             }
         }
     )
@@ -162,25 +149,43 @@ fn component(ast: &DeriveInput, trait_type: Type, trait_identifier_type: Type) -
 
 #[proc_macro_derive(Component, attributes(shura))]
 pub fn derive_component(input: TokenStream) -> TokenStream {
-    let ast = parse_macro_input!(input as DeriveInput);
-    let component = component(
-        &ast,
-        parse_str("::shura::component::Component").unwrap(),
-        parse_str("::shura::component::ComponentIdentifier").unwrap(),
-    );
+    let ast = parse_macro_input!(input as DeriveInput);    
+    let struct_name = ast.ident.clone();
+    let struct_name_str = struct_name.to_string();
+    let struct_identifier = identifier_name(&ast).unwrap_or(parse_quote!(
+        concat!(module_path!(), "::", #struct_name_str)
+    ));
+    let component = component(&ast);
+    let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
 
-    component.into()
+    quote!(
+        impl #impl_generics ::shura::component::ComponentIdentifier for #struct_name #ty_generics #where_clause {
+            const NAME: &'static str = #struct_identifier;
+        }
+        #component
+    )
+    .into()
 }
 
 #[proc_macro_derive(Entity, attributes(shura))]
 pub fn derive_entity(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
-    let entity = component(
-        &ast,
-        parse_str("::shura::entity::Entity").unwrap(),
-        parse_str("::shura::entity::EntityIdentifier").unwrap(),
-    );
-    entity.into()
+    let struct_name = ast.ident.clone();
+    let struct_name_str = struct_name.to_string();
+    let struct_identifier = identifier_name(&ast).unwrap_or(parse_quote!(
+        concat!(module_path!(), "::", #struct_name_str)
+    ));
+    let component = component(&ast);
+    let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
+    quote!(
+        #component
+
+        impl #impl_generics ::shura::entity::Entity for #struct_name #ty_generics #where_clause {}
+        impl #impl_generics ::shura::entity::EntityIdentifier for #struct_name #ty_generics #where_clause {
+            const NAME: &'static str = #struct_identifier;
+        }
+    )
+    .into()
 }
 
 #[proc_macro_attribute]

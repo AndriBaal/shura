@@ -1,6 +1,6 @@
 use downcast_rs::{impl_downcast, Downcast};
 
-use crate::{component::Component, entity::EntityHandle, physics::World};
+use crate::component::Component;
 use std::fmt::{Display, Formatter, Result};
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default, Hash)]
@@ -25,41 +25,15 @@ impl Display for ConstTypeId {
     }
 }
 
-pub trait ConstIdentifier {
-    const TYPE_NAME: &'static str;
+pub trait EntityIdentifier: Entity {
+    const NAME: &'static str;
     const IDENTIFIER: ConstTypeId =
-        ConstTypeId::new(const_fnv1a_hash::fnv1a_hash_str_32(Self::TYPE_NAME));
+        ConstTypeId::new(const_fnv1a_hash::fnv1a_hash_str_32(Self::NAME));
     fn const_type_id(&self) -> ConstTypeId {
         Self::IDENTIFIER
     }
 }
 
-pub trait EntityIdentifier: ConstIdentifier + Entity {}
-
 #[allow(unused_variables)]
-pub trait Entity: Downcast {
-    fn init(&mut self, handle: EntityHandle, world: &mut World) {}
-    fn finish(&mut self, world: &mut World) {}
-    fn component(&self, idx: u32) -> Option<&dyn Component> {
-        None
-    }
-    fn component_mut(&mut self, idx: u32) -> Option<&mut dyn Component> {
-        None
-    }
-    // TODO: Optimize with: &'static [u32]
-    fn component_identifiers() -> &'static [(ConstTypeId, u32)]
-    where
-        Self: Sized,
-    {
-        &[]
-    }
-
-    // Optimize with: Vec<Vec<u32>>
-    fn component_identifiers_recursive() -> Vec<(ConstTypeId, Vec<u32>)>
-    where
-        Self: Sized,
-    {
-        vec![]
-    }
-}
+pub trait Entity: Downcast + Component {}
 impl_downcast!(Entity);

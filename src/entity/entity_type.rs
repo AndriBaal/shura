@@ -7,8 +7,8 @@ use crate::{arena::ArenaEntry, rayon::prelude::*};
 use crate::{
     arena::{Arena, ArenaIndex, ArenaIter, ArenaIterMut},
     entity::{
-        Entity, EntityGroupHandle, EntityGroupManager, EntityHandle, ConstTypeId, EntityIdentifier,
-        EntityIndex, ConstIdentifier
+        ConstTypeId, Entity, EntityGroupHandle, EntityGroupManager, EntityHandle, EntityIdentifier,
+        EntityIndex,
     },
     physics::World,
 };
@@ -815,10 +815,12 @@ impl<ET: EntityType + Default> EntityType for GroupedEntities<ET> {
     where
         Self: Sized,
     {
-        Box::new(groups
-            .render_groups()
-            .iter()
-            .flat_map(|g| self.get_group(g).unwrap().iter_render(groups)))
+        Box::new(
+            groups
+                .render_groups()
+                .iter()
+                .flat_map(|g| self.get_group(g).unwrap().iter_render(groups)),
+        )
     }
 
     fn dyn_iter<'a>(&'a self) -> Box<dyn Iterator<Item = (EntityHandle, &dyn Entity)> + 'a> {

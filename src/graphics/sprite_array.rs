@@ -1,6 +1,5 @@
 use crate::{
-    graphics::{Gpu, RgbaColor, Uniform},
-    io::GLOBAL_RESOURCE_LOADER,
+    graphics::{Gpu, Uniform, Color},
     math::Vector2,
 };
 use std::ops::Deref;
@@ -24,16 +23,16 @@ pub struct SpriteArrayBuilder<'a, D: Deref<Target = [u8]>> {
 
 impl<'a> SpriteArrayBuilder<'a, image::RgbaImage> {
     pub fn resource_to_sheet(path: &str, size: TileSize) -> Self {
-        let assets = GLOBAL_RESOURCE_LOADER.get().unwrap();
-        let bytes = assets.load_bytes(path).unwrap();
+        let resources = crate::app::global_resources();
+        let bytes = resources.load_bytes(path).unwrap();
         Self::byte_sheet(&bytes, size)
     }
 
     pub fn resources(paths: &[&str]) -> Self {
-        let assets = GLOBAL_RESOURCE_LOADER.get().unwrap();
+        let resources = crate::app::global_resources();
         let byte_array = paths
             .iter()
-            .map(|path| assets.load_bytes(path).unwrap())
+            .map(|path| resources.load_bytes(path).unwrap())
             .collect::<Vec<_>>();
         Self::byte_array(&byte_array)
     }
@@ -101,10 +100,10 @@ impl<'a> SpriteArrayBuilder<'a, image::RgbaImage> {
 }
 
 impl<'a> SpriteArrayBuilder<'a, Vec<u8>> {
-    pub fn colors(colors: &[RgbaColor]) -> Self {
+    pub fn colors(colors: &[Color]) -> Self {
         let mut data = vec![];
         for c in colors {
-            data.push(vec![c.r, c.g, c.b, c.a]);
+            data.push(c.to_rgba().into());
         }
 
         Self {
@@ -190,7 +189,7 @@ pub struct SpriteArray {
 impl SpriteArray {
     pub fn new<D: Deref<Target = [u8]>>(gpu: &Gpu, desc: SpriteArrayBuilder<D>) -> Self {
         let amount = desc.sprite_amount.x * desc.sprite_amount.y;
-        let shared_assets = gpu.shared_assets();
+        let default_layouts = gpu.default_layouts();
 
         let texture_descriptor = wgpu::TextureDescriptor {
             label: desc.label,
@@ -253,7 +252,7 @@ impl SpriteArray {
                     resource: wgpu::BindingResource::Sampler(&sampler),
                 },
             ],
-            layout: &shared_assets.sprite_array_layout,
+            layout: &default_layouts.sprite_array_layout,
             label: Some("sprite_array_bind_group"),
         });
 

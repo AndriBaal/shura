@@ -241,6 +241,7 @@ impl TextMesh {
 }
 
 pub type TextInstance2D = Instance2D<LetterData>;
+pub type TextInstanceCollection2D = Vec<TextInstance2D>;
 impl Instance for TextInstance2D {
     const ATTRIBUTES: &'static [wgpu::VertexFormat] = &[
         wgpu::VertexFormat::Float32x2,
@@ -260,8 +261,12 @@ pub struct LetterData {
     pub index: SpriteArrayIndex,
 }
 
-impl TextInstance2D {
-    pub fn text<S: AsRef<str>>(font: &Font, sections: &[TextSection<S>]) -> Vec<Self> {
+pub trait CreateTextCollection {
+    fn text<S: AsRef<str>>(font: &Font, sections: &[TextSection<S>]) -> Self;
+}
+
+impl CreateTextCollection for TextInstanceCollection2D {
+    fn text<S: AsRef<str>>(font: &Font, sections: &[TextSection<S>]) -> Self {
         let mut instances = vec![];
         TextSection::compute_layout(font, sections, |letter| {
             let rotation = letter.section.offset.rotation;

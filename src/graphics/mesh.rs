@@ -75,17 +75,25 @@ impl<V: Vertex> MeshBuilder for (&[V], &[Index]) {
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Default, bytemuck::Zeroable)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Vertex2D<D> where D: bytemuck::Pod + Default {
+pub struct Vertex2D<D>
+where
+    D: bytemuck::Pod + Default,
+{
     pub pos: Vector2<f32>,
     pub data: D,
 }
 unsafe impl<D: bytemuck::Pod + Default> bytemuck::Pod for Vertex2D<D> {}
 
 impl<D: bytemuck::Pod + Default> Vertex2D<D> {
-    pub fn offset(mut self, offset: Isometry2<f32>) -> Self {
-        let rotation = offset.rotation;
-        let translation = offset.translation.vector;
+    pub fn position(mut self, position: Isometry2<f32>) -> Self {
+        let rotation = position.rotation;
+        let translation = position.translation.vector;
         self.pos = rotation * self.pos;
+        self.pos += translation;
+        self
+    }
+
+    pub fn translation(mut self, translation: Vector2<f32>) -> Self {
         self.pos += translation;
         self
     }
@@ -456,10 +464,7 @@ impl<V: BaseVertex2D> MeshBuilder2D<V> {
         let vertices = v_new.into_iter().map(|v| v.unwrap()).collect::<Vec<_>>();
         let indices = Self::triangulate(&vertices);
         let vertices = V::create_data(vertices);
-        Self {
-            vertices,
-            indices,
-        }
+        Self { vertices, indices }
     }
 
     pub fn star(corners: u32, inner_radius: f32, outer_radius: f32) -> Self {
@@ -861,7 +866,7 @@ impl<V: Vertex> Mesh<V> {
             vertex_data: Vec::new(),
             index_data: Vec::new(),
             force_update: true,
-            write_indices: true
+            write_indices: true,
         }
     }
 

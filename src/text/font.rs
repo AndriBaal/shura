@@ -3,7 +3,6 @@ use rustc_hash::FxHashMap;
 
 use crate::{
     graphics::{Gpu, SpriteArray, SpriteArrayBuilder, SpriteArrayIndex},
-    io::GLOBAL_RESOURCE_LOADER,
     math::Vector2,
 };
 
@@ -22,8 +21,8 @@ impl FontBuilder {
     }
 
     pub fn resource(path: &str) -> Self {
-        let assets = GLOBAL_RESOURCE_LOADER.get().unwrap();
-        let bytes = assets.load_bytes(path).unwrap();
+        let resources = crate::app::global_resources();
+        let bytes = resources.load_bytes(path).unwrap();
         Self::Owned(bytes)
     }
 }

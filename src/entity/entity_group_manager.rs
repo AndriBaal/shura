@@ -1,6 +1,6 @@
 use crate::{
     arena::Arena,
-    entity::{EntityGroupHandle, ConstTypeId, EntityManager, EntityType},
+    entity::{ConstTypeId, EntityGroupHandle, EntityManager, EntityType},
     graphics::Camera2D,
     math::AABB,
     physics::World,

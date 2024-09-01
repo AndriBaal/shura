@@ -188,7 +188,7 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
                 "player",
                 |player| &player.mesh,
                 Some(|player: &Player, v: &SpriteVertex2D| {
-                    v.offset(player.body.position(ctx.world))
+                    v.position(player.body.position(ctx.world))
                 }),
             ),
             &ctx.default_assets.world_camera2d,
@@ -200,7 +200,7 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
                 "floor",
                 |floor| &floor.mesh,
                 Some(|floor: &Floor, v: &ColorVertex2D| {
-                    v.offset(floor.collider.position(ctx.world))
+                    v.position(floor.collider.position(ctx.world))
                 }),
             ),
             &ctx.default_assets.world_camera2d,

@@ -1,8 +1,7 @@
 use wgpu::util::DeviceExt;
 
 use crate::{
-    graphics::{Gpu, RgbaColor, Uniform},
-    io::GLOBAL_RESOURCE_LOADER,
+    graphics::{Gpu, Color, Uniform},
     math::Vector2,
 };
 use std::ops::Deref;
@@ -17,8 +16,8 @@ pub struct SpriteBuilder<'a, D: Deref<Target = [u8]>> {
 
 impl<'a> SpriteBuilder<'a, image::RgbaImage> {
     pub fn resource(path: &str) -> SpriteBuilder<'a, image::ImageBuffer<image::Rgba<u8>, Vec<u8>>> {
-        let assets = GLOBAL_RESOURCE_LOADER.get().unwrap();
-        let bytes = assets.load_bytes(path).unwrap();
+        let resources = crate::app::global_resources();
+        let bytes = resources.load_bytes(path).unwrap();
         Self::bytes(&bytes)
     }
 
@@ -59,12 +58,12 @@ impl<'a> SpriteBuilder<'a, &'static [u8]> {
 }
 
 impl<'a> SpriteBuilder<'a, Vec<u8>> {
-    pub fn color(color: RgbaColor) -> Self {
+    pub fn color(color: Color) -> Self {
         Self {
             label: None,
             size: Vector2::new(1, 1),
             sampler: Sprite::DEFAULT_SAMPLER,
-            data: vec![color.r, color.g, color.b, color.a],
+            data: color.to_rgba().into(),
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
         }
     }
@@ -197,11 +196,11 @@ impl Sprite {
         texture: &wgpu::Texture,
         sampler: &wgpu::SamplerDescriptor,
     ) -> (wgpu::TextureView, wgpu::BindGroup, wgpu::Sampler) {
-        let shared_assets = gpu.shared_assets();
+        let default_layouts = gpu.default_layouts();
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
         let sampler = gpu.device.create_sampler(sampler);
         let bind_group = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &shared_assets.sprite_layout,
+            layout: &default_layouts.sprite_layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,

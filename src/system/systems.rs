@@ -22,9 +22,11 @@ pub enum EndReason {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SystemPriority(pub u8);
 impl SystemPriority {
+    pub const FIRST: Self = Self(0);
     pub const BEFORE: Self = Self(64);
     pub const DURING: Self = Self(128);
     pub const AFTER: Self = Self(192);
+    pub const LAST: Self = Self(255);
 }
 
 impl Default for SystemPriority {
@@ -37,12 +39,13 @@ impl Default for SystemPriority {
 enum SystemType {
     Setup(SetupSystem),
     Update(UpdateSystem),
-    Resize(ResizeSystem),
-    Switch(SwitchSystem),
     UpdateNFrame(u64, UpdateSystem),
     UpdateAfter(Duration, UpdateSystem),
+    Resize(ResizeSystem),
+    Switch(SwitchSystem),
     Render(RenderSystem),
     End(EndSystem),
+    // TODO: Custom callable event
 }
 
 pub struct System {

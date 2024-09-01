@@ -4,15 +4,11 @@ use std::{cell::RefCell, sync::Arc};
 use rustc_hash::FxHashMap;
 
 #[cfg(feature = "audio")]
-use crate::audio::AudioManager;
+use crate::audio::{AudioDeviceManager, AudioManager};
 #[cfg(feature = "gui")]
 use crate::gui::Gui;
-#[cfg(feature = "serde")]
 use crate::{
-    entity::{EntityGroupHandle, ConstTypeId},
-    serde::{EntityGroupDeserializer, EntityGroupSerializer, SceneSerializer},
-};
-use crate::{
+    app::{App, WindowEventManager},
     entity::{EntityGroupManager, EntityManager},
     graphics::{AssetManager, Gpu, ScreenConfig, WorldCamera2D, WorldCamera3D},
     input::Input,
@@ -20,10 +16,14 @@ use crate::{
     math::{Point2, Vector2},
     physics::World,
     scene::{Scene, SceneManager},
-    time::TimeManager,
     system::{EndReason, SystemManager},
     tasks::TaskManager,
-    app::{App, WindowEventManager}
+    time::TimeManager,
+};
+#[cfg(feature = "serde")]
+use crate::{
+    entity::{ConstTypeId, EntityGroupHandle},
+    serde::{EntityGroupDeserializer, EntityGroupSerializer, SceneSerializer},
 };
 
 #[non_exhaustive]
@@ -46,7 +46,9 @@ pub struct Context<'a> {
     #[cfg(feature = "gui")]
     pub gui: &'a mut Gui,
     #[cfg(feature = "audio")]
-    pub audio: &'a AudioManager,
+    pub audio: AudioManager,
+    #[cfg(feature = "audio")]
+    pub audio_device: &'a mut AudioDeviceManager,
     pub end: &'a mut bool,
     pub scenes: &'a mut SceneManager,
     pub window: Arc<winit::window::Window>,
@@ -102,7 +104,9 @@ impl<'a> Context<'a> {
                 #[cfg(feature = "gui")]
                 gui: &mut app.gui,
                 #[cfg(feature = "audio")]
-                audio: &app.audio,
+                audio: app.audio.clone(),
+                #[cfg(feature = "audio")]
+                audio_device: &mut app.audio_device,
                 end: &mut app.end,
                 scenes: &mut app.scenes,
                 window: app.window.clone(),
@@ -122,7 +126,6 @@ impl<'a> Context<'a> {
         &mut self, // Not actually needed, just to ensure there are only unique references to entities
         serialize: impl FnOnce(SceneSerializer) -> SceneSerializer,
     ) -> Result<Vec<u8>, Box<bincode::ErrorKind>> {
-
         let entities = &self.entities;
         let serializer = (serialize)(SceneSerializer::new(entities));
 
@@ -138,22 +141,16 @@ impl<'a> Context<'a> {
 
         #[cfg(feature = "physics")]
         {
-            use crate::component::{ColliderComponent, RigidBodyComponent};
-
             let ser_entities = serializer.finish();
             let mut world_cpy = self.world.clone();
 
-            self.entities.components_each::<ColliderComponent>(|entity, component| {
-                if !ser_entities.contains_key(&entity.entity_type_id()) {
-                    world_cpy.remove_no_maintain_collider(component)
+            for ty in self.entities.entities() {
+                if !ser_entities.contains_key(&ty.entity_type_id()) {
+                    for (_, entity) in ty.dyn_iter() {
+                        entity.remove_from_world(&mut world_cpy);
+                    }
                 }
-            });
-
-            self.entities.components_each::<RigidBodyComponent>(|entity, component| {
-                if !ser_entities.contains_key(&entity.entity_type_id()) {
-                    world_cpy.remove_no_maintain_rigid_body(component)
-                }
-            });
+            }
 
             let scene = Scene {
                 render_entities: *self.render_entities,
@@ -223,7 +220,9 @@ impl<'a> Context<'a> {
                 #[cfg(feature = "gui")]
                 gui: self.gui,
                 #[cfg(feature = "audio")]
-                audio: self.audio,
+                audio: self.audio.clone(),
+                #[cfg(feature = "audio")]
+                audio_device: self.audio_device,
                 end: self.end,
                 scenes: self.scenes,
                 window: self.window.clone(),

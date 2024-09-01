@@ -1,7 +1,7 @@
 use crate::{
     arena::ArenaIndex,
     component::{Component, ComponentIdentifier},
-    entity::{ConstIdentifier, ConstTypeId, EntityIdentifier},
+    entity::{EntityIdentifier, ConstTypeId},
 };
 use core::hash::Hash;
 
@@ -87,10 +87,10 @@ impl EntityHandle {
     }
 }
 
-impl ConstIdentifier for EntityHandle {
-    const TYPE_NAME: &'static str = "__shura_entity_handle";
+impl ComponentIdentifier for EntityHandle {
+    const NAME: &'static str = concat!(module_path!(), "ColliderComponent");
 }
-impl ComponentIdentifier for EntityHandle {}
+
 impl Component for EntityHandle {
     fn init(&mut self, handle: EntityHandle, _world: &mut crate::physics::World) {
         *self = handle;
@@ -98,5 +98,13 @@ impl Component for EntityHandle {
 
     fn finish(&mut self, _world: &mut crate::physics::World) {
         *self = Self::INVALID;
+    }
+
+    fn as_component(&self) -> &dyn Component {
+        self as _
+    }
+    
+    fn as_component_mut(&mut self) -> &mut dyn Component {
+        self as _
     }
 }

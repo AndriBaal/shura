@@ -1,11 +1,7 @@
 use anyhow::Result;
 use downcast_rs::{impl_downcast, Downcast};
 
-use std::{
-    env, fs,
-    path::PathBuf,
-    sync::{Arc, OnceLock},
-};
+use std::{env, fs, path::PathBuf};
 
 #[cfg(target_os = "android")]
 use std::{ffi::CString, io::Read};
@@ -30,9 +26,6 @@ macro_rules! include_resource_wgsl {
         ::shura::graphics::include_wgsl!(concat!(env!("CARGO_MANIFEST_DIR"), "/resources/", $file))
     };
 }
-
-pub static GLOBAL_RESOURCE_LOADER: OnceLock<Arc<dyn ResourceLoader>> = OnceLock::new();
-pub static GLOBAL_STORAGE_LOADER: OnceLock<Arc<dyn StorageLoader>> = OnceLock::new();
 
 #[async_trait::async_trait(?Send)]
 pub trait ResourceLoader: Send + Sync + Downcast {

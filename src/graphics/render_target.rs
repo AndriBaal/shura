@@ -2,11 +2,9 @@ use downcast_rs::{impl_downcast, Downcast};
 use std::ops::Deref;
 
 use crate::{
-    graphics::{Camera2D, Color, Gpu, RenderEncoder, Sprite, SpriteBuilder},
+    graphics::{Camera2D, Color, Gpu, RenderEncoder, Sprite, SpriteBuilder, Uniform},
     math::Vector2,
 };
-
-use super::{Uniform, GLOBAL_ASSETS, GLOBAL_GPU};
 
 pub trait RenderTarget: Downcast + Send + Sync {
     fn msaa(&self) -> Option<&wgpu::TextureView>;
@@ -121,8 +119,8 @@ impl SpriteRenderTarget {
         sprite: SpriteBuilder<D>,
         compute: impl FnMut(&mut RenderEncoder),
     ) -> Self {
-        let gpu = GLOBAL_GPU.get().unwrap();
-        let target = SpriteRenderTarget::custom(gpu, sprite);
+        let gpu = crate::app::global_gpu();
+        let target = SpriteRenderTarget::custom(&gpu, sprite);
         target.draw(compute);
         target
     }
@@ -157,10 +155,10 @@ impl SpriteRenderTarget {
     }
 
     pub fn draw(&self, compute: impl FnOnce(&mut RenderEncoder)) {
-        let assets = GLOBAL_ASSETS.get().unwrap();
-        let gpu = GLOBAL_GPU.get().unwrap();
+        let assets = crate::app::global_assets();
+        let gpu = crate::app::global_gpu();
         let default_assets = assets.default_assets();
-        let mut encoder = RenderEncoder::new(gpu, assets, &default_assets, self);
+        let mut encoder = RenderEncoder::new(&gpu, &assets, &default_assets, self);
         compute(&mut encoder);
     }
 

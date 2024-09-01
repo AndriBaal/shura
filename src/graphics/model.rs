@@ -2,7 +2,6 @@ use std::io::{BufReader, Cursor};
 
 use crate::{
     graphics::{Gpu, Mesh3D, MeshBuilder3D, Sprite, SpriteBuilder, Vertex3D},
-    io::GLOBAL_RESOURCE_LOADER,
     math::{Vector2, Vector3},
 };
 
@@ -13,8 +12,8 @@ pub struct ModelBuilder {
 
 impl ModelBuilder {
     pub fn resource(path: &str) -> Self {
-        let assets = GLOBAL_RESOURCE_LOADER.get().unwrap();
-        let obj_text = assets.load_string(path).unwrap();
+        let resources = crate::app::global_resources();
+        let obj_text = resources.load_string(path).unwrap();
         let obj_cursor = Cursor::new(&obj_text);
         let mut obj_reader = BufReader::new(obj_cursor);
         let mut path_buf: std::path::PathBuf = path.into();
@@ -29,7 +28,7 @@ impl ModelBuilder {
                 ..Default::default()
             },
             |p| {
-                let mat_text = assets
+                let mat_text = resources
                     .load_string(path_buf.join(p).to_str().unwrap())
                     .unwrap();
                 tobj::load_mtl_buf(&mut BufReader::new(Cursor::new(mat_text)))
@@ -40,7 +39,7 @@ impl ModelBuilder {
         let mut sprites = Vec::new();
         for m in obj_materials.unwrap() {
             sprites.push(
-                assets
+                resources
                     .load_bytes(path_buf.join(m.diffuse_texture.unwrap()).to_str().unwrap())
                     .unwrap(),
             );

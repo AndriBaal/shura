@@ -93,7 +93,10 @@ impl Default for SpriteArrayAtlas {
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Zeroable)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Instance2D<D> where D: bytemuck::Pod {
+pub struct Instance2D<D>
+where
+    D: bytemuck::Pod,
+{
     pub translation: Vector2<f32>,
     pub scale_rotation: Matrix2<f32>,
     pub data: D,

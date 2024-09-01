@@ -176,6 +176,43 @@ impl<'a> Renderer<'a> {
             .draw_indexed(indices, base_vertex, instances)
     }
 
+    pub fn draw<I: Instance, V: Vertex>(
+        &mut self,
+        shader: &Shader,
+        instances: &InstanceBuffer<I>,
+        mesh: &Mesh<V>,
+        uniforms: &[&dyn Uniform],
+    ) {
+        if instances.buffer_size() != 0
+            && mesh.vertex_buffer_size() != 0
+            && mesh.index_buffer_size() != 0
+        {
+            self.use_shader(shader);
+            self.use_instances(instances);
+            self.use_mesh(mesh);
+            for (i, uniform) in uniforms.iter().enumerate() {
+                self.use_uniform(*uniform, i as u32);
+            }
+            self.render();
+        }
+    }
+
+    pub fn draw_mesh<V: Vertex>(
+        &mut self,
+        shader: &Shader,
+        mesh: &Mesh<V>,
+        uniforms: &[&dyn Uniform],
+    ) {
+        if mesh.vertex_buffer_size() != 0 && mesh.index_buffer_size() != 0 {
+            self.use_shader(shader);
+            self.use_mesh(mesh);
+            for (i, uniform) in uniforms.iter().enumerate() {
+                self.use_uniform(*uniform, i as u32);
+            }
+            self.render();
+        }
+    }
+
     pub fn draw_sprite(
         &mut self,
         instances: &InstanceBuffer<PositionInstance2D>,
@@ -183,7 +220,10 @@ impl<'a> Renderer<'a> {
         camera: &CameraBuffer2D,
         sprite: &Sprite,
     ) {
-        if instances.buffer_size() != 0 && mesh.vertex_buffer_size() != 0 && mesh.index_buffer_size() != 0 {
+        if instances.buffer_size() != 0
+            && mesh.vertex_buffer_size() != 0
+            && mesh.index_buffer_size() != 0
+        {
             self.use_shader(&self.default_assets.sprite_shader);
             self.use_instances(instances);
             self.use_mesh(mesh);
@@ -200,7 +240,10 @@ impl<'a> Renderer<'a> {
         camera: &CameraBuffer2D,
         sprite: &Sprite,
     ) {
-        if instances.buffer_size() != 0 && mesh.vertex_buffer_size() != 0 && mesh.index_buffer_size() != 0 {
+        if instances.buffer_size() != 0
+            && mesh.vertex_buffer_size() != 0
+            && mesh.index_buffer_size() != 0
+        {
             self.use_shader(&self.default_assets.sprite_shader);
             self.use_instances(instances);
             self.use_mesh(mesh);
@@ -216,7 +259,10 @@ impl<'a> Renderer<'a> {
         mesh: &PositionMesh2D,
         camera: &CameraBuffer2D,
     ) {
-        if instances.buffer_size() != 0 && mesh.vertex_buffer_size() != 0 && mesh.index_buffer_size() != 0 {
+        if instances.buffer_size() != 0
+            && mesh.vertex_buffer_size() != 0
+            && mesh.index_buffer_size() != 0
+        {
             self.use_shader(&self.default_assets.color_shader);
             self.use_instances(instances);
             self.use_mesh(mesh);
@@ -225,7 +271,7 @@ impl<'a> Renderer<'a> {
         }
     }
 
-    pub fn draw_color_mesh(&mut self,  mesh: &ColorMesh2D, camera: &CameraBuffer2D) {
+    pub fn draw_color_mesh(&mut self, mesh: &ColorMesh2D, camera: &CameraBuffer2D) {
         if mesh.vertex_buffer_size() != 0 && mesh.index_buffer_size() != 0 {
             self.use_shader(&self.default_assets.mesh_color_shader);
             self.use_mesh(mesh);
@@ -271,7 +317,10 @@ impl<'a> Renderer<'a> {
         camera: &CameraBuffer2D,
         sprite: &Sprite,
     ) {
-        if instances.buffer_size() != 0 && mesh.vertex_buffer_size() != 0 && mesh.index_buffer_size() != 0 {
+        if instances.buffer_size() != 0
+            && mesh.vertex_buffer_size() != 0
+            && mesh.index_buffer_size() != 0
+        {
             self.use_shader(&self.default_assets.sprite_crop_shader);
             self.use_instances(instances);
             self.use_mesh(mesh);

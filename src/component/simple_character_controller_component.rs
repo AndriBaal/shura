@@ -1,11 +1,11 @@
 use rapier2d::{parry::query::ShapeCastOptions, pipeline::QueryFilter};
 
 use crate::{
-    component::Component,
-    entity::EntityHandle,
+    component::{Component, ComponentIdentifier},
     math::{Isometry2, Rotation2, Vector2},
     physics::{Shape, World},
 };
+
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone)]
@@ -127,7 +127,17 @@ impl<S: Shape> SimpleCharacterControllerComponent<S> {
     }
 }
 
+impl <S: Shape>ComponentIdentifier for SimpleCharacterControllerComponent<S> {
+    const NAME: &'static str = concat!(module_path!(), "SimpleCharacterControllerComponent");
+}
+
 impl<S: Shape> Component for SimpleCharacterControllerComponent<S> {
-    fn init(&mut self, _handle: EntityHandle, _world: &mut World) {}
-    fn finish(&mut self, _world: &mut World) {}
+
+    fn as_component(&self) -> &dyn Component {
+        self as _
+    }
+    
+    fn as_component_mut(&mut self) -> &mut dyn Component {
+        self as _
+    }
 }

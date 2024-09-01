@@ -36,7 +36,7 @@ impl<'a> VertexBuffers<'a> {
 pub struct ShaderConfig<'a> {
     pub name: Option<&'a str>,
     pub source: ShaderModuleSource<'a>,
-    pub uniforms: &'a [UniformField],
+    pub uniforms: &'a [UniformField<'a>],
     pub vertex_buffers: VertexBuffers<'a>,
     pub blend: BlendState,
     pub write_mask: ColorWrites,
@@ -61,12 +61,12 @@ impl Default for ShaderConfig<'static> {
     }
 }
 
-pub enum UniformField {
+pub enum UniformField<'a> {
     Sprite,
     SingleUniform,
     SpriteArray,
     Camera,
-    Custom(wgpu::BindGroupLayout),
+    Custom(&'a wgpu::BindGroupLayout),
 }
 
 #[derive(Debug)]
@@ -79,13 +79,13 @@ pub struct Shader {
 impl Shader {
     pub fn new(gpu: &Gpu, config: ShaderConfig) -> Self {
         let mut layouts: Vec<&wgpu::BindGroupLayout> = Vec::with_capacity(config.uniforms.len());
-        let shared_assets = gpu.shared_assets();
+        let default_layouts = gpu.default_layouts();
         for link in config.uniforms.iter() {
             let layout = match link {
-                UniformField::SingleUniform => &shared_assets.single_uniform_layout,
-                UniformField::Sprite => &shared_assets.sprite_layout,
-                UniformField::SpriteArray => &shared_assets.sprite_array_layout,
-                UniformField::Camera => &shared_assets.camera_layout,
+                UniformField::SingleUniform => &*default_layouts.single_uniform_layout,
+                UniformField::Sprite => &*default_layouts.sprite_layout,
+                UniformField::SpriteArray => &*default_layouts.sprite_array_layout,
+                UniformField::Camera => &*default_layouts.camera_layout,
                 UniformField::Custom(c) => c,
             };
             layouts.push(layout);

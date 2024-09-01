@@ -1,6 +1,6 @@
 use crate::{
     component::{Component, ComponentIdentifier},
-    entity::{ConstIdentifier, EntityHandle},
+    entity::EntityHandle,
     math::Isometry2,
     physics::{Collider, ColliderHandle, RigidBody, RigidBodyHandle, World},
 };
@@ -119,10 +119,10 @@ impl RigidBodyComponent {
     }
 }
 
-impl ConstIdentifier for RigidBodyComponent {
-    const TYPE_NAME: &'static str = "__shura_rigid_body_component";
+impl ComponentIdentifier for RigidBodyComponent {
+    const NAME: &'static str = concat!(module_path!(), "RigidBodyComponent");
 }
-impl ComponentIdentifier for RigidBodyComponent {}
+
 impl Component for RigidBodyComponent {
     fn init(&mut self, handle: EntityHandle, world: &mut World) {
         match self.status {
@@ -151,5 +151,17 @@ impl Component for RigidBodyComponent {
             }
             RigidBodyComponentStatus::Uninitialized { .. } => (),
         }
+    }
+
+    fn remove_from_world(&self, world: &mut World) {
+        world.remove_no_maintain_rigid_body(self)
+    }
+    
+    fn as_component(&self) -> &dyn Component {
+        self as _
+    }
+    
+    fn as_component_mut(&mut self) -> &mut dyn Component {
+        self as _
     }
 }

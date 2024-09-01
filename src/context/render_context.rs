@@ -1,17 +1,16 @@
 use std::{cell::Ref, sync::Arc};
 
 use crate::{
-    component::{Component, ComponentIdentifier},
+    component::ComponentIdentifier,
     entity::{
         ConstTypeId, Entities, Entity, EntityGroupManager, EntityHandle, EntityIdentifier,
         EntityManager, EntityType, GroupedEntities, SingleEntity,
     },
     graphics::{
-        AssetKey, AssetManager, AssetWrapMut, DefaultAssets, Gpu, Instance, InstanceBuffer, Mesh,
-        MeshBuilder, RenderTarget, SurfaceRenderTarget, Vertex,
+        AssetKey, AssetManager, AssetWrapMut, DefaultAssets, Gpu, Index, Instance, InstanceBuffer,
+        Mesh, MeshBuilder, RenderTarget, SurfaceRenderTarget, Vertex,
     },
     physics::World,
-    prelude::Index,
     scene::Scene,
     system::SystemManager,
 };
@@ -131,7 +130,7 @@ impl<'a> RenderContext<'a> {
         self.write_instance_entities_manual(key, false, each)
     }
 
-    pub fn write_instance_components_manual<C: Component + ComponentIdentifier, I: Instance>(
+    pub fn write_instance_components_manual<C: ComponentIdentifier, I: Instance>(
         &self,
         key: AssetKey,
         manual: bool,
@@ -139,16 +138,16 @@ impl<'a> RenderContext<'a> {
     ) -> AssetWrapMut<InstanceBuffer<I>> {
         self.write_instances(key, manual, |data| {
             self.entities
-                .components_each(|_handle, component| each(component, data))
+                .components_each::<C>(|_handle, component| each(component, data))
         })
     }
 
-    pub fn write_instance_components<C: Component + ComponentIdentifier, I: Instance>(
+    pub fn write_instance_components<C: ComponentIdentifier, I: Instance>(
         &self,
         key: AssetKey,
         each: impl FnMut(&C, &mut Vec<I>),
     ) -> AssetWrapMut<InstanceBuffer<I>> {
-        self.write_instance_components_manual(key, false, each)
+        self.write_instance_components_manual::<C, I>(key, false, each)
     }
 
     pub fn write_mesh<V: Vertex>(
@@ -194,7 +193,11 @@ impl<'a> RenderContext<'a> {
         mesh
     }
 
-    pub fn write_mesh_entities_manual<E: EntityIdentifier, V: Vertex, M: MeshBuilder<Vertex = V>>(
+    pub fn write_mesh_entities_manual<
+        E: EntityIdentifier,
+        V: Vertex,
+        M: MeshBuilder<Vertex = V>,
+    >(
         &self,
         key: AssetKey,
         manual: bool,
@@ -225,7 +228,11 @@ impl<'a> RenderContext<'a> {
         })
     }
 
-    pub fn write_mesh_components_manual<C: ComponentIdentifier, V: Vertex, M: MeshBuilder<Vertex = V>>(
+    pub fn write_mesh_components_manual<
+        C: ComponentIdentifier,
+        V: Vertex,
+        M: MeshBuilder<Vertex = V>,
+    >(
         &self,
         key: AssetKey,
         manual: bool,
@@ -252,7 +259,6 @@ impl<'a> RenderContext<'a> {
             })
         })
     }
-
 
     pub fn write_mesh_entities<E: EntityIdentifier, V: Vertex, M: MeshBuilder<Vertex = V>>(
         &self,

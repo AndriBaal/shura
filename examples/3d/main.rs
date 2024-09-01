@@ -81,7 +81,7 @@ fn update(ctx: &mut Context) {
 
 fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
     encoder.render3d(
-        Some(RgbaColor::new(220, 220, 220, 255).into()),
+        Some(Color::new_rgba(220, 220, 220, 255)),
         |renderer| {
             renderer.draw_model(
                 &ctx.write_instance_entities::<Cube, _>("cubes", |cube, data| {

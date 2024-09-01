@@ -9,7 +9,9 @@ use shura::{
 
 const GROUND_SIZE: Vector2<f32> = Vector2::new(GAME_SIZE.data.0[0][0], 0.9375);
 const GAME_SIZE: Vector2<f32> = Vector2::new(11.25, 5.0);
-const AMOUNT_BIRDS: u32 = 1000;
+const BIRD_AMOUNT: u32 = 1000;
+// Everything above 8 causes a crash -> Bird spawns and in one frame it is at the bottom because of the high delta time
+const MAX_TIME_SCALE: f32 = 8.0;
 
 #[shura::app]
 fn app(config: AppConfig) {
@@ -61,11 +63,10 @@ fn setup(ctx: &mut Context) {
     ctx.world_camera2d
         .set_scaling(WorldCameraScaling::Vertical(GAME_SIZE.y));
     ctx.window.set_resizable(false);
-    ctx.screen_config.set_vsync(false);
-    ctx.screen_config.set_render_scale(0.5);
+    ctx.screen_config.set_vsync(true);
     ctx.window.set_enabled_buttons(WindowButtons::CLOSE);
     let mut birds = ctx.entities.get_mut::<Bird>();
-    for _ in 0..AMOUNT_BIRDS {
+    for _ in 0..BIRD_AMOUNT {
         birds.add(ctx.world, Bird::new());
     }
 }
@@ -136,7 +137,7 @@ fn update(ctx: &mut Context) {
             return;
         }
 
-        bird.score += delta * 1.0;
+        bird.score += delta;
         let out = bird.brain.predict(&vec![
             bird.pos.translation.y as f64,
             bottom_y as f64,
@@ -153,6 +154,8 @@ fn update(ctx: &mut Context) {
     let alive_count = birds.iter().filter(|b| b.alive).count();
 
     if alive_count == 0 {
+        info!("Now at generation {}!", simulation.generation);
+
         let mut max_fitness = 0.0;
         let mut weights = Vec::new();
 
@@ -166,8 +169,7 @@ fn update(ctx: &mut Context) {
             .iter_mut()
             .for_each(|i| *i = (*i / max_fitness) * 100.0);
 
-        let gene_pool = WeightedIndex::new(&weights)
-            .expect(&format!("Failed to generate gene pool, {delta:?}"));
+        let gene_pool = WeightedIndex::new(&weights).expect("Failed to generate gene pool");
 
         let amount = birds.len();
         let mut rng = thread_rng();
@@ -184,7 +186,6 @@ fn update(ctx: &mut Context) {
         birds.add_many(ctx.world, new_birds);
 
         simulation.generation += 1;
-        info!("Now at generation {}!", simulation.generation);
         pipes.remove_all(ctx.world);
         simulation.spawn_pipes(ctx.world, &mut pipes);
     }
@@ -199,7 +200,9 @@ fn update(ctx: &mut Context) {
             ui.label(format!("Score: {}", score));
             ui.label(format!("High Score: {}", simulation.high_score));
             ui.label(format!("Birds: {}", alive_count as u32));
-            ui.add(gui::Slider::new(&mut simulation.time_scale, 0.1..=20.0).text("Speed"));
+            ui.add(
+                gui::Slider::new(&mut simulation.time_scale, 0.1..=MAX_TIME_SCALE).text("Speed"),
+            );
         });
 }
 
@@ -223,14 +226,16 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
                 SpriteInstance2D::new(
                     Isometry2::new(
                         pipe.pos - Vector::new(0.0, Pipe::HALF_HOLE_SIZE + Pipe::HALF_EXTENTS.y),
-                        std::f32::consts::PI,
+                        0.0,
                     ),
                     Pipe::HALF_EXTENTS * 2.0,
                     (),
                 ),
                 SpriteInstance2D::new(
-                    (pipe.pos - Vector::new(0.0, -Pipe::HALF_HOLE_SIZE - Pipe::HALF_EXTENTS.y))
-                        .into(),
+                    Isometry2::new(
+                        pipe.pos - Vector::new(0.0, -Pipe::HALF_HOLE_SIZE - Pipe::HALF_EXTENTS.y),
+                        std::f32::consts::PI,
+                    ),
                     Pipe::HALF_EXTENTS * 2.0,
                     (),
                 ),

@@ -1,6 +1,6 @@
 use std::{
     ops::{Deref, DerefMut},
-    sync::{Arc, OnceLock},
+    sync::Arc,
 };
 
 use dashmap::{
@@ -12,7 +12,7 @@ use parking_lot::RwLock;
 use rustc_hash::FxBuildHasher;
 
 #[cfg(feature = "audio")]
-use crate::audio::Sound;
+use crate::audio::{Sound, SoundBuilder};
 
 #[cfg(feature = "text")]
 use crate::text::{Font, FontBuilder, TextMesh, TextSection};
@@ -28,7 +28,6 @@ use crate::{
     math::Vector2,
 };
 
-pub static GLOBAL_ASSETS: OnceLock<Arc<AssetManager>> = OnceLock::new();
 pub trait Asset: Send + Sync + Downcast {}
 impl_downcast!(Asset);
 
@@ -38,7 +37,6 @@ pub type AssetDynamic<'a> = dashmap::mapref::one::Ref<'a, AssetKey, Box<dyn Asse
 pub type AssetDynamicMut<'a> = dashmap::mapref::one::RefMut<'a, AssetKey, Box<dyn Asset>>;
 pub type AssetWrap<'a, A> = dashmap::mapref::one::MappedRef<'a, AssetKey, Box<dyn Asset>, A>;
 pub type AssetWrapMut<'a, A> = dashmap::mapref::one::MappedRefMut<'a, AssetKey, Box<dyn Asset>, A>;
-
 
 pub struct AssetManager {
     pub loader: Arc<dyn ResourceLoader>,
@@ -79,10 +77,9 @@ impl AssetManager {
         Ref::map(self.get_dyn(key), |asset| {
             asset.downcast_ref::<A>().unwrap_or_else(|| {
                 panic!(
-                    "Cannot convert asset '{}' to {}, is actually: {}!",
+                    "Cannot convert asset '{}' to {}!",
                     key,
                     std::any::type_name::<A>(),
-                    std::any::type_name_of_val(asset)
                 )
             })
         })
@@ -96,13 +93,11 @@ impl AssetManager {
 
     pub fn get_mut<A: Asset>(&self, key: AssetKey) -> AssetWrapMut<A> {
         RefMut::map(self.get_dyn_mut(key), |asset| {
-            let name = std::any::type_name_of_val(asset);
             asset.downcast_mut::<A>().unwrap_or_else(|| {
                 panic!(
-                    "Cannot convert asset '{}' to {}, is actually: {}!",
+                    "Cannot convert asset '{}' to {}!",
                     key,
                     std::any::type_name::<A>(),
-                    name
                 )
             })
         })
@@ -147,7 +142,7 @@ impl AssetManager {
         self.get(key)
     }
 
-    pub fn render_target<R: RenderTarget>(&self, key: AssetKey) -> AssetWrap<R> {
+    pub fn render_target(&self, key: AssetKey) -> AssetWrap<SpriteRenderTarget> {
         self.get(key)
     }
 
@@ -183,6 +178,67 @@ impl AssetManager {
     #[cfg(feature = "text")]
     pub fn font(&self, key: AssetKey) -> AssetWrap<Font> {
         self.get(key)
+    }
+
+    pub fn sprite_mut(&self, key: AssetKey) -> AssetWrapMut<Sprite> {
+        self.get_mut(key)
+    }
+
+    pub fn instances_mut<I: Instance>(&self, key: AssetKey) -> AssetWrapMut<InstanceBuffer<I>> {
+        self.get_mut(key)
+    }
+
+    pub fn mesh_mut<V: Vertex>(&self, key: AssetKey) -> AssetWrapMut<Mesh<V>> {
+        self.get_mut(key)
+    }
+
+    pub fn uniform_mut<D: bytemuck::Pod + Send + Sync>(
+        &self,
+        key: AssetKey,
+    ) -> AssetWrapMut<UniformData<D>> {
+        self.get_mut(key)
+    }
+
+    pub fn camera_buffer_mut<C: Camera>(&self, key: AssetKey) -> AssetWrapMut<CameraBuffer<C>> {
+        self.get_mut(key)
+    }
+
+    pub fn render_target_mut(&self, key: AssetKey) -> AssetWrapMut<SpriteRenderTarget> {
+        self.get_mut(key)
+    }
+
+    pub fn sprite_array_mut(&self, key: AssetKey) -> AssetWrapMut<SpriteArray> {
+        self.get_mut(key)
+    }
+
+    pub fn text_mesh_mut(&self, key: AssetKey) -> AssetWrapMut<TextMesh> {
+        self.get_mut(key)
+    }
+
+    pub fn model_mut(&self, key: AssetKey) -> AssetWrapMut<Model> {
+        self.get_mut(key)
+    }
+
+    pub fn shader_mut(&self, key: AssetKey) -> AssetWrapMut<Shader> {
+        self.get_mut(key)
+    }
+
+    pub fn shader_module_mut(&self, key: AssetKey) -> AssetWrapMut<ShaderModule> {
+        self.get_mut(key)
+    }
+
+    pub fn depth_buffer_mut(&self, key: AssetKey) -> AssetWrapMut<DepthBuffer> {
+        self.get_mut(key)
+    }
+
+    #[cfg(feature = "audio")]
+    pub fn sound_mut(&self, key: AssetKey) -> AssetWrapMut<Sound> {
+        self.get_mut(key)
+    }
+
+    #[cfg(feature = "text")]
+    pub fn font_mut(&self, key: AssetKey) -> AssetWrapMut<Font> {
+        self.get_mut(key)
     }
 
     pub fn load<A: Asset>(&self, key: AssetKey, asset: A) {
@@ -242,15 +298,29 @@ impl AssetManager {
         self.load(key, SpriteArray::new(&self.gpu, desc));
     }
 
-    pub fn load_uniform_data<T: bytemuck::Pod + Send + Sync + 'static>(
+    pub fn load_uniform<T: bytemuck::Pod + Send + Sync + 'static>(
         &self,
         key: AssetKey,
-        data: T,
+        layout: Arc<wgpu::BindGroupLayout>,
+        data: &[T],
     ) {
-        self.load(key, UniformData::new(&self.gpu, data));
+        self.load(key, UniformData::new(&self.gpu, layout, data));
     }
 
-    pub fn load_shader(&self, key: AssetKey, config: ShaderConfig) {
+    pub fn load_uniform_empty<T: bytemuck::Pod + Send + Sync + 'static>(
+        &self,
+        key: AssetKey,
+        layout: Arc<wgpu::BindGroupLayout>,
+        amount: u32
+    ) {
+        self.load(key, UniformData::<T>::empty(&self.gpu, layout, amount));
+    }
+
+    pub fn load_shader(&self, key: AssetKey, mut config: ShaderConfig) {
+        // TODO: Also do this for mesh, uniform, sprite, etc.
+        if config.name.is_none() {
+            config.name = Some(key);
+        }
         self.load(key, Shader::new(&self.gpu, config));
     }
 
@@ -261,6 +331,11 @@ impl AssetManager {
     #[cfg(feature = "text")]
     pub fn load_font(&self, key: AssetKey, builder: FontBuilder) {
         self.load(key, Font::new(&self.gpu, builder));
+    }
+
+    #[cfg(feature = "audio")]
+    pub fn load_sound(&self, key: AssetKey, builder: SoundBuilder) {
+        self.load(key, Sound::new(builder));
     }
 
     #[cfg(feature = "text")]
@@ -284,9 +359,15 @@ impl Asset for SpriteArray {}
 impl Asset for TextMesh {}
 impl Asset for Model {}
 impl Asset for Shader {}
-impl Asset for ShaderModule {}
 impl Asset for DepthBuffer {}
 #[cfg(feature = "audio")]
 impl Asset for Sound {}
 #[cfg(feature = "text")]
 impl Asset for Font {}
+
+impl Asset for ShaderModule {}
+impl Asset for wgpu::BindGroupLayout {}
+impl Asset for wgpu::BindGroup {}
+impl Asset for wgpu::Buffer {}
+impl Asset for wgpu::RenderPipeline {}
+impl Asset for wgpu::ComputePipeline {}

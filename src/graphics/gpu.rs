@@ -1,7 +1,4 @@
-use std::{
-    ops::Deref,
-    sync::{Arc, OnceLock},
-};
+use std::{ops::Deref, sync::Arc};
 
 use parking_lot::Mutex;
 use wgpu::include_wgsl;
@@ -15,21 +12,17 @@ use crate::{
     graphics::{
         Camera, Camera2D, CameraBuffer, CameraBuffer2D, ColorInstance2D, ColorVertex2D,
         DepthBuffer, Instance, Instance3D, InstanceBuffer, Mesh, MeshBuilder, MeshBuilder2D, Model,
-        ModelBuilder, PositionVertex2D, RenderEncoder, Shader, ShaderConfig, ShaderModule,
-        ShaderModuleDescriptor, ShaderModuleSource, Sprite, SpriteArray, SpriteArrayBuilder,
-        SpriteArrayCropInstance2D, SpriteArrayInstance2D, SpriteArrayVertex2D, SpriteBuilder,
-        SpriteCropInstance2D, SpriteInstance2D, SpriteMesh2D, SpriteRenderTarget, SpriteVertex2D,
-        SurfaceRenderTarget, UniformData, UniformField, Vertex, Vertex3D, VertexBuffers,
-        WorldCamera3D,
+        ModelBuilder, PositionMesh2D, PositionVertex2D, RenderEncoder, Shader, ShaderConfig,
+        ShaderModule, ShaderModuleDescriptor, ShaderModuleSource, Sprite, SpriteArray,
+        SpriteArrayBuilder, SpriteArrayCropInstance2D, SpriteArrayInstance2D, SpriteArrayVertex2D,
+        SpriteBuilder, SpriteCropInstance2D, SpriteInstance2D, SpriteMesh2D, SpriteRenderTarget,
+        SpriteVertex2D, SurfaceRenderTarget, UniformData, UniformField, Vertex, Vertex3D,
+        VertexBuffers, WorldCamera3D,
     },
     math::{Isometry2, Vector2},
 };
 
-use super::PositionMesh2D;
-
 pub(crate) const RELATIVE_CAMERA_SIZE: f32 = 0.5;
-
-pub static GLOBAL_GPU: OnceLock<Arc<Gpu>> = OnceLock::new();
 
 #[derive(Clone)]
 pub struct GpuConfig {
@@ -64,7 +57,7 @@ pub struct Gpu {
     pub config: Mutex<wgpu::SurfaceConfiguration>,
 
     format: wgpu::TextureFormat,
-    shared_assets: SharedAssets,
+    default_layouts: DefaultLayouts,
     surface_size: Mutex<Vector2<u32>>,
     target_msaa: Mutex<Option<wgpu::Texture>>,
 
@@ -148,7 +141,7 @@ impl Gpu {
         }
 
         let gpu = Self {
-            shared_assets: SharedAssets::new(&device),
+            default_layouts: DefaultLayouts::new(&device),
             config: Mutex::new(config),
             surface,
             instance,
@@ -318,8 +311,12 @@ impl Gpu {
         SpriteArray::new(self, desc)
     }
 
-    pub fn create_uniform_data<T: bytemuck::Pod>(&self, data: T) -> UniformData<T> {
-        UniformData::new(self, data)
+    pub fn create_uniform_data<T: bytemuck::Pod>(
+        &self,
+        layout: Arc<wgpu::BindGroupLayout>,
+        data: T,
+    ) -> UniformData<T> {
+        UniformData::new(self, layout, &[data])
     }
 
     pub fn create_shader(&self, config: ShaderConfig) -> Shader {
@@ -364,8 +361,8 @@ impl Gpu {
         self.sample_state
     }
 
-    pub fn shared_assets(&self) -> &SharedAssets {
-        &self.shared_assets
+    pub fn default_layouts(&self) -> &DefaultLayouts {
+        &self.default_layouts
     }
 
     pub fn surface_size(&self) -> Vector2<u32> {
@@ -382,14 +379,14 @@ impl Gpu {
 }
 
 #[derive(Debug)]
-pub struct SharedAssets {
-    pub sprite_array_layout: wgpu::BindGroupLayout,
-    pub sprite_layout: wgpu::BindGroupLayout,
-    pub camera_layout: wgpu::BindGroupLayout,
-    pub single_uniform_layout: wgpu::BindGroupLayout,
+pub struct DefaultLayouts {
+    pub sprite_array_layout: Arc<wgpu::BindGroupLayout>,
+    pub sprite_layout: Arc<wgpu::BindGroupLayout>,
+    pub camera_layout: Arc<wgpu::BindGroupLayout>,
+    pub single_uniform_layout: Arc<wgpu::BindGroupLayout>,
 }
 
-impl SharedAssets {
+impl DefaultLayouts {
     pub(crate) fn new(device: &wgpu::Device) -> Self {
         let sprite_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[
@@ -466,10 +463,10 @@ impl SharedAssets {
             });
 
         Self {
-            sprite_array_layout,
-            sprite_layout,
-            camera_layout,
-            single_uniform_layout,
+            sprite_array_layout: sprite_array_layout.into(),
+            sprite_layout: sprite_layout.into(),
+            camera_layout: camera_layout.into(),
+            single_uniform_layout: single_uniform_layout.into(),
         }
     }
 }
@@ -622,7 +619,7 @@ impl DefaultAssets {
         // let rainbow_shader = gpu.create_shader(ShaderConfig::<Vertex2D, Instance2D> {
         //     name: Some("rainbow"),
         //     source: ShaderModuleSource::Separate {
-        //         vertex: &shared_assets.vertex_shader_module,
+        //         vertex: &default_layouts.vertex_shader_module,
         //         fragment: &gpu
         //             .create_shader_module(include_wgsl!("../../static/shader/2d/rainbow.wgsl")),
         //     },
@@ -633,7 +630,7 @@ impl DefaultAssets {
         // let grey_shader = gpu.create_shader(ShaderConfig::<Vertex2D, Instance2D> {
         //     name: Some("grey"),
         //     source: ShaderModuleSource::Separate {
-        //         vertex: &shared_assets.vertex_shader_module,
+        //         vertex: &default_layouts.vertex_shader_module,
         //         fragment: &gpu
         //             .create_shader_module(include_wgsl!("../../static/shader/2d/grey.wgsl")),
         //     },
@@ -644,7 +641,7 @@ impl DefaultAssets {
         // let blurr_shader = gpu.create_shader(ShaderConfig::<Vertex2D, Instance2D> {
         //     name: Some("blurr"),
         //     source: ShaderModuleSource::Separate {
-        //         vertex: &shared_assets.vertex_shader_module,
+        //         vertex: &default_layouts.vertex_shader_module,
         //         fragment: &gpu
         //             .create_shader_module(include_wgsl!("../../static/shader/2d/blurr.wgsl")),
         //     },
@@ -653,7 +650,11 @@ impl DefaultAssets {
         // });
 
         let size = gpu.surface_size();
-        let times = UniformData::new(gpu, [0.0, 0.0]);
+        let times = UniformData::new(
+            gpu,
+            gpu.default_layouts.single_uniform_layout.clone(),
+            &[[0.0, 0.0]],
+        );
 
         let fov = Self::relative_fov(size);
 

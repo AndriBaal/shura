@@ -1,6 +1,6 @@
 use nalgebra::{Orthographic3, Perspective3};
 use std::marker::PhantomData;
-use std::ops::*;
+use std::ops::Deref;
 
 use crate::{
     graphics::Gpu,
@@ -25,20 +25,24 @@ impl<C: Camera> CameraBuffer<C> {
 
     pub fn new(gpu: &Gpu, camera: &C) -> Self {
         Self {
-            uniform: UniformData::camera(gpu, camera.matrix()),
+            uniform: UniformData::new(
+                gpu,
+                gpu.default_layouts().camera_layout.clone(),
+                &[camera.matrix()],
+            ),
             marker: PhantomData,
         }
     }
 
     pub fn empty(gpu: &Gpu) -> Self {
         Self {
-            uniform: UniformData::empty(gpu, &gpu.shared_assets().camera_layout),
+            uniform: UniformData::empty(gpu, gpu.default_layouts().camera_layout.clone(), 1),
             marker: PhantomData,
         }
     }
 
     pub fn write(&mut self, gpu: &Gpu, camera: &C) {
-        self.uniform.write(gpu, camera.matrix());
+        self.uniform.write(gpu, &[camera.matrix()]);
     }
 
     pub fn uniform(&self) -> &UniformData<Matrix4<f32>> {

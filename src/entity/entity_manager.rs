@@ -9,30 +9,26 @@ use rustc_hash::FxHashMap;
 #[cfg(feature = "serde")]
 use crate::entity::EntityGroupHandle;
 use crate::{
+    component::{Component, ComponentIdentifier},
     entity::{
-        ConstIdentifier, ConstTypeId, Entities, Entity, EntityIdentifier, EntityType,
-        GlobalEntities, GroupedEntities, SingleEntity,
+        ConstTypeId, Entities, EntityIdentifier, EntityType, GlobalEntities,
+        GroupedEntities, SingleEntity,
     },
     physics::World,
-    component::ComponentIdentifier
 };
 
 use super::EntityHandle;
 
 fn already_borrowed<E: EntityIdentifier>() -> ! {
-    panic!(
-        "The entity type {} is already mutably borrowed!",
-        E::TYPE_NAME
-    )
+    panic!("The entity type {} is already mutably borrowed!", E::NAME)
 }
 
 fn wrong_type<E: EntityIdentifier>() -> ! {
-    // TODO: print actual type
-    panic!("Wrong entity type for {}!", E::TYPE_NAME)
+    panic!("Wrong entity type for {}!", E::NAME)
 }
 
 fn no_type_error<E: EntityIdentifier>() -> ! {
-    panic!("The type '{}' is not registered!", E::TYPE_NAME)
+    panic!("The type '{}' is not registered!", E::NAME)
 }
 
 #[derive(Clone, Copy, Eq, PartialEq, Debug, Default)]
@@ -119,7 +115,7 @@ type TypeMap = FxHashMap<ConstTypeId, EntityTypeScope>;
 pub struct EntityManager {
     pub(crate) types: TypeMap,
     pub(crate) new_types: Vec<Box<dyn FnOnce(&mut Self, &GlobalEntities)>>,
-    pub(crate) components: FxHashMap<ConstTypeId, Vec<(ConstTypeId, Vec<u32>)>>,
+    pub(crate) components: FxHashMap<&'static str, Vec<(ConstTypeId, Vec<&'static str>)>>,
 }
 
 impl EntityManager {
@@ -135,7 +131,7 @@ impl EntityManager {
         let previous = self.types.insert(ET::Entity::IDENTIFIER, scope);
         assert!(previous.is_none(), "Entity already defined!");
 
-        for (type_id, idx) in ET::Entity::component_identifiers_recursive() {
+        for (type_id, idx) in ET::Entity::tags_recursive() {
             self.components
                 .entry(type_id)
                 .or_default()
@@ -143,56 +139,66 @@ impl EntityManager {
         }
     }
 
-    pub fn components_each<C: ComponentIdentifier>(&self, mut each: impl FnMut(EntityHandle, &C)) {
-        if let Some(entity_ids) = self.components.get(&C::IDENTIFIER) {
+    pub fn components_each<C: ComponentIdentifier>(
+        &self,
+        mut each: impl FnMut(EntityHandle, &C),
+    ) {
+        if let Some(entity_ids) = self.components.get(C::NAME) {
             for (entity_id, path) in entity_ids {
                 let ty = self.types.get(entity_id).unwrap();
                 let ty = ty.ref_dyn();
-                let mut path_iter = path.iter();
                 for (handle, entity) in ty.dyn_iter() {
+                    let mut path_iter = path.iter();
                     let first = path_iter.next().unwrap();
-                    let mut component = entity.component(*first).unwrap();
-                    for e in path_iter.by_ref() {
-                        component = component.component(*e).unwrap();
+                    let mut component = entity.component_dyn(*first).unwrap();
+                    for e in path_iter {
+                        component = component.component_dyn(*e).unwrap();
                     }
-                    let component = component.downcast_ref().unwrap();
-                    (each)(handle, component);
+                    component.each_self_dyn(&mut |c| {
+                        each(handle, c.downcast_ref().unwrap())
+                    })
                 }
             }
         }
     }
 
-    pub fn components_each_mut<C: ComponentIdentifier>(&self, mut each: impl FnMut(EntityHandle, &mut C)) {
-        if let Some(entity_ids) = self.components.get(&C::IDENTIFIER) {
+    // TODO: groups
+    pub fn components_each_mut<C: ComponentIdentifier>(
+        &self,
+        mut each: impl FnMut(EntityHandle, &mut C),
+    ) {
+        if let Some(entity_ids) = self.components.get(C::NAME) {
             for (entity_id, path) in entity_ids {
                 let ty = self.types.get(entity_id).unwrap();
                 let mut ty = ty.ref_mut_dyn();
-                let mut path_iter = path.iter();
                 for (handle, entity) in ty.dyn_iter_mut() {
+                    let mut path_iter = path.iter();
                     let first = path_iter.next().unwrap();
-                    let mut component = entity.component_mut(*first).unwrap();
-                    for e in path_iter.by_ref() {
-                        component = component.component_mut(*e).unwrap();
+                    let mut component = entity.component_mut_dyn(*first).unwrap();
+                    for e in path_iter {
+                        component = component.component_mut_dyn(*e).unwrap();
                     }
-                    let component = component.downcast_mut().unwrap();
-                    (each)(handle, component);
+                    component.each_self_mut_dyn(&mut |c| {
+                        each(handle, c.downcast_mut().unwrap())
+                    })
                 }
             }
         }
     }
 
-    // TODO: Reimplement
     // pub fn entities_for_component(
     //     &self,
     //     tag: &'static str,
-    //     mut each: impl FnMut(EntityHandle, &dyn Entity, u32),
+    //     mut each: impl FnMut(EntityHandle, &dyn Entity),
     // ) {
     //     if let Some(entity_ids) = self.components.get(tag) {
-    //         for entity_id in entity_ids {
-    //             let ty = self.types.get(entity_id).unwrap();
-    //             let ty = ty.ref_dyn();
-    //             for (handle, entity) in ty.dyn_iter() {
-    //                 each(handle, entity);
+    //         for (entity_id, path) in entity_ids {
+    //             if path.len() == 1 {
+    //                 let ty = self.types.get(entity_id).unwrap();
+    //                 let ty = ty.ref_dyn();
+    //                 for (handle, entity) in ty.dyn_iter() {
+    //                     each(handle, entity);
+    //                 }
     //             }
     //         }
     //     }
@@ -204,11 +210,13 @@ impl EntityManager {
     //     mut each: impl FnMut(EntityHandle, &mut dyn Entity),
     // ) {
     //     if let Some(entity_ids) = self.components.get(tag) {
-    //         for entity_id in entity_ids {
-    //             let ty = self.types.get(entity_id).unwrap();
-    //             let mut ty = ty.ref_mut_dyn();
-    //             for (handle, entity) in ty.dyn_iter_mut() {
-    //                 each(handle, entity);
+    //         for (entity_id, path) in entity_ids {
+    //             if path.len() == 1 {
+    //                 let ty = self.types.get(entity_id).unwrap();
+    //                 let mut ty = ty.ref_mut_dyn();
+    //                 for (handle, entity) in ty.dyn_iter_mut() {
+    //                     each(handle, entity);
+    //                 }    
     //             }
     //         }
     //     }
@@ -217,7 +225,7 @@ impl EntityManager {
     // pub fn count_entities_with_component(&self, tag: &'static str) -> usize {
     //     let mut count = 0;
     //     if let Some(entity_ids) = self.components.get(tag) {
-    //         for entity_id in entity_ids {
+    //         for (entity_id, _) in entity_ids {
     //             let ty = self.types.get(entity_id).unwrap();
     //             let ty = ty.ref_dyn();
     //             count += ty.len();
@@ -233,7 +241,7 @@ impl EntityManager {
     //     keep: impl Fn(&mut dyn Entity, &mut World) -> bool,
     // ) {
     //     if let Some(entity_ids) = self.components.get(tag) {
-    //         for entity_id in entity_ids {
+    //         for (entity_id, _) in entity_ids {
     //             let ty = self.types.get(entity_id).unwrap();
     //             let mut ty = ty.ref_mut_dyn();
     //             ty.dyn_retain(world, &keep);
@@ -241,14 +249,16 @@ impl EntityManager {
     //     }
     // }
 
-    pub fn component_mapping(&self) -> &FxHashMap<ConstTypeId, Vec<(ConstTypeId, Vec<u32>)>> {
+    pub fn component_mapping(
+        &self,
+    ) -> &FxHashMap<&'static str, Vec<(ConstTypeId, Vec<&'static str>)>> {
         &self.components
     }
 
     pub fn register_entity<ET: EntityType>(&mut self, scope: EntityScope, ty: ET) {
         let id = ET::Entity::IDENTIFIER;
         if self.types.contains_key(&id) {
-            panic!("Entity with identifier '{}' already exists! Consider giving a custom identifier with '#[shura(name=\"<unique_identifier>\")]'", ET::Entity::TYPE_NAME);
+            panic!("Entity with identifier '{}' already exists! Consider giving a custom identifier with '#[shura(name=\"<unique_identifier>\")]'", ET::Entity::NAME);
         }
 
         if TypeId::of::<ET>() == TypeId::of::<GroupedEntities<ET>>() && scope == EntityScope::Global
@@ -267,7 +277,7 @@ impl EntityManager {
                             assert!(
                                 ty.is_none(),
                                 "The entity {} already exists as a global entity!",
-                                ET::Entity::TYPE_NAME
+                                ET::Entity::NAME
                             );
                         } else {
                             globals.insert(id, None);

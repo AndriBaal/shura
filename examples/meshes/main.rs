@@ -12,13 +12,17 @@ fn app(config: AppConfig) {
 
 fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
     encoder.render2d(
-        Some(RgbaColor::new(220, 220, 220, 255).into()),
+        Some(Color::new_rgba(220, 220, 220, 255).into()),
         |renderer| {
             renderer.draw_color_mesh(
+                &ctx.write_mesh_entities_manual(
+                    "meshes",
+                    true,
+                    false,
+                    |mesh| &mesh.mesh,
+                    Some(|_e: &MeshTest, v: &Vertex2D<Color>| *v),
+                ),
                 &ctx.default_assets.world_camera2d,
-                &ctx.assets.write_mesh_once("meshes", || {
-                    ctx.entities.meshes::<MeshTest, _, _>(|mesh| &mesh.mesh)
-                }),
             );
         },
     );
