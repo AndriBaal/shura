@@ -147,6 +147,10 @@ impl InputEvent {
     pub fn trigger(&self) -> InputTrigger {
         self.trigger
     }
+
+    pub fn display(&self) -> Option<&str> {
+        self.display.as_ref().map(|s| s.as_str())
+    }
 }
 
 pub struct Input {

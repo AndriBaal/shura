@@ -47,7 +47,7 @@ physics = ["dep:rapier2d"]
 deterministic_physics = ["physics", "rapier2d/enhanced-determinism"]
 gui = ["dep:egui", "dep:egui-wgpu", "dep:egui-winit"]
 log = ["dep:log", "dep:env_logger"]
-rayon = ["dep:rayon", "nalgebra/rayon", "image/rayon", "egui?/rayon"]
+rayon = ["dep:rayon", "shipyard/parallel", "nalgebra/rayon", "image/rayon", "egui?/rayon"]
 serde = [
     "dep:serde",
     "dep:bincode",
@@ -58,6 +58,7 @@ serde = [
     "nalgebra/serde-serialize",
     "parking_lot/serde",
     "dashmap/serde",
+    "shipyard/serde1",
     "gilrs?/serde-serialize",
     "egui?/serde",
     "rapier2d?/serde-serialize",
@@ -70,7 +71,7 @@ default = [
     "log",
     "framebuffer",
     "physics",
-    "serde",
+    # "serde",
     "rayon",
     "gui",
 ]
@@ -82,7 +83,7 @@ crate-type = ["lib", "cdylib"]
 egui_demo_lib = { git = "https://github.com/AndriBaal/egui.git" }
 
 [dependencies]
-const-fnv1a-hash = "1.1"
+shipyard = {version = "0.7.1", default-features=false, features = ["proc", "std"]}
 async-trait = "0.1"
 winit = { version = "0.30", features = ["mint"] }
 wgpu = { version = "22.0", features = ["glsl", "spirv", "webgl"] }

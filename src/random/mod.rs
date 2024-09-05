@@ -7,4 +7,3 @@ pub fn gen_range<T: uniform::SampleUniform, R: uniform::SampleRange<T>>(range: R
 pub fn gen_bool(p: f64) -> bool {
     thread_rng().gen_bool(p)
 }
-

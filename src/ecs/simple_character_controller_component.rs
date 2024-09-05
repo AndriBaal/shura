@@ -1,14 +1,13 @@
 use rapier2d::{parry::query::ShapeCastOptions, pipeline::QueryFilter};
 
 use crate::{
-    component::{Component, ComponentIdentifier},
+    ecs::Component,
     math::{Isometry2, Rotation2, Vector2},
-    physics::{Shape, World},
+    physics::{Physics, Shape},
 };
 
-
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone)]
+#[derive(Clone, Component)]
 pub struct SimpleCharacterControllerComponent<S: Shape> {
     pub shape: S,
     pub position: Isometry2<f32>,
@@ -93,20 +92,20 @@ impl<S: Shape> SimpleCharacterControllerComponent<S> {
         &self.linvel
     }
 
-    pub fn step(&mut self, time: f32, world: &World, filter: QueryFilter) {
+    pub fn step(&mut self, time: f32, physics: &Physics, filter: QueryFilter) {
         // let mut result_translation = Vector2::zeros();
         let mut desired_translation = self.linvel * time;
 
-        // if let Some(a) = world.query_pipeline().intersection_with_shape(world.rigid_bodies(), world.colliders(), &translation_remaining.into(), &self.shape, filter) {
+        // if let Some(a) = physics.query_pipeline().intersection_with_shape(physics.rigid_bodies(), physics.colliders(), &translation_remaining.into(), &self.shape, filter) {
         //     println!("kjasdhgfkjhasgdfkjhasd");
         // }
         // self.set_translation(translation_remaining);
 
         let character_pos = &self.position;
         let character_shape = &self.shape;
-        let bodies = world.rigid_bodies();
-        let colliders = world.colliders();
-        let queries = world.query_pipeline();
+        let bodies = physics.rigid_bodies();
+        let colliders = physics.colliders();
+        let queries = physics.query_pipeline();
         let translation_dir = desired_translation.normalize();
 
         if let Some((_handle, toi)) = queries.cast_shape(
@@ -124,20 +123,5 @@ impl<S: Shape> SimpleCharacterControllerComponent<S> {
         }
 
         self.set_translation(self.translation() + desired_translation);
-    }
-}
-
-impl <S: Shape>ComponentIdentifier for SimpleCharacterControllerComponent<S> {
-    const NAME: &'static str = concat!(module_path!(), "SimpleCharacterControllerComponent");
-}
-
-impl<S: Shape> Component for SimpleCharacterControllerComponent<S> {
-
-    fn as_component(&self) -> &dyn Component {
-        self as _
-    }
-    
-    fn as_component_mut(&mut self) -> &mut dyn Component {
-        self as _
     }
 }

@@ -1,4 +1,4 @@
-use crate::{entity::GlobalEntities, scene::Scene};
+use crate::scene::Scene;
 use rustc_hash::FxHashMap;
 use std::{cell::RefCell, rc::Rc};
 
@@ -7,7 +7,6 @@ pub struct SceneManager {
     next_active_scene_id: u32,
     active_scene_id: u32,
     scene_switched: Option<u32>,
-    global_entities: GlobalEntities,
 }
 
 impl SceneManager {
@@ -17,7 +16,6 @@ impl SceneManager {
             active_scene_id,
             next_active_scene_id: active_scene_id,
             scene_switched: None,
-            global_entities: GlobalEntities::default(),
         };
         scenes.add(active_scene_id, scene);
         scenes
@@ -84,7 +82,6 @@ impl SceneManager {
 
     pub fn add(&mut self, id: u32, scene: impl Into<Scene>) {
         let mut scene = scene.into();
-        scene.entities.apply(&self.global_entities);
         scene.systems.apply();
         assert!(!self.scenes.contains_key(&id), "Scene {id} already exists!");
         self.scenes.insert(id, Rc::new(RefCell::new(scene)));

@@ -1,7 +1,7 @@
 use wgpu::util::DeviceExt;
 
 use crate::{
-    graphics::{Gpu, Color, Uniform},
+    graphics::{Color, Gpu, Uniform},
     math::Vector2,
 };
 use std::ops::Deref;

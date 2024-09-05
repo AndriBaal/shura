@@ -7,9 +7,8 @@ pub mod app;
 pub mod arena;
 #[cfg(feature = "audio")]
 pub mod audio;
-pub mod component;
 pub mod context;
-pub mod entity;
+pub mod ecs;
 pub mod graphics;
 #[cfg(feature = "gui")]
 pub mod gui;
@@ -24,7 +23,6 @@ pub mod random;
 pub mod scene;
 #[cfg(feature = "serde")]
 pub mod serde;
-pub mod system;
 pub mod tasks;
 #[cfg(feature = "text")]
 pub mod text;
@@ -53,16 +51,6 @@ pub use wasm_bindgen_futures;
 
 pub use crate::macros::app;
 
-#[cfg(not(feature = "physics"))]
-pub mod physics {
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    pub struct World {}
-    impl World {
-        pub fn new() -> Self {
-            Self {}
-        }
-    }
-}
 
 pub mod prelude {
     pub use crate::winit::window::Window;
@@ -73,9 +61,8 @@ pub mod prelude {
     pub use crate::arena::*;
     #[cfg(feature = "audio")]
     pub use crate::audio::*;
-    pub use crate::component::*;
     pub use crate::context::*;
-    pub use crate::entity::*;
+    pub use crate::ecs::*;
     pub use crate::graphics::*;
     #[cfg(feature = "gui")]
     pub use crate::gui;
@@ -91,7 +78,6 @@ pub mod prelude {
     pub use crate::scene::*;
     #[cfg(feature = "serde")]
     pub use crate::serde::*;
-    pub use crate::system::*;
     pub use crate::tasks::*;
     #[cfg(feature = "text")]
     pub use crate::text::*;
@@ -121,5 +107,4 @@ pub mod prelude {
     #[cfg(target_arch = "wasm32")]
     pub use wasm_bindgen_futures;
 
-    pub use crate::physics::World;
 }

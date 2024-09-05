@@ -18,7 +18,7 @@ struct Demo {
 fn setup(ctx: &mut Context) {
     ctx.entities
         .single_mut::<Demo>()
-        .set(ctx.world, Demo::default());
+        .set(ctx.physics, Demo::default());
 }
 
 fn update(ctx: &mut Context) {

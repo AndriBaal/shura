@@ -1,5 +1,5 @@
 use crate::{
-    graphics::{Gpu, Uniform, Color},
+    graphics::{Color, Gpu, Uniform},
     math::Vector2,
 };
 use std::ops::Deref;

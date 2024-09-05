@@ -1,17 +1,15 @@
 use crate::{
-    entity::{
-        Entities, EntityGroupManager, EntityIdentifier, EntityManager, EntityScope, EntityType,
-        GroupedEntities, SingleEntity,
-    },
+    ecs::{System, SystemManager, World},
     graphics::{
         CameraViewSelection, PerspectiveCamera3D, ScreenConfig, WorldCamera2D, WorldCamera3D,
         WorldCameraScaling,
     },
     math::Vector2,
-    physics::World,
-    system::{System, SystemManager},
     tasks::TaskManager,
 };
+
+#[cfg(feature="physics")]
+use crate::physics::Physics;
 
 pub trait Plugin {
     fn init<S: SceneCreator>(&mut self, scene: S) -> S;
@@ -25,63 +23,6 @@ pub trait SceneCreator {
     {
         plugin.init(self)
     }
-
-    fn entity_grouped<E: EntityIdentifier>(self) -> Self
-    where
-        Self: Sized,
-    {
-        self.entity_custom(
-            GroupedEntities::<Entities<E>>::default(),
-            EntityScope::Scene,
-        )
-    }
-
-    fn entity_grouped_single<E: EntityIdentifier>(self) -> Self
-    where
-        Self: Sized,
-    {
-        self.entity_custom(
-            GroupedEntities::<SingleEntity<E>>::default(),
-            EntityScope::Scene,
-        )
-    }
-
-    fn entity_single<E: EntityIdentifier>(self) -> Self
-    where
-        Self: Sized,
-    {
-        self.entity_custom(SingleEntity::<E>::default(), EntityScope::Scene)
-    }
-
-    fn entity<E: EntityIdentifier>(self) -> Self
-    where
-        Self: Sized,
-    {
-        self.entity_custom(Entities::<E>::default(), EntityScope::Scene)
-    }
-
-    fn entity_single_global<E: EntityIdentifier>(self) -> Self
-    where
-        Self: Sized,
-    {
-        self.entity_custom(SingleEntity::<E>::default(), EntityScope::Global)
-    }
-
-    fn entity_global<E: EntityIdentifier>(self) -> Self
-    where
-        Self: Sized,
-    {
-        self.entity_custom(Entities::<E>::default(), EntityScope::Global)
-    }
-
-    fn entity_custom<ET: EntityType>(mut self, ty: ET, scope: EntityScope) -> Self
-    where
-        Self: Sized,
-    {
-        self.scene().entities.register_entity::<ET>(scope, ty);
-        self
-    }
-
     fn system(mut self, system: System) -> Self
     where
         Self: Sized,
@@ -98,14 +39,12 @@ pub struct Scene {
     pub(crate) screen_config: ScreenConfig,
     pub(crate) world_camera2d: WorldCamera2D,
     pub(crate) world_camera3d: WorldCamera3D,
-    pub(crate) groups: EntityGroupManager,
     pub(crate) world: World,
+    #[cfg(feature="physics")]
+    pub(crate) physics: Physics,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default))]
     pub(crate) started: bool,
-    #[cfg_attr(feature = "serde", serde(skip))]
-    #[cfg_attr(feature = "serde", serde(default = "EntityManager::new"))]
-    pub(crate) entities: EntityManager,
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "serde", serde(default = "SystemManager::new"))]
     pub(crate) systems: SystemManager,
@@ -125,12 +64,13 @@ impl Scene {
         let window_size: Vector2<u32> = Vector2::new(800, 800);
 
         Self {
-            entities: EntityManager::new(),
+            // entities: EntityManager::new(),
+            // groups: EntityGroupManager::new(),
             systems: SystemManager::new(),
-            groups: EntityGroupManager::new(),
             screen_config: ScreenConfig::new(),
             render_entities: true,
-            world: World::new(),
+            #[cfg(feature="physics")]
+            physics: Physics::new(),
             tasks: TaskManager::new(),
             world_camera3d: WorldCamera3D::new(
                 window_size,
@@ -143,6 +83,7 @@ impl Scene {
                 WorldCameraScaling::Min(WorldCamera2D::DEFAULT_VERTICAL_CAMERA_FOV),
             ),
             started: false,
+            world: World::new(),
         }
     }
 }

@@ -24,7 +24,7 @@ fn setup(ctx: &mut Context) {
     );
     ctx.entities
         .get_mut::<Bunny>()
-        .add(ctx.world, Bunny::new(Default::default()));
+        .add(ctx.physics, Bunny::new(Default::default()));
 }
 
 fn update(ctx: &mut Context) {
@@ -36,7 +36,7 @@ fn update(ctx: &mut Context) {
     if ctx.input.is_held(MouseButton::Left) || ctx.input.is_held(ScreenTouch) {
         let cursor: Vector2<f32> = ctx.cursor.coords;
         for _ in 0..MODIFY_STEP {
-            bunnies.add(ctx.world, Bunny::new(cursor));
+            bunnies.add(ctx.physics, Bunny::new(cursor));
         }
     }
     if ctx.input.is_held(MouseButton::Right) {
@@ -48,7 +48,7 @@ fn update(ctx: &mut Context) {
             dead.push(bunny.handle);
         }
         for handle in dead {
-            bunnies.remove(ctx.world, &handle);
+            bunnies.remove(ctx.physics, &handle);
         }
     }
 

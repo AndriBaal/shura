@@ -3,20 +3,21 @@ use std::{cell::RefCell, sync::Arc};
 #[cfg(feature = "serde")]
 use rustc_hash::FxHashMap;
 
+#[cfg(feature = "physics")]
+use crate::physics::Physics;
+
 #[cfg(feature = "audio")]
 use crate::audio::{AudioDeviceManager, AudioManager};
 #[cfg(feature = "gui")]
 use crate::gui::Gui;
 use crate::{
     app::{App, WindowEventManager},
-    entity::{EntityGroupManager, EntityManager},
+    ecs::{EndReason, GlobalWorld, SystemManager, World},
     graphics::{AssetManager, Gpu, ScreenConfig, WorldCamera2D, WorldCamera3D},
     input::Input,
     io::{ResourceLoader, StorageLoader},
     math::{Point2, Vector2},
-    physics::World,
     scene::{Scene, SceneManager},
-    system::{EndReason, SystemManager},
     tasks::TaskManager,
     time::TimeManager,
 };
@@ -33,9 +34,10 @@ pub struct Context<'a> {
     pub screen_config: &'a mut ScreenConfig,
     pub world_camera2d: &'a mut WorldCamera2D,
     pub world_camera3d: &'a mut WorldCamera3D,
-    pub entities: &'a mut EntityManager,
-    pub groups: &'a mut EntityGroupManager,
     pub world: &'a mut World,
+    // pub groups: &'a mut EntityGroupManager,
+    #[cfg(feature = "physics")]
+    pub physics: &'a mut Physics,
     pub tasks: &'a mut TaskManager,
     pub started: &'a bool,
 
@@ -56,6 +58,7 @@ pub struct Context<'a> {
     pub storage: Arc<dyn StorageLoader>,
     pub resource: Arc<dyn ResourceLoader>,
     pub assets: Arc<AssetManager>,
+    pub global_world: &'a mut GlobalWorld,
 
     // Misc
     pub scene_id: &'a u32,
@@ -88,12 +91,13 @@ impl<'a> Context<'a> {
                 screen_config: &mut scene.screen_config,
                 world_camera2d: &mut scene.world_camera2d,
                 world_camera3d: &mut scene.world_camera3d,
-                entities: &mut scene.entities,
-                groups: &mut scene.groups,
                 world: &mut scene.world,
+                // groups: &mut scene.groups,
+                #[cfg(feature = "physics")]
+                physics: &mut scene.physics,
                 tasks: &mut scene.tasks,
                 started: &scene.started,
-
+                
                 // App
                 time: &app.time,
                 input: &app.input,
@@ -109,6 +113,7 @@ impl<'a> Context<'a> {
                 audio_device: &mut app.audio_device,
                 end: &mut app.end,
                 scenes: &mut app.scenes,
+                global_world: &mut app.global_world,
                 window: app.window.clone(),
                 event_loop,
 
@@ -136,13 +141,13 @@ impl<'a> Context<'a> {
             world_camera2d: &'a WorldCamera2D,
             world_camera3d: &'a WorldCamera3D,
             groups: &'a EntityGroupManager,
-            world: &'a World,
+            physics: &'a Physics,
         }
 
         #[cfg(feature = "physics")]
         {
             let ser_entities = serializer.finish();
-            let mut world_cpy = self.world.clone();
+            let mut world_cpy = self.physics.clone();
 
             for ty in self.entities.entities() {
                 if !ser_entities.contains_key(&ty.entity_type_id()) {
@@ -158,7 +163,7 @@ impl<'a> Context<'a> {
                 world_camera2d: self.world_camera2d,
                 world_camera3d: self.world_camera3d,
                 groups: self.groups,
-                world: &world_cpy,
+                physics: &world_cpy,
             };
             let scene: (&Scene, FxHashMap<ConstTypeId, Vec<u8>>) = (&scene, ser_entities);
 
@@ -174,7 +179,7 @@ impl<'a> Context<'a> {
                 world_camera2d: self.world_camera2d,
                 world_camera3d: self.world_camera3d,
                 groups: self.groups,
-                world: &self.world,
+                physics: &self.physics,
             };
             let scene: (&Scene, FxHashMap<ConstTypeId, Vec<u8>>) = (&scene, ser_entities);
             let result = bincode::serialize(&scene);
@@ -199,18 +204,13 @@ impl<'a> Context<'a> {
                 screen_config: &mut scene.screen_config,
                 world_camera2d: &mut scene.world_camera2d,
                 world_camera3d: &mut scene.world_camera3d,
-                entities: &mut scene.entities,
-                groups: &mut scene.groups,
                 world: &mut scene.world,
+                #[cfg(feature = "physics")]
+                physics: &mut scene.physics,
                 tasks: &mut scene.tasks,
                 started: &scene.started,
 
-                // Misc
-                scene_id: &scene_id,
-                surface_size: self.surface_size,
-                render_size: self.render_size,
-                cursor,
-
+                // App
                 time: self.time,
                 input: self.input,
                 gpu: self.gpu.clone(),
@@ -227,6 +227,13 @@ impl<'a> Context<'a> {
                 scenes: self.scenes,
                 window: self.window.clone(),
                 event_loop: self.event_loop,
+                global_world: self.global_world,
+
+                // Misc
+                scene_id: &scene_id,
+                surface_size: self.surface_size,
+                render_size: self.render_size,
+                cursor,
             };
             (action)(&mut scene.systems, &mut ctx);
         }
@@ -256,7 +263,7 @@ impl<'a> Context<'a> {
         serialize: impl FnOnce(&mut EntityGroupSerializer),
     ) -> Option<Result<Vec<u8>, Box<bincode::ErrorKind>>> {
         if let Some(mut ser) =
-            EntityGroupSerializer::new(self.world, self.groups, self.entities, group)
+            EntityGroupSerializer::new(self.physics, self.groups, self.entities, group)
         {
             serialize(&mut ser);
             return Some(ser.finish());

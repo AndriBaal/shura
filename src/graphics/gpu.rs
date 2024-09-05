@@ -735,7 +735,7 @@ impl DefaultAssets {
         gpu: &Gpu,
         screen_config: &crate::graphics::ScreenConfig,
     ) {
-        use super::RenderTarget;
+        use crate::graphics::RenderTarget;
         let size = screen_config.render_size(gpu);
         if self.framebuffer.size() != size {
             self.framebuffer = gpu.create_render_target(size);

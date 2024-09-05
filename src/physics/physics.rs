@@ -1,8 +1,8 @@
 use crate::{
-    component::{
-        ColliderComponent, ColliderComponentStatus, RigidBodyComponent, RigidBodyComponentStatus,
+    ecs::{
+        ColliderComponent, ColliderComponentStatus, EntityId, RigidBodyComponent,
+        RigidBodyComponentStatus,
     },
-    entity::{EntityHandle, EntityIdentifier},
     math::{Isometry2, Point2, Vector2},
     physics::{RapierCollisionEvent, RapierContactForceEvent},
 };
@@ -10,8 +10,8 @@ use rapier2d::{crossbeam, parry::query::ShapeCastOptions, prelude::*};
 use rustc_hash::FxHashMap;
 
 type EventReceiver<T> = crossbeam::channel::Receiver<T>;
-type ColliderMapping = FxHashMap<ColliderHandle, EntityHandle>;
-type RigidBodyMapping = FxHashMap<RigidBodyHandle, EntityHandle>;
+type ColliderMapping = FxHashMap<ColliderHandle, EntityId>;
+type RigidBodyMapping = FxHashMap<RigidBodyHandle, EntityId>;
 
 #[derive(Clone)]
 pub struct CollectedEvents {
@@ -32,158 +32,6 @@ impl CollectedEvents {
             (handle)(contact_force_event);
         }
         self
-    }
-}
-
-pub trait WorldEvent: Sized {
-    type Event;
-    fn is<E1: EntityIdentifier, E2: EntityIdentifier>(&self, world: &World) -> Option<Self::Event>;
-    fn has<E: EntityIdentifier>(&self, world: &World) -> Option<Self::Event>;
-}
-
-impl WorldEvent for RapierCollisionEvent {
-    type Event = EntityCollisionEvent;
-
-    fn is<E1: EntityIdentifier, E2: EntityIdentifier>(&self, world: &World) -> Option<Self::Event> {
-        let collider1 = self.collider1();
-        let collider2 = self.collider2();
-        let entity1 = world.entity_from_collider(&collider1)?;
-        let entity2 = world.entity_from_collider(&collider2)?;
-        if entity1.entity_type_id() == E1::IDENTIFIER && entity2.entity_type_id() == E2::IDENTIFIER
-        {
-            return Some(EntityCollisionEvent {
-                collider1,
-                collider2,
-                entity1: *entity1,
-                entity2: *entity2,
-                collision_type: if self.started() {
-                    CollisionType::Started
-                } else {
-                    CollisionType::Stopped
-                },
-            });
-        } else if entity2.entity_type_id() == E1::IDENTIFIER
-            && entity1.entity_type_id() == E2::IDENTIFIER
-        {
-            return Some(EntityCollisionEvent {
-                collider1: collider2,
-                collider2: collider1,
-                entity1: *entity2,
-                entity2: *entity1,
-                collision_type: if self.started() {
-                    CollisionType::Started
-                } else {
-                    CollisionType::Stopped
-                },
-            });
-        }
-
-        None
-    }
-
-    fn has<E: EntityIdentifier>(&self, world: &World) -> Option<Self::Event> {
-        let collider1 = self.collider1();
-        let collider2 = self.collider2();
-        let entity1 = world.entity_from_collider(&collider1)?;
-        let entity2 = world.entity_from_collider(&collider2)?;
-        if entity1.entity_type_id() == E::IDENTIFIER {
-            return Some(EntityCollisionEvent {
-                collider1,
-                collider2,
-                entity1: *entity1,
-                entity2: *entity2,
-                collision_type: if self.started() {
-                    CollisionType::Started
-                } else {
-                    CollisionType::Stopped
-                },
-            });
-        } else if entity2.entity_type_id() == E::IDENTIFIER {
-            return Some(EntityCollisionEvent {
-                collider1: collider2,
-                collider2: collider1,
-                entity1: *entity2,
-                entity2: *entity1,
-                collision_type: if self.started() {
-                    CollisionType::Started
-                } else {
-                    CollisionType::Stopped
-                },
-            });
-        }
-
-        None
-    }
-}
-
-impl WorldEvent for RapierContactForceEvent {
-    type Event = EntityContactForceEvent;
-
-    fn is<E1: EntityIdentifier, E2: EntityIdentifier>(&self, world: &World) -> Option<Self::Event> {
-        let collider1 = self.collider1;
-        let collider2 = self.collider2;
-        let entity1 = world.entity_from_collider(&collider1)?;
-        let entity2 = world.entity_from_collider(&collider2)?;
-        if entity1.entity_type_id() == E1::IDENTIFIER && entity2.entity_type_id() == E2::IDENTIFIER
-        {
-            return Some(EntityContactForceEvent {
-                collider1,
-                collider2,
-                entity1: *entity1,
-                entity2: *entity2,
-                total_force: self.total_force,
-                total_force_magnitude: self.total_force_magnitude,
-                max_force_direction: self.max_force_direction,
-                max_force_magnitude: self.max_force_magnitude,
-            });
-        } else if entity2.entity_type_id() == E1::IDENTIFIER
-            && entity1.entity_type_id() == E2::IDENTIFIER
-        {
-            return Some(EntityContactForceEvent {
-                collider1: collider2,
-                collider2: collider1,
-                entity1: *entity2,
-                entity2: *entity1,
-                total_force: self.total_force,
-                total_force_magnitude: self.total_force_magnitude,
-                max_force_direction: self.max_force_direction,
-                max_force_magnitude: self.max_force_magnitude,
-            });
-        }
-
-        None
-    }
-
-    fn has<E: EntityIdentifier>(&self, world: &World) -> Option<Self::Event> {
-        let collider1 = self.collider1;
-        let collider2 = self.collider2;
-        let entity1 = world.entity_from_collider(&collider1)?;
-        let entity2 = world.entity_from_collider(&collider2)?;
-        if entity1.entity_type_id() == E::IDENTIFIER {
-            return Some(EntityContactForceEvent {
-                collider1,
-                collider2,
-                entity1: *entity1,
-                entity2: *entity2,
-                total_force: self.total_force,
-                total_force_magnitude: self.total_force_magnitude,
-                max_force_direction: self.max_force_direction,
-                max_force_magnitude: self.max_force_magnitude,
-            });
-        } else if entity2.entity_type_id() == E::IDENTIFIER {
-            return Some(EntityContactForceEvent {
-                collider1: collider2,
-                collider2: collider1,
-                entity1: *entity2,
-                entity2: *entity1,
-                total_force: self.total_force,
-                total_force_magnitude: self.total_force_magnitude,
-                max_force_direction: self.max_force_direction,
-                max_force_magnitude: self.max_force_magnitude,
-            });
-        }
-
-        None
     }
 }
 
@@ -216,8 +64,8 @@ impl Default for EventCollector {
 pub struct EntityCollisionEvent {
     pub collider1: ColliderHandle,
     pub collider2: ColliderHandle,
-    pub entity1: EntityHandle,
-    pub entity2: EntityHandle,
+    pub entity1: EntityId,
+    pub entity2: EntityId,
     pub collision_type: CollisionType,
 }
 
@@ -225,8 +73,8 @@ pub struct EntityCollisionEvent {
 pub struct EntityContactForceEvent {
     pub collider1: ColliderHandle,
     pub collider2: ColliderHandle,
-    pub entity1: EntityHandle,
-    pub entity2: EntityHandle,
+    pub entity1: EntityId,
+    pub entity2: EntityId,
     pub total_force: Vector2<f32>,
     pub total_force_magnitude: f32,
     pub max_force_direction: Vector2<f32>,
@@ -234,7 +82,7 @@ pub struct EntityContactForceEvent {
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct World {
+pub struct Physics {
     pub time_scale: f32,
     pub gravity: Vector2<f32>,
     bodies: RigidBodySet,
@@ -258,7 +106,7 @@ pub struct World {
     collector: EventCollector,
 }
 
-impl Clone for World {
+impl Clone for Physics {
     fn clone(&self) -> Self {
         Self {
             bodies: self.bodies.clone(),
@@ -281,7 +129,7 @@ impl Clone for World {
     }
 }
 
-impl World {
+impl Physics {
     pub(crate) fn new() -> Self {
         Self {
             physics_pipeline: PhysicsPipeline::new(),
@@ -305,7 +153,7 @@ impl World {
 
     pub(crate) fn add_collider(
         &mut self,
-        entity_handle: &EntityHandle,
+        entity_handle: &EntityId,
         collider: Collider,
     ) -> ColliderHandle {
         let collider_handle = self.colliders.insert(collider.clone());
@@ -318,7 +166,7 @@ impl World {
         &mut self,
         rigid_body: RigidBody,
         colliders: Vec<Collider>,
-        entity_handle: &EntityHandle,
+        entity_handle: &EntityId,
     ) -> RigidBodyHandle {
         let rigid_body_handle = self.bodies.insert(rigid_body.clone());
         self.rigid_body_mapping
@@ -458,7 +306,7 @@ impl World {
         }
     }
 
-    pub fn entity_from_collider(&self, collider_handle: &ColliderHandle) -> Option<&EntityHandle> {
+    pub fn entity_from_collider(&self, collider_handle: &ColliderHandle) -> Option<&EntityId> {
         self.collider_mapping.get(collider_handle)
     }
 
@@ -482,7 +330,7 @@ impl World {
         max_toi: f32,
         solid: bool,
         filter: QueryFilter,
-    ) -> Option<(EntityHandle, ColliderHandle, f32)> {
+    ) -> Option<(EntityId, ColliderHandle, f32)> {
         if let Some(collider) =
             self.query_pipeline
                 .cast_ray(&self.bodies, &self.colliders, ray, max_toi, solid, filter)
@@ -501,7 +349,7 @@ impl World {
         velocity: &Vector2<f32>,
         options: ShapeCastOptions,
         filter: QueryFilter,
-    ) -> Option<(EntityHandle, ColliderHandle, ShapeCastHit)> {
+    ) -> Option<(EntityId, ColliderHandle, ShapeCastHit)> {
         if let Some(collider) = self.query_pipeline.cast_shape(
             &self.bodies,
             &self.colliders,
@@ -524,7 +372,7 @@ impl World {
         max_toi: f32,
         solid: bool,
         filter: QueryFilter,
-    ) -> Option<(EntityHandle, ColliderHandle, RayIntersection)> {
+    ) -> Option<(EntityId, ColliderHandle, RayIntersection)> {
         if let Some(collider) = self.query_pipeline.cast_ray_and_get_normal(
             &self.bodies,
             &self.colliders,
@@ -571,7 +419,7 @@ impl World {
         max_toi: f32,
         solid: bool,
         filter: QueryFilter,
-        mut callback: impl FnMut(EntityHandle, ColliderHandle, RayIntersection) -> bool,
+        mut callback: impl FnMut(EntityId, ColliderHandle, RayIntersection) -> bool,
     ) {
         self.query_pipeline.intersections_with_ray(
             &self.bodies,
@@ -594,7 +442,7 @@ impl World {
         shape_pos: &Isometry2<f32>,
         shape: &dyn Shape,
         filter: QueryFilter,
-        mut callback: impl FnMut(EntityHandle, ColliderHandle) -> bool,
+        mut callback: impl FnMut(EntityId, ColliderHandle) -> bool,
     ) {
         self.query_pipeline.intersections_with_shape(
             &self.bodies,
@@ -616,7 +464,7 @@ impl World {
         shape_pos: &Isometry2<f32>,
         shape: &dyn Shape,
         filter: QueryFilter,
-    ) -> Option<(EntityHandle, ColliderHandle)> {
+    ) -> Option<(EntityId, ColliderHandle)> {
         if let Some(collider) = self.query_pipeline.intersection_with_shape(
             &self.bodies,
             &self.colliders,
@@ -635,7 +483,7 @@ impl World {
         &self,
         point: &Point<f32>,
         filter: QueryFilter,
-        mut callback: impl FnMut(EntityHandle, ColliderHandle) -> bool,
+        mut callback: impl FnMut(EntityId, ColliderHandle) -> bool,
     ) {
         self.query_pipeline.intersections_with_point(
             &self.bodies,

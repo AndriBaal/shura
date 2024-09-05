@@ -4,12 +4,12 @@ use std::sync::{Arc, OnceLock};
 use crate::gui::Gui;
 use crate::{
     context::{Context, RenderContext},
+    ecs::{EndReason, GlobalWorld, UpdateOperation},
     graphics::{AssetManager, Gpu, GpuConfig, RenderEncoder},
     input::Input,
     io::{ResourceLoader, StorageLoader},
     math::Vector2,
     scene::{Scene, SceneManager},
-    system::{EndReason, UpdateOperation},
     time::TimeManager,
 };
 #[cfg(feature = "log")]
@@ -311,6 +311,7 @@ pub struct App {
     pub(crate) scenes: SceneManager,
     pub(crate) window: Arc<Window>,
     pub(crate) input: Input,
+    pub(crate) global_world: GlobalWorld,
     pub(crate) gpu: Arc<Gpu>,
     #[cfg(feature = "gui")]
     pub(crate) gui: Gui,
@@ -422,6 +423,7 @@ impl App {
             scenes: SceneManager::new(scene.into(), config.scene_id),
             time: TimeManager::new(),
             input: Input::new(size.cast::<f32>()),
+            global_world: Default::default(),
         }
     }
 
@@ -566,7 +568,7 @@ impl App {
             (update)(&mut ctx);
         }
         scene.started = true;
-        scene.groups.update(&scene.world_camera2d);
+        // scene.groups.update(&scene.world_camera2d);
     }
 
     fn buffer(&mut self, scene: &mut Scene) {

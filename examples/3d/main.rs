@@ -15,7 +15,7 @@ fn setup(ctx: &mut Context) {
     const NUM_INSTANCES_PER_ROW: u32 = 10;
     const SPACE_BETWEEN: f32 = 3.0;
     ctx.entities.get_mut().add_many(
-        ctx.world,
+        ctx.physics,
         (0..NUM_INSTANCES_PER_ROW).flat_map(|z| {
             (0..NUM_INSTANCES_PER_ROW).map(move |x| {
                 let x = SPACE_BETWEEN * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
@@ -80,18 +80,15 @@ fn update(ctx: &mut Context) {
 }
 
 fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
-    encoder.render3d(
-        Some(Color::new_rgba(220, 220, 220, 255)),
-        |renderer| {
-            renderer.draw_model(
-                &ctx.write_instance_entities::<Cube, _>("cubes", |cube, data| {
-                    data.push(Instance3D::new(cube.position, Vector3::new(1.0, 1.0, 1.0)))
-                }),
-                &ctx.assets.model("cube"),
-                &ctx.default_assets.world_camera3d,
-            );
-        },
-    );
+    encoder.render3d(Some(Color::new_rgba(220, 220, 220, 255)), |renderer| {
+        renderer.draw_model(
+            &ctx.write_instance_entities::<Cube, _>("cubes", |cube, data| {
+                data.push(Instance3D::new(cube.position, Vector3::new(1.0, 1.0, 1.0)))
+            }),
+            &ctx.assets.model("cube"),
+            &ctx.default_assets.world_camera3d,
+        );
+    });
 }
 
 #[derive(Entity)]

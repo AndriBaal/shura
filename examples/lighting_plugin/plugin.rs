@@ -84,21 +84,24 @@ fn render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
         |renderer| {
             renderer.draw(
                 &ctx.assets.shader("light_shader"),
-                &ctx.write_instance_components("light_instances", |light: &LightComponent, data| {
-                    data.push(LightInstance2D(Instance2D::new(
-                        light.position,
-                        vector![light.outer_radius, light.outer_radius],
-                        LightData {
-                            color: light.color,
-                            sector: light.sector,
-                            inner_radius: light.inner_radius,
-                            inner_magnification: light.inner_magnification,
-                            outer_magnification: light.outer_magnification,
-                            side_falloff_magnification: light.side_falloff_magnification,
-                            shadow_range: light.shadow_range,
-                        }
-                    )))
-                }),
+                &ctx.write_instance_components(
+                    "light_instances",
+                    |light: &LightComponent, data| {
+                        data.push(LightInstance2D(Instance2D::new(
+                            light.position,
+                            vector![light.outer_radius, light.outer_radius],
+                            LightData {
+                                color: light.color,
+                                sector: light.sector,
+                                inner_radius: light.inner_radius,
+                                inner_magnification: light.inner_magnification,
+                                outer_magnification: light.outer_magnification,
+                                side_falloff_magnification: light.side_falloff_magnification,
+                                shadow_range: light.shadow_range,
+                            },
+                        )))
+                    },
+                ),
                 &ctx.default_assets.sprite_mesh,
                 &[
                     &ctx.default_assets.world_camera2d,
@@ -124,46 +127,47 @@ fn apply_render(ctx: &RenderContext, encoder: &mut RenderEncoder) {
 
 fn update(ctx: &mut Context) {
     let mut shadows = vec![];
-    ctx.entities.components_each_mut::<LightComponent>(|_, light| {
-        let light_translation = light.position.translation.vector;
-        let light_aabb = AABB::from_center(
-            light_translation,
-            vector![light.outer_radius, light.outer_radius],
-        );
-        let start = shadows.len() as u32;
-        let mut end = start;
-        for mesh in &[] {
-            if !mesh.aabb().intersects(&light_aabb) {
-                continue;
-            }
-            let vertices = mesh.vertices();
-
-            let mut leftmost = 0;
-            let mut rightmost = 0;
-
-            for (i, v) in vertices[1..].iter().enumerate() {
-                let ray = v.pos - light_translation;
-                fn det(v1: Vector2<f32>, v2: Vector2<f32>) -> f32 {
-                    return v1.x * v2.y - v1.y * v2.x;
+    ctx.entities
+        .components_each_mut::<LightComponent>(|_, light| {
+            let light_translation = light.position.translation.vector;
+            let light_aabb = AABB::from_center(
+                light_translation,
+                vector![light.outer_radius, light.outer_radius],
+            );
+            let start = shadows.len() as u32;
+            let mut end = start;
+            for mesh in &[] {
+                if !mesh.aabb().intersects(&light_aabb) {
+                    continue;
                 }
-                if det(ray, vertices[leftmost].pos - light_translation) < 0.0 {
-                    leftmost = i;
-                } else if det(ray, vertices[rightmost].pos - light_translation) > 0.0 {
-                    rightmost = i;
-                }
-            }
+                let vertices = mesh.vertices();
 
-            for i in leftmost..rightmost {
-                shadows.push(Shadow {
-                    light_center: light_translation,
-                    start: vertices[i].pos,
-                    end: vertices[(i+1) % vertices.len()].pos,
-                });
+                let mut leftmost = 0;
+                let mut rightmost = 0;
+
+                for (i, v) in vertices[1..].iter().enumerate() {
+                    let ray = v.pos - light_translation;
+                    fn det(v1: Vector2<f32>, v2: Vector2<f32>) -> f32 {
+                        return v1.x * v2.y - v1.y * v2.x;
+                    }
+                    if det(ray, vertices[leftmost].pos - light_translation) < 0.0 {
+                        leftmost = i;
+                    } else if det(ray, vertices[rightmost].pos - light_translation) > 0.0 {
+                        rightmost = i;
+                    }
+                }
+
+                for i in leftmost..rightmost {
+                    shadows.push(Shadow {
+                        light_center: light_translation,
+                        start: vertices[i].pos,
+                        end: vertices[(i + 1) % vertices.len()].pos,
+                    });
+                }
+                end += 1;
             }
-            end += 1;
-        }
-        light.shadow_range = vector![start, end];
-    });
+            light.shadow_range = vector![start, end];
+        });
     ctx.assets
         .uniform_mut::<Shadow>("shadows")
         .write(&ctx.gpu, &shadows);
@@ -207,9 +211,7 @@ struct Shadow {
     end: Vector2<f32>,
 }
 
-pub struct LightOccluder {
-
-}
+pub struct LightOccluder {}
 
 #[derive(Component)]
 pub struct LightComponent {
@@ -223,7 +225,6 @@ pub struct LightComponent {
     pub side_falloff_magnification: f32,
     pub shadow_range: Vector2<u32>,
 }
-
 
 impl Default for LightComponent {
     fn default() -> Self {
@@ -240,4 +241,3 @@ impl Default for LightComponent {
         }
     }
 }
-

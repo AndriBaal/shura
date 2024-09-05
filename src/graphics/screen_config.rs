@@ -1,8 +1,8 @@
-use crate::graphics::Color;
-use crate::math::Vector2;
+use crate::{
+    graphics::{Color, Gpu},
+    math::Vector2,
+};
 use instant::Duration;
-
-use super::Gpu;
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Clone, Debug)]

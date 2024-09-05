@@ -33,7 +33,7 @@ fn setup(ctx: &mut Context) {
         .set_scaling(WorldCameraScaling::Min(10.0));
     let mut meshes = ctx.entities.get_mut::<MeshTest>();
     meshes.add_many(
-        ctx.world,
+        ctx.physics,
         [
             MeshTest {
                 mesh: MeshBuilder2D::cuboid(Vector2::new(0.5, 0.5))
@@ -71,7 +71,7 @@ fn setup(ctx: &mut Context) {
     );
 
     // meshes.add(
-    //     ctx.world,
+    //     ctx.physics,
     //     MeshTest::new(
     //         Vector2::new(-1.0, 3.0),
     // ctx.gpu.create_mesh(&MeshBuilder2D::rounded(
@@ -85,7 +85,7 @@ fn setup(ctx: &mut Context) {
     // );
 
     // meshes.add(
-    //     ctx.world,
+    //     ctx.physics,
     //     MeshTest::new(
     //         Vector2::new(1.0, 3.0),
     //         ctx.gpu.create_mesh(&MeshBuilder2D::triangle(
@@ -98,7 +98,7 @@ fn setup(ctx: &mut Context) {
     // );
 
     // meshes.add(
-    //     ctx.world,
+    //     ctx.physics,
     //     MeshTest::new(
     //         Vector2::new(3.0, 3.0),
     //         ctx.gpu.create_mesh(&MeshBuilder2D::rounded(
@@ -116,7 +116,7 @@ fn setup(ctx: &mut Context) {
     // );
 
     // meshes.add(
-    //     ctx.world,
+    //     ctx.physics,
     //     MeshTest::new(
     //         Vector2::new(-3.0, 1.0),
     //         ctx.gpu
@@ -126,7 +126,7 @@ fn setup(ctx: &mut Context) {
     // );
 
     // meshes.add(
-    //     ctx.world,
+    //     ctx.physics,
     //     MeshTest::new(
     //         Vector2::new(-1.0, 1.0),
     //         ctx.gpu.create_mesh(&MeshBuilder2D::rounded(
@@ -140,7 +140,7 @@ fn setup(ctx: &mut Context) {
     // );
 
     // meshes.add(
-    //     ctx.world,
+    //     ctx.physics,
     //     MeshTest::new(
     //         Vector2::new(1.0, 1.0),
     //         ctx.gpu.create_mesh(&MeshBuilder2D::segment(
@@ -153,7 +153,7 @@ fn setup(ctx: &mut Context) {
     // );
 
     // meshes.add(
-    //     ctx.world,
+    //     ctx.physics,
     //     MeshTest::new(
     //         Vector2::new(3.0, 1.0),
     //         ctx.gpu.create_mesh(&MeshBuilder2D::rounded(
@@ -167,7 +167,7 @@ fn setup(ctx: &mut Context) {
     // );
 
     // meshes.add(
-    //     ctx.world,
+    //     ctx.physics,
     //     MeshTest::new(
     //         Vector2::new(-3.0, -1.0),
     //         ctx.gpu.create_mesh(&MeshBuilder2D::compound(vec![
@@ -184,7 +184,7 @@ fn setup(ctx: &mut Context) {
     // );
 
     // meshes.add(
-    //     ctx.world,
+    //     ctx.physics,
     //     MeshTest::new(
     //         Vector2::new(-1.0, -1.0),
     //         ctx.gpu.create_mesh(&MeshBuilder2D::star(5, 0.2, 0.8)),

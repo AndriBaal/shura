@@ -6,7 +6,7 @@ use crate::{
         ConstTypeId, Entities, EntityGroup, EntityGroupHandle, EntityGroupManager,
         EntityIdentifier, EntityManager, EntityType, GroupedEntities, SingleEntity,
     },
-    physics::World,
+    physics::Physics,
 };
 
 pub struct EntityGroupSerializer {
@@ -17,12 +17,12 @@ pub struct EntityGroupSerializer {
 
 impl EntityGroupSerializer {
     pub fn new(
-        world: &mut World,
+        physics: &mut Physics,
         groups: &mut EntityGroupManager,
         entities: &mut EntityManager,
         group: &EntityGroupHandle,
     ) -> Option<Self> {
-        if let Some((group, entities)) = groups.remove(entities, world, group) {
+        if let Some((group, entities)) = groups.remove(entities, physics, group) {
             return Some(Self {
                 group,
                 entities,
@@ -85,7 +85,7 @@ impl EntityGroupDeserializer {
             let deserialized: ET = bincode::deserialize(&data).unwrap();
             self.init_callbacks.push(Box::new(|group, ctx| {
                 ctx.entities
-                    .deserialize_group(&group, deserialized, ctx.world);
+                    .deserialize_group(&group, deserialized, ctx.physics);
             }));
         }
     }

@@ -19,8 +19,8 @@ use crate::text::{Font, FontBuilder, TextMesh, TextSection};
 
 use crate::{
     graphics::{
-        Camera, CameraBuffer, DefaultAssets, DepthBuffer, Gpu, Instance, InstanceBuffer, Mesh,
-        MeshBuilder, Model, ModelBuilder, RenderTarget, Shader, ShaderConfig, ShaderModule,
+        Camera, CameraBuffer, DefaultAssets, DepthBuffer, Gpu, Index, Instance, InstanceBuffer,
+        Mesh, MeshBuilder, Model, ModelBuilder, RenderTarget, Shader, ShaderConfig, ShaderModule,
         ShaderModuleDescriptor, Sprite, SpriteArray, SpriteArrayBuilder, SpriteBuilder,
         SpriteRenderTarget, UniformData, Vertex,
     },
@@ -311,7 +311,7 @@ impl AssetManager {
         &self,
         key: AssetKey,
         layout: Arc<wgpu::BindGroupLayout>,
-        amount: u32
+        amount: u32,
     ) {
         self.load(key, UniformData::<T>::empty(&self.gpu, layout, amount));
     }
@@ -346,6 +346,76 @@ impl AssetManager {
         sections: &[TextSection<S>],
     ) {
         self.load(key, TextMesh::new(&self.gpu, &self.font(font), sections));
+    }
+
+    pub fn write_instances<I: Instance>(
+        &self,
+        key: AssetKey,
+        manual: bool,
+        data: impl FnOnce(&mut Vec<I>),
+    ) -> AssetWrapMut<InstanceBuffer<I>> {
+        if !self.exists(key) {
+            self.load_instance_buffer::<I>(key, &[]);
+        }
+        let mut instance_buffer = self.get_mut::<InstanceBuffer<I>>(key);
+        if manual && !instance_buffer.force_update {
+            return instance_buffer;
+        }
+        instance_buffer.force_update = false;
+        let instances = &mut instance_buffer.data;
+        instances.clear();
+
+        data(instances);
+
+        // It is fine to replace with default value since Vec does not allocate
+        let instances = std::mem::take(instances);
+        instance_buffer.write(&self.gpu, &instances);
+        instance_buffer.data = instances;
+
+        instance_buffer
+    }
+
+    pub fn write_mesh<V: Vertex>(
+        &self,
+        key: AssetKey,
+        manual: bool,
+        update_indices_once: bool,
+        data: impl FnOnce(&mut Vec<V>, Option<&mut Vec<Index>>),
+    ) -> AssetWrapMut<Mesh<V>> {
+        if !self.exists(key) {
+            self.load(key, Mesh::<V>::empty(&self.gpu, 0, 0));
+        }
+        let mut mesh = self.get_mut::<Mesh<V>>(key);
+
+        if manual && !mesh.force_update {
+            return mesh;
+        }
+        mesh.force_update = false;
+
+        let update_indices = update_indices_once || mesh.write_indices;
+        mesh.write_indices = false;
+
+        let mesh_ref = &mut *mesh;
+        let vertices = &mut mesh_ref.vertex_data;
+        let indices = &mut mesh_ref.index_data;
+        vertices.clear();
+        indices.clear();
+
+        data(vertices, if update_indices { Some(indices) } else { None });
+
+        // It is fine to replace with default value since Vec does not allocate
+        let indices = std::mem::take(indices);
+        let vertices = std::mem::take(vertices);
+
+        if update_indices {
+            mesh.write_indices(&self.gpu, &indices);
+        }
+        mesh.write_vertices(&self.gpu, &vertices);
+
+        mesh.vertex_data = vertices;
+        mesh.index_data = indices;
+
+        mesh
     }
 }
 

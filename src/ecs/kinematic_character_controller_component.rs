@@ -1,7 +1,7 @@
 use crate::{
     physics::{
         Collider, KinematicCharacterController, RigidBody, RigidBodyHandle, Shape, SharedShape,
-        TypedShape, World,
+        TypedShape, Physics,
     },
     BaseComponent, Instance2D, Isometry2, Rotation, Vector2,
 };
@@ -157,9 +157,9 @@ impl CharacterControllerComponent {
         &self.scaling
     }
 
-    // pub fn move_character(&mut self, world: &World) {}
+    // pub fn move_character(&mut self, physics: &Physics) {}
 
-    // pub fn move_character_no_apply(&self, world: &World) -> EffectiveCharacterMovement {
+    // pub fn move_character_no_apply(&self, physics: &Physics) -> EffectiveCharacterMovement {
 
     // }
 
@@ -169,7 +169,7 @@ impl CharacterControllerComponent {
 }
 
 impl BaseComponent for CharacterControllerComponent {
-    fn instance(&self, world: &World) -> crate::Instance2D {
+    fn instance(&self, physics: &Physics) -> crate::Instance2D {
         self.instance
     }
 }

@@ -39,7 +39,7 @@ fn setup(ctx: &mut Context) {
         .request_inner_size(winit::dpi::PhysicalSize::new(SIZE.x, SIZE.y));
 
     ctx.entities.get_mut().add(
-        ctx.world,
+        ctx.physics,
         MyLight {
             light: LightComponent {
                 inner_radius: 0.2,
@@ -48,11 +48,11 @@ fn setup(ctx: &mut Context) {
                 ..Default::default()
             },
             display: true,
-            follow_player: true
-        }
+            follow_player: true,
+        },
     );
     // ctx.entities.get_mut().add(
-    //     ctx.world,
+    //     ctx.physics,
     //     MyLight {
     //         light: LightComponent {
     //             inner_radius: 0.2,

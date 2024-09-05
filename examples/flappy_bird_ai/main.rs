@@ -59,7 +59,7 @@ fn setup(ctx: &mut Context) {
     );
     ctx.entities
         .single_mut()
-        .set(ctx.world, BirdSimulation::new());
+        .set(ctx.physics, BirdSimulation::new());
     ctx.world_camera2d
         .set_scaling(WorldCameraScaling::Vertical(GAME_SIZE.y));
     ctx.window.set_resizable(false);
@@ -67,7 +67,7 @@ fn setup(ctx: &mut Context) {
     ctx.window.set_enabled_buttons(WindowButtons::CLOSE);
     let mut birds = ctx.entities.get_mut::<Bird>();
     for _ in 0..BIRD_AMOUNT {
-        birds.add(ctx.world, Bird::new());
+        birds.add(ctx.physics, Bird::new());
     }
 }
 
@@ -78,7 +78,7 @@ fn update(ctx: &mut Context) {
     let fps = ctx.time.fps();
     let delta = ctx.time.delta() * simulation.time_scale;
     let step = ctx.time.delta() * simulation.time_scale * Pipe::VELOCITY;
-    pipes.retain(ctx.world, |pipe, _| {
+    pipes.retain(ctx.physics, |pipe, _| {
         let new_pos = pipe.pos + step;
         pipe.pos = new_pos;
         if new_pos.x <= -GAME_SIZE.x {
@@ -94,7 +94,7 @@ fn update(ctx: &mut Context) {
     }
 
     if simulation.spawn_timer >= Pipe::SPAWN_TIME {
-        simulation.spawn_pipes(ctx.world, &mut pipes);
+        simulation.spawn_pipes(ctx.physics, &mut pipes);
     }
 
     let mut closest = Vector2::new(GAME_SIZE.x, 0.0);
@@ -182,12 +182,12 @@ fn update(ctx: &mut Context) {
             new_bird.brain.mutate();
             new_birds.push(new_bird);
         }
-        birds.remove_all(ctx.world);
-        birds.add_many(ctx.world, new_birds);
+        birds.remove_all(ctx.physics);
+        birds.add_many(ctx.physics, new_birds);
 
         simulation.generation += 1;
-        pipes.remove_all(ctx.world);
-        simulation.spawn_pipes(ctx.world, &mut pipes);
+        pipes.remove_all(ctx.physics);
+        simulation.spawn_pipes(ctx.physics, &mut pipes);
     }
 
     gui::Window::new("Flappy Bird")
@@ -276,9 +276,9 @@ impl BirdSimulation {
         };
     }
 
-    fn spawn_pipes(&mut self, world: &mut World, pipes: &mut Entities<Pipe>) {
+    fn spawn_pipes(&mut self, physics: &mut Physics, pipes: &mut Entities<Pipe>) {
         self.spawn_timer = 0.0;
-        pipes.add(world, Pipe::new());
+        pipes.add(physics, Pipe::new());
     }
 }
 
